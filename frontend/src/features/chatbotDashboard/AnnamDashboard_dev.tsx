@@ -233,7 +233,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                     <AlertCard
                       alerts={data.alerts}
                       inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0}
-                      duplicateQuestions={(data as any).duplicateQuestions ?? 0}
+                      duplicateQuestions={(data as any).duplicateQuestionCount ?? 0}
                       onInactiveClick={handleInactiveUsersClick}
                       onDuplicateClick={handleDuplicateQuestionsClick}
                     />
