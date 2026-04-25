@@ -24,6 +24,7 @@ import { formatDate } from "@/utils/formatDate";
 import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";
 import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 import { TimerDisplay } from "../../components/timer-display";
+import { getTimerStartTime } from "@/utils/getTimerStartTime";
 
 type QaHeaderProps={
   questions: any
@@ -253,9 +254,12 @@ const QaQuestionItem = ({
   onQuestionSelect: (id: string) => void;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
 }) => {
+  
+  // Get correct timer start time based on user role (Author vs Level Expert)
+  const timerStartTime = getTimerStartTime(question);
   const { timer } = useQuestionTimer(
     question?.source,
-    question?.createdAt,
+    timerStartTime,
     buildHoldCountdownOptions({
       status: question?.status,
       holdAt: question?.holdAt,

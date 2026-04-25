@@ -375,6 +375,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               'history.reasonForLastModification': 1,
               'history.createdAt': 1,
               'history.updatedAt': 1,
+              'history.previousAllocations': 1,
             },
           },
         ],
@@ -3187,6 +3188,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     session?: ClientSession,
   ): Promise<IQuestionSubmission | null> {
     await this.init();
+
+    console.log("from submissionrepo, updateById update",update);
     const result = await this.QuestionSubmissionCollection.findOneAndUpdate(
       { _id: new ObjectId(id) }, // filter
       update,                    // update operators
@@ -3195,6 +3198,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         session,
       },
     );
+
+    console.log("from submissionrepo, updateById result",result);
   
     return result; // contains the updated document
   }

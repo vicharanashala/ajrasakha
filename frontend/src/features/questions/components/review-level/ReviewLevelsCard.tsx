@@ -9,9 +9,10 @@ type Props = {
   onViewMore: (id: string) => void;
   sort: string;
   onSort: (key: string) => void;
+  onDelayedClick?: (row: ReviewRow, index: number, time: string) => void;
 };
 
-const ReviewLevelsCard = ({ row, index, onViewMore, sort, onSort }: Props) => {
+const ReviewLevelsCard = ({ row, index, onViewMore, sort, onSort, onDelayedClick }: Props) => {
   return (
     <div className="group relative rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm transition-all duration-300 hover:shadow-xl hover:border-border hover:-translate-y-0.5">
       <div className="absolute inset-x-0 top-0 h-px" />
@@ -81,7 +82,7 @@ const ReviewLevelsCard = ({ row, index, onViewMore, sort, onSort }: Props) => {
                 </span>
               </button>
 
-              <span className="shrink-0">{renderLevelBadge(row, i)}</span>
+              <span className="shrink-0">{renderLevelBadge(row, i, { onDelayedClick })}</span>
             </div>
           );
         })}
