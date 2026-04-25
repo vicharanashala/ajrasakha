@@ -30,11 +30,11 @@ function chunkArray<T>(arr: T[], chunkSize: number): T[][] {
 }
 
 
-export const startBackgroundProcessing = (questionIds: string[], isRequiredAiInitialAnswer: boolean, isOutreachQuestion: boolean = false) => {
-  if (!questionIds?.length) return;
+export const startBackgroundProcessing = (userId: string, isRequiredAiInitialAnswer: boolean, isOutreachQuestion: boolean = false, payload: any[]) => {
+  if (!payload?.length) return;
 
   const jobId = Date.now().toString();
-  const total = questionIds.length;
+  const total = payload.length;
   const job: JobStatus = {
     id: jobId,
     total,
@@ -48,9 +48,9 @@ export const startBackgroundProcessing = (questionIds: string[], isRequiredAiIni
   // Determine optimal concurrency
   const cpuCount = os.cpus().length;
   const MAX_WORKERS = Math.min(8, Math.max(2, Math.floor(cpuCount / 2))); // Cap at 8 
-  const CHUNK_SIZE = Math.ceil(questionIds.length / MAX_WORKERS);
+  const CHUNK_SIZE = Math.ceil(payload.length / MAX_WORKERS);
 
-  const chunks = chunkArray(questionIds, CHUNK_SIZE);
+  const chunks = chunkArray(payload, CHUNK_SIZE);
   const workerFile = path.join(__dirname, 'questionProcessor.worker.js');
 
   job.logs.push(
@@ -63,7 +63,8 @@ export const startBackgroundProcessing = (questionIds: string[], isRequiredAiIni
   chunks.forEach((chunk, index) => {
     const worker = new Worker(workerFile, {
       workerData: {
-        ids: chunk,
+        questions: chunk,
+        userId,
         mongoUri: process.env.DB_URL!,
         dbName: process.env.DB_NAME!,
         isRequiredAiInitialAnswer,
