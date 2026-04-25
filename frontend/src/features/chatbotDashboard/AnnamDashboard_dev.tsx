@@ -20,6 +20,7 @@ import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
+import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -36,6 +37,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters, source);
   const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source);
+  const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
 
@@ -53,6 +55,30 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   }, [activeSegment]);
 
   const clearSegment = () => setActiveSegment(null);
+
+  // Navigate to User Details with inactive-only filter pre-applied
+  const handleInactiveUsersClick = useCallback(() => {
+    // Align to midnight to match the backend KPI calculation in getKpiSummary
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    threeDaysAgo.setHours(0, 0, 0, 0);
+
+    // End of today (the useUserDetails hook adds +24h to endDate internally,
+    // so we set this to the start of today to cover through end-of-today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    setUserDetailsInitialFilters({
+      inactiveOnly: true,
+      startTime: threeDaysAgo,
+      endTime: today,
+      search: "",
+      crop: "",
+      village: "",
+      profileCompleted: "all",
+    });
+    setActiveView("user-details");
+  }, []);
 
   // Patch the DAU card to show "today / total" instead of just total
   const patchedKpiRow1 = useMemo(() => {
@@ -103,6 +129,8 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
               activeView={activeView}
               onViewChange={(view) => {
                 setActiveView(view);
+                // Clear AlertCard's pre-set filters when navigating via sidebar
+                if (view === "user-details") setUserDetailsInitialFilters(undefined);
                 if (view !== "user-details") scrollTo(view);
               }}
               healthScore={70}
@@ -111,7 +139,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
             />
 
             {activeView === "user-details" ? (
-              <UserDetailsView source={source} />
+              <UserDetailsView source={source} initialFilters={userDetailsInitialFilters} />
             ) : (
               <div className="flex-1 overflow-y-auto px-5 pb-5">
                 <DashboardFilters
@@ -134,22 +162,25 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   <EightCardsComponent kpiRow1={kpiRow1WithOverlay} kpiRow2={kpiRow2WithOverlay} />
                 </div>
 
-                {/* DAU trend + Channel split */}
+                {/* DAU trend + Alerts */}
                 <div
                   ref={(el) => {
                     sectionRefs.current["usage-patterns"] = el;
                   }}
-                  className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4"
+                  className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
                 >
                   <DailyActiveUsers
                     data={dauTrend}
                     isLoading={dauLoading}
                     error={dauError}
                   />
-                  <ChannelSplitCard
-                    channelSplit={data.channelSplit}
-                    voiceAccuracy={data.voiceAccuracy}
-                  />
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["bugs-ux"] = el;
+                    }}
+                  >
+                    <AlertCard alerts={data.alerts} inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0} onInactiveClick={handleInactiveUsersClick} />
+                  </div>
                 </div>
 
                 {/* Demographics */}
@@ -162,34 +193,18 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                 />
 
                 {/* 3-col row */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
-                  <div
-                    ref={(el) => {
-                      sectionRefs.current["query-analysis"] = el;
-                    }}
-                  >
-                    <DashboardQueryCategories
-                      categories={data.queryCategories}
-                    />
-                  </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4 items-stretch">
                   <div
                     ref={(el) => {
                       sectionRefs.current["farmer-segments"] = el;
                     }}
                   >
-                    {/* <DashboardFarmerSegments
-                      segments={data.farmerSegments}
-                      activeSegment={activeSegment}
-                      onSegmentClick={handleSegmentClick}
-                      onClear={clearSegment}
-                      segmentRowRefs={segmentRowRefs}
-                    /> */}
                     {/* Knowledge & Awareness */}
                     <div className="rounded-xl border border-gray-200 bg-white dark:border-[#2a2a2a] dark:bg-[#1a1a1a] p-4 h-full">
                       <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
                         Knowledge & Awareness
                       </div>
-                      <div className="flex gap-6 justify-center items-center h-[calc(100%-2rem)]">
+                      <div className="flex flex-wrap gap-4 justify-center items-center h-[calc(100%-2rem)] overflow-hidden">
                         {/* KCC Awareness Circle */}
                         {(() => {
                           const pct = data.kccAwareness?.[0]?.pct ?? 0;
@@ -199,11 +214,10 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                             circ = 2 * Math.PI * r;
                           const dash = (pct / 100) * circ;
                           return (
-                            <div className="flex flex-col items-center gap-2">
+                            <div className="flex flex-col items-center gap-2 min-w-0">
                               <svg
-                                width={120}
-                                height={120}
                                 viewBox="0 0 120 120"
+                                className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
                               >
                                 <circle
                                   cx={cx}
@@ -250,11 +264,10 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                             circ = 2 * Math.PI * r;
                           const dash = (pct / 100) * circ;
                           return (
-                            <div className="flex flex-col items-center gap-2">
+                            <div className="flex flex-col items-center gap-2 min-w-0">
                               <svg
-                                width={120}
-                                height={120}
                                 viewBox="0 0 120 120"
+                                className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
                               >
                                 <circle
                                   cx={cx}
@@ -297,10 +310,22 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   </div>
                   <div
                     ref={(el) => {
-                      sectionRefs.current["bugs-ux"] = el;
+                      sectionRefs.current["query-analysis"] = el;
                     }}
                   >
-                    <AlertCard alerts={data.alerts} />
+                    <DashboardQueryCategories
+                      categories={data.queryCategories}
+                    />
+                  </div>
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["feedback-sentiment"] = el;
+                    }}
+                  >
+                    <ChannelSplitCard
+                      channelSplit={data.channelSplit}
+                      voiceAccuracy={data.voiceAccuracy}
+                    />
                   </div>
                 </div>
 

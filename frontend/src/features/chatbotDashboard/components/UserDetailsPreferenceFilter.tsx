@@ -19,6 +19,11 @@ import {
 } from "@/components/atoms/select";
 import { Badge } from "@/components/atoms/badge";
 import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/atoms/tooltip";
+import {
   Filter,
   Search,
   Sprout,
@@ -26,7 +31,10 @@ import {
   Calendar,
   UserCheck,
   RefreshCcw,
+  UserX,
+  Info,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface UserDetailsFilters {
   search: string;
@@ -35,6 +43,7 @@ export interface UserDetailsFilters {
   startTime: Date | undefined;
   endTime: Date | undefined;
   profileCompleted: "all" | "yes" | "no";
+  inactiveOnly: boolean;
 }
 
 interface UserDetailsPreferenceFilterProps {
@@ -44,12 +53,34 @@ interface UserDetailsPreferenceFilterProps {
 
 function toDateInputValue(d: Date | undefined): string {
   if (!d) return "";
-  return d.toISOString().split("T")[0];
+  // Format using local time components to stay consistent with fromDateInputValue.
+  // d.toISOString() converts to UTC first, which can shift the date by a day for IST users.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function fromDateInputValue(s: string): Date | undefined {
   if (!s) return undefined;
-  return new Date(s);
+  // Parse as local midnight, NOT UTC.
+  // new Date("YYYY-MM-DD") treats the string as UTC which causes a timezone
+  // offset mismatch vs setHours(0,0,0,0) used elsewhere in the app.
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function defaultInactiveStart(): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - 3);
+  d.setHours(0, 0, 0, 0); // midnight local — must match handleInactiveUsersClick
+  return d;
+}
+
+function defaultInactiveEnd(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0); // midnight today — useUserDetails adds +24h internally
+  return d;
 }
 
 const inputClass =
@@ -77,12 +108,24 @@ function FilterSection({
   );
 }
 
+function getInactiveDateError(from: Date | undefined, to: Date | undefined): string {
+  if (!from || !to) return "A date range is required for inactive users filter";
+  const diffDays = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 3) return "Range must be at least 3 days";
+  if (diffDays > 30) return "Range cannot exceed 30 days";
+  return "";
+}
+
 export function UserDetailsPreferenceFilter({
   filters,
   onApply,
 }: UserDetailsPreferenceFilterProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<UserDetailsFilters>(filters);
+
+  const inactiveDateError = draft.inactiveOnly
+    ? getInactiveDateError(draft.startTime, draft.endTime)
+    : "";
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen) setDraft(filters);
@@ -102,6 +145,7 @@ export function UserDetailsPreferenceFilter({
       startTime: undefined,
       endTime: undefined,
       profileCompleted: "all",
+      inactiveOnly: false,
     });
   };
 
@@ -110,7 +154,8 @@ export function UserDetailsPreferenceFilter({
     (filters.crop ? 1 : 0) +
     (filters.village ? 1 : 0) +
     (filters.startTime ? 1 : 0) +
-    (filters.profileCompleted !== "all" ? 1 : 0);
+    (filters.profileCompleted !== "all" ? 1 : 0) +
+    (filters.inactiveOnly ? 1 : 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -213,7 +258,63 @@ export function UserDetailsPreferenceFilter({
                 />
               </div>
             </div>
+            {draft.inactiveOnly && inactiveDateError && (
+              <p className="text-xs text-destructive mt-2">{inactiveDateError}</p>
+            )}
+            {draft.inactiveOnly && !inactiveDateError && (
+              <p className="text-xs text-muted-foreground mt-2">Range: 3–30 days</p>
+            )}
           </FilterSection>
+
+          {/* Inactive Users */}
+          <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
+                <span className="flex items-center justify-center w-6 h-6 rounded-md bg-[#3AAA5A]/10 text-[#3AAA5A]">
+                  <UserX className="h-3.5 w-3.5" />
+                </span>
+                Inactive Users
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px] text-xs">
+                    Shows users who have not asked any questions in the selected date range
+                  </TooltipContent>
+                </Tooltip>
+              </Label>
+              <label
+                htmlFor="inactive-only"
+                className={cn(
+                  "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+                  draft.inactiveOnly
+                    ? "bg-[#3AAA5A]"
+                    : "bg-gray-300 dark:bg-gray-600"
+                )}
+              >
+                <input
+                  type="checkbox"
+                  id="inactive-only"
+                  className="sr-only"
+                  checked={draft.inactiveOnly}
+                  onChange={(e) =>
+                    setDraft((d) => ({
+                      ...d,
+                      inactiveOnly: e.target.checked,
+                      startTime: e.target.checked && !d.startTime ? defaultInactiveStart() : d.startTime,
+                      endTime: e.target.checked && !d.endTime ? defaultInactiveEnd() : d.endTime,
+                    }))
+                  }
+                />
+                <span
+                  className={cn(
+                    "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
+                    draft.inactiveOnly ? "translate-x-[20px]" : "translate-x-[2px]"
+                  )}
+                />
+              </label>
+            </div>
+          </div>
 
           {/* Profile Completed */}
           <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="Farmer Profile">
@@ -255,7 +356,8 @@ export function UserDetailsPreferenceFilter({
             <Button
               size="sm"
               onClick={handleApply}
-              className="bg-[#3AAA5A] hover:bg-[#2e9449] text-white px-5"
+              disabled={draft.inactiveOnly && !!inactiveDateError}
+              className="bg-[#3AAA5A] hover:bg-[#2e9449] text-white px-5 disabled:opacity-50"
             >
               Apply Filters
             </Button>

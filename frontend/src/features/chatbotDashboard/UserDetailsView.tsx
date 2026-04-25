@@ -84,15 +84,28 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   startTime: undefined,
   endTime: undefined,
   profileCompleted: "all",
+  inactiveOnly: false,
 };
 
 interface UserDetailsViewProps {
   source?: 'vicharanashala' | 'annam';
+  initialFilters?: Partial<UserDetailsFilters>;
 }
 
-export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewProps) {
-  const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
+export function UserDetailsView({ source = 'vicharanashala', initialFilters }: UserDetailsViewProps) {
+  const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
+    ...DEFAULT_FILTERS,
+    ...initialFilters,
+  }));
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Apply initialFilters when they change (e.g. clicking from AlertCard)
+  useEffect(() => {
+    if (initialFilters) {
+      setFilters(prev => ({ ...prev, ...initialFilters }));
+      setCurrentPage(1);
+    }
+  }, [initialFilters]);
 
   const { data, isLoading, error } = useUserDetails(
     filters.startTime,
@@ -104,9 +117,10 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
     filters.crop,
     filters.village,
     filters.profileCompleted,
+    filters.inactiveOnly,
   );
 
-  const { users, totalUsers, totalPages, activeUsers, totalQuestions } = data;
+  const { users, totalUsers, totalPages, activeUsers, inactiveUsers, totalQuestions } = data;
 
   const handleApplyFilters = (newFilters: UserDetailsFilters) => {
     setFilters(newFilters);
@@ -123,7 +137,8 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
     filters.crop ||
     filters.village ||
     filters.startTime ||
-    filters.profileCompleted !== "all";
+    filters.profileCompleted !== "all" ||
+    filters.inactiveOnly;
 
   const dateLabel = filters.startTime && filters.endTime
     ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
@@ -143,20 +158,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
 
       {/* Summary cards + graphs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-        {/* Total Users — col 1 row 1 */}
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
-          <div className="absolute inset-x-0 top-0 h-1 bg-[#3AAA5A]" />
-          <CardContent className="p-4 flex flex-col gap-0.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Total Users
-            </span>
-            <span className="text-2xl font-semibold dark:text-slate-100">
-              {isLoading ? "—" : totalUsers.toLocaleString()}
-            </span>
-          </CardContent>
-        </Card>
-
-        {/* Active Users — col 2 row 1 */}
+        {/* Active Users — col 1 row 1 */}
         <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
           <div className="absolute inset-x-0 top-0 h-1 bg-[#3B82F6]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
@@ -165,6 +167,19 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
             </span>
             <span className="text-2xl font-semibold dark:text-slate-100">
               {isLoading ? "—" : activeUsers.toLocaleString()}
+            </span>
+          </CardContent>
+        </Card>
+
+        {/* Inactive Users — col 2 row 1 */}
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
+          <div className="absolute inset-x-0 top-0 h-1 bg-[#EF4444]" />
+          <CardContent className="p-4 flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Inactive Users
+            </span>
+            <span className="text-2xl font-semibold dark:text-slate-100">
+              {isLoading ? "—" : inactiveUsers.toLocaleString()}
             </span>
           </CardContent>
         </Card>
@@ -183,7 +198,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
         </Card>
 
         {/* Bar graph — col 1 row 2 on sm+, after all 3 cards on mobile */}
-        {!isLoading && !error && users.length > 0 && (
+        {!isLoading && !error && users.length > 0 && !filters.inactiveOnly && (
           <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
