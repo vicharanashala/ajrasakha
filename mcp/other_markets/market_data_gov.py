@@ -2,11 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
-from dotenv import load_dotenv
-import os
-import httpx
 
-load_dotenv()
+import httpx
 
 # ================= MCP (OPTIONAL) =================
 try:
@@ -17,7 +14,8 @@ except ImportError:
 
 
 # ================= CONFIG =================
-API_KEY = os.getenv("DATA_GOV_API_KEY")
+
+API_KEY = "579b464db66ec23bdd000001d7142eeff5b24f194f92d9870b3571fd"
 RESOURCE_ID = "35985678-0d79-46b4-9ed6-6f13308a1d24"
 
 BASE_URL = f"https://api.data.gov.in/resource/{RESOURCE_ID}"
@@ -102,25 +100,15 @@ async def fetch_mandi_prices(
     }
 
     if state:
-        params["filters[state]"] = state
+        params["filters[State]"] = state
 
     if district:
-        params["filters[district]"] = district
+        params["filters[District]"] = district
 
     if commodity:
-        params["filters[commodity]"] = commodity
+        params["filters[Commodity]"] = commodity
 
     if arrival_date:
-        params["filters[arrival_date]"] = arrival_date
+        params["filters[Arrival_Date]"] = arrival_date
 
     return await _request(params)
-
-
-if mcp:
-    mcp.tool()(fetch_mandi_prices)
-
-
-# ================= RUN SERVER =================
-
-if __name__ == "__main__" and mcp:
-    mcp.run(transport="streamable-http")
