@@ -15,7 +15,7 @@ interface AlertCardProps {
 
 export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, onInactiveClick }: AlertCardProps) {
   return (
-    <div className="h-full flex flex-col bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
+    <div className="h-full flex flex-col bg-card text-card-foreground rounded-xl border shadow-sm dark:bg-[#1a1a1a] dark:border-[#2a2a2a] p-4">
       {/* Header */}
       <div className="flex items-start justify-between mb-3.5">
         <div className="min-w-0 flex-1 mr-2">
