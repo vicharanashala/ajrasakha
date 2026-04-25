@@ -2246,9 +2246,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         
         
         if (hoursSinceAssignment < 2) {
-          console.warn(
-            `[replaceQueueExpert] Time constraint not met - only ${hoursSinceAssignment.toFixed(2)} hours since assignment (requires 2 hours)`
-          );
           const remainingMinutes = Math.ceil((2 - hoursSinceAssignment) * 60);
           throw new BadRequestError(
             `Reallocation denied. At least 2 hours must pass since the review was assigned. Please wait approximately ${remainingMinutes} more minutes.`,
@@ -2370,7 +2367,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         newExpertId,
         type,
       );
-      console.log(`[replaceQueueExpert] Notification sent successfully to expert: ${newExpertId}`);
 
       // Calculate hours since assignment for logging
       const hoursSinceAssignment = currentExpertHistoryEntry
