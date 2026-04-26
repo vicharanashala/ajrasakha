@@ -6,11 +6,9 @@ from datetime import datetime
 
 # ================= MCP =================
 
-try:
-    from mcp.server.fastmcp import FastMCP
-    mcp = FastMCP("ajrasakha-unified-mandi-mcp")
-except ImportError:
-    mcp = None
+from fastmcp import FastMCP
+mcp = FastMCP("ajrasakha-unified-mandi-mcp")
+
 
 
 # ================= IMPORT SERVICES =================
@@ -140,7 +138,7 @@ def filter_by_commodity(
 
 
 # ================= BUSINESS LOGIC =================
-
+@mcp.tool()
 async def unified_mandi_prices(
     state: str,
     district: str = "",
@@ -254,22 +252,6 @@ async def unified_mandi_prices(
     }
 
 
-# ================= REGISTER MCP TOOL =================
 
-if mcp:
-    mcp.tool()(unified_mandi_prices)
-
-
-# ================= RUN SERVER =================
-
-if __name__ == "__main__" and mcp:
-    import os
-
-    os.environ["HOST"] = "0.0.0.0"
-    os.environ["PORT"] = "8000"
-    mcp.run(transport="streamable-http")
-#     mcp.run(
-#     transport="streamable-http",
-#     host="0.0.0.0",
-#     port=8000
-# )
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
