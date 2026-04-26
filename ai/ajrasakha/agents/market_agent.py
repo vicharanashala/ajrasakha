@@ -7,6 +7,19 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 
+# --- INJECT LOCAL TOOLS ---
+import sys
+from pathlib import Path
+_root_dir = Path(__file__).resolve().parent.parent.parent.parent
+if str(_root_dir) not in sys.path:
+    sys.path.append(str(_root_dir))
+
+from ai.ajrasakha.tools.market.market_odisha_master_tool import odisha_mandi_tool
+from ai.ajrasakha.tools.market.market_haryana_master_tool import haryana_mandi_tool
+from ai.ajrasakha.tools.market.market_jk_master_tool import jk_mandi_tool
+from ai.ajrasakha.tools.market.market_manipur_master_tool import manipur_mandi_tool
+# --------------------------
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("MarketAgent")
 
@@ -36,6 +49,15 @@ async def run_market_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     
     try:
         tools = await mcp_client.get_tools()
+        
+        # --- NEW INJECTION: Inject the State Master Tools ---
+        tools.extend([
+            odisha_mandi_tool, 
+            haryana_mandi_tool, 
+            jk_mandi_tool, 
+            manipur_mandi_tool
+        ])
+        
         tool_names = [t.name for t in tools]
         logger.info(f"Successfully loaded {len(tools)} tools: {tool_names}")
     except Exception as e:
@@ -46,8 +68,10 @@ async def run_market_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         "You are an expert agricultural market assistant for AjraSakha. "
         "Your job is to provide accurate commodity prices, arrivals, and mandi data.\n\n"
         "*** CRITICAL DATA FETCHING WORKFLOW ***\n"
-        "1. PRIMARY SOURCE (Agmarknet): You MUST always try to fetch data using the Agmarknet tools FIRST.\n"
-        "2. FALLBACK SOURCE (eNAM): IF AND ONLY IF Agmarknet tools return no data, fail, or lack the specific mandi/commodity, you should fallback to using eNAM tools.\n\n"
+        "1. STATE-SPECIFIC OVERRIDE: If the query is explicitly for Odisha, Haryana, Jammu & Kashmir (J&K), or Manipur, "
+        "you MUST use their specific state master tools FIRST (e.g., odisha_mandi_tool).\n"
+        "2. PRIMARY SOURCE (Agmarknet): For all other states, you MUST always try to fetch data using the generic Agmarknet tools FIRST.\n"
+        "3. FALLBACK SOURCE (eNAM): IF AND ONLY IF Agmarknet tools return no data, fail, or lack the specific mandi/commodity, you should fallback to using eNAM tools.\n\n"
         "IMPORTANT: Before fetching trade data, use the relevant tools to resolve the State Name to a State ID, and the APMC/Mandi Name "
         "to an APMC ID. Never hallucinate prices or IDs."
     )
