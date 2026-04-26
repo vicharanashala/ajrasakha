@@ -4,7 +4,7 @@
         "target": "esnext",
         "module": "nodenext",
         "moduleResolution": "nodenext",
-        "lib": ["ESNext"],
+        "lib": ["ESNext", "DOM"],
         "outDir": "build",
 
         // Changed back to "." to include scripts directory

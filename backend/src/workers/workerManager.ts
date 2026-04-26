@@ -1,10 +1,12 @@
+/// <reference types="node" />
 import { Worker } from 'worker_threads';
 import path from 'path';
 import os from 'os';
-import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
+const __filename = new URL('', import.meta.url).pathname;
+const __dirname = new URL('.', import.meta.url).pathname;
 
 interface JobStatus {
   id: string;

@@ -53,6 +53,16 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         ),
       });
     }
+    // if (!admin.apps.length) {
+    //   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    //     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    //     admin.initializeApp({
+    //       credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+    //     });
+    //   } else {
+    //     console.warn('FIREBASE_SERVICE_ACCOUNT not set, Firebase not initialized');
+    //   }
+    // }
     this.auth = admin.auth();
   }
   async getCurrentUserFromToken(token: string): Promise<IUser> {
