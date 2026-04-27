@@ -72,4 +72,9 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsIn(['yes', 'no', 'all'])
   profileCompleted: 'yes' | 'no' | 'all' = 'all';
+
+  @JSONSchema({ example: 'false', description: 'If true, return only users with zero questions in the date range' })
+  @IsOptional()
+  @IsString()
+  inactiveOnly?: string;
 }

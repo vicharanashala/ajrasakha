@@ -10,6 +10,8 @@ export interface KpiSummary {
   csatRating: number;
   repeatQueryRatePct: number;
   voiceUsageSharePct: number;
+  totalAppInstalls: number; // It will the count the user whose profile is completed or not.
+  inactiveUsersLast3Days: number; // users with zero messages in the last 3 days
 }
 
 export interface DailyActiveUsersEntry {
@@ -70,6 +72,10 @@ export interface FarmerProfile {
   usesAgriApps?: boolean;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export interface UserDetailEntry {
@@ -85,6 +91,7 @@ export interface PaginatedUserDetails {
   totalUsers: number;
   totalPages: number;
   activeUsers: number;
+  inactiveUsers: number;
   totalQuestions: number;
 }
 
@@ -186,6 +193,7 @@ export interface IChatbotRepository {
     crop?: string,
     village?: string,
     profileCompleted?: string,
+    inactiveOnly?: boolean,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails>;
 
@@ -202,6 +210,10 @@ export interface IChatbotRepository {
 
   /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
   getKccAndAgriAppStats(source?: string, session?: ClientSession): Promise<KccAndAgriAppStats>;
+
+  getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession)
+  getInstalls(startDate:Date,endDate:Date, session?: ClientSession)
+  getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession)
 }
 
 export interface ChatbotConversationData {

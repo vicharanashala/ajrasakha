@@ -249,6 +249,7 @@ export class QuestionController {
 
         this.auditTrailsService.createAuditTrail(auditPayload);
         setImmediate(() => startBackgroundProcessing(insertedIds, isRequiredAiInitialAnswer));
+        setImmediate(() => startBackgroundProcessing(insertedIds, isRequiredAiInitialAnswer, isOutreachQuestion));
         return {
           message: `✅ Successfully uploaded ${insertedIds.length} question(s). The expert allocation process has been initiated.${isRequiredAiInitialAnswer
               ? " AI-generated initial answers will be included for each question."

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import asyncio
 from fastmcp import FastMCP
 import pymongo
@@ -8,8 +8,9 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from functions import get_retriever
 from constants import DB_NAME, COLLECTION_POP, COLLECTION_QA, EMBEDDING_MODEL, MONGODB_URI
 from functions import process_nodes_pop, process_nodes_qa
-from models import ContextPOP, ContextQuestionAnswerPair
+from models import ContextPOP, ContextQuestionAnswerPair, POPComplianceNotice, POPContextResponse
 from llama_index.core.settings import Settings
+from chemical_guard import filter_pop_contexts_for_chemical_compliance
 
 mcp = FastMCP("POP")
 
@@ -25,6 +26,7 @@ retriever_qa = get_retriever(
 retriever_pop = get_retriever(
     client=client, collection_name=COLLECTION_POP, similarity_top_k=5
 )
+
 
 
 
@@ -65,7 +67,7 @@ async def get_states_for_pop() -> dict:
     return state_codes
 
 @mcp.tool()
-async def get_context_from_package_of_practices(query: str, state_code : str)-> List[ContextPOP]:
+async def get_context_from_package_of_practices(query: str, state_code : str)-> POPContextResponse:
     """
     Retrieve context from the package of practices dataset.
 
@@ -141,96 +143,56 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
     )
 
     processed_nodes = await process_nodes_pop(nodes)
+    compliant_nodes, restricted_flags, blocked_chemical_names = (
+        filter_pop_contexts_for_chemical_compliance(processed_nodes)
+    )
+    restricted_chemical_names = [flag.chemical_name for flag in restricted_flags]
     print(
-        f"[POP] get_context_from_package_of_practices: returning {len(processed_nodes)} processed nodes",
+        (
+            "[POP] get_context_from_package_of_practices: returning "
+            f"{len(compliant_nodes)} compliant nodes, "
+            f"restricted_flags={len(restricted_flags)}, "
+            f"blocked_non_restricted={len(blocked_chemical_names)}"
+        ),
         flush=True,
     )
-    return processed_nodes
+    print(
+        (
+            "[POP] chemical_compliance: "
+            f"restricted={restricted_chemical_names or []}, "
+            f"blocked_non_restricted={blocked_chemical_names or []}"
+        ),
+        flush=True,
+    )
 
+    compliance_notice = None
+    if restricted_flags or blocked_chemical_names:
+        message_parts: list[str] = []
+        blocked_message = None
 
-import requests
+        if restricted_flags:
+            message_parts.append(
+                "Restricted chemical detected. Content is permitted only if usage complies with allowed_usage. Note: Use the retrieved context and source_name to answer the question only if passed the compliance check otherwise skip the source_name"
+            )
 
-@mcp.tool()
-async def upload_question_to_reviewer_system(question: str, original_question: str, state_name: str, crop: str, details: dict) -> dict:
-    """
-    Upload the question to the reviewer system for further review by human experts.
-    This function is called when the system is unable to find a satisfactory answer from both the datasets (golden dataset and package of practices dataset) 
-    for the particular state and crop.
+        if blocked_chemical_names:
+            blocked_str = ", ".join(f'"{name}"' for name in blocked_chemical_names)
+            blocked_message = (
+                f"Banned chemical(s) {blocked_str} found from retrieved text, so compliance check skipped that data."
+            )
+            message_parts.append(blocked_message)
 
-    Parameters:
-    - original_question (str): The exact, unmodified query as provided by the user.
-                               This should include the raw user input before any preprocessing, translation,
-                               normalization, or interpretation by the system. It helps human experts understand
-                               the original context, phrasing, and intent of the user.
-    - question (str): The question that needs to be reviewed by human experts. 
-                      This should be a string containing the query related to crop protection or any other agricultural query.
-    - state_name (str): The name of the state in which the query is relevant. 
-                        This is typically a string corresponding to the full state name (e.g., "Punjab").
-    - crop (str): The type of crop associated with the query. This will be a string like "Paddy" or other crop names.
-    - details (dict): A dictionary containing detailed information about the location, crop, season, and domain of the query.
-                      The dictionary should have the following structure:
-                      {
-                        "state": str,       # Name of the state (e.g., "Punjab")
-                        "district": str,    # Name of the district (e.g., "Chandigarh")
-                        "crop": str,        # Crop name (e.g., "Paddy")
-                        "season": str,      # Season of the year (e.g., "Kharif")
-                        "domain": str       # Domain of the query, such as "Crop Protection"
-                      }
-    """
-    
-    # Define constant values
-    source = "AJRASAKHA"
-    priority = "high"
-    context = ""  # Empty string as context for now
-    
-    # Ensure all required fields are non-empty
-    required_fields = ["state", "district", "crop", "season", "domain"]
-    for field in required_fields:
-        if not details.get(field):
-            if field == "district":
-                details[field] = "Not specified"
-            elif field == "season":
-                details[field] = "General"
-            else:
-                details[field] = "Not specified"
+        compliance_notice = POPComplianceNotice(
+            message=" ".join(message_parts),
+            restricted_chemicals=restricted_flags,
+            blocked_non_restricted_chemicals=blocked_chemical_names,
+            blocked_message=blocked_message,
+        )
 
-    # Construct the payload according to the schema
-    payload = {
-        "question": question,
-        "originalQuestion": original_question or question,
-        "priority": priority,
-        "source": source,
-        "details": details,
-        "context": context
-    }
-    
-    # Send the POST request
-    url = "https://desk.vicharanashala.ai/api/questions"
-    headers = {"Content-Type": "application/json"}
-
-    print(f"DEBUG: Sending to URL: {url}", flush=True)
-    try:
-        response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
-
-        response_data = {}
-        try:
-            response_data = response.json()
-        except ValueError:
-            response_data = {}
-
-        is_success = response.status_code == 201 or bool(response_data.get("success"))
-        question_id = response_data.get("question_id")
-
-        if is_success:
-            result = {"status": "Uploaded Successfully"}
-            if question_id:
-                result["question_id"] = question_id
-            return result
-
-        return {"status": "Failed", "message": response.text}
-
-    except requests.exceptions.RequestException as e:
-        return {"status": "Error", "message": str(e)}
+    return POPContextResponse(
+        contexts=compliant_nodes,
+        compliance_notice=compliance_notice,
+    )
 
 
 

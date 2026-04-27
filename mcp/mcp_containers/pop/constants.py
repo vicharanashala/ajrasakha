@@ -14,6 +14,8 @@ API_KEY = "sk_s2j7cwtf_frU76CJMmVQi3Y4jwBfY3M3m"
 # Database Collections
 COLLECTION_QA = "agri_qa"
 COLLECTION_POP = "pop"
+# for testing chemical compliance
+# COLLECTION_POP = "pop_test_chemical_compliance"
 
 # LLM
 OLLAMA_HOST = "http://100.100.108.13:11434"

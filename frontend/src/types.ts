@@ -944,3 +944,11 @@ export interface IAuditTrailResponse {
   data: ModeratorAuditTrail[];
   message: string;
 }
+export type GrowthResponse = {
+  labels: string[];
+  series: {
+    idsCreated: number[];
+    installs: number[];
+    activeUsers: number[];
+  };
+};

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { X, MapPin } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
@@ -18,31 +18,24 @@ import {
   UserDetailsPreferenceFilter,
   type UserDetailsFilters,
 } from "./components/UserDetailsPreferenceFilter";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 
 const PAGE_SIZE = 10;
 
 const VISIBLE_CROPS = 2;
 
-function CropsCell({ crops }: { crops: string[] }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+function CropsCell({ crops }: { crops: string | string[] | undefined | null }) {
+  const cropList = Array.isArray(crops) 
+    ? crops 
+    : (crops ? crops.split(",").map(s => s.trim()).filter(Boolean) : []);
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  if (cropList.length === 0) return <span>—</span>;
 
-  if (!crops || crops.length === 0) return <span>—</span>;
-
-  const visible = crops.slice(0, VISIBLE_CROPS);
-  const hidden = crops.slice(VISIBLE_CROPS);
+  const visible = cropList.slice(0, VISIBLE_CROPS);
+  const hidden = cropList.slice(VISIBLE_CROPS);
 
   return (
-    <div className="flex flex-col items-center gap-0.5" ref={ref}>
+    <div className="flex flex-col items-center gap-0.5">
       {visible.map((c, i) => (
         <span
           key={i}
@@ -52,29 +45,34 @@ function CropsCell({ crops }: { crops: string[] }) {
           {c}
         </span>
       ))}
+
       {hidden.length > 0 && (
-        <div className="relative">
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors cursor-pointer"
-          >
-            +{hidden.length}
-          </button>
-          {open && (
-            <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 min-w-[120px]">
-              <div className="flex flex-col gap-1">
-                {crops.map((c, i) => (
-                  <span
-                    key={i}
-                    className="px-2 py-1 rounded text-xs whitespace-nowrap"
-                  >
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 cursor-default">
+                +{hidden.length}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="
+                p-2
+                min-w-[100px]
+                bg-white text-gray-900 border border-gray-200
+                dark:bg-[#1a1a1a] dark:text-gray-100 dark:border-gray-700
+              "
+            >
+              <div className="flex flex-col gap-2 text-center">
+                {cropList.map((c, i) => (
+                  <span key={i} className="text-xs whitespace-nowrap">
                     {c}
                   </span>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   );
@@ -86,15 +84,28 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   startTime: undefined,
   endTime: undefined,
   profileCompleted: "all",
+  inactiveOnly: false,
 };
 
 interface UserDetailsViewProps {
   source?: 'vicharanashala' | 'annam';
+  initialFilters?: Partial<UserDetailsFilters>;
 }
 
-export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewProps) {
-  const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
+export function UserDetailsView({ source = 'vicharanashala', initialFilters }: UserDetailsViewProps) {
+  const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
+    ...DEFAULT_FILTERS,
+    ...initialFilters,
+  }));
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Apply initialFilters when they change (e.g. clicking from AlertCard)
+  useEffect(() => {
+    if (initialFilters) {
+      setFilters(prev => ({ ...prev, ...initialFilters }));
+      setCurrentPage(1);
+    }
+  }, [initialFilters]);
 
   const { data, isLoading, error } = useUserDetails(
     filters.startTime,
@@ -106,9 +117,10 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
     filters.crop,
     filters.village,
     filters.profileCompleted,
+    filters.inactiveOnly,
   );
 
-  const { users, totalUsers, totalPages, activeUsers, totalQuestions } = data;
+  const { users, totalUsers, totalPages, activeUsers, inactiveUsers, totalQuestions } = data;
 
   const handleApplyFilters = (newFilters: UserDetailsFilters) => {
     setFilters(newFilters);
@@ -125,7 +137,8 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
     filters.crop ||
     filters.village ||
     filters.startTime ||
-    filters.profileCompleted !== "all";
+    filters.profileCompleted !== "all" ||
+    filters.inactiveOnly;
 
   const dateLabel = filters.startTime && filters.endTime
     ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
@@ -145,20 +158,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
 
       {/* Summary cards + graphs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-        {/* Total Users — col 1 row 1 */}
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
-          <div className="absolute inset-x-0 top-0 h-1 bg-[#3AAA5A]" />
-          <CardContent className="p-4 flex flex-col gap-0.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Total Users
-            </span>
-            <span className="text-2xl font-semibold dark:text-slate-100">
-              {isLoading ? "—" : totalUsers.toLocaleString()}
-            </span>
-          </CardContent>
-        </Card>
-
-        {/* Active Users — col 2 row 1 */}
+        {/* Active Users — col 1 row 1 */}
         <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
           <div className="absolute inset-x-0 top-0 h-1 bg-[#3B82F6]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
@@ -167,6 +167,19 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
             </span>
             <span className="text-2xl font-semibold dark:text-slate-100">
               {isLoading ? "—" : activeUsers.toLocaleString()}
+            </span>
+          </CardContent>
+        </Card>
+
+        {/* Inactive Users — col 2 row 1 */}
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
+          <div className="absolute inset-x-0 top-0 h-1 bg-[#EF4444]" />
+          <CardContent className="p-4 flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Inactive Users
+            </span>
+            <span className="text-2xl font-semibold dark:text-slate-100">
+              {isLoading ? "—" : inactiveUsers.toLocaleString()}
             </span>
           </CardContent>
         </Card>
@@ -185,7 +198,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
         </Card>
 
         {/* Bar graph — col 1 row 2 on sm+, after all 3 cards on mobile */}
-        {!isLoading && !error && users.length > 0 && (
+        {!isLoading && !error && users.length > 0 && !filters.inactiveOnly && (
           <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
@@ -263,12 +276,13 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                     <TableHead className="text-center">Agri Apps</TableHead>
                     <TableHead className="text-center">Education</TableHead>
                     <TableHead className="text-center">Smartphones</TableHead>
+                    <TableHead className="text-center">Location</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={21} className="text-center py-10 text-muted-foreground">
+                      <TableCell colSpan={22} className="text-center py-10 text-muted-foreground">
                         {isFiltered ? "No users match your filters." : "No users found."}
                       </TableCell>
                     </TableRow>
@@ -307,13 +321,29 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                           <TableCell className="align-middle whitespace-nowrap">{fp?.phoneNo ?? "—"}</TableCell>
                           <TableCell className="align-middle whitespace-nowrap">{fp?.languagePreference ?? "—"}</TableCell>
                           <TableCell className="align-middle">{fp?.yearsOfExperience ?? "—"}</TableCell>
-                          <TableCell className="align-middle"><CropsCell crops={fp?.cropsCultivated ?? []} /></TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.primaryCrop ?? "—"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.secondaryCrop ?? "—"}</TableCell>
+                          <TableCell className="align-middle"><CropsCell crops={fp?.cropsCultivated} /></TableCell>
+                          <TableCell className="align-middle"><CropsCell crops={fp?.primaryCrop} /></TableCell>
+                          <TableCell className="align-middle"><CropsCell crops={fp?.secondaryCrop} /></TableCell>
                           <TableCell className="align-middle">{fp?.awarenessOfKCC == null ? "—" : fp.awarenessOfKCC ? "Yes" : "No"}</TableCell>
                           <TableCell className="align-middle">{fp?.usesAgriApps == null ? "—" : fp.usesAgriApps ? "Yes" : "No"}</TableCell>
                           <TableCell className="align-middle whitespace-nowrap">{fp?.highestEducatedPerson ?? "—"}</TableCell>
                           <TableCell className="align-middle">{fp?.numberOfSmartphones ?? "—"}</TableCell>
+                          <TableCell className="align-middle">
+                            {fp?.location?.latitude && fp?.location?.longitude ? (
+                              <a 
+                                href={`https://maps.google.com/?q=${fp.location.latitude},${fp.location.longitude}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                title="View on Maps"
+                                className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MapPin className="h-4 w-4" />
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })

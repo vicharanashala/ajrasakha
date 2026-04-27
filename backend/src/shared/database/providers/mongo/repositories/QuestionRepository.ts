@@ -31,7 +31,6 @@ import {
   ModeratorApprovalRate,
   QuestionStatusOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
-import { promises } from 'dns';
 import { getReviewerQueuePosition } from '#root/utils/getReviewerQueuePosition.js';
 import {
   QuestionLevelResponse,
@@ -1980,7 +1979,7 @@ export class QuestionRepository implements IQuestionRepository {
   async getYearAnalytics(
     goldenDataSelectedYear: string,
     session?: ClientSession,
-  ): Promise<{ yearData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
+  ): Promise<{ yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
     await this.init();
     const selectedYearNum = Number(goldenDataSelectedYear);
 
@@ -2055,13 +2054,11 @@ export class QuestionRepository implements IQuestionRepository {
         };
       },
     );
-    const totalEntriesByType = formattedData.reduce(
-      (sum, m) => sum + m.verified,
-      0,
-    );
+    const totalEntriesByType = formattedData.reduce((sum, m) => sum + m.entries, 0);
+    const totalVerifiedByType = formattedData.reduce((sum, m) => sum + m.verified, 0);
 
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    return { yearData: formattedData, totalEntriesByType, moderatorBreakdown };
+    return { yearData: formattedData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown };
   }
 
   /**
@@ -2148,7 +2145,7 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
     session?: ClientSession,
-  ): Promise<{ weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
+  ): Promise<{ weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
     await this.init();
 
     const monthNames = [
@@ -2239,14 +2236,12 @@ export class QuestionRepository implements IQuestionRepository {
         verified: match?.totalVerified ?? 0,
       };
     });
-    const totalEntriesByType = weeksDataRaw.reduce(
-      (acc, curr) => acc + curr.totalClosed,
-      0,
-    );
+    const totalEntriesByType = weeksDataRaw.reduce((acc, curr) => acc + (curr.totalEntries || 0), 0);
+    const totalVerifiedByType = weeksDataRaw.reduce((acc, curr) => acc + (curr.totalVerified || 0), 0);
 
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
 
-    return { weeksData, totalEntriesByType, moderatorBreakdown };
+    return { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown };
   }
 
   async getWeekAnalytics(
@@ -2254,7 +2249,7 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
     session?: ClientSession,
-  ): Promise<{ dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
+  ): Promise<{ dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
     await this.init();
     const monthNames = [
       'January',
@@ -2349,13 +2344,11 @@ export class QuestionRepository implements IQuestionRepository {
       };
     });
 
-    const totalEntriesByType = dailyDataRaw.reduce(
-      (acc, curr) => acc + curr.totalClosed,
-      0,
-    );
+    const totalEntriesByType = dailyDataRaw.reduce((acc, curr) => acc + curr.totalEntries, 0);
+    const totalVerifiedByType = dailyDataRaw.reduce((acc, curr) => acc + curr.totalVerified, 0);
 
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    return { dailyData, totalEntriesByType, moderatorBreakdown };
+    return { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown };
   }
 
   async getDailyAnalytics(
@@ -2367,6 +2360,7 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
+    totalVerifiedByType: number;
     moderatorBreakdown?: { moderatorName: string, count: number }[];
   }> {
     await this.init();
@@ -2536,10 +2530,8 @@ export class QuestionRepository implements IQuestionRepository {
       },
     );
 
-    const totalEntriesByType = answers.reduce(
-      (acc, curr) => acc + curr.totalClosed,
-      0,
-    );
+    const totalEntriesByType = answers.reduce((acc, curr) => acc + curr.totalEntries, 0);
+    const totalVerifiedByType = answers.reduce((acc, curr) => acc + curr.totalVerified, 0);
 
     // Filter moderator breakdown for the specific day
     const dayStartDate = new Date(yearNum, monthNum, startDay + selectedDayNum - dayMap[Object.keys(dayMap).find(key => dayMap[key] === (startDay % 7 === 0 ? 0 : startDay % 7))!]);
@@ -2575,6 +2567,7 @@ export class QuestionRepository implements IQuestionRepository {
     return {
       dayHourlyData: { [goldenDataSelectedDay]: hourlyData },
       totalEntriesByType,
+      totalVerifiedByType,
       moderatorBreakdown
     };
   }
@@ -2700,6 +2693,17 @@ export class QuestionRepository implements IQuestionRepository {
       matchStage.createdAt = filterDate;
     }
 
+    const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
+      const sorted = [...data].sort((a, b) => b.count - a.count);
+      const topTen = sorted.slice(0, 10);
+      const othersCount = sorted.slice(10).reduce((sum, item) => sum + item.count, 0);
+
+      return [
+        ...topTen,
+        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount }] : []),
+      ];
+    };
+
     // Aggregate crop data
     const cropDataRaw = (await this.QuestionCollection.aggregate(
       [
@@ -2732,9 +2736,9 @@ export class QuestionRepository implements IQuestionRepository {
 
     return {
       analytics: {
-        cropData: cropDataRaw,
+        cropData: getTopTenWithOthers(cropDataRaw),
         stateData: stateDataRaw,
-        domainData: domainDataRaw,
+        domainData: getTopTenWithOthers(domainDataRaw),
       },
     };
   }
