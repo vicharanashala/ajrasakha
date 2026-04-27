@@ -275,4 +275,9 @@ export class RequestService extends BaseService implements IRequestService{
     return this.requestRepository.getRequestStatusById(requestId);
   }
 
+  async getRequestById(
+    requestId: string,
+  ): Promise<IRequest | null> {
+    return this.requestRepository.getRequestById(requestId);
+  }
 }

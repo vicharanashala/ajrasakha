@@ -849,6 +849,14 @@ export interface WorkloadBalanceResponse {
   submissionsProcessed: number;
 }
 
+export type GrowthResponse = {
+  labels: string[];
+  series: {
+    idsCreated: number[];
+    installs: number[];
+    activeUsers: number[];
+  };
+};
 
  enum AuditCategory {
   QUESTION = 'QUESTION',
@@ -944,11 +952,4 @@ export interface IAuditTrailResponse {
   data: ModeratorAuditTrail[];
   message: string;
 }
-export type GrowthResponse = {
-  labels: string[];
-  series: {
-    idsCreated: number[];
-    installs: number[];
-    activeUsers: number[];
-  };
-};
+

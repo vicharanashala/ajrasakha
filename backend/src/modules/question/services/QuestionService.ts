@@ -1477,11 +1477,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-        console.log('updated question*****', updated);
-
         const currentStatus = question.isAutoAllocate;
 
-        console.log('currentStatus*****', currentStatus);
         // If currentStatus is false, then we need to set it to true and vice versa
 
         let out;
@@ -1527,8 +1524,6 @@ export class QuestionService extends BaseService implements IQuestionService {
             BATCH_EXPECTED_TO_ADD,
           );
 
-          console.log('autoAllocateExperts output*****', out);
-
           if (!out.status) {
             return {
               message: 'Auto allocate toggled, but queue is already full',
@@ -1543,7 +1538,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         };
       });
     } catch (error) {
-      console.log('Error in toggleAutoAllocate*****', error);
       throw new InternalServerError(`Failed to toggle auto allocate: ${error}`);
     }
   }
@@ -3488,8 +3482,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.getQuestionStatusSummary(query, body);
   }
 
-  async generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer: string }> {
-    return this._withTransaction(async (session) => {
+  async getExprtIdByIndex(questionId: string, index: number): Promise<string | null> {
+    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+    if (!submission || !submission.queue || submission.queue.length <= index) {
+      return null;
+    }
+    return submission.queue[index].toString();
+  }
+  async generateAiInitialAnswer(questionId: string): Promise<{aiInitialAnswer:string}> {
+    return this._withTransaction( async( session ) => {
 
       const question = await this.questionRepo.getById(questionId, session);
 

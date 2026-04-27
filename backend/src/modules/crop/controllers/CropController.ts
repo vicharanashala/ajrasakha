@@ -182,7 +182,7 @@ export class CropController {
       auditPayload = {
         ...auditPayload,
         context: {
-          cropId: crop._id.toString(),
+          cropName: body.name,
         },
         outcome: {
           status: OutComeStatus.FAILED,
@@ -263,6 +263,7 @@ export class CropController {
     const {cropId} = params;
     const userId = user._id.toString();
     let updated;
+    let previousCrop;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.CROP_MANAGEMENT,
       action: AuditAction.UPDATE_CROP,
@@ -281,10 +282,16 @@ export class CropController {
       },
     };
     try{
+      previousCrop = await this.cropService.getCropById(cropId);
       updated = await this.cropService.updateCrop(cropId, body, userId);
     } catch(err: any) {
       auditPayload = {
         ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          aliases: body.aliases,
+          cropName: previousCrop?.name,
+        },
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
@@ -305,6 +312,10 @@ export class CropController {
     if (!updated) {
       auditPayload = {
         ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          cropName: previousCrop?.name,
+        },
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: 'NOT_FOUND',
@@ -319,9 +330,18 @@ export class CropController {
 
     auditPayload = {
       ...auditPayload,
+      context: {
+        ...auditPayload.context,
+        cropName: updated.name,
+      },
       changes: {
+        before: {
+          aliases: previousCrop?.aliases,
+          name: previousCrop?.name,
+        },
         after: {
           ...body,
+          name: updated.name,
         },
       },
     }
