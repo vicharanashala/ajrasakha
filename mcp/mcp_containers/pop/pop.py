@@ -14,6 +14,13 @@ from chemical_guard import filter_pop_contexts_for_chemical_compliance
 
 mcp = FastMCP("POP")
 
+RESPONSE_GUIDANCE = '''* If retrieved context is relevant and sufficient:
+            * Generate answer using available data.
+            * Append:
+              "# Your query has also been shared with an expert for review. It will be processed within 2 hours. Please ask the same query after 2 hours."
+          * If retrieved context is insufficient, respond:
+            "# We do not have sufficient information to answer your query at the moment. Your query has been transferred to an expert and will be processed within 2 hours. Please ask the same query after 2 hours."'''
+
 Settings.embed_model = HuggingFaceEmbedding(
     model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
 )
@@ -192,6 +199,7 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
     return POPContextResponse(
         contexts=compliant_nodes,
         compliance_notice=compliance_notice,
+        response_guidance=RESPONSE_GUIDANCE,
     )
 
 

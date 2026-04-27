@@ -34,6 +34,7 @@ def to_yyyy_mm_dd(date_str: str) -> str:
 
     formats = [
         "%d/%m/%Y",
+        "%d-%m-%Y",
         "%Y-%m-%d",
     ]
 
@@ -60,6 +61,7 @@ def to_dd_mm_yyyy(date_str: str) -> str:
     formats = [
         "%Y-%m-%d",
         "%d/%m/%Y",
+        "%d-%m-%Y",
     ]
 
     for fmt in formats:
@@ -162,7 +164,7 @@ async def unified_mandi_prices(
     spices_arrival_date = to_yyyy_mm_dd(arrival_date)
     data_gov_arrival_date = to_dd_mm_yyyy(arrival_date)
     state = state.title()
-    commodity = commodity.title()
+    commodity = commodity.strip()
     district = district.title()
     data_gov_state = state
  
@@ -174,6 +176,21 @@ async def unified_mandi_prices(
         commodity=commodity,
         arrival_date=data_gov_arrival_date,
     )
+    data_gov_fallback_info = data_gov_response.get("fallback_info", {})
+    data_gov_date_check_info = data_gov_response.get("date_check_info", {})
+    data_gov_warning: dict[str, Any] | None = None
+    if not data_gov_response.get("success", False):
+        data_gov_warning = {
+            "error_type": data_gov_response.get("error_type", "data_gov_error"),
+            "error": data_gov_response.get("error", "Unknown error from data.gov.in"),
+            "source": "data.gov.in",
+        }
+        available_commodities = data_gov_response.get("available_commodities", [])
+        if available_commodities:
+            data_gov_warning["available_commodities"] = available_commodities
+        available_districts = data_gov_response.get("available_districts", [])
+        if available_districts:
+            data_gov_warning["available_districts"] = available_districts
 
     spices_response = await fetch_spices_board_prices(
         state=state,
@@ -193,7 +210,7 @@ async def unified_mandi_prices(
     # -----------------------------
 
     normalized_data_gov = normalize_data(
-        data_gov_response.get("data", []),
+        data_gov_response.get("data", []) if data_gov_response.get("success") else [],
         "data.gov.in",
     )
 
@@ -239,17 +256,32 @@ async def unified_mandi_prices(
     best_match = final_results[0] if final_results else None
     error_msg='No Error'
     flag=True
+    if data_gov_fallback_info.get("message"):
+        error_msg = data_gov_fallback_info["message"]
     if len(final_results)==0:
-        error_msg= f'No Data Found for State : {state}, Commodity : {commodity}, Arrival Data : {arrival_date}. Check for other related mandi prices.'
+        requested_checked_date = data_gov_date_check_info.get("requested_arrival_date", "")
+        checked_until = data_gov_date_check_info.get("checked_until_date")
+        if requested_checked_date and checked_until:
+            error_msg = (
+                f"No data found for State: {state}, Commodity: {commodity}, "
+                f"Arrival Date: {requested_checked_date}. Checked data.gov.in from {requested_checked_date} "
+                f"back to {checked_until}."
+            )
+        else:
+            error_msg= f'No Data Found for State : {state}, Commodity : {commodity}, Arrival Data : {arrival_date}. Check for other related mandi prices.'
         flag= False
 
-    return {
+    response = {
         "success": flag,
+        "response_date": datetime.now().strftime("%d/%m/%Y"),
         "best_match": best_match,
         "total_results": len(final_results),
         "Error Message": error_msg,
         "alternatives": final_results[1:5],
     }
+    if data_gov_warning:
+        response["data_gov_warning"] = data_gov_warning
+    return response
 
 
 
