@@ -3,13 +3,11 @@ from urllib.parse import quote_plus
 from llama_index.core.prompts import PromptTemplate
 
 # Vector Database
-USERNAME = quote_plus(os.getenv("MONGO_USERNAME", "agriai"))
-PASSWORD = quote_plus(os.getenv("MONGO_PASSWORD", "agriai1224"))
-MONGODB_URI = os.getenv("MONGODB_URI", f"mongodb+srv://{USERNAME}:{PASSWORD}@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging")
+MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME", "golden_db")
 INDEX_NAME = os.getenv("INDEX_NAME", "vector_index")
 SARVAM_URL = os.getenv("SARVAM_URL", "https://api.sarvam.ai/speech-to-text")
-API_KEY = os.getenv("API_KEY", "sk_s2j7cwtf_frU76CJMmVQi3Y4jwBfY3M3m")
+API_KEY = os.getenv("API_KEY")
 
 
 # Database Collections
@@ -17,8 +15,8 @@ COLLECTION_QA = os.getenv("COLLECTION_QA", "agri_qa")
 COLLECTION_POP = os.getenv("COLLECTION_POP", "pop")
 
 # LLM
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://100.100.108.13:11434")
-OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", f"{OLLAMA_HOST}/api/chat")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST")
+OLLAMA_API_URL = os.getenv("OLLAMA_API_URL")
 
 # MODELS
 LLM_MODEL_MAIN = os.getenv("LLM_MODEL_MAIN", "deepseek-r1:70b")
