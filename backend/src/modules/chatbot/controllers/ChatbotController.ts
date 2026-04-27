@@ -27,7 +27,9 @@ import {
   GeoStateEntryResponse,
   QueryCategoryEntryResponse,
   PaginatedUserDetailsResponse,
+  TopCropsResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
+import { GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -209,6 +211,29 @@ export class ChatbotController {
   }
 
   @OpenAPI({ 
+    summary: 'Get top crops by questions',
+    description: 'Retrieves top crops aggregated from questions and duplicate_questions, excluding agri_expert source.',
+  })
+  @ResponseSchema(TopCropsResponse, {
+    statusCode: 200,
+    description: 'Top crops data including overall active document count',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch top crops',
+  })
+  @Get('/top-crops')
+  @HttpCode(200)
+  @Authorized()
+  async getTopCrops() {
+    return this.chatbotService.getTopCrops();
+  }
+
+  @OpenAPI({ 
     summary: 'Get daily user activity trend for bar graph  (last N days, daily granularity)',
     description: 'Retrieves daily user activity counts (distinct users per day) over the last N days, suitable for bar graph visualization.',
   })
@@ -252,6 +277,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
+    const inactiveOnly = query.inactiveOnly === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
       query.endDate,
@@ -262,6 +288,7 @@ export class ChatbotController {
       query.crop,
       query.village,
       query.profileCompleted,
+      inactiveOnly,
     );
   }
 
@@ -285,5 +312,29 @@ export class ChatbotController {
       return;
     }
     return Buffer.from(data as ArrayBuffer);
+  }
+
+  @OpenAPI({ 
+    summary: 'Get user growth metrics',
+    description: 'Retrieves user growth metrics over the last N days, suitable for bar graph visualization.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch user growth trend',
+  })
+  @Get('/user-growth')
+  @HttpCode(200)
+  @Authorized()
+  async getGrowth(@QueryParams() query: GrowthQuery): Promise<GrowthResponse> {
+    const range = Number(query.range) || 30;
+    if (![30, 60, 90].includes(range)) {
+      throw new Error('Invalid range. Allowed values are 30, 60, or 90.');
+    }
+    const data = await this.chatbotService.getGrowth(range);
+    return data
   }
 }

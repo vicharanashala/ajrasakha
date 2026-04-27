@@ -12,6 +12,7 @@ import type {
   PaginatedUserDetails,
   DemographicEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { GrowthResponse } from '../types/chatbot.type.js';
 
 export interface DashboardResponse {
   kpi: KpiSummary;
@@ -38,14 +39,16 @@ export interface IChatbotService {
   getVoiceAccuracyByLanguage(source?: string): Promise<VoiceAccuracyEntry[]>;
   getGeoDistribution(source?: string): Promise<GeoStateEntry[]>;
   getQueryCategories(source?: string): Promise<QueryCategoryEntry[]>;
+  getTopCrops(): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   getDailyQueryCounts(days?: number, source?: string): Promise<DailyQueryCountEntry[]>;
   getTodayQueryCount(source?: string): Promise<number>;
   getWeeklyQueryCounts(source?: string): Promise<WeeklyQueryCountEntry[]>;
   getDailyUserTrend(days?: number, source?: string): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string): Promise<PaginatedUserDetails>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string, inactiveOnly?: boolean): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
+  getGrowth(range:number):Promise<GrowthResponse>
 }
 

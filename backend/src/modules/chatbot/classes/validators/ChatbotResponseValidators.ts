@@ -81,6 +81,15 @@ export class KpiSummaryResponse {
   })
   @IsNumber()
   voiceUsageSharePct: number;
+
+  @JSONSchema({
+    description: 'Number of users with zero messages in the last 3 days',
+    example: 980,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  inactiveUsersLast3Days: number;
 }
 
 // ─── Daily Active Users Entry ─────────────────────────────────────────────────
@@ -349,6 +358,15 @@ export class PaginatedUserDetailsResponse {
   activeUsers: number;
 
   @JSONSchema({
+    description: 'Number of inactive users (users with no questions)',
+    example: 6289,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  inactiveUsers: number;
+
+  @JSONSchema({
     description: 'Total number of questions across all users',
     example: 45678,
     type: 'number',
@@ -459,6 +477,50 @@ export class DashboardResponseSchema {
   weeklyQueries: WeeklyQueryCountEntryResponse[];
 }
 
+// ─── Top Crops Response ───────────────────────────────────────────────────────
+
+export class TopCropEntryResponse {
+  @JSONSchema({
+    description: 'Crop name',
+    example: 'Wheat',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  name: string;
+
+  @JSONSchema({
+    description: 'Number of questions regarding this crop',
+    example: 154,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  count: number;
+}
+
+export class TopCropsResponse {
+  @JSONSchema({
+    description: 'Total number of documents matching the filter criteria',
+    example: 450,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  totalQuestions: number;
+
+  @JSONSchema({
+    description: 'Array of top crops with counts',
+    type: 'array',
+    items: { type: 'object' },
+    readOnly: true,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TopCropEntryResponse)
+  topCrops: TopCropEntryResponse[];
+}
+
 // ─── Export all validators ────────────────────────────────────────────────────
 
 export const CHATBOT_RESPONSE_VALIDATORS = [
@@ -475,4 +537,6 @@ export const CHATBOT_RESPONSE_VALIDATORS = [
   UserDetailEntryResponse,
   PaginatedUserDetailsResponse,
   DashboardResponseSchema,
+  TopCropEntryResponse,
+  TopCropsResponse,
 ];

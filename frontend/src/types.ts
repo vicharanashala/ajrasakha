@@ -875,3 +875,11 @@ export interface WorkloadBalanceResponse {
   expertsInvolved: number;
   submissionsProcessed: number;
 }
+export type GrowthResponse = {
+  labels: string[];
+  series: {
+    idsCreated: number[];
+    installs: number[];
+    activeUsers: number[];
+  };
+};

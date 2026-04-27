@@ -12,6 +12,7 @@ on:
           - faq
           - golden_dataset
           - market
+          - other_markets
           - pop
           - weather
           - review-search-mcp
@@ -34,7 +35,9 @@ jobs:
           MATRIX_JSON="[]"
           add_entry() {
             local name=$1
-            OBJ="{\"image\": \"$name\"}"
+            local context=${2:-"./mcp/mcp_containers/$name"}
+            local dockerfile=${3:-"./mcp/mcp_containers/$name/Dockerfile"}
+            OBJ="{\"image\": \"$name\", \"context\": \"$context\", \"file\": \"$dockerfile\"}"
             MATRIX_JSON=$(echo $MATRIX_JSON | jq ". + [$OBJ]")
           }
           TARGET="${{ inputs.target_image }}"
@@ -46,6 +49,9 @@ jobs:
           fi
           if [[ "$TARGET" == "all" || "$TARGET" == "market" ]]; then
             add_entry "market"
+          fi
+          if [[ "$TARGET" == "all" || "$TARGET" == "other_markets" ]]; then
+            add_entry "other_markets" "./mcp/other_markets" "./mcp/other_markets/Dockerfile"
           fi
           if [[ "$TARGET" == "all" || "$TARGET" == "pop" ]]; then
             add_entry "pop"
@@ -96,8 +102,8 @@ jobs:
       - name: Build & Push ${{ matrix.image }}
         uses: docker/build-push-action@v5
         with:
-          context: ./mcp/mcp_containers/${{ matrix.image }}
-          file: ./mcp/mcp_containers/${{ matrix.image }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: true
           platforms: linux/amd64
           tags: |
