@@ -239,6 +239,8 @@ async findAllUsers(
   search: string,
   sortOption: string,
   filter: string,
+  role?: string,
+  isBlockedFilter?: boolean,
   session?: ClientSession,
 ): Promise<{
   users: IUser[];
@@ -263,6 +265,14 @@ async findAllUsers(
 
     if (filter && filter !== 'ALL') {
       matchQuery['preference.state'] = filter;
+    }
+
+    if (role && role !== 'ALL') {
+      matchQuery.role = role;
+    }
+
+    if (isBlockedFilter !== undefined) {
+      matchQuery.isBlocked = isBlockedFilter;
     }
 
     const sortMap: any = {

@@ -32,6 +32,8 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [filter, setFilter] = useState("");
   const debouncedSearch = useDebounce(search);
   const [sort, setSort] = useState<string>("");
+  const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
   const LIMIT = 12;
   const states = STATES;
@@ -44,6 +46,8 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     search,
     sort,
     filter,
+    roleFilter,
+    statusFilter,
     { enabled: isAdmin }
   );
  const toggleSort = (key: string) => {
@@ -178,6 +182,39 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Role Filter */}
+              {isAdmin && (
+                <div className="flex items-center gap-3 w-[180px]">
+                  <Select value={roleFilter} onValueChange={(val) => { setRoleFilter(val); setPage(1); }}>
+                    <SelectTrigger className="bg-background px-3 py-2 w-full">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Roles</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="moderator">Moderator</SelectItem>
+                      <SelectItem value="expert">Expert</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Status Filter */}
+              {isAdmin && (
+                <div className="flex items-center gap-3 w-[180px]">
+                  <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setPage(1); }}>
+                    <SelectTrigger className="bg-background px-3 py-2 w-full">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Status</SelectItem>
+                      <SelectItem value="false">Unblocked</SelectItem>
+                      <SelectItem value="true">Blocked</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
 
