@@ -8,7 +8,7 @@ from pymongo import AsyncMongoClient
 
 from utils import get_mongodb_vector_store, get_huggingface_embedding_model
 
-EMBEDDING_MODEL = os.getenv("REVIEWER_EMBEDDING_MODEL")
+EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
 MONGODB_URI = os.getenv("REVIEWER_MONGODB_URI")
 MONGODB_DATABASE = os.getenv("REVIEWER_MONGODB_DATABASE")
 MONGODB_COLLECTION = os.getenv("REVIEWER_MONGODB_COLLECTION")
