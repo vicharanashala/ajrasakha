@@ -1484,10 +1484,32 @@ export class QuestionService extends BaseService implements IQuestionService {
         let out;
 
         if (!currentStatus) {
-          const submission = await this.questionSubmissionRepo.getByQuestionId(
+          let submission = await this.questionSubmissionRepo.getByQuestionId(
             questionId,
             session,
           );
+
+          if (!submission && question.source == "AJRASAKHA") {
+
+            const submissionData: IQuestionSubmission = {
+              questionId: new ObjectId(question._id.toString()),
+              lastRespondedBy: null,
+              history: [],
+              queue: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+
+            submission = await this.questionSubmissionRepo.addSubmission(submissionData, session);
+            await this.autoAllocateExperts(
+              questionId,
+              session,
+              3, // Allocate 3 experts initially when toggling on auto-allocate
+            );
+            return {
+              message: "No submission was found for this question. A new submission has been created, and special force users has been assigned to the review queue."
+            };
+          }
 
           const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
           let BATCH_EXPECTED_TO_ADD = 6;
@@ -3475,8 +3497,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!question)
         throw new NotFoundError("Question not found");
 
-      if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
-        throw new ForbiddenError("Source must be agri expert or outreach")
+      // if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
+      //   throw new ForbiddenError("Source must be agri expert outreach")
 
       const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
 
@@ -3500,8 +3522,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!question)
         throw new NotFoundError("Question not found");
 
-      if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
-        throw new ForbiddenError("Source must be agri expert or outreach");
+      // if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
+      //   throw new ForbiddenError("Source must be agri expert or outreach");
 
       if (!answer?.trim())
         throw new BadRequestError("Answer is required");
