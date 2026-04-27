@@ -121,7 +121,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           Profile
         </DropdownMenuItem>
 
-        {userWithRole?.role === "admin" && (
+        {(userWithRole?.role === "admin" || userWithRole?.role === "moderator")  && (
           <DropdownMenuItem
             onClick={handleViewAudit}
             className="text-foreground focus:text-foreground cursor-pointer mb-2"

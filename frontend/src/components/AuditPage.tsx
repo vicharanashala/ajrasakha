@@ -660,7 +660,7 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const AuditPage = () => {
-  const [view, setView] = useState<"compact" | "detail">("compact");
+  const [view, setView] = useState<"compact" | "detail">("detail");
   const [page, setPage] = useState(1);
   const [startDateTime, setStartDateTime] = useState<string | undefined>();
   const [endDateTime, setEndDateTime] = useState<string | undefined>();
@@ -1051,26 +1051,26 @@ const AuditPage = () => {
           {/* Compact / Detail toggle */}
           <div className="flex border rounded-lg overflow-hidden">
             <button
-              onClick={() => setView("compact")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors ${
-                view === "compact"
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:bg-muted/50"
-              }`}
-            >
-              <LayoutGrid size={13} />
-              Compact
-            </button>
-            <button
               onClick={() => setView("detail")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border-l transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors ${
                 view === "detail"
                   ? "bg-muted font-medium text-foreground"
                   : "text-muted-foreground hover:bg-muted/50"
               }`}
             >
-              <Table2 size={13} />
+              <LayoutGrid size={13} />
               Detail
+            </button>
+            <button
+              onClick={() => setView("compact")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border-l transition-colors ${
+                view === "compact"
+                  ? "bg-muted font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              <Table2 size={13} />
+              Compact
             </button>
           </div>
         </div>
