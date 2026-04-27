@@ -58,7 +58,6 @@ export const QuestionDetails = ({
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [aiAnswerExpanded, setAiAnswerExpanded] = useState(false);
 
   //state for showing passing remark
   const [remarkExpanded, setRemarkExpanded] = useState(false);
@@ -66,8 +65,6 @@ export const QuestionDetails = ({
   const commentRef = useRef<any>(null);
   const {
     data: reroutequestionDetails,
-    refetch: refechrerouteSelectedQuestion,
-    isLoading: isLoadingrerouteSelectedQuestion,
   } = useGetReRoutedQuestionFullData(question?._id);
 
   const [tempAiAnswer, setTempAiAnswer] = useState<string>("");
@@ -80,14 +77,12 @@ export const QuestionDetails = ({
   const { data: submissionCheck } = useQuery({
     queryKey: ["question_submission_exists", question?._id],
     queryFn: () => questionService.checkSubmissionExists(question._id),
-    enabled: !!question?._id && question?.source === "AJRASAKHA",
+    enabled: !!question?._id && ["AJRASAKHA", "WHATSAPP", "AGRI_EXPERT", "OUTREACH"].includes(question.source),
   });
 
   const {
     mutate: generateAIAnswer,
-    data: newAiGeneratedAnswer,
     isPending: isGeneratingAI,
-    error,
   } = useGenerateInitialAnswer();
   const submissionExists = submissionCheck?.exists ?? false;
 
@@ -130,7 +125,7 @@ export const QuestionDetails = ({
 
       <QuestionDetailsCard question={question} currentUser={currentUser} />
 
-      {question.passingRemark && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" && (
+      {question.passingRemark && currentUser && currentUser.role != "expert" && (
         <div className="relative w-full rounded-xl p-[1px] overflow-hidden">
           <div className="absolute inset-0 rounded-xl bg-primary animate-pulse opacity-80 h-19" />
           <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md h-19" />
@@ -173,7 +168,7 @@ export const QuestionDetails = ({
         isApproving={isApproving}
       />
 
-      {question && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" &&
+      {question && currentUser && currentUser.role != "expert" &&
         <MessageDetail question={question} isQuestionAllocatedToExpert={submissionExists} navigateToQuestionPage={navigateToQuestionPage} />
       }
 

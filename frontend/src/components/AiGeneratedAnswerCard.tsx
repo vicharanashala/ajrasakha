@@ -44,7 +44,7 @@ export const AiGeneratedAnswerCard = ({
 
   const hasSources = Array.isArray(aiApprovedSources) && aiApprovedSources.length > 0;
 
-  const isEligibleSource = source === "AGRI_EXPERT" || source === "OUTREACH" || source === "AJRASAKHA";
+  const isEligibleSource = source === "AGRI_EXPERT" || source === "OUTREACH" || source === "AJRASAKHA" || source === "WHATSAPP";
 
   const hasAIAnswer = !!(tempAiAnswer || aiInitialAnswer || aiApprovedAnswer);
 
