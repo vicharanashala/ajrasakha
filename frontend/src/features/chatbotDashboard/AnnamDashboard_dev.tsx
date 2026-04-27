@@ -22,6 +22,7 @@ import { UserDetailsView } from "./UserDetailsView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
 import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
 import { TopCropsCard } from "./components/TopCropsCard";
+import { useTopCrops } from "./hooks/useTopCrops";
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
   crop: "all",
@@ -38,6 +39,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   const { data, isLoading, error } = useDashboardData(filters, source);
   const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source);
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
+  const { data:topCrops, isLoading:isLoadingTopCrops, error:errorLoadingtopCrops } = useTopCrops();
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
 
@@ -336,7 +338,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   }}
                   className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
                 >
-                  <TopCropsCard/>
+                  <TopCropsCard topCrops={topCrops} isLoadingTopCrops={isLoadingTopCrops} errorLoadingtopCrops={errorLoadingtopCrops}/>
                   <GeoCard states={data.geoStates} />
                   <div
                     ref={(el) => {

@@ -17,7 +17,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Spinner } from "@/components/atoms/spinner";
-import { useTopCrops } from "../hooks/useTopCrops";
+
 
 const colors = [
   "var(--color-chart-1, #3AAA5A)",
@@ -26,13 +26,32 @@ const colors = [
   "var(--color-chart-4, #FFB020)",
   "var(--color-chart-5, #F94144)",
 ];
+interface TopCropItem {
+  id?: string | number;
+  name?: string;
+  value?: number;
+  [key: string]: any;
+}
 
-export const TopCropsCard = () => {
-  const { data, isLoading, error } = useTopCrops();
+interface TopCropsData {
+  totalQuestions: number;
+  topCrops: TopCropItem[];
+}
+
+interface TopCropsCardProps {
+  topCrops: TopCropsData|undefined;
+  isLoadingTopCrops: boolean;
+  errorLoadingtopCrops: string | null| Error;
+}
+
+export const TopCropsCard = ({topCrops,
+  isLoadingTopCrops,
+  errorLoadingtopCrops}:TopCropsCardProps) => {
+ 
   const processedData = React.useMemo(() => {
-    if (!data?.topCrops) return [];
+    if (!topCrops?.topCrops) return [];
     
-    const sortedCrops = [...data.topCrops].sort((a, b) => b.count - a.count);
+    const sortedCrops = [...topCrops.topCrops].sort((a, b) => b.count - a.count);
     const top5 = sortedCrops.slice(0, 5);
     const rest = sortedCrops.slice(5);
     
@@ -47,9 +66,9 @@ export const TopCropsCard = () => {
       ...item,
       color: colors[index % colors.length],
     }));
-  }, [data?.topCrops]);
+  }, [topCrops?.topCrops]);
 
-  if (isLoading) {
+  if (isLoadingTopCrops) {
     return (
       <Card className="h-full min-h-[300px] flex items-center justify-center">
         <Spinner text="Loading Top Crops..." />
@@ -57,7 +76,7 @@ export const TopCropsCard = () => {
     );
   }
 
-  if (error || !data) {
+  if (errorLoadingtopCrops || !topCrops) {
     return (
       <Card className="h-full min-h-[300px] flex items-center justify-center text-destructive">
         Error loading top crops.
@@ -101,7 +120,7 @@ export const TopCropsCard = () => {
     <Card className="flex flex-col h-full bg-white dark:bg-[#1a1a1a] shadow-sm overflow-hidden">
       <CardHeader>
         <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Top Crops by Questions</CardTitle>
-        <CardDescription>Most frequently asked crops. Total Matching Questions: <span className="font-semibold text-gray-900 dark:text-gray-100">{data.totalQuestions.toLocaleString()}</span></CardDescription>
+        <CardDescription>Most frequently asked crops. Total Matching Questions: <span className="font-semibold text-gray-900 dark:text-gray-100">{topCrops.totalQuestions.toLocaleString()}</span></CardDescription>
       </CardHeader>
       <CardContent className="flex-1 pb-4">
         <div className="w-full h-[250px]">
@@ -114,11 +133,12 @@ export const TopCropsCard = () => {
               <XAxis
                 dataKey="name"
                 stroke="var(--color-muted-foreground, #64748b)"
-                tick={{ fontSize: 11, angle:-35, textAnchor: "end", dy: 8 }}
+                tick={{ fontSize: 11, textAnchor: "end", dy: 8 }}
                 tickLine={false}
                 axisLine={false}
                 interval={0}
                 height={50}
+                angle={-35}
               />
               <YAxis
                 stroke="var(--color-muted-foreground)"
