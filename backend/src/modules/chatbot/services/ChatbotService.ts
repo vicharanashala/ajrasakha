@@ -103,6 +103,14 @@ export class ChatbotService implements IChatbotService {
     }
   }
 
+  async getTopCrops() {
+    try {
+      return await this.chatbotRepository.getTopCrops();
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch top crops: ${error}`);
+    }
+  }
+
   async getWeeklyAvgSessionDuration(weeks = 52, source = 'vicharanashala') {
     try {
       return await this.chatbotRepository.getWeeklyAvgSessionDuration(weeks, source);

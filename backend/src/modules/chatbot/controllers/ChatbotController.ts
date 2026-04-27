@@ -27,6 +27,7 @@ import {
   GeoStateEntryResponse,
   QueryCategoryEntryResponse,
   PaginatedUserDetailsResponse,
+  TopCropsResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
 
 @OpenAPI({
@@ -206,6 +207,29 @@ export class ChatbotController {
   @Authorized()
   async getQueryCategories(@QueryParams() query: SourceQueryDto) {
     return this.chatbotService.getQueryCategories(query.source);
+  }
+
+  @OpenAPI({ 
+    summary: 'Get top crops by questions',
+    description: 'Retrieves top crops aggregated from questions and duplicate_questions, excluding agri_expert source.',
+  })
+  @ResponseSchema(TopCropsResponse, {
+    statusCode: 200,
+    description: 'Top crops data including overall active document count',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch top crops',
+  })
+  @Get('/top-crops')
+  @HttpCode(200)
+  @Authorized()
+  async getTopCrops() {
+    return this.chatbotService.getTopCrops();
   }
 
   @OpenAPI({ 

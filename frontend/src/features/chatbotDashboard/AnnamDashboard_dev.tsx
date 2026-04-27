@@ -21,7 +21,7 @@ import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
 import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
-
+import { TopCropsCard } from "./components/TopCropsCard";
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
   crop: "all",
@@ -336,6 +336,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   }}
                   className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
                 >
+                  <TopCropsCard/>
                   <GeoCard states={data.geoStates} />
                   <div
                     ref={(el) => {
