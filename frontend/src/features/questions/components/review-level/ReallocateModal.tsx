@@ -98,7 +98,6 @@ export function ReallocateModal({
         return;
       }
 
-      console.log("from frontend", levelIndex, "isAuthor:", isAuthor);
       await replaceQueueExpert({
         questionId: questionId,
         levelIndex: levelIndex,

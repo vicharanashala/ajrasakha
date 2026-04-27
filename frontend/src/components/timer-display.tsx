@@ -25,8 +25,6 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
 
   // Early return if timer is invalid
   if (!timer || timer === "00:00:00") return null;
-
-  console.log("TimerDisplay - timer:", timer, "status:", status, "showDays:", showDays);
   
   // Simple parsing for testing
   const timeParts = timer.split(":").map(Number);
