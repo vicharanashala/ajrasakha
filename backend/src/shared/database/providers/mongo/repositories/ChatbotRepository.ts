@@ -534,16 +534,25 @@ export class ChatbotRepository implements IChatbotRepository {
     details: any;
     createdAt: Date;
     questionId: string;
+    messageId: string | undefined;
   }) {
     await this.init();
     await this.initReviewSystem();
-    const {question, details, createdAt, questionId} = data;
+    const {question, details, createdAt, questionId, messageId} = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
 
-    let result = await this.messagesCollection
-      .aggregate([
+    let pipeline = messageId?
+    [
+      {
+        $match: {
+          messageId
+        }
+      }
+    ]
+    :
+    [
         {
           $match: {
             createdAt: {
@@ -579,7 +588,9 @@ export class ChatbotRepository implements IChatbotRepository {
             preserveNullAndEmptyArrays: true,
           },
         },
-      ])
+      ];
+    let result = await this.messagesCollection
+      .aggregate(pipeline)
       .toArray();
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
@@ -625,6 +636,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {$set: {messageId: matchedMessageId}},
       );
     }
+    console.log()
     return result1;
   }
 
@@ -633,15 +645,25 @@ export class ChatbotRepository implements IChatbotRepository {
     details: any;
     createdAt: Date;
     questionId: string;
+    messageId: string | undefined;
   }) {
     await this.initSecondDb();
     await this.initReviewSystem();
-    const {question, details, createdAt, questionId} = data;
+    const {question, details, createdAt, questionId,messageId} = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
-    let result = await this.annamMessagesCollection
-      .aggregate([
+
+     let pipeline = messageId?
+    [
+      {
+        $match: {
+          messageId
+        }
+      }
+    ]
+    :
+    [
         {
           $match: {
             createdAt: {
@@ -677,7 +699,9 @@ export class ChatbotRepository implements IChatbotRepository {
             preserveNullAndEmptyArrays: true,
           },
         },
-      ])
+      ];
+    let result = await this.annamMessagesCollection
+      .aggregate(pipeline)
       .toArray();
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
