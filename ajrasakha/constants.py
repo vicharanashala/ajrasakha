@@ -4,25 +4,25 @@ from llama_index.core.prompts import PromptTemplate
 
 # Vector Database
 MONGODB_URI = os.getenv("MONGODB_URI")
-DB_NAME = os.getenv("DB_NAME", "golden_db")
-INDEX_NAME = os.getenv("INDEX_NAME", "vector_index")
-SARVAM_URL = os.getenv("SARVAM_URL", "https://api.sarvam.ai/speech-to-text")
+DB_NAME = os.getenv("DB_NAME")
+INDEX_NAME = os.getenv("INDEX_NAME")
+SARVAM_URL = os.getenv("SARVAM_URL")
 API_KEY = os.getenv("API_KEY")
 
 
 # Database Collections
-COLLECTION_QA = os.getenv("COLLECTION_QA", "agri_qa")
-COLLECTION_POP = os.getenv("COLLECTION_POP", "pop")
+COLLECTION_QA = os.getenv("COLLECTION_QA")
+COLLECTION_POP = os.getenv("COLLECTION_POP")
 
 # LLM
 OLLAMA_HOST = os.getenv("OLLAMA_HOST")
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL")
 
 # MODELS
-LLM_MODEL_MAIN = os.getenv("LLM_MODEL_MAIN", "deepseek-r1:70b")
-LLM_MODEL_FALL_BACK = os.getenv("LLM_MODEL_FALL_BACK", "gpt-oss:20b")
-LLM_STRUCTURED_MODEL = os.getenv("LLM_STRUCTURED_MODEL", "Osmosis/Osmosis-Structure-0.6B:latest")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-en-v1.5")
+LLM_MODEL_MAIN = os.getenv("LLM_MODEL_MAIN")
+LLM_MODEL_FALL_BACK = os.getenv("LLM_MODEL_FALL_BACK")
+LLM_STRUCTURED_MODEL = os.getenv("LLM_STRUCTURED_MODEL")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
 
 
 DEFAULT_CITATION_CHUNK_SIZE = 200
