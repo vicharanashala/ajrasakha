@@ -282,6 +282,72 @@ export class ChatbotRepository implements IChatbotRepository {
     return [];
   }
 
+  async getTopCrops(session?: ClientSession): Promise<{ totalQuestions: number, topCrops: any[] }> {
+    try {
+      await this.initReviewSystem();
+      
+      const matchStage = { source: { $ne: 'AGRI_EXPERT' } };
+      
+      const cropFieldRaw = { $ifNull: ['$details.normalised_crop', '$details.crop'] };
+      const normalizedCropExpr = { $toLower: cropFieldRaw };
+
+      const cropDataRaw = await this.QuestionCollection.aggregate(
+        [
+          { $match: matchStage },
+          { $group: { _id: normalizedCropExpr, count: { $sum: 1 } } },
+          { $project: { name: '$_id', count: 1, _id: 0 } },
+          {
+            $unionWith: {
+              coll: 'duplicate_questions',
+              pipeline: [
+                { $match: matchStage },
+                { $group: { _id: normalizedCropExpr, count: { $sum: 1 } } },
+                { $project: { name: '$_id', count: 1, _id: 0 } }
+              ]
+            }
+          },
+          { $group: { _id: '$name', count: { $sum: '$count' } } },
+          { $match: { _id: { $ne: null } } },
+          { $project: { name: '$_id', count: 1, _id: 0 } },
+          { $sort: { count: -1 } },
+          { $limit: 10 }
+        ],
+         { session },
+      ).toArray();
+      const totalCountRaw = await this.QuestionCollection.aggregate(
+        [
+          { $match: matchStage },
+          { $count: 'count' },
+          {
+            $unionWith: {
+              coll: 'duplicate_questions',
+              pipeline: [
+                { $match: matchStage },
+                { $count: 'count' }
+              ]
+            }
+          },
+          { $group: { _id: null, total: { $sum: '$count' } } }
+        ],
+        { session },
+      ).toArray();
+
+      const totalQuestions = totalCountRaw.length > 0 ? totalCountRaw[0].total : 0;
+
+      // Capitalize first letter of each crop for display
+      const topCrops = cropDataRaw
+        .filter((r: any) => r.name)
+        .map((r: any) => ({
+           ...r,
+           name: String(r.name).charAt(0).toUpperCase() + String(r.name).slice(1)
+        }));
+
+      return { totalQuestions, topCrops };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get top crops: ${error}`);
+    }
+  }
+
   async getWeeklyAvgSessionDuration(weeks = 52, source = 'vicharanashala', session?: ClientSession): Promise<WeeklySessionDurationEntry[]> {
     try {
       await this.init(source);
@@ -525,7 +591,7 @@ export class ChatbotRepository implements IChatbotRepository {
           (item: any) =>
             item?.type === 'tool_call' &&
             item?.tool_call?.name ===
-              'upload_question_to_reviewer_system_mcp_pop',
+              'upload_question_to_reviewer_system_mcp_pop' || item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer',
         );
 
         if (!matchedContent) return false;
@@ -623,7 +689,7 @@ export class ChatbotRepository implements IChatbotRepository {
           (item: any) =>
             item?.type === 'tool_call' &&
             item?.tool_call?.name ===
-              'upload_question_to_reviewer_system_mcp_pop',
+              'upload_question_to_reviewer_system_mcp_pop' || item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer',
         );
 
         if (!matchedContent) return false;
