@@ -81,6 +81,15 @@ export class KpiSummaryResponse {
   })
   @IsNumber()
   voiceUsageSharePct: number;
+
+  @JSONSchema({
+    description: 'Number of users with zero messages in the last 3 days',
+    example: 980,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  inactiveUsersLast3Days: number;
 }
 
 // ─── Daily Active Users Entry ─────────────────────────────────────────────────
@@ -347,6 +356,15 @@ export class PaginatedUserDetailsResponse {
   })
   @IsNumber()
   activeUsers: number;
+
+  @JSONSchema({
+    description: 'Number of inactive users (users with no questions)',
+    example: 6289,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  inactiveUsers: number;
 
   @JSONSchema({
     description: 'Total number of questions across all users',

@@ -5,7 +5,6 @@ import { useQuestionClickability } from "@/hooks/ui/useQuestionClickability";
 import { Badge } from "../../components/atoms/badge";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
-import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import {
   AlertCircle,
   Calendar,
@@ -83,12 +82,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
-  // Get correct timer start time based on user role (Author vs Level Expert)
-  const timerStartTime = getTimerStartTime(q);
-
   const { timer, isClickable } = useQuestionClickability(
     q.source,
-    timerStartTime,
+    q.createdAt,
     uploadedQuestionsCount,
     userRole,
     isBulkUpload,

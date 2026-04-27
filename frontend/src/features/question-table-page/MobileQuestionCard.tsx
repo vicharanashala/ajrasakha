@@ -10,7 +10,6 @@ import { Badge } from "../../components/atoms/badge";
 import { Button } from "../../components/atoms/button";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
-import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import {
   AlertCircle,
   Edit,
@@ -83,14 +82,10 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
   onViewMore,
   showClosedAt,
 }) => {
-
-  // Get correct timer start time based on user role (Author vs Level Expert)
-  const timerStartTime = getTimerStartTime(q);
-
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   const { timer, isClickable } = useQuestionClickability(
     q.source,
-    timerStartTime,
+    q.createdAt,
     uploadedQuestionsCount,
     userRole,
     isBulkUpload,

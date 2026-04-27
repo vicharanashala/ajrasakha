@@ -43,8 +43,7 @@ import {
   QuestionIdParam,
   QuestionResponse,
   RemoveAllocateBody,
-  ApproveInitialAnswerBody,
-  ReplaceQueueExpertRequest
+  ApproveInitialAnswerBody
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
 import {
@@ -659,29 +658,6 @@ export class QuestionController {
     const { questionId } = params;
     const { answer } = body;
     return this.questionService.approveAiInitialAnswer(questionId, answer);
-  }
-
-  @Post('/:questionId/replace-queue-expert')
-  @HttpCode(200)
-  @Authorized()
-  @OpenAPI({ summary: 'Replace an expert at a specific level in the queue or the author' })
-  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
-  async replaceQueueExpert(
-    @Params() params: QuestionIdParam,
-    @Body() body: ReplaceQueueExpertRequest,
-    @CurrentUser() user: IUser,
-  ) {
-    const { _id: userId } = user;
-    const { questionId } = params;
-    const { levelIndex, newExpertId, isAuthor, reasonForChange } = body;
-    return await this.questionService.replaceQueueExpert(
-      userId.toString(),
-      questionId,
-      levelIndex+1,
-      newExpertId,
-      isAuthor,
-      reasonForChange,
-    );
   }
 
 }

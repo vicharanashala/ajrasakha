@@ -88,16 +88,6 @@ export interface IQuestionService {
     index: number,
   ): Promise<IQuestionSubmission>;
 
-  /** Replace expert at specific level in queue or the author */
-  replaceQueueExpert(
-    userId: string,
-    questionId: string,
-    levelIndex: number,
-    newExpertId: string,
-    isAuthor?: boolean,
-    reasonForChange?: string,
-  ): Promise<IQuestionSubmission>;
-
   /** Delete a question (cascade delete) */
   deleteQuestion(
     questionId: string,

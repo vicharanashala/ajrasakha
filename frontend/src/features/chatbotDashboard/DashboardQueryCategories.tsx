@@ -81,7 +81,7 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
 }) => {
     return (
         // Remove this div when data is dynamic
-        <div className="relative cursor-not-allowed">
+        <div className="relative cursor-not-allowed h-full">
         <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full">
             {/* Header */}
             <div className="flex items-start justify-between mb-4">

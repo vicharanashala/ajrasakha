@@ -24,6 +24,8 @@ import type {
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
+import { createDecipheriv } from 'crypto';
+import { count } from 'console';
 
 interface IUser {
   _id?: any;
@@ -117,7 +119,12 @@ export class ChatbotRepository implements IChatbotRepository {
       const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastYearMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls] =
+      // 3 days ago at midnight for inactive-user calculation
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      threeDaysAgo.setHours(0, 0, 0, 0);
+
+      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls, activeUsersLast3Days] =
         await Promise.all([
           this.users.countDocuments({}, {session}),
 
@@ -166,6 +173,18 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             { session },
           ),
+
+          // Count distinct users who sent messages in the last 3 days
+          this.messagesCollection
+            .aggregate(
+              [
+                { $match: { createdAt: { $gte: threeDaysAgo }, isCreatedByUser: true } },
+                { $group: { _id: '$user' } },
+                { $count: 'total' },
+              ],
+              { session },
+            )
+            .toArray(),
         ]);
 
       const monthMap = Object.fromEntries(
@@ -184,6 +203,7 @@ export class ChatbotRepository implements IChatbotRepository {
             );
 
       const avgMs = sessionStats[0]?.avg ?? 0;
+      const activeCount = (activeUsersLast3Days as any[])[0]?.total ?? 0;
 
       return {
         dau: totalUsers,
@@ -194,6 +214,7 @@ export class ChatbotRepository implements IChatbotRepository {
         repeatQueryRatePct: 0,
         voiceUsageSharePct: 0,
         totalAppInstalls,
+        inactiveUsersLast3Days: Math.max(0, totalUsers - activeCount),
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get KPI summary: ${error}`);
@@ -650,6 +671,7 @@ export class ChatbotRepository implements IChatbotRepository {
     crop = '',
     village = '',
     profileCompleted = 'all',
+    inactiveOnly = false,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails> {
     try {
@@ -758,24 +780,29 @@ export class ChatbotRepository implements IChatbotRepository {
         } : undefined,
       }));
 
+      // Filter to inactive users only if requested
+      const finalList = inactiveOnly ? merged.filter((u) => u.totalQuestions === 0) : merged;
+
       // Sort by totalQuestions desc
-      merged.sort((a, b) => b.totalQuestions - a.totalQuestions);
+      finalList.sort((a, b) => b.totalQuestions - a.totalQuestions);
 
       // Compute summary stats over the full filtered set
-      const totalUsers = merged.length;
-      const activeUsers = merged.filter((u) => u.totalQuestions > 0).length;
-      const totalQuestions = merged.reduce((sum, u) => sum + u.totalQuestions, 0);
+      const totalUsers = finalList.length;
+      const activeUsers = finalList.filter((u) => u.totalQuestions > 0).length;
+      const inactiveUsers = totalUsers - activeUsers;
+      const totalQuestions = finalList.reduce((sum, u) => sum + u.totalQuestions, 0);
       const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
 
       // Paginate
       const startIdx = (page - 1) * limit;
-      const users = merged.slice(startIdx, startIdx + limit);
+      const users = finalList.slice(startIdx, startIdx + limit);
 
       return {
         users,
         totalUsers,
         totalPages,
         activeUsers,
+        inactiveUsers,
         totalQuestions,
       };
     } catch (error) {
@@ -990,7 +1017,7 @@ export class ChatbotRepository implements IChatbotRepository {
       ]);
 
       const toPct = (count: number, total: number) =>
-        total === 0 ? 0 : Math.round((count / total) * 100);
+        total === 0 ? 0 : parseFloat(((count / total) * 100).toFixed(2));
 
       const ageBoundaryLabel: Record<string | number, string> = {
         18: '18-25', 26: '26-35', 36: '36-45', 46: '46-55', '55+': '55+',
@@ -1051,7 +1078,7 @@ export class ChatbotRepository implements IChatbotRepository {
       ]);
 
       const toPct = (count: number, total: number) =>
-        total === 0 ? 0 : Math.round((count / total) * 100);
+        total === 0 ? 0 : parseFloat(((count / total) * 100).toFixed(2));
 
       const kccTotal = kccRaw.reduce((s, r) => s + r.count, 0);
       const kccAwareness: DemographicEntry[] = kccRaw
@@ -1150,6 +1177,94 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
     } catch (error) {
       throw new InternalServerError(`Failed to generate chatbot Excel report: ${error}`);
+    }
+  }
+
+  async getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession) {
+    try {
+      await this.init();
+      const result = await this.users.aggregate([
+        {
+          $match: {
+            createdAt: {$gte: startDate, $lte: endDate},
+          },
+        },
+        {
+          $group: {
+            _id:{
+              $dateToString: { format: '%Y-%m-%d', date: '$createdAt'}
+            },
+            count: {$sum: 1}
+          }
+        },
+        {
+          $sort: {_id: 1}
+        },
+      ]).toArray()
+      return result
+    }catch (error) {
+      throw new InternalServerError(`Failed to get IDs created: ${error}`);
+    }
+  }
+
+  async getInstalls(startDate:Date,endDate:Date, session?: ClientSession) {
+    try {
+      await this.init();
+      const result = await this.users.aggregate([
+        {
+          $match:{
+            farmerProfile: {$exists: true, $ne: null},
+            updatedAt:{ $gte: startDate, $lte: endDate}
+          },
+        },
+        {
+          $group: {
+            _id:{
+              $dateToString: { format: '%Y-%m-%d', date: '$updatedAt'}
+            },
+            count: {$sum: 1}
+          },
+        },
+        {
+          $sort: {_id: 1}
+        },
+      ]).toArray()
+      return result
+    }catch (error) {
+      throw new InternalServerError(`Failed to get installs: ${error}`);  
+    }
+  }
+
+  async getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession) {
+    try {
+    await this.init();
+    const result = await this.messagesCollection.aggregate([
+      {
+        $match:{
+          createdAt: { $gte: startDate, $lte: endDate},
+        },
+      },
+      {
+        $group: {
+          _id:{
+            date: {$dateToString: { format: '%Y-%m-%d', date: '$createdAt'}},
+            user:"$user"
+          },
+        },
+      },
+      {
+        $group:{
+          _id:"$_id.date",
+          count: {$sum: 1}
+        },
+      },
+      {
+        $sort: {_id: 1}
+      },
+    ]).toArray()
+    return result
+    }catch (error) {
+      throw new InternalServerError(`Failed to get active users: ${error}`);    
     }
   }
 }

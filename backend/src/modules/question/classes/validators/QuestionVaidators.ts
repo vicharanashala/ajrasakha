@@ -15,7 +15,6 @@ import {
   IsEmail,
   IsIn,
   IsBooleanString,
-  IsBoolean,
 } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
 import { ObjectId } from 'mongodb';
@@ -253,20 +252,6 @@ class AnswerDetails {
   sources!: string[];
 }
 
-class PreviousAllocationItem {
-  @IsString()
-  reviewerId!: string;
-
-  @IsString()
-  reasonForChange!: string;
-
-  @Type(() => Date)
-  createdAt!: Date;
-
-  @Type(() => Date)
-  updatedAt!: Date;
-}
-
 class HistoryItem {
   @ValidateNested()
   @Type(() => UpdatedBy)
@@ -278,8 +263,8 @@ class HistoryItem {
   answer?: AnswerDetails;
 
   @IsOptional()
-  @IsEnum(['approved', 'rejected', 'in-review', 'reviewed'])
-  status?: 'approved' | 'rejected' | 'in-review' | 'reviewed';
+  @IsEnum(['approved', 'rejected'])
+  status?: 'approved' | 'rejected';
 
   @IsOptional()
   @IsString()
@@ -288,19 +273,6 @@ class HistoryItem {
   @IsOptional()
   @IsString()
   approvedAnswer?: string;
-
-  @IsOptional()
-  @IsString()
-  modifiedAnswer?: string;
-
-  @IsOptional()
-  @IsString()
-  reasonForLastModification?: string;
-
-  @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => PreviousAllocationItem)
-  previousAllocations?: PreviousAllocationItem[];
 
   @Type(() => Date)
   createdAt!: Date;
@@ -435,24 +407,6 @@ class AllocateExpertsRequest {
 class RemoveAllocateBody {
   @IsNumber()
   index!: number;
-}
-class ReplaceQueueExpertRequest {
-  @IsNotEmpty()
-  @IsMongoId()
-  newExpertId!: string;
-
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(0)
-  levelIndex!: number;
-
-  @IsOptional()
-  @IsBoolean()
-  isAuthor?: boolean;
-
-  @IsNotEmpty()
-  @IsString()
-  reasonForChange!: string;
 }
 class GeneratedQuestionResponse {
   @IsString()
@@ -809,10 +763,8 @@ export const QUESTION_VALIDATORS = [
   AllocateExpertsRequest,
   ExpertInput,
   RemoveAllocateBody,
-  ReplaceQueueExpertRequest,
   UpdatedBy,
   HistoryItem,
-  PreviousAllocationItem,
   BulkDeleteQuestionDto,
   DateRangeRequest,
   AllocatedQuestionsBodyDto,
@@ -831,7 +783,6 @@ export {
   AllocateExpertsRequest,
   ExpertInput,
   RemoveAllocateBody,
-  ReplaceQueueExpertRequest,
   UpdatedBy,
   HistoryItem,
   BulkDeleteQuestionDto,
