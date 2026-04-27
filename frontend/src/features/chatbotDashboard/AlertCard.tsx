@@ -15,7 +15,7 @@ interface AlertCardProps {
 
 export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, onInactiveClick }: AlertCardProps) {
   return (
-    <div className="h-full flex flex-col bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
+    <div className="h-full flex flex-col bg-card text-card-foreground rounded-xl border shadow-sm dark:bg-[#1a1a1a] dark:border-[#2a2a2a] p-4">
       {/* Header */}
       <div className="flex items-start justify-between mb-3.5">
         <div className="min-w-0 flex-1 mr-2">
@@ -30,11 +30,11 @@ export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, on
 
       {/* Inactive Users Row */}
       <div
-        className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/30 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+        className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 cursor-pointer hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
         onClick={() => onInactiveClick?.()}
       >
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/40">
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/40">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="14"
@@ -45,7 +45,7 @@ export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, on
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="text-amber-600 dark:text-amber-400"
+              className="text-red-600 dark:text-red-400"
             >
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
               <circle cx="9" cy="7" r="4" />
@@ -63,7 +63,7 @@ export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, on
         </div>
         <Badge
           label={inactiveUsersLast3Days.toLocaleString()}
-          variant="amber"
+          variant="red"
         />
       </div>
 

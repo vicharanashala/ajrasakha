@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import React, { useState, useRef, useCallback, useMemo, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
@@ -20,9 +20,13 @@ import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
+// import { UserGrowthChart } from "./components/UserGrowthChart";
+const LazyUserGrowthChart = React.lazy(() => import("./components/UserGrowthChart"));
 import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
 import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
+import { useInView } from "@/hooks/useInView";
+
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
   crop: "all",
@@ -33,8 +37,8 @@ const DEFAULT_FILTERS: DashboardFilterValues = {
 
 export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { className?: string; source?: 'vicharanashala' | 'annam' }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
-  const [activeView, setActiveView]       = useState<DashboardView>("overview");
-  const [filters, setFilters]             = useState<DashboardFilterValues>(DEFAULT_FILTERS);
+  const [activeView, setActiveView] = useState<DashboardView>("overview");
+  const [filters, setFilters] = useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters, source);
   const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source);
@@ -42,7 +46,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   const { data:topCrops, isLoading:isLoadingTopCrops, error:errorLoadingtopCrops } = useTopCrops();
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
-
+  const { ref: growthRef, isVisible: isGrowthVisible } = useInView();
   const scrollTo = (view: DashboardView) => {
     setTimeout(() => sectionRefs.current[view]?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
@@ -158,7 +162,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
 
                 <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
                   {isLoading && <Spinner text="Fetching metrics..." fullScreen={false} />}
-                  
+
                   {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
                   {/* Uncomment the above line when data is dynamic and delete the below code */}
                   <EightCardsComponent kpiRow1={kpiRow1WithOverlay} kpiRow2={kpiRow2WithOverlay} />
@@ -168,14 +172,26 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                 <div
                   ref={(el) => {
                     sectionRefs.current["usage-patterns"] = el;
+                    growthRef.current = el;
                   }}
                   className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
                 >
-                  <DailyActiveUsers
+                  {/* <DailyActiveUsers
                     data={dauTrend}
                     isLoading={dauLoading}
                     error={dauError}
-                  />
+                  /> */}
+                  {isGrowthVisible ? (
+                    <Suspense fallback={<Spinner/>}>
+                      <LazyUserGrowthChart />
+                    </Suspense>
+                  ) : (
+                    <div className="h-[300px] flex items-center justify-center text-gray-400">
+                      {/* <Spinner text="Loading chart..." /> */}
+                      <div className="h-[300px] bg-gray-100 dark:bg-[#1a1a1a] animate-pulse rounded-xl" />
+                    </div>
+                  )}
+                  
                   <div
                     ref={(el) => {
                       sectionRefs.current["bugs-ux"] = el;
@@ -186,13 +202,15 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                 </div>
 
                 {/* Demographics */}
-                <UserDemographicsSection
-                  data={{
-                    ageGroups: data.ageGroups,
-                    genderSplit: data.genderSplit,
-                    farmingExperience: data.farmingExperience,
-                  }}
-                />
+                <div ref={(el) => { sectionRefs.current["demographics"] = el; }}>
+                  <UserDemographicsSection
+                    data={{
+                      ageGroups: data.ageGroups,
+                      genderSplit: data.genderSplit,
+                      farmingExperience: data.farmingExperience,
+                    }}
+                  />
+                </div>
 
                 {/* 3-col row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4 items-stretch">

@@ -24,6 +24,8 @@ import type {
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
+import { createDecipheriv } from 'crypto';
+import { count } from 'console';
 
 interface IUser {
   _id?: any;
@@ -1241,6 +1243,94 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
     } catch (error) {
       throw new InternalServerError(`Failed to generate chatbot Excel report: ${error}`);
+    }
+  }
+
+  async getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession) {
+    try {
+      await this.init();
+      const result = await this.users.aggregate([
+        {
+          $match: {
+            createdAt: {$gte: startDate, $lte: endDate},
+          },
+        },
+        {
+          $group: {
+            _id:{
+              $dateToString: { format: '%Y-%m-%d', date: '$createdAt'}
+            },
+            count: {$sum: 1}
+          }
+        },
+        {
+          $sort: {_id: 1}
+        },
+      ]).toArray()
+      return result
+    }catch (error) {
+      throw new InternalServerError(`Failed to get IDs created: ${error}`);
+    }
+  }
+
+  async getInstalls(startDate:Date,endDate:Date, session?: ClientSession) {
+    try {
+      await this.init();
+      const result = await this.users.aggregate([
+        {
+          $match:{
+            farmerProfile: {$exists: true, $ne: null},
+            updatedAt:{ $gte: startDate, $lte: endDate}
+          },
+        },
+        {
+          $group: {
+            _id:{
+              $dateToString: { format: '%Y-%m-%d', date: '$updatedAt'}
+            },
+            count: {$sum: 1}
+          },
+        },
+        {
+          $sort: {_id: 1}
+        },
+      ]).toArray()
+      return result
+    }catch (error) {
+      throw new InternalServerError(`Failed to get installs: ${error}`);  
+    }
+  }
+
+  async getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession) {
+    try {
+    await this.init();
+    const result = await this.messagesCollection.aggregate([
+      {
+        $match:{
+          createdAt: { $gte: startDate, $lte: endDate},
+        },
+      },
+      {
+        $group: {
+          _id:{
+            date: {$dateToString: { format: '%Y-%m-%d', date: '$createdAt'}},
+            user:"$user"
+          },
+        },
+      },
+      {
+        $group:{
+          _id:"$_id.date",
+          count: {$sum: 1}
+        },
+      },
+      {
+        $sort: {_id: 1}
+      },
+    ]).toArray()
+    return result
+    }catch (error) {
+      throw new InternalServerError(`Failed to get active users: ${error}`);    
     }
   }
 }

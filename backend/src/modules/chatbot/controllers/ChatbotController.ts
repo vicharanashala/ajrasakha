@@ -29,6 +29,7 @@ import {
   PaginatedUserDetailsResponse,
   TopCropsResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
+import { GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -311,5 +312,29 @@ export class ChatbotController {
       return;
     }
     return Buffer.from(data as ArrayBuffer);
+  }
+
+  @OpenAPI({ 
+    summary: 'Get user growth metrics',
+    description: 'Retrieves user growth metrics over the last N days, suitable for bar graph visualization.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch user growth trend',
+  })
+  @Get('/user-growth')
+  @HttpCode(200)
+  @Authorized()
+  async getGrowth(@QueryParams() query: GrowthQuery): Promise<GrowthResponse> {
+    const range = Number(query.range) || 30;
+    if (![30, 60, 90].includes(range)) {
+      throw new Error('Invalid range. Allowed values are 30, 60, or 90.');
+    }
+    const data = await this.chatbotService.getGrowth(range);
+    return data
   }
 }

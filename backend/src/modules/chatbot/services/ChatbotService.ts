@@ -4,13 +4,21 @@ import { CHATBOT_TYPES } from '../types.js';
 import type { IChatbotService, DashboardResponse } from '../interfaces/IChatbotService.js';
 import type { IChatbotRepository, ChatbotConversationData } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
+import { GrowthResponse } from '../types/chatbot.type.js';
+import { BaseService, MongoDatabase } from '#root/shared/index.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { getDateRange, mapToSeries } from '../utils/chatbot.utils.js';
 
 @injectable()
-export class ChatbotService implements IChatbotService {
+export class ChatbotService extends BaseService implements IChatbotService {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotRepository)
     private readonly chatbotRepository: IChatbotRepository,
-  ) {}
+    @inject(GLOBAL_TYPES.Database)
+    private readonly mongoDatabase: MongoDatabase,
+  ) {
+    super(mongoDatabase);
+  }
 
   async getDashboard(days = 30, source = 'vicharanashala'): Promise<DashboardResponse> {
     try {
@@ -573,5 +581,27 @@ export class ChatbotService implements IChatbotService {
     } catch (error) {
       throw new InternalServerError(`Failed to generate chatbot Excel report: ${error}`);
     }
+  }
+
+  async getGrowth(range:number):Promise<GrowthResponse> {
+    return await this._withTransaction(async (session) => {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - range);
+      const labels = getDateRange(range)
+      const [idsData, installsData, activeUsersData] = await Promise.all([
+        this.chatbotRepository.getIdsCreated(startDate, endDate, session),
+        this.chatbotRepository.getInstalls(startDate, endDate, session),
+        this.chatbotRepository.getActiveUsers(startDate, endDate, session),
+      ])
+      return {
+        labels,
+        series:{
+          idsCreated:mapToSeries(labels, idsData),
+          installs:mapToSeries(labels, installsData),
+          activeUsers:mapToSeries(labels, activeUsersData)
+        }
+      }
+    })
   }
 }
