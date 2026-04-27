@@ -53,6 +53,12 @@ export function useReviewLevelColumns(
 
   const handleDelayedClick = (row: ReviewRow, index: number, time: string) => {
     if (!isModeratorOrAdmin) return;
+    
+    // Only allow reallocation for "open" and "delayed" status questions
+    if (row.status !== "open" && row.status !== "delayed") {
+      return;
+    }
+    
     // Check if clicking on Author column (index 0)
     const isAuthor = index === 0;
     // Calculate queue index: only count Level columns (1-10), NOT Author (0)

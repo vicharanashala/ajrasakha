@@ -9,6 +9,7 @@ interface TimerDisplayProps {
   criticalThreshold?: number;
   className?: string;
   size?: "sm" | "md" | "lg";
+  showDays?: boolean;
 }
 
 export const TimerDisplay: React.FC<TimerDisplayProps> = ({
@@ -19,10 +20,27 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
   criticalThreshold = 10,
   className = "",
   size = "md",
+  showDays = false,
 }) => {
 
-  const [hours, minutes] = timer.split(":").map(Number);
-  if (timer === "00:00:00") return null;
+  // Early return if timer is invalid
+  if (!timer || timer === "00:00:00") return null;
+
+  console.log("TimerDisplay - timer:", timer, "status:", status, "showDays:", showDays);
+  
+  // Simple parsing for testing
+  const timeParts = timer.split(":").map(Number);
+  let days = 0, hours = 0, minutes = 0;
+  
+  if (timeParts.length >= 3) {
+    [hours, minutes] = timeParts.slice(0, 2);
+    if (showDays && hours > 24) {
+      days = Math.floor(hours / 24);
+      hours = hours % 24;
+    }
+  } else if (timeParts.length === 2) {
+    [hours, minutes] = timeParts;
+  }
 
   const sizeMap = {
     sm: { icon: "w-3 h-3", text: "text-xs" },
@@ -46,8 +64,8 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
     );
   }
 
-  if (status === "delayed" || status !== "open") return null;
-  if (!timer) return null;
+  // Allow timer to show for all statuses except closed
+  if (status === "closed" || !timer) return null;
 
 
   // if (hours === 0 && minutes < criticalThreshold) {
@@ -73,10 +91,18 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
     }
   }
 
+  // Format display time
+  let displayTime = timer;
+  if (showDays && days > 0) {
+    displayTime = `${days}d ${hours}h ${minutes}m`;
+  } else if (showDays) {
+    displayTime = `${hours}h ${minutes}m`;
+  }
+
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
       {icon}
-      <span className={`${textSize} font-mono ${textColor}`}>{timer}</span>
+      <span className={`${textSize} font-mono ${textColor}`}>{displayTime}</span>
     </div>
   );
 };

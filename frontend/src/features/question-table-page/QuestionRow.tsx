@@ -329,7 +329,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                 </TooltipProvider>
 
                 {q.status !== "delayed" && (
-                  <TimerDisplay timer={timer} status={q.status} source={q.source} />
+                  <TimerDisplay timer={timer} status={q.status} source={q.source} showDays={true} />
                 )}
               </div>
             </div>

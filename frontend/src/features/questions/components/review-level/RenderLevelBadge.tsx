@@ -115,8 +115,9 @@ export function renderLevelBadge(
   const isCompleted = isLast && value.yet_to_complete === false;
 
   const isDelayed = minutes > 120;
-  // Only allow reallocation for delayed AND currently pending (active) level
-  const canClick = isDelayed && isPending && options?.onDelayedClick;
+  // Only allow reallocation for delayed AND currently pending (active) level, OR for open/delayed status questions
+  const canClick =  
+                   ((row.status === "open" || row.status === "delayed") && isDelayed && isPending && options?.onDelayedClick);
 
 
   return (

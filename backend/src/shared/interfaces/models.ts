@@ -249,6 +249,7 @@ export type INotificationType =
   |'re-routed-answer-created'
   | 'question_from_whatsapp'
   | 'question_from_ajrasakha'
+  | 'expert_replacement'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;

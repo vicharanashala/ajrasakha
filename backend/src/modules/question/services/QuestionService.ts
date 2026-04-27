@@ -48,6 +48,7 @@ import { NotificationService } from '#root/modules/notification/services/Notific
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
+import { UserService } from '#root/modules/user/services/UserService.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from 'exceljs'
@@ -105,8 +106,20 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
+
+    @inject(GLOBAL_TYPES.UserService)
+    private readonly userService: UserService,
   ) {
     super(mongoDatabase);
+  }
+
+  /**
+   * Helper function to truncate question text for notifications
+   */
+  private truncateQuestionText(questionText: string, maxLength: number = 50): string {
+    if (!questionText) return 'Question';
+    if (questionText.length <= maxLength) return questionText;
+    return questionText.substring(0, maxLength) + '...';
   }
 
   async createBulkQuestions(
@@ -2067,7 +2080,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
         // Get current author ID
-        const currentAuthorId = question.userId?.toString();
+        const currentAuthorId = questionSubmission.queue[0];
 
         // Check if new expert is same as current author
         if (currentAuthorId === newExpertId) {
@@ -2158,22 +2171,61 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
           }
 
-        // Send notification to new author
-        const message = `A question has been reassigned to you as the new author`;
-        const title = 'Question Reassigned';
-        const entityId = questionId.toString();
-        const type: INotificationType = 'peer_review';
-        await this.notificationService.saveTheNotifications(
-          message,
-          title,
-          entityId,
-          newExpertId,
-          type,
-        );
+        
+        try {
+          // Prepare notification data
+          const truncatedQuestionText = this.truncateQuestionText(question.question);
+          const entityId = questionId.toString();
+          const type: INotificationType = 'expert_replacement';
+
+          const replacedExpertMessage = `You have been removed from the question "${truncatedQuestionText}". Reason: ${reasonForChange}`;
+          const replacedExpertTitle = 'Question Assignment Removed';
+
+          const newExpertMessage = `You have been assigned a new question: "${truncatedQuestionText}" as the author.`;
+          const newExpertTitle = 'New Question Assigned';
+
+          // Execute all operations in parallel
+          await Promise.all([
+            // 1. Assign penalty to replaced expert
+            this.userService.updatePenaltyAndIncentive(currentAuthorId!.toString(), 'penalty'),
+            
+            // 2. Assign incentive to new expert
+            this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
+            
+            // 3. Send notification to replaced expert (with error handling)
+            this.notificationService.saveTheNotifications(
+              replacedExpertMessage,
+              replacedExpertTitle,
+              entityId,
+              currentAuthorId!.toString(),
+              type,
+            ).catch(notificationError => {
+              console.error(`[replaceQueueExpert] ❌ Failed to send notification to replaced author: ${currentAuthorId}`, notificationError);
+              // Return resolved promise to not break Promise.all
+              return Promise.resolve();
+            }),
+            
+            // 4. Send notification to new expert (with error handling)
+            this.notificationService.saveTheNotifications(
+              newExpertMessage,
+              newExpertTitle,
+              entityId,
+              newExpertId,
+              type,
+            ).catch(notificationError => {
+              console.error(`[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`, notificationError);
+              // Return resolved promise to not break Promise.all
+              return Promise.resolve();
+            })
+          ]);
+
+        } catch (penaltyError) {
+          console.error(`[replaceQueueExpert] Penalty/incentive update failed:`, penaltyError);
+          throw new InternalServerError('Failed to update penalty/incentive scores. Operation rolled back.');
+        }
 
         // Return updated submission
-        const updatedSubmission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
-        return updatedSubmission!;
+        return updateResult;
       }
 
       // Handle Queue Expert replacement (Level 1, 2, etc.) - Reallocation Logic
@@ -2357,28 +2409,59 @@ export class QuestionService extends BaseService implements IQuestionService {
         updateData,
         session,
       );
+      
+      try {
+        // Prepare notification data
+        const truncatedQuestionText = this.truncateQuestionText(question.question);
+        const entityId = questionId.toString();
+        const type: INotificationType = 'expert_replacement';
 
-      // 10. Send notification to new expert
-      const message = `A Review has been reassigned to you`;
-      const title = 'Review Reassigned';
-      const entityId = questionId.toString();
-      const type: INotificationType = 'peer_review';
-      await this.notificationService.saveTheNotifications(
-        message,
-        title,
-        entityId,
-        newExpertId,
-        type,
-      );
-      console.log(`[replaceQueueExpert] Notification sent successfully to expert: ${newExpertId}`);
+        const replacedExpertMessage = `You have been removed from level ${levelIndex} review of question "${truncatedQuestionText}".`;
+        const replacedExpertTitle = 'Review Assignment Removed';
 
-      // Calculate hours since assignment for logging
-      const hoursSinceAssignment = currentExpertHistoryEntry
-        ? (now.getTime() - new Date(currentExpertHistoryEntry.createdAt).getTime()) / (1000 * 60 * 60)
-        : 0;
-      const previousAllocationsCount = currentExpertHistoryEntry
-        ? ((currentExpertHistoryEntry.previousAllocations || []).length + 1)
-        : 1;
+        const newExpertMessage = `You have been assigned level ${levelIndex} review for question: "${truncatedQuestionText}".`;
+        const newExpertTitle = 'New Review Assigned';
+
+        // Execute all operations in parallel
+        await Promise.all([
+          // 1. Assign penalty to replaced expert
+          this.userService.updatePenaltyAndIncentive(currentExpertId, 'penalty'),
+          
+          // 2. Assign incentive to new expert
+          this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
+          
+          // 3. Send notification to replaced expert (with error handling)
+          this.notificationService.saveTheNotifications(
+            replacedExpertMessage,
+            replacedExpertTitle,
+            entityId,
+            currentExpertId,
+            type,
+          ).catch(notificationError => {
+            console.error(`[replaceQueueExpert] ❌ Failed to send notification to replaced expert: ${currentExpertId}`, notificationError);
+            // Return resolved promise to not break Promise.all
+            return Promise.resolve();
+          }),
+          
+          // 4. Send notification to new expert (with error handling)
+          this.notificationService.saveTheNotifications(
+            newExpertMessage,
+            newExpertTitle,
+            entityId,
+            newExpertId,
+            type,
+          ).catch(notificationError => {
+            console.error(`[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`, notificationError);
+            // Return resolved promise to not break Promise.all
+            return Promise.resolve();
+          })
+        ]);
+
+      } catch (penaltyError) {
+        console.error(`[replaceQueueExpert] Penalty/incentive update failed for queue expert:`, penaltyError);
+        throw new InternalServerError('Failed to update penalty/incentive scores. Operation rolled back.');
+      }
+
 
       return updated;
     });
