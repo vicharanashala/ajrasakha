@@ -2,7 +2,6 @@ import os
 from urllib.parse import quote_plus
 from llama_index.core.prompts import PromptTemplate
 
-# Vector Database
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME")
 INDEX_NAME = os.getenv("INDEX_NAME")
