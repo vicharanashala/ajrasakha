@@ -1,29 +1,30 @@
+import os
 from urllib.parse import quote_plus
 from llama_index.core.prompts import PromptTemplate
 
 # Vector Database
-USERNAME = quote_plus("agriai")
-PASSWORD = quote_plus("agriai1224")
-MONGODB_URI = f"mongodb+srv://{USERNAME}:{PASSWORD}@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging"
-DB_NAME = "golden_db"
-INDEX_NAME = "vector_index"
-SARVAM_URL = "https://api.sarvam.ai/speech-to-text"
-API_KEY = "sk_s2j7cwtf_frU76CJMmVQi3Y4jwBfY3M3m"
+USERNAME = quote_plus(os.getenv("MONGO_USERNAME", "agriai"))
+PASSWORD = quote_plus(os.getenv("MONGO_PASSWORD", "agriai1224"))
+MONGODB_URI = os.getenv("MONGODB_URI", f"mongodb+srv://{USERNAME}:{PASSWORD}@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging")
+DB_NAME = os.getenv("DB_NAME", "golden_db")
+INDEX_NAME = os.getenv("INDEX_NAME", "vector_index")
+SARVAM_URL = os.getenv("SARVAM_URL", "https://api.sarvam.ai/speech-to-text")
+API_KEY = os.getenv("API_KEY", "sk_s2j7cwtf_frU76CJMmVQi3Y4jwBfY3M3m")
 
 
 # Database Collections
-COLLECTION_QA = "agri_qa"
-COLLECTION_POP = "pop"
+COLLECTION_QA = os.getenv("COLLECTION_QA", "agri_qa")
+COLLECTION_POP = os.getenv("COLLECTION_POP", "pop")
 
 # LLM
-OLLAMA_HOST = "http://100.100.108.13:11434"
-OLLAMA_API_URL = OLLAMA_HOST + "/api/chat"
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://100.100.108.13:11434")
+OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", f"{OLLAMA_HOST}/api/chat")
 
 # MODELS
-LLM_MODEL_MAIN = "deepseek-r1:70b"
-LLM_MODEL_FALL_BACK = "gpt-oss:20b"
-LLM_STRUCTURED_MODEL = "Osmosis/Osmosis-Structure-0.6B:latest"
-EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
+LLM_MODEL_MAIN = os.getenv("LLM_MODEL_MAIN", "deepseek-r1:70b")
+LLM_MODEL_FALL_BACK = os.getenv("LLM_MODEL_FALL_BACK", "gpt-oss:20b")
+LLM_STRUCTURED_MODEL = os.getenv("LLM_STRUCTURED_MODEL", "Osmosis/Osmosis-Structure-0.6B:latest")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-en-v1.5")
 
 
 DEFAULT_CITATION_CHUNK_SIZE = 200
