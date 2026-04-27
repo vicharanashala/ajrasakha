@@ -10,6 +10,6 @@ MCP_URLS = {
     "enam":       f"http://{REMOTE_IP}:9002/mcp",
     "agmarknet":  f"http://{REMOTE_IP}:9006/mcp",
     "reviewer":   f"http://{REMOTE_IP}:9001/mcp",
-    "location":   f"http://{REMOTE_IP}:9004/mcp",
+    "location":   f"http://{REMOTE_IP}:9000/mcp",
     "faq_video":  f"http://{REMOTE_IP}:9007/mcp",
 }
