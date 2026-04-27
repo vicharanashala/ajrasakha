@@ -1352,9 +1352,74 @@ export class QuestionController {
   @HttpCode(200)
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   @OpenAPI({ summary: 'Generate ai-initial answer' })
-  async generateAiInitialAnswer(@Params() params: QuestionIdParam){
+  async generateAiInitialAnswer(@Params() params: QuestionIdParam, @QueryParams() query: {userId: string}){
     const { questionId } = params;
-    return this.questionService.generateAiInitialAnswer(questionId);
+    const { userId } = query;
+    let response;
+    let auditPayload : ModeratorAuditTrail;
+    if(userId){
+      const user = await this.userService.getUserById(userId);
+      const prevQuestion = await this.questionService.getQuestionById(questionId);
+      auditPayload = {
+        category: AuditCategory.AI_GENERATED,
+        action: AuditAction.GENERATE_ANSWER,
+        actor: {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user?.avatar || '',
+        },
+        context: {
+          questionId: questionId,
+          question: prevQuestion.text,
+        },
+        changes: {
+          before: {
+            aiInitialAnswer: prevQuestion.aiInitialAnswer || null,
+          },
+        },
+        outcome: {
+          status: OutComeStatus.SUCCESS,
+        },
+      };
+    }
+    try{
+      response = await this.questionService.generateAiInitialAnswer(questionId);
+    } catch(err: any){
+      if(userId){
+        auditPayload = {
+          ...auditPayload,
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorCode: err?.errorCode || 'INTERNAL_ERROR',
+            errorMessage: err?.message || 'Failed to generate AI initial answer',
+            errorName: err?.name || 'Error',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+          },
+        };
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to generate AI initial answer',
+      );
+    }
+    if(userId){
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          ...auditPayload.changes,
+          after: {
+            aiInitialAnswer: response || null,
+          },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+    }
+    return response;
   }
 
   @Post('/:questionId/approve-initial-answer')

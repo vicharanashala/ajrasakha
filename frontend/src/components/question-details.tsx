@@ -88,7 +88,7 @@ export const QuestionDetails = ({
     data: newAiGeneratedAnswer,
     isPending: isGeneratingAI,
     error,
-  } = useGenerateInitialAnswer();
+  } = useGenerateInitialAnswer(currentUser._id?.toString());
   const submissionExists = submissionCheck?.exists ?? false;
 
 
