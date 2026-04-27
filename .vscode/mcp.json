@@ -20,6 +20,10 @@
     "ajrasakha-faq": {
       "type": "http",
       "url": "http://localhost:9005/mcp"
+    },
+    "ajrasakha-mandi": {
+      "type": "http",
+      "url": "http://localhost:9007/mcp"
     }
   }
 }
