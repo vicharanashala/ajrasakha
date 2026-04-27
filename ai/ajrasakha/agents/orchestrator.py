@@ -11,10 +11,10 @@ from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from langgraph.graph.message import add_messages
 from pymongo import MongoClient
 
-from agents.gdb_agent import run_gdb_agent
-from agents.market_agent import run_market_agent
-from agents.weather_agent import run_weather_agent
-from agents.soil_agent import run_soil_agent
+from ajrasakha.agents.gdb_agent import run_gdb_agent
+from ajrasakha.agents.market_agent import run_market_agent
+from ajrasakha.agents.weather_agent import run_weather_agent
+from ajrasakha.agents.soil_agent import run_soil_agent
 
 def merge_answers(existing: list, new: any) -> list:
 
