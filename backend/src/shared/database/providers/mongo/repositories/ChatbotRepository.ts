@@ -111,7 +111,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   private async getExternalUserIds(): Promise<string[]> {
     const externalUsers = await this.users
-      .find({ username: { $regex: '^rup', $options: 'i' } }, { projection: { _id: 1 } })
+      .find({ email: { $regex: '^rup', $options: 'i' } }, { projection: { _id: 1 } })
       .toArray();
     return externalUsers.map(u => String(u._id));
   }
@@ -127,8 +127,8 @@ export class ChatbotRepository implements IChatbotRepository {
   private buildUserDocFilter(userType: string): Record<string, any> {
     if (userType === 'all') return {};
     return userType === 'external'
-      ? { username: { $regex: '^rup', $options: 'i' } }
-      : { username: { $not: { $regex: '^rup', $options: 'i' } } };
+      ? { email: { $regex: '^rup', $options: 'i' } }
+      : { email: { $not: { $regex: '^rup', $options: 'i' } } };
   }
 
   async getKpiSummary(source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<KpiSummary> {
