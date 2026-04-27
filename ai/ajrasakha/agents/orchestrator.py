@@ -1,173 +1,132 @@
-import os
+import logging
+from typing import TypedDict, Annotated, List
+
 from dotenv import load_dotenv
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import BaseMessage, AIMessage
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from ajrasakha.agents.config import CLAUDE_MODEL
+from ajrasakha.agents.gdb_agent import run_gdb_agent
+from ajrasakha.agents.market_agent import run_market_agent
+from ajrasakha.agents.prompts import ORCHESTRATOR_ROUTER_PROMPT
+from ajrasakha.agents.schemas import RouterSchema
+from ajrasakha.agents.soil_agent import run_soil_agent
+from ajrasakha.agents.supervisor_agent import run_supervisor_agent
+from ajrasakha.agents.weather_agent import run_weather_agent
 
 load_dotenv()
 
-from typing import TypedDict, Annotated, List
-from pydantic import BaseModel, Field
-from langchain_anthropic import ChatAnthropic
-from langgraph.graph import StateGraph, END
-from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
-from langgraph.graph.message import add_messages
-from pymongo import MongoClient
+logger = logging.getLogger(__name__)
 
-from ajrasakha.agents.gdb_agent import run_gdb_agent
-from ajrasakha.agents.market_agent import run_market_agent
-from ajrasakha.agents.weather_agent import run_weather_agent
-from ajrasakha.agents.soil_agent import run_soil_agent
 
-def merge_answers(existing: list, new: any) -> list:
-
+def _merge_answers(existing: list, new: any) -> list:
     if new == "CLEAR":
         return []
-        
-    if existing is None:
-        existing = []
-        
+    existing = existing or []
     if isinstance(new, str):
         return existing + [new]
-    elif isinstance(new, list):
-        extracted = []
-        for item in new:
-            if isinstance(item, str):
-                extracted.append(item)
-            elif isinstance(item, dict) and 'text' in item:
-                extracted.append(item['text'])
-            else:
-                extracted.append(str(item))
-        return existing + extracted
-    elif isinstance(new, dict):
-        text_val = new.get("text", str(new))
-        return existing + [text_val]
-        
+    if isinstance(new, list):
+        return existing + [
+            item["text"] if isinstance(item, dict) and "text" in item else str(item)
+            for item in new
+        ]
+    if isinstance(new, dict):
+        return existing + [new.get("text", str(new))]
     return existing + [str(new)]
 
-def merge_entities(existing: dict, new: dict) -> dict:
-    if existing is None:
-        existing = {}
-    if new is None:
-        new = {}
-        
-    merged = existing.copy()
-    merged.update(new)
+
+def _merge_entities(existing: dict, new: dict) -> dict:
+    merged = (existing or {}).copy()
+    merged.update(new or {})
     return merged
 
-class MasterState(TypedDict):
+
+class OrchestratorState(TypedDict):
+    original_query: str
     query: str
     intents: List[str]
-    entities: Annotated[dict, merge_entities] 
-    final_answer: Annotated[List[str], merge_answers] 
+    entities: Annotated[dict, _merge_entities]
+    final_answer: Annotated[List[str], _merge_answers]
     messages: Annotated[List[BaseMessage], add_messages]
+    response_mode: str
 
-class RouterSchema(BaseModel):
-    intents: List[str] = Field(
-        description="List of applicable intents based on user query. Options: 'market' (prices), 'gdb' (diseases/general), 'weather' (rain), 'soil' (fertilizers)."
-    )
-    entities: dict = Field(
-        description="Extract useful info as a dict, e.g. {'crop': 'wheat', 'state': 'Haryana'}. Empty dict if nothing found."
-    )
 
-llm = ChatAnthropic(model="claude-sonnet-4-5-20250929") 
+llm = ChatAnthropic(model=CLAUDE_MODEL)
 structured_llm = llm.with_structured_output(RouterSchema)
 
-async def parse_query_node(state: MasterState):
+
+async def parse_query_node(state: OrchestratorState) -> dict:
     messages = state["messages"]
     user_message = messages[-1].content
-    
     past_entities = state.get("entities", {})
-    
+
     history_text = "\n".join(
-        [f"{'Farmer' if m.type == 'human' else 'AjraSakha'}: {m.content}" for m in messages[:-1]]
+        f"{'Farmer' if m.type == 'human' else 'AjraSakha'}: {m.content}"
+        for m in messages[:-1]
     )
-    
-    print(f"\n[Orchestrator] Original Farmer Query: '{user_message}'")
-    
-    prompt = f"""You are an intelligent router for an agricultural AI.
-    
-    Conversation History:
-    {history_text if history_text else "No previous history. This is the start of the conversation."}
-    
-    Latest Farmer Query: '{user_message}'
-    
-    Based on the context of the conversation, analyze the LATEST query and output ALL applicable intents and entities in a list.
-    """
-    
-    response = await structured_llm.ainvoke(prompt)
-    
+
+    prompt = (
+        f"{ORCHESTRATOR_ROUTER_PROMPT}\n\n"
+        f"Conversation History:\n{history_text or 'No previous history.'}\n\n"
+        f"Latest Farmer Query: '{user_message}'"
+    )
+
+    response: RouterSchema = await structured_llm.ainvoke(prompt)
+
     current_entities = past_entities.copy()
     current_entities.update(response.entities)
-    
+
     enriched_query = user_message
     if "location" in current_entities:
-        enriched_query = f"[Context: The farmer is currently in {current_entities['location']}]. {user_message}"
-    
-    print(f"[Orchestrator] LLM decided Intents -> {response.intents}")
-    print(f"[Orchestrator] Current Entities -> {current_entities}")
-    print(f"[Orchestrator] ENRICHED Query sent to Agents -> '{enriched_query}'")
-    
+        enriched_query = f"[Context: The farmer is in {current_entities['location']}]. {user_message}"
+
+    detail_keywords = {"detail", "detailed", "full", "complete", "elaborate", "विस्तार", "पूरी जानकारी"}
+    mode = "detailed" if any(k in user_message.lower() for k in detail_keywords) else "short"
+
+    logger.info("Intents: %s | Entities: %s | Mode: %s", response.intents, current_entities, mode)
+
     return {
+        "original_query": user_message,
         "query": enriched_query,
-        "intents": response.intents, 
+        "intents": response.intents,
         "entities": current_entities,
-        "final_answer": "CLEAR"
+        "final_answer": "CLEAR",
+        "response_mode": mode,
     }
 
-def route_to_agents(state: MasterState):
+
+def route_to_agents(state: OrchestratorState) -> List[str]:
     intents = state.get("intents", [])
-    
-    routes = []
-    if "weather" in intents: routes.append("weather_node")
-    if "market" in intents: routes.append("market_node")
-    if "soil" in intents: routes.append("soil_node")
-    if "gdb" in intents: routes.append("gdb_node")
-        
-    if not routes:
-        return ["gdb_node"]
-        
-    print(f"[Orchestrator] Routing in parallel to -> {routes}")
-    return routes
-
-async def combine_answers_node(state: MasterState):
-    all_answers = state.get("final_answer", [])
-    print("\n[Orchestrator] Combining answers from all agents...")
-    
-    clean_answers = [str(ans) for ans in all_answers if ans] 
-    combined_message = "\n\n---\n\n".join(clean_answers)
-    final_text = f"Hello. Here is the detailed information regarding your queries:\n\n{combined_message}"
-    
-    return {
-        "final_answer": final_text,
-        "messages": [AIMessage(content=final_text)]
+    intent_map = {
+        "weather": "weather_node",
+        "market":  "market_node",
+        "soil":    "soil_node",
+        "gdb":     "gdb_node",
     }
+    routes = [intent_map[intent] for intent in intents if intent in intent_map]
+    return routes or ["gdb_node"]
 
-builder = StateGraph(MasterState)
+
+builder = StateGraph(OrchestratorState)
 
 builder.add_node("parse_query_node", parse_query_node)
-builder.add_node("market_node", run_market_agent)
 builder.add_node("weather_node", run_weather_agent)
+builder.add_node("market_node", run_market_agent)
 builder.add_node("soil_node", run_soil_agent)
 builder.add_node("gdb_node", run_gdb_agent)
-builder.add_node("combine_answers_node", combine_answers_node)
+builder.add_node("supervisor_node", run_supervisor_agent)
 
-builder.set_entry_point("parse_query_node")
-
+builder.add_edge(START, "parse_query_node")
 builder.add_conditional_edges(
-    "parse_query_node", 
-    route_to_agents, 
-    ["market_node", "gdb_node", "weather_node", "soil_node"]
+    "parse_query_node",
+    route_to_agents,
+    ["weather_node", "market_node", "soil_node", "gdb_node"],
 )
-
-builder.add_edge("market_node", "combine_answers_node")
-builder.add_edge("gdb_node", "combine_answers_node")
-builder.add_edge("weather_node", "combine_answers_node")
-builder.add_edge("soil_node", "combine_answers_node")
-builder.add_edge("combine_answers_node", END)
-
-whatsapp_mongo_uri = os.getenv("WHATSAPP_MONGODB_URI")
-
-if not whatsapp_mongo_uri:
-    raise ValueError("Bhai, .env file mein WHATSAPP_MONGODB_URI daalna bhool gaya tu!")
-
-client = MongoClient(whatsapp_mongo_uri)
+builder.add_edge("weather_node", "supervisor_node")
+builder.add_edge("market_node", "supervisor_node")
+builder.add_edge("soil_node", "supervisor_node")
+builder.add_edge("gdb_node", "supervisor_node")
+builder.add_edge("supervisor_node", END)
 
 master_graph = builder.compile()
