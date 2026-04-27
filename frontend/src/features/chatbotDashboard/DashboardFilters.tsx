@@ -12,6 +12,7 @@ export interface DashboardFilterValues {
   season: string;
   startTime?: Date;
   endTime?: Date;
+  userType: 'all' | 'external' | 'internal';
 }
 
 interface DashboardFiltersProps {
@@ -21,7 +22,7 @@ interface DashboardFiltersProps {
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersProps) {
-  const { village, crop, season, startTime, endTime } = filters;
+  const { village, crop, season, startTime, endTime, userType } = filters;
 
   const handleChange = (overrides: Partial<DashboardFilterValues>) => {
     onFilterChange({ ...filters, ...overrides });
@@ -38,6 +39,7 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
       season: "all",
       startTime: undefined,
       endTime: undefined,
+      userType: "all",
     });
   };
 
@@ -46,7 +48,8 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
     crop === "all" &&
     season === "all" &&
     !startTime &&
-    !endTime;
+    !endTime &&
+    userType === "all";
 
   const baseSelect =
     "text-sm h-10 px-3 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2a2a2a]";
@@ -148,6 +151,23 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
                 : "!h-10 !text-sm !w-full !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
             }
           />
+        </div>
+
+        {/* User Type Filter */}
+        <div className="flex h-10 rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm w-full lg:w-auto">
+          {(['all', 'external', 'internal'] as const).map((type) => (
+            <button
+              key={type}
+              onClick={() => handleChange({ userType: type })}
+              className={
+                userType === type
+                  ? "flex-1 px-3 text-sm font-medium bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-500 dark:border-green-500 cursor-pointer transition-colors capitalize"
+                  : "flex-1 px-3 text-sm bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors capitalize border-r last:border-r-0 border-gray-200 dark:border-gray-700"
+              }
+            >
+              {type === 'all' ? 'All' : type === 'external' ? 'External' : 'Internal'}
+            </button>
+          ))}
         </div>
       </div>
     </div>
