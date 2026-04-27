@@ -671,6 +671,7 @@ export class ChatbotRepository implements IChatbotRepository {
     crop = '',
     village = '',
     profileCompleted = 'all',
+    farmerType: 'all' | 'internal' | 'external' = 'all',
     inactiveOnly = false,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails> {
@@ -747,6 +748,26 @@ export class ChatbotRepository implements IChatbotRepository {
         userFilter.$and = [
           ...(userFilter.$and ?? []),
           { $or: [{ farmerProfile: { $exists: false } }, { farmerProfile: null }] },
+        ];
+      }
+      
+      const internalEmailRegex = /^rup(?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2}|1000)(?![0-9])/i;
+
+      if (farmerType === 'internal') {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          { email: internalEmailRegex },
+        ];
+      } else if (farmerType === 'external') {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              { email: { $exists: false } },
+              { email: null },
+              { email: { $not: internalEmailRegex } },
+            ],
+          },
         ];
       }
 

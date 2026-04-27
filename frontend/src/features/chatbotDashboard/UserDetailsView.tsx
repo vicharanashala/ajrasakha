@@ -85,6 +85,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   endTime: undefined,
   profileCompleted: "all",
   inactiveOnly: false,
+  farmerType: "all",
 };
 
 interface UserDetailsViewProps {
@@ -118,6 +119,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters }: U
     filters.village,
     filters.profileCompleted,
     filters.inactiveOnly,
+    filters.farmerType,
   );
 
   const { users, totalUsers, totalPages, activeUsers, inactiveUsers, totalQuestions } = data;

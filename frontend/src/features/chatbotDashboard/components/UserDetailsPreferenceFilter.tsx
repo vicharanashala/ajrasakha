@@ -44,6 +44,7 @@ export interface UserDetailsFilters {
   endTime: Date | undefined;
   profileCompleted: "all" | "yes" | "no";
   inactiveOnly: boolean;
+  farmerType: "all" | "internal" | "external";
 }
 
 interface UserDetailsPreferenceFilterProps {
@@ -146,6 +147,7 @@ export function UserDetailsPreferenceFilter({
       endTime: undefined,
       profileCompleted: "all",
       inactiveOnly: false,
+      farmerType: "all",
     });
   };
 
@@ -155,7 +157,8 @@ export function UserDetailsPreferenceFilter({
     (filters.village ? 1 : 0) +
     (filters.startTime ? 1 : 0) +
     (filters.profileCompleted !== "all" ? 1 : 0) +
-    (filters.inactiveOnly ? 1 : 0);
+    (filters.inactiveOnly ? 1 : 0)+
+    (filters.farmerType !== "all" ? 1 : 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -317,6 +320,7 @@ export function UserDetailsPreferenceFilter({
           </div>
 
           {/* Profile Completed */}
+          <div className="grid grid-cols-2 gap-3">
           <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="Farmer Profile">
             <Select
               value={draft.profileCompleted}
@@ -334,6 +338,27 @@ export function UserDetailsPreferenceFilter({
               </SelectContent>
             </Select>
           </FilterSection>
+          <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="Farmer Type">
+              <Select
+                value={draft.farmerType}
+                onValueChange={(v) =>
+                  setDraft((d) => ({
+                    ...d,
+                    farmerType: v as "all" | "internal" | "external",
+                  }))
+                }
+              >
+                <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="internal">Internal Users</SelectItem>
+                  <SelectItem value="external">External Users</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterSection>
+            </div>
         </div>
 
         {/* Footer */}

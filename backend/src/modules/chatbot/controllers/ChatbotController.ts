@@ -264,6 +264,7 @@ export class ChatbotController {
       query.crop,
       query.village,
       query.profileCompleted,
+      query.farmerType,
       inactiveOnly,
     );
   }

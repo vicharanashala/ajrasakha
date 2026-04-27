@@ -193,6 +193,7 @@ export interface IChatbotRepository {
     crop?: string,
     village?: string,
     profileCompleted?: string,
+    farmerType?: 'all' | 'internal' | 'external',
     inactiveOnly?: boolean,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails>;
