@@ -591,7 +591,7 @@ export class ChatbotRepository implements IChatbotRepository {
           (item: any) =>
             item?.type === 'tool_call' &&
             item?.tool_call?.name ===
-              'upload_question_to_reviewer_system_mcp_pop',
+              'upload_question_to_reviewer_system_mcp_pop' || item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer',
         );
 
         if (!matchedContent) return false;
@@ -689,7 +689,7 @@ export class ChatbotRepository implements IChatbotRepository {
           (item: any) =>
             item?.type === 'tool_call' &&
             item?.tool_call?.name ===
-              'upload_question_to_reviewer_system_mcp_pop',
+              'upload_question_to_reviewer_system_mcp_pop' || item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer',
         );
 
         if (!matchedContent) return false;
