@@ -20,14 +20,6 @@ import PreferenceFilter from "./PreferenceFilter";
 import HeatMap from "./HeatMap";
 import { useGetWorkLoad } from "@/hooks/api/performance/useGetWorkLoad";
 export const PerformanceMatrics = () => {
-  // type BaseStatusItem = {
-  //   status: string;
-  //   details: {
-  //     state?: string;
-  //     crop?: string;
-  //     domain?: string;
-  //   };
-  // };
   const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
     {
       status: "all",
@@ -36,6 +28,7 @@ export const PerformanceMatrics = () => {
       answersCount: [0, 100],
       dateRange: "all",
       crop: "all",
+      normalised_crop: "all",
       priority: "all",
       domain: "all",
       user: "all",
@@ -61,8 +54,6 @@ export const PerformanceMatrics = () => {
   const finalized = finalizedAnswers?.finalizedSubmissions || [];
   const approvedCount = WorkLoad?.currentUserAnswersCount || 0;
   const totalQuestionsCount = WorkLoad?.totalQuestionsCount || 0;
-  // const approvedCount = currentUserAnswers.length;
-  // const heatMapResults = finalizedAnswers?.heatMapResults || [];
   const approvalPercentage =
     totalQuestionsCount > 0
       ? ((approvedCount / totalQuestionsCount) * 100).toFixed(2)
@@ -73,15 +64,6 @@ export const PerformanceMatrics = () => {
 
   const { data: userNameReponse } = useGetAllUsers();
   const { isLoading } = useGetCurrentUser();
-  /*const safeCurrentUser = user  
-  ? {
-      _id: '',
-      userName: user.firstName + user.lastName, 
-      role: user.role,
-      email: user.email,
-      preference: user.preference
-    }
-  : null;*/
 
   const otherModerators = (userNameReponse?.users || [])
     .filter((u) => u.role === "moderator") // ✅ keep only moderators
@@ -90,9 +72,6 @@ export const PerformanceMatrics = () => {
     // ...(safeCurrentUser ? [safeCurrentUser] : []),
     ...otherModerators,
   ];
-
-  // const total = questionData?.totalCount || 0;
-  // const questions = questionData?.questions;
 
   function groupWithCount<T extends { status?: any; details?: any }>(
     data: T[],
@@ -213,21 +192,9 @@ export const PerformanceMatrics = () => {
     );
   }
 
-  // const statusData = groupWithCount(questions ?? [], "status");
-  // const cropData = groupWithCount(questions ?? [], "crop");
-  // const stateData = groupWithCount(questions ?? [], "state");
   const AnswerData = groupWithCount(finalized ?? [], "status");
   const answerCropData = groupWithCount(finalized ?? [], "crop");
   const answerStateData = groupWithCount(finalized ?? [], "state");
-  // const COLORS = [
-  //   "#8884d8",
-  //   "#82ca9d",
-  //   "#ffc658",
-  //   "#ff8042",
-  //   "#a4de6c",
-  //   "#d0ed57",
-  //   "#8dd1e1",
-  // ];
 
   const quickActions = [
     {
@@ -245,55 +212,6 @@ export const PerformanceMatrics = () => {
       // path: `${getBasePath()}/performance?data=${encodeURIComponent(JSON.stringify(performance))}`,
     },
   ];
-  // const handleDialogChange = (key: string, value: any) => {
-  //   setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
-  // };
-  // const onChange = (next: {
-  //   status?: QuestionFilterStatus;
-  //   source?: QuestionSourceFilter;
-  //   priority?: QuestionPriorityFilter;
-  //   state?: string;
-  //   crop?: string;
-  //   domain?: string;
-  //   user?: string;
-  //   answersCount?: [number, number];
-  //   dateRange?: QuestionDateRangeFilter;
-  // }) => {
-  //   setAdvanceFilterValues((prev) => ({
-  //     ...prev,
-  //     ...next,
-  //   }));
-  // };
-
-  // const handleApplyFilters = (myPreference?: IMyPreference) => {
-  //   onChange({
-  //     status: advanceFilter.status,
-  //     source: advanceFilter.source,
-  //     state: myPreference?.state || advanceFilter.state,
-  //     crop: myPreference?.crop || advanceFilter.crop,
-  //     answersCount: advanceFilter.answersCount,
-  //     dateRange: advanceFilter.dateRange,
-  //     priority: advanceFilter.priority,
-  //     domain: myPreference?.domain || advanceFilter.domain,
-  //     user: advanceFilter.user,
-  //   });
-  // };
-  // const activeFiltersCount = Object.values(advanceFilter).filter(
-  //   (v) => v !== "all" && !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
-  // ).length;
-  // const onReset = () => {
-  //   setAdvanceFilterValues({
-  //     status: "all",
-  //     source: "all",
-  //     state: "all",
-  //     answersCount: [0, 100],
-  //     dateRange: "all",
-  //     crop: "all",
-  //     priority: "all",
-  //     user: "all",
-  //     domain: "all",
-  //   });
-  // };
   const handleApplyAnswerFilters = () => {
     refetch();
   };
@@ -409,8 +327,6 @@ export const PerformanceMatrics = () => {
             </CardContent>
           </Card>
 
-          {/* Example second card (optional) */}
-          {/* <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">...</Card> */}
         </div>
         {finalized && finalized?.length >= 1 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -422,49 +338,6 @@ export const PerformanceMatrics = () => {
           ""
         )}
       </div>
-      {/**
-      <div className="space-y-6 p-6  ">
-        <div className="flex flex-col  lg:flex-row gap-4 w-full">
-          <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold">
-                Questions Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col md:justify-between md:flex-row w-max-fit">
-              <p className="text-lg mb-2 ">
-                Total Questions:{" "}
-                <span className="font-bold text-primary">{total}</span>
-              </p>
-              <div className="w-max-fit">
-                <AdvanceFilterDialog
-                  advanceFilter={advanceFilter}
-                  setAdvanceFilterValues={setAdvanceFilterValues}
-                  handleDialogChange={handleDialogChange}
-                  handleApplyFilters={handleApplyFilters}
-                  normalizedStates={STATES}
-                  crops={CROPS}
-                  activeFiltersCount={activeFiltersCount}
-                  onReset={onReset}
-                  isForQA={false}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-         
-        </div>
-        {questionData && questionData?.totalCount >= 1 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <PieBox title="Questions by Status" data={statusData} />
-            <PieBox title="Questions by Crop" data={cropData} />
-            <PieBox title="Questions by Region" data={stateData} />
-          </div>
-        ) : (
-          ""
-        )}
-      </div>
-    */}
       <div className="space-y-6 p-6  hidden md:block">
         <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
           <CardHeader>

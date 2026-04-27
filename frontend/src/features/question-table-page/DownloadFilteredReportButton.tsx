@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "../../components/atoms/button";
-import { Download, Loader2, Filter } from "lucide-react";
+import { Download, Loader2, Filter, Sprout, AlertTriangle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
@@ -21,24 +21,39 @@ import {
 } from "@/components/atoms/select";
 import { Label } from "@/components/atoms/label";
 import { Separator } from "@/components/atoms/separator";
+import { Checkbox } from "@/components/atoms/checkbox";
 import { STATES, CROPS, SEASONS, DOMAINS, STATUS } from "@/components/MetaData";
+import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 
 export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { data: cropsData } = useGetAllCrops();
+  const dbCrops = cropsData?.crops ?? [];
   
   const [filters, setFilters] = useState({
     state: "all",
     crop: "all",
+    normalised_crop: "all",
     season: "all",
     domain: "all",
     status: "all",
+    hiddenQuestions: false,
+    duplicateQuestions: false,
   });
 
   const handleDownloadReport = async () => {
     // Check if at least one filter is selected
-    const hasFilter = Object.values(filters).some(value => value !== "all");
+    const hasFilter = Object.entries(filters).some(([, value]) =>
+      typeof value === "boolean" ? value : value !== "all",
+    );
     
     if (!hasFilter) {
       toast.error("Please select at least one filter");
@@ -56,9 +71,12 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       const filterParts = [];
       if (filters.state !== "all") filterParts.push(filters.state);
       if (filters.crop !== "all") filterParts.push(filters.crop);
+      if (filters.normalised_crop !== "all") filterParts.push(filters.normalised_crop === '__NOT_SET__' ? 'legacy' : filters.normalised_crop);
       if (filters.season !== "all") filterParts.push(filters.season);
       if (filters.domain !== "all") filterParts.push(filters.domain);
       if (filters.status !== "all") filterParts.push(filters.status);
+      if (filters.hiddenQuestions) filterParts.push("hidden");
+      if (filters.duplicateQuestions) filterParts.push("duplicate");
       
       const filename = `questions_${filterParts.join("_") || "filtered"}.xlsx`;
 
@@ -87,13 +105,20 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleCheckboxChange = (key: "hiddenQuestions" | "duplicateQuestions", value: boolean) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
   const handleReset = () => {
     setFilters({
       state: "all",
       crop: "all",
+      normalised_crop: "all",
       season: "all",
       domain: "all",
       status: "all",
+      hiddenQuestions: false,
+      duplicateQuestions: false,
     });
   };
 
@@ -154,27 +179,70 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                 </Select>
               </div>
 
-              {/* Crop Filter */}
+
+
+              {/* Crop Type Filter */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Crop</Label>
-                <Select value={filters.crop} onValueChange={(val) => handleFilterChange("crop", val)}>
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Sprout className="h-4 w-4 text-primary" />
+                  Crop Type
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground hover:text-primary transition-colors">
+                          <Info className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-sm">
+                        <p>Filter by the standardized crop name. You can view a crop's alternative names by hovering over the "+" icon next to it. Use "Not Set" to find older questions without a normalized crop.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Label>
+                <Select value={filters.normalised_crop} onValueChange={(val) => handleFilterChange("normalised_crop", val)}>
                   <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select Crop" />
+                    <SelectValue placeholder="Select Crop Type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Crops</SelectItem>
-                    {CROPS.map((crop) => (
-                      <SelectItem key={crop} value={crop}>
-                        {crop}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="__NOT_SET__">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
+                      </div>
+                    </SelectItem>
+                    {dbCrops.length > 0
+                      ? dbCrops.map((crop) => (
+                          <SelectItem key={crop._id || crop.name} value={crop.name}>
+                            {crop.aliases && crop.aliases.length > 0 ? (
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="flex items-center gap-2 cursor-default">
+                                      <span className="capitalize">{crop.name}</span>
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                                        +{crop.aliases.length}
+                                      </span>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="text-xs">
+                                    <p className="font-semibold mb-0.5">Also known as:</p>
+                                    {crop.aliases.map((a: string) => (
+                                      <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                                    ))}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <span className="capitalize">{crop.name}</span>
+                            )}
+                          </SelectItem>
+                        ))
+                      : CROPS.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Separator */}
-              <div className="col-span-2">
-                <Separator className="my-2" />
               </div>
 
               {/* Season Filter */}
@@ -234,6 +302,34 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-3 col-span-2">
+                <Label className="text-sm font-medium">Question Type</Label>
+                <div className="grid grid-cols-2 gap-3 rounded-md border p-3">
+                  <label className="flex items-center gap-3">
+                    <Checkbox
+                      checked={filters.hiddenQuestions}
+                      onCheckedChange={(checked) =>
+                        handleCheckboxChange("hiddenQuestions", checked === true)
+                      }
+                      className="h-3.5 w-3.5 border-primary"
+                    />
+                    <span className="text-sm">Show passed questions</span>
+                  </label>
+
+                  {/* <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={filters.duplicateQuestions}
+                      onChange={(event) =>
+                        handleCheckboxChange("duplicateQuestions", event.target.checked)
+                      }
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm">Show duplicate questions</span>
+                  </label> */}
+                </div>
               </div>
             </div>
           </div>

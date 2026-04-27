@@ -1,5 +1,4 @@
 name: Dockerhub Deployment
-
 on:
   workflow_dispatch:
     inputs:
@@ -13,16 +12,17 @@ on:
           - faq
           - golden_dataset
           - market
+          - other_markets
           - pop
           - weather
           - review-search-mcp
           - reviewer_system
-
+          - agmarknet-mcp
+          - soil-health-mcp
 permissions:
   contents: read
   packages: write
   id-token: write
-
 jobs:
   prepare_matrix:
     runs-on: ubuntu-latest
@@ -33,48 +33,47 @@ jobs:
         id: set-matrix
         run: |
           MATRIX_JSON="[]"
-
           add_entry() {
             local name=$1
-            OBJ="{\"image\": \"$name\"}"
+            local context=${2:-"./mcp/mcp_containers/$name"}
+            local dockerfile=${3:-"./mcp/mcp_containers/$name/Dockerfile"}
+            OBJ="{\"image\": \"$name\", \"context\": \"$context\", \"file\": \"$dockerfile\"}"
             MATRIX_JSON=$(echo $MATRIX_JSON | jq ". + [$OBJ]")
           }
-
           TARGET="${{ inputs.target_image }}"
-
           if [[ "$TARGET" == "all" || "$TARGET" == "faq" ]]; then
             add_entry "faq"
           fi
-
           if [[ "$TARGET" == "all" || "$TARGET" == "golden_dataset" ]]; then
             add_entry "golden_dataset"
           fi
-
           if [[ "$TARGET" == "all" || "$TARGET" == "market" ]]; then
             add_entry "market"
           fi
-
+          if [[ "$TARGET" == "all" || "$TARGET" == "other_markets" ]]; then
+            add_entry "other_markets" "./mcp/other_markets" "./mcp/other_markets/Dockerfile"
+          fi
           if [[ "$TARGET" == "all" || "$TARGET" == "pop" ]]; then
             add_entry "pop"
           fi
-
           if [[ "$TARGET" == "all" || "$TARGET" == "weather" ]]; then
             add_entry "weather"
           fi
-
           if [[ "$TARGET" == "all" || "$TARGET" == "review-search-mcp" ]]; then
             add_entry "review-search-mcp"
           fi
-
           if [[ "$TARGET" == "all" || "$TARGET" == "reviewer_system" ]]; then
             add_entry "reviewer_system"
           fi
-
+          if [[ "$TARGET" == "all" || "$TARGET" == "agmarknet-mcp" ]]; then
+            add_entry "agmarknet-mcp"
+          fi
+          if [[ "$TARGET" == "all" || "$TARGET" == "soil-health-mcp" ]]; then
+            add_entry "soil-health-mcp"
+          fi
           COMPACT_JSON=$(echo $MATRIX_JSON | jq -c .)
           echo "matrix=$COMPACT_JSON" >> $GITHUB_OUTPUT
-
           echo "Generated matrix: $COMPACT_JSON"
-
   build-and-push:
     needs: prepare_matrix
     name: Build & Push ${{ matrix.image }}
@@ -83,7 +82,6 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJson(needs.prepare_matrix.outputs.matrix) }}
-
     steps:
       - name: Free Disk Space
         run: |
@@ -92,24 +90,20 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build & Push ${{ matrix.image }}
         uses: docker/build-push-action@v5
         with:
-          context: ./mcp/mcp_containers/${{ matrix.image }}
-          file: ./mcp/mcp_containers/${{ matrix.image }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: true
           platforms: linux/amd64
           tags: |

@@ -13,11 +13,13 @@ import {
   ValidateNested,
   ArrayNotEmpty,
   IsEmail,
+  IsIn,
+  IsBooleanString,
 } from 'class-validator';
-import {JSONSchema} from 'class-validator-jsonschema';
-import {ObjectId} from 'mongodb';
-import {IQuestionPriority, QuestionStatus} from '#shared/interfaces/models.js';
-import {Type} from 'class-transformer';
+import { JSONSchema } from 'class-validator-jsonschema';
+import { ObjectId } from 'mongodb';
+import { IQuestionPriority, ICropRef, QuestionStatus, QuestionSource } from '#shared/interfaces/models.js';
+import { Type, Transform } from 'class-transformer';
 
 class AddQuestionBody {
   @JSONSchema({
@@ -90,6 +92,40 @@ class QuestionDetailsDto {
   @IsString()
   district!: string;
 
+  @IsNotEmpty()
+  crop!: string | ICropRef;
+
+  @IsString()
+  season!: string;
+
+  @IsString()
+  domain!: string;
+
+  @IsOptional()
+  @IsString()
+  normalised_crop?: string;
+}
+
+
+/**
+* Reviewer Result
+*/
+export class ReviewerResponse {
+  @IsString()
+  id!: string;
+
+  @IsString()
+  question!: string;
+
+  @IsString()
+  answer!: string;
+
+  @IsString()
+  state!: string;
+
+  @IsString()
+  district!: string;
+
   @IsString()
   crop!: string;
 
@@ -98,102 +134,72 @@ class QuestionDetailsDto {
 
   @IsString()
   domain!: string;
-}
 
-
-/**
-* Reviewer Result
-*/
-export class ReviewerResponse {
-@IsString()
-id!: string;
-
-@IsString()
-question!: string;
-
-@IsString()
-answer!: string;
-
-@IsString()
-state!: string;
-
-@IsString()
-district!: string;
-
-@IsString()
-crop!: string;
-
-@IsString()
-season!: string;
-
-@IsString()
-domain!: string;
-
-@IsNumber()
-score!: number;
+  @IsNumber()
+  score!: number;
 }
 
 /**
 * Golden Dataset Result
 */
 export class GoldenResponse {
-@IsString()
-question!: string;
+  @IsString()
+  question!: string;
 
-@IsString()
-answer!: string;
+  @IsString()
+  answer!: string;
 
-@IsString()
-agri_specialist!: string;
+  @IsString()
+  agri_specialist!: string;
 
-@IsString()
-crop!: string;
+  @IsString()
+  crop!: string;
 
-@IsString()
-district!: string;
+  @IsString()
+  district!: string;
 
-@IsString()
-state!: string;
+  @IsString()
+  state!: string;
 
-@IsString()
-season!: string;
+  @IsString()
+  season!: string;
 
-@IsNumber()
-score!: number;
+  @IsNumber()
+  score!: number;
 }
 
 /**
 * POP (Package of Practices) Result
 */
 export class PopResponse {
-@IsString()
-text!: string;
+  @IsString()
+  text!: string;
 
-@IsNumber()
-page_no!: number;
+  @IsNumber()
+  page_no!: number;
 
-@IsString()
-source!: string;
+  @IsString()
+  source!: string;
 
-@IsArray()
-headings!: string[];
+  @IsArray()
+  headings!: string[];
 
-@IsNumber()
-score!: number;
+  @IsNumber()
+  score!: number;
 }
 
 /**
 * Final API Response Structure
 */
 export class QuestionSearchResponse {
-@IsArray()
-reviewer!: ReviewerResponse[];
+  @IsArray()
+  reviewer!: ReviewerResponse[];
 
-@IsArray()
-golden!: GoldenResponse[];
+  @IsArray()
+  golden!: GoldenResponse[];
 
-@IsArray()
-pop!: PopResponse[];
+  @IsArray()
+  pop!: PopResponse[];
 }
 
 // class QuestionResponse {
@@ -242,7 +248,7 @@ class AnswerDetails {
   approvalCount!: string;
 
   @IsArray()
-  @IsString({each: true})
+  @IsString({ each: true })
   sources!: string[];
 }
 
@@ -307,20 +313,35 @@ class QuestionResponse {
   @IsEnum(['open', 'answered', 'closed'])
   status?: QuestionStatus;
 
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
-  source!: 'AJRASAKHA' | 'AGRI_EXPERT';
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', "WHATSAPP", "OUTREACH"])
+  source!: QuestionSource;
 
   @IsOptional()
   @IsArray()
-  @ValidateNested({each: true})
+  @ValidateNested({ each: true })
   @Type(() => Object)
-  currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
+  currentAnswers?: { answer: string; id: string; isFinalAnswer: boolean }[];
 
   @IsOptional()
   @IsArray()
-  @ValidateNested({each: true})
+  @ValidateNested({ each: true })
   @Type(() => HistoryItem)
   history?: HistoryItem[];
+
+  @IsOptional()
+  @IsString()
+  aiInitialAnswer?: string;
+
+  @IsOptional()
+  @IsArray()
+  aiApprovedSources?: any[];
+
+  @IsOptional()
+  @IsString()
+  aiApprovedAnswer?: string;
+
+  @IsOptional()
+  isAutoAllocate?: boolean;
 }
 class AddQuestionBodyDto {
   @IsString()
@@ -332,8 +353,8 @@ class AddQuestionBodyDto {
   priority!: 'low' | 'medium' | 'high';
 
   @IsOptional()
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
-  source!: 'AJRASAKHA' | 'AGRI_EXPERT';
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP', 'OUTREACH'])
+  source!: QuestionSource;
 
   @IsOptional()
   @ValidateNested()
@@ -348,9 +369,23 @@ class AddQuestionBodyDto {
   @IsOptional()
   aiInitialAnswer?: string;
 
+  @IsOptional()
+  @IsBooleanString()
+  isRequiredAiInitialAnswer?: string;
+
+  @IsOptional()
+  @IsBooleanString()
+  isOutreachQuestion?: string;
+
   @IsString()
   @IsOptional()
   createdAt?: string;
+
+  @IsString()
+  @IsOptional()
+  originalQuestion?: string;
+
+  
 }
 
 class GenerateQuestionsBody {
@@ -387,7 +422,7 @@ class GeneratedQuestionResponse {
   answer!: string;
 
   @IsString()
-  referenceSource!:string
+  referenceSource!: string
 }
 
 class DateRangeRequest {
@@ -419,17 +454,17 @@ class DateRangeRequest {
   })
   @IsArray()
   @ArrayNotEmpty()
-  @IsEmail({}, { each: true })  
-  emails!: string[]; 
+  @IsEmail({}, { each: true })
+  emails!: string[];
 }
 
 class GetDetailedQuestionsQuery {
-  @JSONSchema({description: 'Search term', example: 'wheat', type: 'string'})
+  @JSONSchema({ description: 'Search term', example: 'wheat', type: 'string' })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @JSONSchema({description: 'Level sort', example: 'asc', type: 'string'})
+  @JSONSchema({ description: 'Level sort', example: 'asc', type: 'string' })
   @IsOptional()
   @IsString()
   sort?: string;
@@ -449,17 +484,20 @@ class GetDetailedQuestionsQuery {
     type: 'string',
   })
   @IsOptional()
-  @IsString()
+  @IsIn(['all', "AGRI_EXPERT", "AJRASAKHA", "WHATSAPP", "OUTREACH"])
   source?: string;
 
   @JSONSchema({
-    description: 'State/region filter',
+    description: 'State/region filter (single or multiple)',
     example: 'Karnataka',
-    type: 'string',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
   })
   @IsOptional()
-  @IsString()
-  state?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  state?: string[];
 
   @JSONSchema({
     description: 'Priority filter',
@@ -470,10 +508,29 @@ class GetDetailedQuestionsQuery {
   @IsString()
   priority?: string;
 
-  @JSONSchema({description: 'Crop filter', example: 'Wheat', type: 'string'})
+  @JSONSchema({
+    description: 'Crop filter (single or multiple)',
+    example: 'Wheat',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+  })
   @IsOptional()
-  @IsString()
-  crop?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  crop?: string[];
+
+  @JSONSchema({
+    description: 'Normalized crop filter (single or multiple)',
+    example: 'wheat',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  normalised_crop?: string[];
 
   @JSONSchema({
     description: 'Domain filter',
@@ -541,7 +598,7 @@ class GetDetailedQuestionsQuery {
   @Min(1)
   page?: number;
 
-  @JSONSchema({description: 'Items per page', example: 10, type: 'number'})
+  @JSONSchema({ description: 'Items per page', example: 10, type: 'number' })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -596,7 +653,7 @@ class GetDetailedQuestionsQuery {
     description: 'consecutive approvals',
     example: '1',
     type: 'string',
-    
+
   })
   @IsOptional()
   consecutiveApprovals?: string;
@@ -605,10 +662,45 @@ class GetDetailedQuestionsQuery {
     description: 'to get the questions based on allocation ',
     example: 'on',
     type: 'string',
-    
+
   })
   @IsOptional()
   autoAllocateFilter?: string;
+
+  @JSONSchema({
+    description: 'Filter for questions closed within the last 2 hours',
+    example: 'true',
+    type: 'boolean',
+  })
+  
+  @IsOptional()
+  closedInTwoHrs?: boolean;
+  @JSONSchema({
+    description: 'to filter hidden questions',
+    example: 'true',
+    type: 'string',
+
+  })
+  @IsOptional()
+  hiddenQuestions?: string;
+
+  @JSONSchema({
+    description: 'to filter duplicate questions',
+    example: 'true',
+    type: 'string',
+
+  })
+  @IsOptional()
+  duplicateQuestions?: string;
+
+  @JSONSchema({
+    description: 'to filter on hold questions',
+    example: 'true',
+    type: 'string',
+  })
+
+  @IsOptional()
+  isOnHold?: string;
 }
 
 export interface IQuestionWithAnswerTexts {
@@ -632,6 +724,35 @@ class BulkDeleteQuestionDto {
   questionIds: string[];
 }
 
+export class AllocatedQuestionsBodyDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  states?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  crops?: string[];
+}
+
+export class DetailedQuestionsBodyDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  states?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  normalisedCrops?: string[];
+}
+
+export class ApproveInitialAnswerBody {
+  @IsString()
+  answer :string;
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -645,7 +766,10 @@ export const QUESTION_VALIDATORS = [
   UpdatedBy,
   HistoryItem,
   BulkDeleteQuestionDto,
-  DateRangeRequest
+  DateRangeRequest,
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
+  ApproveInitialAnswerBody,
 ];
 
 export {
@@ -662,5 +786,5 @@ export {
   UpdatedBy,
   HistoryItem,
   BulkDeleteQuestionDto,
-  DateRangeRequest
+  DateRangeRequest,
 };

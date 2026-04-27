@@ -13,6 +13,7 @@ export const CROPS =
   'General',
   'Gram',
   'GramChick',
+  'Greengram',
   'Groundnut',
   'Indian rapeseed and mustard yellow sarson',
   'Lentil Masur',
@@ -33,6 +34,7 @@ export const CROPS =
   'Rice',
   'Sugarcane',
   'Summer Vegetables',
+  'Sunhemp',
   'Tomato',
   'Toria',
   'Turmeric',
@@ -56,8 +58,25 @@ export const CROPS =
   'Berseem',
   'Pea',
   'Chilli',
-  'Maize (Fodder)'
+  'Maize (Fodder)',
+  "Green Gram" ,
+  "Sunnhemp", 
+  "Bengal Gram"
 ]
+
+export const VILLAGES = [
+  "Village 1",
+  "Village 2",
+  "Village 3",
+  "Village 4",
+  "Village 5",
+  "Village 6",
+  "Village 7",
+  "Village 8",
+  "Village 9",
+  "Village 10"
+];
+
 export const DOMAINS = [
   "Agriculture Mechanization",
   "Bio-Pesticides and Bio-Fertilizers",
@@ -85,6 +104,7 @@ export const STATES = [
   "Assam",
   "Bihar",
   "Chhattisgarh",
+  "Delhi",
   "Goa",
   "Gujarat",
   "Haryana",
@@ -132,6 +152,7 @@ export const SEASONS = [
 ];
 
 export const Review_Level=[
+  "Level 0",
   "Level 1",
   "Level 2",
   "Level 3",

@@ -1,0 +1,23 @@
+[project]
+name = "soil-health-mcp"
+version = "0.1.0"
+description = "MCP for Soil Health"
+authors = [
+    {name = "adityabmv",email = "adityabmv@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "fastmcp (>=2.12.3,<3.0.0)",
+    "httpx (>=0.27.0,<1.0.0)",
+    "python-dotenv (>=1.0.0,<2.0.0)",
+    "mcp (>=1.26.0,<2.0.0)"
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false

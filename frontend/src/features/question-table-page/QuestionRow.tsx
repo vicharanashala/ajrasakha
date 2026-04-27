@@ -1,6 +1,7 @@
-import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
-import { useMemo, useRef } from "react";
-import { useCountdown } from "@/hooks/ui/useCountdown";
+import type { IDetailedQuestion, QuestionPriority, QuestionStatus, UserRole } from "@/types";
+import { useMemo } from "react";
+import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";
+import { useQuestionClickability } from "@/hooks/ui/useQuestionClickability";
 import { Badge } from "../../components/atoms/badge";
 import {
   ContextMenu,
@@ -19,7 +20,7 @@ import {
 } from "../../components/atoms/tooltip";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
-import { AlertCircle, Edit, Eye, Square, Trash } from "lucide-react";
+import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edit, Eye, Square, Trash, User, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useQuestionTableStore } from "@/stores/all-questions";
@@ -85,55 +86,89 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   // To track cont
 
-  const uploadedCountRef = useRef(uploadedQuestionsCount);
+  const { timer, isClickable, delayMinutes } = useQuestionClickability(
+    q.source,
+    q.createdAt,
+    uploadedQuestionsCount,
+    userRole,
+    isBulkUpload,
+    buildHoldCountdownOptions(q)
+  );
 
-  const DURATION_HOURS = 4;
-  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => {});
+  // const priorityBadge = useMemo(() => {
+  //   if (!q.priority)
+  //     return (
+  //       <Badge variant="outline" className="text-muted-foreground">
+  //         NIL
+  //       </Badge>
+  //     );
 
-  const totalSeconds = DURATION_HOURS * 60 * 60;
+  //   const colorClass =
+  //     q.priority === "high"
+  //       ? "bg-red-500/10 text-red-600 border-red-500/30"
+  //       : q.priority === "medium"
+  //         ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+  //         : "bg-green-500/10 text-green-600 border-green-500/30";
 
-  // Parse timer string ("hh:mm:ss") to seconds
-  const [h, m, s] = timer.split(":").map(Number);
-  const remainingSeconds = h * 3600 + m * 60 + s;
+  //   return (
+  //     <Badge variant="outline" className={colorClass}>
+  //       {q.priority.charAt(0).toUpperCase() + q.priority.slice(1)}
+  //     </Badge>
+  //   );
+  // }, [q.priority]);
 
-  //  Calculate delay based on uploaded questions
-  // 200 questions → 3 minutes = 180 seconds
-  const delayPerQuestion = 180 / 200; // 0.9 seconds per question
-  let delaySeconds = uploadedCountRef.current * delayPerQuestion;
-
-  if (userRole === "expert") {
-    delaySeconds = 200;
-  }
-
-  // For tooltip
-  const delayMinutes = delaySeconds / 60;
-
-  //  Check if enough time has passed
-  const isClickable =
-    remainingSeconds <= totalSeconds - delaySeconds && !isBulkUpload;
-
-  const priorityBadge = useMemo(() => {
-    if (!q.priority)
+  const PRIORITY_CONFIG = {
+    high: {
+      label: "High",
+      className: "bg-red-500/10 text-red-600 border-red-500/30",
+    },
+    medium: {
+      label: "Med",
+      className: "bg-yellow-500/10 text-yellow-600 border-yellow-500/30",
+    },
+    low: {
+      label: "Low",
+      className: "bg-green-500/10 text-green-600 border-green-500/30",
+    },
+  } as const;
+  const PriorityBadge = ({ priority }: { priority?: QuestionPriority }) => {
+    if (!priority)
       return (
-        <Badge variant="outline" className="text-muted-foreground">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border text-muted-foreground">
           NIL
-        </Badge>
+        </span>
       );
 
-    const colorClass =
-      q.priority === "high"
-        ? "bg-red-500/10 text-red-600 border-red-500/30"
-        : q.priority === "medium"
-          ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-          : "bg-green-500/10 text-green-600 border-green-500/30";
+    const cfg = PRIORITY_CONFIG[priority as keyof typeof PRIORITY_CONFIG];
+    if (!cfg) return null;
 
     return (
-      <Badge variant="outline" className={colorClass}>
-        {q.priority.charAt(0).toUpperCase() + q.priority.slice(1)}
-      </Badge>
+      <span
+        className={`inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${cfg.className}`}
+      >
+        {cfg.label}
+      </span>
     );
-  }, [q.priority]);
+  };
 
+  const STATUS_CONFIG = {
+    "in-review": {
+      icon: User,
+      className: "bg-green-500/10 text-green-600 border-green-500/30",
+    },
+    open: {
+      icon: Clock,
+      className: "bg-amber-500/10 text-amber-600 border-amber-500/30",
+    },
+    closed: {
+      icon: BadgeCheck,
+      className: "bg-gray-500/10 text-gray-600 border-gray-500/30",
+    },
+    delayed: {
+      icon: AlertTriangle,
+      className: "bg-orange-500/10 text-orange-600 border-orange-500/30",
+    },
+  } as const;
   const statusBadge = useMemo(() => {
     // const status = q.status || "NIL";
     const effectiveStatus =
@@ -142,6 +177,8 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
         : q.status || "NIL";
 
     const formatted = effectiveStatus.replace("_", " ");
+    const config = STATUS_CONFIG[effectiveStatus as keyof typeof STATUS_CONFIG];
+    const Icon = config?.icon ?? Circle;
 
     const colorClass =
       effectiveStatus === "in-review"
@@ -150,10 +187,13 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
           : effectiveStatus === "closed"
             ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-            : "bg-muted text-foreground";
+            : effectiveStatus === "delayed"
+              ? "bg-orange-500/10 text-orange-600 border-orange-500/30"
+              : "bg-muted text-foreground";
 
     return (
-      <Badge variant="outline" className={colorClass}>
+      <Badge variant="outline" className={`gap-1.5 ${colorClass}`}>
+        <Icon size={11} strokeWidth={2.2} />
         {formatted}
       </Badge>
     );
@@ -167,9 +207,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       <ContextMenuTrigger asChild>
         <TableRow
           key={q._id}
-          className={`text-center transition-colors ${
-            isSelected ? "bg-primary/10" : "hover:bg-muted/50"
-          }`}
+
+          className={`text-center transition-all duration-300 ease-out
+              ${isSelected ? "bg-primary/10" : "hover:bg-muted/50"}
+              hover:shadow-sm hover:scale-[1.01] hover:brightness-[1.02]
+            `}
           onClick={() => {
             if (!q._id || !hasSelectedQuestions) return;
             handleQuestionsSelection?.(q._id);
@@ -196,20 +238,19 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           )}
 
           {/* Question Text */}
-          {visibleColumns.question && (
+          {/* {visibleColumns.question && (
             <TableCell className="text-start ps-3 " title={q.question}>
               <div className="flex flex-col gap-1">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
-                        className={`cursor-pointer ${
-                          isClickable
-                            ? hasSelectedQuestions
-                              ? ""
-                              : "hover:underline"
-                            : "opacity-50 cursor-not-allowed"
-                        }`}
+                        className={`cursor-pointer ${isClickable
+                          ? hasSelectedQuestions
+                            ? ""
+                            : "hover:underline"
+                          : "opacity-50 cursor-not-allowed"
+                          }`}
                         onClick={() => {
                           if (!isClickable || hasSelectedQuestions) return;
                           onViewMore(q._id?.toString() || "");
@@ -225,11 +266,10 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           allocation is underway and may take{" "}
                           {delayMinutes < 1
                             ? "less than 1 minute"
-                            : `up to ${Math.ceil(delayMinutes)} ${
-                                Math.ceil(delayMinutes) === 1
-                                  ? "minute"
-                                  : "minutes"
-                              }`}{" "}
+                            : `up to ${Math.ceil(delayMinutes)} ${Math.ceil(delayMinutes) === 1
+                              ? "minute"
+                              : "minutes"
+                            }`}{" "}
                           to complete.
                         </p>
                       </TooltipContent>
@@ -237,24 +277,68 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                   </Tooltip>
                 </TooltipProvider>
                 {q.status !== "delayed" && (
-                  <TimerDisplay timer={timer} status={q.status} />
+                  // <TimerDisplay timer={timer} status={q.status} />
+                  <TimerDisplay
+                    timer={timer}
+                    status={q.status}
+                    source={q.source}
+                  />
                 )}
               </div>
             </TableCell>
-          )}
+          )} */}
 
           {/* Priority */}
-          {visibleColumns.priority && (
+          {/* {visibleColumns.priority && (
             <TableCell className="align-middle text-center">
               {priorityBadge}
             </TableCell>
+          )} */}
+
+
+          {visibleColumns.question && (
+          <TableCell className="text-start ps-0">
+            <div className="flex items-center gap-2">
+              {visibleColumns.priority && <PriorityBadge priority={q.priority} />}
+
+              <div className="flex flex-col gap-1 py-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className={`cursor-pointer ${isClickable
+                          ? hasSelectedQuestions
+                            ? ""
+                            : "hover:underline"
+                          : "opacity-50 cursor-not-allowed"
+                          }`}
+                        onClick={() => {
+                          if (!isClickable || hasSelectedQuestions) return;
+                          onViewMore(q._id?.toString() || "");
+                        }}
+                      >
+                        {truncate(q.question, 50)}
+                      </span>
+                    </TooltipTrigger>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {q.status !== "delayed" && (
+                  <TimerDisplay timer={timer} status={q.status} source={q.source} />
+                )}
+              </div>
+            </div>
+          </TableCell>
           )}
+
+
+
 
           {/* Details */}
           {visibleColumns.state && (
             <TableCell className="align-middle">
               {" "}
-              {truncate(q.details.state, 10)}
+              {truncate(q.details.state, 17)}
             </TableCell>
           )}
 
@@ -265,16 +349,16 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           )}
           {visibleColumns.domain && (
             <TableCell className="align-middle">
-              {truncate(q.details.domain, 12)}
+              {truncate(q.details.domain, 22)}
             </TableCell>
           )}
 
           {/* Source */}
-          {visibleColumns.source && (
+          {/* {visibleColumns.source && (
             <TableCell className="align-middle">
               <Badge variant="outline">{q.source}</Badge>
             </TableCell>
-          )}
+          )} */}
           {/* Status */}
           {visibleColumns.status && (
             <TableCell className="align-middle">{statusBadge}</TableCell>

@@ -26,6 +26,7 @@ import {INotificationRepository} from '#root/shared/database/interfaces/INotific
 import {notifyUser} from '#root/utils/pushNotification.js';
 import { IRequestService } from '../interfaces/IRequestService.js';
 import { log } from 'console';
+import { NotificationService } from '#root/modules/core/index.js';
 
 @injectable()
 export class RequestService extends BaseService implements IRequestService{
@@ -41,6 +42,9 @@ export class RequestService extends BaseService implements IRequestService{
 
     @inject(GLOBAL_TYPES.NotificationRepository)
     private readonly notificationRepository: INotificationRepository,
+
+    @inject(GLOBAL_TYPES.NotificationService)
+    private readonly notificationService: NotificationService,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -160,7 +164,9 @@ export class RequestService extends BaseService implements IRequestService{
           await this.notificationRepository.getSubscriptionByUserId(
             requestedUserId,
           );
-        await notifyUser(requestedUserId, title, subscription);
+        await notifyUser(requestedUserId, title, subscription, async (endpoint: string) => {
+          this.notificationService.deleteExpiredSubscriptionForUser(endpoint)
+        });
         return result;
       });
     } catch (error) {

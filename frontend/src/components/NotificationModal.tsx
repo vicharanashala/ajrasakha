@@ -111,7 +111,8 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
         await markAsRead(_id);
         setOpen(false);
 
-        if (type === "answer_creation" || type === "peer_review" || type === "re-routed") {
+        if (type === "answer_creation" || type === "peer_review" || type === "re-routed" || 
+            type === "question_from_whatsapp" || type === "question_from_ajrasakha") {
             goToQuestion(enitity_id, type);
             return;
         }

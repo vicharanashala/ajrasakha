@@ -12,7 +12,6 @@ import {
 } from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { Label } from "@/components/atoms/label";
-import { Input } from "@/components/atoms/input";
 import { Calendar } from "@/components/atoms/calendar";
 import {
   Popover,
@@ -34,7 +33,6 @@ import {
 } from "lucide-react";
 import { useSendOutreachReport } from "@/hooks/api/question/useSendOutreachReport";
 import { toast } from "sonner";
-import { TopRightBadge } from "@/components/NewBadge";
 
 // Simple email validation regex
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -145,7 +143,6 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
                       <div className="flex items-center gap-2">
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
                           Outreach Report
-                        <TopRightBadge label="NEW" right={4} />
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500">Generate & send summary</p>

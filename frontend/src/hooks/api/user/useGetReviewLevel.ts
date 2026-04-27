@@ -11,6 +11,7 @@ type UseGetReviewLevelParams = {
   crop?: string,
   domain?: string,
   status?: string,
+  normalised_crop?: string,
 };
 
 const userService = new UserService();
@@ -19,13 +20,13 @@ export const useGetReviewLevel = ({
   userId,
   dateRange,
   role,
-  state,crop,domain,status
+  state,crop,domain,status,normalised_crop
 }: UseGetReviewLevelParams) => {
   const { startTime, endTime } = dateRange ?? {};
   const { data, isLoading, error } = useQuery<ReviewLevelCount[] | null, Error>({
-    queryKey: ["userReviewLevel",userId,startTime,endTime,state,crop,domain,status],
+    queryKey: ["userReviewLevel",userId,startTime,endTime,state,crop,domain,status,normalised_crop],
     queryFn: async () => {
-      return await userService.getUserReviewLevel(userId,startTime,endTime,role,state,crop,domain,status);
+      return await userService.getUserReviewLevel(userId,startTime,endTime,role,state,crop,domain,status,normalised_crop);
     },
   });
 

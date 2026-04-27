@@ -1,6 +1,6 @@
 
-import { NotificationResponse } from '#root/modules/core/classes/validators/NotificationValidators.js';
-import { INotification } from '#root/shared/interfaces/models.js';
+import { NotificationResponse } from '#root/modules/notification/validators/NotificationValidators.js';
+import { INotification, ISubscription } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
 
 /**
@@ -36,5 +36,9 @@ export interface INotificationRepository {
 
   saveSubscription(userId:string,subscription:any,session?:ClientSession)
 
-  getSubscriptionByUserId(userId: string)
+  getSubscriptionByUserId(userId: string): Promise<ISubscription | null >
+
+  deleteExpiredSubscriptionForUser(endpoint: string, session?:ClientSession)
+  
+  deleteExpiredSubscriptions(session?:ClientSession)
 }

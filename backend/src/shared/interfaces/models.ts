@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold';
 export interface IPreference {
   state: string;
   crop: string;
@@ -27,6 +27,9 @@ export interface IUser {
   createdAt?: Date;
   updatedAt?: Date;
   status?: UserStatus;
+  special_task_force?:boolean
+  special_task_force_moderator?: boolean
+  avatar?: string
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
@@ -37,6 +40,8 @@ export interface IQuestionMetrics {
   recent_similarity: number;
   collusion_score: number;
 }
+
+export type QuestionSource = 'AJRASAKHA' | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -48,22 +53,38 @@ export interface IQuestion {
   details: {
     state: string;
     district: string;
-    crop: string;
+    crop: string | ICropRef;
     season: string;
     domain: string;
+    normalised_crop?: string;
   };
   isAutoAllocate: boolean;
-  source: 'AJRASAKHA' | 'AGRI_EXPERT';
+  source: QuestionSource;
   embedding: number[];
   aiInitialAnswer?: string;
+  aiApprovedSources?: SourceItem[];
+  aiApprovedAnswer?: string;
   metrics: IQuestionMetrics | null;
   text?: string;
   closedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+  isHidden?:false;
+  passingRemark?:string;
+  isOnHold?:boolean;
+  messageId?:string;
+  /** Wall-clock moment the current hold segment started (SLA timer freezes until unhold). */
+  holdAt?:Date | null;
+  /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
+  accumulatedHoldMs?: number;
+  originalQuestion?:string
 }
 
+export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
+
 export interface SourceItem {
+  sourceType?: SourceType;
+  sourceName?: string;
   source: string;
   page?: number;
 }
@@ -208,6 +229,8 @@ export type INotificationType =
   | 're-routed-rejected-expert'
   |'re-routed-rejected-moderator'
   |'re-routed-answer-created'
+  | 'question_from_whatsapp'
+  | 'question_from_ajrasakha'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
@@ -224,7 +247,7 @@ export interface INotification {
 export interface ISubscription {
   _id?: string | ObjectId;
   userId: string | ObjectId;
-  expirytime?: number | null;
+  expirytime?: Date | null;
   subscription: {
     endpoint: string;
     keys: {
@@ -308,3 +331,69 @@ export interface AddQuestionResult {
   data: Partial<IQuestion>;
 }
 
+// ─── Chatbot Analytics ───────────────────────────────────────────────────────
+
+export type ChatbotChannel = 'voice' | 'text' | 'kcc_agent' | 'ivrs';
+
+export interface IChatbotSession {
+  _id?: ObjectId | string;
+  userId: ObjectId | string;
+  channel: ChatbotChannel;
+  language: string;           // e.g. 'hindi' | 'telugu' | 'marathi' | 'bhojpuri'
+  state: string;              // e.g. 'UP' | 'MH'
+  crop?: string;
+  queryCategory: string;      // e.g. 'pest_disease' | 'fertilizer_dosage'
+  sessionDurationSec: number;
+  csatScore?: number;         // 1–5
+  voiceAccuracyScore?: number; // 0–100, only for voice channel
+  isRepeatQuery: boolean;
+  createdAt: Date;
+}
+export interface ICropRef {
+  name: string;
+  aliases?: string[];
+}
+
+export interface ICrop {
+  _id?: ObjectId | string;
+  name: string;
+  aliases: string[];
+  createdBy?: ObjectId | string;
+  updatedBy?: ObjectId | string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+export interface ISource {
+  source: string;     // URL or document reference
+  page?: number;      // optional (some sources may not have page)
+  title?: string;     // optional (future-proof)
+  type?: string;      // optional (pdf, link, doc, etc.)
+}
+
+export interface IAuthor {
+  id: string;
+  name: string;
+}
+
+export interface ICheckStatusResponse {
+  question_id: string;
+  status: 'pending' | 'closed'|'not_found';
+  answer: string | null;
+  sources: ISource[];
+  author: IAuthor | null;
+  metadata?: {
+    state?: string;
+    district?: string;
+    crop?: string | ICropRef;
+    season?: string;
+    domain?: string;
+  };
+  message?: string | null;
+}
+
+
+
+export interface IcheckStatusResponseDto {
+  success: boolean;
+  data: ICheckStatusResponse;
+}

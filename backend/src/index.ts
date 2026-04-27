@@ -15,9 +15,12 @@ import {printStartupSummary} from './utils/logDetails.js';
 import type {CorsOptions} from 'cors';
 import {authorizationChecker} from './shared/functions/authorizationChecker.js';
 import {currentUserChecker} from './shared/functions/currentUserChecker.js';
+import { InternalApiAuth } from './shared/index.js';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import { initJobs } from './bootstrap/jobs/index.js';
+import { apiReference } from '@scalar/express-api-reference';
+import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
 
 const app = express();
 
@@ -53,7 +56,7 @@ const frontendPath = path.join(__dirname, '../../frontend/dist');
 app.use(express.static(frontendPath));
 
 app.use((req, res, next) => {
-  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+  if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/reference')) {
     res.sendFile(path.join(frontendPath, 'index.html'));
   } else {
     next();
@@ -69,6 +72,16 @@ if (NODE_ENV === 'production' || NODE_ENV === 'staging') {
 
 // Start server
 useExpressServer(app, moduleOptions);
+
+// Setup Scalar API Documentation
+const openApiSpec = generateOpenAPISpec(moduleOptions, validators);
+app.use(
+  '/reference',
+  apiReference({
+    content: openApiSpec,
+    theme: 'elysiajs',
+  }),
+);
 
 app.listen(appConfig.port, () => {
   initJobs();

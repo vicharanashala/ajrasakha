@@ -78,14 +78,34 @@ class ContextQuestionAnswerPair(BaseModel):
 
 class POPMetaData(BaseModel):
     similarity_score: float | None
-    page_no: int
+    page_no: Optional[int] = None
     source: str
-    topics: List[str]
+    topics: Optional[List[str]] = None
+    source_name: Optional[str] = None   
 
 
 class ContextPOP(BaseModel):
     text: str
     meta_data: POPMetaData
+
+
+class RestrictedChemicalFlag(BaseModel):
+    chemical_id: str
+    chemical_name: str
+    allowed_usage: str = ""
+    restriction_text: str = ""
+
+
+class POPComplianceNotice(BaseModel):
+    message: str
+    restricted_chemicals: List[RestrictedChemicalFlag]
+    blocked_non_restricted_chemicals: List[str] = []
+    blocked_message: Optional[str] = None
+
+
+class POPContextResponse(BaseModel):
+    contexts: List[ContextPOP]
+    compliance_notice: Optional[POPComplianceNotice] = None
 
 
 class ThinkingResponseChunk:

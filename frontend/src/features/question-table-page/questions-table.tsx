@@ -1,4 +1,5 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
+import { ScrollArea, ScrollBar } from "../../components/atoms/scroll-area";
 import {
   Table,
   TableBody,
@@ -17,14 +18,6 @@ import { useCreateRequest } from "@/hooks/api/request/useCreateRequest";
 import { toast } from "sonner";
 import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
-
-import {
-  STATES,
-  CROPS,
-  DOMAINS,
-  SEASONS,
-  DISTRICTS,
-} from "../../components/MetaData";
 import { QuestionRow } from "./QuestionRow";
 import { MobileQuestionCard } from "./MobileQuestionCard";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
@@ -272,11 +265,15 @@ export const QuestionsTable = ({
       />
 
       <div
-        className={`rounded-lg bg-card min-h-[55vh] ${view === "table" && "border"}`}
+        className={`rounded-lg bg-card min-h-[90vh] ${view === "table" && "border"}`}
       >
-        <div className="hidden md:block overflow-x-auto">
+        <div className="hidden md:block">
           {view === "table" ? (
-            <Table className="min-w-[800px]  table-auto">
+            <ScrollArea className="w-full whitespace-nowrap">
+              <Table 
+                containerClassName="overflow-hidden"
+                className="min-w-[800px] table-auto"
+              >
               <TableHeader className="bg-card sticky top-0 z-10">
                 <TableRow>
                   {visibleColumns.sl_No && (
@@ -321,7 +318,7 @@ export const QuestionsTable = ({
                       </button>
                     </TableHead>
                   )}
-                  {visibleColumns.priority && (
+                  {/* {visibleColumns.priority && (
                     <TableHead className="text-center">
                       <button
                         onClick={() => onSort?.("priority")}
@@ -336,7 +333,7 @@ export const QuestionsTable = ({
                         )}
                       </button>
                     </TableHead>
-                  )}
+                  )} */}
                   {visibleColumns.state && (
                     <TableHead className="text-center">
                       <button
@@ -385,20 +382,72 @@ export const QuestionsTable = ({
                       </button>
                     </TableHead>
                   )}
-                  {visibleColumns.source && (
+                  {/* {visibleColumns.source && (
                     <TableHead className="text-center">Source</TableHead>
-                  )}
+                  )} */}
                   {visibleColumns.status && (
-                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("status")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Status
+                        {sort === "status_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "status_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
                   )}
                   {visibleColumns.answers && (
-                    <TableHead className="text-center">Answers</TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("answers")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Answers
+                        {sort === "answers_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "answers_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
                   )}
                   {visibleColumns.review_level && (
-                    <TableHead className="text-center">Review Level</TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("review_level")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Review Level
+                        {sort === "review_level_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "review_level_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
                   )}
                   {!showClosedAt && visibleColumns.created ? (
-                    <TableHead className="text-center">Created</TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("created")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Created
+                        {sort === "created_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "created_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
                   ) : null}
                   {showClosedAt && visibleColumns.closed ? (
                     <TableHead className="text-center">Closed</TableHead>
@@ -458,22 +507,19 @@ export const QuestionsTable = ({
                 )}
               </TableBody>
             </Table>
-          ) : (
-            <>
-           {isLoading ? (
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+          ) : isLoading ? (
             <div className="text-center py-10">
               <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
             </div>
-          )
-          : items?.length === 0 ? (
+          ) : items?.length === 0 ? (
             <p className="text-center py-10 text-muted-foreground">
               No questions found
             </p>
-          )
-          :
-          (
+          ) : (
             <>
-            {isSelectionModeOn && (
+              {isSelectionModeOn && (
                 <div className="w-full flex items-center justify-between px-4 py-2 bg-green-50 dark:bg-[#1a1a1a] dark:border-gray-800 dark:hover:border-gray-600 dark:shadow-none  border border-green-100 rounded-lg shadow-sm transition-all duration-200 mb-3">
                   <div className="flex items-center gap-3">
                     <Checkbox
@@ -487,12 +533,12 @@ export const QuestionsTable = ({
                       onCheckedChange={handleSelectAll}
                       aria-label="Select all questions"
                       className="w-5 h-5 rounded border transition-all duration-200 
-                data-[state=checked]:bg-green-600
-                data-[state=checked]:border-green-600
-                data-[state=unchecked]:bg-white
-                data-[state=unchecked]:border-gray-300
-                data-[state=checked]:text-white
-                "
+        data-[state=checked]:bg-green-600
+        data-[state=checked]:border-green-600
+        data-[state=unchecked]:bg-white
+        data-[state=unchecked]:border-gray-300
+        data-[state=checked]:text-white
+        "
                     />
 
                     <span className="text-sm font-semibold text-green-800 dark:text-gray-200">
@@ -508,7 +554,6 @@ export const QuestionsTable = ({
                 </div>
               )}
               <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))] pb-3">
-                
                 {items?.map((q, idx) => (
                   <QuestionsCard
                     currentPage={currentPage}
@@ -539,9 +584,6 @@ export const QuestionsTable = ({
                 ))}
               </div>
             </>
-          )
-        }   
-      </>
           )}
         </div>
 
@@ -575,6 +617,7 @@ export const QuestionsTable = ({
                 updatingQuestion={updatingQuestion}
                 userRole={userRole!}
                 key={q._id}
+                showClosedAt={showClosedAt}
               />
             ))
           )}

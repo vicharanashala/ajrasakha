@@ -1,7 +1,7 @@
 import {
   QuestionLevelResponse,
   ReviewLevelTimeValue,
-} from '#root/modules/core/classes/transformers/QuestionLevel.js';
+} from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import {
   Analytics,
   DashboardResponse,
@@ -9,14 +9,15 @@ import {
   GoldenDataViewType,
   ModeratorApprovalRate,
   QuestionStatusOverview,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
-import { GetDetailedQuestionsQuery, QuestionResponse } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
+import { AllocatedQuestionsBodyDto, DetailedQuestionsBodyDto, GetDetailedQuestionsQuery, QuestionResponse } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {
   IQuestion,
   IUser,
   QuestionStatus,
   IQuestionEmbedding,
-  ISimilarQuestion
+  ISimilarQuestion,
+  ICheckStatusResponse
 } from '#root/shared/interfaces/models.js';
 import {ClientSession} from 'mongodb';
 
@@ -120,8 +121,8 @@ export interface IQuestionRepository {
   getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
-    // userPreference: IUser['preference'] | null,
     session?: ClientSession,
+    body?: AllocatedQuestionsBodyDto,
   ): Promise<QuestionResponse[]>;
   /**
    * @param query - Advance query filters.
@@ -129,6 +130,7 @@ export interface IQuestionRepository {
    */
   findDetailedQuestions(
     query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
+    body?: DetailedQuestionsBodyDto,
   ): Promise<{questions: IQuestion[]; totalPages: number; totalCount: number}>;
 
   /**
@@ -225,7 +227,7 @@ export interface IQuestionRepository {
   getYearAnalytics(
     goldenDataSelectedYear: string,
     session?: ClientSession,
-  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }>;
+  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }>;
 
   /**
   * get yearly analytics.
@@ -245,7 +247,7 @@ export interface IQuestionRepository {
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
     session?: ClientSession,
-  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }>;
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }>;
 
   /**
    * get weekly analytics.
@@ -260,7 +262,7 @@ export interface IQuestionRepository {
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
     session?: ClientSession,
-  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }>;
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }>;
 
   /**
    * get daily analytics.
@@ -280,6 +282,7 @@ export interface IQuestionRepository {
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
+    totalVerifiedByType: number;
     moderatorBreakdown?: { moderatorName: string, count: number }[];
   }>;
 
@@ -353,6 +356,7 @@ export interface IQuestionRepository {
   getQuestionsByFilters(
     filters: any,
     session?: ClientSession,
+    useDuplicateCollection?: boolean,
   ): Promise<IQuestion[]>;
 
   getAllQuestionEmbeddings(
@@ -365,4 +369,24 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<(ISimilarQuestion & { _vectorSearchScore: number })[]>
 
+  //  Backfill normalised crop
+  backfillNormalisedCrop(
+    name: string,
+    aliases: string[],
+  ): Promise<number>;
+
+  getQuestionsWithAnswerDetails(
+    questionIds?:string[],
+    session?: ClientSession,
+  ):Promise<ICheckStatusResponse[]>
+
+  /**
+   * Returns total question count and count grouped by status.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getQuestionStatusSummary(
+    query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
+    session?: ClientSession,
+  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>
 }

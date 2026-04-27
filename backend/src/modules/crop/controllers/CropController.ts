@@ -1,0 +1,222 @@
+import 'reflect-metadata';
+import {
+  JsonController,
+  Get,
+  Post,
+  Put,
+  Body,
+  HttpCode,
+  Params,
+  QueryParams,
+  Authorized,
+  CurrentUser,
+  ForbiddenError,
+  NotFoundError,
+} from 'routing-controllers';
+import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
+import {inject, injectable} from 'inversify';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {IUser, ICrop} from '#root/shared/interfaces/models.js';
+import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
+import {
+  CropIdParam,
+  CreateCropDto,
+  UpdateCropDto,
+  GetAllCropsQuery,
+} from '../classes/validators/CropValidators.js';
+import {ICropService} from '../interfaces/ICropService.js';
+import {
+  CropErrorResponse,
+  PaginatedCropsResponse,
+  CropSingleResponse,
+  CropSuccessResponse,
+} from '../classes/validators/CropResponseValidators.js';
+
+// ── Allowed roles for write operations ──
+const WRITE_ROLES = ['admin', 'moderator'];
+
+@OpenAPI({
+  tags: ['crops'],
+  description: 'Operations for managing the crop master list',
+})
+@injectable()
+@JsonController('/crops')
+export class CropController {
+  constructor(
+    @inject(GLOBAL_TYPES.CropService)
+    private readonly cropService: ICropService,
+  ) {}
+
+  // ─── GET ALL CROPS ───────────────────────────────────────────────────────
+
+  @OpenAPI({
+    summary: 'Get all crops (supports search, filter, sort, pagination)',
+    description: 'Retrieves paginated list of crops with optional search, filtering, and sorting.',
+  })
+  @ResponseSchema(PaginatedCropsResponse, {
+    statusCode: 200,
+    description: 'Crops retrieved successfully with pagination',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid query parameters',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch crops',
+  })
+  @Get('/')
+  @HttpCode(200)
+  @Authorized()
+  async getAllCrops(
+    @QueryParams() query: GetAllCropsQuery,
+  ): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
+    return this.cropService.getAllCrops(query);
+  }
+
+  // ─── GET CROP BY ID ──────────────────────────────────────────────────────
+
+  @OpenAPI({
+    summary: 'Get a crop by ID',
+    description: 'Retrieves a specific crop by its MongoDB ObjectId.',
+  })
+  @ResponseSchema(CropSingleResponse, {
+    statusCode: 200,
+    description: 'Crop retrieved successfully',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid crop ID format',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Crop with specified ID not found',
+  })
+  @Get('/:cropId')
+  @HttpCode(200)
+  @Authorized()
+  async getCropById(
+    @Params() params: CropIdParam,
+  ): Promise<{success: boolean; data: ICrop}> {
+    const {cropId} = params;
+    const crop = await this.cropService.getCropById(cropId);
+
+    if (!crop) {
+      throw new NotFoundError(`Crop with id "${cropId}" not found`);
+    }
+
+    return {success: true, data: crop};
+  }
+
+  // ─── CREATE CROP ─────────────────────────────────────────────────────────
+
+  @OpenAPI({
+    summary: 'Add a new crop (admin/moderator only)',
+    description: 'Creates a new crop with name and optional aliases. Only admins and moderators can perform this operation.',
+  })
+  @ResponseSchema(CropSuccessResponse, {
+    statusCode: 201,
+    description: 'Crop created successfully - Returns the created crop data',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid crop data or crop already exists',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Only admins and moderators can add crops',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to create crop',
+  })
+  @Post('/')
+  @HttpCode(201)
+  @Authorized()
+  async createCrop(
+    @Body() body: CreateCropDto,
+    @CurrentUser() user: IUser,
+  ): Promise<{success: boolean; message: string; data: ICrop}> {
+    // Role check
+    if (!WRITE_ROLES.includes(user.role)) {
+      throw new ForbiddenError(
+        'Only admins and moderators can add crops.',
+      );
+    }
+
+    const userId = user._id.toString();
+    const crop = await this.cropService.createCrop(body, userId);
+
+    return {
+      success: true,
+      message: `Crop "${crop.name}" added successfully.`,
+      data: crop,
+    };
+  }
+
+  // ─── UPDATE CROP ─────────────────────────────────────────────────────────
+
+  @OpenAPI({
+    summary: 'Update a crop (admin/moderator only)',
+    description: 'Updates an existing crop\'s aliases. Only admins and moderators can perform this operation.',
+  })
+  @ResponseSchema(CropSuccessResponse, {
+    statusCode: 200,
+    description: 'Crop updated successfully - Returns the updated crop data',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid crop data, crop already exists, or cannot add alias',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to update crop',
+  })
+  @Put('/:cropId')
+  @HttpCode(200)
+  @Authorized()
+  async updateCrop(
+    @Params() params: CropIdParam,
+    @Body() body: UpdateCropDto,
+    @CurrentUser() user: IUser,
+  ): Promise<{success: boolean; message: string; data: ICrop}> {
+    // Role check
+    if (!WRITE_ROLES.includes(user.role)) {
+      throw new ForbiddenError(
+        'Only admins and moderators can update crops.',
+      );
+    }
+
+    const {cropId} = params;
+    const userId = user._id.toString();
+
+    const updated = await this.cropService.updateCrop(cropId, body, userId);
+
+    if (!updated) {
+      throw new NotFoundError(`Crop with id "${cropId}" not found`);
+    }
+
+    return {
+      success: true,
+      message: `Crop "${updated.name}" updated successfully.`,
+      data: updated,
+    };
+  }
+}
+

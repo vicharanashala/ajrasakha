@@ -1,9 +1,9 @@
-import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
-import {BaseService, MongoDatabase} from '#root/shared/index.js';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {inject, injectable} from 'inversify';
-import {ClientSession, ObjectId} from 'mongodb';
-import {startBalanceWorkloadWorkers} from '#root/workers/balanceWorkload.manager.js';
+import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { BaseService, MongoDatabase } from '#root/shared/index.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { inject, injectable } from 'inversify';
+import { ClientSession, ObjectId } from 'mongodb';
+import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
 import {
   IQuestion,
   IQuestionSubmission,
@@ -12,43 +12,52 @@ import {
   INotificationType,
   IQuestionPriority,
   ISimilarQuestion,
-  AddQuestionResult
+  AddQuestionResult,
+  ICheckStatusResponse
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
+  ForbiddenError,
   InternalServerError,
   NotFoundError,
   UnauthorizedError,
 } from 'routing-controllers';
-import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
-import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
-import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
-import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
-import {notifyUser} from '#root/utils/pushNotification.js';
-import {normalizeKeysToLower} from '#root/utils/normalizeKeysToLower.js';
-import {appConfig} from '#root/config/app.js';
-import {AiService} from '#root/modules/core/services/AiService.js';
+import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
+import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import { IRequestRepository } from '#root/shared/database/interfaces/IRequestRepository.js';
+import { IContextRepository } from '#root/shared/database/interfaces/IContextRepository.js';
+import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
+import { notifyUser } from '#root/utils/pushNotification.js';
+import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
+import { appConfig } from '#root/config/app.js';
+import { AiService } from '#root/modules/ai/services/AiService.js';
 import {
   AddQuestionBodyDto,
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
-import {QuestionLevelResponse} from '#root/modules/core/classes/transformers/QuestionLevel.js';
-import {NotificationService} from '#root/modules/core/services/NotificationService.js';
-import {CORE_TYPES} from '#root/modules/core/types.js';
-import {IQuestionService} from '../interfaces/IQuestionService.js';
-import {isToday} from '#root/utils/date.utils.js';
-import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
+import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
+import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
+import { IQuestionService } from '../interfaces/IQuestionService.js';
+import { isToday } from '#root/utils/date.utils.js';
+import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from 'exceljs'
 import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
-import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
+import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
-import {checkConceptDuplicate} from '#root/modules/question/aiservice/checkConceptDuplicate.js'
+import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js'
+import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
+import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
+import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
+import { checkDuplicateQuestionHelper } from '../helpers/duplicateQuestionHelper.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -86,6 +95,12 @@ export class QuestionService extends BaseService implements IQuestionService {
     @inject(GLOBAL_TYPES.DuplicateQuestionRepository)
     private readonly duplicateQuestionRepository: IDuplicateQuestionRepository,
 
+    @inject(GLOBAL_TYPES.CropRepository)
+    private readonly cropRepository: ICropRepository,
+
+    @inject(CHATBOT_TYPES.ChatbotRepository)
+    private readonly chatbotRepository: IChatbotRepository,
+
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
@@ -95,23 +110,56 @@ export class QuestionService extends BaseService implements IQuestionService {
   async createBulkQuestions(
     userId: string,
     questions: any[],
+    isOutreachQuestion?: boolean
   ): Promise<string[]> {
     if (!Array.isArray(questions) || questions.length === 0) {
       throw new BadRequestError('No questions provided for bulk insert');
     }
 
-    // To test whether the ai server is running or not
-    const testEmbedding = await this.aiService.getEmbedding('Test');
+    // const testEmbedding = await this.aiService.getEmbedding('Test'); // disabled locally — AI server not running
 
-    const formatted: IQuestion[] = questions.map((q: any) => {
+    // ── In-memory crop cache: lowercase input → canonical normalised_crop ──
+    const cropCache = new Map<string, string>();
+
+    const formatted: IQuestion[] = [];
+    for (const q of questions) {
       const low = normalizeKeysToLower(q || {});
-      const details = {
+      const details: IQuestion['details'] = {
         state: (low.state || '').toString(),
         district: (low.district || '').toString(),
         crop: (low.crop || '').toString(),
         season: (low.season || '').toString(),
         domain: (low.domain || '').toString(),
       };
+
+      // ── Crop normalisation (mirrors addQuestion logic, with per-call cache) ──
+      const rawCropName = (low.crop || '').toString();
+      let normalised_crop = rawCropName.trim().toLowerCase();
+      if (rawCropName.trim()) {
+        const cacheKey = rawCropName.trim().toLowerCase();
+        if (cropCache.has(cacheKey)) {
+          normalised_crop = cropCache.get(cacheKey)!;
+        } else {
+          try {
+            const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+            if (existingCrop) {
+              normalised_crop = existingCrop.name;
+            } else {
+              const normalizedName = rawCropName.trim().toLowerCase();
+              await this.cropRepository.createCrop(normalizedName, userId || '', []);
+              normalised_crop = normalizedName;
+            }
+          } catch (cropError: any) {
+            console.error('Crop normalization warning:', cropError.message);
+          }
+          // Always cache — prevents retrying failed crop creation on subsequent questions
+          cropCache.set(cacheKey, normalised_crop);
+        }
+      }
+      // Explicitly preserve the original input string — normalised_crop holds the canonical name
+      details.crop = rawCropName.trim();
+      details.normalised_crop = normalised_crop;
+
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
       const priorities = ['low', 'high', 'medium'];
       const priority = priorities.includes(priorityRaw)
@@ -128,7 +176,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
         question: questionText,
         priority,
-        source: (low.source || 'AGRI_EXPERT') as IQuestion['source'],
+        source: isOutreachQuestion ? "OUTREACH" : (low.source || 'AGRI_EXPERT') as IQuestion['source'],
         status: 'open',
         totalAnswersCount: 0,
         contextId: null,
@@ -142,8 +190,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         updatedAt: new Date(),
       };
 
-      return base;
-    });
+      formatted.push(base);
+    }
 
     try {
       const insertedIds = await this.questionRepo.insertMany(formatted);
@@ -247,10 +295,11 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
+    body: AllocatedQuestionsBodyDto,
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        return this.questionRepo.getAllocatedQuestions(userId, query, session);
+        return this.questionRepo.getAllocatedQuestions(userId, query, session, body);
       });
     } catch (error) {
       throw new InternalServerError(
@@ -261,13 +310,15 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
-  ): Promise<{questions: IQuestion[]; totalPages: number}> {
+    body: DetailedQuestionsBodyDto,
+  ): Promise<{ questions: IQuestion[]; totalPages: number }> {
+
     let searchEmbedding: number[] | null = null;
 
     if (query?.search) {
       try {
         // const embedding=[]
-        const {embedding} = await this.aiService.getEmbedding(query.search);
+        const { embedding } = await this.aiService.getEmbedding(query.search);
         searchEmbedding = embedding;
       } catch (err) {
         console.error(
@@ -281,7 +332,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.findDetailedQuestions({
       ...query,
       searchEmbedding,
-    });
+    }, body);
   }
 
   async getQuestionFromRawContext(
@@ -290,66 +341,66 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<GeneratedQuestionResponse[]> {
     const questions = await this.aiService.getQuestionByContext(context);
     // SAMPLE RESPONSE (mocked because API doesn't work locally)
-   /* const questions: any = {
-      reviewer: [
-        {
-          id: "697dbfb7622aa3a183070682",
-          question: "How to control stem borer grubs in paddy crop?",
-          answer: "Stem borer is one of the most destructive pests of paddy (rice) crop...",
-          source: "AGRI_EXPERT",
-          details: {
-            state: "Haryana",
-            district: "HISSAR",
-            crop: "Paddy",
-            season: "KHARIF",
-            domain: "Pest",
-          },
-          score: 0.9331517815589905,
-        },
-        {
-          id: "695b446528ae67127339da95",
-          question: "How to control Stem Borer infestation in Paddy?",
-          answer: "Stem borer is one of the most destructive pests affecting paddy crops in India...",
-          source: "AGRI_EXPERT",
-          details: {
-            state: "UTTAR PRADESH",
-            district: "CHANDAULI",
-            crop: "Paddy",
-            season: "Kharif",
-            domain: "Plant Protection",
-          },
-          score: 0.932569146156311,
-        },
-      ],
-  
-      golden: [
-        {
-          question: "How to prevent stem borer in paddy?",
-          answer: "Stem borer in paddy is a major pest and shows distinct symptoms...",
-          metadata: {
-            "Agri Specialist": "Gonnabathula Girishma",
-            Crop: "Paddy Dhan",
-            District: "YADADRI BHUVANAGIRI",
-            Season: "Kharif",
-            State: "TELANGANA",
-          },
-          score: 0.9287769794464111,
-        },
-      ],
-  
-      pop: [
-        {
-          text: "Rice stem borers: The larvae of these insects bore into the stem and cause damage from July to October...",
-          metadata: {
-            page_no: 24,
-            headings: ["A. Insect Pests"],
-            source:
-              "https://storage.googleapis.com/annam-dataset/pops/Punjab_Kharif_2025.pdf",
-          },
-          score: 0.9020636677742004,
-        },
-      ],
-    };*/
+    /* const questions: any = {
+       reviewer: [
+         {
+           id: "697dbfb7622aa3a183070682",
+           question: "How to control stem borer grubs in paddy crop?",
+           answer: "Stem borer is one of the most destructive pests of paddy (rice) crop...",
+           source: "AGRI_EXPERT",
+           details: {
+             state: "Haryana",
+             district: "HISSAR",
+             crop: "Paddy",
+             season: "KHARIF",
+             domain: "Pest",
+           },
+           score: 0.9331517815589905,
+         },
+         {
+           id: "695b446528ae67127339da95",
+           question: "How to control Stem Borer infestation in Paddy?",
+           answer: "Stem borer is one of the most destructive pests affecting paddy crops in India...",
+           source: "AGRI_EXPERT",
+           details: {
+             state: "UTTAR PRADESH",
+             district: "CHANDAULI",
+             crop: "Paddy",
+             season: "Kharif",
+             domain: "Plant Protection",
+           },
+           score: 0.932569146156311,
+         },
+       ],
+   
+       golden: [
+         {
+           question: "How to prevent stem borer in paddy?",
+           answer: "Stem borer in paddy is a major pest and shows distinct symptoms...",
+           metadata: {
+             "Agri Specialist": "Gonnabathula Girishma",
+             Crop: "Paddy Dhan",
+             District: "YADADRI BHUVANAGIRI",
+             Season: "Kharif",
+             State: "TELANGANA",
+           },
+           score: 0.9287769794464111,
+         },
+       ],
+   
+       pop: [
+         {
+           text: "Rice stem borers: The larvae of these insects bore into the stem and cause damage from July to October...",
+           metadata: {
+             page_no: 24,
+             headings: ["A. Insect Pests"],
+             source:
+               "https://storage.googleapis.com/annam-dataset/pops/Punjab_Kharif_2025.pdf",
+           },
+           score: 0.9020636677742004,
+         },
+       ],
+     };*/
     const merged = [
       ...(questions.reviewer || []).map((item: any) => ({
         question: item.question,
@@ -357,14 +408,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         agri_specialist: item.source || "AGRI_EXPERT",
         referenceSource: "reviewer",
       })),
-  
+
       ...(questions.golden || []).map((item: any) => ({
         question: item.question,
         answer: item.answer,
         agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
         referenceSource: "golden",
       })),
-  
+
       ...(questions.pop || []).map((item: any) => ({
         question: "Reference Information",
         answer: item.text,
@@ -557,7 +608,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }*/
- 
+
 
   /*async addQuestion(
     userId: string,
@@ -634,7 +685,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         const topSimilar = await this.questionRepo.findTopSimilarQuestions(
           textEmbedding,
           5,
-          { state: details.state, district: details.district, crop: details.crop, domain: details.domain, season: details.season },
+          { state: details.state, district: details.district, crop: typeof details.crop === 'string' ? details.crop : details.crop.name, domain: details.domain, season: details.season },
         );
 
         logData.totalMatches = topSimilar.length;
@@ -779,22 +830,47 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }*/
+
+  // Reusable duplicate detection helper.
+
+  async checkDuplicateQuestion(
+    baseQuestion: IQuestion,
+    details: IQuestion['details'],
+    logData: Record<string, any>,
+    session?: ClientSession,
+  ): Promise<{ isDuplicate: boolean; duplicateData?: any }> {
+    return checkDuplicateQuestionHelper(
+      baseQuestion,
+      details,
+      logData,
+      this.aiService,
+      this.duplicateQuestionRepository,
+      session,
+    );
+  }
+
+
+
   async addQuestion(
     userId: string,
     body: AddQuestionBodyDto,
   ): Promise<AddQuestionResult> {
     const logData: Record<string, any> = {};
     try {
+      // Extract aiInitialAnswer before normalizing keys to lowercase
+      const aiInitialAnswer = body.aiInitialAnswer || '';
       body = normalizeKeysToLower(body);
-  
+
       let {
         question,
         priority,
         source = 'AGRI_EXPERT',
         details,
         context,
+        originalQuestion = ''
       } = body;
-  
+      console.log("the body coming=====", body)
+
       if (!details) {
         const b: any = body;
         details = {
@@ -805,19 +881,19 @@ export class QuestionService extends BaseService implements IQuestionService {
           domain: b?.domain || '',
         };
       }
-  
+
       const validPriorities = ['low', 'medium', 'high'];
       priority = priority?.toLowerCase() as IQuestion['priority'];
       if (!validPriorities.includes(priority)) {
         priority = 'medium';
       }
-  
+
       if (!question?.trim()) {
         throw new BadRequestError(`Question is required`);
       }
-  
+
       if (
-        !details.crop ||
+        !(typeof details.crop === 'string' ? details.crop.trim() : details.crop?.name?.trim()) ||
         !details.district ||
         !details.domain ||
         !details.season ||
@@ -831,11 +907,38 @@ export class QuestionService extends BaseService implements IQuestionService {
       logData.details = details;
       logData.source = source;
 
+      // ─── Normalize crop against crop_master DB ───────────────────────────
+      const rawCropName = typeof details.crop === 'string' ? details.crop : details.crop?.name || '';
+      let normalised_crop = rawCropName.trim().toLowerCase();
+      if (rawCropName.trim()) {
+        try {
+          const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+          if (existingCrop) {
+            // Crop found — keep original input string, normalise to canonical name
+            normalised_crop = existingCrop.name;
+            logData.cropNormalization = { original: rawCropName, resolved: existingCrop.name, action: rawCropName.trim().toLowerCase() === existingCrop.name ? 'EXACT_MATCH' : 'ALIAS_RESOLVED' };
+          } else {
+            // Crop not found — auto-create it in the DB
+            const normalizedName = rawCropName.trim().toLowerCase();
+            await this.cropRepository.createCrop(normalizedName, userId || '', []);
+            normalised_crop = normalizedName;
+            logData.cropNormalization = { original: rawCropName, resolved: normalizedName, action: 'AUTO_CREATED' };
+          }
+        } catch (cropError: any) {
+          // If crop normalization fails (e.g. uniqueness race condition), log but don't block question creation
+          console.error('Crop normalization warning:', cropError.message);
+          logData.cropNormalizationError = cropError.message;
+        }
+      }
+      // Explicitly preserve the original input string — normalised_crop holds the canonical name
+      details.crop = rawCropName.trim();
+      details.normalised_crop = normalised_crop;
+
       // 🔹 Create Embedding — OUTSIDE transaction
       const text = `Question: ${question}`;
       let textEmbedding: number[] = [];
 
-      
+
       if (appConfig.ENABLE_AI_SERVER) {
         const { embedding } = await this.aiService.getEmbedding(text);
         textEmbedding = embedding;
@@ -845,9 +948,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // 🔥 Similarity Check — OUTSIDE transaction ($vectorSearch cannot run inside one)
 
-// Check 4 Questions best match- 
-  
-	let topMatches: {questionId: ObjectId, question: string, similarityScore: number }[] = []
+      // Check 4 Questions best match- 
+
+      let topMatches: { questionId: ObjectId, question: string, similarityScore: number }[] = []
 
       // ✅ Everything that needs atomicity goes inside the transaction
       return this._withTransaction(async (session: ClientSession) => {
@@ -858,7 +961,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const { insertedId } = await this.contextRepo.addContext(context, session);
           contextId = new ObjectId(insertedId);
         }
-
+        // source="AJRASAKHA"
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
           userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
@@ -869,229 +972,118 @@ export class QuestionService extends BaseService implements IQuestionService {
           totalAnswersCount: 0,
           contextId,
           details,
-          isAutoAllocate: true,
+          isAutoAllocate: !(source === "AJRASAKHA" || source === "WHATSAPP"),
           embedding: textEmbedding,
           metrics: null,
-          aiInitialAnswer: body.aiInitialAnswer || '',
+          aiInitialAnswer,
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
+          originalQuestion: originalQuestion
         };
-  
-       
-       
-        let isDuplicate = false
-        let matchedQuestion = ""
-        let matchedQuestionId: ObjectId | null = null
-        let matchedScore = 0
-        let referenceSourcefrom=''
-        
-         let topSimilar
 
-        const llmCandidates: typeof topMatches = []
-        if ( source === 'AJRASAKHA') {
-          /* const topSimilar = await this.questionRepo.findTopSimilarQuestions(
-           textEmbedding, 25,
-           { state: details.state,district: details.district, crop: details.crop, domain: details.domain, season: details.season }, )*/
-         const questions = await this.aiService.getQuestionByContextAndMetaData(
-             question,
-             details.state,
-             details.district,
-             details.crop,
-             details.season,
-             details.domain
-           );
-           
-           // merge reviewer + golden
-           let merged = [
-            ...(questions.reviewer || []).map((item: any) => ({
-              question: item.question,
-              answer: item.answer,
-              agri_specialist: item.source || "AGRI_EXPERT",
-              referenceSource: "reviewer",
-              score:item.score* 100
-            })),
-        
-            ...(questions.golden || []).map((item: any) => ({
-              question: item.question,
-              answer: item.answer,
-              agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
-              referenceSource: "golden",
-              score:item.score* 100
-            })),
-        
-           
-          ];
-          merged = Array.from(
-            new Map(merged.map(q => [q.question, q])).values(),
-          ).map(q => ({
-            ...q,
-            id: new ObjectId().toString()
-          }));
-        
-          
-           merged.sort((a, b) => b.score - a.score);
-           
-           
-           // get top 5
-           const bestFive = merged.slice(0, 5);
-           
-           // convert to topMatches
-           topSimilar = bestFive.map(q => ({
-             questionId: new ObjectId().toString(),
-             question: q.question,
-             similarityScore: q.score,
-             referenceSource:q.referenceSource
-           }));
-          
-           logData.totalMatches = topSimilar.length
-       
-           logData.matches = topSimilar.map((q) => ({ questionId: q.questionId, question: q.question, similarityScore: q.similarityScore }))
-           logData.topMatches = topSimilar
-           logData.threshold = 85
-           for (const match of topSimilar) {
-      
-     
-            const highestScore = match.similarityScore
-      
-            // Rule 1: immediate duplicate
-            if (highestScore >= 95) {
-              isDuplicate = true
-              matchedQuestion = match.question
-              matchedQuestionId = match.questionId
-              matchedScore = highestScore
-              referenceSourcefrom=match.referenceSource
-              break
-            }
-      
-            // Rule 2: collect candidates for LLM
-            if (highestScore >= 85 && highestScore < 95) {
-              llmCandidates.push(match)
-            }
+        // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
+        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+          const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
+          if (duplicateResult.isDuplicate) {
+            return { isDuplicate: true, data: duplicateResult.duplicateData };
           }
-      
-            // Rule 3: call LLM once
-            if (!isDuplicate && llmCandidates.length > 0) {
-              const candidateQuestions = llmCandidates.map(q => q.question)
-      
-              const matchedQuestionfromllm = await checkConceptDuplicate(
-                baseQuestion.question,
-                candidateQuestions
-              )
-            
-             if (matchedQuestionfromllm) {
-  
-              let filtermatchinQuestion=topSimilar.filter(ele=>ele.question==matchedQuestionfromllm)
-              
-              matchedQuestion=filtermatchinQuestion[0].question
-              matchedQuestionId=filtermatchinQuestion[0].questionId
-              matchedScore=filtermatchinQuestion[0].similarityScore
-              referenceSourcefrom=filtermatchinQuestion[0].referenceSource
-             
-              const duplicateQuestion = {
-                ...baseQuestion,
-                similarityScore: Number(matchedScore.toFixed(2)),
-                referenceQuestionId: matchedQuestionId,
-                referenceQuestion: matchedQuestion,
-                referenceSource:referenceSourcefrom
-                }
-      
-                await this.duplicateQuestionRepository.addDuplicate(
-                  duplicateQuestion,
-                  session
-                )
-                logData.outcome = 'DUPLICATE_DETECTED'
-                logData.matchedQuestion = matchedQuestion
-                logData.similarityScore = matchedScore.toFixed(2)
-          
-                chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
-                return { isDuplicate: true, data: duplicateQuestion }
-              }
-            }
-      
-          if (isDuplicate && matchedQuestionId && matchedQuestion) {
-            const duplicateQuestion = {
-            ...baseQuestion,
-            similarityScore: Number(matchedScore.toFixed(2)),
-            referenceQuestionId: matchedQuestionId,
-            referenceQuestion: matchedQuestion,
-            referenceSource:referenceSourcefrom
-            }
-      
-            await this.duplicateQuestionRepository.addDuplicate(
-            duplicateQuestion,
-            session
-            )
-      
-            logData.outcome = 'DUPLICATE_DETECTED'
-            logData.matchedQuestion = matchedQuestion
-            logData.similarityScore = matchedScore.toFixed(2)
-      
-            chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
-      
-            return { isDuplicate: true, data: duplicateQuestion }
-          }
-         }
-
-		
+        }
 
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
         // =====================================================
-    
+
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-
         const savedQuestion = await this.questionRepo.addQuestion(
           baseQuestion,
           session,
         );
-  
+
+
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
-  
+
         const users = await this.userRepo.findExpertsByPreference(
           details as PreferenceDto,
           session,
         );
-  
-        const initialUsersToAllocate = users.slice(0, 3);
-  
-        const queue = initialUsersToAllocate.map(
-          (user) => new ObjectId(user._id.toString()),
-        );
-  
-        if (initialUsersToAllocate[0]) {
-          await this.userRepo.updateReputationScore(
-            initialUsersToAllocate[0]._id.toString(),
-            true,
-            session,
+        let queue: ObjectId[] = [];
+        let initialUsersToAllocate: typeof users = [];
+
+        if (source === 'AGRI_EXPERT') {
+          initialUsersToAllocate = users.slice(0, 3);
+
+          queue = initialUsersToAllocate.map(
+            (user) => new ObjectId(user._id.toString()),
+          );
+
+
+          if (initialUsersToAllocate[0]) {
+            await this.userRepo.updateReputationScore(
+              initialUsersToAllocate[0]._id.toString(),
+              true,
+              session,
+            );
+          }
+
+          const submissionData: IQuestionSubmission = {
+            questionId: new ObjectId(savedQuestion._id.toString()),
+            lastRespondedBy: null,
+            history: [],
+            queue,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          await this.questionSubmissionRepo.addSubmission(submissionData, session);
+
+          if (initialUsersToAllocate[0]) {
+            await this.notificationService.saveTheNotifications(
+              `A Question has been assigned for answering`,
+              'Answer Creation Assigned',
+              savedQuestion._id.toString(),
+              initialUsersToAllocate[0]._id.toString(),
+              'answer_creation',
+            );
+          }
+        } else {
+          const [allModerators, taskForceModerators] = await Promise.all([
+            this.userRepo.findModerators(),
+            this.userRepo.getSpecialTaskForceModerators()
+          ]);
+          const allUsers = [...allModerators, ...taskForceModerators]
+
+          const sourceLabel =
+            source === "AJRASAKHA" ? "Ajrasakha" : "WhatsApp";
+
+          const message = `A new question has been received from ${sourceLabel} and needs your attention.`;
+
+          await Promise.all(
+            allUsers.map((moderator: any) =>
+              this.notificationService.saveTheNotifications(
+                message,
+                "New Question Received",
+                savedQuestion._id.toString(),
+                moderator._id.toString(),
+                source === "AJRASAKHA" ? "question_from_ajrasakha" : "question_from_whatsapp"
+              )
+            )
           );
         }
-  
-        const submissionData: IQuestionSubmission = {
-          questionId: new ObjectId(savedQuestion._id.toString()),
-          lastRespondedBy: null,
-          history: [],
-          queue,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+
+
+        // return { isDuplicate: false, data: baseQuestion };
+        return {
+          isDuplicate: false,
+          data: {
+            ...baseQuestion,
+            _id: baseQuestion._id?.toString?.(),
+            userId: baseQuestion.userId?.toString?.(),
+          },
         };
-  
-        await this.questionSubmissionRepo.addSubmission(submissionData, session);
-  
-        if (initialUsersToAllocate[0]) {
-          await this.notificationService.saveTheNotifications(
-            `A Question has been assigned for answering`,
-            'Answer Creation Assigned',
-            savedQuestion._id.toString(),
-            initialUsersToAllocate[0]._id.toString(),
-            'answer_creation',
-          );
-        }
-  
-        return { isDuplicate: false, data: baseQuestion };
       });
     } catch (error) {
       console.error(error);
@@ -1100,7 +1092,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       logData.errorMessage = error.message;
       logData.stack = error.stack;
       chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
-            
+
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }
@@ -1138,7 +1130,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
 
         // Only author needs to see ai initial answer
-        let aiInitialAnswer = '';
+        let aiInitialAnswer = currentQuestion.aiInitialAnswer;
 
         const answers = await this.answerRepo.getByQuestionId(
           questionId,
@@ -1148,6 +1140,24 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (answers && answers.length == 0)
           aiInitialAnswer = currentQuestion.aiInitialAnswer;
 
+        let aiApprovedSources = currentQuestion.aiApprovedSources;
+
+        // Backward compatibility: old DB still has aiApprovedAnswer
+        if (!aiInitialAnswer && currentQuestion.aiApprovedAnswer) {
+          aiInitialAnswer = currentQuestion.aiApprovedAnswer;
+        }
+
+        // Existing fallback (keep this)
+        if (
+          currentQuestion.source === 'AJRASAKHA' &&
+          !aiInitialAnswer &&
+          answers &&
+          answers.length > 0
+        ) {
+          aiInitialAnswer = answers[0].answer;
+          aiApprovedSources = answers[0].sources;
+        }
+
         return {
           id: currentQuestion._id.toString(),
           text: currentQuestion.question,
@@ -1156,16 +1166,12 @@ export class QuestionService extends BaseService implements IQuestionService {
           status: currentQuestion.status,
           priority: currentQuestion.priority,
           aiInitialAnswer,
+          aiApprovedSources,
+          isAutoAllocate: currentQuestion.isAutoAllocate,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
           totalAnswersCount: currentQuestion.totalAnswersCount,
           history: submissionHistory,
-          // currentAnswers: currentAnswers.map(currentAnswer => ({
-          //   id: currentAnswer._id.toString(),
-          //   answer: currentAnswer.answer,
-          //   isFinalAnswer: currentAnswer.isFinalAnswer,
-          //   createdAt: currentAnswer.createdAt,
-          // })),
         };
       });
     } catch (error) {
@@ -1178,8 +1184,35 @@ export class QuestionService extends BaseService implements IQuestionService {
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
-  ): Promise<{modifiedCount: number}> {
+  ): Promise<{ modifiedCount: number }> {
     try {
+      // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
+      // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
+      // so they shouldn't inflate the transaction scope.
+      if (updates.details?.crop) {
+        const rawCropName = typeof updates.details.crop === 'string'
+          ? updates.details.crop
+          : (updates.details.crop as any)?.name || '';
+        let normalised_crop = rawCropName.trim().toLowerCase();
+        if (rawCropName.trim()) {
+          try {
+            const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+            if (existingCrop) {
+              normalised_crop = existingCrop.name;
+            } else {
+              // Crop not found — auto-create it
+              const normalizedName = rawCropName.trim().toLowerCase();
+              await this.cropRepository.createCrop(normalizedName, '', []);
+              normalised_crop = normalizedName;
+            }
+          } catch (cropError: any) {
+            console.error('Crop normalization warning (updateQuestion):', cropError.message);
+          }
+        }
+        updates.details.crop = rawCropName.trim();
+        updates.details.normalised_crop = normalised_crop;
+      }
+
       return this._withTransaction(async (session: ClientSession) => {
         const existingQuestion = await this.questionRepo.getById(
           questionId,
@@ -1253,13 +1286,41 @@ export class QuestionService extends BaseService implements IQuestionService {
       this.userRepo.findExpertsByPreference(details, session),
     ]);
 
-    const expertIdsSet = new Set<string>();
+    /*const expertIdsSet = new Set<string>();
     preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
     users
       .filter(user => user.role === 'expert' && user.isBlocked !== true)
       .forEach(user => expertIdsSet.add(user._id.toString()));
 
-    const allExpertIds = Array.from(expertIdsSet);
+    const allExpertIds = Array.from(expertIdsSet);*/
+    let allExpertIds: string[] = [];
+    const isAjrasakha = question.source == "AJRASAKHA" ? true : false
+    if (isAjrasakha) {
+      // ✅ AJRASAKHA FLOW
+      const users = await this.userRepo.getSpecialTaskForceExperts(session);
+
+      allExpertIds = users.map(user => user._id.toString());
+    } else {
+      // ✅ NORMAL FLOW
+      const [users, preferredExperts] = await Promise.all([
+        this.userRepo.findAll(),
+        this.userRepo.findExpertsByPreference(details, session),
+      ]);
+
+      const expertIdsSet = new Set<string>();
+
+      preferredExperts.forEach(user =>
+        expertIdsSet.add(user._id.toString()),
+      );
+
+      users
+        .filter(user => user.role === 'expert' && user.isBlocked !== true)
+        .forEach(user =>
+          expertIdsSet.add(user._id.toString()),
+        );
+
+      allExpertIds = Array.from(expertIdsSet);
+    }
 
     if (
       EXISTING_QUEUE_COUNT < 3 ||
@@ -1294,7 +1355,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filteredExperts.length === 0) {
         await this.questionRepo.updateQuestion(
           questionId,
-          {status: 'in-review'},
+          { status: 'in-review' },
           session,
         );
         const payload: Partial<IAnswer> = {
@@ -1396,13 +1457,12 @@ export class QuestionService extends BaseService implements IQuestionService {
     return true;
   }
 
-  async toggleAutoAllocate(questionId: string): Promise<{message: string}> {
+  async toggleAutoAllocate(questionId: string): Promise<{ message: string }> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-        console.log('toggleAutoAllocate*****', question);
 
         const updated = await this.questionRepo.updateAutoAllocate(
           questionId,
@@ -1413,10 +1473,32 @@ export class QuestionService extends BaseService implements IQuestionService {
         // If currentStatus is false, then we need to set it to true and vice versa
 
         if (!currentStatus) {
-          const submission = await this.questionSubmissionRepo.getByQuestionId(
+          let submission = await this.questionSubmissionRepo.getByQuestionId(
             questionId,
             session,
           );
+
+          if (!submission && question.source == "AJRASAKHA") {
+
+            const submissionData: IQuestionSubmission = {
+              questionId: new ObjectId(question._id.toString()),
+              lastRespondedBy: null,
+              history: [],
+              queue: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+
+            submission = await this.questionSubmissionRepo.addSubmission(submissionData, session);
+            await this.autoAllocateExperts(
+              questionId,
+              session,
+              3, // Allocate 3 experts initially when toggling on auto-allocate
+            );
+            return {
+              message: "No submission was found for this question. A new submission has been created, and special force users has been assigned to the review queue."
+            };
+          }
 
           const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
           let BATCH_EXPECTED_TO_ADD = 6;
@@ -1474,13 +1556,33 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
         //2. Validate question submission existence
-        const questionSubmission =
+        let questionSubmission =
           await this.questionSubmissionRepo.getByQuestionId(
             questionId,
             session,
           );
-        if (!questionSubmission)
-          throw new NotFoundError('Question submission not found');
+        // let submission
+        if (!questionSubmission) {
+          if (question.source == "WHATSAPP") {
+            const newSubmission: IQuestionSubmission = {
+              questionId: new ObjectId(questionId),
+              lastRespondedBy: null,
+              history: [],
+              queue: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            questionSubmission = await this.questionSubmissionRepo.addSubmission(newSubmission, session);
+
+          }
+          else {
+            throw new NotFoundError('Question submission not found');
+          }
+
+
+        }
+
+
 
         // 3. Validate if the queue is full
         if (questionSubmission.queue.length >= 10)
@@ -2019,7 +2121,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async deleteQuestion(
     questionId: string,
     session?: ClientSession,
-  ): Promise<{deletedCount: number}> {
+  ): Promise<{ deletedCount: number }> {
     const execute = async (activeSession: ClientSession) => {
       const question = await this.questionRepo.getById(
         questionId,
@@ -2105,6 +2207,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       await this.requestRepository.deleteByEntityId(questionId, activeSession);
 
+      // Delete duplicate question records referencing this question
+      await this.duplicateQuestionRepository.deleteByReferenceQuestionId(questionId, activeSession);
+
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
     };
@@ -2134,7 +2239,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         deletedCount += res.deletedCount ?? 0;
       }
 
-      return {deletedCount};
+      return { deletedCount };
     });
   }
 
@@ -2178,7 +2283,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (query?.search) {
         try {
           // const embedding=[]
-          const {embedding} = await this.aiService.getEmbedding(query.search);
+          const { embedding } = await this.aiService.getEmbedding(query.search);
           searchEmbedding = embedding;
         } catch (err) {
           console.error(
@@ -2230,7 +2335,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       session,
     );
     for (const submission of submissions) {
-      const {questionId, queue = [], history = []} = submission;
+      const { questionId, queue = [], history = [] } = submission;
 
       if (!queue.length) continue;
       const indicesToRemove = new Set<number>();
@@ -2271,7 +2376,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           'system',
           questionId.toString(),
           index,
-          {skipAutoAllocate: true},
+          { skipAutoAllocate: true },
           session,
         );
       }
@@ -2627,7 +2732,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
     }
 
-    const flatAssignments: {submissionId: string; expertId: string}[] = [];
+    const flatAssignments: { submissionId: string; expertId: string }[] = [];
 
     // console.log("the assignments=======",assignments)
 
@@ -2673,7 +2778,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     startDate: string,
     endDate: string,
     emails: string | string[],
-  ): Promise<{success: boolean; message: string}> {
+  ): Promise<{ success: boolean; message: string }> {
     try {
       if (!startDate || !endDate) {
         throw new Error('startDate and endDate are required');
@@ -2687,11 +2792,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         'AJRASAKHA',
       );
 
-      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
-        const combineQuestions=[...questions,...duplicateQuestions]
+      // const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
+      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end);
+      const combineQuestions = [...questions, ...duplicateQuestions]
       const allQuestions = [
         ...combineQuestions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-              
+
       ];
 
 
@@ -2721,7 +2827,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // NEW EXCEL IMPLEMENTATION
       const excelBuffer = await this.convertQuestionsToExcel(allQuestions, startDate, endDate);
-      
+
       await sendEmailWithAttachment(
         emails,
         'Ajrasakha Outreach Questions Report',
@@ -2736,7 +2842,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         'out_reach_questions.xlsx',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
-      
+
       return {
         success: true,
         message: 'Outreach questions report sent via email',
@@ -2919,33 +3025,33 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Question Reasons");
-  
+
     sheet.columns = [
       { header: "Created At", key: "createdAt", width: 22 },
       { header: "Question", key: "question", width: 50 },
       { header: "Reason For Modification", key: "mod", width: 50 },
       { header: "Reason For Rejection", key: "rej", width: 50 }
     ];
-  
+
     let rowCount = 0;
     result.reasons.forEach(item => {
       const modList = (item.reasonForModification || []).filter(Boolean);
       const rejList = (item.reasonForRejection || []).filter(Boolean);
-      
+
       if (!modList.length && !rejList.length) return;
-  
+
       const row = sheet.addRow({
         createdAt: item.createdAt,
         question: item.question,
         mod: modList.map((r, i) => `${i + 1}) ${r}`).join("\n"),
         rej: rejList.map((r, i) => `${i + 1}) ${r}`).join("\n"),
       });
-  
+
       row.getCell("mod").alignment = { wrapText: true };
       row.getCell("rej").alignment = { wrapText: true };
       rowCount++;
     });
-  
+
     const data = await workbook.xlsx.writeBuffer();
     return data;
   }
@@ -3000,9 +3106,12 @@ export class QuestionService extends BaseService implements IQuestionService {
   async generateStateCropQuestionReport(filters: {
     state?: string;
     crop?: string;
+    normalised_crop?: string;
     season?: string;
     domain?: string;
     status?: string;
+    hiddenQuestions?: string;
+    duplicateQuestions?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       // Build filter query
@@ -3013,6 +3122,17 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filters.crop && filters.crop !== 'all') {
         query['details.crop'] = filters.crop;
       }
+      if (filters.normalised_crop && filters.normalised_crop !== 'all') {
+        if (filters.normalised_crop === '__NOT_SET__') {
+          query.$or = [
+            { 'details.normalised_crop': { $exists: false } },
+            { 'details.normalised_crop': null },
+            { 'details.normalised_crop': '' },
+          ];
+        } else {
+          query['details.normalised_crop'] = { $regex: `^${filters.normalised_crop}$`, $options: 'i' };
+        }
+      }
       if (filters.season && filters.season !== 'all') {
         query['details.season'] = filters.season;
       }
@@ -3022,9 +3142,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filters.status && filters.status !== 'all') {
         query.status = filters.status;
       }
+      if (filters.hiddenQuestions === 'true') {
+        query.isHidden = { $eq: true };
+      }
 
       // Get questions from repository
-      const questions = await this.questionRepo.getQuestionsByFilters(query, session);
+      const questions = await this.questionRepo.getQuestionsByFilters(
+        query,
+        session,
+        filters.duplicateQuestions === 'true',
+      );
 
       if (!questions || questions.length === 0) {
         console.log("No questions found for given filters");
@@ -3076,14 +3203,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-    async generateDuplicateQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null> {
+  async generateDuplicateQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       if (!startDate || !endDate) {
         throw new BadRequestError('startDate and endDate are required');
       }
 
       // Fetch duplicates using the repository
-      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA',session);
+      // const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA', session);
+      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, session);
 
       if (!duplicateQuestions || duplicateQuestions.length === 0) {
         return null;
@@ -3091,7 +3219,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Fetch reference question details for metadata
       // Use a Map to avoid duplicate fetches for the same reference question
-      const refDetailsMap = new Map<string, {state: string; district: string; crop: string; season: string; domain: string} | null>();
+      const refDetailsMap = new Map<string, { state: string; district: string; crop: string | import('#root/shared/interfaces/models.js').ICropRef; season: string; domain: string } | null>();
 
       for (const q of duplicateQuestions) {
         const refId = q.referenceQuestionId?.toString();
@@ -3165,5 +3293,234 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
+  async getMatchedQuestion(questionId: string) {
+    const questionData = await this.questionRepo.getById(questionId);
+
+    if (!questionData) {
+      throw new Error('Question not found');
+    }
+
+    const { question, details, createdAt } = questionData;
+
+    const [analyticsMessages, annamMessages] = await Promise.all([
+      this.chatbotRepository.findMatchingMessages({
+        question,
+        details,
+        createdAt,
+        questionId: questionId.toString(),
+      }),
+      this.chatbotRepository.findFromSecondDb({
+        question,
+        details,
+        createdAt,
+        questionId: questionId.toString(),
+      }),
+    ]);
+
+
+
+    // Take first matched message (assuming 1 expected)
+    const allMessages = [...analyticsMessages, ...annamMessages];
+
+    const message = allMessages?.[0];
+
+    if (!message) {
+      throw new Error('No matching message found');
+    }
+
+    return {
+      messageId: message.messageId || '',
+      createdAt: message.createdAt
+        ? new Date(message.createdAt).toISOString()
+        : '',
+      updatedAt: message.updatedAt
+        ? new Date(message.updatedAt).toISOString()
+        : '',
+      user: {
+        username: message?.userDetails?.username || 'N/A',
+        email: message?.userDetails?.email || '',
+        emailVerified: message?.userDetails?.emailVerified || false,
+        avatar: message?.userDetails?.avatar || null,
+      },
+      content: message.content || [],
+    };
+  }
+  async checkStatus(
+    questionIds: string[],
+  ): Promise<ICheckStatusResponse[]> {
+
+    const result = await this.questionRepo.getQuestionsWithAnswerDetails(questionIds)
+
+    // 1. Fetch data
+
+    return result
+
+
+  }
+
+  async holdQuestion(questionId: string, userId: string, action: "hold" | "unhold"): Promise<{ id: string }> {
+    return await this._withTransaction(async session => {
+      if (action === "unhold") {
+        const question = await this.questionRepo.getById(questionId, session);
+        if (!question) {
+          throw new NotFoundError('Question not found');
+        }
+        const user = await this.userRepo.findById(userId, session);
+        if (!user || user.role == 'expert') {
+          throw new ForbiddenError('Only moderators or Admins can unhold questions');
+        }
+        if (!question.isOnHold) {
+          throw new BadRequestError('Question is not on hold');
+        }
+        const prevAccum = question.accumulatedHoldMs ?? 0;
+        let segmentMs = 0;
+        if (question.holdAt) {
+          segmentMs = Math.max(0, Date.now() - new Date(question.holdAt).getTime());
+        }
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {
+            isOnHold: false,
+            status: 'open',
+            accumulatedHoldMs: prevAccum + segmentMs,
+            holdAt: null,
+          },
+          session,
+        );
+        return { id: questionId }
+      }
+      const user = await this.userRepo.findById(userId, session);
+      if (user.role == 'expert') {
+        throw new ForbiddenError('Only moderators can hold questions');
+      }
+
+      const question = await this.questionRepo.getById(questionId, session);
+      if (!question) {
+        throw new NotFoundError('Question not found');
+      }
+
+      if (question.status === 'closed') {
+        throw new BadRequestError('Question is already closed');
+      }
+      const submission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+      if (!submission) {
+        throw new NotFoundError('Question submission not found');
+      }
+      await this._handleSubmissionOnHold(submission, session);
+      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false, status: 'hold', holdAt: new Date() }, session)
+      return { id: questionId }
+    })
+  }
+  async checkSubmissionExists(questionId: string): Promise<boolean> {
+    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+    return !!submission;
+  }
+
+  private async _handleSubmissionOnHold(
+    submission: IQuestionSubmission,
+    session: ClientSession
+  ): Promise<void> {
+    const questionId = submission.questionId.toString();
+    if (!submission.history || submission.history.length === 0) {
+      if (submission.queue?.length) {
+        const firstUserId = submission.queue[0].toString();
+        await this.userRepo.updateReputationScore(firstUserId, false, session);
+      }
+
+      await this.questionSubmissionRepo.updateSubmissionState(
+        questionId,
+        { queue: [] },
+        session
+      );
+
+      return;
+    }
+
+    const lastHistory = submission.history[submission.history.length - 1];
+
+    if (lastHistory.status !== 'in-review') return;
+
+    const updatedById = lastHistory.updatedBy?.toString();
+
+    let newQueue = submission.queue;
+
+    const index = submission.queue.findIndex(
+      (q) => q.toString() === updatedById
+    );
+
+    if (index !== -1) {
+      newQueue = submission.queue.slice(0, index);
+    }
+
+    if (updatedById) {
+      await this.userRepo.updateReputationScore(updatedById, false, session);
+    }
+    await this.questionSubmissionRepo.updateSubmissionState(
+      questionId,
+      {
+        queue: toObjectIdArray(newQueue || []),
+        popHistory: true,
+      },
+      session
+    );
+  }
+
+  async getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
+    return this.questionRepo.getQuestionStatusSummary(query, body);
+  }
+
+  async generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer: string }> {
+    return this._withTransaction(async (session) => {
+
+      const question = await this.questionRepo.getById(questionId, session);
+
+      if (!question)
+        throw new NotFoundError("Question not found");
+
+      // if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
+      //   throw new ForbiddenError("Source must be agri expert outreach")
+
+      const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
+
+      if (submissions.history.length > 0)
+        throw new ForbiddenError("Cannot generate AI initial answer. Question already has submitted answers.")
+
+      const res = await this.aiService.getAnswerByQuestionDetails(question);
+
+      if (!res?.answer || !res.answer.trim()) {
+        throw new InternalServerError("AI failed to generate answer");
+      }
+
+      return { aiInitialAnswer: res.answer };
+    })
+  }
+
+  async approveAiInitialAnswer(questionId: string, answer: string) {
+    return this._withTransaction(async (session) => {
+      const question = await this.questionRepo.getById(questionId, session);
+
+      if (!question)
+        throw new NotFoundError("Question not found");
+
+      // if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
+      //   throw new ForbiddenError("Source must be agri expert or outreach");
+
+      if (!answer?.trim())
+        throw new BadRequestError("Answer is required");
+
+      const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
+
+      if (submissions.history.length > 0)
+        throw new ForbiddenError("Cannot generate AI initial answer. Question already has submitted answers.")
+
+      await this.questionRepo.updateQuestion(
+        questionId,
+        { aiInitialAnswer: answer },
+        session
+      );
+
+      return { success: true };
+    });
+  }
 
 }

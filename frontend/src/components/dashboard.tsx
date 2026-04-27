@@ -15,15 +15,16 @@ import { SourcesChart } from "./dashboard/sources-chart";
 import HeatMap from "./HeatMap";
 import { Card, CardHeader, CardTitle } from "./atoms/card";
 import {
-  useGetDashboardData,
-  type DashboardAnalyticsResponse,
+  useGetOverview,
+  useGetGoldenDataset,
+  useGetContributionTrend,
+  useGetStatusOverview,
+  useGetExpertPerformance,
+  useGetQuestionsAnalytics,
 } from "@/hooks/api/performance/useGetDashboard";
 import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Spinner } from "./atoms/spinner";
 import { DateRangeFilter } from "./DateRangeFilter";
-import { useTheme } from "next-themes";
-import { Switch } from "./atoms/switch";
-import { Label } from "./atoms/label";
 import { ReviewLevelComponent } from "./ReviewLevelComponent";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
@@ -33,21 +34,6 @@ import { TopRightBadge } from "./NewBadge";
 export type ViewType = "year" | "month" | "week" | "day";
 
 export const Dashboard = () => {
-  /////////////////////////////////////////////////////////////////////////
-  // const { theme } = useTheme();
-
-  // const ANIMATIONS_KEY = "animationsEnabled";
-
-  // const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(() => {
-  //   if (typeof window === "undefined") return true; // SSR safety
-  //   const stored = localStorage.getItem(ANIMATIONS_KEY);
-  //   return stored ? JSON.parse(stored) : true; // default ON
-  // });
-
-  // useEffect(() => {
-  //   localStorage.setItem(ANIMATIONS_KEY, JSON.stringify(animationsEnabled));
-  // }, [animationsEnabled]);
-  ///////////////////////////////////////////////////////////////////////////
 
   localStorage.removeItem("animationsEnabled");
 
@@ -61,7 +47,7 @@ export const Dashboard = () => {
   const [selectedDay, setSelectedDay] = useState("Mon");
 
   // ---- SourcesChart state filters ----- //
-  const [timeRange, setTimeRange] = useState("90d"); // questionContributionTrend
+  const [timeRange, setTimeRange] = useState("90d");
 
   // ---- QuestionsAnalytics state filters ----- //
   const [date, setDate] = useState<DateRange>({
@@ -78,73 +64,31 @@ export const Dashboard = () => {
     endTime: undefined,
   });
 
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [dashboardState, setDashboardState] =
-    useState<DashboardAnalyticsResponse | null>(null);
+  const { data: user } = useGetCurrentUser();
 
-  const [activeFilter, setActiveFilter] = useState<"all" | "golden" | "sources" | "analytics">("all");
-
-  const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
-
-
-  // Fetch dashboard data
-  const {
-    data: dashboardData,
-    isLoading,
-    isFetching,
-    error,
-  } = useGetDashboardData({
-    goldenDataViewType: viewType,
-    goldenDataSelectedYear: selectedYear,
-    goldenDataSelectedMonth: selectedMonth,
-    goldenDataSelectedWeek: selectedWeek,
-    goldenDataSelectedDay: selectedDay,
-    sourceChartTimeRange: timeRange,
-    qnAnalyticsStartTime: date.startTime,
-    qnAnalyticsEndTime: date.endTime,
-    qnAnalyticsType: analyticsType,
+  // Granular Hooks
+  const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview();
+  const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
+    viewType,
+    selectedYear,
+    selectedMonth,
+    selectedWeek,
+    selectedDay,
   });
-
-  useEffect(() => {
-    if (dashboardData?.userRoleOverview) {
-      setDashboardState(dashboardData);
-      setInitialLoading(false);
-    }
-    if (error && !dashboardData) {
-      setInitialLoading(false);
-    }
-  }, [dashboardData, error]);
-
-  useEffect(() => {
-    if (!isLoading && !isFetching) {
-      setActiveFilter("all");
-    }
-  }, [isLoading, isFetching]);
+  const { data: contributionData, isLoading: isContributionLoading } = useGetContributionTrend(timeRange);
+  const { data: statusData, isLoading: isStatusLoading } = useGetStatusOverview();
+  const { data: expertData, isLoading: isExpertLoading } = useGetExpertPerformance();
+  const { data: analyticsData, isLoading: isAnalyticsLoading } = useGetQuestionsAnalytics({
+    type: analyticsType,
+    startTime: date.startTime,
+    endTime: date.endTime,
+  });
 
   const handleHeatMapDateChange = (key: string, value?: Date) => {
     setHeatMapDate((prev) => ({
       ...prev,
       [key]: value,
     }));
-  };
-
-  const emptyDashboard: DashboardAnalyticsResponse = {
-    userRoleOverview: [],
-    moderatorApprovalRate: { approved: 0, pending: 0, approvalRate: 0 },
-    goldenDataset: {
-      type: "year" as GoldenDataset["type"],
-      yearData: [] as GoldenDataset["yearData"],
-      weeksData: [] as GoldenDataset["weeksData"],
-      dailyData: [] as GoldenDataset["dailyData"],
-      dayHourlyData: {} as GoldenDataset["dayHourlyData"],
-      totalEntriesByType: 0,
-      verifiedEntries: 0,
-      todayApproved: 0,
-    },
-    questionContributionTrend: [],
-    statusOverview: { questions: [], answers: [] },
-    expertPerformance: [],
-    analytics: { cropData: [], stateData: [], domainData: [] },
   };
 
   const handleSendCronReport = async () => {
@@ -158,21 +102,15 @@ export const Dashboard = () => {
     }
   };
 
-
-
-  const dataToShow = dashboardState ?? emptyDashboard;
-
-  // if (initialLoading) return <Spinner text="Fetching dashboard data" />;
-  if (error && !dashboardState && !initialLoading) {
-    return <p className="p-6 text-red-500">Error loading dashboard data</p>;
-  }
-
-  const isGoldenLoading = isLoading || (activeFilter === "golden" && isFetching);
-  const isSourcesLoading = isLoading || (activeFilter === "sources" && isFetching);
-  const isAnalyticsLoading = isLoading || (activeFilter === "analytics" && isFetching);
-  const isGeneralLoading = isLoading || (activeFilter === "all" && isFetching);
-
-  const LoadingWrapper = ({ loading, text, children }: { loading: boolean; text: string; children: React.ReactNode }) => (
+  const LoadingWrapper = ({
+    loading,
+    text,
+    children,
+  }: {
+    loading: boolean;
+    text: string;
+    children: React.ReactNode;
+  }) => (
     <div className="relative overflow-hidden rounded-xl min-h-[300px]">
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-xl">
@@ -185,113 +123,128 @@ export const Dashboard = () => {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* {theme == "dark" && animationsEnabled && <Snowfall />} */}
-      {/* <HolidayBanner /> */}
       <div className="mx-auto p-6">
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              {user?.role === "admin" ? "Admin Dashboard" : "Moderator Dashboard"}
+              {user?.role === "admin"
+                ? "Admin Dashboard"
+                : "Moderator Dashboard"}
             </h1>
-            {/* <div className="relative inline-block">
-              <ChristmasCap className="absolute -top-13 -left-4 w-20 h-18 -rotate-6 z-10" />
-              <h1 className="text-3xl font-bold text-foreground pt-2 pl-6">
-                Moderator Dashboard
-              </h1>
-            </div> */}
             <p className="text-muted-foreground mt-1">
               Monitor content moderation and expert performance
             </p>
           </div>
 
-          {/* <DashboardClock /> */}
           <div className="flex items-center gap-4">
-            {/* ANIMATION SWITCH */}
-            {/* {theme == "dark" && (
-              <div className="flex items-center gap-2">
-                <Label
-                  htmlFor="animations-toggle"
-                  className="text-sm text-muted-foreground cursor-pointer select-none"
-                >
-                  {animationsEnabled ? "Animations On" : "Animations Off"}
-                </Label>
-
-                <Switch
-                  id="animations-toggle"
-                  checked={animationsEnabled}
-                  onCheckedChange={setAnimationsEnabled}
-                  className="scale-100 data-[state=checked]:bg-primary"
-                />
-              </div>
-            )} */}
-
-            {/* CLOCK */}
             <DashboardClock />
           </div>
         </div>
-       <div>
-</div>
 
         {/* Top Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching role overview...">
-            <ModeratorsOverview data={dataToShow.userRoleOverview} />
+          <LoadingWrapper
+            loading={isOverviewLoading}
+            text="Fetching role overview..."
+          >
+            <ModeratorsOverview data={overviewData?.userRoleOverview ?? []} />
           </LoadingWrapper>
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching approval stats...">
-            <ApprovalRateCard data={dataToShow.moderatorApprovalRate} />
-          </LoadingWrapper>
-        </div>
-        {/* Full Width Sources Chart */}
-        <div className="mb-6 ">
-          <GoldenDatasetOverview
-            data={dataToShow.goldenDataset}
-            isLoading={isGoldenLoading}
-            selectedYear={selectedYear}
-            setSelectedYear={(v) => { setActiveFilter("golden"); setSelectedYear(v); }}
-            selectedDay={selectedDay}
-            selectedMonth={selectedMonth}
-            selectedWeek={selectedWeek}
-            setSelectedDay={(v) => { setActiveFilter("golden"); setSelectedDay(v); }}
-            setSelectedMonth={(v) => { setActiveFilter("golden"); setSelectedMonth(v); }}
-            setSelectedWeek={(v) => { setActiveFilter("golden"); setSelectedWeek(v); }}
-            setViewType={(v) => { setActiveFilter("golden"); setViewType(v); }}
-            viewType={viewType}
-          />
-        </div>
-        <div className="mb-6">
-          <LoadingWrapper loading={isSourcesLoading} text="Fetching sources chart...">
-            <SourcesChart
-              data={dataToShow.questionContributionTrend}
-              timeRange={timeRange}
-              setTimeRange={(v) => { setActiveFilter("sources"); setTimeRange(v); }}
+          <LoadingWrapper
+            loading={isOverviewLoading}
+            text="Fetching approval stats..."
+          >
+            <ApprovalRateCard
+              data={
+                overviewData?.moderatorApprovalRate ?? {
+                  approved: 0,
+                  pending: 0,
+                  approvalRate: 0,
+                }
+              }
             />
           </LoadingWrapper>
         </div>
 
-        {/* Question Status and Golden Dataset Row */}
+        {/* Golden Dataset Row */}
+        <div className="mb-6 ">
+          <GoldenDatasetOverview
+            data={
+              goldenData ?? {
+                type: viewType,
+                yearData: [],
+                weeksData: [],
+                dailyData: [],
+                dayHourlyData: {},
+                totalEntriesByType: 0,
+                totalVerifiedByType: 0,
+                verifiedEntries: 0,
+              }
+            }
+            isLoading={isGoldenLoading}
+            selectedYear={selectedYear}
+            setSelectedYear={setSelectedYear}
+            selectedDay={selectedDay}
+            selectedMonth={selectedMonth}
+            selectedWeek={selectedWeek}
+            setSelectedDay={setSelectedDay}
+            setSelectedMonth={setSelectedMonth}
+            setSelectedWeek={setSelectedWeek}
+            setViewType={setViewType}
+            viewType={viewType}
+          />
+        </div>
+
+        {/* Sources Chart Row */}
         <div className="mb-6">
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching status overview...">
-            <StatusCharts data={dataToShow.statusOverview} />
+          <LoadingWrapper
+            loading={isContributionLoading}
+            text="Fetching sources chart..."
+          >
+            <SourcesChart
+              data={contributionData ?? []}
+              timeRange={timeRange}
+              setTimeRange={setTimeRange}
+            />
           </LoadingWrapper>
         </div>
 
-        {/* Performance Row */}
+        {/* Question Status Row */}
         <div className="mb-6">
-          <LoadingWrapper loading={isAnalyticsLoading} text="Fetching analytics data...">
-            <QuestionsAnalytics
-              date={date}
-              setDate={(v) => { setActiveFilter("analytics"); setDate(v); }}
-              analyticsType={analyticsType}
-              setAnalyticsType={(v) => { setActiveFilter("analytics"); setAnalyticsType(v); }}
-              data={dataToShow.analytics}
+          <LoadingWrapper
+            loading={isStatusLoading}
+            text="Fetching status overview..."
+          >
+            <StatusCharts
+              data={statusData ?? { questions: [], answers: [] }}
             />
           </LoadingWrapper>
         </div>
 
         {/* Analytics Row */}
+        <div className="mb-6">
+          <LoadingWrapper
+            loading={isAnalyticsLoading}
+            text="Fetching analytics data..."
+          >
+            <QuestionsAnalytics
+              date={date}
+              setDate={setDate}
+              analyticsType={analyticsType}
+              setAnalyticsType={setAnalyticsType}
+              data={
+                analyticsData ?? { cropData: [], stateData: [], domainData: [] }
+              }
+            />
+          </LoadingWrapper>
+        </div>
+
+        {/* Performance Row */}
         <div className="flex flex-col gap-5">
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching expert performance...">
-            <ExpertsPerformance data={dataToShow.expertPerformance} />
+          <LoadingWrapper
+            loading={isExpertLoading}
+            text="Fetching expert performance..."
+          >
+            <ExpertsPerformance data={expertData ?? []} />
           </LoadingWrapper>
           <div className="space-y-6  hidden md:block">
             <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
@@ -324,11 +277,9 @@ export const Dashboard = () => {
             className="px-4 py-2 rounded-md bg-green-500 text-white text-sm hover:bg-green-600 shadow-md transition-all relative"
           >
             Send Report
-            <TopRightBadge label="New" />
           </button>
         </div>
       )}
-
     </main>
   );
 };
@@ -425,45 +376,6 @@ export const ChristmasCap = ({ className = "" }: { className?: string }) => {
     </svg>
   );
 };
-// export const ChristmasCap = ({ className = "" }: { className?: string }) => {
-//   return (
-//     <svg
-//       viewBox="0 0 120 100"
-//       className={className}
-//       fill="none"
-//       xmlns="http://www.w3.org/2000/svg"
-//     >
-//       {/* Hat body - main triangular shape */}
-//       <path
-//         d="M20 85 Q30 50 50 40 Q70 30 90 35 Q105 40 105 55 L105 85 Z"
-//         fill="#DC2626"
-//         stroke="#B91C1C"
-//         strokeWidth="2"
-//       />
-//       {/* Drooping tail/tip */}
-//       <path
-//         d="M50 40 Q35 35 25 45 Q15 55 10 70 Q8 80 15 85"
-//         fill="#DC2626"
-//         stroke="#B91C1C"
-//         strokeWidth="2"
-//       />
-//       {/* White fur trim at bottom */}
-//       <ellipse cx="62" cy="85" rx="50" ry="12" fill="#F5F5F4" />
-//       <ellipse cx="62" cy="85" rx="47" ry="9" fill="#FAFAF9" />
-//       {/* Pompom at the end of tail */}
-//       <circle cx="15" cy="82" r="14" fill="#FAFAF9" />
-//       <circle cx="13" cy="80" r="11" fill="white" />
-//       {/* Highlight on hat */}
-//       <path
-//         d="M55 50 Q70 42 85 48"
-//         stroke="#EF4444"
-//         strokeWidth="4"
-//         strokeLinecap="round"
-//         opacity="0.5"
-//       />
-//     </svg>
-//   );
-// };
 
 export const HolidayBanner = () => {
   return (

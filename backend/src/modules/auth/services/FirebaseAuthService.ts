@@ -4,20 +4,21 @@ import {
   ChangePasswordBody,
   GoogleSignUpBody,
 } from '#auth/classes/index.js';
-import {IAuthService} from '#auth/interfaces/IAuthService.js';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {injectable, inject} from 'inversify';
-import {BadRequestError, InternalServerError, UnauthorizedError} from 'routing-controllers';
+import { IAuthService } from '#auth/interfaces/IAuthService.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { injectable, inject } from 'inversify';
+import { BadRequestError, InternalServerError, UnauthorizedError } from 'routing-controllers';
 import admin from 'firebase-admin';
-import {IUser} from '#root/shared/interfaces/models.js';
-import {BaseService} from '#root/shared/classes/BaseService.js';
-import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import {MongoDatabase} from '#root/shared/database/providers/mongo/MongoDatabase.js';
+import { IUser } from '#root/shared/interfaces/models.js';
+import { BaseService } from '#root/shared/classes/BaseService.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import { MongoDatabase } from '#root/shared/database/providers/mongo/MongoDatabase.js';
 import path from 'path';
-import {fileURLToPath} from 'url';
+import { fileURLToPath } from 'url';
 import serviceAccount from '../../../../agriai-a2fba-firebase-adminsdk-fbsvc-452072d744.json' with {type: 'json'};
 import { error } from 'console';
 import { sendEmailNotification } from '#root/utils/mailer.js';
+import { appConfig } from '#root/config/app.js';
 
 /**
  * Custom error thrown during password change operations.
@@ -62,7 +63,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
     // Retrieve the user from our database using the Firebase UID
     const user = await this.userRepository.findByFirebaseUID(firebaseUID);
-    if(!user){
+    if (!user) {
       console.warn(`Firebase user ${firebaseUID} not found in DB.`);
       throw new UnauthorizedError("User not found in database");
     }
@@ -98,13 +99,13 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     return true;
   }
 
-  async signup(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string }} | null>{
+  async signup(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string } } | null> {
     let userRecord: any;
     try {
-      if(!/^[^\s@]+@annam\.ai$/.test(body.email)){
+      if (!/^[^\s@]+@annam\.ai$/.test(body.email) && !appConfig.isDevelopment) {
         throw new Error("Please enter a valid email")
       }
-      if(!body.firstName.trim()){
+      if (!body.firstName.trim()) {
         throw new Error("Name cannot be blank or empty spaces");
       }
       userRecord = await this.auth.createUser({
@@ -185,7 +186,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
   async changePassword(
     body: ChangePasswordBody,
     requestUser: IUser,
-  ): Promise<{success: boolean; message: string}> {
+  ): Promise<{ success: boolean; message: string }> {
     // Verify user exists in Firebase
     const firebaseUser = await this.auth.getUser(requestUser.firebaseUID);
     if (!firebaseUser) {
@@ -202,7 +203,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       password: body.newPassword,
     });
 
-    return {success: true, message: 'Password updated successfully'};
+    return { success: true, message: 'Password updated successfully' };
   }
 
   async updateFirebaseUser(
@@ -215,7 +216,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     });
   }
 
-  async findByFirebaseUID(uid:string):Promise<IUser>{
+  async findByFirebaseUID(uid: string): Promise<IUser> {
     return await this.userRepository.findByFirebaseUID(uid)
   }
 
@@ -248,6 +249,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
   async sendVerificationEmail(email: string): Promise<void> {
     try {
+      if (appConfig.isDevelopment) return;
       const link = await this.auth.generateEmailVerificationLink(email);
 
       await sendEmailNotification(
@@ -260,6 +262,27 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     } catch (err: any) {
       console.error(`Failed to send verification email to ${email}:`, err);
       throw new BadRequestError(`Failed to send verification email: ${err.message || 'Unknown error'}`);
+    }
+  }
+
+  async sendPasswordResetEmail(email: string): Promise<void> {
+    try {
+      if (appConfig.isDevelopment) return;
+      const link = await this.auth.generatePasswordResetLink(email);
+
+      await sendEmailNotification(
+        email,
+        'Reset your password',
+        `Reset your password by clicking on the link below: ${link}`,
+        `<p>We received a request to reset your password.</p>
+         <p>Click the link below to set a new password. This link will expire shortly.</p>
+         <p><a href="${link}">Reset Password</a></p>
+         <p>If you didn't request this, you can safely ignore this email.</p>`,
+      );
+      console.log(`Password reset email sent successfully to ${email}`);
+    } catch (err: any) {
+      // Silently fail — don't reveal whether the email exists
+      console.error(`Failed to send password reset email to ${email}:`, err);
     }
   }
 }

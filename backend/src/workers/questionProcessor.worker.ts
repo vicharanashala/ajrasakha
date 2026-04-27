@@ -1,11 +1,11 @@
-import {parentPort, workerData} from 'worker_threads';
+import { parentPort, workerData } from 'worker_threads';
 import 'reflect-metadata';
 import path from 'path';
 import {Container} from 'inversify';
 import {IQuestionSubmission, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {ObjectId} from 'mongodb';
-import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
 import {getBackgroundJobs} from './workerManager.js';
 import {appConfig} from '#root/config/app.js';
 
@@ -13,12 +13,17 @@ interface WorkerData {
   ids: string[];
   mongoUri: string;
   dbName: string;
+  isRequiredAiInitialAnswer?: boolean;
+  isOutreachQuestion?: boolean;
 }
 
 const data = workerData as WorkerData;
 const ids = Array.isArray(data?.ids) ? data.ids : [];
 const mongoUri = data.mongoUri;
 const dbName = data.dbName;
+const isRequiredAiInitialAnswer = data.isRequiredAiInitialAnswer ?? false;
+const isOutreachQuestion = data.isOutreachQuestion ?? false;
+
 if (!parentPort) {
   console.error(
     '❌ parentPort not found – worker must run in a worker thread.',
@@ -26,7 +31,7 @@ if (!parentPort) {
   process.exit(1);
 }
 
-const container = new Container({defaultScope: 'Singleton'});
+const container = new Container({ defaultScope: 'Singleton' });
 
 container.bind<string>(GLOBAL_TYPES.uri).toConstantValue(mongoUri);
 container.bind<string>(GLOBAL_TYPES.dbName).toConstantValue(dbName);
@@ -37,27 +42,27 @@ container
 
 const database = container.get<MongoDatabase>(GLOBAL_TYPES.Database);
 await database.init();
-const {QuestionRepository} = await import(
+const { QuestionRepository } = await import(
   '#root/shared/database/providers/mongo/repositories/QuestionRepository.js'
 );
 const questionRepo = new QuestionRepository(database);
 await (questionRepo as any).init();
-const {ContextRepository} = await import(
+const { ContextRepository } = await import(
   '#root/shared/database/providers/mongo/repositories/ContextRepository.js'
 );
-const {UserRepository} = await import(
+const { UserRepository } = await import(
   '#root/shared/database/providers/mongo/repositories/UserRepository.js'
 );
-const {QuestionSubmissionRepository} = await import(
+const { QuestionSubmissionRepository } = await import(
   '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js'
 );
-const {NotificationRepository} = await import(
+const { NotificationRepository } = await import(
   '#root/shared/database/providers/mongo/repositories/NotificationRepository.js'
 );
 const {NotificationService} = await import(
-  '#root/modules/core/services/NotificationService.js'
+  '#root/modules/notification/services/NotificationService.js'
 );
-const {AiService} = await import('#root/modules/core/services/AiService.js');
+const {AiService} = await import('#root/modules/ai/services/AiService.js');
 const contextRepo = new ContextRepository(database);
 await (contextRepo as any).init();
 const userRepo = new UserRepository(database);
@@ -69,9 +74,19 @@ await (notificationRepo as any).init();
 const notificationService = new NotificationService(notificationRepo, database);
 const aiService = new AiService();
 
+const { DuplicateQuestionRepository } = await import(
+  '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js'
+);
+const duplicateQuestionRepo = new DuplicateQuestionRepository(database);
+await (duplicateQuestionRepo as any).init();
+
+const { checkDuplicateQuestionHelper } = await import(
+  '#root/modules/question/helpers/duplicateQuestionHelper.js'
+);
+
 (async () => {
   if (ids.length === 0) {
-    parentPort?.postMessage({success: true, processed: 0});
+    parentPort?.postMessage({ success: true, processed: 0 });
     process.exit(0);
   }
 
@@ -98,19 +113,74 @@ const aiService = new AiService();
       //   continue;
       // }
       let textEmbedding = [];
+      let aiInitialAnswer = question.aiInitialAnswer;
 
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
 
       if (ENABLE_AI_SERVER) {
-        const {embedding} = await aiService.getEmbedding(textToEmbed);
+        const { embedding } = await aiService.getEmbedding(textToEmbed);
         textEmbedding = embedding;
+
+        if (isRequiredAiInitialAnswer && !aiInitialAnswer) {
+          try {
+            const result = await aiService.getAnswerByQuestionDetails(question);
+
+            const answer = result?.answer?.trim();
+
+            if (!answer) {
+              aiInitialAnswer =
+                "AI could not generate an initial answer at this time.";
+            } else {
+              aiInitialAnswer = answer;
+            }
+          } catch (error) {
+            console.error("AI initial answer generation failed:", error);
+
+            aiInitialAnswer =
+              "AI service is currently unavailable. Please try again later.";
+          }
+        }
       }
 
-      await questionRepo['QuestionCollection'].updateOne(
-        {_id: new (await import('mongodb')).ObjectId(qId)},
-        {$set: {embedding: textEmbedding, updatedAt: new Date()}},
+    const result=  await questionRepo['QuestionCollection'].updateOne(
+        { _id: new (await import('mongodb')).ObjectId(qId) },
+        { $set: { embedding: textEmbedding, aiInitialAnswer, updatedAt: new Date() } },
       );
- 
+
+
+      // ── Duplicate Detection for Outreach Questions ──
+      if (isOutreachQuestion && ENABLE_AI_SERVER) {
+        const logData: any = {
+          qId,
+          question: question.question,
+          details: question.details,
+          source: question.source,
+        };
+        try {
+          const duplicateResult = await checkDuplicateQuestionHelper(
+            question,
+            question.details,
+            logData,
+            aiService,
+            duplicateQuestionRepo,
+          );
+
+          if (duplicateResult.isDuplicate) {
+           const result3= await questionRepo.deleteQuestion(qId);
+            console.log(
+              `🔁 Duplicate detected for outreach question ${qId}. Record moved to duplicates.`,
+            );
+            processed++;
+            continue; // Skip allocation
+          }
+        } catch (dupError: any) {
+          console.error(
+            `⚠️ Duplicate check failed for question ${qId}, proceeding with normal flow:`,
+            dupError?.message,
+          );
+        }
+      }
+
       // allocation stage - 2
 
       const users = await userRepo.findExpertsByReputationScore(
@@ -128,7 +198,7 @@ const aiService = new AiService();
       //   const userId = user._id.toString();
       //   await userRepo.updateReputationScore(userId, IS_INCREMENT);
       // }
-      if (intialUsersToAllocate) {
+      if (intialUsersToAllocate.length > 0) {
         const IS_INCREMENT = true;
         const userId = intialUsersToAllocate[0]._id.toString();
         await userRepo.updateReputationScore(userId, IS_INCREMENT);
@@ -144,7 +214,7 @@ const aiService = new AiService();
       };
 
       // 6. Save QuestionSubmission to DB
-      await submissionRepo.addSubmission(submissionData);
+   const result2=   await submissionRepo.addSubmission(submissionData);
 
       //send the notifications
       if (intialUsersToAllocate[0]) {
@@ -176,6 +246,6 @@ const aiService = new AiService();
   console.log(
     `🏁 Worker finished. Total processed: ${processed}/${ids.length}`,
   );
-  parentPort?.postMessage({success: true, processed});
+  parentPort?.postMessage({ success: true, processed });
   process.exit(0);
 })();

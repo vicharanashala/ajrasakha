@@ -72,7 +72,7 @@ export class UserService {
    async Getuser(email:string):Promise<IUser| null>{
     return apiFetch<IUser | null>(`${this._baseUrl}/details/${email}`);
   }
-  async getUserReviewLevel(userId?:string|undefined,startTime?:Date|undefined,endTime?:Date|undefined,role?:string,state?:string,crop?:string,domain?:string,status?:string): Promise<ReviewLevelCount[] | null> {
+  async getUserReviewLevel(userId?:string|undefined,startTime?:Date|undefined,endTime?:Date|undefined,role?:string,state?:string,crop?:string,domain?:string,status?:string,normalised_crop?:string): Promise<ReviewLevelCount[] | null> {
     const params = new URLSearchParams();
 
     if (startTime) {
@@ -106,6 +106,10 @@ export class UserService {
     if(status)
     {
       params.append("status",status)
+    }
+    if(normalised_crop)
+    {
+      params.append("normalised_crop",normalised_crop)
     }
     return apiFetch<ReviewLevelCount[]>(`${this._baseUrl}/review-level?${params.toString()}`);
   }

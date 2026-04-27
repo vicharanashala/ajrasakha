@@ -62,7 +62,7 @@ class AddAnswerBody {
       {source: 'https://docs.example.com', page: 5},
     ],
     type: 'array',
-    items: {$ref: '#/definitions/SourceItem'},
+    items: {$ref: '#/components/schemas/SourceItem'},
   })
   @IsArray()
   @ValidateNested({each: true})
@@ -166,7 +166,7 @@ class ReviewAnswerBody {
       {source: 'https://docs.example.com', page: 5},
     ],
     type: 'array',
-    items: {$ref: '#/definitions/SourceItem'},
+    items: {$ref: '#/components/schemas/SourceItem'},
   })
   @IsArray()
   @ValidateNested({each: true})
@@ -461,6 +461,7 @@ class AnswerIdParam {
     example: '650e9c0f5f1b2c00sdf2f4d9e',
     type: 'string',
   })
+  @IsOptional()
   @IsMongoId()
   answerId: string;
 }
@@ -477,8 +478,18 @@ class DeleteAnswerParams {
 
 class UpdateAnswerBody {
   @Expose()
+  @IsOptional()
+  @IsMongoId()
+  answerId?: string;
+
+  @Expose()
+  @IsOptional()
+  @IsMongoId()
+  questionId?: string;
+
+  @Expose()
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   answer!: string;
 
   @JSONSchema({
@@ -488,12 +499,18 @@ class UpdateAnswerBody {
       {source: 'https://docs.example.com', page: 5},
     ],
     type: 'array',
-    items: {$ref: '#/definitions/SourceItem'},
+    items: {$ref: '#/components/schemas/SourceItem'},
   })
+  @IsOptional()
   @IsArray()
   @ValidateNested({each: true})
   @Type(() => SourceItem)
   sources: SourceItem[];
+
+  @Expose()
+  @IsOptional()
+  @IsString()
+  source?: string; //
 }
 
 export const ANSWER_VALIDATORS = [

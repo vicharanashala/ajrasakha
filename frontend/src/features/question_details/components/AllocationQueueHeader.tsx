@@ -49,11 +49,28 @@ export const AllocationQueueHeader = ({
     useToggleAutoAllocateQuestion();
 
   const expertsIdsInQueue = new Set(queue.map((expert) => expert._id));
-
   const experts =
     usersData?.users.filter(
       (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
     ) || [];
+  // let experts = [];
+
+  /*   if (question.source === "AJRASAKHA") {
+       experts =
+         usersData?.users.filter(
+           (user) =>
+             user.role === "expert" &&
+             user.special_task_force === true && // 👈 key condition
+             !expertsIdsInQueue.has(user._id)
+         ) || [];
+     } else {
+       experts =
+         usersData?.users.filter(
+           (user) =>
+             user.role === "expert" &&
+             !expertsIdsInQueue.has(user._id)
+         ) || [];
+     }*/
 
   const filteredExperts = experts.filter(
     (expert) =>
@@ -63,6 +80,10 @@ export const AllocationQueueHeader = ({
 
   const handleToggle = async (checked: boolean) => {
     try {
+      if (question.isOnHold) {
+        toast.error("Cannot change auto-allocate status while question is on hold. Please release the hold first.");
+        return;
+      }
       await toggleAutoAllocateStatus(question._id);
       setAutoAllocate(checked);
     } catch (error) {
@@ -105,7 +126,6 @@ export const AllocationQueueHeader = ({
     setSelectedExperts([]);
     setIsModalOpen(false);
   };
-
   return (
     <div className="flex flex-col gap-4 pb-6 border-b border-border">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -168,12 +188,21 @@ export const AllocationQueueHeader = ({
             {/* Select Experts Button */}
             {!autoAllocate && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="default" className="gap-2 w-full sm:w-auto">
+                {/* <DialogTrigger asChild> */}
+                  <Button variant="default" className="gap-2 w-full sm:w-auto"
+                    onClick={() => {
+                      if (question.isOnHold) {
+                        toast.error(
+                          "This question is on hold. Release Hold to add experts."
+                        );
+                        return;
+                      }
+                      setIsModalOpen(true);
+                    }} >
                     <UserPlus className="w-4 h-4" />
                     Select Experts
                   </Button>
-                </DialogTrigger>
+                {/* </DialogTrigger> */}
 
                 <DialogContent
                   className="
@@ -247,11 +276,10 @@ export const AllocationQueueHeader = ({
                         filteredExperts.map((expert) => (
                           <div
                             key={expert._id}
-                            className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${
-                              expert.isBlocked
-                                ? "blur-[0px] cursor-not-allowed"
-                                : "hover:bg-muted/50"
-                            }
+                            className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${expert.isBlocked
+                              ? "blur-[0px] cursor-not-allowed"
+                              : "hover:bg-muted/50"
+                              }
   `}
                           >
                             <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -298,7 +326,7 @@ export const AllocationQueueHeader = ({
 
                                 <div className="text-sm text-muted-foreground flex-shrink-0 ml-2 hidden md:block">
                                   {expert.preference?.domain &&
-                                  expert.preference.domain !== "all"
+                                    expert.preference.domain !== "all"
                                     ? expert.preference.domain
                                     : "Agriculture Expert"}
                                 </div>

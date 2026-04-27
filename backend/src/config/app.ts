@@ -39,4 +39,8 @@ export const appConfig = {
   GCP_BACKUP_BUCKET: env('GCP_BACKUP_BUCKET') || null,
   ENABLE_DB_BACKUP: env('ENABLE_DB_BACKUP') == 'true' || false,
   ENABLE_AI_SERVER: env('ENABLE_AI_SERVER') == 'true' || false,
+  WA_WEBHOOK_API_KEY:env('WA_WEBHOOK_API_KEY')||"",
+  WA_WEBHOOK_API_URL:env("WA_WEBHOOK_API_URL")||null,
+  WEB_WEBHOOK_API_URL:env("WEB_WEBHOOK_API_URL")||"http://localhost:3080/api/webhooks/notifications",
+  WEB_WEBHOOK_API_KEY:env("WEB_WEBHOOK_API_KEY")||""
 };

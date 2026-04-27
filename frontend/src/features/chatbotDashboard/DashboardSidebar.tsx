@@ -1,0 +1,680 @@
+import React, { useState, useEffect, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/atoms/dialog";
+import { Calendar } from "@/components/atoms/calendar";
+import { Button } from "@/components/atoms/button";
+import { format } from "date-fns";
+import type { DateRange } from "react-day-picker";
+import { Download, Loader2, CalendarIcon } from "lucide-react";
+import { toast } from "sonner";
+import { ChatbotService } from "@/hooks/services/chatbotService";
+
+// ─── TYPES ────────────────────────────────────────────────────────────────────
+
+export type DashboardView =
+    | "overview"
+    | "farmer-segments"
+    | "usage-patterns"
+    | "geo-intelligence"
+    | "feedback-sentiment"
+    | "bugs-ux"
+    | "query-analysis"
+    | "app-health"
+    | "user-details";
+
+interface NavItemConfig {
+    label: string;
+    icon: React.ReactNode;
+    view: DashboardView;
+    badge?: string;
+    badgeVariant?: "red" | "amber";
+    children?: ChildNavItem[];
+}
+
+interface ChildNavItem {
+    id: string;
+    label: string;
+}
+
+interface SidebarSection {
+    sectionLabel: string;
+    items: NavItemConfig[];
+}
+
+interface DashboardSidebarProps {
+    activeView: DashboardView;
+    onViewChange: (view: DashboardView) => void;
+    healthScore?: number;
+    healthLabel?: string;
+    source?: string;
+}
+
+// ─── ICONS ────────────────────────────────────────────────────────────────────
+
+const GridIcon: React.FC = () => (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="1" width="6" height="6" rx="1.5" fill="#3AAA5A" />
+        <rect x="9" y="1" width="6" height="6" rx="1.5" fill="#3AAA5A" opacity=".5" />
+        <rect x="1" y="9" width="6" height="6" rx="1.5" fill="#3AAA5A" opacity=".5" />
+        <rect x="9" y="9" width="6" height="6" rx="1.5" fill="#3AAA5A" opacity=".3" />
+    </svg>
+);
+const UserIcon: React.FC = () => (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="6" r="3" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+);
+const ChartLineIcon: React.FC = () => (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+        <path d="M2 12l3-4 3 2 3-5 3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+const GlobeIcon: React.FC = () => (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M8 2v6l3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+);
+const StarIcon: React.FC = () => (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+        <path d="M8 2l1.5 3 3.5.5-2.5 2.5.5 3.5L8 10l-3 1.5.5-3.5L3 5.5 6.5 5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+    </svg>
+);
+const BugIcon: React.FC = () => (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M8 5v4M8 11v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+);
+const ListIcon: React.FC = () => (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+        <path d="M3 4h10M3 8h7M3 12h5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+);
+const UsersIcon: React.FC = () => (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+        <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M1 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        <circle cx="11.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1" opacity="0.6" />
+        <path d="M12 9c1.7.4 3 1.8 3 3.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+    </svg>
+);
+const SunIcon: React.FC = () => (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+        <path d="M8 2v2M8 12v2M2 8h2M12 8h2M4.5 4.5l1.4 1.4M10.1 10.1l1.4 1.4M4.5 11.5l1.4-1.4M10.1 5.9l1.4-1.4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+);
+
+// ─── STATIC DATA ──────────────────────────────────────────────────────────────
+
+const FARMER_SEGMENT_CHILDREN: ChildNavItem[] = [
+    { id: "power", label: "Power farmers" },
+    { id: "casual", label: "Casual seekers" },
+    { id: "repeat", label: "Repeat askers" },
+    { id: "silent", label: "Silent lurkers" },
+    { id: "churned", label: "Churned users" },
+    { id: "institutional", label: "Institutional" },
+];
+
+const NAV_SECTIONS: SidebarSection[] = [
+    {
+        sectionLabel: "Core views",
+        items: [
+            { label: "Overview", icon: <GridIcon />, view: "overview" },
+            { label: "Farmer segments", icon: <UserIcon />, view: "farmer-segments", children: FARMER_SEGMENT_CHILDREN },
+            { label: "Usage patterns", icon: <ChartLineIcon />, view: "usage-patterns" },
+            { label: "Geo intelligence", icon: <GlobeIcon />, view: "geo-intelligence" },
+        ],
+    },
+    {
+        sectionLabel: "Quality",
+        items: [
+            { label: "Feedback & sentiment", icon: <StarIcon />, view: "feedback-sentiment" },
+            { label: "Bugs & UX issues", icon: <BugIcon />, view: "bugs-ux", badge: "7", badgeVariant: "red" },
+        ],
+    },
+    {
+        sectionLabel: "Intelligence",
+        items: [
+            { label: "Query analysis", icon: <ListIcon />, view: "query-analysis", badge: "28%", badgeVariant: "amber" },
+            { label: "App health score", icon: <SunIcon />, view: "app-health" },
+        ],
+    },
+    {
+        sectionLabel: "Management",
+        items: [
+            { label: "User details", icon: <UsersIcon />, view: "user-details" },
+        ],
+    },
+];
+
+const MOBILE_BREAKPOINT = 768;
+
+// ─── MAIN COMPONENT ────────────────────────────────────────────────────────────
+
+export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
+    activeView,
+    onViewChange,
+    healthScore = 70,
+    healthLabel = "Moderate · needs improvement",
+    source = "vicharanashala",
+}) => {
+    const [segmentsExpanded, setSegmentsExpanded] = useState<boolean>(false);
+    const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+    const [collapsed, setCollapsed] = useState<boolean>(() => window.innerWidth <= MOBILE_BREAKPOINT);
+    const [isMobile, setIsMobile] = useState<boolean>(() => window.innerWidth <= MOBILE_BREAKPOINT);
+    const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
+    const [downloadDateRange, setDownloadDateRange] = useState<DateRange | undefined>(undefined);
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        if (!downloadDateRange?.from || !downloadDateRange?.to) return;
+
+        const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
+        if (downloadDateRange.to.getTime() - downloadDateRange.from.getTime() > oneMonthMs) {
+            toast.error("Date range cannot exceed 1 month. Please select a shorter range.");
+            return;
+        }
+
+        setIsDownloading(true);
+        try {
+            toast.info("Preparing download...");
+            const svc = new ChatbotService();
+            const from = format(downloadDateRange.from, "yyyy-MM-dd");
+            const to = format(downloadDateRange.to, "yyyy-MM-dd");
+            const blob = await svc.downloadChatbotReport(from, to, source);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `chatbot-report-${from}-to-${to}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.success("Report downloaded successfully!");
+            setIsDownloadDialogOpen(false);
+            setDownloadDateRange(undefined);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Download failed");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    // Track mobile/desktop and auto-collapse on mobile
+    useEffect(() => {
+        const handleResize = () => {
+            const mobile = window.innerWidth <= MOBILE_BREAKPOINT;
+            setIsMobile(mobile);
+            if (mobile) setCollapsed(true);
+        };
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    // Escape key closes sidebar on mobile
+    useEffect(() => {
+        if (!isMobile || collapsed) return;
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setCollapsed(true);
+        };
+        document.addEventListener("keydown", handleEsc);
+        return () => document.removeEventListener("keydown", handleEsc);
+    }, [isMobile, collapsed]);
+
+    const handleNavClick = useCallback((view: DashboardView, hasChildren?: boolean) => {
+        if (hasChildren) {
+            if (collapsed) {
+                setCollapsed(false);
+                setSegmentsExpanded(true);
+            } else {
+                setSegmentsExpanded((prev) => !prev);
+            }
+        } else {
+            setActiveSegmentId(null);
+            // On mobile, close sidebar when a non-expandable item is clicked
+            if (isMobile) setCollapsed(true);
+        }
+        onViewChange(view);
+    }, [collapsed, isMobile, onViewChange]);
+
+    const handleChildClick = useCallback((childId: string, parentView: DashboardView) => {
+        setActiveSegmentId(childId);
+        onViewChange(parentView);
+        // On mobile, close after selecting a child
+        if (isMobile) setCollapsed(true);
+    }, [isMobile, onViewChange]);
+
+    const healthBarWidth = `${Math.min(100, Math.max(0, healthScore))}%`;
+    const healthScoreColor =
+        healthScore >= 75 ? "#1E7A3C" : healthScore >= 50 ? "#854F0B" : "#A32D2D";
+
+    // On mobile when expanded: overlay mode. Otherwise: inline mode.
+    const isOverlay = isMobile && !collapsed;
+
+    // Sidebar content (shared between inline and overlay modes)
+    const sidebarContent = (
+        <aside
+            style={{
+                transition: isMobile
+                    ? "transform 0.28s cubic-bezier(0.4,0,0.2,1)"
+                    : "width 0.28s cubic-bezier(0.4,0,0.2,1)",
+            }}
+            className={`
+                bg-(--card) border-r border-(--border) shrink-0
+                flex flex-col overflow-hidden relative
+                ${isMobile
+                    ? "w-[220px] h-full"
+                    : collapsed ? "w-[58px]" : "w-[220px]"
+                }
+            `}
+        >
+            {/* ── HEADER: hamburger + close ── */}
+            <div className={`
+                flex items-center border-b border-(--border) h-[52px]
+                ${collapsed && !isMobile ? "justify-center px-0" : "justify-between px-3"}
+            `}>
+                <button
+                    onClick={() => setCollapsed((p) => !p)}
+                    title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    className="flex items-center justify-center rounded-lg w-8 h-8 shrink-0 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
+                >
+                    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+                        <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                </button>
+
+                {/* Close ✕ button only on mobile overlay */}
+                {isOverlay && (
+                    <button
+                        onClick={() => setCollapsed(true)}
+                        aria-label="Close sidebar"
+                        className="flex items-center justify-center rounded-lg w-8 h-8 shrink-0 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
+                    >
+                        <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+                            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                    </button>
+                )}
+            </div>
+
+            {/* ── DOWNLOAD EXCEL DIALOG ── */}
+            <Dialog open={isDownloadDialogOpen} onOpenChange={setIsDownloadDialogOpen}>
+                <DialogContent className="max-w-[min(90vw,800px)] w-full max-h-[90vh] overflow-hidden flex flex-col p-4">
+                    <DialogHeader className="space-y-2 flex-shrink-0">
+                        <DialogTitle className="text-lg font-semibold">
+                            Select Date Range
+                        </DialogTitle>
+                        <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md border">
+                            Select a date range to download the analytics report as Excel.
+                        </div>
+                    </DialogHeader>
+                    <div className="space-y-3 overflow-y-auto flex-1 py-2">
+                        <div className="flex items-center gap-2 text-xs bg-primary/5 p-2 rounded-md border border-primary/20">
+                            <CalendarIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span className="font-medium text-sm">
+                                {downloadDateRange?.from && downloadDateRange?.to
+                                    ? `${format(downloadDateRange.from, "MMM dd, yyyy")} - ${format(downloadDateRange.to, "MMM dd, yyyy")}`
+                                    : "No date range selected"}
+                            </span>
+                        </div>
+                        <div className="flex justify-center overflow-x-auto pb-2">
+                            <Calendar
+                                mode="range"
+                                selected={downloadDateRange}
+                                onSelect={setDownloadDateRange}
+                                numberOfMonths={2}
+                                disabled={(date) => date > new Date()}
+                                className="rounded-md border shadow-sm scale-95"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2 pt-3 flex-shrink-0">
+                        <DialogClose asChild>
+                            <Button variant="outline" type="button" className="w-full sm:w-auto">
+                                Cancel
+                            </Button>
+                        </DialogClose>
+                        <Button
+                            disabled={!downloadDateRange?.from || !downloadDateRange?.to || isDownloading}
+                            className="w-full sm:w-auto"
+                            onClick={handleDownload}
+                        >
+                            {isDownloading ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Downloading...
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Excel
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── NAV SECTIONS ── */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden pb-20 pt-1">
+                {NAV_SECTIONS.map((section) => (
+                    <div key={section.sectionLabel}>
+                        {/* Section label — hidden when collapsed on desktop */}
+                        <div className={`
+                            overflow-hidden transition-all duration-200
+                            ${(collapsed && !isMobile) ? "h-0 opacity-0 mt-0" : "h-auto opacity-100 mt-3"}
+                        `}>
+                            <div className="text-[10px] font-semibold text-(--muted-foreground) px-4 mb-1 uppercase tracking-widest">
+                                {section.sectionLabel}
+                            </div>
+                        </div>
+
+                        {/* Dot separator when collapsed on desktop */}
+                        {collapsed && !isMobile && (
+                            <div className="flex justify-center my-2">
+                                <div className="w-1 h-1 rounded-full bg-(--border)" />
+                            </div>
+                        )}
+
+                        {section.items.map((item) => {
+                            const isActive = activeView === item.view;
+                            const isExpandable = !!(item.children && item.children.length > 0);
+                            const showExpanded = isExpandable && segmentsExpanded && (!collapsed || isMobile);
+
+                            return (
+                                <div key={item.view}>
+                                    <NavItemRow
+                                        label={item.label}
+                                        icon={item.icon}
+                                        badge={item.badge}
+                                        badgeVariant={item.badgeVariant}
+                                        active={isActive}
+                                        expandable={isExpandable}
+                                        expanded={showExpanded}
+                                        collapsed={collapsed && !isMobile}
+                                        onClick={() => handleNavClick(item.view, isExpandable)}
+                                    />
+                                    {isExpandable && showExpanded && (
+                                        <div>
+                                            {item.children!.map((child) => (
+                                                <ChildNavItemRow
+                                                    key={child.id}
+                                                    label={child.label}
+                                                    active={activeSegmentId === child.id}
+                                                    onClick={() => handleChildClick(child.id, item.view)}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                ))}
+
+                {/* ── DOWNLOAD EXCEL BUTTON ── */}
+                <div className={`
+                    overflow-hidden transition-all duration-200
+                    ${(collapsed && !isMobile) ? "h-0 opacity-0 mt-0" : "h-auto opacity-100 mt-3"}
+                `}>
+                    <div className="text-[10px] font-semibold text-(--muted-foreground) px-4 mb-1 uppercase tracking-widest">
+                        Export
+                    </div>
+                </div>
+                {collapsed && !isMobile && (
+                    <div className="flex justify-center my-2">
+                        <div className="w-1 h-1 rounded-full bg-(--border)" />
+                    </div>
+                )}
+                <div
+                    onClick={() => setIsDownloadDialogOpen(true)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && setIsDownloadDialogOpen(true)}
+                    title={collapsed && !isMobile ? "Download Excel" : undefined}
+                    className={`
+                        group relative flex items-center cursor-pointer select-none
+                        transition-all duration-150
+                        ${collapsed && !isMobile
+                            ? "mx-2 my-0.5 rounded-lg justify-center px-0 py-2.5"
+                            : "px-3 py-2 mx-2 my-0.5 rounded-lg gap-2.5 text-[13px]"
+                        }
+                        text-(--muted-foreground) hover:bg-[#EAF6EC] dark:hover:bg-[#1a3a24] hover:text-[#1E7A3C] dark:hover:text-[#4adc64]
+                    `}
+                >
+                    <span className="shrink-0 flex items-center scale-75 md:scale-100">
+                        <Download size={16} />
+                    </span>
+                    {!(collapsed && !isMobile) && (
+                        <span className="flex-1 leading-snug font-medium">Download Excel</span>
+                    )}
+                </div>
+            </div>
+
+            {/* ── HEALTH SCORE FOOTER ── */}
+            <div className="absolute bottom-0 left-0 w-full border-t border-(--border) bg-(--card) overflow-hidden">
+                {(collapsed && !isMobile) ? (
+                    <div className="flex justify-center items-center py-3" title={`Health score: ${healthScore} — ${healthLabel}`}>
+                        <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center"
+                            style={{ background: `conic-gradient(${healthScoreColor} ${healthScore * 3.6}deg, #e5e7eb ${healthScore * 3.6}deg)` }}
+                        >
+                            <div className="w-5 h-5 rounded-full bg-(--card) flex items-center justify-center">
+                                <span style={{ color: healthScoreColor }} className="text-[9px] font-bold">{healthScore}</span>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="px-4 py-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[11px] text-(--muted-foreground)">Health score</span>
+                            <span className="text-[12px] font-semibold" style={{ color: healthScoreColor }}>{healthScore}</span>
+                        </div>
+                        <div className="w-full h-[3px] bg-(--muted) rounded-full overflow-hidden">
+                            <div
+                                className="h-full rounded-full transition-all duration-700 ease-out"
+                                style={{ width: healthBarWidth, background: healthScoreColor }}
+                            />
+                        </div>
+                        <div className="text-[10px] mt-1.5 text-[#BA7517]">
+                            {healthLabel}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </aside>
+    );
+
+    // ── MOBILE: overlay drawer ──
+    if (isMobile) {
+        return (
+            <>
+                {/* Collapsed state: icon strip like desktop */}
+                {collapsed && (
+                    <div className="shrink-0 flex flex-col w-[48px] h-full border-r border-(--border) bg-(--card) overflow-hidden">
+                        {/* Hamburger at top */}
+                        <div className="flex items-center justify-center h-[44px] border-b border-(--border)">
+                            <button
+                                onClick={() => setCollapsed(false)}
+                                aria-label="Open sidebar"
+                                title="Open sidebar"
+                                className="flex items-center justify-center rounded-lg w-[36px] h-[36px] text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
+                            >
+                                <svg width={20} height={20} viewBox="0 0 16 16" fill="none">
+                                    <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                        </div>
+                        {/* Nav icons */}
+                        <div className="flex-1 overflow-y-auto pt-1">
+                            {NAV_SECTIONS.map((section, sIdx) => (
+                                <div key={section.sectionLabel}>
+                                    {sIdx > 0 && (
+                                        <div className="flex justify-center my-2">
+                                            <div className="w-1 h-1 rounded-full bg-(--border)" />
+                                        </div>
+                                    )}
+                                    {section.items.map((item) => {
+                                        const isActive = activeView === item.view;
+                                        return (
+                                            <div
+                                                key={item.view}
+                                                onClick={() => {
+                                                    setActiveSegmentId(null);
+                                                    onViewChange(item.view);
+                                                }}
+                                                role="button"
+                                                tabIndex={0}
+                                                title={item.label}
+                                                className={`
+                                                    relative flex items-center justify-center mx-1 my-0.5 rounded-lg px-0 py-2 cursor-pointer select-none transition-all duration-150
+                                                    ${isActive
+                                                        ? "bg-[#EAF6EC] dark:bg-[#1a3a24] text-[#1E7A3C] dark:text-[#4adc64]"
+                                                        : "text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground)"
+                                                    }
+                                                `}
+                                            >
+                                                {isActive && (
+                                                    <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-[#3AAA5A]" />
+                                                )}
+                                                <span className="shrink-0 flex items-center scale-75">{item.icon}</span>
+                                                {item.badge && (
+                                                    <span className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${item.badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}`} />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Overlay: backdrop + drawer */}
+                {!collapsed && (
+                    <div className="fixed inset-0 z-50 flex animate-[fadeIn_0.15s_ease-out]">
+                        {/* Backdrop */}
+                        <div
+                            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+                            onClick={() => setCollapsed(true)}
+                        />
+                        {/* Drawer */}
+                        <div className="relative z-10 h-full animate-[slideInLeft_0.28s_cubic-bezier(0.4,0,0.2,1)]">
+                            {sidebarContent}
+                        </div>
+                    </div>
+                )}
+
+                {/* Keyframe animations */}
+                <style>{`
+                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                    @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+                `}</style>
+            </>
+        );
+    }
+
+    // ── DESKTOP: inline collapsible ──
+    return sidebarContent;
+};
+
+// ─── NAV ITEM ROW ─────────────────────────────────────────────────────────────
+
+interface NavItemRowProps {
+    label: string;
+    icon: React.ReactNode;
+    badge?: string;
+    badgeVariant?: "red" | "amber";
+    active: boolean;
+    expandable?: boolean;
+    expanded?: boolean;
+    collapsed?: boolean;
+    onClick: () => void;
+}
+
+const NavItemRow: React.FC<NavItemRowProps> = ({
+    label, icon, badge, badgeVariant = "red",
+    active, expandable, expanded, collapsed = false, onClick,
+}) => (
+    <div
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && onClick()}
+        title={collapsed ? label : undefined}
+        className={`
+            group relative flex items-center cursor-pointer select-none
+            transition-all duration-150
+            ${collapsed
+                ? "mx-2 my-0.5 rounded-lg justify-center px-0 py-2.5"
+                : "px-3 py-2 mx-2 my-0.5 rounded-lg gap-2.5 text-[13px]"
+            }
+            ${active
+                ? "bg-[#EAF6EC] dark:bg-[#1a3a24] text-[#1E7A3C] dark:text-[#4adc64] font-medium"
+                : "text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground)"
+            }
+        `}
+    >
+        {active && (
+            <span className={`
+                absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#3AAA5A]
+                ${collapsed ? "-left-2" : "-left-3"}
+            `} />
+        )}
+
+        <span className="shrink-0 flex items-center scale-75 md:scale-100">{icon}</span>
+
+        {!collapsed && (
+            <>
+                <span className="flex-1 leading-snug">{label}</span>
+                {badge && (
+                    <span className={`text-[10px] font-medium px-1.5 py-px rounded-full text-white leading-none ${badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}`}>
+                        {badge}
+                    </span>
+                )}
+                {expandable && (
+                    <svg width={12} height={12} viewBox="0 0 12 12" fill="none"
+                        className={`shrink-0 transition-transform duration-200 ease-in-out ${expanded ? "rotate-180" : "rotate-0"}`}
+                    >
+                        <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                )}
+            </>
+        )}
+
+        {collapsed && badge && (
+            <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}`} />
+        )}
+    </div>
+);
+
+// ─── CHILD NAV ITEM ROW ───────────────────────────────────────────────────────
+
+interface ChildNavItemRowProps {
+    label: string;
+    active: boolean;
+    onClick: () => void;
+}
+
+const ChildNavItemRow: React.FC<ChildNavItemRowProps> = ({ label, active, onClick }) => (
+    <div
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && onClick()}
+        className={`
+            flex items-center gap-2 pl-10 pr-3 py-[6px] mx-2 my-0.5 rounded-lg
+            cursor-pointer text-xs select-none transition-all duration-150
+            ${active
+                ? "bg-[#f0faf2] dark:bg-[#1a3a24] text-[#1E7A3C] dark:text-[#4adc64] font-medium"
+                : "text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground)"
+            }
+        `}
+    >
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? "bg-[#3AAA5A]" : "bg-(--border)"}`} />
+        {label}
+    </div>
+);

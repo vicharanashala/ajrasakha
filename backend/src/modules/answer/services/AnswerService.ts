@@ -14,6 +14,7 @@ import {
   ReviewAction,
   ReviewType,
   SourceItem,
+  IQuestionSubmission
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -28,11 +29,12 @@ import {notifyUser} from '#root/utils/pushNotification.js';
 import {IReviewRepository} from '#root/shared/database/interfaces/IReviewRepository.js';
 import {appConfig} from '#root/config/app.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
-import { AiService } from '#root/modules/core/services/AiService.js';
+import { AiService } from '#root/modules/ai/services/AiService.js';
 import { CORE_TYPES, NotificationService} from '#root/modules/core/index.js';
 import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
+import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService{
@@ -1511,9 +1513,9 @@ export class AnswerService extends BaseService implements IAnswerService{
   }
 
   // Currently using for approving answer
-  async approveAnswer(
+ /* async approveAnswer(
     userId: string,
-    answerId: string,
+    answerId: string|undefined,
     updates: UpdateAnswerBody,
   ): Promise<{modifiedCount: number}> {
     return this._withTransaction(async (session: ClientSession) => {
@@ -1600,6 +1602,309 @@ answer: ${updates.answer}`;
         status: 'approved',
       };
       return this.answerRepo.updateAnswer(answerId, payload, session);
+    });
+  }*/
+  async approveAnswer(
+    userId: string,
+    updates: UpdateAnswerBody,
+  ): Promise<{modifiedCount: number} | {insertedId: string}> {
+    return this._withTransaction(async (session: ClientSession) => {
+  
+      const isAjrasakha = updates.source === 'AJRASAKHA';
+      
+  
+      // ✅ AJRASAKHA flow
+      if (isAjrasakha ) {
+       
+        if (!updates.questionId) {
+          throw new BadRequestError('questionId is required for AJRASAKHA source');
+        }
+  
+        const user = await this.userRepo.findById(userId, session);
+  
+        if (!user || user.role == 'expert')
+          throw new UnauthorizedError(
+            "You don't have permission to approve an answer!",
+          );
+  
+        const question = await this.questionRepo.getById(updates.questionId);
+  
+        if (!question) {
+          throw new BadRequestError(`Question with ID ${updates.questionId} not found`);
+        }
+  
+       /* if (question.isAutoAllocate ==true) {
+          throw new BadRequestError(
+            `Can't approve this answer, currently question is auto allocated!`,
+          );
+        }*/
+        if (question.status=='closed') {
+          throw new BadRequestError(
+            `Can't approve this answer, currently question is closed!`,
+          );
+        }
+  
+        const text = `Question: ${question.question}
+  
+  answer: ${updates.answer}`;
+  
+        let questionEmbedding = [];
+  
+        const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+  
+        if (ENABLE_AI_SERVER) {
+          const {embedding} = await this.aiService.getEmbedding(text);
+          questionEmbedding = embedding;
+        }
+  
+        await this.questionRepo.updateQuestion(
+          updates.questionId,
+          {
+            text,
+            embedding: questionEmbedding,
+            aiApprovedSources: updates.sources ?? [],
+            aiInitialAnswer: updates.answer ?? '',
+            // aiApprovedAnswer: updates.answer ?? '',
+            // question stays 'open' so experts can call reviewAnswer()
+          },
+          session,
+          true,
+        );
+
+        const users = await this.userRepo.getSpecialTaskForceExperts(
+          session,
+        );
+  
+       
+        let queue: ObjectId[] = [];
+        let initialUsersToAllocate: typeof users = [];
+
+        
+          initialUsersToAllocate = users.slice(0, 4);
+
+          queue = initialUsersToAllocate.map(
+            (user) => new ObjectId(user._id.toString()),
+          );
+        
+  
+      //  const initialUsersToAllocate = users.slice(0, 3);
+  
+       /* const queue = initialUsersToAllocate.map(
+          (user) => new ObjectId(user._id.toString()),
+        );*/
+  
+        if (initialUsersToAllocate[0]) {
+          await this.userRepo.updateReputationScore(
+            initialUsersToAllocate[0]._id.toString(),
+            true,
+            session,
+          );
+        }
+
+        // Create an answer document so the expert can see the moderator-approved
+        // answer text from the answers collection (not the raw AI blob)
+        // const firstExpertId = initialUsersToAllocate[0]
+        //   ? initialUsersToAllocate[0]._id.toString()
+        //   : userId;
+
+        // let answerEmbedding: number[] = [];
+        // if (ENABLE_AI_SERVER) {
+        //   try {
+        //     const { embedding } = await this.aiService.getEmbedding(updates.answer);
+        //     answerEmbedding = embedding;
+        //   } catch {
+        //     answerEmbedding = [];
+        //   }
+        // }
+
+        // const { insertedId: answerId } = await this.answerRepo.addAnswer(
+        //   updates.questionId,
+        //   firstExpertId,
+        //   updates.answer,
+        //   updates.sources ?? [],
+        //   answerEmbedding,
+        //   false,       // isFinalAnswer
+        //   1,           // updatedAnswerCount
+        //   session,
+        //   'pending',   // status
+        //   'AI Generated Answer', // remarks
+        // );
+
+        // Update question totalAnswersCount
+        await this.questionRepo.updateQuestion(
+          updates.questionId,
+          { totalAnswersCount: 1 },
+          session,
+        );
+
+        // Create submission with empty history — expert is the author
+        // and will see the pre-filled answer from the answers collection
+        const submissionData: IQuestionSubmission = {
+          questionId: new ObjectId(updates?.questionId?.toString()),
+          lastRespondedBy: new ObjectId(userId),
+          history: [],
+          queue,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+  
+        await this.questionSubmissionRepo.addSubmission(submissionData, session);
+  
+        if (initialUsersToAllocate[0]) {
+          await this.notificationService.saveTheNotifications(
+            `A Question has been assigned for answering`,
+            'Answer Creation Assigned',
+            updates.questionId.toString(),
+            initialUsersToAllocate[0]._id.toString(),
+            'answer_creation',
+          );
+        }
+  
+        return { modifiedCount: 1 };
+      }
+  
+      // ✅ Original default flow (unchanged)
+      const answerId = updates.answerId;
+  
+      if (!answerId) throw new BadRequestError('AnswerId not found');
+      const answer = await this.answerRepo.getById(answerId, session);
+  
+      if (!answer) {
+        throw new BadRequestError(`Answer with ID ${answerId} not found`);
+      }
+  
+      const user = await this.userRepo.findById(userId, session);
+  
+      if (!user || user.role == 'expert')
+        throw new UnauthorizedError(
+          "You don't have permission to approve an answer!",
+        );
+  
+      const questionId = answer.questionId.toString();
+  
+      const question = await this.questionRepo.getById(questionId);
+  
+      if (!question) {
+        throw new BadRequestError(`Question with ID ${questionId} not found`);
+      }
+  
+      if (question.status !== 'in-review') {
+        throw new BadRequestError(
+          `Can't approve this answer:${answerId}, currently question is not in review!`,
+        );
+      }
+  
+      await this.answerRepo.getByQuestionId(questionId, session);
+  
+      const text = `Question: ${question.question}
+  
+  answer: ${updates.answer}`;
+  
+      let questionEmbedding = [];
+  
+      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+  
+      if (ENABLE_AI_SERVER) {
+        const {embedding} = await this.aiService.getEmbedding(text);
+        questionEmbedding = embedding;
+      }
+  
+      // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+      //   text,
+      // );
+      // const questionEmbedding = [];
+      const authorId = answer.authorId.toString();
+      await this.userRepo.updatePenaltyAndIncentive(
+        authorId,
+        'incentive',
+        session,
+      );
+  
+      await this.questionRepo.updateQuestion(
+        questionId,
+        {
+          text,
+          embedding: questionEmbedding,
+          status: 'closed',
+          closedAt: new Date(),
+        },
+        session,
+        true,
+      );
+  
+      let textEmbedding = [];
+  
+      if (ENABLE_AI_SERVER) {
+        const {embedding} = await this.aiService.getEmbedding(text);
+        textEmbedding = embedding;
+      }
+  
+      const payload: Partial<IAnswer> = {
+        answer: updates.answer,
+        sources: updates.sources,
+        approvedBy: new ObjectId(userId),
+        embedding: textEmbedding,
+        isFinalAnswer: true,
+        status: 'approved',
+      };
+  
+      let result= this.answerRepo.updateAnswer(answerId, payload, session);
+      const author = await this.userRepo.findById(authorId, session);
+      
+      if(question.source==="WHATSAPP")
+      {
+        try {
+          const webhookResponse=  await fetch(appConfig.WA_WEBHOOK_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-internal-api-key': appConfig.WA_WEBHOOK_API_KEY,
+            },
+            body: JSON.stringify({
+              question_id: questionId,
+              status: 'closed',
+              answer: updates.answer ?? '',
+              author: `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() || 'Expert',  // ✅ author name from userRepo
+              sources: updates.sources ?? [],
+            }),
+          });
+          const webhookData = await webhookResponse.text();
+          console.log('[WhatsApp webhook] Response status:', webhookResponse.status);
+          console.log('[WhatsApp webhook] Response body:', webhookData);
+        } catch (err) {
+          console.error('[WhatsApp webhook] Failed to notify:', err);
+        }
+      }
+      if(question.source=="AJRASAKHA")
+      {
+        try {
+          const webhookResponse=  await fetch(appConfig.WEB_WEBHOOK_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-internal-api-key': appConfig.WEB_WEBHOOK_API_KEY,
+            },
+            body: JSON.stringify({
+              question_id: questionId,
+              status: 'closed',
+              answer: updates.answer ?? '',
+              author: `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() || 'Expert',  // ✅ author name from userRepo
+              sources: updates.sources ?? [],
+              question:question.question,
+             // originalQuestion:question.originalQuestion?? "",
+             messageId:question.messageId
+
+            }),
+          });
+          const webhookData = await webhookResponse.text();
+          console.log('[Broswer webhook] Response status:', webhookResponse.status);
+          console.log('[Browserwebhook] Response body:', webhookData);
+        } catch (err) {
+          console.error('[Browser webhook] Failed to notify:', err);
+        }
+      }
+      
+      return result
     });
   }
 

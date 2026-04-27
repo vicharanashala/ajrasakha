@@ -1,22 +1,12 @@
 import type {
-  HistoryItem,
-  IQuestion,
-  IReviewParmeters,
-  SourceItem,
-  QuestionRerouteRepo
+  IReviewParmeters
 } from "@/types";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../../components/atoms/button";
 import {
   CheckCircle,
-  RefreshCw,
   RotateCcw,
-  MessageCircle,
-  Info,
   Loader2,
-  
- 
-  
 } from "lucide-react";
 import {
   Dialog,
@@ -24,7 +14,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "../../components/atoms/dialog";
 import { ReviewChecklist } from "./ReviewChecklist";
 
@@ -48,12 +37,6 @@ export const AcceptReviewDialog = ({
   }, [checklist]);
 
   const handleConfirm = () => {
-    // const suggestion = getReviewSuggestion(checklist);
-
-    // if (suggestion) {
-    //   toast.warning(suggestion);
-    //   return; // Prevent accept
-    // }
 
     onConfirm();
     setOpen(false);
@@ -105,9 +88,6 @@ export const AcceptReviewDialog = ({
     ].filter((v) => !v).length;
 
     if (!disabledCount) return null;
-    // if (valueInsight) {
-    //   return "Consider modifying the answer instead accepting it.";
-    // }
 
     if (disabledCount >= 1 && disabledCount <= 3) {
       return "Some criteria are unmet. Please modify/reject the answer instead accepting.";

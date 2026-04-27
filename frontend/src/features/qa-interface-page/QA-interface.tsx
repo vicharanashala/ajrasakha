@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState,  } from "react";
-import {CheckCircle,RefreshCw,RotateCcw,Info,Loader2,Send,FileText,Bot, ChevronsRight} from "lucide-react";
+import {CheckCircle,RotateCcw,Loader2,Send,FileText,Bot, ChevronsRight} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
-import { RadioGroup, RadioGroupItem } from "../../components/atoms/radio-group";
 import { Label } from "../../components/atoms/label";
 import { Textarea } from "../../components/atoms/textarea";
 import { Button } from "../../components/atoms/button";
@@ -12,15 +11,8 @@ import {
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { toast } from "sonner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../../components/atoms/tooltip";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import {
-  type AdvanceFilterValues,
   type QuestionDateRangeFilter,
   type QuestionFilterStatus,
   type QuestionPriorityFilter,
@@ -28,11 +20,8 @@ import {
 } from "../../components/advanced-question-filter";
 import type {} from "../../components/questions-page";
 import type {
-  HistoryItem,
-  IQuestion,
   IReviewParmeters,
-  SourceItem,
-  QuestionRerouteRepo
+  SourceItem
 } from "@/types";
 
 import { ConfirmationModal } from "../../components/confirmation-modal";
@@ -68,6 +57,7 @@ export const QAInterface = ({
 
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
+  const [translatedDraftText, setTranslatedDraftText] = useState<string>("");
 
   // toggle sidebar
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -97,8 +87,10 @@ export const QAInterface = ({
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
-  const [state, setState] = useState("");
-  const [crop, setCrop] = useState("");
+  const [state, setState] = useState("all");
+  const [states, setStates] = useState<string[]>([]);
+  const [crop, setCrop] = useState("all");
+  const [crops, setCrops] = useState<string[]>([]);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
@@ -107,29 +99,25 @@ export const QAInterface = ({
   const[reviewLevel,setReviewLevel]=useState('all')
 
   const [isLoaded, setIsLoaded] = useState(false);
-  // const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
-  //   {
-  //     status: "all",
-  //     source: "all",
-  //     state: "all",
-  //     answersCount: [0, 100],
-  //     dateRange: "all",
-  //     crop: "all",
-  //     priority: "all",
-  //     domain: "all",
-  //     user: "all",
-  //   }
-  // );
-  // const handleDialogChange = (key: string, value: any) => {
-  //   setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
-  // };
+  const handleDialogChange = (key: string, value: any) => {
+    if (key === "source") setSource(value);
+    else if (key === "state") setState(value);
+    else if (key === "states") setStates(value);
+    else if (key === "crop") setCrop(value);
+    else if (key === "crops") setCrops(value);
+    else if (key === "review_level") setReviewLevel(value);
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const preferences = useMemo(
     () => ({
       status,
       state,
+      states,
       source,
       crop,
+      crops,
+      normalised_crop: crop,
+      review_level: reviewLevel,
       answersCount,
       dateRange,
       priority,
@@ -139,8 +127,11 @@ export const QAInterface = ({
     [
       status,
       state,
+      states,
       source,
       crop,
+      crops,
+      reviewLevel,
       answersCount,
       dateRange,
       priority,
@@ -161,10 +152,6 @@ export const QAInterface = ({
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
    
-  // const questions = questionPages?.pages.flat() || [];
-  /*const questions = useMemo(() => {
-     return questionPages?.pages.flat() || [];
-     }, [questionPages]);*/
   const questions = useMemo(() => {
     if (!questionPages?.pages) return [];
     return questionPages.pages.flat();
@@ -189,8 +176,6 @@ export const QAInterface = ({
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion,actionType);
 
-  // const { mutateAsync: submitAnswer, isPending: isSubmittingAnswer } =
-  //   useSubmitAnswer();
   const { mutateAsync: respondQuestion, isPending: isResponding } =
     useReviewAnswer();
 
@@ -200,7 +185,6 @@ export const QAInterface = ({
   const hasInitialized = useRef(false);
   const questionsRef = useRef(questions);
   const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
-  // const [isLoaded, setIsLoaded] = useState(false);
 
   const [drafts, setDrafts] = useState<
     Record<string, { answer: string; sources: any[]; remarks: string }>
@@ -408,27 +392,58 @@ export const QAInterface = ({
     return () => container.removeEventListener("scroll", handleScroll);
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  // const handleFilterChange = (value: QuestionFilter) => {
-  //   setFilter(value);
-  // };
 
   useEffect(() => {
-    if (!selectedQuestionData?.aiInitialAnswer || !selectedQuestion) return;
+    if (!selectedQuestion || !selectedQuestionData) return;
+
+    // For AJRASAKHA: the answer comes from aiApprovedAnswer (answers collection)
+    // For others: the answer comes from aiInitialAnswer (questions collection)
+    const hasPrefilledAnswer =
+      selectedQuestionData.aiInitialAnswer ||
+      selectedQuestionData.aiApprovedAnswer;
+
+    if (!hasPrefilledAnswer) return;
 
     const draft = drafts[selectedQuestion]; // previous answer that were stored in localstorage
 
     // Set AI initial answer only if user hasn't typed anything
     if (!newAnswer && !draft?.answer) {
-      setNewAnswer(selectedQuestionData.aiInitialAnswer);
+      let prefillAnswer = '';
+
+      if (selectedQuestionData.source === 'AJRASAKHA') {
+        // Prefer the clean answer from answers collection (set by moderator approval)
+        if (selectedQuestionData.aiInitialAnswer) {
+          prefillAnswer = selectedQuestionData.aiInitialAnswer;
+        } else if (selectedQuestionData.aiApprovedAnswer) {
+          prefillAnswer = selectedQuestionData.aiApprovedAnswer;
+        }
+      } else {
+        prefillAnswer = selectedQuestionData.aiInitialAnswer || '';
+      }
+
+      if (prefillAnswer) {
+        setNewAnswer(prefillAnswer);
+      }
     }
-    const isAiAnswer =
-      newAnswer.trim() === selectedQuestionData.aiInitialAnswer.trim();
+
+    // For AJRASAKHA questions, pre-fill sources from moderator-approved sources stored on the question
+    if (
+      selectedQuestionData.source === 'AJRASAKHA' &&
+      selectedQuestionData.aiApprovedSources?.length &&
+      !draft?.sources?.length
+    ) {
+      setSources(selectedQuestionData.aiApprovedSources);
+    }
+
+    const aiAnswer = selectedQuestionData.aiInitialAnswer || selectedQuestionData.aiApprovedAnswer || '';
+    const isAiAnswer = aiAnswer && newAnswer.trim() === aiAnswer.trim();
 
     if (!draft?.remarks) setRemarks(isAiAnswer ? "AI Generated Answer" : "");
   }, [selectedQuestionData, newAnswer]);
 
   const handleReset = () => {
     setNewAnswer("");
+    setTranslatedDraftText("");
     setSources([]);
     setRemarks("");
   };
@@ -518,9 +533,6 @@ export const QAInterface = ({
     handleReset();
   };
 
-  // if(isLoadingTargetQuestion){
-  //   return <Spinner/>
-  // }
 
 const handleActionChange = (value: string) => {
   setActionType(value as "allocated" | "reroute");
@@ -568,7 +580,10 @@ const handleActionChange = (value: string) => {
   actionType={actionType}
   onActionTypeChange={handleActionChange}
   reviewLevel={reviewLevel}
-  onReviewLevelChange={setReviewLevel}
+  source={source}
+  states={states}
+  crops={crops}
+  onFilterChange={handleDialogChange}
   scrollRef={scrollRef}
   questionItemRefs={questionItemRefs}
   setQuestionRef={setQuestionRef}
@@ -608,9 +623,6 @@ const handleActionChange = (value: string) => {
                           <Label className="text-sm font-medium text-muted-foreground">
                             Current Query:
                           </Label>
-                          {/* <QuestionDetailsDialog
-                            question={selectedQuestionData}
-                          /> */}
                          {/* Translate language dropdown */}
                           <SarvamTranslateDropdown
                             query={selectedQuestionData.text}
@@ -641,6 +653,11 @@ const handleActionChange = (value: string) => {
                             )}
                           </Label>
 
+                          <div className="flex items-center gap-2">
+                            <SarvamTranslateDropdown
+                              query={newAnswer}
+                              onTranslate={(result) => setTranslatedDraftText(result)}
+                            />
                           {selectedQuestionData.aiInitialAnswer &&
                             !newAnswer && (
                               <button
@@ -648,6 +665,7 @@ const handleActionChange = (value: string) => {
                                   setNewAnswer(
                                     selectedQuestionData.aiInitialAnswer || ""
                                   );
+                                  setTranslatedDraftText("");
                                   setRemarks("AI Suggested Answer");
                                 }}
                                 // The classes below are the ones you provided, slightly adjusted for square shape
@@ -669,12 +687,13 @@ const handleActionChange = (value: string) => {
                                 <Bot className="h-5 w-5" />
                               </button>
                             )}
+                          </div>
                         </div>
                         <Textarea
                           id="new-answer"
                           placeholder="Enter your answer here..."
-                          value={newAnswer}
-                          onChange={(e) => setNewAnswer(e.target.value)}
+                          value={translatedDraftText || newAnswer}
+                          onChange={(e) => { setTranslatedDraftText(""); setNewAnswer(e.target.value); }}
                           className={`mt-1 md:max-h-[240px] max-h-[170px] min-h-[210px] resize-y border text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent ${
                             newAnswer.trim() ===
                               selectedQuestionData?.aiInitialAnswer &&
@@ -826,20 +845,3 @@ const handleActionChange = (value: string) => {
     </div>
   );
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

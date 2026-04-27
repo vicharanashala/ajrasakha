@@ -1,10 +1,17 @@
 from typing import Dict, Any
-
 import aiohttp
-from langchain.tools import tool
 
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
-@tool
+mcp = FastMCP(
+    "ajrasakha-location-mcp",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+)
+
+@mcp.tool()
 async def location_information_tool(latitude: float, longitude: float) -> Dict[str, Any]:
     """
     Reverse geocode lat/lon to city, state, country
@@ -43,3 +50,6 @@ async def location_information_tool(latitude: float, longitude: float) -> Dict[s
                 }
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+if __name__ == "__main__":
+    mcp.run()

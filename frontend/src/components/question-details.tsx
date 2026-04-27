@@ -4,10 +4,12 @@ import type {
   IRerouteHistoryResponse,
 } from "@/types";
 import { useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { QuestionService } from "@/hooks/services/questionService";
 
 import { Button } from "./atoms/button";
 
-import { AlertTriangle, FileText, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, FileText, Loader2, RefreshCw } from "lucide-react";
 
 import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
 
@@ -17,6 +19,13 @@ import { AllocationTimeline } from "@/features/question_details/components/Alloc
 import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
+import MessageDetail from "./MessageDetail";
+import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
+import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
+import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
+import { toast } from "sonner";
+
+const questionService = new QuestionService();
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -26,6 +35,7 @@ interface QuestionDetailProps {
   isRefetching: boolean;
   currentUser: IUser;
   rerouteQuestion?: IRerouteHistoryResponse[];
+  navigateToQuestionPage: () => void;
 }
 
 export const QuestionDetails = ({
@@ -36,9 +46,8 @@ export const QuestionDetails = ({
   currentUser,
   goBack,
   rerouteQuestion,
+  navigateToQuestionPage
 }: QuestionDetailProps) => {
-  //console.log("the question details====",question)
-  // console.log("reroutedetail====",rerouteQuestion)
   const ANSWER_VISIBLE_COUNT = 5;
 
   const answers = useMemo(
@@ -49,6 +58,10 @@ export const QuestionDetails = ({
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [aiAnswerExpanded, setAiAnswerExpanded] = useState(false);
+
+  //state for showing passing remark
+  const [remarkExpanded, setRemarkExpanded] = useState(false);
 
   const commentRef = useRef<any>(null);
   const {
@@ -57,11 +70,112 @@ export const QuestionDetails = ({
     isLoading: isLoadingrerouteSelectedQuestion,
   } = useGetReRoutedQuestionFullData(question?._id);
 
+  const [tempAiAnswer, setTempAiAnswer] = useState<string>("");
+
+  const {
+    mutate: approveAIAnswer,
+    isPending: isApproving,
+  } = useApproveAIAnswer();
+
+  const { data: submissionCheck } = useQuery({
+    queryKey: ["question_submission_exists", question?._id],
+    queryFn: () => questionService.checkSubmissionExists(question._id),
+    enabled: !!question?._id && question?.source === "AJRASAKHA",
+  });
+
+  const {
+    mutate: generateAIAnswer,
+    data: newAiGeneratedAnswer,
+    isPending: isGeneratingAI,
+    error,
+  } = useGenerateInitialAnswer();
+  const submissionExists = submissionCheck?.exists ?? false;
+
+
+  const handleGenerateAI = () => {
+    if (!question?._id) return;
+
+    generateAIAnswer(question._id, {
+      onSuccess: (data) => {
+        setTempAiAnswer(data.aiInitialAnswer); 
+      },
+      onError: (err) => {
+        console.error(err);
+        toast.error(err.message || "Failed to generate answer")
+      },
+    });
+  };
+
+  const handleApproveAI = () => {
+    if (!question?._id || !tempAiAnswer) return;
+
+    approveAIAnswer(
+      { questionId: question._id, answer: tempAiAnswer },
+      {
+        onSuccess: () => {
+          setTempAiAnswer("");
+          refetchAnswers();
+        },
+        onError: (err) => {
+          console.error(err);
+          toast.error(err.message || "Failed approve answer")
+        },
+      }
+    );
+  };
+
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
-      <QuestionHeader question={question} goBack={goBack} />
+      <QuestionHeader question={question} goBack={goBack} currentUser={currentUser} isQuestionAllocatedToExpert={submissionExists} />
 
       <QuestionDetailsCard question={question} currentUser={currentUser} />
+
+      {question.passingRemark && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" && (
+        <div className="relative w-full rounded-xl p-[1px] overflow-hidden">
+          <div className="absolute inset-0 rounded-xl bg-primary animate-pulse opacity-80 h-19" />
+          <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md h-19" />
+          <button
+            onClick={() => setRemarkExpanded(!remarkExpanded)}
+            className="relative z-10 w-full flex items-center gap-3 px-5 py-4 rounded-xl bg-card border border-transparent hover:shadow-md transition-all duration-300 group"
+          >
+            {remarkExpanded ? (
+              <ChevronDown className="h-5 w-5 text-primary shrink-0 transition-transform" />
+            ) : (
+              <ChevronRight className="h-5 w-5 text-primary shrink-0 transition-transform" />
+            )}
+            <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
+              <span className="text-sm font-semibold text-foreground">Passing Reason</span>
+              <span className="text-xs text-muted-foreground">
+                {remarkExpanded ? "Click to collapse" : "Click to expand & view reason"}
+              </span>
+            </div>
+          </button>
+          {remarkExpanded && (
+            <div className="mt-2 rounded-xl border border-border bg-card overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="p-5">
+                <p className="text-sm text-foreground/90">{question.passingRemark}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <AiGeneratedAnswerCard
+        aiApprovedAnswer={question.aiApprovedAnswer}
+        aiInitialAnswer={question.aiInitialAnswer}
+        aiApprovedSources={question.aiApprovedSources}
+        source={question.source}
+        hasSubmissions={question.submission.history.length > 0}
+        tempAiAnswer={tempAiAnswer}
+        onGenerate={handleGenerateAI}
+        onApprove={handleApproveAI}
+        onCancel={() => setTempAiAnswer("")}
+        isGenerating={isGeneratingAI}
+        isApproving={isApproving}
+      />
+
+      {question && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" &&
+        <MessageDetail question={question} isQuestionAllocatedToExpert={submissionExists} navigateToQuestionPage={navigateToQuestionPage} />
+      }
 
       {/* {currentUser.role !== "expert" && ( */}
       <AllocationTimeline

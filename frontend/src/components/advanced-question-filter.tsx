@@ -21,6 +21,9 @@ import {
 import { Separator } from "@/components/atoms/separator";
 import { Badge } from "@/components/atoms/badge";
 import { Slider } from "@/components/atoms/slider";
+import { Checkbox } from "@/components/atoms/checkbox";
+import { StateMultiSelect } from "./atoms/StateMultiSelect";
+import { CropMultiSelect } from "./atoms/CropMultiSelect";
 import {
   Filter,
   FileText,
@@ -43,30 +46,27 @@ import {
   ArrowUp,
   ArrowDown,
   ListFilter,
-  CalendarIcon,
-  ChevronUp,
-  ChevronDown,
   XCircle,
   Layers,
   Send,
   BadgeCheck,
   Hand,
   Users,
-  Settings
-
-
+  Settings,
+  Radio,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
-import { Popover, PopoverContent, PopoverTrigger } from "./atoms/popover";
-import { format } from "date-fns";
+import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 export { STATES, CROPS, DOMAINS };
-import type { DateRange } from "react-day-picker";
-import { Calendar } from "./atoms/calendar";
 import { DateRangeFilter } from "./DateRangeFilter";
-import { TopRightBadge } from "./NewBadge";
 
 export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
 export type QuestionDateRangeFilter =
@@ -77,7 +77,8 @@ export type QuestionDateRangeFilter =
   | "quarter"
   | "year";
 
-export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT";
+export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
+// New Type
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
 export type QuestionTimeRange = {
   startDate: Date | undefined;
@@ -99,113 +100,31 @@ export type AdvanceFilterValues = {
   status: QuestionFilterStatus;
   source: QuestionSourceFilter;
   state: string;
+  states?: string[]; // multi-select for Preferences filter
   answersCount: [number, number];
   dateRange: QuestionDateRangeFilter;
   user: string;
   domain: string;
   crop: string;
+  crops?: string[]; // multi-select for expert Preferences filter
+  normalised_crop: string;
+  normalisedCrops?: string[]; // multi-select for Preferences filter
   priority: QuestionPriorityFilter;
   startTime?: Date | undefined | null; // Use a specific name like startTime/endTime
   endTime?: Date | undefined | null;
   review_level?: ReviewLevel;
-  closedAtEnd?: Date | undefined | null,
-  closedAtStart?: Date | undefined | null,
-  consecutiveApprovals?:string,
-  autoAllocateFilter?:string,
+  closedAtEnd?: Date | undefined | null;
+  closedAtStart?: Date | undefined | null;
+  consecutiveApprovals?: string;
+  autoAllocateFilter?: string;
+  closedInTwoHrs?: boolean;
+  hiddenQuestions?: boolean;
+  duplicateQuestions?: boolean;
+  isOnHold?: boolean;
 };
 
-// Define the props for your new component
-interface DateRangeFilterProps {
-  // advanceFilter prop now includes startTime and endTime
-  advanceFilter: Partial<AdvanceFilterValues>;
-  // The handler to update the parent state
-  handleDialogChange: (key: string, value: any) => void;
-  className?: string;
-}
 
-// export const DateRangeFilter = ({
-//   advanceFilter,
-//   handleDialogChange,
-//   className,
-// }: DateRangeFilterProps) => {
-//   const [isCalendarVisible, setIsCalendarVisible] = React.useState(false);
-//   // Convert the flat startTime/endTime into the DateRange object for the Calendar
-//   const dateRange: DateRange = {
-//     from: advanceFilter.startTime,
-//     to: advanceFilter.endTime,
-//   };
-
-//   const handleDateSelect = (range: DateRange | undefined) => {
-//     console.log("Date range: ", range);
-//     handleDialogChange("startTime", range?.from);
-//     handleDialogChange("endTime", range?.to);
-
-//     // Close the calendar once both dates are selected
-//     if (range?.from && range?.to) {
-//       setIsCalendarVisible(false);
-//     }
-//   };
-
-//   const isRangeSelected = dateRange.from && dateRange.to;
-
-//   return (
-//     <div className={`space-y-2 min-w-0 relative${className}`}>
-//       <Label className="flex items-center gap-2 text-sm font-semibold">
-//         <Clock className="h-4 w-4 text-primary" />
-//         Custom Date Range
-//       </Label>
-
-//       {/* This Button now acts as a toggle */}
-//       <Button
-//         id="date-toggle"
-//         variant={"outline"}
-//         className={`w-full justify-start text-left font-normal bg-background pr-3 ${
-//           !dateRange.from && "text-muted-foreground"
-//         }`}
-//         onClick={() => setIsCalendarVisible(!isCalendarVisible)}
-//       >
-//         <CalendarIcon className="mr-2 h-4 w-4" />
-//         {dateRange.from ? (
-//           dateRange.to ? (
-//             <>
-//               {format(dateRange.from, "LLL dd, y")} -{" "}
-//               {format(dateRange.to, "LLL dd, y")}
-//             </>
-//           ) : (
-//             format(dateRange.from, "LLL dd, y")
-//           )
-//         ) : (
-//           <span>Select a start and end date</span>
-//         )}
-
-//         {/* Toggle Icon */}
-//         <span className="ml-auto">
-//           {isCalendarVisible ? (
-//             <ChevronUp className="h-4 w-4 opacity-50" />
-//           ) : (
-//             <ChevronDown className="h-4 w-4 opacity-50" />
-//           )}
-//         </span>
-//       </Button>
-
-//       {/* Conditional Rendering of the Calendar */}
-//       {isCalendarVisible && (
-//         <div className="absolute z-50 mt-2 border rounded-lg p-2 bg-popover text-popover-foreground shadow-lg min-w-full sm:min-w-[300px]">
-//           {" "}
-//           <Calendar
-//             initialFocus
-//             mode="range"
-//             defaultMonth={dateRange.from}
-//             selected={dateRange}
-//             onSelect={handleDateSelect}
-//             numberOfMonths={1} // Use 1 month since space might be limited now
-//             className="w-full"
-//           />
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
+// Inline multi-select for State/Region with hover-to-scroll zones
 
 interface AdvanceFilterDialogProps {
   advanceFilter: AdvanceFilterValues;
@@ -217,7 +136,7 @@ interface AdvanceFilterDialogProps {
   activeFiltersCount: number;
   onReset: () => void;
   isForQA: boolean;
-  setIsSidebarOpen: (value:boolean) => void;
+  setIsSidebarOpen: (value: boolean) => void;
 }
 
 export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
@@ -234,9 +153,11 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const { data: userNameReponse, isLoading } = useGetAllUsers();
+  const { data: cropsData } = useGetAllCrops();
+  const dbCrops = cropsData?.crops || [];
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
-    a.userName.localeCompare(b.userName)
+    a.userName.localeCompare(b.userName),
   );
 
   return (
@@ -359,13 +280,14 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 </div>
               )}
 
-              <div className="space-y-2 min-w-0">
+              <div className="space-y-2 min-w-0 cursor-not-allowed">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <MessageSquare className="h-4 w-4 text-primary" />
                   Source
                 </Label>
                 <Select
                   value={advanceFilter.source}
+                  disabled
                   onValueChange={(v) => handleDialogChange("source", v)}
                 >
                   <SelectTrigger className="bg-background w-full">
@@ -392,6 +314,20 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         <span>Agri Expert</span>
                       </div>
                     </SelectItem>
+
+                    <SelectItem value="WHATSAPP">
+                      <div className="flex items-center gap-2">
+                        <UserRound className="w-4 h-4 text-primary" />
+                        <span>Whatsapp</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="OUTREACH">
+                      <div className="flex items-center gap-2">
+                        <Radio className="w-4 h-4 text-primary" />
+                        <span>Outreach</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -405,23 +341,17 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <MapPin className="h-4 w-4 text-primary" />
                   State/Region
+                  {advanceFilter.states && advanceFilter.states.length > 0 && (
+                    <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+                      {advanceFilter.states.length}
+                    </Badge>
+                  )}
                 </Label>
-                <Select
-                  value={advanceFilter.state}
-                  onValueChange={(v) => handleDialogChange("state", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All States</SelectItem>
-                    {normalizedStates.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <StateMultiSelect
+                  states={normalizedStates}
+                  selected={advanceFilter.states || []}
+                  onChange={(next) => handleDialogChange("states", next)}
+                />
               </div>
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -439,7 +369,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <SelectItem value="all">All Levels</SelectItem>
                     {Review_Level.map((d) => (
                       <SelectItem key={d} value={d}>
-                        {d}
+                        {d === "Level 0" ? "Author" : d}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -452,46 +382,34 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             {/* Domain & Users */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 min-w-0">
-                {/* <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Globe className="h-4 w-4 text-primary" />
-                  Domain
-                </Label>
-                <Select
-                  value={advanceFilter.domain}
-                  onValueChange={(v) => handleDialogChange("domain", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Domains</SelectItem>
-                    {DOMAINS.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select> */}
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Sprout className="h-4 w-4 text-primary" />
                   Crop Type
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-sm">
+                      <p>
+                        Filter by the standardized crop name. You can view a
+                        crop's alternative names by hovering over the "+" icon
+                        next to it. Use "Not Set" to find older questions
+                        without a normalized crop.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 </Label>
-                <Select
-                  value={advanceFilter.crop}
-                  onValueChange={(v) => handleDialogChange("crop", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Crops</SelectItem>
-                    {crops.map((crop) => (
-                      <SelectItem key={crop} value={crop}>
-                        {crop}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CropMultiSelect
+                  dbCrops={dbCrops}
+                  crops={crops}
+                  selected={advanceFilter.normalisedCrops || []}
+                  onChange={(next) => handleDialogChange("normalisedCrops", next)}
+                />
               </div>
 
               <div className="space-y-2 min-w-0">
@@ -552,26 +470,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 min-w-0">
-                {/* <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <CalendarIcon className="h-4 w-4 text-primary" />
-                  Date Range
-                </Label>
-                <Select
-                  value={advanceFilter.dateRange}
-                  onValueChange={(v) => handleDialogChange("dateRange", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                    <SelectItem value="quarter">Last 3 Months</SelectItem>
-                    <SelectItem value="year">This Year</SelectItem>
-                  </SelectContent>
-                </Select> */}
 
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Globe className="h-4 w-4 text-primary" />
@@ -642,7 +540,25 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             </div>
 
             <Separator />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2 mb-4">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <Clock className="h-4 w-4 text-primary" />
+                Closed within 2 Hours
+              </Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  className="w-3.5 h-3.5 border-primary"
+                  checked={advanceFilter.closedInTwoHrs ?? false}
+                  onCheckedChange={(checked) =>
+                    handleDialogChange("closedInTwoHrs", checked === true)
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  Show questions closed within 2 hours
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
                   customName={"CreatedAt Date Range"}
@@ -668,19 +584,20 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   Consecutive Approvals
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button type="button" className="text-muted-foreground hover:text-primary transition-colors">
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
                         <Info className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-sm">
                       <p>
-                        Filter questions based on the number of consecutive approvals received by their latest answer.
+                        Filter questions based on the number of consecutive
+                        approvals received by their latest answer.
                       </p>
                     </TooltipContent>
-
                   </Tooltip>
-
-                  
                 </Label>
                 <Select
                   value={advanceFilter.consecutiveApprovals}
@@ -726,7 +643,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Label className="relative flex items-center gap-2 text-sm font-semibold">
                   <Users className="h-4 w-4 text-primary" />
                   Auto Allocate Experts
-                  
                 </Label>
                 <Select
                   value={advanceFilter.autoAllocateFilter}
@@ -797,6 +713,38 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 Filter questions based on the number of answers received
               </p>
             </div>
+            {/* Hidden and Duplicate Questions */}
+            <div className="space-y-4">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <Eye className="h-4 w-4 text-primary" />
+                Question Visibility
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-border bg-background p-4">
+                <label className="flex items-center gap-3">
+                  <Checkbox
+                    checked={advanceFilter.hiddenQuestions ?? false}
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("hiddenQuestions", checked === true)
+                    }
+                    className="h-3.5 w-3.5 border-primary"
+                  />
+                  <span className="text-sm">Show passed questions</span>
+                </label>
+                {/* show holded questions */}
+                <label className="flex items-center gap-3">
+                  <Checkbox
+                    checked={advanceFilter.isOnHold ?? false}
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("isOnHold", checked === true)
+                    }
+                    className="h-3.5 w-3.5 border-primary"
+                  />
+                  <span className="text-sm">Show questions on Hold</span>
+                </label>
+
+              </div>
+            </div>
 
             {/* Active Filters Badges */}
             {activeFiltersCount > 0 && (
@@ -813,30 +761,68 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                       if (
                         key == "startTime" ||
                         key == "endTime" ||
-                        value === "all" ||
                         key === "closedAtStart" ||
                         key === "closedAtEnd" ||
+                        (key === "closedInTwoHrs" && value === false) ||
+                        key === "state" || // replaced by states
+                        key === "normalised_crop" || // replaced by normalisedCrops
+                        value === "all" ||
+                        value === undefined ||
+                        value === null ||
+                        (typeof value === "boolean" && value === false) ||
+                        (Array.isArray(value) && value.length === 0) ||
                         (Array.isArray(value) &&
                           value[0] === 0 &&
                           value[1] === 100)
                       )
                         return null;
+
+                      const label =
+                        key === "hiddenQuestions"
+                          ? "Show passed questions"
+                          : key === "duplicateQuestions"
+                            ? "Show duplicate questions"
+                            : key === "isOnHold"
+                              ? "Show holded questions"
+                              : key === "states"
+                                ? "state"
+                                : key === "normalisedCrops"
+                                  ? "crop"
+                                  : key === "closedInTwoHrs"
+                                    ? "Question closed in 2 hrs"
+                                    : key;
+
+                      const displayValue =
+                        (key === "states" || key === "normalisedCrops") && Array.isArray(value)
+                          ? (value as string[]).join(", ")
+                          : Array.isArray(value)
+                            ? `${value[0]}-${value[1]}`
+                            : typeof value === "boolean"
+                              ? "Yes"
+                              : (value as string);
+
                       return (
                         <Badge
                           key={key}
                           variant="secondary"
                           className="text-xs flex items-center gap-1"
                         >
-                          {key}:{" "}
-                          {Array.isArray(value)
-                            ? `${value[0]}-${value[1]}`
-                            : (value as String)}
+                          {label}: {displayValue}
                           <XCircle
                             className="h-3 w-3 ml-1 cursor-pointer"
                             onClick={() =>
                               handleDialogChange(
                                 key,
-                                Array.isArray(value) ? [0, 100] : "all",
+                                key === "states" || key === "normalisedCrops"
+                                  ? []
+                                  : Array.isArray(value)
+                                    ? [0, 100]
+                                    : key === "hiddenQuestions" ||
+                                      key === "duplicateQuestions" ||
+                                      key === "closedInTwoHrs" ||
+                                      key === "isOnHold"
+                                      ? false
+                                      : "all",
                               )
                             }
                           />
@@ -857,13 +843,17 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   status: "all",
                   source: "all",
                   state: "all",
+                  states: [],
                   answersCount: [0, 100],
                   dateRange: "all",
                   crop: "all",
+                  normalised_crop: "all",
+                  normalisedCrops: [],
                   priority: "all",
                   user: "all",
                   domain: "all",
                   review_level: "all",
+                  closedInTwoHrs: false,
 
                   endTime: undefined,
                   startTime: undefined,

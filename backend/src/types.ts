@@ -32,10 +32,22 @@ const TYPES = {
   ReviewRepository: Symbol.for('ReviewRepository'),
   ReRouteRepository:Symbol.for("ReRouteRepository"),
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
+  ChatbotRepository: Symbol.for('ChatbotRepository'),
+  CropRepository: Symbol.for('CropRepository'),
+  MongoDatabase: Symbol.for('MongoDatabase'),
+  CropService: Symbol.for('CropService'),
 
   // Constants
   uri: Symbol.for('dbURI'),
   dbName: Symbol.for('dbName'),
+
+  analyticsUri: Symbol.for('analyticsDbURI'),
+  analyticsDbName: Symbol.for('analyticsDbName'),
+  analyticsDatabase: Symbol.for('AnalyticsDatabase'),
+
+  annamanalyticsUri: Symbol.for('annamanalyticsDbURI'),
+  annamanalyticsDbName: Symbol.for('annamanalyticsDbName'),
+  annamanalyticsDatabase: Symbol.for('annamAnalyticsDatabase'),
 };
 
 export {TYPES as GLOBAL_TYPES};

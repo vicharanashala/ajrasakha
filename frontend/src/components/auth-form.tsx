@@ -11,6 +11,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Check, Eye, EyeOff } from "lucide-react";
 import { loginWithEmail } from "@/lib/firebase";
 import { useSignup } from "@/hooks/api/auth/useSignup";
+import { isDevelopment } from "@/shared/app";
 
 interface AuthFormProps extends React.ComponentProps<"div"> {
   mode?: "login" | "signup";
@@ -55,7 +56,6 @@ export const AuthForm = ({
 
   const { setUser } = useAuthStore();
 
-  // const { mutateAsync: saveGoogleUser } = useLoginWithGoogle();
 
   const { mutateAsync: signupMutation } = useSignup();
 
@@ -81,10 +81,9 @@ export const AuthForm = ({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
     if (!formData.email) {
       newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@annam\.ai$/.test(formData.email)) {
+    } else if (!/^[^\s@]+@annam\.ai$/.test(formData.email) && !isDevelopment) {
       newErrors.email = "Please enter a valid email";
     }
 
@@ -97,8 +96,8 @@ export const AuthForm = ({
     if (mode === "signup") {
       if (!formData.name) {
         newErrors.name = "Name is required";
-      } else if (!formData.name.trim()){
-        newErrors.name="Name cannot be empty or blank spaces";
+      } else if (!formData.name.trim()) {
+        newErrors.name = "Name cannot be empty or blank spaces";
       } else if (!/^[a-zA-Z\s]+$/.test(formData.name)) {
         newErrors.name = "Name cannot contain special characters or numbers";
       }
@@ -113,33 +112,6 @@ export const AuthForm = ({
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  // const handleGoogleAuth = async () => {
-  //   try {
-  //     setIsLoading(true);
-  //     const result = await loginWithGoogle();
-  //     if (!result) {
-  //       toast.error("No response from firebase! try again.");
-  //       return;
-  //     }
-  //     // Check if the user is new
-  //     if (result?._tokenResponse?.isNewUser) {
-  //       await saveGoogleUser(result);
-  //     }
-
-  //     setUser({
-  //       uid: result.user.uid,
-  //       email: result.user.email || "",
-  //       name: result.user.displayName || "",
-  //       avatar: result.user.photoURL || "",
-  //     });
-  //     navigate({ to: "/home" });
-  //   } catch (error) {
-  //     console.error("Google Login Failed", error);
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
 
   const handleEmailAuth = async (e: FormEvent) => {
     e.preventDefault();
@@ -167,8 +139,10 @@ export const AuthForm = ({
             firstName,
             lastName,
           });
-
-          setIsEmailSent(true);
+          if (!isDevelopment) {
+            setIsEmailSent(true);
+          }
+          handleModeChange("login")
           return;
         } catch (e) {
           console.error("signupMutation failed:", e);
@@ -184,7 +158,6 @@ export const AuthForm = ({
         name: result!.user.displayName || firstName,
         avatar: result!.user.photoURL || "",
       });
-
       navigate({ to: "/home" });
     } catch (error: any) {
       console.error("Auth failed", error);
@@ -199,7 +172,7 @@ export const AuthForm = ({
       ) {
         toast.error("Incorrect email or password.");
       } else {
-        let message =error.message || "Something went wrong. Please try again.";
+        let message = error.message || "Something went wrong. Please try again.";
 
         try {
           // Look for embedded JSON in error message
@@ -216,9 +189,9 @@ export const AuthForm = ({
         }
 
         console.error(error);
-        if(message==='User Is Blocked Please Contact Moderator'){
+        if (message === 'User Is Blocked Please Contact Moderator') {
           toast.warning(error.message)
-        }else{
+        } else {
           toast.error(message);
         }
       }
@@ -277,63 +250,9 @@ export const AuthForm = ({
           ) : (
             <form onSubmit={handleEmailAuth}>
               <div className="grid gap-6">
-              {mode == "login" && (
-                <>
-                  <div className="flex flex-col gap-4">
-                    {/* {
-                    {<Button
-                      variant="outline"
-                      className="w-full h-12 border-2 border-green-100 hover:border-green-200  transition-all duration-300 group hover:bg-green/100  text-gray-700 dark:text-gray-300 hover:bg-none"
-                      type="button"
-                      onClick={handleGoogleAuth}
-                      disabled={isLoading}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 48 48"
-                        className="mr-3 h-6 w-6 transition-transform duration-300 group-hover:scale-110"
-                      >
-                        <path
-                          fill="#4285F4"
-                          d="M24 9.5c3.94 0 7.48 1.52 10.2 3.99l6-6C35.5 3.54 30.06 1 24 1 14.07 1 5.64 6.79 2 15l7.29 5.64C11.42 14.14 17.23 9.5 24 9.5z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M46 24c0-1.64-.15-3.22-.43-4.75H24v9h12.55c-.57 2.9-2.22 5.37-4.55 7.05l7.13 5.55C43.98 37.23 46 30.92 46 24z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M9.29 28.64A13.98 13.98 0 0 1 8 24c0-1.6.28-3.14.8-4.64L2 14c-1.23 2.57-2 5.44-2 8.5s.77 5.93 2 8.5l7.29-2.36z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M24 46c6.48 0 11.9-2.13 15.87-5.82l-7.13-5.55c-2.05 1.39-4.67 2.37-8.74 2.37-6.77 0-12.58-4.64-14.71-11.14L2 31c3.64 8.21 12.07 15 22 15z"
-                        />
-                      </svg>
-
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">
-                        {isLoading
-                          ? "Please wait..."
-                          : `${
-                              mode === "login" ? "Continue" : "Sign up"
-                            } with Google`}
-                      </span>
-                    </Button>}
-
-              } */}
-                  </div>
-
-                  {/* <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-green-200 dark:after:border-green-800">
-                    <span className="relative z-10 bg-white dark:bg-gray-900 px-4 text-muted-foreground font-medium">
-                      Or continue with email
-                    </span>
-                  </div> */}
-                </>
-              )}
-              <div
-                className={`grid ${
-                  mode == "signup" ? "gap-2" : "gap-5"
-                } animate-in fade-in-0 slide-in-from-right-2 duration-500 delay-200`}
+                <div
+                  className={`grid ${mode == "signup" ? "gap-2" : "gap-5"
+                    } animate-in fade-in-0 slide-in-from-right-2 duration-500 delay-200`}
                 >
                   {mode === "signup" && (
                     <div className="grid gap-2 animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-300">
@@ -390,14 +309,6 @@ export const AuthForm = ({
                       >
                         Password
                       </Label>
-                    {/* {mode === "login" && (
-                      <a
-                        href="#"
-                        className="text-sm text-green-600 hover:text-green-700 underline-offset-4 hover:underline transition-colors duration-300"
-                      >
-                        Forgot password?
-                      </a>
-                    )} */}
                     </div>
                     <div className="relative">
                       <Input
@@ -412,7 +323,7 @@ export const AuthForm = ({
                       <button
                         type="button"
                         onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
                       >
                         {showPassword ? (
                           <EyeOff className="w-5 h-5" />
@@ -507,13 +418,13 @@ export const AuthForm = ({
                                 : "text-gray-400"
                             )}
                           />
-                        <span
-                          className={
-                            formData.password.length >= 8
-                              ? "text-green-700 dark:text-green-400"
-                              : "text-gray-500"
-                          }
-                        >
+                          <span
+                            className={
+                              formData.password.length >= 8
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
                             8+ characters
                           </span>
                         </div>
@@ -526,13 +437,13 @@ export const AuthForm = ({
                                 : "text-gray-400"
                             )}
                           />
-                        <span
-                          className={
-                            /[A-Z]/.test(formData.password)
-                              ? "text-green-700 dark:text-green-400"
-                              : "text-gray-500"
-                          }
-                        >
+                          <span
+                            className={
+                              /[A-Z]/.test(formData.password)
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
                             Uppercase
                           </span>
                         </div>
@@ -545,13 +456,13 @@ export const AuthForm = ({
                                 : "text-gray-400"
                             )}
                           />
-                        <span
-                          className={
-                            /\d/.test(formData.password)
-                              ? "text-green-700 dark:text-green-400"
-                              : "text-gray-500"
-                          }
-                        >
+                          <span
+                            className={
+                              /\d/.test(formData.password)
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
                             Numbers
                           </span>
                         </div>
@@ -564,13 +475,13 @@ export const AuthForm = ({
                                 : "text-gray-400"
                             )}
                           />
-                        <span
-                          className={
-                            /[!@#$%^&*(),.?":{}|<>]/.test(formData.password)
-                              ? "text-green-700 dark:text-green-400"
-                              : "text-gray-500"
-                          }
-                        >
+                          <span
+                            className={
+                              /[!@#$%^&*(),.?":{}|<>]/.test(formData.password)
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
                             Special chars
                           </span>
                         </div>
@@ -579,47 +490,46 @@ export const AuthForm = ({
                   )}
 
                   <Button
-                  className={`w-full h-12 rounded-md font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center cursor-pointer bg-primary ${
-                    mode == "signup" && !Object.keys(errors).length && "mt-3"
-                  } `}
+                    className={`w-full h-12 rounded-md font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center cursor-pointer bg-primary ${mode == "signup" && !Object.keys(errors).length && "mt-3"
+                      } `}
                     style={{
                       color: "#FFFFFF",
                       border: "none",
                       opacity: isLoading ? 0.7 : 1,
                       pointerEvents: isLoading ? "none" : "auto",
                     }}
-                  // onClick={!isLoading ? handleEmailAuth : undefined}
+                    // onClick={!isLoading ? handleEmailAuth : undefined}
                     type="submit"
                     disabled={isLoading}
                   >
-                  <span
-                    style={{
-                      // color: "#FFFFFF",
-                      fontWeight: "600",
-                      fontSize: "14px",
-                    }}
-                  >
-                    {isLoading
-                      ? "Please wait..."
-                      : mode === "login"
-                      ? "Sign In"
-                      : "Create Account"}
+                    <span
+                      style={{
+                        // color: "#FFFFFF",
+                        fontWeight: "600",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {isLoading
+                        ? "Please wait..."
+                        : mode === "login"
+                          ? "Sign In"
+                          : "Create Account"}
                     </span>
                   </Button>
                 </div>
 
                 <div className="text-center text-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-700 delay-500">
                   <span className="text-gray-600 dark:text-gray-400">
-                  {mode === "login"
-                    ? "New to Annam?"
-                    : "Already have an account?"}{" "}
+                    {mode === "login"
+                      ? "New to Annam?"
+                      : "Already have an account?"}{" "}
                   </span>
                   <button
                     type="button"
-                  onClick={() =>
-                    handleModeChange(mode === "login" ? "signup" : "login")
-                  }
-                  className="font-semibold text-green-400 underline hover:text-green-500  hover:underline transition-all duration-300"
+                    onClick={() =>
+                      handleModeChange(mode === "login" ? "signup" : "login")
+                    }
+                    className="font-semibold text-green-400 underline cursor-pointer hover:text-green-300 hover:underline-offset-2 hover:brightness-110 transition-all duration-300"
                   >
                     {mode === "login" ? "Sign up" : "Sign in"}
                   </button>

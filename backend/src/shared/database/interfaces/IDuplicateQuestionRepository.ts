@@ -35,7 +35,12 @@ export interface IDuplicateQuestionRepository {
   findDuplicatesByDateRange(
     startDate: Date,
     endDate: Date,
-    source: 'AJRASAKHA' | 'AGRI_EXPERT',
+    // source: 'AJRASAKHA' | 'AGRI_EXPERT',
     session?: ClientSession,
   ): Promise<ISimilarQuestion[]>;
+
+  deleteByReferenceQuestionId(
+ referenceQuestionId: string,
+session?: ClientSession,
+ ): Promise<{deletedCount: number}>;
 }

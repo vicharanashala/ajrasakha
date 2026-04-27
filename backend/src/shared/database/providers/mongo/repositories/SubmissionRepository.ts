@@ -19,10 +19,10 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import {USER_VALIDATORS} from '#root/modules/core/classes/validators/UserValidators.js';
-import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {USER_VALIDATORS} from '#root/modules/user/validators/UserValidators.js';
+import {GetHeatMapQuery} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
-import {ExpertReviewLevelDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {ExpertReviewLevelDto} from '#root/modules/user/validators/UserValidators.js';
 import {IReviewWiseStats} from '#root/utils/getDailyStats.js';
 import {HistoryItem} from '#root/modules/question/classes/validators/QuestionVaidators.js';
 
@@ -2171,6 +2171,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       startTime,
       endTime,
       crop,
+      normalised_crop,
       season,
       state,
       district,
@@ -2180,6 +2181,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     // district="vn"
     // status="closed"
     crop = crop === 'all' ? undefined : crop;
+    normalised_crop = normalised_crop === 'all' ? undefined : normalised_crop;
     season = season === 'all' ? undefined : season;
     state = state === 'all' ? undefined : state;
     district = district === 'all' ? undefined : district;
@@ -2265,9 +2267,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         modifiedCount: 0,
       },
     ];
-    if (crop || season || state || district || status || domain) {
+    if (crop || normalised_crop || season || state || district || status || domain) {
       const questionFilter: any = {};
       if (crop) questionFilter['details.crop'] = crop;
+      if (normalised_crop) {
+        if (normalised_crop === '__NOT_SET__') {
+          questionFilter.$or = [
+            {'details.normalised_crop': {$exists: false}},
+            {'details.normalised_crop': null},
+            {'details.normalised_crop': ''},
+          ];
+        } else {
+          questionFilter['details.normalised_crop'] = {$regex: `^${normalised_crop}$`, $options: 'i'};
+        }
+      }
       if (season) questionFilter['details.season'] = season;
       if (state) questionFilter['details.state'] = state;
       if (district) questionFilter['details.district'] = district;
@@ -3397,5 +3410,48 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }).toArray();
     return result;
   }
+
+  async updateSubmissionState(
+  questionId: string,
+  update: {
+    queue?: ObjectId[];
+    popHistory?: boolean;
+  },
+  session?: ClientSession
+): Promise<void> {
+  try {
+    await this.init();
+
+    const updateDoc: any = {
+      $set: {
+        updatedAt: new Date(),
+      },
+    };
+
+    if (update.queue) {
+      updateDoc.$set.queue = update.queue;
+    }
+
+    if (update.popHistory) {
+      updateDoc.$pop = { history: 1 }; 
+    }
+
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      { questionId: new ObjectId(questionId) },
+      updateDoc,
+      { session }
+    );
+
+    if (result.matchedCount === 0) {
+      throw new InternalServerError(
+        `No submission found for questionId: ${questionId}`
+      );
+    }
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to update submission state: ${error}`
+    );
+  }
+}
   
 }

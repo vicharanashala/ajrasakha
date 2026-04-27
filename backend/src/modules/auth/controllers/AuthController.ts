@@ -4,6 +4,12 @@ import {
   LoginBody,
   GoogleSignUpBody,
   ResendVerificationBody,
+  ForgotPasswordBody,
+  SignUpResponse,
+  ChangePasswordResponse,
+  AuthErrorResponse,
+  LoginResponse,
+  SyncAccountResponse,
 } from '#auth/classes/validators/AuthValidators.js';
 import {
   IAuthService,
@@ -25,11 +31,12 @@ import {
   OnUndefined,
 } from 'routing-controllers';
 import {AUTH_TYPES} from '#auth/types.js';
-import {OpenAPI} from 'routing-controllers-openapi';
+import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {appConfig} from '#root/config/app.js';
 
 @OpenAPI({
   tags: ['Authentication'],
+  description:'Authentication and authorization operations'
 })
 @JsonController('/auth')
 @injectable()
@@ -44,6 +51,18 @@ export class AuthController {
     description:
       'Registers a new user using Firebase Authentication and stores additional user details in the application database. This is typically the first step for any new user to access the system.',
   })
+  @ResponseSchema(SignUpResponse, {
+    statusCode: 201,
+    description: 'User registered successfully. A verification email has been sent.',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid email format, weak password, or missing required fields',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 409,
+    description: 'Conflict - Email already registered',
+  })
   @Post('/signup')
   @HttpCode(201)
   @OnUndefined(201)
@@ -54,8 +73,19 @@ export class AuthController {
 
   @OpenAPI({
     summary: 'Register a new user account',
-    description:
-      'Registers a new user using Firebase Authentication and stores additional user details in the application database. This is typically the first step for any new user to access the system.',
+    description:'Registers a new user using Firebase Authentication and stores additional user details in the application database. This is typically the first step for any new user to access the system.',
+  })
+  @ResponseSchema(ChangePasswordResponse, {
+    statusCode: 201,
+    description: 'User registered successfully via Google OAuth',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid or expired token',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Missing or invalid Firebase token',
   })
   @Post('/signup/google')
   @HttpCode(201)
@@ -71,6 +101,22 @@ export class AuthController {
     summary: 'Change user password',
     description:
       'Allows an authenticated user to update their password. This action is performed via Firebase Authentication and requires the current credentials to be valid.',
+  })
+  @ResponseSchema(ChangePasswordResponse, {
+    statusCode: 200,
+    description: 'Password changed successfully',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Password mismatch, weak password, or same as old password',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error during password change',
   })
   @Authorized()
   @Patch('/change-password')
@@ -96,12 +142,62 @@ export class AuthController {
     summary: 'Resend verification email',
     description: 'Resends the verification email to the provided email address.',
   })
+  @ResponseSchema(ChangePasswordResponse, {
+    statusCode: 200,
+    description: 'Verification email sent successfully',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid email format or user already verified',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - User with this email does not exist',
+  })
   @Post('/resend-verification')
   async resendVerification(@Body() body: ResendVerificationBody) {
     await this.authService.sendVerificationEmail(body.email);
     return { success: true, message: 'Verification email sent successfully' };
   }
 
+  @OpenAPI({
+    summary: 'Send password reset email',
+    description: 'Sends a password reset link to the provided email address. Always returns success to prevent email enumeration.',
+  })
+  @ResponseSchema(ChangePasswordResponse, {
+    statusCode: 200,
+    description: 'If this email is registered, a password reset link has been sent. (Always returns success to prevent email enumeration)',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid email format',
+  })
+  @Post('/forgot-password')
+  async forgotPassword(@Body() body: ForgotPasswordBody) {
+    await this.authService.sendPasswordResetEmail(body.email);
+    return { success: true, message: 'If this email is registered, a password reset link has been sent.' };
+  }
+
+  @OpenAPI({
+    summary: 'User login',
+    description: 'Authenticates a user with email and password. Returns Firebase ID token and user information on success. Requires email verification in production.',
+  })
+  @ResponseSchema(LoginResponse, {
+    statusCode: 200,
+    description: 'Login successful - Returns Firebase tokens and user info',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Missing email or password',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Invalid credentials, unverified email, or disabled account',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error during login',
+  })
   @Post('/login')
   async login(@Body() body: LoginBody) {
     try {
@@ -145,20 +241,20 @@ export class AuthController {
       const lookupData:any = await lookup.json();
       const userInfo = lookupData.users?.[0];
 
-      if (!userInfo?.emailVerified) {
+       if (!userInfo?.emailVerified && !appConfig.isDevelopment) {
         await this.authService.sendVerificationEmail(userInfo.email);
-        throw new HttpError(
-          401,
-          'Please verify your email before logging in. A new verification link has been sent to your email.'
-        );
-      }
+         throw new HttpError(
+           401,
+           'Please verify your email before logging in. A new verification link has been sent to your email.'
+         );
+       }
 
       // Ensure the user exists in database
-      await this.authService.syncUserWithDb(
-        userInfo.localId,
-        userInfo.email,
-        userInfo.displayName || ''
-      );
+       await this.authService.syncUserWithDb(
+         userInfo.localId,
+         userInfo.email,
+         userInfo.displayName || ''
+       );
 
       return result;
     } catch (error) {
@@ -167,6 +263,26 @@ export class AuthController {
     }
   }
 
+  @OpenAPI({
+    summary: 'Sync account with database',
+    description: 'Syncs the Firebase-authenticated user with the application database. Creates or updates the user record.',
+  })
+  @ResponseSchema(SyncAccountResponse, {
+    statusCode: 200,
+    description: 'Account synced successfully - Returns user data',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid or expired token',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Missing token, invalid token, or unverified email',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error during sync',
+  })
   @Post('/sync')
   async syncAccount(@HeaderParam('Authorization') token: string) {
     const firebaseToken = token?.split(' ')[1];
@@ -176,7 +292,7 @@ export class AuthController {
       // Decode the token manually
       const decodedEmail = await admin.auth().verifyIdToken(firebaseToken);
 
-      if (!decodedEmail.email_verified) {
+      if (!decodedEmail.email_verified && !appConfig.isDevelopment) {
         throw new HttpError(401, 'Please verify your email before syncing account.');
       }
 

@@ -39,21 +39,24 @@ export interface IUser {
   isBlocked?: boolean;
   penalty?: number;
   notificationRetention?: string;
-  totalAnswers_Created?:number;
-  penaltyPercentage?:number;
-  rankPosition?:number;
+  totalAnswers_Created?: number;
+  penaltyPercentage?: number;
+  rankPosition?: number;
   status?: 'active' | 'in-active';
+  avatar?: string;
+  special_task_force?: boolean;
+  special_task_force_moderator?: boolean
 }
 export interface ReviewLevelCount {
   Review_level: 'Author' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5' | 'Level 6' | 'Level 7' | 'Level 8' | 'Level 9';
   pendingcount?: number;
-  completedcount?:number;
-  approvedCount?:number;
-  rejectedCount?:number;
-  modifiedCount?:number;
-  inReviewQuestions?:number;
-  delayedQuestion?:number;
-  count?:number
+  completedcount?: number;
+  approvedCount?: number;
+  rejectedCount?: number;
+  modifiedCount?: number;
+  inReviewQuestions?: number;
+  delayedQuestion?: number;
+  count?: number
 
 }
 
@@ -75,7 +78,7 @@ export interface IReview {
   action: ReviewAction;
   questionId: string;
   answerId?: string;
-  answer?:IAnswer;
+  answer?: IAnswer;
   reviewerId: string;
   reviewer?: IUser;
   reason?: string;
@@ -84,7 +87,7 @@ export interface IReview {
   updatedAt?: Date;
   reputation_score?: number;
   notificationRetention?: NotificationRetentionType;
-  reRoutedReview?:boolean
+  reRoutedReview?: boolean
 }
 
 export interface HistoryItem {
@@ -104,7 +107,7 @@ export interface HistoryItem {
     //answer
     _id: string;
     answer: string;
-    approvalCount: string|number;
+    approvalCount: string | number;
     sources: SourceItem[];
     remarks: string;
   };
@@ -113,7 +116,7 @@ export interface HistoryItem {
   // reviewed => if an expert reviewed (accpeted/rejected) the previous answer
   // approved => After three consecutive approvals fo an answer
   // rejected => If any expert rejects an answer, so that history status would be rejected and rejected person doc status would be reviewed
-  status?: "in-review" | "reviewed" | "approved" | "rejected"|"re-routed";
+  status?: "in-review" | "reviewed" | "approved" | "rejected" | "re-routed";
   // rejection reason
   reasonForRejection?: string;
   // If an expert is approving, it store the approved answer id
@@ -138,12 +141,12 @@ export interface HistoryItem {
   priority?: Priority;
   id?: string;
 
-  updatedAt?:Date,
+  updatedAt?: Date,
 
 }
 
 export type QuestionPriority = "low" | "medium" | "high";
-export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
+export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 
 export interface IQuestion {
   id: string;
@@ -159,11 +162,14 @@ export interface IQuestion {
     state: string;
     district: string;
     crop: string;
+    normalised_crop?: string;
     season: string;
     domain: string;
   };
   isAutoAllocate: boolean;
   aiInitialAnswer?: string;
+  aiApprovedSources?: SourceItem[];
+  aiApprovedAnswer?: string;
   currentAnswers?: {
     answer: string;
     id: string;
@@ -176,8 +182,8 @@ export interface RejectReRoutePayload {
   rerouteId: string;
   questionId: string;
   moderatorId: string;
-  expertId:string
-  role:string
+  expertId: string
+  role: string
 }
 
 export interface ISubmissions {
@@ -250,8 +256,8 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed"|"re-routed";
-export type ReRouteStatus="pending" | "expert_rejected" | "expert_completed" | "moderator_rejected"|"moderator_approved"|"approved"|"rejected"|"modified"|"in-review";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold";
+export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
   answer: string;
@@ -344,15 +350,19 @@ export interface FinalizedAnswersResponse {
   heatMapResults: HeatMapResult[];
 }
 
+export type SourceType = "hyper_local" | "state" | "central" | "MODERATOR_REVIEW" | "other";
+
 export interface SourceItem {
+  sourceType?: SourceType;
+  sourceName?: string;
   source: string;
   page?: number;
 }
-export interface PreviousAnswersItem{
-  modifiedBy:string 
-  oldAnswer:string;
-  newAnswer:string;
-  modifiedAt?:Date
+export interface PreviousAnswersItem {
+  modifiedBy: string
+  oldAnswer: string;
+  newAnswer: string;
+  modifiedAt?: Date
 }
 export interface IAnswer {
   _id?: string;
@@ -364,7 +374,7 @@ export interface IAnswer {
   remarks: string;
   sources: SourceItem[];
   reviews?: IReview[];
-  modifications?:PreviousAnswersItem[]
+  modifications?: PreviousAnswersItem[]
   answer: string;
   threshold: number;
   createdAt?: Date;
@@ -388,7 +398,7 @@ export interface ISubmissionHistory {
 
   modifiedAnswer: string;
   reasonForLastModification: string;
-  isReroute?:boolean
+  isReroute?: boolean
 }
 
 export interface ISubmission {
@@ -409,6 +419,7 @@ export interface IQuestionFullData {
     state: string;
     district: string;
     crop: string;
+    normalised_crop?: string;
     season: string;
     domain: string;
   };
@@ -422,6 +433,14 @@ export interface IQuestionFullData {
   updatedAt: string;
   submission: ISubmission;
   isAlreadySubmitted: boolean;
+  passingRemark?: string;
+  isHidden?: boolean;
+  isOnHold?: boolean;
+  holdAt?: string;
+  accumulatedHoldMs?: number;
+  aiInitialAnswer?: string;
+  aiApprovedAnswer?: string;
+  aiApprovedSources?: SourceItem[];
 }
 
 export interface QuestionFullDataResponse {
@@ -429,6 +448,26 @@ export interface QuestionFullDataResponse {
   data: IQuestionFullData;
   currentUserId: string;
 }
+
+export interface QuestionMessageDetail {
+  messageId: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    username: string;
+    email: string;
+    emailVerified: boolean;
+    avatar: string;
+  };
+  content: any[];
+}
+
+export interface QuestionMessageDetailsResponse {
+  success: boolean;
+  data: QuestionMessageDetail,
+  message?: string;
+}
+
 
 export interface IComment {
   _id: string;
@@ -447,6 +486,7 @@ export interface IDetailedQuestion {
   userId: string;
   question: string;
   context: string;
+  aiInitialAnswer: string;
   status: QuestionStatus;
   totalAnswersCount: number;
   priority: QuestionPriority;
@@ -455,14 +495,20 @@ export interface IDetailedQuestion {
     state: string;
     district: string;
     crop: string;
+    normalised_crop?: string;
     season: string;
     domain: string;
   };
-  source: "AJRASAKHA" | "AGRI_EXPERT";
+  source: "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
   createdAt?: string;
   updatedAt?: string;
-  review_level_number?:number;
+  review_level_number?: number;
   closedAt?: string;
+  holdAt?: string;
+  isOnHold?: boolean;
+  accumulatedHoldMs?: number;
+  isHidden?: boolean;
+  paassingRemark?: string;
 }
 
 export interface IDetailedQuestionResponse {
@@ -514,7 +560,7 @@ export interface INotification {
 // =====================
 
 
-export type RerouteStatus ="pending" | "expert_rejected" | "expert_completed" | "moderator_rejected"|"moderator_approved"|"approved"|"rejected"|"modified"|"in-review";
+export type RerouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 
 
 // ---------------------
@@ -575,7 +621,7 @@ export interface IReroute {
   reroutedBy: IUserReRoute;
   reroutedTo: IUserReRoute;
   answer: Answer;
-  rejectionReason?:string
+  rejectionReason?: string
 }
 
 // ---------------------
@@ -609,7 +655,7 @@ export interface ReroutedQuestionItem {
   answer: AnswerReRoute;
   reroute: Reroute;
   details: QuestionDetailsReRoute;
-  source:QuestionSource
+  source: QuestionSource
 }
 
 interface Moderator {
@@ -675,7 +721,7 @@ export interface QuestionRerouteRepo {
   updatedAt: string;
   totalAnswersCount: number;
   history: QuestionHistoryRerouteRepo[];
-  isAutoAllocate?:boolean
+  isAutoAllocate?: boolean
 }
 
 /* =========================
@@ -695,7 +741,7 @@ export interface QuestionHistoryRerouteRepo {
   priority?: Priority;
   id?: string;
 
-  updatedAt?:Date,
+  updatedAt?: Date,
   updatedBy?: {
     // who's submission is this
     _id: string;
@@ -763,7 +809,7 @@ export interface AnswerRerouteRepo {
   questionId: string;
   authorId: string;
   approvedBy: string | null;
-  _id?:string
+  _id?: string
 }
 
 /* =========================
@@ -802,3 +848,11 @@ export interface WorkloadBalanceResponse {
   expertsInvolved: number;
   submissionsProcessed: number;
 }
+export type GrowthResponse = {
+  labels: string[];
+  series: {
+    idsCreated: number[];
+    installs: number[];
+    activeUsers: number[];
+  };
+};

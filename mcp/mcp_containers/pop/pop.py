@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import asyncio
 from fastmcp import FastMCP
 import pymongo
@@ -6,10 +6,11 @@ from llama_index.core import Settings
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 from functions import get_retriever
-from constants import COLLECTION_POP, COLLECTION_QA, EMBEDDING_MODEL, MONGODB_URI
+from constants import DB_NAME, COLLECTION_POP, COLLECTION_QA, EMBEDDING_MODEL, MONGODB_URI
 from functions import process_nodes_pop, process_nodes_qa
-from models import ContextPOP, ContextQuestionAnswerPair
+from models import ContextPOP, ContextQuestionAnswerPair, POPComplianceNotice, POPContextResponse
 from llama_index.core.settings import Settings
+from chemical_guard import filter_pop_contexts_for_chemical_compliance
 
 mcp = FastMCP("POP")
 
@@ -17,7 +18,7 @@ Settings.embed_model = HuggingFaceEmbedding(
     model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
 )
 
-client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_URI)
+client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_URI, tlsAllowInvalidCertificates=True)
 
 retriever_qa = get_retriever(
     client=client, collection_name=COLLECTION_QA, similarity_top_k=4
@@ -28,19 +29,45 @@ retriever_pop = get_retriever(
 
 
 
+
 @mcp.tool()
 async def get_states_for_pop() -> dict:
     """
     Retrieve the list of available Indian states supported by the Package of Practices dataset, 
     along with their corresponding two-letter codes.
     """
-    state_codes = {
-        "PUNJAB": "PB",
+    try:
+        raw_states = client[DB_NAME][COLLECTION_POP].distinct("metadata.state")
+        print(f"[POP] get_states_for_pop: fetched {len(raw_states)} raw states from DB", flush=True)
+    except Exception as e:
+        print(f"[POP] get_states_for_pop: error fetching states from DB: {e}", flush=True)
+        return {}
+
+    STATE_CODE_MAP = {
+        "ANDHRA_PRADESH": "AP", "ARUNACHAL_PRADESH": "AR", "ASSAM": "AS",
+        "BIHAR": "BR", "CHATTISGARH": "CG", "CHHATTISGARH": "CG", "GOA": "GA", "GUJARAT": "GJ",
+        "HARYANA": "HR", "JAMMU_AND_KASHMIR": "JK", "JAMMU_&_KASHMIR": "JK", "JHARKHAND": "JH",
+        "KARNATAKA": "KA",
+        "KERALA": "KL", "MAHARASHTRA": "MH", "MANIPUR": "MN", "MEGHALAYA": "ML",
+        "MIZORAM": "MZ", "NAGALAND": "NL", "ODISHA": "OR", "ORISSA": "OR", "PUNJAB": "PB",
+        "RAJASTHAN": "RJ", "SIKKIM": "SK", "TAMILNADU": "TN", "TAMIL_NADU": "TN",
+        "TRIPURA": "TR", "UTTAR_PRADESH": "UP", "UTTARPRADESH": "UP", "UTTARAKHAND": "UK",
+        "WEST_BENGAL": "WB",
+        "POPS_MULTIPLE_STATES": "MULTIPLE"
     }
+
+    state_codes = {}
+    for state in raw_states:
+        if not state: continue
+        normalized = str(state).strip().upper().replace("&", "AND").replace(" ", "_")
+        if normalized in STATE_CODE_MAP:
+            state_codes[normalized] = STATE_CODE_MAP[normalized]
+
+    print(f"[POP] get_states_for_pop: mapped {len(state_codes)} states to codes", flush=True)
     return state_codes
 
 @mcp.tool()
-async def get_context_from_package_of_practices(query: str, state_code : str)-> List[ContextPOP]:
+async def get_context_from_package_of_practices(query: str, state_code : str)-> POPContextResponse:
     """
     Retrieve context from the package of practices dataset.
 
@@ -55,77 +82,117 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
         state_code (str): A two-letter state code (e.g., "TN" for Tamil Nadu, "PB" for Punjab)
                           used to narrow the search context to region-specific questions.
     """
-    nodes = await retriever_pop.aretrieve(query)
+    STATE_CODE_TO_NAME = {
+    "AP": "Andhra Pradesh",
+    "AR": "Arunachal Pradesh",
+    "AS": "Assam",
+    "BR": "Bihar",
+    "CG": "Chattisgarh",
+    "GA": "Goa",
+    "GJ": "Gujarat",
+    "HR": "Haryana",
+    "JH": "Jharkhand",
+    "KA": "Karnataka",
+    "KL": "Kerala",
+    "MH": "Maharashtra",
+    "MN": "Manipur",
+    "ML": "Meghalaya",
+    "MZ": "Mizoram",
+    "NL": "Nagaland",
+    "OR": "Odisha",
+    "PB": "Punjab",
+    "RJ": "Rajasthan",
+    "SK": "Sikkim",
+    "TN": "Tamil Nadu",
+    "TR": "Tripura",
+    "UP": "Uttar Pradesh",
+    "UK": "Uttarakhand",
+    "WB": "West Bengal",
+    "JK": "Jammu & Kashmir",
+    "MULTIPLE": "Pops_Multiple_States"
+}
+
+    normalized_state_code = (state_code or "").strip().upper()
+    valid_state_codes = sorted(STATE_CODE_TO_NAME.keys())
+    valid_state_codes_str = ", ".join(valid_state_codes)
+    print(
+        f"[POP] get_context_from_package_of_practices: received state_code='{state_code}', normalized='{normalized_state_code}'",
+        flush=True,
+    )
+
+    if not normalized_state_code:
+        raise ValueError(
+            f"Missing required parameter: state_code. Available state_code values are: {valid_state_codes_str}"
+        )
+
+    if normalized_state_code not in STATE_CODE_TO_NAME:
+        raise ValueError(
+            f"Invalid state_code '{state_code}'. Available state_code values are: {valid_state_codes_str}"
+        )
+
+    state_value = STATE_CODE_TO_NAME[normalized_state_code]
+    print(
+        f"[POP] get_context_from_package_of_practices: resolved state_code='{normalized_state_code}' to state_value='{state_value}'",
+        flush=True,
+    )
+    
+    nodes = await retriever_pop.aretrieve(query, state_value=state_value)
+    print(
+        f"[POP] get_context_from_package_of_practices: retrieved {len(nodes)} nodes for state='{state_value}'",
+        flush=True,
+    )
+
     processed_nodes = await process_nodes_pop(nodes)
-    return processed_nodes
+    compliant_nodes, restricted_flags, blocked_chemical_names = (
+        filter_pop_contexts_for_chemical_compliance(processed_nodes)
+    )
+    restricted_chemical_names = [flag.chemical_name for flag in restricted_flags]
+    print(
+        (
+            "[POP] get_context_from_package_of_practices: returning "
+            f"{len(compliant_nodes)} compliant nodes, "
+            f"restricted_flags={len(restricted_flags)}, "
+            f"blocked_non_restricted={len(blocked_chemical_names)}"
+        ),
+        flush=True,
+    )
+    print(
+        (
+            "[POP] chemical_compliance: "
+            f"restricted={restricted_chemical_names or []}, "
+            f"blocked_non_restricted={blocked_chemical_names or []}"
+        ),
+        flush=True,
+    )
 
+    compliance_notice = None
+    if restricted_flags or blocked_chemical_names:
+        message_parts: list[str] = []
+        blocked_message = None
 
-import requests
+        if restricted_flags:
+            message_parts.append(
+                "Restricted chemical detected. Content is permitted only if usage complies with allowed_usage. Note: Use the retrieved context and source_name to answer the question only if passed the compliance check otherwise skip the source_name"
+            )
 
-@mcp.tool()
-async def upload_question_to_reviewer_system(question: str, state_name: str, crop: str, details: dict) -> dict:
-    """
-    Upload the question to the reviewer system for further review by human experts.
-    This function is called when the system is unable to find a satisfactory answer from both the datasets (golden dataset and package of practices dataset) 
-    for the particular state and crop.
+        if blocked_chemical_names:
+            blocked_str = ", ".join(f'"{name}"' for name in blocked_chemical_names)
+            blocked_message = (
+                f"Banned chemical(s) {blocked_str} found from retrieved text, so compliance check skipped that data."
+            )
+            message_parts.append(blocked_message)
 
-    Parameters:
-    - question (str): The question that needs to be reviewed by human experts. 
-                      This should be a string containing the query related to crop protection or any other agricultural query.
-    - state_name (str): The name of the state in which the query is relevant. 
-                        This is typically a string corresponding to the full state name (e.g., "Punjab").
-    - crop (str): The type of crop associated with the query. This will be a string like "Paddy" or other crop names.
-    - details (dict): A dictionary containing detailed information about the location, crop, season, and domain of the query.
-                      The dictionary should have the following structure:
-                      {
-                        "state": str,       # Name of the state (e.g., "Punjab")
-                        "district": str,    # Name of the district (e.g., "Chandigarh")
-                        "crop": str,        # Crop name (e.g., "Paddy")
-                        "season": str,      # Season of the year (e.g., "Kharif")
-                        "domain": str       # Domain of the query, such as "Crop Protection"
-                      }
-    """
-    
-    # Define constant values
-    source = "AJRASAKHA"
-    priority = "high"
-    context = ""  # Empty string as context for now
-    
-    # Ensure all required fields are non-empty
-    required_fields = ["state", "district", "crop", "season", "domain"]
-    for field in required_fields:
-        if not details.get(field):
-            if field == "district":
-                details[field] = "Not specified"
-            elif field == "season":
-                details[field] = "General"
-            else:
-                details[field] = "Not specified"
+        compliance_notice = POPComplianceNotice(
+            message=" ".join(message_parts),
+            restricted_chemicals=restricted_flags,
+            blocked_non_restricted_chemicals=blocked_chemical_names,
+            blocked_message=blocked_message,
+        )
 
-    # Construct the payload according to the schema
-    payload = {
-        "question": question,
-        "priority": priority,
-        "source": source,
-        "details": details,
-        "context": context
-    }
-    
-    # Send the POST request
-    url = "https://desk.vicharanashala.ai/api/questions"
-    headers = {"Content-Type": "application/json"}
-
-    print(f"DEBUG: Sending to URL: {url}", flush=True)
-    try:
-        response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
-        
-        if response.status_code == 201:
-            return {"status": "Uploaded Successfully"}
-        else:
-            return {"status": "Failed", "message": response.text}
-
-    except requests.exceptions.RequestException as e:
-        return {"status": "Error", "message": str(e)}
+    return POPContextResponse(
+        contexts=compliant_nodes,
+        compliance_notice=compliance_notice,
+    )
 
 
 

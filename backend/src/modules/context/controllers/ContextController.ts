@@ -32,7 +32,6 @@ const upload = multer({
   description: 'Operations for managing contexts',
 })
 @injectable()
-@ResponseSchema(ContextResponse, {isArray: true, statusCode: 200})
 @JsonController('/context')
 export class ContextController {
   constructor(
@@ -40,11 +39,29 @@ export class ContextController {
     private readonly contextService: IContextService,
   ) {}
 
+  @OpenAPI({
+    summary: 'Add a new context',
+    description: 'Creates a new context from transcript text. Returns the ID of the newly created context.',
+  })
+  @ResponseSchema(ContextResponse, {
+    statusCode: 201,
+    description: 'Context created successfully - Returns the inserted context ID',
+  })
+  @ResponseSchema(BadRequestErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Empty or missing transcript text',
+  })
+  @ResponseSchema(BadRequestErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(BadRequestErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to create context',
+  })
   @Post('/')
   @HttpCode(201)
-  @OpenAPI({summary: 'Add a new context'})
   @Authorized()
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async addContext(
     @Body() body: {transcript: string},
     @CurrentUser() user: IUser,

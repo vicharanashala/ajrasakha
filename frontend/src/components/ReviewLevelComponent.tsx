@@ -1,17 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import { Separator } from "@/components/atoms/separator";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "./atoms/table";
-import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -20,7 +11,7 @@ import {
   Loader2,
   MapPin,
   Filter,
-  Leaf,
+  Sprout,
   Globe,
   FileText,
   UserIcon,
@@ -28,6 +19,8 @@ import {
 } from "lucide-react";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { STATES, CROPS, DOMAINS, SEASONS, STATUS } from "./MetaData";
+import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { AlertTriangle } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -49,6 +42,7 @@ import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
   Tooltip as UITooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "./atoms/tooltip";
 import {
@@ -76,6 +70,7 @@ type FilterSelectProps = {
 type Filters = {
   state: string;
   crop: string;
+  normalised_crop: string;
   domain: string;
   status: string;
   dateRange: DateRange;
@@ -112,6 +107,7 @@ const FilterSelect = ({
 const defaultFilters: Filters = {
   state: "all",
   crop: "all",
+  normalised_crop: "all",
   domain: "all",
   status: "all",
   dateRange: {},
@@ -119,6 +115,8 @@ const defaultFilters: Filters = {
 };
 export const ReviewLevelComponent = () => {
   const { data: userNameReponse, isLoading } = useGetAllUsers();
+  const { data: cropsData } = useGetAllCrops();
+  const dbCrops = cropsData?.crops ?? [];
   const {key,ref} = useRestartOnView()
   const [openFilter, setOpenFilter] = useState(false);
   const [draftFilters, setDraftFilters] = useState<Filters>(defaultFilters);
@@ -131,15 +129,11 @@ export const ReviewLevelComponent = () => {
       dateRange: filters.dateRange,
       state: filters.state,
       crop: filters.crop,
+      normalised_crop: filters.normalised_crop,
       domain: filters.domain,
       status: filters.status,
       userId: filters.userId,
     });
-  const levels = reviewLevel || [];
-  const totalCompleted = levels.reduce(
-    (sum, item) => sum + (item.count ?? 0),
-    0,
-  );
 
   const handleDraftDateChange = (key: string, value?: Date) => {
     setDraftFilters((prev) => ({
@@ -184,6 +178,7 @@ export const ReviewLevelComponent = () => {
 
     if (filters.state !== "all") parts.push(`State: ${filters.state}`);
     if (filters.crop !== "all") parts.push(`Crop: ${filters.crop}`);
+    if (filters.normalised_crop !== "all") parts.push(`Normalized Crop: ${filters.normalised_crop === '__NOT_SET__' ? 'Not Set' : filters.normalised_crop}`);
     if (filters.domain !== "all") parts.push(`Domain: ${filters.domain}`);
     if (filters.status !== "all") parts.push(`Status: ${filters.status}`);
 
@@ -246,13 +241,74 @@ export const ReviewLevelComponent = () => {
                     Icon={MapPin}
                   />
 
-                  <FilterSelect
-                    label="Crops"
-                    value={draftFilters.crop}
-                    options={CROPS}
-                    onChange={(val) => updateDraft("crop", val)}
-                    Icon={Leaf}
-                  />
+
+
+                  {/* Crops Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <Sprout className="h-4 w-4 text-primary" />
+                      Crops
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            <Info className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-sm">
+                          <p>
+                            The names here are normalized and unique. You can view a crop's alternative names by hovering over the "+" icon next to it.
+                          </p>
+                        </TooltipContent>
+                      </UITooltip>
+                    </Label>
+                    <Select value={draftFilters.normalised_crop} onValueChange={(val) => updateDraft("normalised_crop", val)}>
+                      <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
+                        <SelectValue placeholder="Select Crop" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Crops</SelectItem>
+                        <SelectItem value="__NOT_SET__">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                            <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
+                          </div>
+                        </SelectItem>
+                        {dbCrops.length > 0
+                          ? dbCrops.map((crop) => (
+                              <SelectItem key={crop._id || crop.name} value={crop.name}>
+                                {crop.aliases && crop.aliases.length > 0 ? (
+                                  <TooltipProvider delayDuration={200}>
+                                    <UITooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="flex items-center gap-2 cursor-default">
+                                          <span className="capitalize">{crop.name}</span>
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                                            +{crop.aliases.length}
+                                          </span>
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="right" className="text-xs">
+                                        <p className="font-semibold mb-0.5">Also known as:</p>
+                                        {crop.aliases.map((a: string) => (
+                                          <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                                        ))}
+                                      </TooltipContent>
+                                    </UITooltip>
+                                  </TooltipProvider>
+                                ) : (
+                                  <span className="capitalize">{crop.name}</span>
+                                )}
+                              </SelectItem>
+                            ))
+                          : CROPS.map((opt) => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
                   {/* Separator */}
                   <div className="col-span-2">
@@ -353,55 +409,6 @@ export const ReviewLevelComponent = () => {
         </CardHeader>
 
         <div ref={ref} className="rounded-lg border bg-card overflow-x-auto min-h-[55vh] ml-5 mr-5">
-          {/* <Table className="min-w-[800px]">
-            <TableHeader className="bg-card sticky top-0 z-10">
-              <TableRow>
-                <TableHead className="text-center w-12">Sl.No</TableHead>
-                <TableHead className="w-[35%] text-center w-52">
-                  Review Level
-                </TableHead>
-
-                <TableHead className="text-center w-52">
-                  Completed Tasks
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {isLoadingReviewLevel ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-10">
-                    <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
-                  </TableCell>
-                </TableRow>
-              ) : !reviewLevel || reviewLevel.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    rowSpan={10}
-                    className="text-center py-10 text-muted-foreground"
-                  >
-                    No Details found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                reviewLevel.map((level: any, ind: number) => (
-                  <TableRow key={ind} className="text-center">
-                    <TableCell className="align-middle w-36">
-                      {ind + 1}
-                    </TableCell>
-                    <TableCell className="align-middle w-36">
-                      {level.Review_level}
-                    </TableCell>
-
-                    <TableCell className="align-middle w-36">
-                      {level.count}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table> */}
           <ResponsiveContainer width="100%" height={350}>
             {isLoadingReviewLevel ? (
               <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />

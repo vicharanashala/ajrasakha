@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { loginWithEmail } from "@/lib/firebase";
 import { useSignup } from "@/hooks/api/auth/useSignup";
+import { useForgotPassword } from "@/hooks/api/auth/useForgotPassword";
 import { calculatePasswordStrength } from "../utils/passwordStrength";
 import {
   validateEmail,
@@ -11,6 +12,7 @@ import {
   validateName,
 } from "../utils/validate";
 import type { AuthError, AuthFormData, UseAuthFormReturn } from "../types";
+import { isDevelopment } from "@/shared/app";
 
 /**
  * Custom hook to manage the state and behavior of an Auth form
@@ -20,12 +22,12 @@ import type { AuthError, AuthFormData, UseAuthFormReturn } from "../types";
  * @returns An object containing form state, handlers, and helpers.
  */
 export const useAuthForm = (
-  initialMode: "login" | "signup" = "login"
+  initialMode: "login" | "signup" | "forgot" = "login"
 ): UseAuthFormReturn => {
   // -------------------------------
   // Form state
   // -------------------------------
-  const [mode, setMode] = useState<"login" | "signup">(initialMode);
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">(initialMode);
   const [formData, setFormData] = useState<AuthFormData>({
     email: "",
     password: "",
@@ -41,6 +43,7 @@ export const useAuthForm = (
 
   const { setUser } = useAuthStore(); // global auth store
   const { mutateAsync: signupMutation } = useSignup(); // signup API hook
+  const { mutateAsync: forgotPasswordMutation } = useForgotPassword(); // forgot password API hook
   const navigate = useNavigate(); // router navigation
 
   // Calculate password strength on each password change
@@ -52,7 +55,7 @@ export const useAuthForm = (
 
   // Update form state when an input changes
   // Clears error for the changed field
-  const handleModeChange = (newMode: "login" | "signup") => {
+  const handleModeChange = (newMode: "login" | "signup" | "forgot") => {
     setHasSubmitted(false); // reset submission state to avoid premature validation
     setMode(newMode); // update current mode
     setErrors({}); // clear errors
@@ -76,8 +79,10 @@ export const useAuthForm = (
     const emailError = validateEmail(formData.email);
     if (emailError) newErrors.email = emailError;
 
-    const passwordError = validatePassword(formData.password);
-    if (passwordError) newErrors.password = passwordError;
+    if (mode !== "forgot") {
+      const passwordError = validatePassword(formData.password);
+      if (passwordError) newErrors.password = passwordError;
+    }
 
     if (mode === "signup") {
       const nameError = validateName(formData.name);
@@ -113,10 +118,19 @@ export const useAuthForm = (
       const lastName = "";
 
       let result;
-      if (mode === "signup") {
+      if (mode === "forgot") {
+        // Send password reset email
+        await forgotPasswordMutation(email);
+        setIsEmailSent(true);
+        return;
+      } else if (mode === "signup") {
         // Call signup API
         await signupMutation({ email, password, firstName, lastName });
-        setIsEmailSent(true);
+        if (!isDevelopment) {
+          setIsEmailSent(true);
+        }
+        handleModeChange("login")
+
         return;
       } else {
         // Login API

@@ -33,48 +33,6 @@ const endKey = type === "closedDateRange" ? "closedAtEnd" : "endTime";
     from: advanceFilter[startKey],
     to: advanceFilter[endKey],
   };
-
-//   const handleDateSelect = (range: DateRange | undefined) => {
-//     console.log("Date range: ", range);
-//     handleDialogChange("startTime", range?.from);
-//     handleDialogChange("endTime", range?.to);
-
-//     // Close the calendar once both dates are selected
-//     if (range?.from && range?.to) {
-//       setIsCalendarVisible(false);
-//     }
-//   };
-
-/*const handleDateSelect = (range: DateRange | undefined) => {
-  if (!range) return;
-
-  const { from, to } = range;
-  const currentStart = advanceFilter.startTime;
-  const currentEnd = advanceFilter.endTime;
-
-  // ONLY START DATE SELECTED
-  if (from && !to) {
-    // If start < end -> keep end date
-    if (currentEnd && from < currentEnd) {
-      handleDialogChange("startTime", from);
-      return;
-    }
-
-    // If start > end -> reset end
-    handleDialogChange("startTime", from);
-    handleDialogChange("endTime", undefined);
-    return;
-  }
-
-  // START & END SELECTED
-  if (from && to) {
-    handleDialogChange("startTime", from);
-    handleDialogChange("endTime", to);
-
-    setIsCalendarVisible(false);
-  }
-
-};*/
 const handleDateSelect = (range: DateRange | undefined) => {
   if (!range) return;
 
@@ -110,7 +68,7 @@ const handleDateSelect = (range: DateRange | undefined) => {
   const isRangeSelected = dateRange.from && dateRange.to;
 
   return (
-    <div className={`space-y-2 min-w-0 relative${className}`}>
+    <div className={`space-y-2 min-w-0 relative ${className || ""}`}>
       <Label className="flex items-center gap-2 text-sm font-semibold">
         <Clock className="h-4 w-4 text-primary" />
        {customName || "Custom Date Range"}
@@ -153,7 +111,7 @@ const handleDateSelect = (range: DateRange | undefined) => {
 
       {/* Conditional Rendering of the Calendar */}
       {isCalendarVisible && (
-        <div className="absolute z-50 mt-2 border rounded-lg bg-popover text-popover-foreground shadow-lg min-w-full sm:min-w-[300px]">
+        <div className="absolute right-0 z-[100] mt-2 border rounded-lg bg-popover text-popover-foreground shadow-lg w-[280px] sm:w-[320px]">
 
           <Calendar
             initialFocus

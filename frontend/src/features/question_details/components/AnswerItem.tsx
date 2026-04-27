@@ -64,6 +64,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
   const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
     useUpdateAnswer();
+
   const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
   const { mutateAsync: allocateExpert, isPending: allocatingExperts } =
     useGetReRouteAllocation();
@@ -147,7 +148,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       toast.error(
         error?.message || "Failed to allocate experts. Please try again."
       );
-    }finally{
+    } finally {
       setIsModalOpen(false);
     }
   };
@@ -200,7 +201,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         error?.message ||
         "Something went wrong";
       toast.error(message);
-    }finally{
+    } finally {
       setIsRejectDialogOpen(false);
     }
   };
@@ -261,6 +262,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         submissionData={props.submissionData}
         questionStatus={props.questionStatus}
         lastAnswerId={props.lastAnswerId}
+        userRole={props.userRole}
       />
 
       <AnswerActions

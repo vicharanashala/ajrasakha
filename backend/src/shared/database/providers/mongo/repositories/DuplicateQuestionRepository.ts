@@ -71,7 +71,7 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
   async findDuplicatesByDateRange(
     startDate: Date,
     endDate: Date,
-    sources: 'AJRASAKHA',  
+    // sources: 'AJRASAKHA',
     session?: ClientSession,
   ): Promise<ISimilarQuestion[]> {
     try {
@@ -83,7 +83,7 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
 
       const duplicates = await this.DuplicateQuestionCollection.find(
         {
-          source: sources,
+          // source: sources,
           createdAt: {
             $gte: startDate,
             $lte: endOfDay
@@ -102,4 +102,23 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
       );
     }
   }
+
+  async deleteByReferenceQuestionId(
+referenceQuestionId: string,
+session?: ClientSession,
+): Promise<{deletedCount: number}> {
+try {
+await this.init();
+const result = await this.DuplicateQuestionCollection.deleteMany(
+{referenceQuestionId: new ObjectId(referenceQuestionId)},
+{session},
+);
+return {deletedCount: result.deletedCount};
+} catch (error) {
+throw new InternalServerError(
+"Error while deleting duplicate questions by reference: ${error}",
+);
+}
+}
+
 }

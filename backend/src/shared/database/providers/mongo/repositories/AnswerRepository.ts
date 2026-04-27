@@ -19,7 +19,7 @@ import {
   AnalyticsItem,
   AnswerStatusOverview,
   ModeratorApprovalRate,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { SubmissionResponse } from '#root/modules/answer/classes/validators/AnswerValidator.js';
 
 export class AnswerRepository implements IAnswerRepository {
@@ -92,6 +92,46 @@ export class AnswerRepository implements IAnswerRepository {
     } catch (error) {
       throw new InternalServerError(
         `Error while adding answer, More/ ${error}`,
+      );
+    }
+  }
+  async addAjrasakhaAnswer(
+    questionId: string,
+    userId: string,
+    answer: string,
+    sources: SourceItem[],
+    embedding: number[],
+    session?: ClientSession,
+  ): Promise<{insertedId: string}> {
+    try {
+      await this.init();
+  
+      if (!questionId || !isValidObjectId(questionId)) {
+        throw new BadRequestError('Invalid or missing questionId');
+      }
+  
+      const doc: IAnswer = {
+        questionId: new ObjectId(questionId),
+        authorId: new ObjectId(userId),
+        answer,
+        isFinalAnswer: false,
+        answerIteration: 0,
+        approvalCount: 0,
+        remarks: undefined,
+        status: 'pending',
+        embedding,
+        reRouted: false,
+        sources,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+  
+      const result = await this.AnswerCollection.insertOne(doc, {session});
+  
+      return {insertedId: result.insertedId.toString()};
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while adding ajrasakha answer, More/ ${error}`,
       );
     }
   }
@@ -1229,8 +1269,23 @@ export class AnswerRepository implements IAnswerRepository {
       {session},
     ).toArray()) as AnalyticsItem[];
 
+    const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
+      const sorted = [...data].sort((a, b) => b.count - a.count);
+      const topTen = sorted.slice(0, 10);
+      const othersCount = sorted.slice(10).reduce((sum, item) => sum + item.count, 0);
+
+      return [
+        ...topTen,
+        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount }] : []),
+      ];
+    };
+
     return {
-      analytics: {cropData, stateData, domainData},
+      analytics: {
+        cropData: getTopTenWithOthers(cropData),
+        stateData: stateData,
+        domainData: getTopTenWithOthers(domainData),
+      },
     };
   }
   async getModeratorActivityHistory(

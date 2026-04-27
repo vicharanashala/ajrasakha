@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/atoms/tooltip";
 import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
 import {
@@ -12,15 +17,18 @@ import {
   Search,
   Trash,
   X,
-  Info,
   Filter,
-  RefreshCw,
   LayoutGrid,
   ArrowUpDown,
   Activity,
   EyeOff,
   Eye,
+  Wheat,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from "lucide-react";
+import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
   AdvanceFilterDialog,
   type AdvanceFilterValues,
@@ -37,9 +45,11 @@ import { ConfirmationModal } from "../../components/confirmation-modal";
 import { OutreachReportModal } from "@/features/question_details/components/OutreachReport";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
-import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
-import { useReAllocateLessWorkload } from '@/hooks/api/question/useReAllocateLessWorkload';
+import {
+  AddOrEditQuestionDialog,
+  type AddQuestionValidationErrors,
+} from "./AddOrEditQuestionDialog";
+import { useReAllocateLessWorkload } from "@/hooks/api/question/useReAllocateLessWorkload";
 import { DownloadReportButton } from "./DownloadReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
@@ -52,7 +62,8 @@ import {
 } from "@/stores/all-questions";
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
-import { TopRightBadge } from "@/components/NewBadge";
+import { CropManagementModal } from "./CropManagementModal";
+import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -80,6 +91,26 @@ type QuestionsFiltersProps = {
   showClosedAt?: boolean;
   view: "grid" | "table";
   setView: (v: "grid" | "table") => void;
+};
+
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach";
+
+const sourceToAnswerMode = (
+  source: AdvanceFilterValues["source"],
+): AnswerMode => {
+  if (source === "AGRI_EXPERT") return "manual";
+  if (source === "WHATSAPP") return "whatsapp";
+  if (source === "OUTREACH") return "outreach";
+  return "ajraskha";
+};
+
+const answerModeToSource = (
+  answerMode: AnswerMode,
+): AdvanceFilterValues["source"] => {
+  if (answerMode === "manual") return "AGRI_EXPERT";
+  if (answerMode === "whatsapp") return "WHATSAPP";
+  if (answerMode === "outreach") return "OUTREACH";
+  return "AJRASAKHA";
 };
 
 export const QuestionsFilters = ({
@@ -117,9 +148,16 @@ export const QuestionsFilters = ({
   ];
   const [advanceFilter, setAdvanceFilterValues] =
     useState<AdvanceFilterValues>(appliedFilters);
+  const [previousFilter, setPreviousFilter] = 
+    useState<AdvanceFilterValues | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [addQuestionErrors, setAddQuestionErrors] =
+    useState<AddQuestionValidationErrors>({});
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null,
+  );
+  const [answerMode, setAnswerMode] = useState<AnswerMode>(() =>
+    sourceToAnswerMode(appliedFilters.source),
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
@@ -129,10 +167,11 @@ export const QuestionsFilters = ({
     });
   const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
- 
-  const [isReAllocateOpen,setIsReAllocateOpen] = useState(false);
+
+  const [isReAllocateOpen, setIsReAllocateOpen] = useState(false);
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
-  
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+
   const handleReAllocateLessWorkload = async () => {
     try {
       setIsReAllocateDisabled(true);
@@ -170,9 +209,9 @@ export const QuestionsFilters = ({
 
   const handleAddQuestion = async (
     mode: "add" | "edit",
-    entityId?: string,
-    flagReason?: string,
-    status?: QuestionStatus,
+    _entityId?: string,
+    _flagReason?: string,
+    _status?: QuestionStatus,
     formData?: FormData,
   ) => {
     try {
@@ -180,11 +219,14 @@ export const QuestionsFilters = ({
       if (formData) {
         await addQuestion(formData as any);
         // toast.success('File Uploaded succesfully')
+        setAddQuestionErrors({});
         setAddOpen(false);
         return;
       }
       if (!updatedData) {
-        toast.error("No data found to add. Please try again!");
+        setAddQuestionErrors({
+          question: "No data found to add. Please try again.",
+        });
         return;
       }
 
@@ -194,71 +236,62 @@ export const QuestionsFilters = ({
         source: "AGRI_EXPERT" as QuestionSource,
         details: updatedData.details,
         context: updatedData.context || "",
+        aiInitialAnswer: updatedData.aiInitialAnswer || "",
       };
 
+      const validationErrors: AddQuestionValidationErrors = {};
+
       if (!payload.question) {
-        toast.error("Please enter a question before submitting.");
-        return;
-      }
-      if (payload.question.length < 10) {
-        toast.error("Question must be at least 10 characters long.");
-        return;
+        validationErrors.question =
+          "Please enter a question before submitting.";
+      } else if (payload.question.length < 10) {
+        validationErrors.question =
+          "Question must be at least 10 characters long.";
       }
 
       if (!payload.priority) {
-        toast.error("Please select a priority (Low, Medium, or High).");
-        return;
-      }
-      if (!["low", "medium", "high"].includes(payload.priority)) {
-        toast.error(
-          "Invalid priority value. Please reselect from the options.",
-        );
-        return;
-      }
-
-      if (!payload.source) {
-        toast.error("Please select a source (AJRASAKHA or AGRI_EXPERT).");
-        return;
-      }
-      if (!["AJRASAKHA", "AGRI_EXPERT"].includes(payload.source)) {
-        toast.error(
-          "Invalid source selected. Please reselect from the options.",
-        );
-        return;
+        validationErrors.priority =
+          "Please select a priority (Low, Medium, or High).";
+      } else if (!["low", "medium", "high"].includes(payload.priority)) {
+        validationErrors.priority =
+          "Invalid priority value. Please reselect from the options.";
       }
 
       if (!payload.details) {
-        toast.error("Please fill in the question details.");
+        setAddQuestionErrors({
+          state: "Please fill in the question details.",
+        });
         return;
       }
 
       const { state, district, crop, season, domain } = payload.details;
 
       if (!state?.trim()) {
-        toast.error("Please Select the State field.");
-        return;
+        validationErrors.state = "Please select the State field.";
       }
 
       if (!district?.trim()) {
-        toast.error("Please enter the District field.");
-        return;
+        validationErrors.district = "Please enter the District field.";
       }
 
       if (!crop?.trim()) {
-        toast.error("Please Select the Crop field.");
-        return;
+        validationErrors.crop = "Please select the Crop field.";
       }
 
       if (!season?.trim()) {
-        toast.error("Please Select the Season field.");
-        return;
+        validationErrors.season = "Please select the Season field.";
       }
 
       if (!domain?.trim()) {
-        toast.error("Please Select the Domain field.");
+        validationErrors.domain = "Please select the Domain field.";
+      }
+
+      if (Object.keys(validationErrors).length > 0) {
+        setAddQuestionErrors(validationErrors);
         return;
       }
 
+      setAddQuestionErrors({});
       await addQuestion(payload);
       // toast.success("Question added successfully.");
       setAddOpen(false);
@@ -273,12 +306,44 @@ export const QuestionsFilters = ({
     setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
+    const source = answerModeToSource(nextAnswerMode);
+
+    const nextFilters = { ...advanceFilter, source };
+
+    setAnswerMode(nextAnswerMode);
+    setAdvanceFilterValues(nextFilters);
+    onChange(nextFilters);
+  };
+
+  const clearAddQuestionError = (field: keyof AddQuestionValidationErrors) => {
+    setAddQuestionErrors((prev) => {
+      if (!prev[field]) return prev;
+      const { [field]: _removed, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  useEffect(() => {
+    if (!addOpen) {
+      setAddQuestionErrors({});
+    }
+  }, [addOpen]);
+
+  useEffect(() => {
+    setAdvanceFilterValues(appliedFilters);
+    setAnswerMode(sourceToAnswerMode(appliedFilters.source));
+  }, [appliedFilters]);
+
   const handleApplyFilters = (myPreference?: IMyPreference) => {
     onChange({
       status: advanceFilter.status,
       source: advanceFilter.source,
       state: myPreference?.state || advanceFilter.state,
+      states: advanceFilter.states || [],
       crop: myPreference?.crop || advanceFilter.crop,
+      normalised_crop: advanceFilter.normalised_crop,
+      normalisedCrops: advanceFilter.normalisedCrops || [],
       answersCount: advanceFilter.answersCount,
       dateRange: advanceFilter.dateRange,
       priority: advanceFilter.priority,
@@ -289,8 +354,12 @@ export const QuestionsFilters = ({
       review_level: advanceFilter?.review_level,
       closedAtStart: advanceFilter?.closedAtStart,
       closedAtEnd: advanceFilter?.closedAtEnd,
+      closedInTwoHrs: advanceFilter?.closedInTwoHrs,
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
+      hiddenQuestions: advanceFilter?.hiddenQuestions,
+      duplicateQuestions: advanceFilter?.duplicateQuestions,
+      isOnHold: advanceFilter?.isOnHold,
     });
   };
 
@@ -302,23 +371,26 @@ export const QuestionsFilters = ({
   ).length;*/
   const activeFiltersCount =
     Object.entries(advanceFilter).filter(([key, value]) => {
-      // ❌ exclude date range internal fields
       if (
         key === "startTime" ||
         key === "endTime" ||
         key === "closedAtStart" ||
-        key === "closedAtEnd"
+        key === "closedAtEnd" ||
+        key === "state" || // replaced by states
+        key === "normalised_crop" // replaced by normalisedCrops
       ) {
         return false;
       }
 
       // ignore defaults
       if (value === undefined || value === "all") return false;
+      if (key === "closedInTwoHrs" && value === false) return false;
+      // array filters: count as active only if non-empty
+      if (key === "states" || key === "normalisedCrops") return Array.isArray(value) && value.length > 0;
 
-      //  ignore default slider range
-      if (Array.isArray(value) && value[0] === 0 && value[1] === 100) {
-        return false;
-      }
+      if (value === undefined || value === "all" || value === null) return false;
+      if (typeof value === "boolean" && value === false) return false;
+      if (Array.isArray(value) && value[0] === 0 && value[1] === 100) return false;
 
       return true;
     }).length +
@@ -328,17 +400,49 @@ export const QuestionsFilters = ({
     (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Track window size for boundaries
+  const [windowSize, setWindowSize] = useState({
+    width: typeof window !== "undefined" ? window.innerWidth : 1200,
+    height: typeof window !== "undefined" ? window.innerHeight : 800,
+  });
+
+  useEffect(() => {
+    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Optimized Draggable Logic
   const [position, setPosition] = useState({
     x: 10,
-    y: window.innerHeight - 70,
-  }); // Initial screen position
+    y: typeof window !== "undefined" ? window.innerHeight - 70 : 800,
+  });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef(null);
   const offset = useRef({ x: 0, y: 0 });
+  const [isBadgeExpanded, setIsBadgeExpanded] = useState(false);
+  const hasDragged = useRef(false);
+  const { data: statusSummary, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
+
+  // Dynamically clamp the badge position based on its estimated sizes to prevent it from ever clipping off the screen
+  const estimatedBadgeHeight = isBadgeExpanded ? 240 : 50;
+  const estimatedBadgeWidth = isBadgeExpanded ? 220 : 120;
+  
+  const safeX = Math.max(10, Math.min(position.x, windowSize.width - estimatedBadgeWidth - 20));
+  const safeY = Math.max(10, Math.min(position.y, windowSize.height - estimatedBadgeHeight - 20));
+
+  const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+    open: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" },
+    delayed: { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+    "in-review": { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", dot: "bg-blue-500" },
+    closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+  };
+  const defaultColor = { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400", dot: "bg-purple-500" };
 
   const handleMouseDown = (e: any) => {
     setIsDragging(true);
+    hasDragged.current = false;
     const rect = e.currentTarget.getBoundingClientRect();
     offset.current = {
       x: e.clientX - rect.left,
@@ -349,6 +453,7 @@ export const QuestionsFilters = ({
   useEffect(() => {
     const handleMouseMove = (e: any) => {
       if (!isDragging) return;
+      hasDragged.current = true;
 
       // Calculate new position based on viewport
       setPosition({
@@ -384,6 +489,8 @@ export const QuestionsFilters = ({
         userRole={userRole!}
         isLoadingAction={addingQuestion}
         mode="add"
+        validationErrors={addQuestionErrors}
+        onFieldValidatedChange={clearAddQuestionError}
       />
 
       {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
@@ -412,34 +519,96 @@ export const QuestionsFilters = ({
         </div>
       </div>
 
+      {/* <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
+        <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
+          <button
+            onClick={() => {
+              handleAnswerModeChange("ajraskha");
+            }}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "ajraskha"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            AJRASKHA
+          </button>
+
+          <button
+            onClick={() => {
+              handleAnswerModeChange("manual");
+            }}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "manual"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            Manual
+          </button>
+
+          <button
+            onClick={() => handleAnswerModeChange("outreach")}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "outreach"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            Outreach
+          </button>
+
+          <button
+            onClick={() => {
+              handleAnswerModeChange("whatsapp");
+            }}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "whatsapp"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            Whatsapp
+          </button>
+
+        </div>
+      </div> */}
+
+      <AnswerModeSwitcher answerMode={answerMode} handleAnswerModeChange={handleAnswerModeChange} />
+
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="relative hidden md:flex items-center gap-2">
           <ViewDropdown view={view} setView={setView} />
-          <TopRightBadge label="New" />
         </div>
 
         {/* tools and filters */}
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="relative flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-2 px-3 sm:px-4 py-2 sm:py-1.5 cursor-pointer bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-600 transition-all shadow-sm dark:shadow-none text-xs sm:text-sm"
-        >
-          <Filter className="h-4 w-4 flex-shrink-0" />
-          <span className="sm:inline font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
-            Tools & Filters
-          </span>
-           <TopRightBadge label="New" />
-        </button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800"
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Tools & Filters</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         {userRole !== "expert" && (
-          <Button
-            variant="default"
-            size="sm"
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 text-xs sm:text-sm py-2 sm:py-1.5 whitespace-nowrap"
-            onClick={() => setAddOpen(true)}
-          >
-            <Plus className="h-4 w-4 flex-shrink-0" />
-            <span className="xs:inline">New Question</span>
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium"
+                  onClick={() => {
+                    setAddQuestionErrors({});
+                    setAddOpen(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Add Question</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         {isSelectionModeOn && (
@@ -447,11 +616,9 @@ export const QuestionsFilters = ({
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${
-                selectedQuestionIds.length
-              } selected question${
-                selectedQuestionIds.length > 1 ? "s" : ""
-              }? This action is irreversible.`}
+              description={`Are you sure you want to delete ${selectedQuestionIds.length
+                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
+                }? This action is irreversible.`}
               confirmText="Delete"
               cancelText="Cancel"
               isLoading={bulkDeletingQuestions}
@@ -543,11 +710,9 @@ export const QuestionsFilters = ({
               </button>
             </div>
           </section>
-          {view === "table" && (
             <section className="hidden md:block">
               <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                 Hide Columns
-                <TopRightBadge label="new" right={0} />
               </h3>
 
               <div className="grid grid-cols-2 gap-2 p-1 rounded-lg">
@@ -584,7 +749,6 @@ export const QuestionsFilters = ({
                   })}
               </div>
             </section>
-          )}
 
           {/* Section: Critical Actions */}
           <section>
@@ -612,7 +776,6 @@ export const QuestionsFilters = ({
                         <div className="flex items-center gap-2">
                           <p className="relative text-sm font-semibold text-gray-900 dark:text-white">
                             Turnaround Time
-                          <TopRightBadge label="New" right={4} />
                           </p>
                         </div>
 
@@ -642,6 +805,33 @@ export const QuestionsFilters = ({
                 </div>
               )}
 
+              {/* update crops */}
+              {userRole !== "expert" && (
+                <button
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  onClick={() => {
+                    setIsCropModalOpen(true);
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-500">
+                      <Wheat size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                          Update Crops
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Manage crop master list
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
               {/* reallocate */}
               {userRole !== "expert" && (
                 <button
@@ -659,7 +849,6 @@ export const QuestionsFilters = ({
                       <div className="flex items-center gap-2">
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
                           ReAllocate Questions
-                        <TopRightBadge label="New" right={4} />
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500">
@@ -697,27 +886,38 @@ export const QuestionsFilters = ({
                 Download Reports
               </h3>
               <p className="text-xs text-gray-500 mb-4">
-                Export question reports with custom date ranges and filters for analysis and record-keeping.
+                Export question reports with custom date ranges and filters for
+                analysis and record-keeping.
               </p>
               <div className="space-y-3">
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-blue-50 dark:hover:bg-blue-500/5 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
+                  <DownloadReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
+                  />
                 </div>
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadOverallReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
+                  <DownloadOverallReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
+                  />
                 </div>
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadFilteredReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
+                  <DownloadFilteredReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
+                  />
                 </div>
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-teal-50 dark:hover:bg-teal-500/5 border border-gray-200 dark:border-gray-800 hover:border-teal-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadDuplicateReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
+                  <DownloadDuplicateReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
+                  />
                 </div>
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadLevelWiseReportButton closeSideBar={() => setIsSidebarOpen(false)} />
+                  <DownloadLevelWiseReportButton
+                    closeSideBar={() => setIsSidebarOpen(false)}
+                  />
                 </div>
               </div>
             </section>
@@ -747,32 +947,107 @@ export const QuestionsFilters = ({
       <div
         ref={dragRef}
         onMouseDown={handleMouseDown}
-        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 px-4 py-2 rounded-full flex items-center gap-3 shadow-xl backdrop-blur-md select-none transition-shadow ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
+        onClick={() => {
+          if (!hasDragged.current) {
+            setIsBadgeExpanded((prev) => !prev);
+          }
+        }}
+        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+          isBadgeExpanded
+            ? "rounded-[16px] px-4 py-3 min-w-[220px]"
+            : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
+        } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
+          left: `${safeX}px`,
+          top: `${safeY}px`,
           touchAction: "none",
         }}
       >
-        <Activity size={14} className="text-green-600 dark:text-green-500" />
-        <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-          Total:{" "}
-          <span className="text-gray-900 dark:text-white">
-            {totalQuestions}
+        {/* Header row */}
+        <div className="flex items-center gap-3">
+          <Activity size={14} className="text-green-600 dark:text-green-500 shrink-0" />
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
+            Total:{" "}
+            <span className="text-gray-900 dark:text-white transition-opacity duration-300">
+              {statusSummary?.totalQuestions ?? totalQuestions}
+            </span>
           </span>
-        </span>
+          <span 
+            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+              isBadgeExpanded ? "rotate-180" : "rotate-0"
+            }`}
+          >
+            <ChevronDown size={14} />
+          </span>
+        </div>
+
+        {/* Expanded status breakdown */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+            isBadgeExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="mt-3 space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
+              {isStatusLoading ? (
+                <div className="flex items-center justify-center py-2 h-[120px]">
+                  <Loader2 size={16} className="animate-spin text-gray-400" />
+                  <span className="ml-2 text-xs text-gray-400">Loading...</span>
+                </div>
+              ) : (
+                statusSummary?.statuses?.map((s) => {
+                  const color = STATUS_COLORS[s.status] || defaultColor;
+                  return (
+                    <div
+                      key={s.status}
+                      onClick={() => {
+                        // If clicking the same status, revert to previous filter
+                        if (advanceFilter.status === s.status && previousFilter) {
+                          setAdvanceFilterValues(previousFilter);
+                          onChange(previousFilter);
+                          setPreviousFilter(null);
+                        } else {
+                          // Save current filter and apply new status filter
+                          setPreviousFilter(advanceFilter);
+                          const nextFilters = { ...advanceFilter, status: s.status as any };
+                          setAdvanceFilterValues(nextFilters);
+                          onChange(nextFilters);
+                        }
+                      }}
+                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors cursor-pointer hover:opacity-80`}
+                    >
+                      <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
+                         <span className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}>
+                          {s.status}
+                        </span>
+                      </div>
+                      <span className={`text-xs font-bold tabular-nums ${color.text}`}>
+                        {s.count}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
       </div>
       <ConfirmationModal
-                title="ReAllocate work load?"
-                description="Are you sure you want to ReAllocate work load?"
-                confirmText="ReAllocate"
-                cancelText="Cancel"
-                isLoading={reAllocateQuestion}
-                type="default"
-                open={isReAllocateOpen}
-                onOpenChange={setIsReAllocateOpen}
-                onConfirm={handleReAllocateLessWorkload}
-              />
+        title="ReAllocate work load?"
+        description="Are you sure you want to ReAllocate work load?"
+        confirmText="ReAllocate"
+        cancelText="Cancel"
+        isLoading={reAllocateQuestion}
+        type="default"
+        open={isReAllocateOpen}
+        onOpenChange={setIsReAllocateOpen}
+        onConfirm={handleReAllocateLessWorkload}
+      />
+      <CropManagementModal
+        open={isCropModalOpen}
+        onOpenChange={setIsCropModalOpen}
+      />
     </div>
   );
 };
