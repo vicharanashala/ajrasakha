@@ -89,7 +89,7 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
             value={userType === 'all' ? 'all' : userType.charAt(0).toUpperCase() + userType.slice(1)}
             onChange={(v) => handleChange({ userType: (v === 'all' ? 'all' : v.toLowerCase()) as DashboardFilterValues['userType'] })}
             placeholder="All Users"
-            className={baseSelect}
+            className={activeSelect}
             activeClassName={activeSelect}
           />
           <Button
