@@ -426,12 +426,12 @@ export const VoiceRecorderCard = () => {
                     <span>Clear</span>
                   </Button>
 
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={!transcript || isPending || isRecording}
-                    size="sm"
-                    className="flex items-center gap-1 shadow-sm"
-                  >
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={!transcript.trim() || isPending || isRecording}
+                      size="sm"
+                      className="flex items-center gap-1 shadow-sm"
+                    >
                     <Send className="h-3 w-3" />
                     <span className="text-xs">
                       {isPending ? "Sending..." : "Submit"}
