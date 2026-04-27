@@ -1,6 +1,8 @@
 import { env } from '@/config/env';
 import { auth } from '@/config/firebase';
+import type { GrowthResponse } from '@/types';
 import { getIdToken } from 'firebase/auth';
+import { apiFetch } from '../api/api-fetch';
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -30,5 +32,13 @@ export class ChatbotService {
       throw new Error(json?.message ?? 'No data found for the selected date range');
     }
     return response.blob();
+  }
+
+  async getUserGrowth(range: number): Promise<GrowthResponse | null> {
+    const params = new URLSearchParams();
+
+    if (range) params.append("range", range.toString());
+
+    return apiFetch<GrowthResponse>(`${this._baseUrl}/user-growth?${params.toString()}`);
   }
 }
