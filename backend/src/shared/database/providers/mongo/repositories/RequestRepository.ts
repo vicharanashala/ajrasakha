@@ -18,18 +18,21 @@ import {GLOBAL_TYPES} from '#root/types.js';
 
 @injectable()
 export class RequestRepository implements IRequestRepository {
-  private RequestCollection: Collection<IRequest>;
-  private usersCollection!: Collection<IUser>;
+  private RequestCollection!: Collection<IRequest>;
+private usersCollection!: Collection<IUser>;
+private initialized = false;
 
-  constructor(
-    @inject(GLOBAL_TYPES.Database)
-    private db: MongoDatabase,
-  ) {}
+constructor(
+  @inject(GLOBAL_TYPES.Database)
+  private db: MongoDatabase,
+) {}
 
-  private async init() {
-    this.RequestCollection = await this.db.getCollection<IRequest>('requests');
-    this.usersCollection = await this.db.getCollection<IUser>('users');
-  }
+private async init() {
+  if (this.initialized) return;
+  this.RequestCollection = await this.db.getCollection<IRequest>('requests');
+  this.usersCollection = await this.db.getCollection<IUser>('users');
+  this.initialized = true;
+}
 
   async createRequest(
     data: CreateRequestBodyDto,
@@ -118,50 +121,46 @@ export class RequestRepository implements IRequestRepository {
         .toArray();
 
       const totalPages = Math.ceil(totalCount / limit);
-      const sanitizedData: IRequest[] = await Promise.all(
-        data.map(async req => {
-          const responses: IRequestResponse[] =
-            req.responses?.map(r => ({
-              ...r,
-              reviewedBy: r.reviewedBy?.toString(),
-            })) || [];
+      // Fetch all users in one query instead of N separate queries
+      const userIds = data.map(req => req.requestedBy);
+      const users = await this.usersCollection.find(
+        { _id: { $in: userIds } },
+        { projection: { firstName: 1, lastName: 1 } }
+      ).toArray();
+      const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
-          const requestedUser = await this.usersCollection.findOne({
-            _id: req.requestedBy,
-          },
-          {
-        projection: {
-          firstName: 1,
-          lastName: 1,
-        },
-      },
-        );
+      const sanitizedData: IRequest[] = data.map(req => {
+        const responses: IRequestResponse[] =
+          req.responses?.map(r => ({
+            ...r,
+            reviewedBy: r.reviewedBy?.toString(),
+          })) || [];
 
-          return {
-            ...req,
-            _id: req._id?.toString(),
-            requestedBy: req.requestedBy?.toString(),
-            entityId: req.entityId?.toString(),
-            responses,
-            createdAt:
-              req.createdAt instanceof Date
-                ? req.createdAt.toISOString()
-                : req.createdAt,
-            updatedAt:
-              req.updatedAt instanceof Date
-                ? req.updatedAt.toISOString()
-                : req.updatedAt,
-            requestedUser: requestedUser
-              ? {
-                  _id: requestedUser._id.toString(),
-                  firstName: requestedUser.firstName,
-                  lastName: requestedUser.lastName,
-                }
-              : null,
-          } as IRequest;
-        }),
-      );
+        const requestedUser = userMap.get(req.requestedBy?.toString());
 
+        return {
+          ...req,
+          _id: req._id?.toString(),
+          requestedBy: req.requestedBy?.toString(),
+          entityId: req.entityId?.toString(),
+          responses,
+          createdAt:
+            req.createdAt instanceof Date
+              ? req.createdAt.toISOString()
+              : req.createdAt,
+          updatedAt:
+            req.updatedAt instanceof Date
+              ? req.updatedAt.toISOString()
+              : req.updatedAt,
+          requestedUser: requestedUser
+            ? {
+                _id: requestedUser._id.toString(),
+                firstName: requestedUser.firstName,
+                lastName: requestedUser.lastName,
+              }
+            : null,
+        } as IRequest;
+      });
       return {requests: sanitizedData, totalPages, totalCount};
     } catch (error) {
       throw new InternalServerError(`Failed to create request /More: ${error}`);
@@ -176,6 +175,7 @@ export class RequestRepository implements IRequestRepository {
     session?: ClientSession,
   ): Promise<IRequestResponse> {
     try {
+       await this.init();
       const user = await this.usersCollection.findOne({
         _id: new ObjectId(userId),
       });
