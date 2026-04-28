@@ -10,9 +10,19 @@ from constants import DB_NAME, COLLECTION_POP, COLLECTION_QA, EMBEDDING_MODEL, M
 from functions import process_nodes_pop, process_nodes_qa
 from models import ContextPOP, ContextQuestionAnswerPair, POPComplianceNotice, POPContextResponse
 from llama_index.core.settings import Settings
-from chemical_guard import filter_pop_contexts_for_chemical_compliance
+from chemical_guard import (
+    analyze_text_for_chemical_compliance,
+    filter_pop_contexts_for_chemical_compliance,
+)
 
 mcp = FastMCP("POP")
+
+RESPONSE_GUIDANCE = '''* If retrieved context is relevant and sufficient:
+            * Generate answer using available data.
+            * Append:
+              "# Your query has also been shared with an expert for review. It will be processed within 2 hours. Please ask the same query after 2 hours."
+          * If retrieved context is insufficient, respond:
+            "# We do not have sufficient information to answer your query at the moment. Your query has been transferred to an expert and will be processed within 2 hours. Please ask the same query after 2 hours."'''
 
 Settings.embed_model = HuggingFaceEmbedding(
     model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
@@ -52,7 +62,7 @@ async def get_states_for_pop() -> dict:
         "MIZORAM": "MZ", "NAGALAND": "NL", "ODISHA": "OR", "ORISSA": "OR", "PUNJAB": "PB",
         "RAJASTHAN": "RJ", "SIKKIM": "SK", "TAMILNADU": "TN", "TAMIL_NADU": "TN",
         "TRIPURA": "TR", "UTTAR_PRADESH": "UP", "UTTARPRADESH": "UP", "UTTARAKHAND": "UK",
-        "WEST_BENGAL": "WB",
+        "WEST_BENGAL": "WB", "DELHI": "DL",
         "POPS_MULTIPLE_STATES": "MULTIPLE"
     }
 
@@ -109,6 +119,7 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
     "UK": "Uttarakhand",
     "WB": "West Bengal",
     "JK": "Jammu & Kashmir",
+    "DL": "Delhi",
     "MULTIPLE": "Pops_Multiple_States"
 }
 
@@ -143,9 +154,26 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
     )
 
     processed_nodes = await process_nodes_pop(nodes)
-    compliant_nodes, restricted_flags, blocked_chemical_names = (
-        filter_pop_contexts_for_chemical_compliance(processed_nodes)
+    compliant_nodes, ctx_restricted, ctx_blocked = filter_pop_contexts_for_chemical_compliance(
+        processed_nodes
     )
+    query_restricted, query_blocked = analyze_text_for_chemical_compliance(query)
+
+    restricted_by_id: dict = {}
+    for flag in ctx_restricted + query_restricted:
+        restricted_by_id.setdefault(flag.chemical_id, flag)
+    restricted_flags = sorted(
+        restricted_by_id.values(), key=lambda f: f.chemical_name.lower()
+    )
+    blocked_chemical_names = sorted(
+        set(ctx_blocked) | set(query_blocked), key=str.lower
+    )
+
+    from_context_restricted = bool(ctx_restricted)
+    from_query_restricted = bool(query_restricted)
+    from_context_blocked = bool(ctx_blocked)
+    from_query_blocked = bool(query_blocked)
+
     restricted_chemical_names = [flag.chemical_name for flag in restricted_flags]
     print(
         (
@@ -158,7 +186,11 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
     )
     print(
         (
-            "[POP] chemical_compliance: "
+            "[POP] chemical_compliance: context: "
+            f"restricted={[f.chemical_name for f in ctx_restricted] or []}, "
+            f"blocked={ctx_blocked or []}; query: "
+            f"restricted={[f.chemical_name for f in query_restricted] or []}, "
+            f"blocked={query_blocked or []}; merged: "
             f"restricted={restricted_chemical_names or []}, "
             f"blocked_non_restricted={blocked_chemical_names or []}"
         ),
@@ -171,14 +203,26 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
         blocked_message = None
 
         if restricted_flags:
+            if from_context_restricted and from_query_restricted:
+                r_src = "the user query and/or retrieved text"
+            elif from_query_restricted:
+                r_src = "the user query"
+            else:
+                r_src = "retrieved text"
             message_parts.append(
-                "Restricted chemical detected. Content is permitted only if usage complies with allowed_usage. Note: Use the retrieved context and source_name to answer the question only if passed the compliance check otherwise skip the source_name"
+                f"Restricted chemical detected in {r_src}. Content is permitted only if usage complies with allowed_usage. Note: Use the retrieved context and source_name to answer the question only if passed the compliance check otherwise skip the source_name"
             )
 
         if blocked_chemical_names:
             blocked_str = ", ".join(f'"{name}"' for name in blocked_chemical_names)
+            if from_context_blocked and from_query_blocked:
+                b_src = "the user query and/or retrieved text"
+            elif from_query_blocked:
+                b_src = "the user query"
+            else:
+                b_src = "retrieved text"
             blocked_message = (
-                f"Banned chemical(s) {blocked_str} found from retrieved text, so compliance check skipped that data."
+                f"Banned chemical(s) {blocked_str} found in {b_src}, so compliance check skipped that data."
             )
             message_parts.append(blocked_message)
 
@@ -192,6 +236,7 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
     return POPContextResponse(
         contexts=compliant_nodes,
         compliance_notice=compliance_notice,
+        response_guidance=RESPONSE_GUIDANCE,
     )
 
 
