@@ -1685,6 +1685,9 @@ const AuditPage = () => {
     AGENTS_INTERFACE = "Agents Interface",
     DOWNLOAD_REPORTS = "Download Reports",
     ANSWER = "Answer",
+    ADMIN_REPORT= 'Admin Report',
+    AI_GENERATED= 'AI Generated',
+    ROLE_MANAGEMENT = 'Role Management',
   }
  
   enum AuditAction {
@@ -1712,6 +1715,9 @@ const AuditPage = () => {
     APPROVE_ANSWER = "Approve Answer",
     REROUTE_ANSWER = "Reroute Answer",
     REROUTE_REJECTION = "Reroute Rejection",
+    SEND_DASHBOARD_REPORT = "Send Dashboard Report",
+    GENERATE_ANSWER = "Generate Answer",
+    TOGGLE_ROLE = "Toggle Role",
   }
  
   enum reverseActionEnum {
@@ -1738,6 +1744,9 @@ const AuditPage = () => {
     "Approve Answer" = "APPROVE_ANSWER",
     "Reroute Answer" = "REROUTE_ANSWER",
     "Reroute Rejection" = "REROUTE_REJECTION",
+    "Send Dashboard Report" = "SEND_DASHBOARD_REPORT",
+    "Generate Answer" = "GENERATE_ANSWER",
+    "Toggle Role" = "TOGGLE_ROLE",
   }
  
   const actionObject = {
@@ -1750,6 +1759,9 @@ const AuditPage = () => {
     OUTREACH_REPORT: [AuditAction.ALL, AuditAction.SEND_OUTREACH_REPORT],
     DOWNLOAD_REPORTS: [AuditAction.ALL, AuditAction.DOWNLOAD],
     ANSWER: [AuditAction.ALL, AuditAction.APPROVE_ANSWER, AuditAction.REROUTE_ANSWER, AuditAction.REROUTE_REJECTION],
+    ADMIN_REPORT: [AuditAction.ALL, AuditAction.SEND_DASHBOARD_REPORT],
+    AI_GENERATED: [AuditAction.ALL, AuditAction.GENERATE_ANSWER],
+    ROLE_MANAGEMENT: [AuditAction.ALL, AuditAction.TOGGLE_ROLE],
   };
  
   enum AuditOutcomeStatus {
@@ -1798,6 +1810,9 @@ const AuditPage = () => {
             <DropdownMenuRadioItem value="AGENTS_INTERFACE">Agents Interface</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="DOWNLOAD_REPORTS">Download Reports</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="ANSWER">Answer</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="ADMIN_REPORT">Admin Report</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="AI_GENERATED">AI Generated</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="ROLE_MANAGEMENT">Role Management</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
