@@ -10,8 +10,8 @@ from utils import get_mongodb_vector_store, get_huggingface_embedding_model
 
 EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
 MONGODB_URI = os.getenv("REVIEWER_MONGODB_URI")
-MONGODB_DATABASE = os.getenv("REVIEWER_MONGODB_DATABASE")
-MONGODB_COLLECTION = os.getenv("REVIEWER_MONGODB_COLLECTION")
+MONGODB_DATABASE = "agriai"
+MONGODB_COLLECTION = "questions"
 MONGODB_INDEX = os.getenv("REVIEWER_MONGODB_INDEX")
 
 embedding_model = get_huggingface_embedding_model(EMBEDDING_MODEL)
@@ -24,7 +24,7 @@ vector_store = get_mongodb_vector_store(
 )
 
 mongo_client = AsyncMongoClient(MONGODB_URI)
-database = mongo_client[MONGODB_DATABASE]
+database = mongo_client["agriai"]
 answers_collection = database["answers"]
 users_collection = database["users"]
 
