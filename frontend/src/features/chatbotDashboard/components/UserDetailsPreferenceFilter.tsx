@@ -33,7 +33,6 @@ import {
   RefreshCcw,
   UserX,
   Info,
-  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +44,6 @@ export interface UserDetailsFilters {
   endTime: Date | undefined;
   profileCompleted: "all" | "yes" | "no";
   inactiveOnly: boolean;
-  userType: "all" | "external" | "internal";
 }
 
 interface UserDetailsPreferenceFilterProps {
@@ -148,7 +146,6 @@ export function UserDetailsPreferenceFilter({
       endTime: undefined,
       profileCompleted: "all",
       inactiveOnly: false,
-      userType: "all",
     });
   };
 
@@ -158,8 +155,7 @@ export function UserDetailsPreferenceFilter({
     (filters.village ? 1 : 0) +
     (filters.startTime ? 1 : 0) +
     (filters.profileCompleted !== "all" ? 1 : 0) +
-    (filters.inactiveOnly ? 1 : 0) +
-    (filters.userType !== "all" ? 1 : 0);
+    (filters.inactiveOnly ? 1 : 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -319,27 +315,6 @@ export function UserDetailsPreferenceFilter({
               </label>
             </div>
           </div>
-
-          {/* User Type */}
-          <FilterSection icon={<Users className="h-3.5 w-3.5" />} label="User Type">
-            <div className="flex gap-2">
-              {(["all", "external", "internal"] as const).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setDraft((d) => ({ ...d, userType: type }))}
-                  className={cn(
-                    "flex-1 h-9 rounded-lg text-sm font-medium border transition-all",
-                    draft.userType === type
-                      ? "bg-[#3AAA5A] border-[#3AAA5A] text-white"
-                      : "bg-white dark:bg-[#1e1e1e] border-gray-200 dark:border-gray-700 text-(--foreground) hover:border-[#3AAA5A] hover:text-[#3AAA5A]"
-                  )}
-                >
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </button>
-              ))}
-            </div>
-          </FilterSection>
 
           {/* Profile Completed */}
           <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="Farmer Profile">
