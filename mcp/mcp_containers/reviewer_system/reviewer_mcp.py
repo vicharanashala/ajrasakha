@@ -16,6 +16,7 @@ from crop_name_lookup import (
     find_local_fuzzy,
     get_top_local_candidates,
 )
+from crop_variants import expand_crop_variants_for_state
 # We import the tool function directly. Note that it's an async function decorated with @tool.
 # FastMCP can wrap it, or we can call it directly. 
 # Since we need to match the signature requested by the user, we will wrap it.
@@ -283,7 +284,7 @@ async def upload_question_to_reviewer_system(
         }
 
     crop_value = str(details.get("crop") or crop or "").strip()
-    crop_missing = not crop_value or crop_value.lower() in {"not specified", "na", "n/a", "none", "null"}
+    crop_missing = not crop_value or crop_value.lower() in {"not specified", "na", "n/a", "none", "null","all"}
 
     if domain_value in crop_required_domains and crop_missing:
         raise ValueError(
@@ -549,10 +550,31 @@ async def get_context_from_reviewer_dataset(query: str, state: str = None, crop:
         if not crop_found:
             return f"Error: Invalid crop '{crop}' for state '{state_to_pass}'. Available crops are: {', '.join(valid_crops)}"
 
+    crop_for_retriever: str | list[str] | None = crop
+    if crop and state_to_pass:
+        crop_for_retriever = expand_crop_variants_for_state(state_to_pass, crop)
+
     # Trigger the underlying retriever logic.
     retrieved_chunks = await reviewer_retriever_tool.ainvoke(
-        {"query": query, "crop": crop, "state": state_to_pass}
+        {"query": query, "crop": crop_for_retriever, "state": state_to_pass}
     )
+    retrieved_chunks = retrieved_chunks or []
+    retrieval_preview = []
+    for idx, chunk in enumerate(retrieved_chunks[:5], start=1):
+        chunk_data = _chunk_to_dict(chunk)
+        retrieval_preview.append(
+            {
+                "rank": idx,
+                "question_id": chunk_data.get("question_id"),
+                "question_text": chunk_data.get("question_text"),
+            }
+        )
+    print(
+        f"Retriever Query: {query} | state={state_to_pass or 'all'} | crop={crop_for_retriever if crop and state_to_pass else (crop or 'all')}",
+        flush=True,
+    )
+    print(f"Retriever fetched {len(retrieved_chunks)} chunks from DB", flush=True)
+    print(f"Retriever top chunks: {retrieval_preview}", flush=True)
 
     # Validate retrieved chunks against the query before passing context downstream.
     # - If validator returns None => explicit no-match condition.

@@ -61,19 +61,59 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
     return answer, sources, author_name
 
 
+def _crop_filter_values(crop: str | list[str] | None) -> list[str] | None:
+    if crop is None:
+        return None
+    if isinstance(crop, str):
+        s = crop.strip()
+        return [s] if s else None
+    out: list[str] = []
+    for c in crop:
+        if isinstance(c, str) and c.strip():
+            out.append(c.strip())
+    return out or None
+
+
+def _similarity_search_merge_variants(
+    query: str,
+    k: int,
+    base_filters: dict,
+    crop_variants: list[str],
+):
+    """One search per crop string; merge by question id keeping best score."""
+    best: dict[str, tuple] = {}
+    for c in crop_variants:
+        fl = dict(base_filters)
+        fl["details.crop"] = c
+        batch = vector_store.similarity_search_with_score(query, k=k, pre_filter=fl)
+        for document, score in batch:
+            qid = document.metadata.get("_id")
+            if qid is None:
+                continue
+            prev = best.get(qid)
+            if prev is None or score > prev[1]:
+                best[qid] = (document, score)
+    merged = sorted(best.values(), key=lambda x: x[1], reverse=True)[:k]
+    return merged
+
+
 @tool
 async def reviewer_retriever_tool(
         query: str,
-        crop: str | None = None,
+        crop: str | list[str] | None = None,
         season: str | None = None,
         state: str | None = None,
         domain: str | None = None,
 ):
     '''Retrieve relevant documents from the reviewer dataset based on the query and optional filters.'''
-    filters = {"status": "closed"}
+    filters: dict = {"status": "closed"}
 
-    if crop:
-        filters["details.crop"] = crop
+    crop_variants = _crop_filter_values(crop)
+    if crop_variants:
+        if len(crop_variants) == 1:
+            filters["details.crop"] = crop_variants[0]
+        else:
+            filters["details.crop"] = {"$in": crop_variants}
     if season:
         filters["details.season"] = season
     if state:
@@ -81,7 +121,15 @@ async def reviewer_retriever_tool(
     if domain:
         filters["details.domain"] = domain
 
-    docs = vector_store.similarity_search_with_score(query, k=5, pre_filter=filters)
+    try:
+        docs = vector_store.similarity_search_with_score(query, k=5, pre_filter=filters)
+    except Exception:
+        if crop_variants and len(crop_variants) > 1:
+            base = {k: v for k, v in filters.items() if k != "details.crop"}
+            docs = _similarity_search_merge_variants(query, 5, base, crop_variants)
+        else:
+            raise
+
     result = []
     for doc in docs:
         document, score = doc
