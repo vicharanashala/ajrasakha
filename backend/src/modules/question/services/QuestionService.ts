@@ -981,9 +981,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: new Date(),
           originalQuestion: originalQuestion
         };
-
+       const enableDuplicateFeature=false
         // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
-        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+       // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+        if (enableDuplicateFeature) {
           const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
           if (duplicateResult.isDuplicate) {
             return { isDuplicate: true, data: duplicateResult.duplicateData };
