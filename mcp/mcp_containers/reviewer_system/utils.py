@@ -33,8 +33,8 @@ def get_mongodb_vector_store(
     """
     client = MongoClient(mongo_connection_string)
 
-    database = client[db_name]
-    collection = database[collection_name]
+    database = client["agriai"]
+    collection = database["questions"]
 
     vector_store = MongoDBAtlasVectorSearch(
         embedding=embedding_model,
