@@ -1,0 +1,2366 @@
+{
+  "SUNFLOWER": [
+    "Podduthirugudu",
+    "Podhutirugudu",
+    "Surajmookhi",
+    "Surjyamukhi",
+    "Suryakanti",
+    "Suryaphool",
+    "सूर्यफूल",
+    "ਸੂਰਜਮੁਖੀ",
+    "ସୂର୍ଯ୍ୟମୁଖୀ",
+    "పొద్దుతిరుగుడు",
+    "ಸೂರ್ಯಕಾಂತಿ"
+  ],
+  "GINGER": [
+    "Ada",
+    "Adua",
+    "Ale",
+    "Allam",
+    "Inji",
+    "अदुवा",
+    "आले",
+    "আদা",
+    "ଅଦା",
+    "అల్లం",
+    "ഇഞ്ചി"
+  ],
+
+  "SUGARCANE": [
+    "Aakhu",
+    "Cheruku",
+    "Kabbu",
+    "Karimbu",
+    "Kmad",
+    "Us",
+    "ganna",
+    "ऊस",
+    "ਕਮਾਦ",
+    "ਗੰਨਾ",
+    "ଆଖୁ",
+    "చెరకు",
+    "ಕಬ್ಬು",
+    "കരിംബ്"
+  ],
+  "MAIZE": [
+    "Bhutta",
+    "Chhali",
+    "Cholam",
+    "Kukdi",
+    "Maka",
+    "Makka",
+    "Makkai",
+    "Makki",
+    "Mekke Jola",
+    "Mokka Jonna",
+    "Mokkajonna",
+    "Musukina Jola",
+    "कुकड़ी",
+    "छाली",
+    "मका",
+    "मकै",
+    "मक्की",
+    "ভুট্টা",
+    "ਮੱਕੀ",
+    "ମକା",
+    "మొక్కజొన్న",
+    "ಮುಸುಕಿನ ಜೋಳ",
+    "ಮೆಕ್ಕೆಜೋಳ",
+    "ചോളം"
+  ],
+  "MUNG": [
+    "Muga",
+    "ମୁଗ"
+  ],
+  "BLACK GRAM": [
+    "Biri",
+    "Maah",
+    "Mash",
+    "Minumu",
+    "Minumulu",
+    "Udid",
+    "Urad",
+    "Uzhunnu",
+    "उड़द",
+    "उडीद",
+    "माश",
+    "माह",
+    "ବିରି",
+    "మినుము",
+    "మినుములు",
+    "ഉഴുന്ന്"
+  ],
+  "MUSTARD": [
+    "Avalu",
+    "Sorisa",
+    "Tori",
+    "तोरी",
+    "ସୋରିଷ",
+    "ఆవాలు"
+  ],
+  "CAULIFLOWER": [
+    "Cauliflower",
+    "Hoo kosu",
+    "Phool gobhi",
+    "Phula kobi",
+    "Phulgobhi",
+    "Phulkobi",
+    "Phulkopi",
+    "फुलकोबी",
+    "फूल गोभी",
+    "ফুলকপি",
+    "ਫੁੱਲਗੋਭੀ",
+    "ଫୁଲକୋବି",
+    "కాలిఫ్లవర్",
+    "ಹೂ ಕೋಸು",
+    "കോലിഫ്ലവർ"
+  ],
+  "CABBAGE": [
+    "Banda gobhi",
+    "Bandgobhi",
+    "Bandha Kobi",
+    "Bandhakopi",
+    "Cabbage",
+    "Elekosu",
+    "Kobi",
+    "Muttakose",
+    "Patta Kobi",
+    "कोबी",
+    "बन्द गोभी",
+    "বাঁধাকপি",
+    "ਬੰਦ ਗੋਭੀ",
+    "ବନ୍ଧାକୋବି",
+    "క్యాబేజీ",
+    "పట్టా కోబి",
+    "ಎಲೆಕೋಸು",
+    "മുട്ടക്കോസ്"
+  ],
+  "POTATO": [
+    "Aaloo",
+    "Aalu",
+    "Aalugadde",
+    "Aloo",
+    "Alu",
+    "Batata",
+    "Urallu kizhangi",
+    "आलु",
+    "बटाटा",
+    "আলু",
+    "ਆਲੂ",
+    "ଆଳୁ",
+    "ಆಲೂಗಡ್ಡೆ",
+    "ഉരുളക്കിഴങ്ങ്"
+  ],
+  "ONION": [
+    "Eerulli",
+    "Kanda",
+    "Onion",
+    "Peyaj",
+    "Piaz",
+    "Piyaja",
+    "Ulli",
+    "Ullipaya",
+    "कांदा",
+    "পেঁয়াজ",
+    "ਪਿਆਜ਼",
+    "ପିଆଜ",
+    "ఉల్లి",
+    "ಈರುಳ್ಳಿ",
+    "ഉള്ളി"
+  ],
+  "CORIANDER": [
+    "Dhania",
+    "Dhaniyalu",
+    "धनिया",
+    "ਧਨੀਆ",
+    "ଧନିଆ",
+    "ధనియాలు"
+  ],
+  "BRINJAL": [
+    "Badane",
+    "Baigana",
+    "Baingan",
+    "Begun",
+    "Vangi",
+    "Vazhuthana",
+    "वांगी",
+    "বেগুন",
+    "ਬੈਂਗਣ",
+    "ବାଇଗଣ",
+    "ಬದನೆ",
+    "വഴുതന"
+  ],
+  "TOMATO": [
+    "Bilati Baigana",
+    "Rambeda",
+    "THAKKALI",
+    "Tamata",
+    "Tamatar",
+    "Tomato",
+    "टोमॅटो",
+    "रमबेडा",
+    "টমেটো",
+    "ਟਮਾਟਰ",
+    "ବିଲାତୀ ବାଇଗଣ",
+    "టమాట",
+    "టమాటా",
+    "ಟೊಮ್ಯಾಟೊ",
+    "തക്കാളി"
+  ],
+  "CHILLI": [
+    "Lanka",
+    "MULAKKU",
+    "Menasinakaayi",
+    "Mirapa",
+    "Mirch",
+    "Mirchi",
+    "मिरची",
+    "ਮਿਰਚ",
+    "ଲଙ୍କା",
+    "మిరప",
+    "ಮೆಣಸಿನಕಾಯಿ",
+    "മുളക്"
+  ],
+  "CARROT": [
+    "Carrot",
+    "Gajar",
+    "Gajara",
+    "Gajjari carrot",
+    "Gajor",
+    "Gazar",
+    "carrot",
+    "गाजर",
+    "গাজর",
+    "ਗਾਜਰ",
+    "ଗାଜର",
+    "క్యారెట్",
+    "ಗಜ್ಜರಿ ಕ್ಯಾರೆಟ್",
+    "കാരറ്റ്"
+  ],
+  "RADDISH": [
+    "Mula",
+    "ମୂଳା"
+  ],
+  "RIDGE GOURD": [
+    "Beerakaya",
+    "Heerekayi",
+    "Janhi",
+    "Ridge Gourd",
+    "ঝিঙে",
+    "ଜହ୍ନି",
+    "బీరకాయ",
+    "ಹೀರೆಕಾಯಿ"
+  ],
+  "PAPAYA": [
+    "Amrutabhanda",
+    "Bobbai",
+    "Mewa",
+    "Papaaya",
+    "Papai",
+    "papeeta",
+    "pappaya",
+    "पपई",
+    "पपीता",
+    "मेवा",
+    "ଅମୃତଭଣ୍ଡା",
+    "బొప్పాయి",
+    "ಪಪಾಯ",
+    "പപ്പായ"
+  ],
+  "LEMON": [
+    "Kagdi Limbu",
+    "Lembu",
+    "Limbe",
+    "Nimma",
+    "gaja nimbe",
+    "neembu",
+    "कागदी लिंबू",
+    "नीम्बू",
+    "ଲେମ୍ବୁ",
+    "నిమ్మ",
+    "ಲಿಂಬೆ ಮತ್ತು ಗಜನಿಂಬೆ"
+  ],
+  "MUSHROOM": [
+    "Chatu",
+    "ଛତୁ"
+  ],
+  "GROUND NUT": [
+    "China badam",
+    "ଚିନାବାଦାମ"
+  ],
+  "BANANA": [
+    "Arati",
+    "Baale",
+    "Kadali",
+    "Keli",
+    "Kera",
+    "Kola",
+    "Vazha",
+    "केरा",
+    "केळी",
+    "কলা",
+    "କଦଳୀ",
+    "అరటి",
+    "ಬಾಳೆ",
+    "വാഴ"
+  ],
+  "SESAME": [
+    "Ellu",
+    "Nuvvulu",
+    "Rasi",
+    "Til",
+    "Till",
+    "तीळ",
+    "তিল",
+    "ਤਿਲ਼",
+    "ରାଶି",
+    "నువ్వులు",
+    "ಎಳ್ಳು",
+    "എള്ള്"
+  ],
+  "MILLET": [
+    "Mandia",
+    "ମାଣ୍ଡିଆ"
+  ],
+  "WHEAT": [
+    "Gahow",
+    "Gehu",
+    "Gehun",
+    "Godhi",
+    "Godhuma",
+    "Godumalu",
+    "Gom",
+    "Kanak",
+    "कनक",
+    "गहुँ",
+    "गहू",
+    "गेहूँ",
+    "গম",
+    "ਕਣਕ",
+    "గోధుమ",
+    "గోధుమలు",
+    "ಗೋಧಿ"
+  ],
+  "BARLEY": [
+    "Jab",
+    "Jau",
+    "Jaun",
+    "जौ",
+    "যব",
+    "ਜੌਂ"
+  ],
+  "GRAM": [
+    "Cholle",
+    "ਛੋਲੇ"
+  ],
+  "LENTIL": [
+    "Masar",
+    "Masoor daal",
+    "मसर",
+    "मसूर दाल",
+    "ਮਸਰ"
+  ],
+  "FIELD PEA": [
+    "Matar",
+    "ਮਟਰ"
+  ],
+  "RAPESEED AND MUSTARD": [
+    "Toria",
+    "raya",
+    "saron and taramira",
+    "ਤੋਰੀਆ",
+    "ਰਾਇਆ",
+    "ਸਰ੍ਹੋਂ ਅਤੇ ਤਾਰਾਮੀਰਾ"
+  ],
+  "LINSEED": [
+    "Agase",
+    "Alsi",
+    "ਅਲਸੀ",
+    "ಅಗಸೆ"
+  ],
+  "SUGARBEET": [
+    "Chukandar",
+    "ਚੁਕੰਦਰ"
+  ],
+  "MENTHA": [
+    "Pudina Menths",
+    "ਪੁਦੀਨਾ ਮੈਂਥਾ"
+  ],
+  "CELERY": [
+    "Karnauli",
+    "ਕਰਨੌਲੀ"
+  ],
+  "FENNEL": [
+    "Aniseeds",
+    "Sauff",
+    "মৌড়ি",
+    "ਸੌਂਫ਼"
+  ],
+  "DILLSEED": [
+    "Soye",
+    "ਸੋਏ"
+  ],
+  "HONEY PLANT": [
+    "Honey plant",
+    "ਹਨੀ ਪਲਾਂਟ"
+  ],
+  "FENUGREEK": [
+    "Methe",
+    "Methi",
+    "মেথি",
+    "ਮੇਥੇ"
+  ],
+  "BERSEEM": [
+    "Barseem",
+    "Berseem",
+    "वसीम ओला घास",
+    "ਬਰਸੀਮ"
+  ],
+  "OATS": [
+    "Javi",
+    "Jo",
+    "जव",
+    "ਜਵੀ"
+  ],
+  "RYEGRASS": [
+    "Rai ghah",
+    "ਰਾਈ ਘਾਹ"
+  ],
+  "SHAFTAL": [
+    "Shaftal",
+    "ਸ਼ਫਤਲ"
+  ],
+  "LUCERNE": [
+    "Lucerne",
+    "Lusan",
+    "लसूण घास",
+    "ਲੂਸਣ"
+  ],
+  "SENJI": [
+    "Senji",
+    "ਸੇਂਜੀ"
+  ],
+  "BAJRA/PEARL MILLET": [
+    "Bajra",
+    "ਬਾਜਰਾ"
+  ],
+  "MOONG": [
+    "Moongi",
+    "ਮੂੰਗੀ"
+  ],
+  "MASH": [
+    "Maah",
+    "ਮਾਂਹ"
+  ],
+  "ARHAR": [
+    "Arhar",
+    "ਅਰਹਰ"
+  ],
+  "SOYBEAN": [
+    "Bharth",
+    "Bhatt",
+    "Soya",
+    "Soyabean",
+    "Soyachikkudu",
+    "Soybean",
+    "soya",
+    "भट्ट",
+    "भरथ",
+    "सोया",
+    "सोयाबीन",
+    "ਸੋਇਆਬੀਨ",
+    "సోయాచిక్కుడు",
+    "సోయాబీన్",
+    "സോയ"
+  ],
+  "GROUNDNUT": [
+    "Kadalekayi",
+    "Mungfli",
+    "Nilakadala",
+    "Shenga",
+    "Shengdana",
+    "Verusenaga",
+    "bhuimung",
+    "भुईमूग",
+    "शेंगदाणा",
+    "ਮੂੰਗਫ਼ਲੀ",
+    "వేరుశెనగ",
+    "వేరుసెనగ",
+    "ಕಡಲೆಕಾಯಿ",
+    "ಶೇಂಗಾ",
+    "നിലക്കടല"
+  ],
+  "MUSKMELON": [
+    "Karabooja",
+    "Kharbuza",
+    "ਖ਼ਰਬੂਜ਼ਾ",
+    "ಕರಬೂಜ"
+  ],
+  "WATERMELON": [
+    "Tarbooz",
+    "ਤਰਬੂਜ਼"
+  ],
+  "SUMMER SQUASH": [
+    "Chappan kadoo",
+    "ਚੱਪਣ ਕੱਦੂ"
+  ],
+  "PUMPKIN": [
+    "Halva kadoo",
+    "Kumbalakayi",
+    "Mathan",
+    "Pharsi",
+    "फर्सी",
+    "ਹਲਵਾ ਕੱਦੂ",
+    "ಕುಂಬಳಕಾಯಿ",
+    "മത്തൻ"
+  ],
+  "BOTTLE GOURD": [
+    "Ghia kadoo",
+    "Lau",
+    "Sorakaya",
+    "Sorekayi",
+    "churakka",
+    "লাউ",
+    "ਘੀਆ ਕੱਦੂ",
+    "సొరకాయ",
+    "ಸೋರೆಕಾಯಿ",
+    "ചുരക്ക"
+  ],
+  "BITTER GOURD": [
+    "Bitter Gourd",
+    "Hagalakayi",
+    "Kaiyppaka",
+    "Kakara",
+    "Kakara kaya",
+    "Karela",
+    "Korola",
+    "করলা",
+    "ਕਰੇਲਾ",
+    "కాకరకాయ",
+    "ಹಾಗಲಕಾಯಿ",
+    "കൈപ്പക"
+  ],
+  "SPONGE GOURD": [
+    "Kali tori",
+    "ਕਾਲੀ ਤੋਰੀ"
+  ],
+  "ASH GOURD": [
+    "Boodu gumbala kaayi",
+    "Chal Kumro",
+    "Kumbalanga",
+    "Petha",
+    "চাল কুমড়ো",
+    "ਪੇਠਾ",
+    "ಬೂದು ಗುಂಬಳ ಕಾಯಿ",
+    "കുമ്പളങ്ങ"
+  ],
+  "CUCUMBER": [
+    "Dosakaya",
+    "Shasha",
+    "Soutekaayi",
+    "Vellarikka",
+    "kheera",
+    "শশা",
+    "ਖੀਰਾ",
+    "దోసకాయ",
+    "ಸೌತೆಕಾಯಿ",
+    "വെള്ളരിക്ക"
+  ],
+  "LONG MELON": [
+    "Tar",
+    "ਤਰ"
+  ],
+  "ROUND GOURD": [
+    "Tinda",
+    "ਟੀਂਡਾ"
+  ],
+  "WANGA": [
+    "Wanga",
+    "ਵੰਗਾ"
+  ],
+  "SWEET PEPPER": [
+    "Shimla mirch",
+    "ਸ਼ਿਮਲਾ ਮਿਰਚ"
+  ],
+  "OKRA": [
+    "Bendakaya",
+    "Bende",
+    "Bhendi",
+    "Bhindi",
+    "venda",
+    "भेंडी",
+    "ਭਿੰਡੀ",
+    "బెండకాయ",
+    "ಬೆಂಡೆ",
+    "വെണ്ട"
+  ],
+  "COWPEA": [
+    "Alasandalu",
+    "Alasande",
+    "Chawli",
+    "Harwian",
+    "Perumpayar",
+    "Rangi",
+    "चवळी",
+    "रैंगी",
+    "ਲੋਬੀਆ",
+    "అలసందలు",
+    "ಅಲಸಂದೆ",
+    "പെരുമ്പയാർ"
+  ],
+  "GARLIC": [
+    "Bellulli",
+    "Rosun",
+    "Vellulli",
+    "lasun",
+    "রসুন",
+    "ਲੱਸਣ",
+    "వెల్లుల్లి",
+    "ಬೆಳ್ಳುಳ್ಳಿ"
+  ],
+  "BROCCOLI": [
+    "Broccoli",
+    "ब्रोकोली",
+    "ব্রোকলি",
+    "ਬਰੋਕਲੀ"
+  ],
+  "CHINESE CABBAGE": [
+    "Chinigobhi",
+    "ਚੀਨੀ ਗੋਭੀ"
+  ],
+  "RADISH": [
+    "Moolangi",
+    "Mooli",
+    "Mula",
+    "Mullangi",
+    "मुला",
+    "ਮੂਲੀ",
+    "ಮೂಲಂಗಿ",
+    "മുല്ലങ്കി"
+  ],
+  "TURNIP": [
+    "Shalgam",
+    "Turnip",
+    "ਸ਼ਲਗਮ",
+    "ಟರ್ನಿಪ್"
+  ],
+  "PEARL MILLET": [
+    "Bajri",
+    "Sajja",
+    "Sajjalu",
+    "Sajje",
+    "बाजरी",
+    "సజ్జ",
+    "సజ్జలు",
+    "ಸಜ್ಜೆ"
+  ],
+  "SORGHUM (RABI/KHARIF)": [
+    "Jowar",
+    "खरीप ज्वारी",
+    "रब्बी ज्वारी"
+  ],
+  "FINGER MILLET": [
+    "Kodo",
+    "Mandua",
+    "Nachni",
+    "Nagli",
+    "Ragi",
+    "Ragulu",
+    "kodra",
+    "कोदरा",
+    "कोदो",
+    "नागली",
+    "नाचणी",
+    "मण्डुआ",
+    "రాగి",
+    "రాగులు"
+  ],
+  "LITTLE MILLET": [
+    "Saame",
+    "Sama",
+    "Varai",
+    "Vari",
+    "chama ari",
+    "वरई",
+    "वरी",
+    "సామ",
+    "ಸಾಮೆ",
+    "ചാമ അരി"
+  ],
+  "BARNYARD MILLET": [
+    "Bardi",
+    "Jhingora",
+    "Madira",
+    "Oodalu",
+    "Sawa",
+    "Sawan",
+    "Shownk",
+    "झिंगोरा",
+    "बर्डी",
+    "मदिरा",
+    "शौंक",
+    "सावन",
+    "सावा",
+    "ಊದಲು"
+  ],
+  "CHICKPEA": [
+    "Harbhara",
+    "Sanagalu",
+    "हरभरा",
+    "శనగ"
+  ],
+  "PIGEON PEA": [
+    "Kandi",
+    "Togari",
+    "Tur",
+    "तूर",
+    "కంది",
+    "ತೊಗರಿ"
+  ],
+  "GREEN GRAM": [
+    "Cherupayar",
+    "Moong",
+    "Pesalu",
+    "Pesara",
+    "मूग",
+    "పెసర",
+    "పెసలు",
+    "ചെറുപയാർ"
+  ],
+  "HORSE GRAM": [
+    "Huruli",
+    "Kulith",
+    "Muthira",
+    "Ulavalu",
+    "कुलीथ",
+    "ఉలవలు",
+    "వులవలు",
+    "ಹುರುಳಿ",
+    "മുതിര"
+  ],
+  "MOTH BEAN": [
+    "Madike",
+    "Matki",
+    "मटकी",
+    "ಮಡಿಕೆ"
+  ],
+  "KIDNEY BEAN": [
+    "Rajma",
+    "Rajmash",
+    "राजमा",
+    "राजमाश"
+  ],
+  "SAFFLOWER": [
+    "Kardai",
+    "Kusube",
+    "करडई",
+    "ಕುಸುಬೆ"
+  ],
+  "NIGER": [
+    "Huchhellu",
+    "Niger",
+    "नायजर संभाव्य",
+    "ಹುಚ್ಚೆಳ್ಳು"
+  ],
+  "COTTON": [
+    "Hatti",
+    "Kapus",
+    "Paruthi",
+    "Patti",
+    "कापूस",
+    "పత్తి",
+    "ಹತ್ತಿ",
+    "പരുത്തി"
+  ],
+  "SORGHUM (FODDER)": [
+    "Jowar",
+    "ज्वारी"
+  ],
+  "NAPIER GRASS": [
+    "Napier",
+    "नेपियर गवत"
+  ],
+  "STYLO": [
+    "Stylo",
+    "स्टायलो"
+  ],
+  "MANGO": [
+    "Amba",
+    "Maavu",
+    "Mamidi",
+    "Mango",
+    "aam",
+    "आंबा",
+    "आम",
+    "మామిడి",
+    "ಮಾವು",
+    "മാങ്ങ"
+  ],
+  "GRAPES": [
+    "Draakshi",
+    "Draksha",
+    "द्राक्ष",
+    "ದ್ರಾಕ್ಷಿ"
+  ],
+  "POMEGRANATE": [
+    "Bedana",
+    "Daalimbe",
+    "Dalimb",
+    "Danimma",
+    "anar",
+    "अनार",
+    "डाळिंब",
+    "বেদানা",
+    "దానిమ్మ",
+    "ದಾಳಿಂಬೆ"
+  ],
+  "CUSTARD APPLE": [
+    "Ata",
+    "Seetaphala",
+    "Seethaphalam",
+    "Sitaphal",
+    "सीताफळ",
+    "আতা",
+    "సీతాఫలం",
+    "ಸೀತಾಫಲ"
+  ],
+  "AMLA": [
+    "Awala",
+    "Nelli",
+    "आवळा",
+    "ನೆಲ್ಲಿ"
+  ],
+  "FIG": [
+    "Anjir",
+    "Anjoora",
+    "anjeer",
+    "अंजीर",
+    "ಅಂಜೂರ"
+  ],
+  "BER": [
+    "Baare",
+    "Bor",
+    "बोर",
+    "ಬಾರೆ"
+  ],
+  "GUAVA": [
+    "Ambak",
+    "Jama",
+    "Jami",
+    "Perakka",
+    "Perala",
+    "Peru",
+    "Peyara",
+    "amrud",
+    "अमरुद",
+    "अम्बक",
+    "पेरू",
+    "পেয়ারা",
+    "జామ",
+    "ಪೇರಲ",
+    "പേരക്ക"
+  ],
+  "SAPOTA": [
+    "Chikku",
+    "Chiku",
+    "Sapota",
+    "चिकू",
+    "ಚಿಕ್ಕು",
+    "സപ്പോട്ട"
+  ],
+  "JAMUN": [
+    "Jambhul",
+    "जांभूळ"
+  ],
+  "TAMARIND": [
+    "Chinch",
+    "Chinta",
+    "Hunase",
+    "PULI",
+    "चिंच",
+    "చింత",
+    "ಹುಣಸೆ",
+    "പുളി"
+  ],
+  "SWEET LIME": [
+    "Mosambi",
+    "मोसंबी"
+  ],
+  "ORANGE": [
+    "Santra",
+    "संत्री"
+  ],
+  "LITCHI": [
+    "Litchi",
+    "leechi",
+    "लिची",
+    "लीची"
+  ],
+  "AVOCADO": [
+    "Avocado",
+    "Benna hannu",
+    "अॅवोकॅडो",
+    "অ্যাভোকাডো",
+    "ಬೆಣ್ಣೆ ಹಣ್ಣು"
+  ],
+  "DATE PALM": [
+    "Khajur",
+    "Khajuramu",
+    "खजूर",
+    "ఖర్జూరం"
+  ],
+  "RAMPHAL": [
+    "Ramphal",
+    "रामफळ"
+  ],
+  "BLUEBERRY": [
+    "Blueberry",
+    "ब्लूबेरी"
+  ],
+  "STRAWBERRY": [
+    "Strawberry",
+    "straberi",
+    "स्ट्राबेरी",
+    "स्ट्रॉबेरी संभाव्य"
+  ],
+  "APPLE": [
+    "Apple",
+    "Safarchand",
+    "Seb",
+    "seb",
+    "सफरचंद",
+    "सेब",
+    "আপেল",
+    "ആപ്പിൾ"
+  ],
+  "HYACINTH BEAN": [
+    "Wal",
+    "वाल"
+  ],
+  "PEA": [
+    "Bataani",
+    "Matar",
+    "Watana",
+    "मटर",
+    "वाटाणा",
+    "ಬಟಾಣಿ"
+  ],
+  "TURMERIC": [
+    "Halad",
+    "Holud",
+    "MANJAL",
+    "Pasupu",
+    "हळद",
+    "হলুদ",
+    "పసుపు",
+    "മഞ്ഞൾ"
+  ],
+  "BETEL LEAF": [
+    "Pan",
+    "Veelyadele",
+    "पानवेल",
+    "ವೀಳ್ಯದೆಲೆ"
+  ],
+  "PADDY": [
+    "Batta",
+    "Dhan",
+    "ধান",
+    "ಭತ್ತ",
+    "Chamal",
+    "Dhana",
+    "Jhona",
+    "Nellu",
+    "Tandul",
+    "चमल",
+    "तांदूळ",
+    "धान",
+    "ਝੋਨਾ",
+    "ଧାନ",
+    "നെല്ല്"
+  
+  ],
+  "RAGI": [
+    "Koovaraku",
+    "Ragi",
+    "রাগী",
+    "ರಾಗಿ",
+    "കൂവരക്"
+  ],
+  "PROSO MILLLET": [
+    "Baragu",
+    "ಬರಗು"
+  ],
+  "KODO MILLET": [
+    "Haraka",
+    "Uda",
+    "Udalu",
+    "ఉద",
+    "ఉదలు",
+    "ಹಾರಕ"
+  ],
+  "FOXTAIL MILLET": [
+    "Kangni",
+    "Kauni",
+    "Korra",
+    "Korralu",
+    "Navane",
+    "कांगनी",
+    "कौनी",
+    "కొర్ర",
+    "కొర్రలు",
+    "ನವಣೆ"
+  ],
+  "BROWN TOP MILLET": [
+    "Korale",
+    "ಕೊರಲೆ"
+  ],
+  "AMARANTHUS": [
+    "Dantina soppu",
+    "Rajagira",
+    "ಅಥವಾ ರಾಜಗಿರಾ",
+    "ದಂಟಿನ ಸೊಪ್ಪು",
+    "ಹರಿವೆ ಸೊಪ್ಪು"
+  ],
+  "SORGHUM": [
+    "Jola",
+    "Jonna",
+    "Manicholam",
+    "జొన్న",
+    "ಜೋಳ",
+    "മണിച്ചോലം"
+  ],
+  "GREENG GRAM": [
+    "Hesaru kaalu",
+    "ಹೆಸರು ಕಾಳು"
+  ],
+  "MUNG BEAN": [
+    "Uddu",
+    "ಉದ್ದು"
+  ],
+  "HYACINTH BEAN OR LABLAB BEAN": [
+    "Avarekai",
+    "ಅವರೆಕಾಯಿ"
+  ],
+  "CHICK PEA": [
+    "Kadle",
+    "ಕಡಲೆ"
+  ],
+  "SOYABEAN": [
+    "Bhatmas",
+    "Soya Avare",
+    "भटमास",
+    "ಸೋಯಾ ಅವರೆ"
+  ],
+  "CASTOR": [
+    "Amudam",
+    "Haralu",
+    "ఆముదం",
+    "ಹರಳು"
+  ],
+  "TOBACCO": [
+    "Pukayila",
+    "Tambaku",
+    "ತಂಬಾಕು",
+    "പുകയില"
+  ],
+  "MESTA": [
+    "Pundi",
+    "ಪುಂಡಿ"
+  ],
+  "CITRUS": [
+    "Mosambi",
+    "Nimma jati",
+    "kittale",
+    "నిమ్మ జాతి",
+    "ಮೋಸಂಬಿ ಮತ್ತು ಕಿತ್ತಳೆ"
+  ],
+  "PINEAPPLE": [
+    "Ananas",
+    "Pineapple",
+    "ಅನಾನಸ್",
+    "കൈതച്ചക്ക"
+  ],
+  "JACK FRUIT": [
+    "Halasu",
+    "katar",
+    "कटर",
+    "ಹಲಸು"
+  ],
+  "JAMUN FRUIT": [
+    "Nerale",
+    "ನೇರಳೆ"
+  ],
+  "KARONDA": [
+    "Kavale",
+    "ಕವಳೆ"
+  ],
+  "WOOD APPLE": [
+    "Belavala hannu",
+    "ಬೆಳವಲ ಹಣ್ಣು"
+  ],
+  "PASSION FRUIT": [
+    "Fashion hannu",
+    "ಫ್ಯಾಷನ್ ಹಣ್ಣು"
+  ],
+  "MANGOSTEEN": [
+    "Mangosteen",
+    "ಮ್ಯಾಂಗೋಸ್ಟೀನ್"
+  ],
+  "RAMBOOTHAN": [
+    "Rambutan",
+    "ರಾಮಬೂತನ್"
+  ],
+  "CAPSICUM": [
+    "Capsicum",
+    "Donne menasinakaayi",
+    "ক্যাপসিকাম",
+    "ಡೊಣ್ಣ ಮೆಣಸಿನಕಾಯಿ"
+  ],
+  "KNOL-KHOL": [
+    "Gadde kosu navilu kosu",
+    "ಗಡ್ಡೆ ಕೋಸು ನವಿಲು ಕೋಸು"
+  ],
+  "FRENCH BEAN": [
+    "Beans",
+    "Thingala hurulikayi",
+    "ತಿಂಗಳ ಹುರುಳಿಕಾಯಿ",
+    "ബീൻസ്"
+  ],
+  "CLUSTER BEAN": [
+    "Chavali kaayi gorikaayi",
+    "Goru chikkudu",
+    "గోరు చిక్కుడు",
+    "ಚವಳಿ ಕಾಯಿ ಗೋರಿಕಾಯಿ"
+  ],
+  "WATER MELON": [
+    "Kallangadi",
+    "Thannimathan",
+    "Tormuj",
+    "তরমুজ",
+    "ಕಲ್ಲಂಗಡಿ",
+    "തണ്ണിമത്തൻ"
+  ],
+  "GHERKINS": [
+    "Midi soute gherkhin",
+    "ಮಿಡಿ ಸೌತೆ ಘರ್ಕಿನ್"
+  ],
+  "CHOW CHOW": [
+    "Seeme badanekayi",
+    "ಸೀಮೆ ಬದನೆಕಾಯಿ"
+  ],
+  "IVY GOURD": [
+    "Kundri",
+    "Tonde",
+    "কুঁদরী",
+    "ತೊಂಡೆ"
+  ],
+  "BEETROOT": [
+    "Beet",
+    "Beetroot",
+    "বীট",
+    "ಬೀಟ್‌ರೂಟ್"
+  ],
+  "SWEET POTATO": [
+    "Cheenikizhangu",
+    "Sihee genasu",
+    "ಸಿಹಿ ಗೆಣಸು",
+    "ചീനികിഴങ്ങ്"
+  ],
+  "CASSAVA (TAPIOCA)": [
+    "Mara genasu",
+    "ಮರ ಗೆಣಸು"
+  ],
+  "YAM": [
+    "Suvarna gadde",
+    "ಸುವರ್ಣಗಡ್ಡೆ"
+  ],
+  "BABY CORN": [
+    "Baby corn ele musukina jola",
+    "ಬೀಬಿಕಾರ್ನ್ ಎಳೆ ಮುಸುಕಿನ ಜೋಳ"
+  ],
+  "FENUGREEK (METHI)": [
+    "Mente",
+    "ಮೆಂತೆ"
+  ],
+  "SPINACH": [
+    "Palak",
+    "ಪಾಲಕ್"
+  ],
+  "LETTUCE": [
+    "Lettuce hakkarike soppu",
+    "ಲೆಟ್ಯೂಸ್ ಹಕ್ಕರಿಕೆ ಸೊಪ್ಪು"
+  ],
+  "CORIANDER (CILANTRO)": [
+    "Kottambari dhaniya",
+    "ಕೊತ್ತಂಬರಿ ಧನಿಯ"
+  ],
+  "DRUMSTICK (MORINGA)": [
+    "Nugge",
+    "ನುಗ್ಗೆ"
+  ],
+  "CURRY LEAVES": [
+    "Kari Pata",
+    "Karibevu",
+    "কারি পাতা",
+    "ಕರಿಬೇವು"
+  ],
+  "DILL LEAVES": [
+    "Sabbasige",
+    "ಸಬ್ಬಸಿಗೆ"
+  ],
+  "COCONUT": [
+    "Kobbari",
+    "Narkel",
+    "Tengu",
+    "Thengu",
+    "নারকেল",
+    "కొబ్బరి",
+    "ತೆಂಗು",
+    "തേങ്ങ്"
+  ],
+  "PALMYRA PALM": [
+    "Taale",
+    "ತಾಳೆ"
+  ],
+  "RUBBER": [
+    "Rubber",
+    "ರಬ್ಬರ್",
+    "റബ്ബർ"
+  ],
+  "CASHEW": [
+    "Godambi",
+    "Kasuvandi",
+    "ಗೋಡಂಬಿ",
+    "കസുവണ്ടി"
+  ],
+  "COFFEE": [
+    "Coffee",
+    "kappi",
+    "ಕಾಫಿ",
+    "കാപ്പി"
+  ],
+  "COCOA": [
+    "COCOA",
+    "Cocoa",
+    "ಕೋಕೋ",
+    "കൊക്കോ"
+  ],
+  "BLACK PEPPER": [
+    "Golmorich",
+    "KURUMULAKKU",
+    "Karimenusu",
+    "Miriyalu",
+    "গোলমরিচ",
+    "మిరియాలు",
+    "ಕರಿಮೆಣಸು",
+    "കുരുമുളക്"
+  ],
+  "CINNAMON": [
+    "Dalchini chakke",
+    "Darchini",
+    "Karukappeta",
+    "দারচিনি",
+    "ದಾಲ್ಟಿನ್ನಿ ಚಕ್ಕೆ",
+    "കറുകപ്പേട്ട"
+  ],
+  "CLOVE": [
+    "Grambu",
+    "Lavanga",
+    "ಲವಂಗ",
+    "ഗ്രാംബു"
+  ],
+  "NUTMEG": [
+    "JATHIKKA",
+    "Jaayikaayi",
+    "Jayphal",
+    "জায়ফল",
+    "ಜಾಯಿಕಾಯಿ",
+    "ജാതിക്ക"
+  ],
+  "ALLSPICE": [
+    "Sarva saambaar all spice",
+    "ಸರ್ವ ಸಾಂಬಾರ್ ಆಲ್ ಸ್ಪೈಸ್"
+  ],
+  "VANILLA": [
+    "Vanilla",
+    "ವೆನಿಲ್ಲಾ",
+    "വാനില"
+  ],
+  "KOKUM": [
+    "Murugala kokum",
+    "ಮುರುಗಲ ಕೋಕೊಂ"
+  ],
+  "AJWAIN (CAROM SEEDS)": [
+    "Ajvaana",
+    "ಅಜವಾನ"
+  ],
+  "MARIGOLD": [
+    "Banthi",
+    "Banthi puvvu",
+    "Chendu hoo",
+    "Jemanthi",
+    "బంతి",
+    "బంతి పువ్వు",
+    "ಚೆಂಡು ಹೂ",
+    "ജെമന്തി"
+  ],
+  "JASMINE": [
+    "Malle",
+    "Malle puvvu",
+    "Mallige",
+    "Mullapoo",
+    "మల్లె",
+    "మల్లె పువ్వు",
+    "ಮಲ್ಲಿಗೆ",
+    "മുല്ലപ്പൂ"
+  ],
+  "CHRYSANTHEMUM": [
+    "Chamanthi",
+    "Chamanti",
+    "Savvanti",
+    "Sevantige",
+    "చామంతి",
+    "సవ్వంటి",
+    "ಸೇವಂತಿಗೆ"
+  ],
+  "CROSSANDRA": [
+    "Kanakaambara",
+    "Kanakambaram",
+    "ಕನಕಾಂಬರ",
+    "കനകാംബരം"
+  ],
+  "ROSE": [
+    "Gulaabi",
+    "Gulabi",
+    "గులాబీ",
+    "ಗುಲಾಬಿ"
+  ],
+  "CHINA ASTER": [
+    "Aster",
+    "China aster buttons",
+    "ಚೈನಾ ಆ್ಯಸ್ಟರ್ ಬಟನ್ಸ್",
+    "ആസ്റ്റർ"
+  ],
+  "TUBEROSE": [
+    "Rajani Gandha",
+    "Sugandharaja",
+    "రజని గంధా",
+    "ಸುಗಂಧರಾಜ"
+  ],
+  "GLADIOLUS": [
+    "Gladiolus",
+    "ಗ್ಲಾಡಿಯೋಲಸ್",
+    "ഗ്ലാഡിയോളസ്"
+  ],
+  "GERBERA": [
+    "Gerbera hasiru maneyalli",
+    "ಜರ್ಬೆರಾ ಹಸಿರು ಮನೆಯಲ್ಲಿ"
+  ],
+  "ANTHURIUM": [
+    "Anthurium",
+    "ಅಂಥೋರಿಯಂ",
+    "ആന്തൂറിയം"
+  ],
+  "BIRD OF PARADISE": [
+    "Bird of paradise",
+    "ಬರ್ಡ್ ಆಫ್ ಪ್ಯಾರಡೈಸ್"
+  ],
+  "CARNATION": [
+    "Carnation",
+    "ಕಾರ್ನೆಶನ್"
+  ],
+  "ROSE (GREENHOUSE)": [
+    "Gulaabi hasiru maneyalli",
+    "ಗುಲಾಬಿ ಹಸಿರು ಮನೆಯಲ್ಲಿ"
+  ],
+  "GAILLARDIA": [
+    "Gaillardia",
+    "ಗೈಲಾರ್ಡಿಯಾ"
+  ],
+  "ORCHIDS": [
+    "Orchids",
+    "Orchids seetaale",
+    "ಆರ್ಕಿಡ್ಸ್ ಸೀತಾಳೆ",
+    "ഓർക്കിഡ്"
+  ],
+  "HELICONIA": [
+    "Heliconia",
+    "ಹೆಲಿಕೋನಿಯಾ"
+  ],
+  "ASHWAGANDHA": [
+    "Ashwagandha",
+    "ಅಶ್ವಗಂಧ"
+  ],
+  "KASHI KANAGILE (LOCAL MEDICINAL PLANT)": [
+    "Kaashi kanagile",
+    "ಕಾಶಿ ಕಣಗಿಲೆ"
+  ],
+  "INDIAN SARSAPARILLA (MANGANI ROOT)": [
+    "Maangani beru",
+    "ಮಾಂಗನಿ ಬೇರು"
+  ],
+  "NEEM (GROUND TYPE)": [
+    "Nela bevu",
+    "ನೆಲ ಬೇವು"
+  ],
+  "ALOE VERA": [
+    "Aloe Vera",
+    "Lolesara aloe vera",
+    "అలోవెరా",
+    "ಲೋಳೆಸರ ಅಲೋವೆರಾ"
+  ],
+  "SARPAGANDHA (INDIAN SNAKEROOT)": [
+    "Sarpagandha",
+    "ಸರ್ಪಗಂಧ"
+  ],
+  "SAFED MUSLI": [
+    "Safed musli",
+    "ಸಫೇದ್ ಮುಸ್ಲಿ"
+  ],
+  "LONG PEPPER": [
+    "Hippali",
+    "ಹಿಪ್ಪಲಿ"
+  ],
+  "STEVIA": [
+    "Stevia madhuvanta",
+    "ಸ್ಪಿವೀಯಾ ಮಧುವಂತ"
+  ],
+  "GYMNEMA (SUGAR DESTROYER)": [
+    "Madhunaashini",
+    "ಮಧುನಾಶಿನಿ"
+  ],
+  "TULSI (HOLY BASIL)": [
+    "Tulasi",
+    "ತುಳಸಿ"
+  ],
+  "ROSEMARY": [
+    "Rosemary",
+    "ರೋಸ್‌ಮರಿ"
+  ],
+  "SANDALWOOD": [
+    "Sreegandham",
+    "Srigandha",
+    "శ్రీగంధం",
+    "ಶ್ರೀಗಂಧ"
+  ],
+  "GERANIUM": [
+    "Panneeru gida geranium",
+    "ಪನ್ನೀರು ಗಿಡ ಜಿರೇನಿಯಂ"
+  ],
+  "DAVANA": [
+    "Davana",
+    "ದವನ"
+  ],
+  "LEMONGRASS": [
+    "Lemongrass",
+    "Nimbe hullu",
+    "ನಿಂಬೆ ಹುಲ್ಲು",
+    "ലെമൺഗ്രാസ്"
+  ],
+  "CITRONELLA GRASS": [
+    "Citronella hullu",
+    "ಸಿಟ್ರೋನೆಲ್ಲಾ ಹುಲ್ಲು"
+  ],
+  "PALMAROSA GRASS": [
+    "Palmarosa hullu",
+    "ಪಾಮಾರೋಸಾ ಹುಲ್ಲು"
+  ],
+  "PATCHOULI": [
+    "Patchouli",
+    "ಪಚೌಲಿ"
+  ],
+  "VETIVER (KHUS GRASS)": [
+    "Lavancha khas hullu",
+    "ಲಾವಂಚ ಖಸ್ ಹುಲ್ಲು"
+  ],
+  "PLUM": [
+    "Alubukhara",
+    "plum",
+    "प्लम",
+    "আলু বুখারা"
+  ],
+  "AMARANTH": [
+    "Amaranth",
+    "Chaulai",
+    "Cheera",
+    "Rajgiri",
+    "Ramdana",
+    "Salara",
+    "Seul",
+    "चौलाई",
+    "राजगिरा",
+    "रामदाना",
+    "सालाड़ा",
+    "स्यूल",
+    "নটে শাক",
+    "ചീര"
+  ],
+  "ARHAR DAL (RED GRAM)": [
+    "Arhar Dal",
+    "অড়হর ডাল"
+  ],
+  "AROMATIC RICE": [
+    "Sugandhi Chal",
+    "সুগন্ধি চাল"
+  ],
+  "ARUM (ELEPHANT FOOT YAM)": [
+    "Ol",
+    "ওল"
+  ],
+  "ARUM LOBE": [
+    "Kochur Loti",
+    "কচুর লতি"
+  ],
+  "ARUM STEM": [
+    "Ol Data",
+    "ওল ডাটা"
+  ],
+  "BABYCORN": [
+    "Babycorn",
+    "বেবিকর্ন"
+  ],
+  "BANANA STEM": [
+    "Thore",
+    "Varali",
+    "থোড়",
+    "ভারালী"
+  ],
+  "BEANS": [
+    "Beans",
+    "বিনস"
+  ],
+  "BER (JUJUBE)": [
+    "Kul",
+    "কুল"
+  ],
+  "BETHUA LEAVES": [
+    "Bethua Shak",
+    "বেথুয়া শাক"
+  ],
+  "BETO SHAK": [
+    "Beto Shak",
+    "বেতো শাক"
+  ],
+  "BLACK CUMIN": [
+    "Kalo Jira",
+    "কালো জিরা"
+  ],
+  "BLACK GRAPES": [
+    "Kalo Angur",
+    "কালো আঙুর"
+  ],
+  "BROAD BEANS": [
+    "Sim",
+    "সিম"
+  ],
+  "CAROM": [
+    "Jowan",
+    "জোয়ান"
+  ],
+  "CELERY SEEDS": [
+    "Radhuni",
+    "রাধুনি"
+  ],
+  "CEYLON SPINACH": [
+    "Pui Shak",
+    "পুঁই শাক"
+  ],
+  "CHAR MAGAZ": [
+    "Chal Magaz",
+    "চাল মগজ"
+  ],
+  "CHIKOO": [
+    "Sabeda",
+    "সবেদা"
+  ],
+  "BENGAL GRAM": [
+    "Cholar Dal",
+    "ছোলার ডাল"
+  ],
+  "CLOVES": [
+    "Labongo",
+    "লবঙ্গ"
+  ],
+  "COLOCACIA": [
+    "Ghet Kochu",
+    "ঘট কচু",
+    "ঘেট"
+  ],
+  "CORIANDER LEAVES/SEEDS": [
+    "Dhone",
+    "ধনে"
+  ],
+  "CUMIN SEEDS": [
+    "Jira",
+    "জিরে"
+  ],
+  "DARJEELING ORANGE": [
+    "Darjeeling Komlalebu",
+    "দার্জিলিঙের কমলালেবু"
+  ],
+  "DATE": [
+    "Khejur",
+    "খেজুর"
+  ],
+  "DRAGON FRUIT": [
+    "Dragon Phal",
+    "ড্রাগন ফল"
+  ],
+  "DRUMSTICK": [
+    "Sajne",
+    "সজনে"
+  ],
+  "ELEPHANT APPLE": [
+    "Chalta",
+    "চালতা"
+  ],
+  "GERMAN TURNIP": [
+    "Olkopi",
+    "ওলকপি"
+  ],
+  "GREEN CARDAMOM": [
+    "Choto Elach",
+    "ছোট এলাচ"
+  ],
+  "GREEN MANGO": [
+    "Kancha Aam",
+    "কাঁচা আম"
+  ],
+  "GREEN PAPAYA": [
+    "Kancha Pepe",
+    "কাঁচা পেঁপে"
+  ],
+  "GREEN PEAS": [
+    "Koraishuti",
+    "কড়াইশুঁটি"
+  ],
+  "HOGPLUM": [
+    "Amra",
+    "আমড়া"
+  ],
+  "INDIAN BLACKBERRY": [
+    "Kalo Jam",
+    "কালো জাম"
+  ],
+  "INDIAN GOOSEBERRY": [
+    "Amolki",
+    "Nellika",
+    "আমলকি",
+    "നെല്ലിക്ക"
+  ],
+  "JACKFRUIT": [
+    "Enchor",
+    "kathal",
+    "कटहल",
+    "এঁচড়"
+  ],
+  "JICAMA": [
+    "Shakh Alu",
+    "শাঁখ আলু"
+  ],
+  "JUTE LEAVES": [
+    "Pat Shak",
+    "পাট শাক"
+  ],
+  "KALAI DAL": [
+    "Kalai Dal",
+    "কলাই ডাল"
+  ],
+  "MATAR DAL (SPLIT PEAS)": [
+    "Matar Dal",
+    "মটর ডাল"
+  ],
+  "MOONG DAL": [
+    "Moong Dal",
+    "মুগ ডাল"
+  ],
+  "MUSUR DAL": [
+    "Musur Dal",
+    "মসুর ডাল"
+  ],
+  "RED CHILLI": [
+    "Gota Shukno Lanka",
+    "গোটা শুকনো লঙ্কা"
+  ],
+  "SHAH MARICH": [
+    "Shah Marich",
+    "শাহী মরিচ"
+  ],
+  "SQUASH": [
+    "Squash",
+    "স্কোয়াশ"
+  ],
+  "RIPE PAPAYA": [
+    "Paka Pepe",
+    "পাকা পেঁপে"
+  ],
+  "SWEET LEMON": [
+    "Musumbi",
+    "মুসুম্বি"
+  ],
+  "GREEN CHILLI": [
+    "Kancha Lanka",
+    "কাঁচালঙ্কা"
+  ],
+  "LADY'S FINGER": [
+    "Ladys Finger",
+    "ঢেঁড়স"
+  ],
+  "POINTED GOURD": [
+    "Pointed Gourd",
+    "পটল"
+  ],
+  "RAW BENGAL GRAM": [
+    "Raw Bengal Gram",
+    "কাঁচা ছোলা"
+  ],
+  "RICE (PADDY)": [
+    "Vari",
+    "వరి"
+  ],
+  "KIDNEY BEAN/RAJAMA": [
+    "Rajma",
+    "రాజ్మా"
+  ],
+  "INDIAN HOGWEED / SPINY AMARANTH (COMMONLY USED FOR THIS WEED NAME IN SOME REGIONS)": [
+    "Ammadam",
+    "అమ్మడము"
+  ],
+  "WILD DATE PALM": [
+    "Veluselu",
+    "వేలుసెలు"
+  ],
+  "ROSELLE / RED SORREL": [
+    "Gogu",
+    "Gongura",
+    "గోంగూర",
+    "గోగు"
+  ],
+  "BAMBOO": [
+    "Veduru",
+    "వెదురు"
+  ],
+  "NEEM": [
+    "Neem",
+    "Vepa",
+    "వేప",
+    "വേപ്പ്"
+  ],
+  "TEAK": [
+    "Teak",
+    "Teeku",
+    "టేకు",
+    "తేకు",
+    "തേക്ക്"
+  ],
+  "PHYSIC NUT / JATROPHA": [
+    "Jatropha Adavi Aamudam",
+    "జట్రోఫా అడవి ఆముదం"
+  ],
+  "INDIAN BEECH / PONGAM TREE": [
+    "Kanuga",
+    "కానుగ"
+  ],
+  "BABOOL / INDIAN GUM ARABIC TREE": [
+    "Sarkari Thumma",
+    "సర్కారీ తుమ్మ"
+  ],
+  "PARADISE TREE": [
+    "Seema Rubba Sarkari Thangedu",
+    "Seema rooba",
+    "సీమరుబా సర్కారీ తంగేడు",
+    "సీమా రూబా"
+  ],
+  "INDIAN BUTTER TREE / MAHUA": [
+    "Ippa",
+    "ఇప్ప"
+  ],
+  "MALABAR NEEM": [
+    "Malabar Vepa",
+    "Malabar vepa",
+    "మలబారు వేప",
+    "మలబార్ వేప"
+  ],
+  "RED SANDERS / RED SANDALWOOD": [
+    "Erra Chandanam",
+    "ఎర్ర చందనం"
+  ],
+  "MAHOGANY": [
+    "Mahogany",
+    "మహాగని"
+  ],
+  "LIME / LEMON": [
+    "Nimma",
+    "నిమ్మ"
+  ],
+  "SWEET ORANGE": [
+    "Kamala Pandu",
+    "కమలాపండు"
+  ],
+  "BRINJAL / EGGPLANT": [
+    "Vankaya",
+    "వంకాయ"
+  ],
+  "CUMIN": [
+    "Jeelakarra",
+    "జీలకర్ర"
+  ],
+  "HOLY BASIL": [
+    "Tulasi",
+    "తులసి"
+  ],
+  "PADDY/RICE": [
+    "Vari",
+    "వరి"
+  ],
+  "QUINA": [
+    "Quinoa",
+    "క్వినోవా"
+  ],
+  "RED GRAM/PIGEON PEA": [
+    "Kandulu",
+    "కందులు"
+  ],
+  "BENGAL GRAM/CHICKPEA": [
+    "Senagalu",
+    "శనగలు"
+  ],
+  "KUSUMA": [
+    "Kusuma",
+    "కుసుమ"
+  ],
+  "BRINJAL (EGGPLANT)": [
+    "Vankaya",
+    "వంకాయ"
+  ],
+  "OKRA (LADY’S FINGER)": [
+    "Bendakaya",
+    "బెండకాయ"
+  ],
+  "SNAKE GOURD": [
+    "Padavalam",
+    "Potla kaya",
+    "పొట్లకాయ",
+    "പടവലം"
+  ],
+  "FIRECRACKER FLOWER": [
+    "Kanakambaram",
+    "కనకాంబరం"
+  ],
+  "EUCALYPTUS": [
+    "Eucalyptus",
+    "Nilgiri",
+    "నీలగిరి",
+    "యూకలిప్టస్",
+    "യൂക്കാലിപ്റ്റസ്"
+  ],
+  "WILD TAMARIND": [
+    "Seema chinta",
+    "సీమ చింత"
+  ],
+  "INDIAN BEECH TREE": [
+    "Kanuga",
+    "కనుగ"
+  ],
+  "BABOOL TREE": [
+    "Tumma",
+    "తుమ్మ"
+  ],
+  "BUTTER / MAHUA TREE": [
+    "Ippa",
+    "ఇప్ప"
+  ],
+  "RED SANDALWOOD": [
+    "Erra chandanam",
+    "ఎర్ర చందనం"
+  ],
+  "OAT": [
+    "Jai",
+    "जई"
+  ],
+  "BUCKWHEAT": [
+    "Fafra",
+    "Gangadi",
+    "Kathu",
+    "Kuttu",
+    "Ogla",
+    "ओगला",
+    "कठु",
+    "कुट्टू",
+    "गंगाड़ी",
+    "फाफरा"
+  ],
+  "INDIAN MUSTARD": [
+    "Raya",
+    "राया"
+  ],
+  "CHICKPEA, BENGAL GRAM": [
+    "Chana",
+    "Chhole",
+    "चना",
+    "छोले"
+  ],
+  "HORSEGRAM": [
+    "Gehat",
+    "Kulth",
+    "Kulthi",
+    "कुलथी",
+    "कुल्थ",
+    "गेहट"
+  ],
+  "PROSO MILLET": [
+    "Cheena",
+    "Cheeni",
+    "चीना",
+    "चीनी"
+  ],
+  "GREEN GRAM, GOLDEN GRAM": [
+    "Moong",
+    "Mungi",
+    "मुंगी",
+    "मूंग"
+  ],
+  "SESAME, GINGELLY": [
+    "Sinsim",
+    "Til",
+    "तिल",
+    "सिंसिम"
+  ],
+  "LINSEED, FLAX": [
+    "Alsi",
+    "अलसी"
+  ],
+  "PIGEON PEA, RED GRAM": [
+    "Arhar daal",
+    "Tur",
+    "अरहर दाल",
+    "तूर"
+  ],
+  "ALMOND": [
+    "badam",
+    "बादाम"
+  ],
+  "APRICOT": [
+    "khumani",
+    "खुमानी"
+  ],
+  "GALGAL (HILL LEMON)": [
+    "galgal",
+    "गलगल"
+  ],
+  "GRAPE": [
+    "angoor",
+    "अंगूर"
+  ],
+  "HOPS": [
+    "hops",
+    "हॉप्स"
+  ],
+  "INDIAN GOOSEBERRY (AMLA)": [
+    "amla",
+    "आंवला"
+  ],
+  "INDIAN JUJUBE (BER)": [
+    "ber",
+    "बेर"
+  ],
+  "JAPANESE PERSIMMON": [
+    "japani phal parsiman",
+    "जापानी फल परसीमन"
+  ],
+  "KAGZI LIME": [
+    "kagzi neembu",
+    "कागजी नीम्बू"
+  ],
+  "KINNOW (MANDARIN)": [
+    "kinnu",
+    "किन्नू"
+  ],
+  "KIWIFRUIT": [
+    "kivi phal",
+    "किवी फल"
+  ],
+  "LOQUAT": [
+    "lokaat",
+    "लोकाट"
+  ],
+  "OLIVE": [
+    "jaitoon",
+    "जैतून"
+  ],
+  "ORANGE (SWEET ORANGE / MOSAMBI)": [
+    "mausambi",
+    "santra",
+    "मौसम्बी",
+    "संतरा"
+  ],
+  "PEACH": [
+    "aai aadu",
+    "आइ आड़"
+  ],
+  "PEAR": [
+    "nashpati",
+    "नाशपाती"
+  ],
+  "PECAN NUT": [
+    "peekan nut",
+    "पीकन नट"
+  ],
+  "SAPODILLA (CHIKU)": [
+    "chiku",
+    "चीकू"
+  ],
+  "SWEET CHERRY": [
+    "sweet cherry",
+    "स्वीट चेरी"
+  ],
+  "WALNUT": [
+    "akhrot aswarot",
+    "अखरोट अस्वरोट"
+  ],
+  "GREEN PEA": [
+    "Pattani",
+    "പട്ടാണി"
+  ],
+  "RED GRAM": [
+    "Thuvarappayar",
+    "തുവരപ്പയർ"
+  ],
+  "ELEPHANT FOOT YAM": [
+    "Chena",
+    "ചേന"
+  ],
+  "COLOCASIA": [
+    "Chembu",
+    "ചെമ്പ്"
+  ],
+  "GREATER YAM": [
+    "Kachil",
+    "കാച്ചിൽ"
+  ],
+  "WHITE YAM": [
+    "Veluthakachil",
+    "വെളുത്തകച്ചിൽ"
+  ],
+  "TAPIOCA": [
+    "Kappa",
+    "കപ്പ"
+  ],
+  "LESSER YARM": [
+    "Kavithu",
+    "കവിതു"
+  ],
+  "COLEUS": [
+    "Koorka",
+    "കൂർക്ക"
+  ],
+  "OILPALM": [
+    "Pana",
+    "പന"
+  ],
+  "CARDAMOM": [
+    "ELAKKA",
+    "എലക്ക"
+  ],
+  "MANGO-GINGER": [
+    "Managainji",
+    "മാങ്ങ-ഇഞ്ചി"
+  ],
+  "CAMBOGE": [
+    "KUDAMPULLI",
+    "കുടംപുള്ളി"
+  ],
+  "ARECANUT": [
+    "ADAKKA",
+    "അടക്ക"
+  ],
+  "BETEL VINE": [
+    "VETTILA",
+    "വെറ്റില"
+  ],
+  "TEA": [
+    "Theyila",
+    "തെയില"
+  ],
+  "PICKLING MELON": [
+    "Kanivellari",
+    "കണിവെള്ളരി"
+  ],
+  "VEGETABLE COWPEA": [
+    "payar",
+    "പയർ"
+  ],
+  "BEET ROOT": [
+    "beetroot",
+    "ബീറ്റ്റൂട്ട്"
+  ],
+  "MANDARIN ORANGE": [
+    "naranga",
+    "നാരങ്ങ"
+  ],
+  "JACK": [
+    "chakka",
+    "ചക്ക"
+  ],
+  "WEST INDIAN CHERRY": [
+    "cherry",
+    "ചെറി"
+  ],
+  "KACHOLAM": [
+    "Kacholam",
+    "കച്ചോലം"
+  ],
+  "PALMAROSA": [
+    "Palmarosa",
+    "പാൽമറോസ"
+  ],
+  "VETIVER": [
+    "Vetiver",
+    "വെറ്റിവർ"
+  ],
+  "CHETHIKODUVELI": [
+    "Chethikoduveli",
+    "ചെത്തിക്കൊടുവേലി"
+  ],
+  "NEELA AMARI": [
+    "Neela amari",
+    "നീല അമരി"
+  ],
+  "CHENGAZHINIRKIZHANGU": [
+    "Chengazhinirkizhangu",
+    "ചെങ്ങഴിനീർകിഴങ്ങ്"
+  ],
+  "KASTHURIMANJAL": [
+    "Kasthurimanjal",
+    "കസ്തൂരിമഞ്ഞൾ"
+  ],
+  "CHITTARATHA": [
+    "Chittaratha",
+    "ചിറ്റരത്ത"
+  ],
+  "JEEVAKOM": [
+    "Jeevakom",
+    "ജീവകം"
+  ],
+  "NILAPPANA": [
+    "Nilappana",
+    "നിലപ്പന"
+  ],
+  "ADAPATHIYAN": [
+    "Adapathiyan",
+    "അടപാതിയൻ"
+  ],
+  "ASOKA": [
+    "Asoka",
+    "അശോകം"
+  ],
+  "KANJIRAM": [
+    "Kanjiram",
+    "കഞ്ഞിരം"
+  ],
+  "THIPPALI": [
+    "Thippali",
+    "തിപ്പലി"
+  ],
+  "PATHIMUGHAM": [
+    "Pathimugham",
+    "പതിമുഖം"
+  ],
+  "CHITTADALOTAKAM": [
+    "Chittadalotakam",
+    "ചിട്ടാടലോടകം"
+  ],
+  "KOOVALAM": [
+    "Koovalam",
+    "കൂവളം"
+  ],
+  "THULASI": [
+    "Thulasi",
+    "തുളസി"
+  ],
+  "KARINOCHI": [
+    "Karinochi",
+    "കരിനോച്ചി"
+  ],
+  "KATTARVAZHA": [
+    "Kattarvazha",
+    "കറ്റാർവാഴ"
+  ],
+  "ARROW ROOT": [
+    "Arrow root",
+    "ആററൂട്ട്"
+  ],
+  "DANTHAPPALA": [
+    "Danthappala",
+    "ദന്തപ്പാല"
+  ],
+  "BRAHMI": [
+    "Brahmi",
+    "ബ്രാഹ്മി"
+  ],
+  "KURUMTHOTTI": [
+    "Kurumthotti",
+    "കുറുമ്തൊട്ടി"
+  ],
+  "GUINEA GRASS": [
+    "Guinea grass",
+    "ഗിനിയ ഗ്രാസ്"
+  ],
+  "GAMBA GRASS": [
+    "Gamba grass",
+    "ഗമ്പ ഗ്രാസ്"
+  ],
+  "SETARIA GRASS": [
+    "Setaria grass",
+    "സെറ്റാരിയ ഗ്രാസ്"
+  ],
+  "HYBRID NAPIER": [
+    "Hybrid napier",
+    "ഹൈബ്രിഡ് നാപിയർ"
+  ],
+  "PARA GRASS": [
+    "Para grass",
+    "പാര ഗ്രാസ്"
+  ],
+  "CONGOSIGNAL GRASS": [
+    "Congosignal grass",
+    "കോംഗോസിഗ്നൽ ഗ്രാസ്"
+  ],
+  "SUBABUL": [
+    "Subabul",
+    "സുബാബുൾ"
+  ],
+  "HEDGE LUCERNE": [
+    "Hedge lucerne",
+    "ഹെഡ്ജ് ലുസേൺ"
+  ],
+  "AGATHI": [
+    "Agathi",
+    "അഗത്തി"
+  ],
+  "FODDER COWPEA": [
+    "Fodder cowpea",
+    "ഫോഡർ കൗപീ"
+  ],
+  "SHEVRI": [
+    "Shevri",
+    "ശേവരി"
+  ],
+  "FODDER MAIZE": [
+    "Fodder maize",
+    "ഫോഡർ മൈസ്"
+  ],
+  "FODDER SORGHUM": [
+    "Fodder sorghum",
+    "ഫോഡർ സോർഗം"
+  ],
+  "SUN HEMP": [
+    "Sun hemp",
+    "സൺ ഹെംപ്"
+  ],
+  "DAINCHA": [
+    "Daincha",
+    "ഡൈഞ്ച"
+  ],
+  "WILD INDIGO": [
+    "Wild indigo",
+    "വൈൽഡ് ഇൻഡിഗോ"
+  ],
+  "INDIGO": [
+    "Indigo",
+    "ഇൻഡിഗോ"
+  ],
+  "GLIRICIDIA": [
+    "Gliricidia",
+    "ഗ്ലിരിസിഡിയ"
+  ],
+  "CASSIA": [
+    "Cassia",
+    "കാസിയ"
+  ],
+  "AILANTHUS OR MATTI": [
+    "Ailanthus or Matti",
+    "മട്ടി ഐലാന്തസ്"
+  ],
+  "CASUARINA": [
+    "Casuarina",
+    "കസുവാരിന"
+  ],
+  "MANGIUM": [
+    "Mangium",
+    "മാംഗ്യം"
+  ],
+  "THORNY BAMBOO": [
+    "Thorny bamboo",
+    "മുള മുളവരം"
+  ],
+  "WILD JACK OR AINI": [
+    "Wild jack or Aini",
+    "അയിനി വൈൽഡ് ജാക്ക്"
+  ],
+  "ROSEWOOD": [
+    "Rosewood",
+    "റോസ്‌വുഡ്"
+  ],
+  "SANDAL": [
+    "Sandal",
+    "ചന്ദനം"
+  ],
+  "KAMPAKAM": [
+    "Kampakam",
+    "കമ്പകം"
+  ],
+  "IRUL": [
+    "Irul",
+    "ഇരുള"
+  ],
+  "MAHAGONY": [
+    "Mahagony",
+    "മഹാഗണി"
+  ],
+  "THEMBAVU": [
+    "Thembavu",
+    "തേമ്പാവ്"
+  ],
+  "VENGA": [
+    "Venga",
+    "വെങ്ങ"
+  ],
+  "CHADACHI": [
+    "Chadachi",
+    "ചടച്ചി"
+  ],
+  "PUNNA": [
+    "Punna",
+    "പുന്ന"
+  ],
+  "URD": [
+    "Kalodal’ or ‘Panhelo dal’",
+    "कालो दाल",
+    "पहेलो दाल"
+  ],
+  "CHILLY": [
+    "khorsani",
+    "खोरसानी"
+  ],
+  "LARGE CARDAMOM": [
+    "Thulo alaichi",
+    "थुलो अलैची"
+  ],
+  "MANDARIN": [
+    "Santra",
+    "सन्त्रा"
+  ],
+  "BROCOLLI": [
+    "Hario Gobhi",
+    "हरियो गोभी"
+  ],
+  "CHAYOTE": [
+    "Iskus",
+    "इस्कुस"
+  ],
+  "TREE TOMATO": [
+    "Rukh rambeda",
+    "रुख रम्बेडा"
+  ]
+}
