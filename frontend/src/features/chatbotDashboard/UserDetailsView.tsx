@@ -85,6 +85,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   endTime: undefined,
   profileCompleted: "all",
   inactiveOnly: false,
+  userType: "all",
 };
 
 interface UserDetailsViewProps {
@@ -97,6 +98,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
     ...initialFilters,
+    userType,
   }));
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -119,7 +121,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     filters.village,
     filters.profileCompleted,
     filters.inactiveOnly,
-    userType,
+    filters.userType,
   );
 
   const { users, totalUsers, totalPages, activeUsers, inactiveUsers, totalQuestions } = data;
@@ -140,7 +142,8 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     filters.village ||
     filters.startTime ||
     filters.profileCompleted !== "all" ||
-    filters.inactiveOnly;
+    filters.inactiveOnly ||
+    filters.userType !== "all";
 
   const dateLabel = filters.startTime && filters.endTime
     ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
