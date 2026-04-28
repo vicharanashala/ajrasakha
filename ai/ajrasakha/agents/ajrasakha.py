@@ -2,15 +2,24 @@ from typing import Annotated, Optional
 
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
+from pydantic import BaseModel
 from typing_extensions import TypedDict
 
+from ajrasakha.agents.chemical_checker_agent import chemical_checker
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
-from ajrasakha.agents.prompts import AJRASAKHA_SYSTEM_PROMPT as SYSTEM_PROMPT
+from ajrasakha.agents.gdb_agent import gdb
+from ajrasakha.agents.market_agent import market
+from ajrasakha.agents.prompts import AJRASAKHA_SYSTEM_PROMPT, GDB_SYSTEM_PROMPT, WHATSAPP_SYSTEM_PROMPT
+from ajrasakha.agents.schemes_agent import schemes
+from ajrasakha.agents.soil_agent import soil
+from ajrasakha.agents.weather_agent import weather
 
 load_dotenv()
 
@@ -57,17 +66,44 @@ async def _get_tools() -> list:
     return _tools_cache
 
 
+SYSTEM_PROMPT ="""
+You are AjraSakha, a helpful and knowledgeable assistant for farmers. Your purpose is to provide accurate and timely information to farmers based on their queries. 
+You have access to gdb tool, use it to fetch location aware answers to questions that farmers have, these are curated by agri experts.
+""".strip()
+
+
+_location_tool = None
+_reviewer_tool = None
+
+async def _get_location_tool():
+    global _location_tool
+    if _location_tool is None:
+        client = MultiServerMCPClient({"location_server": {"url": MCP_URLS["location"], "transport": "http"}})
+        tools = await client.get_tools()
+        _location_tool = tools[0]  # only one tool
+    return _location_tool
+
+async def _get_reviewer_tool():
+    global _reviewer_tool
+    if _reviewer_tool is None:
+        client = MultiServerMCPClient({"reviewer_server": {"url": MCP_URLS["reviewer"], "transport": "http"}})
+        tools = await client.get_tools()
+        _reviewer_tool = tools[0]  # only one tool
+    return _reviewer_tool
+
 async def ajrasakha_node(state: AjraSakhaState) -> dict:
-    tools = await _get_tools()
-    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(tools)
-    messages = [SystemMessage(content=SYSTEM_PROMPT)] + list(state["messages"])
+    location = await _get_location_tool()
+    reviewer = await _get_reviewer_tool()
+    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer])
+    messages = [SystemMessage(content=WHATSAPP_SYSTEM_PROMPT)] + list(state["messages"])
     response = await llm.ainvoke(messages)
     return {"messages": [response]}
 
 
 async def tools_node(state: AjraSakhaState) -> dict:
-    tools = await _get_tools()
-    return await ToolNode(tools).ainvoke(state)
+    location = await _get_location_tool()
+    reviewer = await _get_reviewer_tool()
+    return await ToolNode([gdb,weather,soil,market, location, schemes, chemical_checker, reviewer]).ainvoke(state)
 
 
 builder = StateGraph(AjraSakhaState)
