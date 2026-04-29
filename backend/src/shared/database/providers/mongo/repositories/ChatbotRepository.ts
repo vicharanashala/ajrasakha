@@ -543,16 +543,18 @@ export class ChatbotRepository implements IChatbotRepository {
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
 
-    let pipeline = messageId?
-    [
-      {
+    let pipeline = [];
+    
+    if(messageId){
+      pipeline.push(
+        {
         $match: {
           messageId
         }
       }
-    ]
-    :
-    [
+      )
+    }else{
+      pipeline.push(
         {
           $match: {
             createdAt: {
@@ -560,8 +562,11 @@ export class ChatbotRepository implements IChatbotRepository {
               $lte: end,
             },
           },
-        },
-        {
+        }
+      )
+    }
+    pipeline.push(
+       {
           $addFields: {
             userObjectId: {
               $cond: [
@@ -587,12 +592,13 @@ export class ChatbotRepository implements IChatbotRepository {
             path: '$userDetails',
             preserveNullAndEmptyArrays: true,
           },
-        },
-      ];
+        }
+    )
     let result = await this.messagesCollection
       .aggregate(pipeline)
       .toArray();
-    
+    console.log('messageId:', messageId);
+    console.log('Result from first DB:', result);
     if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
@@ -656,16 +662,16 @@ export class ChatbotRepository implements IChatbotRepository {
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
 
-     let pipeline = messageId?
-    [
-      {
+     let pipeline = []
+    
+    if(messageId){
+      pipeline.push( {
         $match: {
           messageId
         }
-      }
-    ]
-    :
-    [
+      })
+    }else{
+      pipeline.push(
         {
           $match: {
             createdAt: {
@@ -673,8 +679,12 @@ export class ChatbotRepository implements IChatbotRepository {
               $lte: end,
             },
           },
-        },
-        {
+        }
+      )
+    }
+
+    pipeline.push(
+      {
           $addFields: {
             userObjectId: {
               $cond: [
@@ -700,12 +710,13 @@ export class ChatbotRepository implements IChatbotRepository {
             path: '$userDetails',
             preserveNullAndEmptyArrays: true,
           },
-        },
-      ];
+        }
+    )
     let result = await this.annamMessagesCollection
       .aggregate(pipeline)
       .toArray();
-
+      console.log('messageId:', messageId);
+      console.log('Result from second DB:', result);
     if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
