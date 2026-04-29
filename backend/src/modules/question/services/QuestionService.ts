@@ -3301,7 +3301,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new Error('Question not found');
     }
 
-    const { question, details, createdAt } = questionData;
+    const { question, details, createdAt, messageId } = questionData;
 
     const [analyticsMessages, annamMessages] = await Promise.all([
       this.chatbotRepository.findMatchingMessages({
@@ -3309,12 +3309,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         details,
         createdAt,
         questionId: questionId.toString(),
+        messageId: messageId ? messageId.toString() : undefined,
       }),
       this.chatbotRepository.findFromSecondDb({
         question,
         details,
         createdAt,
         questionId: questionId.toString(),
+        messageId: messageId ? messageId.toString() : undefined,
       }),
     ]);
 

@@ -571,16 +571,27 @@ export class ChatbotRepository implements IChatbotRepository {
     details: any;
     createdAt: Date;
     questionId: string;
+    messageId: string | undefined;
   }) {
     await this.init();
     await this.initReviewSystem();
-    const {question, details, createdAt, questionId} = data;
+    const {question, details, createdAt, questionId, messageId} = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
 
-    let result = await this.messagesCollection
-      .aggregate([
+    let pipeline = [];
+    
+    if(messageId){
+      pipeline.push(
+        {
+        $match: {
+          messageId
+        }
+      }
+      )
+    }else{
+      pipeline.push(
         {
           $match: {
             createdAt: {
@@ -588,8 +599,11 @@ export class ChatbotRepository implements IChatbotRepository {
               $lte: end,
             },
           },
-        },
-        {
+        }
+      )
+    }
+    pipeline.push(
+       {
           $addFields: {
             userObjectId: {
               $cond: [
@@ -615,9 +629,12 @@ export class ChatbotRepository implements IChatbotRepository {
             path: '$userDetails',
             preserveNullAndEmptyArrays: true,
           },
-        },
-      ])
+        }
+    )
+    let result = await this.messagesCollection
+      .aggregate(pipeline)
       .toArray();
+    if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
@@ -662,6 +679,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {$set: {messageId: matchedMessageId}},
       );
     }
+    
     return result1;
   }
 
@@ -670,15 +688,25 @@ export class ChatbotRepository implements IChatbotRepository {
     details: any;
     createdAt: Date;
     questionId: string;
+    messageId: string | undefined;
   }) {
     await this.initSecondDb();
     await this.initReviewSystem();
-    const {question, details, createdAt, questionId} = data;
+    const {question, details, createdAt, questionId,messageId} = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
-    let result = await this.annamMessagesCollection
-      .aggregate([
+
+     let pipeline = []
+    
+    if(messageId){
+      pipeline.push( {
+        $match: {
+          messageId
+        }
+      })
+    }else{
+      pipeline.push(
         {
           $match: {
             createdAt: {
@@ -686,8 +714,12 @@ export class ChatbotRepository implements IChatbotRepository {
               $lte: end,
             },
           },
-        },
-        {
+        }
+      )
+    }
+
+    pipeline.push(
+      {
           $addFields: {
             userObjectId: {
               $cond: [
@@ -713,9 +745,12 @@ export class ChatbotRepository implements IChatbotRepository {
             path: '$userDetails',
             preserveNullAndEmptyArrays: true,
           },
-        },
-      ])
+        }
+    )
+    let result = await this.annamMessagesCollection
+      .aggregate(pipeline)
       .toArray();
+    if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
