@@ -1003,7 +1003,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-        console.log("Saved question:", savedQuestion);
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
@@ -1029,7 +1028,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           ]);
 
           const allMessages = [...analyticsMessages, ...annamMessages];
-          console.log('All matching messages for userId mapping:', allMessages);
 
           const message = allMessages[0];
           const messageUserId =
