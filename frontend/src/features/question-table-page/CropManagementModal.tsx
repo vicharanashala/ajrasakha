@@ -204,21 +204,31 @@ const AliasSection = ({
           {aliases.map((alias, i) => (
             <span
               key={i}
-              className={`group relative inline-flex flex-col gap-0.5 px-2.5 py-1.5 rounded-lg border min-w-[100px] ${
+              className={`group relative inline-flex flex-col gap-1.5 px-3 py-2 rounded-lg border min-w-[140px] ${
                 isAmber
                   ? "bg-amber-50 dark:bg-amber-500/[0.06] border-amber-100 dark:border-amber-500/15"
                   : "bg-blue-50 dark:bg-blue-500/[0.06] border-blue-100 dark:border-blue-500/15"
               }`}
             >
-              <span className="flex items-center gap-1.5 flex-wrap pr-4">
-                <span className={`text-[10px] font-bold leading-tight ${isAmber ? "text-amber-700 dark:text-amber-400" : "text-blue-700 dark:text-blue-400"}`}>
-                  {getLangInfo(alias.language).en}
+              {/* Language & Region row */}
+              <span className="flex items-center gap-2 flex-wrap pr-4">
+                <span className="flex items-center gap-1">
+                  <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Language:</span>
+                  <span className={`text-[11px] font-bold leading-tight ${isAmber ? "text-amber-700 dark:text-amber-400" : "text-blue-700 dark:text-blue-400"}`}>
+                    {getLangInfo(alias.language).en}
+                  </span>
                 </span>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">
-                  {alias.region}
-                </span>
+                {alias.region && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Region:</span>
+                    <span className="text-[11px] text-gray-600 dark:text-gray-400 leading-tight">
+                      {alias.region}
+                    </span>
+                  </span>
+                )}
               </span>
-              <span className="flex items-center gap-1 text-[11px] leading-tight">
+              {/* English & Native names row */}
+              <span className="flex items-center gap-1.5 text-[11px] leading-tight">
                 <span className="font-medium text-gray-800 dark:text-gray-200">
                   {alias.english_representation}
                 </span>
@@ -560,17 +570,27 @@ export const CropManagementModal = ({
                                   ) : (
                                     <span
                                       key={i}
-                                      className="inline-flex flex-col gap-0.5 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/[0.06] border border-amber-100 dark:border-amber-500/15 min-w-[100px]"
+                                      className="inline-flex flex-col gap-1.5 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-500/[0.06] border border-amber-100 dark:border-amber-500/15 min-w-[140px]"
                                     >
-                                      <span className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 leading-tight">
-                                          {getLangInfo(alias.language).en}
+                                      {/* Language & Region row */}
+                                      <span className="flex items-center gap-2 flex-wrap">
+                                        <span className="flex items-center gap-1">
+                                          <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Language:</span>
+                                          <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 leading-tight">
+                                            {getLangInfo(alias.language).en}
+                                          </span>
                                         </span>
-                                        <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">
-                                          {alias.region}
-                                        </span>
+                                        {alias.region && (
+                                          <span className="flex items-center gap-1">
+                                            <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Region:</span>
+                                            <span className="text-[11px] text-gray-600 dark:text-gray-400 leading-tight">
+                                              {alias.region}
+                                            </span>
+                                          </span>
+                                        )}
                                       </span>
-                                      <span className="flex items-center gap-1 text-[11px] leading-tight">
+                                      {/* English & Native names row */}
+                                      <span className="flex items-center gap-1.5 text-[11px] leading-tight">
                                         <span className="font-medium text-gray-800 dark:text-gray-200">
                                           {alias.english_representation}
                                         </span>
