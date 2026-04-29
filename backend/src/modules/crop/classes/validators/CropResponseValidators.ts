@@ -40,15 +40,13 @@ export class CropEntryResponse {
   name: string;
 
   @JSONSchema({
-    description: 'Alternative names for the crop',
-    example: ['Rice', 'Chawal'],
+    description: 'Structured aliases for the crop across languages',
+    example: [{ language: 'te-IN', region: 'Andhra and Telangana', en_repr: 'vari', native_repr: 'వరి' }],
     type: 'array',
-    items: { type: 'string' },
     readOnly: true,
   })
   @IsArray()
-  @IsString({ each: true })
-  aliases: string[];
+  aliases: Record<string, string>[];
 
   @JSONSchema({
     description: 'User ID who created the crop',

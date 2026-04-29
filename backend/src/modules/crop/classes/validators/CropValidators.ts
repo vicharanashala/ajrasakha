@@ -8,6 +8,7 @@ import {
   Min,
   Max,
   IsIn,
+  ValidateNested,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {Type} from 'class-transformer';
@@ -24,6 +25,30 @@ class CropIdParam {
   cropId: string;
 }
 
+// ── Nested DTO ──
+
+class CropAliasDto {
+  @JSONSchema({ description: 'BCP-47 language code', example: 'te-IN' })
+  @IsNotEmpty()
+  @IsString()
+  language: string;
+
+  @JSONSchema({ description: 'Region/state where alias is used', example: 'Andhra and Telangana' })
+  @IsOptional()
+  @IsString()
+  region?: string;
+
+  @JSONSchema({ description: 'Romanised / English representation', example: 'vari' })
+  @IsNotEmpty()
+  @IsString()
+  en_repr: string;
+
+  @JSONSchema({ description: 'Native script representation', example: 'వరి' })
+  @IsNotEmpty()
+  @IsString()
+  native_repr: string;
+}
+
 // ── Body DTOs ──
 
 class CreateCropDto {
@@ -37,29 +62,28 @@ class CreateCropDto {
   name: string;
 
   @JSONSchema({
-    description: 'Alternative names for the crop',
-    example: ['Rice', 'Chawal'],
+    description: 'Structured aliases for the crop across languages',
+    example: [{ language: 'te-IN', region: 'Andhra and Telangana', en_repr: 'vari', native_repr: 'వరి' }],
     type: 'array',
-    items: { type: 'string' },
   })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  aliases?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => CropAliasDto)
+  aliases?: CropAliasDto[];
 }
 
 class UpdateCropDto {
   @JSONSchema({
-    description: 'Updated alternative names for the crop',
-    example: ['Rice', 'Chawal', 'Basmati'],
+    description: 'Updated structured aliases for the crop',
+    example: [{ language: 'hi-IN', region: 'North India', en_repr: 'dhan', native_repr: 'धान' }],
     type: 'array',
-    items: { type: 'string' }
   })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  aliases?: string[];
-
+  @ValidateNested({ each: true })
+  @Type(() => CropAliasDto)
+  aliases?: CropAliasDto[];
 }
 
 // ── Query DTOs ──
