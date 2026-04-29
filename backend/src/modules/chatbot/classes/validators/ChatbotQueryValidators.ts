@@ -77,4 +77,9 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsString()
   inactiveOnly?: string;
+
+  @JSONSchema({ example: 'all', description: 'Filter by farmer type: all, internal, or external' })
+  @IsOptional()
+  @IsIn(['all', 'internal', 'external'])
+  farmerType: 'all' | 'internal' | 'external' = 'all';
 }
