@@ -292,4 +292,13 @@ async getAllUsersforManualSelect(
       return await this.userRepo.findByEmail(email, session);
     });
   }
+
+  //get user autocomplete options
+  
+  async getUserAutoCompleteOptions(
+    search: string,
+    userRole: string | undefined
+  ): Promise<{ _id: string; userName: string; email: string }[]> {
+    return await this.userRepo.findUserAutoCompleteOptions(search, userRole);
+  }
 }

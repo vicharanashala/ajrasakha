@@ -36,6 +36,7 @@ import {
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserEntryResponse,
+  UserAutoCompleteResponse,
 } from '../../core/classes/validators/UserResponseValidators.js';
 
 @OpenAPI({
@@ -428,5 +429,37 @@ export class UserController {
   ): Promise<IUser | null> {
     const {email} = params;
     return await this.userService.getUserByEmail(email);
+  }
+
+  // get user autocomplete options
+  @OpenAPI({
+    summary: 'Get user autocomplete options',
+    description: 'Retrieves autocomplete options for users based on a search query.',
+  })
+  @ResponseSchema(UserAutoCompleteResponse, {
+    statusCode: 200,
+    description: 'User autocomplete options retrieved successfully',
+    isArray: true,
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Get('/autocomplete')
+  @HttpCode(200)
+  @Authorized()
+  async getUserAutoCompleteOptions(
+    @QueryParams()
+    query: {
+      search?: string;
+    },
+    @CurrentUser() currentUser: IUser,
+  ): Promise<{_id: string; userName: string; email: string}[]> {
+    const {search = ''} = query;
+    const userRole = currentUser?.role;
+    return await this.userService.getUserAutoCompleteOptions(
+      search,
+      userRole,
+    );
   }
 }

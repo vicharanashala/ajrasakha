@@ -33,7 +33,7 @@ import {
 } from "./atoms/dropdown-menu";
 import { ConfirmationModal } from "./confirmation-modal";
 import { formatDate } from "@/utils/formatDate";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import { useToggleRole } from "@/hooks/api/user/useToggleRole";
 import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
@@ -59,7 +59,7 @@ type UserTableProps = {
   setRankPosition?: (rank: number) => void;
 };
 
-export const UsersTable = ({
+export const UsersTable = memo(({
   items,
   onViewMore,
   limit,
@@ -214,7 +214,9 @@ export const UsersTable = ({
       />
     </div>
   );
-};
+});
+
+UsersTable.displayName = "UsersTable";
 
 interface UserRowProps {
   u: IUser;
@@ -232,7 +234,7 @@ interface UserRowProps {
   setRankPosition?: (rank: number) => void;
 }
 
-const UserRow: React.FC<UserRowProps> = ({
+const UserRow = memo(({
   u,
   handleBlock,
   handleToggleRole,
@@ -241,7 +243,7 @@ const UserRow: React.FC<UserRowProps> = ({
   setSelectExpertId,
   setRankPosition,
   userRole,
-}) => {
+}: UserRowProps) => {
   const isBlocked = u.isBlocked || false;
   const { mutate: updateActivity } = useUpdateActivity();
 
@@ -495,4 +497,6 @@ const UserRow: React.FC<UserRowProps> = ({
       </TableCell>
     </TableRow>
   );
-};
+});
+
+UserRow.displayName = "UserRow";

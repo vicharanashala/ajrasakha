@@ -1,17 +1,16 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { IUser } from "@/types";
 import { STATES } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import {
   Filter,
   MapPin,
-  Search,
-  X,
 } from "lucide-react";
-import { Input } from "./atoms/input";
 import { UsersTable } from "./user-table";
+import { Autocomplete, highlightMatch } from "./autocomplete";
 import {
   useGetAllExperts,
+  useUserAutocomplete,
 } from "@/hooks/api/user/useGetAllUsers";
 import { useAdminGetAllUsers } from "@/hooks/api/Admin/useAdminGetAllUsers";
 import { Label } from "./atoms/label";
@@ -27,10 +26,12 @@ import { ExpertDashboard } from "./ExpertDashboard";
 export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [selectExpertId, setSelectExpertId] = useState<string>("");
   const [rankPostion, setRankPosition] = useState<number>(0);
-  const [search, setSearch] = useState("");
+  const [inputValue, setInputValue] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [filter, setFilter] = useState("");
-  const debouncedSearch = useDebounce(search);
+  const debouncedSearch = useDebounce(inputValue.trim(), 120);
+  const { data: autocompleteOptions, isLoading: isAutocompleteLoading, isFetching: isAutocompleteFetching } = useUserAutocomplete(debouncedSearch);
   const [sort, setSort] = useState<string>("");
   const [page, setPage] = useState(1);
   const LIMIT = 12;
@@ -41,26 +42,26 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const { data: adminUsers, isLoading: adminLoading } = useAdminGetAllUsers(
     page,
     LIMIT,
-    search,
+    appliedSearch,
     sort,
     filter,
     { enabled: isAdmin }
   );
- const toggleSort = (key: string) => {
-  if (key === "rank") {
-    setSort("");
-    return;
-  }
-  setSort((prev) => {
-    if (prev === `${key}_asc`) return `${key}_desc`;
-    return `${key}_asc`;
-  });
-};
+ const toggleSort = useCallback((key: string) => {
+   if (key === "rank") {
+     setSort("");
+     return;
+   }
+   setSort((prev) => {
+     if (prev === `${key}_asc`) return `${key}_desc`;
+     return `${key}_asc`;
+   });
+ }, []);
 
   const { data: expertDetails, isLoading: expertLoading } = useGetAllExperts(
     page,
     LIMIT,
-    search,
+    appliedSearch,
     sort,
     filter,
     { enabled: isModerator }
@@ -72,17 +73,11 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     }
   }, [debouncedSearch]);
 
-  useEffect(() => {
-    if (debouncedSearch === "") return;
-    if (currentUser?.role !== "expert") onReset();
-  }, [debouncedSearch]);
-
-  const onReset = () => {};
-
-  const handleViewMore = (userId: string) => {
+  const handleViewMore = useCallback((userId: string) => {
     setSelectedUserId(userId);
-  };
-  const goBack = () => {
+  }, []);
+
+  const goBack = useCallback(() => {
     const url = new URL(window.location.href);
 
     if (url.searchParams.has("comment")) {
@@ -92,20 +87,14 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
       return;
     }
     setSelectExpertId("");
-  };
+  }, []);
 
-  const tableItems = isAdmin
-    ? adminUsers?.users ?? []
-    : expertDetails?.experts ?? [];
-
-
-    console.log("Admin users ->", adminUsers?.users);
-    console.log("Expert details ->", expertDetails?.experts); 
-    console.log("Table items ->", tableItems);
+  const tableItems = useMemo(
+    () => (isAdmin ? adminUsers?.users : expertDetails?.experts) ?? [],
+    [isAdmin, adminUsers?.users, expertDetails?.experts]
+  );
 
   const isLoading = isAdmin ? adminLoading : expertLoading;
-
-  const totalPages = isAdmin ? 1 : expertDetails?.totalPages || 0;
 
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
@@ -121,27 +110,60 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
           <div className="flex flex-wrap items-start justify-between gap-4 w-full bg-card py-4 px-2 rounded">
             {/* LEFT — Search */}
             <div className="flex-1 min-w-[250px] max-w-[400px] order-1">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-
-                <Input
+              <div className="w-full">
+                <Autocomplete
                   placeholder="Search users..."
-                  value={search}
+                  value={inputValue}
                   onChange={(e) => {
-                    setSearch(e.target.value);
+                    const nextValue = e.target.value;
+                    setInputValue(nextValue);
+                    if (nextValue.trim() === "") {
+                      setAppliedSearch("");
+                      setPage(1);
+                    }
+                  }}
+                  onEnter={(value) => {
+                    setAppliedSearch(value);
                     setPage(1);
                   }}
-                  className="pl-9 pr-9 bg-background"
+                  onClear={() => {
+                    setInputValue("");
+                    setAppliedSearch("");
+                    setPage(1);
+                  }}
+                  data={autocompleteOptions || []}
+                  isLoading={isAutocompleteLoading || isAutocompleteFetching}
+                  isTyping={inputValue !== debouncedSearch}
+                  getDisplayValue={(user: any) => user.email ? `${user.userName} ${user.email}` : user.userName || user}
+                  renderItem={(user: any, query: string) => {
+                    if (typeof user === 'string') return highlightMatch(user, query);
+                    return (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-medium leading-none">
+                          {highlightMatch(user.userName || '', query)}
+                        </span>
+                        {user.email && (
+                          <span className="text-xs text-muted-foreground mt-1">
+                            {highlightMatch(user.email, query)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }}
+                  onSelect={(user: any) => {
+                    const displayValue =
+                      typeof user === "string"
+                        ? user
+                        : (user.userName || "").trim();
+                    const searchValue =
+                      typeof user === "string"
+                        ? user.trim()
+                        : (user.email || displayValue).trim();
+                    setInputValue(displayValue);
+                    setAppliedSearch(searchValue);
+                    setPage(1);
+                  }}
                 />
-
-                {search && (
-                  <button
-                    onClick={() => setSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
               </div>
             </div>
 
