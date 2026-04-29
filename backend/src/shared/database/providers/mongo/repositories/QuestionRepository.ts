@@ -960,6 +960,7 @@ export class QuestionRepository implements IQuestionRepository {
             embedding: 0,
             contextDoc: 0,
             priorityOrder: 0,
+            statusOrder: 0,
             review_level_sort_value: 0,
           },
         },
@@ -1733,6 +1734,9 @@ export class QuestionRepository implements IQuestionRepository {
         'createdAt',
         'updatedAt',
         'review_level_number',
+        'statusOrder',
+        'priorityOrder',
+        'review_level_sort_value',
       ];
 
       if (!addText) {
