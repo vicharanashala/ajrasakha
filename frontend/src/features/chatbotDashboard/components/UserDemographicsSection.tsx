@@ -4,6 +4,7 @@ import type { UserDemographics } from "../types";
 const AGE_COLORS = ["#3AAA5A", "#378ADD", "#A0845C", "#EF9F27", "#6B7280"];
 const GENDER_COLORS: Record<string, string> = { Male: "#378ADD", Female: "#E879A0", Other: "#A0845C" };
 const EXP_COLORS = ["#1E3A5F", "#378ADD", "#60A5FA", "#38BDF8", "#94A3B8"];
+const LAND_COLORS: Record<string, string> = { Small: "#3AAA5A", Medium: "#EF9F27", Large: "#378ADD" };
 
 function DonutSegments({ segments }: { segments: { label: string; count: number; pct: number; color: string }[] }) {
   const totalCount = segments.reduce((s, x) => s + x.count, 0) || 1;
@@ -66,9 +67,10 @@ export function UserDemographicsSection({ data }: Props) {
   const ageSegments = data.ageGroups.map((d, i) => ({ ...d, color: AGE_COLORS[i % AGE_COLORS.length] }));
   const genderSegments = data.genderSplit.map((d) => ({ ...d, color: GENDER_COLORS[d.label] ?? "#6B7280" }));
   const expSegments = data.farmingExperience.map((d, i) => ({ ...d, color: EXP_COLORS[i % EXP_COLORS.length] }));
+  const landSegments = (data.landHolding ?? []).map((d) => ({ ...d, color: LAND_COLORS[d.label] ?? "#6B7280" }));
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
       <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">Age Group</CardTitle>
@@ -91,13 +93,24 @@ export function UserDemographicsSection({ data }: Props) {
         </CardContent>
       </Card>
 
-      <Card className="sm:col-span-2 lg:col-span-1 dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
+      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">Farming Experience</CardTitle>
         </CardHeader>
         <CardContent>
           {expSegments.length > 0
             ? <HorizontalBars segments={expSegments} />
+            : <p className="text-xs text-gray-400 italic">No data</p>}
+        </CardContent>
+      </Card>
+
+      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Land Holding</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {landSegments.length > 0
+            ? <DonutSegments segments={landSegments} />
             : <p className="text-xs text-gray-400 italic">No data</p>}
         </CardContent>
       </Card>

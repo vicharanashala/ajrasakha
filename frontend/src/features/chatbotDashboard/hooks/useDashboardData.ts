@@ -35,6 +35,7 @@ interface DashboardApiResponse {
   farmingExperience: DemographicEntry[];
   kccAwareness: DemographicEntry[];
   agriAppUsage: DemographicEntry[];
+  landHolding: DemographicEntry[];
 }
 
 // ── Date range label helpers ──────────────────────────────────────────────────
@@ -167,6 +168,7 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
   updatedData.kccAwareness = result.kccAwareness ?? [];
   updatedData.agriAppUsage = result.agriAppUsage ?? [];
   updatedData.farmingExperience = result.farmingExperience ?? [];
+  updatedData.landHolding = result.landHolding?.length ? result.landHolding : DASHBOARD_DATA.landHolding;
 
   updatedData.kpiRow2 = DASHBOARD_DATA.kpiRow2.map(card => {
     if (card.id === 'totalInstalls') {
