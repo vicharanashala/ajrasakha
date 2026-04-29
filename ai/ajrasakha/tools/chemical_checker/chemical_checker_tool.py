@@ -4,7 +4,6 @@ import logging
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure, OperationFailure
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
@@ -20,29 +19,34 @@ mcp = FastMCP(
     )
 )
 
+MONGO_URI = os.getenv("MONGO_URI")
+DB_NAME = os.getenv("DB_NAME", "ajrasakha_db")
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "banned_chemicals")
+
+db_client = None
+if MONGO_URI:
+    try:
+        db_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        log.info("✅ Global MongoDB Connection Pool Initialized.")
+    except Exception as e:
+        log.error(f"❌ Failed to initialize MongoDB client: {e}")
+else:
+    log.error("CRITICAL: MONGO_URI is missing from environment variables.")
+
 _BANNED_CHEMICALS_CACHE: Dict[str, str] = {}
 
 def _load_banned_chemicals_from_db() -> Dict[str, Any]:
-    """Helper to fetch the chemical list from MongoDB and cache it."""
-    global _BANNED_CHEMICALS_CACHE
+    """Helper to fetch the chemical list from MongoDB and cache it using the global pool."""
+    global _BANNED_CHEMICALS_CACHE, db_client
     
-    mongo_uri = os.getenv("MONGO_URI")
-    db_name = os.getenv("DB_NAME", "ajrasakha_db")
-    collection_name = os.getenv("COLLECTION_NAME", "banned_chemicals")
+    if not db_client:
+        return {"error": "MongoDB client is not initialized.", "success": False}
 
-    if not mongo_uri:
-        err_msg = "MONGO_URI is missing from environment variables."
-        log.error(f"DB Error: {err_msg}")
-        return {"error": err_msg, "success": False}
-
-    log.info("Connecting to MongoDB to load chemical cache...")
+    log.info("Fetching chemical data from MongoDB to build cache...")
     
     try:
-        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
-        client.admin.command('ping')
-        
-        db = client[db_name]
-        collection = db[collection_name]
+        db = db_client[DB_NAME]
+        collection = db[COLLECTION_NAME]
 
         cursor = collection.find(
             {}, 
@@ -60,24 +64,16 @@ def _load_banned_chemicals_from_db() -> Dict[str, Any]:
                 _BANNED_CHEMICALS_CACHE[chem_name.strip().lower()] = str(status).strip()
                 count += 1
                 
-        log.info(f"Successfully loaded {count} banned chemicals into memory cache.")
+        log.info(f"✅ Successfully loaded {count} banned chemicals into memory cache.")
         return {"success": True}
 
-    except ConnectionFailure as e:
-        err_msg = f"Failed to connect to MongoDB: {e}"
-        log.error(f"DB Error: {err_msg}")
-        return {"error": err_msg, "success": False}
-    except OperationFailure as e:
-        err_msg = f"Authentication or access error with MongoDB: {e}"
-        log.error(f"DB Error: {err_msg}")
-        return {"error": err_msg, "success": False}
     except Exception as e:
         err_msg = f"Unexpected error while loading data from DB: {e}"
         log.error(f"DB Error: {err_msg}", exc_info=True)
         return {"error": err_msg, "success": False}
-    finally:
-        if 'client' in locals():
-            client.close()
+        
+_load_banned_chemicals_from_db()
+
 
 @mcp.tool()
 def check_chemical_ban_status(chemicals: List[str]) -> Dict[str, Any]:
@@ -85,15 +81,6 @@ def check_chemical_ban_status(chemicals: List[str]) -> Dict[str, Any]:
     Checks a list of chemicals against the banned chemicals database.
     Includes fuzzy matching to handle slight spelling mistakes.
     """
-
-    if not _BANNED_CHEMICALS_CACHE:
-        log.warning("Cache is empty during tool call. Attempting to load from DB...")
-        db_response = _load_banned_chemicals_from_db()
-        
-        if not db_response.get("success") or not _BANNED_CHEMICALS_CACHE:
-            error_details = db_response.get("error", "Unknown DB issue.")
-            log.error("Cache is still empty. Returning error response.")
-            return {"success": False, "error": f"System Error: Unable to verify chemical status. Details: {error_details}"}
     
     result = {}
     known_chemicals = list(_BANNED_CHEMICALS_CACHE.keys())
@@ -126,5 +113,4 @@ def check_chemical_ban_status(chemicals: List[str]) -> Dict[str, Any]:
     }
 
 if __name__ == "__main__":
-    _load_banned_chemicals_from_db()
     mcp.run(transport="stdio")

@@ -14,6 +14,11 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsIn(['vicharanashala', 'annam'])
   source: 'vicharanashala' | 'annam' = 'vicharanashala';
+
+  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @IsOptional()
+  @IsIn(['all', 'external', 'internal'])
+  userType: 'all' | 'external' | 'internal' = 'all';
 }
 
 export class SourceQueryDto {
@@ -21,6 +26,11 @@ export class SourceQueryDto {
   @IsOptional()
   @IsIn(['vicharanashala', 'annam'])
   source: 'vicharanashala' | 'annam' = 'vicharanashala';
+
+  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @IsOptional()
+  @IsIn(['all', 'external', 'internal'])
+  userType: 'all' | 'external' | 'internal' = 'all';
 }
 
 export class UserDetailsQueryDto {
@@ -77,4 +87,9 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsString()
   inactiveOnly?: string;
+
+  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @IsOptional()
+  @IsIn(['all', 'external', 'internal'])
+  userType: 'all' | 'external' | 'internal' = 'all';
 }

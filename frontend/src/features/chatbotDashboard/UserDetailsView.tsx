@@ -90,9 +90,10 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
 interface UserDetailsViewProps {
   source?: 'vicharanashala' | 'annam';
   initialFilters?: Partial<UserDetailsFilters>;
+  userType?: 'all' | 'external' | 'internal';
 }
 
-export function UserDetailsView({ source = 'vicharanashala', initialFilters }: UserDetailsViewProps) {
+export function UserDetailsView({ source = 'vicharanashala', initialFilters, userType = 'all' }: UserDetailsViewProps) {
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
     ...initialFilters,
@@ -118,6 +119,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters }: U
     filters.village,
     filters.profileCompleted,
     filters.inactiveOnly,
+    userType,
   );
 
   const { users, totalUsers, totalPages, activeUsers, inactiveUsers, totalQuestions } = data;
