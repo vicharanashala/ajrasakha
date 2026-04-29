@@ -28,10 +28,10 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
   
   // Simple parsing for testing
   const timeParts = timer.split(":").map(Number);
-  let days = 0, hours = 0, minutes = 0;
+  let days = 0, hours = 0, minutes = 0, seconds = 0;
   
   if (timeParts.length >= 3) {
-    [hours, minutes] = timeParts.slice(0, 2);
+    [hours, minutes, seconds] = timeParts.slice(0, 3);
     if (showDays && hours > 24) {
       days = Math.floor(hours / 24);
       hours = hours % 24;
@@ -92,9 +92,9 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
   // Format display time
   let displayTime = timer;
   if (showDays && days > 0) {
-    displayTime = `${days}d ${hours}h ${minutes}m`;
+    displayTime = `${days}d ${hours}h ${minutes}m ${seconds}s`;
   } else if (showDays) {
-    displayTime = `${hours}h ${minutes}m`;
+    displayTime = `${hours}h ${minutes}m ${seconds}s`;
   }
 
   return (

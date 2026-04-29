@@ -2251,7 +2251,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Handle Queue Expert replacement (Level 1, 2, etc.) - Reallocation Logic
       // 3. Validate levelIndex is within queue bounds (convert to 0-based for queue access)
-      const queueIndex = levelIndex - 1;
+      const queueIndex = levelIndex;
       if (queueIndex < 0 || queueIndex >= questionSubmission.queue.length) {
         console.warn(
           `[replaceQueueExpert] Invalid level index: ${levelIndex}, queue has ${questionSubmission.queue.length} experts`
@@ -2261,9 +2261,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         );
       }
 
-      // Step 1: Identify Last Reviewer from queue and validate queue ownership
-      const lastReviewerIndex = questionSubmission.queue.length - 1;
-      const lastReviewerInQueue = questionSubmission.queue[lastReviewerIndex]?.toString();
+      // Step 1: Identify Last Reviewer from history and validate queue ownership
+      const lastHistoryEntry = questionSubmission.history[questionSubmission.history.length - 1];
+      const lastReviewerInQueue = lastHistoryEntry?.updatedBy?.toString();
       const currentExpertId = questionSubmission.queue[queueIndex]?.toString();
       
 
@@ -2280,7 +2280,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // 4. Check if this is the current active level (only current can be replaced)
       // Current active level is determined by history length (convert to 1-based since controller sends 1-based)
-      const currentActiveIndex = questionSubmission.history.length;
+      const currentActiveIndex = questionSubmission.history.length-1;
  
       if (levelIndex !== currentActiveIndex) {
         console.warn(
@@ -2368,10 +2368,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         updatedAt: now,
       };
 
-      // Step 4: Update Queue - Replace the expert at the specified index
-      const updatedQueue = questionSubmission.queue.map((id, idx) =>
-        idx === queueIndex ? new ObjectId(newExpertId) : new ObjectId(id.toString())
-      );
+      // Step 4: Update Queue - Replace the expert at the specified index   
+      const updatedQueue = questionSubmission.queue.map((id, idx) => {
+        const shouldReplace = idx === (queueIndex);
+        const resultId = shouldReplace ? new ObjectId(newExpertId) : new ObjectId(id.toString());
+        return resultId;
+      });
+      
 
       // Step 5: Build updated history with previousAllocations
       const updatedHistory = [...submissionHistory];
@@ -2384,37 +2387,24 @@ export class QuestionService extends BaseService implements IQuestionService {
         ];
         const updatedExpertHistory: ISubmissionHistory = {
           ...currentExpertHistoryEntry,
+          updatedBy: new ObjectId(newExpertId), // Replace with new expert ID
           previousAllocations: updatedPreviousAllocations,
+          createdAt: now, // Update both timestamps as requested
           updatedAt: now,
         };
         updatedHistory[currentExpertHistoryIndex] = updatedExpertHistory;
       } else {
-        // No history entry found for current expert - create one
-        const oldExpertHistoryEntry: ISubmissionHistory = {
-          updatedBy: new ObjectId(currentExpertId!),
+        // No history entry found for current expert - create one with new expert
+        const newExpertHistoryEntry: ISubmissionHistory = {
+          updatedBy: new ObjectId(newExpertId), // Create with new expert directly
           status: 'in-review',
           previousAllocations: [previousAllocation],
           createdAt: now,
           updatedAt: now,
         };
-        updatedHistory.push(oldExpertHistoryEntry);
+        updatedHistory.push(newExpertHistoryEntry);
       }
 
-      // Step 6: Create New History Entry for the new reviewer (with previousAllocations showing who they replaced)
-      const newExpertPreviousAllocation: IPreviousAllocations = {
-        reviewerId: new ObjectId(currentExpertId!),
-        reasonForChange: reasonForChange,
-        createdAt: currentExpertHistoryEntry?.createdAt || now,
-        updatedAt: now,
-      };
-      const newHistoryEntry: ISubmissionHistory = {
-        updatedBy: new ObjectId(newExpertId),
-        status: 'in-review',
-        previousAllocations: [newExpertPreviousAllocation],
-        createdAt: now,
-        updatedAt: now,
-      };
-      updatedHistory.push(newHistoryEntry);
 
       // Update database with queue and history changes
       const updateData: any = {
