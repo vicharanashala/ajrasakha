@@ -39,3 +39,7 @@ export interface KpiCard {
   badges?: { label: string; variant: BadgeVariant }[];
   icon?: string;
 }
+export interface TopCropsResponse {
+  totalQuestions: number;
+  topCrops: { name: string; count: number }[];
+}

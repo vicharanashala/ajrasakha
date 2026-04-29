@@ -23,6 +23,8 @@ import { UserDemographicsSection } from "./components/UserDemographicsSection";
 // import { UserGrowthChart } from "./components/UserGrowthChart";
 const LazyUserGrowthChart = React.lazy(() => import("./components/UserGrowthChart"));
 import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
+import { TopCropsCard } from "./components/TopCropsCard";
+import { useTopCrops } from "./hooks/useTopCrops";
 import { useInView } from "@/hooks/useInView";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
@@ -41,6 +43,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   const { data, isLoading, error } = useDashboardData(filters, source);
   const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source);
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
+  const { data:topCrops, isLoading:isLoadingTopCrops, error:errorLoadingtopCrops } = useTopCrops();
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
   const { ref: growthRef, isVisible: isGrowthVisible } = useInView();
@@ -199,13 +202,15 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                 </div>
 
                 {/* Demographics */}
-                <UserDemographicsSection
-                  data={{
-                    ageGroups: data.ageGroups,
-                    genderSplit: data.genderSplit,
-                    farmingExperience: data.farmingExperience,
-                  }}
-                />
+                <div ref={(el) => { sectionRefs.current["demographics"] = el; }}>
+                  <UserDemographicsSection
+                    data={{
+                      ageGroups: data.ageGroups,
+                      genderSplit: data.genderSplit,
+                      farmingExperience: data.farmingExperience,
+                    }}
+                  />
+                </div>
 
                 {/* 3-col row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4 items-stretch">
@@ -351,6 +356,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   }}
                   className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
                 >
+                  <TopCropsCard topCrops={topCrops} isLoadingTopCrops={isLoadingTopCrops} errorLoadingtopCrops={errorLoadingtopCrops}/>
                   <GeoCard states={data.geoStates} />
                   <div
                     ref={(el) => {
