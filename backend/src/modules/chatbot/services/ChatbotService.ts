@@ -20,25 +20,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
     super(mongoDatabase);
   }
 
-  async getDashboard(days = 30, source = 'vicharanashala'): Promise<DashboardResponse> {
+  async getDashboard(days = 30, source = 'vicharanashala', userType = 'all'): Promise<DashboardResponse> {
     try {
       const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, avgSessionDurationMin, weeklySessionDuration, demographics, kccAndAgri] =
         await Promise.all([
-          this.chatbotRepository.getKpiSummary(source),
-          this.chatbotRepository.getDailyActiveUsers(days, source),
+          this.chatbotRepository.getKpiSummary(source, undefined, userType),
+          this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType),
           this.chatbotRepository.getChannelSplit(source),
           this.chatbotRepository.getVoiceAccuracyByLanguage(source),
           this.chatbotRepository.getGeoDistribution(source),
           this.chatbotRepository.getQueryCategories(source),
-          this.chatbotRepository.getDailyQueryCounts(days, source),
-          this.chatbotRepository.getTodayQueryCount(source),
-          this.chatbotRepository.getWeeklyQueryCounts(source),
+          this.chatbotRepository.getDailyQueryCounts(days, source, undefined, userType),
+          this.chatbotRepository.getTodayQueryCount(source, undefined, userType),
+          this.chatbotRepository.getWeeklyQueryCounts(source, undefined, userType),
           // V2: inactivity-gap based session duration replaces the old value from getKpiSummary
-          this.chatbotRepository.getAvgSessionDurationV2(source),
+          this.chatbotRepository.getAvgSessionDurationV2(source, undefined, userType),
           // V2: inactivity-gap based weekly breakdown replaces the old getWeeklyAvgSessionDuration
-          this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source),
-          this.chatbotRepository.getUserDemographics(source),
-          this.chatbotRepository.getKccAndAgriAppStats(source),
+          this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source, undefined, userType),
+          this.chatbotRepository.getUserDemographics(source, undefined, userType),
+          this.chatbotRepository.getKccAndAgriAppStats(source, undefined, userType),
         ]);
 
       return {
@@ -63,17 +63,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getKpiSummary(source = 'vicharanashala') {
+  async getKpiSummary(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getKpiSummary(source);
+      return await this.chatbotRepository.getKpiSummary(source, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch KPI summary: ${error}`);
     }
   }
 
-  async getDailyActiveUsers(days = 30, source = 'vicharanashala') {
+  async getDailyActiveUsers(days = 30, source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getDailyActiveUsers(days, source);
+      return await this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch daily active users: ${error}`);
     }
@@ -127,59 +127,59 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyQueryCounts(days = 30, source = 'vicharanashala') {
+  async getDailyQueryCounts(days = 30, source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getDailyQueryCounts(days, source);
+      return await this.chatbotRepository.getDailyQueryCounts(days, source, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch daily query counts: ${error}`);
     }
   }
 
-  async getTodayQueryCount(source = 'vicharanashala') {
+  async getTodayQueryCount(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getTodayQueryCount(source);
+      return await this.chatbotRepository.getTodayQueryCount(source, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch today query count: ${error}`);
     }
   }
 
-  async getDailyUserTrend(days = 30, source = 'vicharanashala') {
+  async getDailyUserTrend(days = 30, source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getDailyUserTrend(days, source);
+      return await this.chatbotRepository.getDailyUserTrend(days, source, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch daily user trend: ${error}`);
     }
   }
 
-  async getWeeklyQueryCounts(source = 'vicharanashala') {
+  async getWeeklyQueryCounts(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getWeeklyQueryCounts(source);
+      return await this.chatbotRepository.getWeeklyQueryCounts(source, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch weekly query counts: ${error}`);
     }
   }
 
-  async getUserDetails(startDate?: string, endDate?: string, page = 1, limit = 10, search = '', source = 'vicharanashala', crop = '', village = '', profileCompleted = 'all', inactiveOnly = false) {
+  async getUserDetails(startDate?: string, endDate?: string, page = 1, limit = 10, search = '', source = 'vicharanashala', crop = '', village = '', profileCompleted = 'all', inactiveOnly = false, userType = 'all') {
     try {
       const start = startDate ? new Date(startDate) : undefined;
       const end = endDate ? new Date(endDate) : undefined;
-      return await this.chatbotRepository.getUserDetails(start, end, page, limit, search, source, crop, village, profileCompleted, inactiveOnly);
+      return await this.chatbotRepository.getUserDetails(start, end, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch user details: ${error}`);
     }
   }
 
-  async getAvgSessionDurationV2(source = 'vicharanashala') {
+  async getAvgSessionDurationV2(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getAvgSessionDurationV2(source);
+      return await this.chatbotRepository.getAvgSessionDurationV2(source, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch avg session duration v2: ${error}`);
     }
   }
 
-  async getWeeklyAvgSessionDurationV2(weeks = 52, source = 'vicharanashala') {
+  async getWeeklyAvgSessionDurationV2(weeks = 52, source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getWeeklyAvgSessionDurationV2(weeks, source);
+      return await this.chatbotRepository.getWeeklyAvgSessionDurationV2(weeks, source, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch weekly avg session duration v2: ${error}`);
     }

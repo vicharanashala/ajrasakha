@@ -225,6 +225,7 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
 export function useDashboardData(filters?: DashboardFilterValues, source: 'vicharanashala' | 'annam' = 'vicharanashala') {
   const startISO = filters?.startTime?.toISOString();
   const endISO = filters?.endTime?.toISOString();
+  const userType = filters?.userType ?? 'all';
 
   const { data, isLoading, error } = useQuery<DashboardDataType, Error>({
     queryKey: [
@@ -235,6 +236,7 @@ export function useDashboardData(filters?: DashboardFilterValues, source: 'vicha
       startISO,
       endISO,
       source,
+      userType,
     ],
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
@@ -247,6 +249,7 @@ export function useDashboardData(filters?: DashboardFilterValues, source: 'vicha
       if (startISO) params.set('startTime', startISO);
       if (endISO) params.set('endTime', endISO);
       params.set('source', source);
+      if (userType !== 'all') params.set('userType', userType);
       const queryString = params.toString();
 
       const result = await apiFetch<DashboardApiResponse>(

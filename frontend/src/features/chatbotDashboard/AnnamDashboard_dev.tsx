@@ -33,6 +33,7 @@ const DEFAULT_FILTERS: DashboardFilterValues = {
   season: "all",
   startTime: undefined,
   endTime: undefined,
+  userType: "all",
 };
 
 export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { className?: string; source?: 'vicharanashala' | 'annam' }) {
@@ -41,7 +42,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   const [filters, setFilters] = useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters, source);
-  const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source);
+  const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source, filters.userType);
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
   const { data:topCrops, isLoading:isLoadingTopCrops, error:errorLoadingtopCrops } = useTopCrops();
 
@@ -145,7 +146,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
             />
 
             {activeView === "user-details" ? (
-              <UserDetailsView source={source} initialFilters={userDetailsInitialFilters} />
+              <UserDetailsView source={source} initialFilters={userDetailsInitialFilters} userType={filters.userType} />
             ) : (
               <div className="flex-1 overflow-y-auto px-5 pb-5">
                 <DashboardFilters
