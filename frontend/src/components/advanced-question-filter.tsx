@@ -385,24 +385,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Sprout className="h-4 w-4 text-primary" />
                   Crop Type
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Info className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs text-sm">
-                      <p>
-                        Filter by the standardized crop name. You can view a
-                        crop's alternative names by hovering over the "+" icon
-                        next to it. Use "Not Set" to find older questions
-                        without a normalized crop.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
                 </Label>
                 <CropMultiSelect
                   dbCrops={dbCrops}
