@@ -14,6 +14,8 @@ import {
   QueryParams,
   BadRequestError,
   InternalServerError,
+  BadRequestError,
+  InternalServerError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -31,6 +33,11 @@ import {
   UsersNameResponseDto,
   ExpertReviewLevelDto,
   UpdateUserDto
+} from '#root/modules/user/validators/UserValidators.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+
 } from '#root/modules/user/validators/UserValidators.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
