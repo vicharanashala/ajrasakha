@@ -8,6 +8,8 @@ import {
   Body,
   Post,
   CurrentUser,
+  InternalServerError,
+  BadRequestError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {IComment, IUser} from '#root/shared/index.js';
@@ -17,6 +19,10 @@ import { CommentService } from '../services/CommentService.js';
 import { AddCommentBody, AddCommentParams, GetCommentsParams, GetCommentsQuery } from '../classes/validators/CommentValidator.js';
 import { CommentErrorResponse, GetCommentsResponse, AddCommentResponse } from '../classes/validators/CommentResponseValidators.js';
 import { ICommentService } from '../interfaces/ICommentService.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { IQuestionService } from '#root/modules/question/interfaces/IQuestionService.js';
 
 @OpenAPI({
   tags: ['Comments'],
@@ -27,6 +33,12 @@ export class CommentController {
   constructor(
     @inject(GLOBAL_TYPES.CommentService)
     private commentService: ICommentService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(GLOBAL_TYPES.QuestionService)
+    private readonly questionService: IQuestionService,
   ) {}
 
   @OpenAPI({
@@ -106,6 +118,68 @@ export class CommentController {
     const {answerId, questionId} = params;
     const {text} = body;
     const userId = user._id.toString();
-    return this.commentService.addComment(questionId, answerId, text, userId);
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.EXPERTS_ADD_COMMENT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+       },
+      context: {
+        questionId: questionId,
+        answerId: answerId,
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    }
+    let result;
+    let questionDetails;
+    try{
+      result  = await this.commentService.addComment(questionId, answerId, text, userId);
+      questionDetails = await this.questionService.getQuestionById(questionId);
+    } catch(err: any){
+      auditPayload = {
+        ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          question: questionDetails?.text,
+          },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to add comment',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+          },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to add comment',
+      );
+    }
+    auditPayload = {
+      ...auditPayload,
+      context: {
+        ...auditPayload.context,
+        question: questionDetails.text,
+      },
+      changes: {
+        after: {
+          commentText: text,
+        },
+      },
+      outcome: {
+        status: result ? OutComeStatus.SUCCESS : OutComeStatus.FAILED,
+      },
+    };
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return result;
   }
 }

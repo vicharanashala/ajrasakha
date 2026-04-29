@@ -70,6 +70,11 @@ export interface IRequestRepository {
   deletedBy: string,
   session?: ClientSession,
 ): Promise<void>;
+
+  getRequestStatusById(
+    requestId: string,
+    session?: ClientSession,
+  ): Promise<RequestStatus | null>;
 }
 
 

@@ -270,4 +270,20 @@ export class RequestRepository implements IRequestRepository {
     }
   }
 
+  async getRequestStatusById(
+    requestId: string,
+    session?: ClientSession,): Promise<RequestStatus | null> {
+      await this.init();
+      const request = await this.RequestCollection.findOne(
+        {
+          _id: new ObjectId(requestId),
+          isDeleted: {$ne: true},
+        },
+        {
+          projection: {status: 1},
+          session,
+        },
+      );
+      return request?.status || null;
+  }
 }

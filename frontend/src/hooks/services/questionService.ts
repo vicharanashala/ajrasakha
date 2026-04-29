@@ -717,9 +717,13 @@ export class QuestionService {
     return res?.data ?? null;
   }
 
-  async generateAIInitialAnswer(questionId: string) {
+  async generateAIInitialAnswer(questionId: string, currentUserId?: string): Promise<{ aiInitialAnswer: string } | null> {
+    const params = new URLSearchParams();
+    if (currentUserId) {
+      params.append("userId", currentUserId);
+    }
     const response = await fetch(
-      `${this._baseUrl}/${questionId}/generate-answer`,
+      `${this._baseUrl}/${questionId}/generate-answer?${params.toString()}`,
       { method: "GET", }
     );
     const data = await response.json();
