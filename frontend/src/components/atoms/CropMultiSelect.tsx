@@ -1,6 +1,5 @@
 import { AlertTriangle } from "lucide-react";
 import { MultiSelect } from "./MultiSelect";
-import type { ICropAlias } from "@/hooks/services/cropService";
 
 export const CropMultiSelect = ({
   dbCrops,
@@ -8,13 +7,13 @@ export const CropMultiSelect = ({
   selected,
   onChange,
 }: {
-  dbCrops: { _id?: string; name: string; aliases?: ICropAlias[] }[];
+  dbCrops: { _id?: string; name: string }[];
   crops: string[];
   selected: string[];
   onChange: (next: string[]) => void;
 }) => {
-  const cropList: { name: string; aliases?: ICropAlias[] }[] =
-    dbCrops.length > 0 ? dbCrops : crops.map((c) => ({ name: c }));
+  const cropNames: string[] =
+    dbCrops.length > 0 ? dbCrops.map((c) => c.name) : crops;
 
   const items = [
     {
@@ -28,18 +27,9 @@ export const CropMultiSelect = ({
         </span>
       ),
     },
-    ...cropList.map((crop) => ({
-      value: crop.name,
-      label: (
-        <span className="flex items-center gap-2">
-          <span className="capitalize">{crop.name}</span>
-          {crop.aliases && crop.aliases.length > 0 && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
-              +{crop.aliases.length}
-            </span>
-          )}
-        </span>
-      ),
+    ...cropNames.map((name) => ({
+      value: name,
+      label: <span className="capitalize">{name}</span>,
     })),
   ];
 
