@@ -228,19 +228,25 @@ const AliasSection = ({
                 )}
               </span>
               {/* English & Native names row */}
-              <span className="flex items-center gap-1.5 text-[11px] leading-tight">
-                <span className="font-medium text-gray-800 dark:text-gray-200">
-                  {alias.english_representation}
+              <span className="flex items-center gap-2 flex-wrap">
+                <span className="flex items-center gap-1">
+                  <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">English:</span>
+                  <span className="text-[11px] font-medium text-gray-800 dark:text-gray-200 leading-tight">
+                    {alias.english_representation}
+                  </span>
                 </span>
                 <span className="text-gray-300 dark:text-gray-600 select-none">·</span>
-                <span className="text-gray-600 dark:text-gray-400">
-                  {alias.native_representation}
+                <span className="flex items-center gap-1">
+                  <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Native:</span>
+                  <span className="text-[11px] text-gray-600 dark:text-gray-400 leading-tight">
+                    {alias.native_representation}
+                  </span>
                 </span>
               </span>
               <button
                 type="button"
                 onClick={() => handleRemove(i)}
-                className={`absolute top-1 right-1 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity ${removeHover}`}
+                className={`absolute top-1 right-1 p-0.5 rounded transition-opacity ${removeHover}`}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -590,13 +596,19 @@ export const CropManagementModal = ({
                                         )}
                                       </span>
                                       {/* English & Native names row */}
-                                      <span className="flex items-center gap-1.5 text-[11px] leading-tight">
-                                        <span className="font-medium text-gray-800 dark:text-gray-200">
-                                          {alias.english_representation}
+                                      <span className="flex items-center gap-2 flex-wrap">
+                                        <span className="flex items-center gap-1">
+                                          <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">English:</span>
+                                          <span className="text-[11px] font-medium text-gray-800 dark:text-gray-200 leading-tight">
+                                            {alias.english_representation}
+                                          </span>
                                         </span>
                                         <span className="text-gray-300 dark:text-gray-600 select-none">·</span>
-                                        <span className="text-gray-600 dark:text-gray-400">
-                                          {alias.native_representation}
+                                        <span className="flex items-center gap-1">
+                                          <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Native:</span>
+                                          <span className="text-[11px] text-gray-600 dark:text-gray-400 leading-tight">
+                                            {alias.native_representation}
+                                          </span>
                                         </span>
                                       </span>
                                     </span>
