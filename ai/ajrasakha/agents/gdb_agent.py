@@ -64,7 +64,6 @@ Query: {query}
     agent = await _get_gdb_agent()
     result = await agent.ainvoke(
         {"messages": [
-            SystemMessage(content=GDB_SYSTEM_PROMPT),
             HumanMessage(content=context)
         ]},
         config=config
