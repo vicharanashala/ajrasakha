@@ -124,7 +124,7 @@ export const SubmitAnswerDialog = ({
           >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmittingAnswer}>
+          <Button onClick={handleSubmit} disabled={isSubmittingAnswer || !answer.trim()}>
             {isSubmittingAnswer ? "Submitting..." : triggerLabel}
           </Button>
         </DialogFooter>

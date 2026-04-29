@@ -109,19 +109,54 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.db.getCollection<IQuestion>('questions');
   }
 
-  private async getExternalUserIds(): Promise<string[]> {
-    const externalUsers = await this.users
-      .find({ email: { $regex: '^rup', $options: 'i' } }, { projection: { _id: 1 } })
-      .toArray();
-    return externalUsers.map(u => String(u._id));
-  }
+  /**
+   * Returns aggregation pipeline stages that join messages → users via $lookup
+   * and filter by user type (external/internal). When userType is 'all', returns
+   * an empty array (zero overhead). This replaces the old two-step pattern of
+   * getExternalUserIds() + buildUserMessageFilter() which caused a separate DB
+   * query for every method call.
+   */
+  private buildUserTypeLookupStages(userType: string): any[] {
+    if (userType === 'all') return [];
 
-  private async buildUserMessageFilter(userType: string): Promise<Record<string, any>> {
-    if (userType === 'all') return {};
-    const externalIds = await this.getExternalUserIds();
-    return userType === 'external'
-      ? { user: { $in: externalIds } }
-      : { user: { $nin: externalIds } };
+    const stages: any[] = [
+      {
+        $addFields: {
+          _userOid: {
+            $cond: [
+              { $and: [{ $ne: ['$user', null] }, { $ne: ['$user', ''] }] },
+              { $toObjectId: '$user' },
+              null,
+            ],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_userOid',
+          foreignField: '_id',
+          as: '_userDoc',
+        },
+      },
+    ];
+
+    if (userType === 'external') {
+      // $unwind without preserveNull drops messages with no matching user (correct)
+      stages.push(
+        { $unwind: '$_userDoc' },
+        { $match: { '_userDoc.email': { $regex: '^rup', $options: 'i' } } },
+      );
+    } else {
+      // internal: preserve messages from unknown users, exclude 'rup' emails
+      stages.push(
+        { $unwind: { path: '$_userDoc', preserveNullAndEmptyArrays: true } },
+        { $match: { '_userDoc.email': { $not: { $regex: '^rup', $options: 'i' } } } },
+      );
+    }
+
+    stages.push({ $unset: ['_userOid', '_userDoc'] });
+    return stages;
   }
 
   private buildUserDocFilter(userType: string): Record<string, any> {
@@ -147,7 +182,7 @@ export class ChatbotRepository implements IChatbotRepository {
       threeDaysAgo.setHours(0, 0, 0, 0);
 
       const userDocFilter = this.buildUserDocFilter(userType);
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls, activeUsersLast3Days] =
         await Promise.all([
@@ -205,7 +240,8 @@ export class ChatbotRepository implements IChatbotRepository {
           this.messagesCollection
             .aggregate(
               [
-                { $match: { createdAt: { $gte: threeDaysAgo }, isCreatedByUser: true, ...userMsgFilter } },
+                { $match: { createdAt: { $gte: threeDaysAgo }, isCreatedByUser: true } },
+                ...userTypeLookupStages,
                 { $group: { _id: '$user' } },
                 { $count: 'total' },
               ],
@@ -258,12 +294,13 @@ export class ChatbotRepository implements IChatbotRepository {
       since.setDate(1);
       since.setHours(0, 0, 0, 0);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            { $match: { createdAt: { $gte: since }, isCreatedByUser: true, ...userMsgFilter } },
+            { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
+            ...userTypeLookupStages,
             // Deduplicate: one entry per (month, user) pair
             {
               $group: {
@@ -432,12 +469,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const since = new Date();
       since.setDate(since.getDate() - days);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true, ...userMsgFilter}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            ...userTypeLookupStages,
             {
               $group: {
                 _id: {$dateToString: {format: '%Y-%m-%d', date: '$createdAt'}},
@@ -467,13 +505,14 @@ export class ChatbotRepository implements IChatbotRepository {
       since.setDate(since.getDate() - days);
       since.setHours(0, 0, 0, 0);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
             // Filter to last N days, user-sent messages only
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true, ...userMsgFilter}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            ...userTypeLookupStages,
             // Deduplicate: one entry per (day, user) pair
             {
               $group: {
@@ -513,12 +552,13 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(source);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {isCreatedByUser: true, ...userMsgFilter}},
+            {$match: {isCreatedByUser: true}},
+            ...userTypeLookupStages,
             {
               $group: {
                 _id: {
@@ -553,12 +593,20 @@ export class ChatbotRepository implements IChatbotRepository {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-      return this.messagesCollection.countDocuments(
-        {createdAt: {$gte: today}, isCreatedByUser: true, ...userMsgFilter},
-        {session},
-      );
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {$match: {createdAt: {$gte: today}, isCreatedByUser: true}},
+            ...userTypeLookupStages,
+            {$count: 'total'},
+          ],
+          {session},
+        )
+        .toArray();
+
+      return (result as any[])[0]?.total ?? 0;
     } catch (error) {
       throw new InternalServerError(
         `Failed to get today query count: ${error}`,
@@ -571,16 +619,27 @@ export class ChatbotRepository implements IChatbotRepository {
     details: any;
     createdAt: Date;
     questionId: string;
+    messageId: string | undefined;
   }) {
     await this.init();
     await this.initReviewSystem();
-    const {question, details, createdAt, questionId} = data;
+    const {question, details, createdAt, questionId, messageId} = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
 
-    let result = await this.messagesCollection
-      .aggregate([
+    let pipeline = [];
+    
+    if(messageId){
+      pipeline.push(
+        {
+        $match: {
+          messageId
+        }
+      }
+      )
+    }else{
+      pipeline.push(
         {
           $match: {
             createdAt: {
@@ -588,8 +647,11 @@ export class ChatbotRepository implements IChatbotRepository {
               $lte: end,
             },
           },
-        },
-        {
+        }
+      )
+    }
+    pipeline.push(
+       {
           $addFields: {
             userObjectId: {
               $cond: [
@@ -615,9 +677,12 @@ export class ChatbotRepository implements IChatbotRepository {
             path: '$userDetails',
             preserveNullAndEmptyArrays: true,
           },
-        },
-      ])
+        }
+    )
+    let result = await this.messagesCollection
+      .aggregate(pipeline)
       .toArray();
+    if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
@@ -662,6 +727,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {$set: {messageId: matchedMessageId}},
       );
     }
+    
     return result1;
   }
 
@@ -670,15 +736,25 @@ export class ChatbotRepository implements IChatbotRepository {
     details: any;
     createdAt: Date;
     questionId: string;
+    messageId: string | undefined;
   }) {
     await this.initSecondDb();
     await this.initReviewSystem();
-    const {question, details, createdAt, questionId} = data;
+    const {question, details, createdAt, questionId,messageId} = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
-    let result = await this.annamMessagesCollection
-      .aggregate([
+
+     let pipeline = []
+    
+    if(messageId){
+      pipeline.push( {
+        $match: {
+          messageId
+        }
+      })
+    }else{
+      pipeline.push(
         {
           $match: {
             createdAt: {
@@ -686,8 +762,12 @@ export class ChatbotRepository implements IChatbotRepository {
               $lte: end,
             },
           },
-        },
-        {
+        }
+      )
+    }
+
+    pipeline.push(
+      {
           $addFields: {
             userObjectId: {
               $cond: [
@@ -713,9 +793,12 @@ export class ChatbotRepository implements IChatbotRepository {
             path: '$userDetails',
             preserveNullAndEmptyArrays: true,
           },
-        },
-      ])
+        }
+    )
+    let result = await this.annamMessagesCollection
+      .aggregate(pipeline)
       .toArray();
+    if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
@@ -924,12 +1007,12 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(source);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            ...(Object.keys(userMsgFilter).length > 0 ? [{ $match: userMsgFilter }] : []),
+            ...userTypeLookupStages,
             {$sort: {conversationId: 1, createdAt: 1}},
             {
               $setWindowFields: {
@@ -992,12 +1075,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const since = new Date();
       since.setDate(since.getDate() - weeks * 7);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, ...userMsgFilter}},
+            {$match: {createdAt: {$gte: since}}},
+            ...userTypeLookupStages,
             {$sort: {conversationId: 1, createdAt: 1}},
             {
               $setWindowFields: {

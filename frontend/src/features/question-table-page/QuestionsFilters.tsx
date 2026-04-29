@@ -217,8 +217,10 @@ export const QuestionsFilters = ({
     try {
       if (mode !== "add") return;
       if (formData) {
+        const isOutreach = formData.get("isOutreachQuestion") === "true";
         await addQuestion(formData as any);
         // toast.success('File Uploaded succesfully')
+        handleAnswerModeChange(isOutreach ? "outreach" : "manual");
         setAddQuestionErrors({});
         setAddOpen(false);
         return;
@@ -294,6 +296,7 @@ export const QuestionsFilters = ({
       setAddQuestionErrors({});
       await addQuestion(payload);
       // toast.success("Question added successfully.");
+      handleAnswerModeChange("manual");
       setAddOpen(false);
     } catch (error) {
       console.error("Error in handleAddQuestion:", error);
