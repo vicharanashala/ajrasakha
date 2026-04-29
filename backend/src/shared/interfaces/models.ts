@@ -363,6 +363,18 @@ export interface ICrop {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+export type ChemicalStatus = 'Restricted' | 'Banned';
+
+export interface IChemical {
+  _id?: ObjectId | string;
+  name: string;
+  status: ChemicalStatus;
+  createdBy?: ObjectId | string;
+  updatedBy?: ObjectId | string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 export interface ISource {
   source: string;     // URL or document reference
   page?: number;      // optional (some sources may not have page)
