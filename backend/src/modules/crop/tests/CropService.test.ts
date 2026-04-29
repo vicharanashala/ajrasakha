@@ -9,7 +9,10 @@ import {ICrop} from '#root/shared/interfaces/models.js';
 const mockCrop: ICrop = {
   _id: '664f1a2b3c4d5e6f7a8b9c0d',
   name: 'Rice',
-  aliases: ['Paddy', 'ধান'],
+  aliases: [
+    { language: 'hi-IN', region: 'North India', en_repr: 'paddy', native_repr: 'पैडी' },
+    { language: 'bn-IN', region: 'West Bengal', en_repr: 'dhan', native_repr: 'ধান' },
+  ],
   createdBy: '664f000000000000000000001',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
@@ -89,7 +92,7 @@ describe('CropService', () => {
   // ── createCrop ──────────────────────────────────────────────────────────────
 
   describe('createCrop', () => {
-    const dto = {name: 'Rice', aliases: ['Paddy']};
+    const dto = {name: 'Rice', aliases: [{ language: 'hi-IN', region: '', en_repr: 'paddy', native_repr: 'पैडी' }]};
     const userId = '664f000000000000000000001';
 
     it('creates a crop and returns it', async () => {
@@ -126,11 +129,14 @@ describe('CropService', () => {
   // ── updateCrop ──────────────────────────────────────────────────────────────
 
   describe('updateCrop', () => {
-    const dto = {aliases: ['Paddy', 'ধান']};
+    const dto = {aliases: [
+      { language: 'hi-IN', region: '', en_repr: 'paddy', native_repr: 'पैडी' },
+      { language: 'bn-IN', region: '', en_repr: 'dhan', native_repr: 'ধান' },
+    ]};
     const userId = '664f000000000000000000001';
 
     it('updates a crop and returns updated doc', async () => {
-      const updated = {...mockCrop, aliases: ['Paddy', 'ধান']};
+      const updated = {...mockCrop, aliases: dto.aliases};
       mockRepo.updateCrop.mockResolvedValue(updated);
 
       const result = await service.updateCrop('664f1a2b3c4d5e6f7a8b9c0d', dto, userId);
@@ -140,7 +146,7 @@ describe('CropService', () => {
         dto,
         userId,
       );
-      expect(result?.aliases).toContain('ধান');
+      expect(result?.aliases.some(a => a.en_repr === 'dhan')).toBe(true);
     });
 
     it('returns null when crop not found', async () => {
@@ -157,7 +163,7 @@ describe('CropService', () => {
       );
 
       await expect(
-        service.updateCrop('664f1a2b3c4d5e6f7a8b9c0d', {aliases: ['wheat']}, userId),
+        service.updateCrop('664f1a2b3c4d5e6f7a8b9c0d', {aliases: [{ language: 'en-IN', region: '', en_repr: 'wheat', native_repr: 'wheat' }]}, userId),
       ).rejects.toMatchObject({httpCode: 400});
     });
   });

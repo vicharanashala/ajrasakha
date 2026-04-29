@@ -27,7 +27,7 @@ const expertUser = {...adminUser, _id: '664f000000000000000000002', role: 'exper
 const mockCrop: ICrop = {
   _id: '664f1a2b3c4d5e6f7a8b9c0d',
   name: 'Rice',
-  aliases: ['Paddy'],
+  aliases: [{ language: 'hi-IN', region: 'North India', en_repr: 'paddy', native_repr: 'पैडी' }],
   createdBy: adminUser._id,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
