@@ -979,7 +979,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
-          originalQuestion: originalquestion
+          ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
         };
        const enableDuplicateFeature=false
         // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
