@@ -73,7 +73,7 @@ export class CropRepository implements ICropRepository {
         name: name.trim().toLowerCase(),
         aliases: (aliases || []).map(a => ({
           language: a.language.trim(),
-          region: a.region?.trim() ?? '',
+          region: a.region.trim(),
           en_repr: a.en_repr.trim().toLowerCase(),
           native_repr: a.native_repr.trim(),
         })),
@@ -190,7 +190,7 @@ export class CropRepository implements ICropRepository {
       if (updates.aliases !== undefined) {
         const normalizedAliases = updates.aliases.map(a => ({
           language: a.language.trim(),
-          region: a.region?.trim() ?? '',
+          region: a.region.trim(),
           en_repr: a.en_repr.trim().toLowerCase(),
           native_repr: a.native_repr.trim(),
         }));

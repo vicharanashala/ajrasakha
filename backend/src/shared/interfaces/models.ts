@@ -356,7 +356,7 @@ export interface ICropRef {
 
 export interface ICropAlias {
   language: string;    // BCP-47 code e.g. "te-IN"
-  region?: string;     // e.g. "Andhra and Telangana"
+  region: string;      // e.g. "Andhra and Telangana" (required)
   en_repr: string;     // romanised / English representation e.g. "vari"
   native_repr: string; // native script e.g. "వరి"
 }

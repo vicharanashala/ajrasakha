@@ -34,9 +34,9 @@ class CropAliasDto {
   language: string;
 
   @JSONSchema({ description: 'Region/state where alias is used', example: 'Andhra and Telangana' })
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  region?: string;
+  region: string;
 
   @JSONSchema({ description: 'Romanised / English representation', example: 'vari' })
   @IsNotEmpty()
