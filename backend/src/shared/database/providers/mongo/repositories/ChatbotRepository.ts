@@ -597,8 +597,6 @@ export class ChatbotRepository implements IChatbotRepository {
     let result = await this.messagesCollection
       .aggregate(pipeline)
       .toArray();
-    console.log('messageId:', messageId);
-    console.log('Result from first DB:', result);
     if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
@@ -715,8 +713,6 @@ export class ChatbotRepository implements IChatbotRepository {
     let result = await this.annamMessagesCollection
       .aggregate(pipeline)
       .toArray();
-      console.log('messageId:', messageId);
-      console.log('Result from second DB:', result);
     if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
