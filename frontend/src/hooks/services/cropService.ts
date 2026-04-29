@@ -5,7 +5,7 @@ const API_BASE_URL = env.apiBaseUrl();
 
 export interface ICropAlias {
   language: string;
-  region?: string;
+  region: string;
   en_repr: string;
   native_repr: string;
 }

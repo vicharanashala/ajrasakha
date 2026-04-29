@@ -27,31 +27,35 @@ type ICropAliasObject = ICropAlias;
 
 // All 22 scheduled languages of India + widely spoken regional languages
 const INDIAN_LANGUAGES = [
-  { code: "as-IN",  label: "Assamese" },
-  { code: "bn-IN",  label: "Bengali" },
-  { code: "bho-IN", label: "Bhojpuri" },
-  { code: "brx-IN", label: "Bodo" },
-  { code: "doi-IN", label: "Dogri" },
-  { code: "gu-IN",  label: "Gujarati" },
-  { code: "hi-IN",  label: "Hindi" },
-  { code: "kn-IN",  label: "Kannada" },
-  { code: "ks-IN",  label: "Kashmiri" },
-  { code: "kok-IN", label: "Konkani" },
-  { code: "mai-IN", label: "Maithili" },
-  { code: "ml-IN",  label: "Malayalam" },
-  { code: "mni-IN", label: "Manipuri (Meitei)" },
-  { code: "mr-IN",  label: "Marathi" },
-  { code: "ne-IN",  label: "Nepali" },
-  { code: "or-IN",  label: "Odia" },
-  { code: "pa-IN",  label: "Punjabi" },
-  { code: "raj-IN", label: "Rajasthani" },
-  { code: "sa-IN",  label: "Sanskrit" },
-  { code: "sat-IN", label: "Santali" },
-  { code: "sd-IN",  label: "Sindhi" },
-  { code: "ta-IN",  label: "Tamil" },
-  { code: "te-IN",  label: "Telugu" },
-  { code: "ur-IN",  label: "Urdu" },
+  { code: "as-IN",  en: "Assamese",          native: "অসমীয়া" },
+  { code: "bn-IN",  en: "Bengali",           native: "বাংলা" },
+  { code: "bho-IN", en: "Bhojpuri",          native: "भोजपुरी" },
+  { code: "brx-IN", en: "Bodo",              native: "बड़ो" },
+  { code: "doi-IN", en: "Dogri",             native: "डोगरी" },
+  { code: "gu-IN",  en: "Gujarati",          native: "ગુજરાતી" },
+  { code: "hi-IN",  en: "Hindi",             native: "हिन्दी" },
+  { code: "kn-IN",  en: "Kannada",           native: "ಕನ್ನಡ" },
+  { code: "ks-IN",  en: "Kashmiri",          native: "کشمیری" },
+  { code: "kok-IN", en: "Konkani",           native: "कोंकणी" },
+  { code: "mai-IN", en: "Maithili",          native: "मैथिली" },
+  { code: "ml-IN",  en: "Malayalam",         native: "മലയാളം" },
+  { code: "mni-IN", en: "Manipuri (Meitei)", native: "ꯃꯤꯇꯩ ꯂꯣꯟ" },
+  { code: "mr-IN",  en: "Marathi",           native: "मराठी" },
+  { code: "ne-IN",  en: "Nepali",            native: "नेपाली" },
+  { code: "or-IN",  en: "Odia",              native: "ଓଡ଼ିଆ" },
+  { code: "pa-IN",  en: "Punjabi",           native: "ਪੰਜਾਬੀ" },
+  { code: "raj-IN", en: "Rajasthani",        native: "राजस्थानी" },
+  { code: "sa-IN",  en: "Sanskrit",          native: "संस्कृतम्" },
+  { code: "sat-IN", en: "Santali",           native: "ᱥᱟᱱᱛᱟᱲᱤ" },
+  { code: "sd-IN",  en: "Sindhi",            native: "سنڌي" },
+  { code: "ta-IN",  en: "Tamil",             native: "தமிழ்" },
+  { code: "te-IN",  en: "Telugu",            native: "తెలుగు" },
+  { code: "ur-IN",  en: "Urdu",              native: "اردو" },
 ];
+
+// Returns { en, native } for a language code, falling back to the code itself
+const getLangInfo = (code: string) =>
+  INDIAN_LANGUAGES.find((l) => l.code === code) ?? { en: code, native: "" };
 
 const emptyAliasEntry = (): ICropAliasObject => ({
   language: "",
@@ -95,6 +99,7 @@ const AliasSection = ({
 
   const canAdd =
     entry.language.trim() !== "" &&
+    entry.region.trim() !== "" &&
     entry.en_repr.trim() !== "" &&
     entry.native_repr.trim() !== "";
 
@@ -131,10 +136,9 @@ const AliasSection = ({
               <SelectContent>
                 {INDIAN_LANGUAGES.map((lang) => (
                   <SelectItem key={lang.code} value={lang.code} className="text-xs">
-                    <span className="font-mono">{lang.code}</span>
-                    <span className="text-gray-400 dark:text-gray-500 ml-1.5">
-                      — {lang.label}
-                    </span>
+                    {lang.en}
+                    <span className="ml-1.5 text-gray-500 dark:text-gray-400">{lang.native}</span>
+                    <span className="ml-1.5 font-mono text-[10px] text-gray-400 dark:text-gray-600">({lang.code})</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -145,7 +149,6 @@ const AliasSection = ({
           <div className="space-y-1">
             <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
               Region
-              <span className="font-normal normal-case ml-1 tracking-normal">— optional</span>
             </span>
             <Input
               placeholder="e.g. Andhra and Telangana"
@@ -206,16 +209,13 @@ const AliasSection = ({
             >
               <div className="flex-1 min-w-0 space-y-0.5">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`inline-flex items-center px-1.5 py-px rounded text-[10px] font-mono font-semibold ${langBadge}`}
-                  >
-                    {alias.language}
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-px rounded text-[10px] font-semibold ${langBadge}`}>
+                    {getLangInfo(alias.language).en}
+                    <span className="opacity-70">{getLangInfo(alias.language).native}</span>
                   </span>
-                  {alias.region && (
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                      {alias.region}
-                    </span>
-                  )}
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                    {alias.region}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs pl-0.5">
                   <span className="font-medium text-gray-800 dark:text-gray-200">
@@ -520,14 +520,14 @@ export const CropManagementModal = ({
                                   <span
                                     key={i}
                                     className="inline-flex items-center gap-1 px-1.5 py-px rounded text-[10px] font-medium bg-gray-100 dark:bg-white/5"
-                                    title={alias.region || alias.language}
+                                    title={alias.region}
                                   >
-                                    <span className="font-mono text-amber-600 dark:text-amber-400">
-                                      {alias.language}
+                                    <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                                      {getLangInfo(alias.language).en}
                                     </span>
-                                    <span className="text-gray-400 dark:text-gray-500">·</span>
+                                    <span className="text-gray-300 dark:text-gray-600">·</span>
                                     <span className="text-gray-600 dark:text-gray-400">{alias.en_repr}</span>
-                                    <span className="text-gray-400 dark:text-gray-500">·</span>
+                                    <span className="text-gray-300 dark:text-gray-600">·</span>
                                     <span className="text-gray-500 dark:text-gray-400">{alias.native_repr}</span>
                                   </span>
                                 ))}
