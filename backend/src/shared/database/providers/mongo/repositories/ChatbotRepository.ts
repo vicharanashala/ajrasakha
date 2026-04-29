@@ -592,6 +592,8 @@ export class ChatbotRepository implements IChatbotRepository {
     let result = await this.messagesCollection
       .aggregate(pipeline)
       .toArray();
+    
+    if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
@@ -636,7 +638,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {$set: {messageId: matchedMessageId}},
       );
     }
-    console.log()
+    
     return result1;
   }
 
@@ -703,6 +705,8 @@ export class ChatbotRepository implements IChatbotRepository {
     let result = await this.annamMessagesCollection
       .aggregate(pipeline)
       .toArray();
+
+    if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
