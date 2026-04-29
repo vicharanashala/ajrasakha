@@ -52,7 +52,7 @@ export class CropRepository implements ICropRepository {
       if (!this.CropCollection) await this.init();
 
       // Collect all english_representation values + the crop name for conflict checking
-      const allNames = [name.trim(), ...(aliases || []).map(a => a.english_representation.trim())];
+      const allNames = [name.trim(), ...(aliases || []).map(a => (a.english_representation ?? '').trim())];
 
       const orConditions: any[] = [];
       for (const n of allNames) {
@@ -78,10 +78,10 @@ export class CropRepository implements ICropRepository {
       const payload: ICrop = {
         name: name.trim().toLowerCase(),
         aliases: (aliases || []).map(a => ({
-          language: a.language.trim(),
-          region: a.region.trim(),
-          english_representation: a.english_representation.trim().toLowerCase(),
-          native_representation: a.native_representation.trim(),
+          language: (a.language ?? '').trim(),
+          region: (a.region ?? '').trim(),
+          english_representation: (a.english_representation ?? '').trim().toLowerCase(),
+          native_representation: (a.native_representation ?? '').trim(),
         })),
         createdBy: new ObjectId(createdBy),
         createdAt: now,
