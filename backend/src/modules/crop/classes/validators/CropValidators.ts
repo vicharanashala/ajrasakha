@@ -75,15 +75,13 @@ class CreateCropDto {
 
 class UpdateCropDto {
   @JSONSchema({
-    description: 'Updated structured aliases for the crop',
+    description: 'Updated aliases — accepts both legacy strings and new structured objects',
     example: [{ language: 'hi-IN', region: 'North India', english_representation: 'dhan', native_representation: 'धान' }],
     type: 'array',
   })
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CropAliasDto)
-  aliases?: CropAliasDto[];
+  aliases?: (CropAliasDto | string)[];
 }
 
 // ── Query DTOs ──

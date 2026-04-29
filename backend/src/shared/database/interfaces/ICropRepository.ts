@@ -9,6 +9,6 @@ export interface ICropRepository {
     limit?: number;
   }): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}>;
   getCropById(cropId: string): Promise<ICrop | null>;
-  updateCrop(id: string, updates: {name?: string; aliases?: ICropAlias[]}, updatedBy: string): Promise<ICrop | null>;
+  updateCrop(id: string, updates: {name?: string; aliases?: (ICropAlias | string)[]}, updatedBy: string): Promise<ICrop | null>;
   findByNameOrAlias(cropName: string): Promise<ICrop | null>;
 }

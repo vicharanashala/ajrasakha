@@ -51,7 +51,7 @@ describe('CropRepository integration (prod_copy_db)', () => {
 
     expect(crop._id).toBeDefined();
     expect(crop.name).toBe(TEST_CROP_NAME_LOWER);
-    expect(crop.aliases.some(a => a.english_representation === TEST_ALIAS_1.toLowerCase())).toBe(true);
+    expect(crop.aliases.some(a => typeof a !== 'string' && a.english_representation === TEST_ALIAS_1.toLowerCase())).toBe(true);
 
     createdDocId = crop._id!.toString();
   }, 30000);
@@ -89,7 +89,7 @@ describe('CropRepository integration (prod_copy_db)', () => {
     );
 
     expect(updated).not.toBeNull();
-    expect(updated!.aliases.some(a => a.english_representation === 'updatedalias')).toBe(true);
-    expect(updated!.aliases.some(a => a.english_representation === TEST_ALIAS_1.toLowerCase())).toBe(false);
+    expect(updated!.aliases.some(a => typeof a !== 'string' && a.english_representation === 'updatedalias')).toBe(true);
+    expect(updated!.aliases.some(a => typeof a !== 'string' && a.english_representation === TEST_ALIAS_1.toLowerCase())).toBe(false);
   }, 30000);
 });

@@ -146,7 +146,7 @@ describe('CropService', () => {
         dto,
         userId,
       );
-      expect(result?.aliases.some(a => a.english_representation === 'dhan')).toBe(true);
+      expect(result?.aliases.some(a => typeof a !== 'string' && a.english_representation === 'dhan')).toBe(true);
     });
 
     it('returns null when crop not found', async () => {

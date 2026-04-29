@@ -13,7 +13,7 @@ export interface ICropAlias {
 export interface ICropResponse {
   _id?: string;
   name: string;
-  aliases: ICropAlias[];
+  aliases: (ICropAlias | string)[];  // string = legacy format from older crops
   createdBy?: string;
   updatedBy?: string;
   createdAt?: string;
@@ -39,7 +39,7 @@ export interface IGetAllCropsResponse {
 
 export interface IUpdateCropPayload {
   name?: string;
-  aliases?: ICropAlias[];
+  aliases?: (ICropAlias | string)[];
 }
 
 export class CropService {

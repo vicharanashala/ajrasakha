@@ -253,6 +253,7 @@ export const CropManagementModal = ({
   const [editingCropId, setEditingCropId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editAliases, setEditAliases] = useState<ICropAliasObject[]>([]);
+  const [editLegacyAliases, setEditLegacyAliases] = useState<string[]>([]);
 
   // ── API Hooks
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
@@ -271,7 +272,10 @@ export const CropManagementModal = ({
   const startEditing = (crop: ICropResponse) => {
     setEditingCropId(crop._id || null);
     setEditName(crop.name);
-    setEditAliases(crop.aliases || []);
+    // Split legacy (string) aliases from new (object) aliases
+    const all = crop.aliases || [];
+    setEditLegacyAliases(all.filter((a): a is string => typeof a === "string"));
+    setEditAliases(all.filter((a): a is ICropAliasObject => typeof a !== "string"));
     if (isAddFormOpen) resetForm();
   };
 
@@ -279,6 +283,7 @@ export const CropManagementModal = ({
     setEditingCropId(null);
     setEditName("");
     setEditAliases([]);
+    setEditLegacyAliases([]);
   };
 
   const handleSave = async () => {
@@ -305,7 +310,7 @@ export const CropManagementModal = ({
     try {
       const res = await updateCrop({
         cropId: editingCropId,
-        payload: { aliases: editAliases },
+        payload: { aliases: [...editLegacyAliases, ...editAliases] },
       });
       if (res?.success) {
         toast.success(`Aliases for "${editName}" updated successfully!`);
@@ -458,10 +463,36 @@ export const CropManagementModal = ({
                           />
                         </div>
 
-                        {/* Aliases */}
+                        {/* Legacy aliases (old string format) */}
+                        {editLegacyAliases.length > 0 && (
+                          <div>
+                            <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-2">
+                              Legacy Aliases
+                              <span className="font-normal normal-case tracking-normal text-gray-400 dark:text-gray-600">— click × to remove</span>
+                            </label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {editLegacyAliases.map((alias) => (
+                                <span
+                                  key={alias}
+                                  className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs font-medium border bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+                                >
+                                  {alias}
+                                  <button
+                                    onClick={() => setEditLegacyAliases((prev) => prev.filter((a) => a !== alias))}
+                                    className="p-0.5 rounded-sm hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* New structured aliases */}
                         <div>
                           <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                            Aliases
+                            {editLegacyAliases.length > 0 ? "Add Structured Alias" : "Aliases"}
                           </label>
                           <AliasSection
                             aliases={editAliases}

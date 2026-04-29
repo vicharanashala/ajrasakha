@@ -364,7 +364,7 @@ export interface ICropAlias {
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  aliases: ICropAlias[];
+  aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
   createdAt?: Date;
