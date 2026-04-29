@@ -41,7 +41,7 @@ export class CropEntryResponse {
 
   @JSONSchema({
     description: 'Structured aliases for the crop across languages',
-    example: [{ language: 'te-IN', region: 'Andhra and Telangana', en_repr: 'vari', native_repr: 'వరి' }],
+    example: [{ language: 'te-IN', region: 'Andhra and Telangana', english_representation: 'vari', native_representation: 'వరి' }],
     type: 'array',
     readOnly: true,
   })

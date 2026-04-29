@@ -60,8 +60,8 @@ const getLangInfo = (code: string) =>
 const emptyAliasEntry = (): ICropAliasObject => ({
   language: "",
   region: "",
-  en_repr: "",
-  native_repr: "",
+  english_representation: "",
+  native_representation: "",
 });
 
 type CropManagementModalProps = {
@@ -100,8 +100,8 @@ const AliasSection = ({
   const canAdd =
     entry.language.trim() !== "" &&
     entry.region.trim() !== "" &&
-    entry.en_repr.trim() !== "" &&
-    entry.native_repr.trim() !== "";
+    entry.english_representation.trim() !== "" &&
+    entry.native_representation.trim() !== "";
 
   const handleAdd = () => {
     if (!canAdd) return;
@@ -161,12 +161,12 @@ const AliasSection = ({
           {/* English repr */}
           <div className="space-y-1">
             <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
-              English Repr
+              English Representation
             </span>
             <Input
               placeholder="e.g. vari"
-              value={entry.en_repr}
-              onChange={(e) => setEntry((f) => ({ ...f, en_repr: e.target.value }))}
+              value={entry.english_representation}
+              onChange={(e) => setEntry((f) => ({ ...f, english_representation: e.target.value }))}
               className="h-8 text-xs bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700"
             />
           </div>
@@ -174,12 +174,12 @@ const AliasSection = ({
           {/* Native repr */}
           <div className="space-y-1">
             <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
-              Native Repr
+              Native Representation
             </span>
             <Input
               placeholder="e.g. వరి"
-              value={entry.native_repr}
-              onChange={(e) => setEntry((f) => ({ ...f, native_repr: e.target.value }))}
+              value={entry.native_representation}
+              onChange={(e) => setEntry((f) => ({ ...f, native_representation: e.target.value }))}
               className="h-8 text-xs bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700"
             />
           </div>
@@ -219,10 +219,10 @@ const AliasSection = ({
                 </div>
                 <div className="flex items-center gap-1.5 text-xs pl-0.5">
                   <span className="font-medium text-gray-800 dark:text-gray-200">
-                    {alias.en_repr}
+                    {alias.english_representation}
                   </span>
                   <span className="text-gray-300 dark:text-gray-600 select-none">·</span>
-                  <span className="text-gray-700 dark:text-gray-300">{alias.native_repr}</span>
+                  <span className="text-gray-700 dark:text-gray-300">{alias.native_representation}</span>
                 </div>
               </div>
               <button
@@ -526,9 +526,9 @@ export const CropManagementModal = ({
                                       {getLangInfo(alias.language).en}
                                     </span>
                                     <span className="text-gray-300 dark:text-gray-600">·</span>
-                                    <span className="text-gray-600 dark:text-gray-400">{alias.en_repr}</span>
+                                    <span className="text-gray-600 dark:text-gray-400">{alias.english_representation}</span>
                                     <span className="text-gray-300 dark:text-gray-600">·</span>
-                                    <span className="text-gray-500 dark:text-gray-400">{alias.native_repr}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">{alias.native_representation}</span>
                                   </span>
                                 ))}
                               </div>

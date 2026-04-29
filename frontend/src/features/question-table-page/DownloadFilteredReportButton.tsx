@@ -228,7 +228,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                                   <TooltipContent side="right" className="text-xs">
                                     <p className="font-semibold mb-0.5">Also known as:</p>
                                     {crop.aliases.map((a, i) => (
-                                      <p key={i} className="capitalize text-muted-foreground">{a.en_repr}</p>
+                                      <p key={i} className="capitalize text-muted-foreground">{a.english_representation}</p>
                                     ))}
                                   </TooltipContent>
                                 </Tooltip>

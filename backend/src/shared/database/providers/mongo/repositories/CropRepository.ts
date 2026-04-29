@@ -25,8 +25,8 @@ export class CropRepository implements ICropRepository {
       await this.CropCollection.createIndex({name: 1}, {unique: true});
       // Drop old flat-string aliases index if it exists (schema migration)
       try { await this.CropCollection.dropIndex('aliases_1'); } catch { /* already gone */ }
-      // Index en_repr for fast search queries
-      await this.CropCollection.createIndex({'aliases.en_repr': 1}, {sparse: true});
+      // Index english_representation for fast search queries
+      await this.CropCollection.createIndex({'aliases.english_representation': 1}, {sparse: true});
     } catch (error) {
       console.error('Failed to create crop indexes:', error);
     }
@@ -46,14 +46,14 @@ export class CropRepository implements ICropRepository {
     try {
       if (!this.CropCollection) await this.init();
 
-      // Collect all en_repr values + the crop name for conflict checking
-      const allNames = [name.trim(), ...(aliases || []).map(a => a.en_repr.trim())];
+      // Collect all english_representation values + the crop name for conflict checking
+      const allNames = [name.trim(), ...(aliases || []).map(a => a.english_representation.trim())];
 
       const orConditions: any[] = [];
       for (const n of allNames) {
         const escaped = CropRepository.escapeRegex(n);
         orConditions.push({name: {$regex: `^${escaped}$`, $options: 'i'}});
-        orConditions.push({'aliases.en_repr': {$regex: `^${escaped}$`, $options: 'i'}});
+        orConditions.push({'aliases.english_representation': {$regex: `^${escaped}$`, $options: 'i'}});
       }
 
       const existing = await this.CropCollection.findOne({$or: orConditions});
@@ -61,7 +61,7 @@ export class CropRepository implements ICropRepository {
       if (existing) {
         const conflictingValue = allNames.find(n => {
           const regex = new RegExp(`^${CropRepository.escapeRegex(n)}$`, 'i');
-          return regex.test(existing.name) || existing.aliases?.some(a => regex.test(a.en_repr));
+          return regex.test(existing.name) || existing.aliases?.some(a => regex.test(a.english_representation));
         });
         throw new BadRequestError(
           `Crop with name or alias "${conflictingValue}" already exists in crop "${existing.name}".`,
@@ -74,8 +74,8 @@ export class CropRepository implements ICropRepository {
         aliases: (aliases || []).map(a => ({
           language: a.language.trim(),
           region: a.region.trim(),
-          en_repr: a.en_repr.trim().toLowerCase(),
-          native_repr: a.native_repr.trim(),
+          english_representation: a.english_representation.trim().toLowerCase(),
+          native_representation: a.native_representation.trim(),
         })),
         createdBy: new ObjectId(createdBy),
         createdAt: now,
@@ -115,8 +115,8 @@ export class CropRepository implements ICropRepository {
       if (query?.search) {
         filter.$or = [
           {name: {$regex: query.search, $options: 'i'}},
-          {'aliases.en_repr': {$regex: query.search, $options: 'i'}},
-          {'aliases.native_repr': {$regex: query.search, $options: 'i'}},
+          {'aliases.english_representation': {$regex: query.search, $options: 'i'}},
+          {'aliases.native_representation': {$regex: query.search, $options: 'i'}},
         ];
       }
 
@@ -191,23 +191,23 @@ export class CropRepository implements ICropRepository {
         const normalizedAliases = updates.aliases.map(a => ({
           language: a.language.trim(),
           region: a.region.trim(),
-          en_repr: a.en_repr.trim().toLowerCase(),
-          native_repr: a.native_repr.trim(),
+          english_representation: a.english_representation.trim().toLowerCase(),
+          native_representation: a.native_representation.trim(),
         }));
 
         for (const alias of normalizedAliases) {
-          const escaped = CropRepository.escapeRegex(alias.en_repr);
+          const escaped = CropRepository.escapeRegex(alias.english_representation);
           const regex = new RegExp(`^${escaped}$`, 'i');
 
           const conflict = await this.CropCollection.findOne({
             _id: {$ne: new ObjectId(id)},
-            $or: [{name: regex}, {'aliases.en_repr': regex}],
+            $or: [{name: regex}, {'aliases.english_representation': regex}],
           });
 
           if (conflict) {
             const conflictType = regex.test(conflict.name) ? 'a crop name' : 'an alias';
             throw new BadRequestError(
-              `Cannot add alias "${alias.en_repr}" — it already exists as ${conflictType} in crop "${conflict.name}".`,
+              `Cannot add alias "${alias.english_representation}" — it already exists as ${conflictType} in crop "${conflict.name}".`,
             );
           }
         }
@@ -215,9 +215,9 @@ export class CropRepository implements ICropRepository {
         const currentCrop = await this.CropCollection.findOne({_id: new ObjectId(id)});
         if (currentCrop) {
           for (const alias of normalizedAliases) {
-            if (alias.en_repr === currentCrop.name.trim().toLowerCase()) {
+            if (alias.english_representation === currentCrop.name.trim().toLowerCase()) {
               throw new BadRequestError(
-                `Cannot add alias "${alias.en_repr}" — it is the same as this crop's own name.`,
+                `Cannot add alias "${alias.english_representation}" — it is the same as this crop's own name.`,
               );
             }
           }
@@ -256,7 +256,7 @@ export class CropRepository implements ICropRepository {
       const regex = new RegExp(`^${escaped}$`, 'i');
 
       const crop = await this.CropCollection.findOne({
-        $or: [{name: regex}, {'aliases.en_repr': regex}, {'aliases.native_repr': regex}],
+        $or: [{name: regex}, {'aliases.english_representation': regex}, {'aliases.native_representation': regex}],
       });
 
       if (!crop) return null;

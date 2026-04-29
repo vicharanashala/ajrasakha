@@ -44,14 +44,14 @@ describe('CropRepository integration (prod_copy_db)', () => {
       TEST_CROP_NAME,
       CREATED_BY,
       [
-        { language: 'en-IN', region: '', en_repr: TEST_ALIAS_1, native_repr: TEST_ALIAS_1 },
-        { language: 'en-IN', region: '', en_repr: TEST_ALIAS_2, native_repr: TEST_ALIAS_2 },
+        { language: 'en-IN', region: '', english_representation: TEST_ALIAS_1, native_representation: TEST_ALIAS_1 },
+        { language: 'en-IN', region: '', english_representation: TEST_ALIAS_2, native_representation: TEST_ALIAS_2 },
       ],
     );
 
     expect(crop._id).toBeDefined();
     expect(crop.name).toBe(TEST_CROP_NAME_LOWER);
-    expect(crop.aliases.some(a => a.en_repr === TEST_ALIAS_1.toLowerCase())).toBe(true);
+    expect(crop.aliases.some(a => a.english_representation === TEST_ALIAS_1.toLowerCase())).toBe(true);
 
     createdDocId = crop._id!.toString();
   }, 30000);
@@ -84,12 +84,12 @@ describe('CropRepository integration (prod_copy_db)', () => {
   it('updateCrop — updates aliases and returns updated doc', async () => {
     const updated = await repo.updateCrop(
       createdDocId,
-      {aliases: [{ language: 'en-IN', region: '', en_repr: 'UpdatedAlias', native_repr: 'UpdatedAlias' }]},
+      {aliases: [{ language: 'en-IN', region: '', english_representation: 'UpdatedAlias', native_representation: 'UpdatedAlias' }]},
       CREATED_BY,
     );
 
     expect(updated).not.toBeNull();
-    expect(updated!.aliases.some(a => a.en_repr === 'updatedalias')).toBe(true);
-    expect(updated!.aliases.some(a => a.en_repr === TEST_ALIAS_1.toLowerCase())).toBe(false);
+    expect(updated!.aliases.some(a => a.english_representation === 'updatedalias')).toBe(true);
+    expect(updated!.aliases.some(a => a.english_representation === TEST_ALIAS_1.toLowerCase())).toBe(false);
   }, 30000);
 });

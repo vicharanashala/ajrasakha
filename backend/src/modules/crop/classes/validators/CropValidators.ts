@@ -41,12 +41,12 @@ class CropAliasDto {
   @JSONSchema({ description: 'Romanised / English representation', example: 'vari' })
   @IsNotEmpty()
   @IsString()
-  en_repr: string;
+  english_representation: string;
 
   @JSONSchema({ description: 'Native script representation', example: 'వరి' })
   @IsNotEmpty()
   @IsString()
-  native_repr: string;
+  native_representation: string;
 }
 
 // ── Body DTOs ──
@@ -63,7 +63,7 @@ class CreateCropDto {
 
   @JSONSchema({
     description: 'Structured aliases for the crop across languages',
-    example: [{ language: 'te-IN', region: 'Andhra and Telangana', en_repr: 'vari', native_repr: 'వరి' }],
+    example: [{ language: 'te-IN', region: 'Andhra and Telangana', english_representation: 'vari', native_representation: 'వరి' }],
     type: 'array',
   })
   @IsOptional()
@@ -76,7 +76,7 @@ class CreateCropDto {
 class UpdateCropDto {
   @JSONSchema({
     description: 'Updated structured aliases for the crop',
-    example: [{ language: 'hi-IN', region: 'North India', en_repr: 'dhan', native_repr: 'धान' }],
+    example: [{ language: 'hi-IN', region: 'North India', english_representation: 'dhan', native_representation: 'धान' }],
     type: 'array',
   })
   @IsOptional()

@@ -10,8 +10,8 @@ const mockCrop: ICrop = {
   _id: '664f1a2b3c4d5e6f7a8b9c0d',
   name: 'Rice',
   aliases: [
-    { language: 'hi-IN', region: 'North India', en_repr: 'paddy', native_repr: 'पैडी' },
-    { language: 'bn-IN', region: 'West Bengal', en_repr: 'dhan', native_repr: 'ধান' },
+    { language: 'hi-IN', region: 'North India', english_representation: 'paddy', native_representation: 'पैडी' },
+    { language: 'bn-IN', region: 'West Bengal', english_representation: 'dhan', native_representation: 'ধান' },
   ],
   createdBy: '664f000000000000000000001',
   createdAt: new Date('2024-01-01'),
@@ -92,7 +92,7 @@ describe('CropService', () => {
   // ── createCrop ──────────────────────────────────────────────────────────────
 
   describe('createCrop', () => {
-    const dto = {name: 'Rice', aliases: [{ language: 'hi-IN', region: '', en_repr: 'paddy', native_repr: 'पैडी' }]};
+    const dto = {name: 'Rice', aliases: [{ language: 'hi-IN', region: '', english_representation: 'paddy', native_representation: 'पैडी' }]};
     const userId = '664f000000000000000000001';
 
     it('creates a crop and returns it', async () => {
@@ -130,8 +130,8 @@ describe('CropService', () => {
 
   describe('updateCrop', () => {
     const dto = {aliases: [
-      { language: 'hi-IN', region: '', en_repr: 'paddy', native_repr: 'पैडी' },
-      { language: 'bn-IN', region: '', en_repr: 'dhan', native_repr: 'ধান' },
+      { language: 'hi-IN', region: '', english_representation: 'paddy', native_representation: 'पैडी' },
+      { language: 'bn-IN', region: '', english_representation: 'dhan', native_representation: 'ধান' },
     ]};
     const userId = '664f000000000000000000001';
 
@@ -146,7 +146,7 @@ describe('CropService', () => {
         dto,
         userId,
       );
-      expect(result?.aliases.some(a => a.en_repr === 'dhan')).toBe(true);
+      expect(result?.aliases.some(a => a.english_representation === 'dhan')).toBe(true);
     });
 
     it('returns null when crop not found', async () => {
@@ -163,7 +163,7 @@ describe('CropService', () => {
       );
 
       await expect(
-        service.updateCrop('664f1a2b3c4d5e6f7a8b9c0d', {aliases: [{ language: 'en-IN', region: '', en_repr: 'wheat', native_repr: 'wheat' }]}, userId),
+        service.updateCrop('664f1a2b3c4d5e6f7a8b9c0d', {aliases: [{ language: 'en-IN', region: '', english_representation: 'wheat', native_representation: 'wheat' }]}, userId),
       ).rejects.toMatchObject({httpCode: 400});
     });
   });

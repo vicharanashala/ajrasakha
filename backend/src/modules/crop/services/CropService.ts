@@ -48,7 +48,7 @@ export class CropService extends BaseService implements ICropService {
       //  Backfill via repository — use en_repr values as the searchable strings
       await this.questionRepository.backfillNormalisedCrop(
         crop.name,
-        (crop.aliases || []).map(a => a.en_repr),
+        (crop.aliases || []).map(a => a.english_representation),
       );
 
       return crop;
@@ -76,7 +76,7 @@ export class CropService extends BaseService implements ICropService {
         //  Backfill via repository — use en_repr values as the searchable strings
         await this.questionRepository.backfillNormalisedCrop(
           updatedCrop.name,
-          (updatedCrop.aliases || []).map(a => a.en_repr),
+          (updatedCrop.aliases || []).map(a => a.english_representation),
         );
       }
 
