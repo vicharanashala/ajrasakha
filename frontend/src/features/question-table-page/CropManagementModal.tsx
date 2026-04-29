@@ -200,38 +200,41 @@ const AliasSection = ({
 
       {/* ── Alias cards ───────────────────────────────────────────────── */}
       {aliases.length > 0 && (
-        <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {aliases.map((alias, i) => (
-            <div
+            <span
               key={i}
-              className="group flex items-start justify-between gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-white/[0.025] border border-gray-100 dark:border-gray-800/60"
+              className={`group relative inline-flex flex-col gap-0.5 px-2.5 py-1.5 rounded-lg border min-w-[100px] ${
+                isAmber
+                  ? "bg-amber-50 dark:bg-amber-500/[0.06] border-amber-100 dark:border-amber-500/15"
+                  : "bg-blue-50 dark:bg-blue-500/[0.06] border-blue-100 dark:border-blue-500/15"
+              }`}
             >
-              <div className="flex-1 min-w-0 space-y-0.5">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`inline-flex items-center gap-1 px-1.5 py-px rounded text-[10px] font-semibold ${langBadge}`}>
-                    {getLangInfo(alias.language).en}
-                    <span className="opacity-70">{getLangInfo(alias.language).native}</span>
-                  </span>
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                    {alias.region}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs pl-0.5">
-                  <span className="font-medium text-gray-800 dark:text-gray-200">
-                    {alias.english_representation}
-                  </span>
-                  <span className="text-gray-300 dark:text-gray-600 select-none">·</span>
-                  <span className="text-gray-700 dark:text-gray-300">{alias.native_representation}</span>
-                </div>
-              </div>
+              <span className="flex items-center gap-1.5 flex-wrap pr-4">
+                <span className={`text-[10px] font-bold leading-tight ${isAmber ? "text-amber-700 dark:text-amber-400" : "text-blue-700 dark:text-blue-400"}`}>
+                  {getLangInfo(alias.language).en}
+                </span>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">
+                  {alias.region}
+                </span>
+              </span>
+              <span className="flex items-center gap-1 text-[11px] leading-tight">
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  {alias.english_representation}
+                </span>
+                <span className="text-gray-300 dark:text-gray-600 select-none">·</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  {alias.native_representation}
+                </span>
+              </span>
               <button
                 type="button"
                 onClick={() => handleRemove(i)}
-                className={`mt-0.5 flex-shrink-0 p-1 rounded-md text-gray-400 dark:text-gray-500 transition-all opacity-0 group-hover:opacity-100 ${removeHover}`}
+                className={`absolute top-1 right-1 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity ${removeHover}`}
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3 w-3" />
               </button>
-            </div>
+            </span>
           ))}
         </div>
       )}
@@ -545,22 +548,40 @@ export const CropManagementModal = ({
                               {crop.name}
                             </p>
                             {crop.aliases && crop.aliases.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {crop.aliases.map((alias, i) => (
-                                  <span
-                                    key={i}
-                                    className="inline-flex items-center gap-1 px-1.5 py-px rounded text-[10px] font-medium bg-gray-100 dark:bg-white/5"
-                                    title={alias.region}
-                                  >
-                                    <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                                      {getLangInfo(alias.language).en}
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {crop.aliases.map((alias, i) =>
+                                  typeof alias === "string" ? (
+                                    <span
+                                      key={i}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700/60"
+                                    >
+                                      {alias}
                                     </span>
-                                    <span className="text-gray-300 dark:text-gray-600">·</span>
-                                    <span className="text-gray-600 dark:text-gray-400">{alias.english_representation}</span>
-                                    <span className="text-gray-300 dark:text-gray-600">·</span>
-                                    <span className="text-gray-500 dark:text-gray-400">{alias.native_representation}</span>
-                                  </span>
-                                ))}
+                                  ) : (
+                                    <span
+                                      key={i}
+                                      className="inline-flex flex-col gap-0.5 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/[0.06] border border-amber-100 dark:border-amber-500/15 min-w-[100px]"
+                                    >
+                                      <span className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 leading-tight">
+                                          {getLangInfo(alias.language).en}
+                                        </span>
+                                        <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">
+                                          {alias.region}
+                                        </span>
+                                      </span>
+                                      <span className="flex items-center gap-1 text-[11px] leading-tight">
+                                        <span className="font-medium text-gray-800 dark:text-gray-200">
+                                          {alias.english_representation}
+                                        </span>
+                                        <span className="text-gray-300 dark:text-gray-600 select-none">·</span>
+                                        <span className="text-gray-600 dark:text-gray-400">
+                                          {alias.native_representation}
+                                        </span>
+                                      </span>
+                                    </span>
+                                  )
+                                )}
                               </div>
                             )}
                           </div>
