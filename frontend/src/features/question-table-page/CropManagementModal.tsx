@@ -136,9 +136,8 @@ const AliasSection = ({
               <SelectContent>
                 {INDIAN_LANGUAGES.map((lang) => (
                   <SelectItem key={lang.code} value={lang.code} className="text-xs">
-                    {lang.en}
-                    <span className="ml-1.5 text-gray-500 dark:text-gray-400">{lang.native}</span>
-                    <span className="ml-1.5 font-mono text-[10px] text-gray-400 dark:text-gray-600">({lang.code})</span>
+                    <span className="font-mono">{lang.code}</span>
+                    <span className="text-gray-400 dark:text-gray-500 ml-1.5">— {lang.en}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
