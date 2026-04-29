@@ -199,10 +199,10 @@ export class CropRepository implements ICropRepository {
         const normalizedAliases = updates.aliases.map(a => {
           if (typeof a === 'string') return a.trim().toLowerCase();
           return {
-            language: a.language.trim(),
-            region: a.region.trim(),
-            english_representation: a.english_representation.trim().toLowerCase(),
-            native_representation: a.native_representation.trim(),
+            language: (a.language ?? '').trim(),
+            region: (a.region ?? '').trim(),
+            english_representation: (a.english_representation ?? '').trim().toLowerCase(),
+            native_representation: (a.native_representation ?? '').trim(),
           };
         });
 

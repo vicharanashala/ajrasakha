@@ -11,7 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
-import {Type} from 'class-transformer';
+import {Type, Transform} from 'class-transformer';
 
 // ── Param Validators ──
 
@@ -81,6 +81,7 @@ class UpdateCropDto {
   })
   @IsOptional()
   @IsArray()
+  @Transform(({ value }) => value)
   aliases?: (CropAliasDto | string)[];
 }
 
