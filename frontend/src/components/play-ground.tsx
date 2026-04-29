@@ -267,8 +267,6 @@ export const PlaygroundPage = () => {
                     </HoverCard>
                   </TabsTrigger>
                 )}
-
-                {/* {user && user.role !== "expert" && user.role !== "admin" && (<TabsTrigger value="audit" className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0">View Audit</TabsTrigger>) } */}
               </TabsList>
             </div>
 
@@ -433,21 +431,6 @@ export const PlaygroundPage = () => {
                 </TabsContent>
                 
               )}
-{/* 
-              {user && user.role !== "expert" && user.role !== "admin" && (
-                <TabsContent
-                  value="audit"
-                  className={cn(
-                    "mt-0 border-0 md:px-8 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out"
-                  )}                >
-                  <AuditPage />
-                </TabsContent>
-              )} */}
             </div>
           </div>
         </div>
