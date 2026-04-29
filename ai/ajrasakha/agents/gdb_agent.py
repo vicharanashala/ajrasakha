@@ -1,3 +1,5 @@
+from typing import Optional
+
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -41,31 +43,35 @@ async def _get_gdb_agent():
 
 class GDBInput(BaseModel):
     query: str
-    latitude: float
-    longitude: float
-    address: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    address: Optional[str] = None
 
 @tool(args_schema=GDBInput)
-async def gdb(query: str, latitude: float, longitude: float, address: str, config: RunnableConfig) -> str:
+async def gdb(query: str, latitude: Optional[float], longitude: Optional[float], address: Optional[str], config: RunnableConfig) -> str:
     """
     Query the golden database agent.
     Use when the task needs location-aware data lookup.
-    Always pass the user's latitude, longitude, address, and a focused query.
+    Pass a focused query. Location is resolved automatically if not provided.
     """
+    injected: dict = (config.get("configurable") or {}).get("location") or {}
+
+    lat  = injected.get("latitude")  or latitude
+    lon  = injected.get("longitude") or longitude
+    addr = injected.get("address")   or address
+
     context = f"""
 Location Context:
-- Address  : {address}
-- Latitude : {latitude}
-- Longitude: {longitude}
+- Address  : {addr or "unknown"}
+- Latitude : {lat or "unknown"}
+- Longitude: {lon or "unknown"}
 
 Query: {query}
     """.strip()
 
     agent = await _get_gdb_agent()
     result = await agent.ainvoke(
-        {"messages": [
-            HumanMessage(content=context)
-        ]},
+        {"messages": [HumanMessage(content=context)]},
         config=config
     )
     return result["messages"][-1].content

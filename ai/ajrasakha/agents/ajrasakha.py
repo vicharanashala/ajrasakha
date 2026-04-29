@@ -3,7 +3,7 @@ from typing import Annotated, Optional
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
-from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables import RunnableConfig, patch_config
 from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.graph import StateGraph, START, END
@@ -91,18 +91,22 @@ async def _get_reviewer_tool():
         _reviewer_tool = tools[0]  # only one tool
     return _reviewer_tool
 
-async def ajrasakha_node(state: AjraSakhaState) -> dict:
+async def ajrasakha_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
     location = await _get_location_tool()
     reviewer = await _get_reviewer_tool()
+    enriched_config = patch_config(config, configurable={"location": state.get("location")})
     llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer])
     messages = [SystemMessage(content=WHATSAPP_SYSTEM_PROMPT)] + list(state["messages"])
     response = await llm.ainvoke(messages)
     return {"messages": [response]}
 
 
-async def tools_node(state: AjraSakhaState) -> dict:
+async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
     location = await _get_location_tool()
     reviewer = await _get_reviewer_tool()
+
+    enriched_config = patch_config(config, configurable={"location": state.get("location")})
+
     return await ToolNode([gdb,weather,soil,market, location, schemes, chemical_checker, reviewer]).ainvoke(state)
 
 
