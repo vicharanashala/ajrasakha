@@ -12,6 +12,7 @@ export interface DashboardFilterValues {
   season: string;
   startTime?: Date;
   endTime?: Date;
+  userType: 'all' | 'external' | 'internal';
 }
 
 interface DashboardFiltersProps {
@@ -21,7 +22,7 @@ interface DashboardFiltersProps {
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersProps) {
-  const { village, crop, season, startTime, endTime } = filters;
+  const { village, crop, season, startTime, endTime, userType } = filters;
 
   const handleChange = (overrides: Partial<DashboardFilterValues>) => {
     onFilterChange({ ...filters, ...overrides });
@@ -38,6 +39,7 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
       season: "all",
       startTime: undefined,
       endTime: undefined,
+      userType: "all",
     });
   };
 
@@ -46,7 +48,8 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
     crop === "all" &&
     season === "all" &&
     !startTime &&
-    !endTime;
+    !endTime &&
+    userType === "all";
 
   const baseSelect =
     "text-sm h-10 px-3 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2a2a2a]";
@@ -80,6 +83,15 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+          {/* User Type Filter */}
+          <SearchableSelect
+            options={['External', 'Internal']}
+            value={userType === 'all' ? 'all' : userType.charAt(0).toUpperCase() + userType.slice(1)}
+            onChange={(v) => handleChange({ userType: (v === 'all' ? 'all' : v.toLowerCase()) as DashboardFilterValues['userType'] })}
+            placeholder="All Users"
+            className={activeSelect}
+            activeClassName={activeSelect}
+          />
           <Button
             onClick={handleResetFilters}
             disabled={isDefault}
@@ -149,6 +161,7 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
             }
           />
         </div>
+
       </div>
     </div>
   );

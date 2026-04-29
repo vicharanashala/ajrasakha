@@ -109,7 +109,29 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.db.getCollection<IQuestion>('questions');
   }
 
-  async getKpiSummary(source = 'vicharanashala', session?: ClientSession): Promise<KpiSummary> {
+  private async getExternalUserIds(): Promise<string[]> {
+    const externalUsers = await this.users
+      .find({ email: { $regex: '^rup', $options: 'i' } }, { projection: { _id: 1 } })
+      .toArray();
+    return externalUsers.map(u => String(u._id));
+  }
+
+  private async buildUserMessageFilter(userType: string): Promise<Record<string, any>> {
+    if (userType === 'all') return {};
+    const externalIds = await this.getExternalUserIds();
+    return userType === 'external'
+      ? { user: { $in: externalIds } }
+      : { user: { $nin: externalIds } };
+  }
+
+  private buildUserDocFilter(userType: string): Record<string, any> {
+    if (userType === 'all') return {};
+    return userType === 'external'
+      ? { email: { $regex: '^rup', $options: 'i' } }
+      : { email: { $not: { $regex: '^rup', $options: 'i' } } };
+  }
+
+  async getKpiSummary(source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<KpiSummary> {
     try {
       await this.init(source);
 
@@ -124,14 +146,18 @@ export class ChatbotRepository implements IChatbotRepository {
       threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
       threeDaysAgo.setHours(0, 0, 0, 0);
 
+      const userDocFilter = this.buildUserDocFilter(userType);
+      const userMsgFilter = await this.buildUserMessageFilter(userType);
+
       const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls, activeUsersLast3Days] =
         await Promise.all([
-          this.users.countDocuments({}, {session}),
+          this.users.countDocuments(userDocFilter, {session}),
 
           // Group users by month in IST timezone using updatedAt
           this.users
             .aggregate(
               [
+                { $match: userDocFilter },
                 {
                   $group: {
                     _id: {
@@ -165,11 +191,12 @@ export class ChatbotRepository implements IChatbotRepository {
             .toArray(),
 
           // Today's query count from messages
-          this.getTodayQueryCount(source, session),
+          this.getTodayQueryCount(source, session, userType),
 
           this.users.countDocuments(
             {
-                'farmerProfile.farmerName': { $exists: true, $nin: [null, ''] },
+              ...userDocFilter,
+              'farmerProfile.farmerName': { $exists: true, $nin: [null, ''] },
             },
             { session },
           ),
@@ -178,7 +205,7 @@ export class ChatbotRepository implements IChatbotRepository {
           this.messagesCollection
             .aggregate(
               [
-                { $match: { createdAt: { $gte: threeDaysAgo }, isCreatedByUser: true } },
+                { $match: { createdAt: { $gte: threeDaysAgo }, isCreatedByUser: true, ...userMsgFilter } },
                 { $group: { _id: '$user' } },
                 { $count: 'total' },
               ],
@@ -221,7 +248,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDailyActiveUsers(days = 13, source = 'vicharanashala', session?: ClientSession): Promise<DailyActiveUsersEntry[]> {
+  async getDailyActiveUsers(days = 13, source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<DailyActiveUsersEntry[]> {
     try {
       await this.init(source);
 
@@ -231,10 +258,12 @@ export class ChatbotRepository implements IChatbotRepository {
       since.setDate(1);
       since.setHours(0, 0, 0, 0);
 
+      const userMsgFilter = await this.buildUserMessageFilter(userType);
+
       const result = await this.messagesCollection
         .aggregate(
           [
-            { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
+            { $match: { createdAt: { $gte: since }, isCreatedByUser: true, ...userMsgFilter } },
             // Deduplicate: one entry per (month, user) pair
             {
               $group: {
@@ -396,17 +425,19 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDailyQueryCounts(days = 30, source = 'vicharanashala', session?: ClientSession): Promise<DailyQueryCountEntry[]> {
+  async getDailyQueryCounts(days = 30, source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<DailyQueryCountEntry[]> {
     try {
       await this.init(source);
 
       const since = new Date();
       since.setDate(since.getDate() - days);
 
+      const userMsgFilter = await this.buildUserMessageFilter(userType);
+
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true, ...userMsgFilter}},
             {
               $group: {
                 _id: {$dateToString: {format: '%Y-%m-%d', date: '$createdAt'}},
@@ -428,7 +459,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDailyUserTrend(days = 30, source = 'vicharanashala', session?: ClientSession): Promise<DailyActiveUsersEntry[]> {
+  async getDailyUserTrend(days = 30, source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<DailyActiveUsersEntry[]> {
     try {
       await this.init(source);
 
@@ -436,11 +467,13 @@ export class ChatbotRepository implements IChatbotRepository {
       since.setDate(since.getDate() - days);
       since.setHours(0, 0, 0, 0);
 
+      const userMsgFilter = await this.buildUserMessageFilter(userType);
+
       const result = await this.messagesCollection
         .aggregate(
           [
             // Filter to last N days, user-sent messages only
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true, ...userMsgFilter}},
             // Deduplicate: one entry per (day, user) pair
             {
               $group: {
@@ -476,14 +509,16 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getWeeklyQueryCounts(source = 'vicharanashala', session?: ClientSession): Promise<WeeklyQueryCountEntry[]> {
+  async getWeeklyQueryCounts(source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<WeeklyQueryCountEntry[]> {
     try {
       await this.init(source);
+
+      const userMsgFilter = await this.buildUserMessageFilter(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {isCreatedByUser: true}},
+            {$match: {isCreatedByUser: true, ...userMsgFilter}},
             {
               $group: {
                 _id: {
@@ -511,15 +546,17 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getTodayQueryCount(source = 'vicharanashala', session?: ClientSession): Promise<number> {
+  async getTodayQueryCount(source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<number> {
     try {
       await this.init(source);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      const userMsgFilter = await this.buildUserMessageFilter(userType);
+
       return this.messagesCollection.countDocuments(
-        {createdAt: {$gte: today}, isCreatedByUser: true},
+        {createdAt: {$gte: today}, isCreatedByUser: true, ...userMsgFilter},
         {session},
       );
     } catch (error) {
@@ -739,6 +776,7 @@ export class ChatbotRepository implements IChatbotRepository {
     profileCompleted = 'all',
     inactiveOnly = false,
     session?: ClientSession,
+    userType = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -774,7 +812,7 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       // Get users — optionally filtered by search, crop, village
-      const userFilter: Record<string, any> = {};
+      const userFilter: Record<string, any> = { ...this.buildUserDocFilter(userType) };
       if (search && search.trim()) {
         const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = { $regex: escaped, $options: 'i' };
@@ -882,13 +920,16 @@ export class ChatbotRepository implements IChatbotRepository {
   // are ≤ 30 minutes. Gaps > 30 min are treated as the user being away and are
   // excluded. Single-message conversations are also excluded.
   // Requires MongoDB 5.0+ ($setWindowFields).
-  async getAvgSessionDurationV2(source = 'vicharanashala', session?: ClientSession): Promise<number> {
+  async getAvgSessionDurationV2(source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<number> {
     try {
       await this.init(source);
+
+      const userMsgFilter = await this.buildUserMessageFilter(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
+            ...(Object.keys(userMsgFilter).length > 0 ? [{ $match: userMsgFilter }] : []),
             {$sort: {conversationId: 1, createdAt: 1}},
             {
               $setWindowFields: {
@@ -944,17 +985,19 @@ export class ChatbotRepository implements IChatbotRepository {
   // Same gap-detection logic as getAvgSessionDurationV2, but groups results by
   // ISO week (based on the first message of each conversation) so the frontend
   // can render the sparkline and week-over-week % delta.
-  async getWeeklyAvgSessionDurationV2(weeks = 52, source = 'vicharanashala', session?: ClientSession): Promise<WeeklySessionDurationEntry[]> {
+  async getWeeklyAvgSessionDurationV2(weeks = 52, source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<WeeklySessionDurationEntry[]> {
     try {
       await this.init(source);
 
       const since = new Date();
       since.setDate(since.getDate() - weeks * 7);
 
+      const userMsgFilter = await this.buildUserMessageFilter(userType);
+
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}}},
+            {$match: {createdAt: {$gte: since}, ...userMsgFilter}},
             {$sort: {conversationId: 1, createdAt: 1}},
             {
               $setWindowFields: {
@@ -1035,15 +1078,17 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getUserDemographics(source = 'vicharanashala', session?: ClientSession): Promise<UserDemographics> {
+  async getUserDemographics(source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<UserDemographics> {
     try {
       await this.init(source);
+
+      const userDocFilter = this.buildUserDocFilter(userType);
 
       const [ageRaw, genderRaw, expRaw] = await Promise.all([
         // Age group buckets
         this.users.aggregate<{_id: string | number; count: number}>(
           [
-            {$match: {'farmerProfile.age': {$exists: true, $ne: null}}},
+            {$match: {'farmerProfile.age': {$exists: true, $ne: null}, ...userDocFilter}},
             {
               $bucket: {
                 groupBy: '$farmerProfile.age',
@@ -1059,7 +1104,7 @@ export class ChatbotRepository implements IChatbotRepository {
         // Gender split
         this.users.aggregate<{_id: string; count: number}>(
           [
-            {$match: {'farmerProfile.gender': {$exists: true, $ne: null}}},
+            {$match: {'farmerProfile.gender': {$exists: true, $ne: null}, ...userDocFilter}},
             {$group: {_id: '$farmerProfile.gender', count: {$sum: 1}}},
           ],
           {session},
@@ -1068,7 +1113,7 @@ export class ChatbotRepository implements IChatbotRepository {
         // Farming experience buckets
         this.users.aggregate<{_id: number | string; count: number}>(
           [
-            {$match: {'farmerProfile.yearsOfExperience': {$exists: true, $ne: null}}},
+            {$match: {'farmerProfile.yearsOfExperience': {$exists: true, $ne: null}, ...userDocFilter}},
             {
               $bucket: {
                 groupBy: '$farmerProfile.yearsOfExperience',
@@ -1119,15 +1164,17 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getKccAndAgriAppStats(source = 'vicharanashala', session?: ClientSession): Promise<KccAndAgriAppStats> {
+  async getKccAndAgriAppStats(source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<KccAndAgriAppStats> {
     try {
       await this.init(source);
+
+      const userDocFilter = this.buildUserDocFilter(userType);
 
       const [kccRaw, agriRaw] = await Promise.all([
         // KCC awareness split
         this.users.aggregate<{_id: boolean; count: number}>(
           [
-            {$match: {'farmerProfile.awarenessOfKCC': {$exists: true, $ne: null}}},
+            {$match: {'farmerProfile.awarenessOfKCC': {$exists: true, $ne: null}, ...userDocFilter}},
             {$group: {_id: '$farmerProfile.awarenessOfKCC', count: {$sum: 1}}},
           ],
           {session},
@@ -1136,7 +1183,7 @@ export class ChatbotRepository implements IChatbotRepository {
         // Agri apps usage split
         this.users.aggregate<{_id: boolean; count: number}>(
           [
-            {$match: {'farmerProfile.usesAgriApps': {$exists: true, $ne: null}}},
+            {$match: {'farmerProfile.usesAgriApps': {$exists: true, $ne: null}, ...userDocFilter}},
             {$group: {_id: '$farmerProfile.usesAgriApps', count: {$sum: 1}}},
           ],
           {session},

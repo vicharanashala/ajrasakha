@@ -116,13 +116,14 @@ export interface KccAndAgriAppStats {
 
 export interface IChatbotRepository {
   /** Aggregated KPI summary for the current day. */
-  getKpiSummary(source?: string, session?: ClientSession): Promise<KpiSummary>;
+  getKpiSummary(source?: string, session?: ClientSession, userType?: string): Promise<KpiSummary>;
 
   /** Daily unique active users over the last `days` days. */
   getDailyActiveUsers(
     days: number,
     source?: string,
     session?: ClientSession,
+    userType?: string,
   ): Promise<DailyActiveUsersEntry[]>;
 
   /** Percentage breakdown of sessions by channel (voice / text / kcc_agent / ivrs). */
@@ -154,15 +155,17 @@ export interface IChatbotRepository {
     days?: number,
     source?: string,
     session?: ClientSession,
+    userType?: string,
   ): Promise<DailyQueryCountEntry[]>;
 
   /** Count of user messages created today from the messages collection. */
-  getTodayQueryCount(source?: string, session?: ClientSession): Promise<number>;
+  getTodayQueryCount(source?: string, session?: ClientSession, userType?: string): Promise<number>;
 
   /** Weekly query totals (all-time) from the messages collection, sorted ascending by ISO week. */
   getWeeklyQueryCounts(
     source?: string,
     session?: ClientSession,
+    userType?: string,
   ): Promise<WeeklyQueryCountEntry[]>;
 
   /** Daily user activity trend (users active per day) over the last `days` days, sorted ascending. */
@@ -170,18 +173,20 @@ export interface IChatbotRepository {
     days?: number,
     source?: string,
     session?: ClientSession,
+    userType?: string,
   ): Promise<DailyActiveUsersEntry[]>;
   findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string});
   findFromSecondDb(data: {question: string; details: any; createdAt: Date; questionId: string});
 
   /** Inactivity-gap based avg session duration in minutes (KPI number). Requires MongoDB 5.0+. */
-  getAvgSessionDurationV2(source?: string, session?: ClientSession): Promise<number>;
+  getAvgSessionDurationV2(source?: string, session?: ClientSession, userType?: string): Promise<number>;
 
   /** Inactivity-gap based weekly avg session duration for sparkline/delta. Requires MongoDB 5.0+. */
   getWeeklyAvgSessionDurationV2(
     weeks?: number,
     source?: string,
     session?: ClientSession,
+    userType?: string,
   ): Promise<WeeklySessionDurationEntry[]>;
 
   /** Get all users with their question counts, optionally filtered by date range, with server-side pagination. */
@@ -197,6 +202,7 @@ export interface IChatbotRepository {
     profileCompleted?: string,
     inactiveOnly?: boolean,
     session?: ClientSession,
+    userType?: string,
   ): Promise<PaginatedUserDetails>;
 
   /** Aggregate conversations from the messages collection for Excel export. */
@@ -208,10 +214,10 @@ export interface IChatbotRepository {
   ): Promise<ChatbotConversationData[]>;
 
   /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
-  getUserDemographics(source?: string, session?: ClientSession): Promise<UserDemographics>;
+  getUserDemographics(source?: string, session?: ClientSession, userType?: string): Promise<UserDemographics>;
 
   /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
-  getKccAndAgriAppStats(source?: string, session?: ClientSession): Promise<KccAndAgriAppStats>;
+  getKccAndAgriAppStats(source?: string, session?: ClientSession, userType?: string): Promise<KccAndAgriAppStats>;
 
   getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession)
   getInstalls(startDate:Date,endDate:Date, session?: ClientSession)
