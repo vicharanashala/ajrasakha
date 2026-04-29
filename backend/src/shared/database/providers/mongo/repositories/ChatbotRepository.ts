@@ -146,7 +146,7 @@ export class ChatbotRepository implements IChatbotRepository {
       threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
       threeDaysAgo.setHours(0, 0, 0, 0);
 
-      const userDocFilter = this.buildUserDocFilter(userType);
+      const userDocFilter = await this.buildUserDocFilter(userType);
       const userMsgFilter = await this.buildUserMessageFilter(userType);
 
       const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls, activeUsersLast3Days] =
