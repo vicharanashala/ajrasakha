@@ -81,6 +81,8 @@ class UpdateCropDto {
   })
   @IsOptional()
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CropAliasDto)
   aliases?: (CropAliasDto | string)[];
 }
 
