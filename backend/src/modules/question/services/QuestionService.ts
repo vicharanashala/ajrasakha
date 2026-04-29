@@ -13,7 +13,9 @@ import {
   IQuestionPriority,
   ISimilarQuestion,
   AddQuestionResult,
-  ICheckStatusResponse
+  ICheckStatusResponse,
+  IPreviousAllocations,
+  IAuthorsHistory
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -46,6 +48,7 @@ import { NotificationService } from '#root/modules/notification/services/Notific
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
+import { UserService } from '#root/modules/user/services/UserService.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from 'exceljs'
@@ -103,8 +106,20 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
+
+    @inject(GLOBAL_TYPES.UserService)
+    private readonly userService: UserService,
   ) {
     super(mongoDatabase);
+  }
+
+  /**
+   * Helper function to truncate question text for notifications
+   */
+  private truncateQuestionText(questionText: string, maxLength: number = 50): string {
+    if (!questionText) return 'Question';
+    if (questionText.length <= maxLength) return questionText;
+    return questionText.substring(0, maxLength) + '...';
   }
 
   async createBulkQuestions(
@@ -2042,6 +2057,436 @@ export class QuestionService extends BaseService implements IQuestionService {
         `Failed to remove expert from queue: ${error}`,
       );
     }
+  }
+
+  /**
+   * Replace an expert at a specific level/index in the queue or replace the author
+   * This is used when a moderator wants to reassign a delayed review to a new expert
+   */
+  async replaceQueueExpert(
+    userId: string,
+    questionId: string,
+    levelIndex: number,
+    newExpertId: string,
+    isAuthor?: boolean,
+    reasonForChange?: string,
+  ): Promise<IQuestionSubmission> {
+    return this._withTransaction(async (session: ClientSession) => {
+
+
+      // 1. Validate question exists
+      const question = await this.questionRepo.getById(questionId, session);
+      if (!question) {
+        console.warn(`[replaceQueueExpert] Question not found: ${questionId}`);
+        throw new NotFoundError('Question not found');
+      }
+
+      // 2. Get question submission
+      const questionSubmission = await this.questionSubmissionRepo.getByQuestionId(
+        questionId,
+        session,
+      );
+      if (!questionSubmission) {
+        console.warn(`[replaceQueueExpert] Question submission not found: ${questionId}`);
+        throw new NotFoundError('Question submission not found');
+      }
+
+      // Handle Author replacement (column 0)
+      if (isAuthor) {
+
+        // Validate new expert exists
+        const newExpert = await this.userRepo.findById(newExpertId, session);
+        if (!newExpert) {
+          console.warn(`[replaceQueueExpert] New expert not found: ${newExpertId}`);
+          throw new NotFoundError('New expert not found');
+        }
+
+        // Get current author ID
+        const currentAuthorId = questionSubmission.queue[0];
+
+        // Check if new expert is same as current author
+        if (currentAuthorId === newExpertId) {
+          console.warn(`[replaceQueueExpert] Cannot replace - new expert is same as current author`);
+          throw new BadRequestError('The selected expert is already the author.');
+        }
+
+        // Validate reasonForChange is provided
+        if (!reasonForChange || reasonForChange.trim() === '') {
+          console.warn(`[replaceQueueExpert] Reason for change not provided`);
+          throw new BadRequestError('Reason for reallocation is required.');
+        }
+
+        const now = new Date();
+
+        // Check for time constraint using authors_history or submission.createdAt
+        let assignmentTime = questionSubmission.createdAt || now;
+        const authorsHistory = question.authors_history || [];
+        if (authorsHistory.length > 0) {
+          // Use the last author replacement time
+          assignmentTime = authorsHistory[authorsHistory.length - 1].createdAt;
+        }
+
+        const hoursSinceAssignment = (now.getTime() - new Date(assignmentTime).getTime()) / (1000 * 60 * 60);
+
+        if (hoursSinceAssignment < 2) {
+          const remainingMinutes = Math.ceil((2 - hoursSinceAssignment) * 60);
+          throw new BadRequestError(
+            `Reallocation denied. At least 2 hours must pass since the author was assigned. Please wait approximately ${remainingMinutes} more minutes.`,
+          );
+        }
+
+        // Create authors_history entry for the old author being replaced
+        const authorsHistoryEntry: IAuthorsHistory = {
+          authorId: new ObjectId(currentAuthorId!),
+          newAuthorId: new ObjectId(newExpertId),
+          reasonForChange: reasonForChange,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        // Fetch current question to get existing authors_history
+        const currentQuestion = await this.questionRepo.getById(questionId, session);
+        const existingHistory = currentQuestion.authors_history || [];
+
+        // Update question's userId (author) and append to authors_history
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {
+            userId: new ObjectId(newExpertId),
+            authors_history: [...existingHistory, authorsHistoryEntry],
+          },
+          session
+        );
+
+        // ALSO update the queue[0] (author position in queue) - THIS WAS MISSING!
+        let updatedQueue = questionSubmission.queue;
+        if (questionSubmission.queue.length > 0) {
+          const oldQueueAuthor = questionSubmission.queue[0]?.toString();
+          updatedQueue = questionSubmission.queue.map((id, idx) =>
+            idx === 0 ? new ObjectId(newExpertId) : new ObjectId(id.toString())
+          );
+        } else {
+          console.warn(`[replaceQueueExpert] Queue is empty, cannot update queue[0]`);
+        }
+
+        // Update the question submission with queue only (history unchanged for author replacement)
+
+        const updateResult = await this.questionSubmissionRepo.updateById(
+          questionSubmission._id!.toString(),
+          {
+            $set: {
+              queue: updatedQueue,
+              updatedAt: now,
+            },
+          },
+          session,
+        );
+
+        // Also update the answer's authorId (the initial answer created with the question)
+        const answers = await this.answerRepo.getByQuestionId(questionId, session);
+        const initialAnswer = answers.find(a => a.answerIteration === 0 || a.isFinalAnswer === false);
+        if (initialAnswer && initialAnswer._id) {
+          await this.answerRepo.updateAnswer(
+            initialAnswer._id.toString(),
+            { authorId: new ObjectId(newExpertId) },
+            session
+          );
+          }
+
+        
+        try {
+          // Prepare notification data
+          const truncatedQuestionText = this.truncateQuestionText(question.question);
+          const entityId = questionId.toString();
+          const type: INotificationType = 'expert_replacement';
+
+          const replacedExpertMessage = `You have been removed from the question "${truncatedQuestionText}". Reason: ${reasonForChange}`;
+          const replacedExpertTitle = 'Question Assignment Removed';
+
+          const newExpertMessage = `You have been assigned a new question: "${truncatedQuestionText}" as the author.`;
+          const newExpertTitle = 'New Question Assigned';
+
+          // Execute all operations in parallel
+          await Promise.all([
+            // 1. Assign penalty to replaced expert
+            this.userService.updatePenaltyAndIncentive(currentAuthorId!.toString(), 'penalty'),
+            
+            // 2. Assign incentive to new expert
+            this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
+            
+            // 3. Send notification to replaced expert (with error handling)
+            this.notificationService.saveTheNotifications(
+              replacedExpertMessage,
+              replacedExpertTitle,
+              entityId,
+              currentAuthorId!.toString(),
+              type,
+            ).catch(notificationError => {
+              console.error(`[replaceQueueExpert] ❌ Failed to send notification to replaced author: ${currentAuthorId}`, notificationError);
+              // Return resolved promise to not break Promise.all
+              return Promise.resolve();
+            }),
+            
+            // 4. Send notification to new expert (with error handling)
+            this.notificationService.saveTheNotifications(
+              newExpertMessage,
+              newExpertTitle,
+              entityId,
+              newExpertId,
+              type,
+            ).catch(notificationError => {
+              console.error(`[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`, notificationError);
+              // Return resolved promise to not break Promise.all
+              return Promise.resolve();
+            })
+          ]);
+
+        } catch (penaltyError) {
+          console.error(`[replaceQueueExpert] Penalty/incentive update failed:`, penaltyError);
+          throw new InternalServerError('Failed to update penalty/incentive scores. Operation rolled back.');
+        }
+
+        // Return updated submission
+        return updateResult;
+      }
+
+      // Handle Queue Expert replacement (Level 1, 2, etc.) - Reallocation Logic
+      // 3. Validate levelIndex is within queue bounds (convert to 0-based for queue access)
+      const queueIndex = levelIndex - 1;
+      if (queueIndex < 0 || queueIndex >= questionSubmission.queue.length) {
+        console.warn(
+          `[replaceQueueExpert] Invalid level index: ${levelIndex}, queue has ${questionSubmission.queue.length} experts`
+        );
+        throw new BadRequestError(
+          `Invalid level index. Queue has ${questionSubmission.queue.length} experts.`,
+        );
+      }
+
+      // Step 1: Identify Last Reviewer from queue and validate queue ownership
+      const lastReviewerIndex = questionSubmission.queue.length - 1;
+      const lastReviewerInQueue = questionSubmission.queue[lastReviewerIndex]?.toString();
+      const currentExpertId = questionSubmission.queue[queueIndex]?.toString();
+      
+
+      // Validate that the reviewer to be replaced matches the current active reviewer
+      // The last reviewer in queue must be the one being replaced (validation rule)
+      if (currentExpertId !== lastReviewerInQueue) {
+        console.warn(
+          `[replaceQueueExpert] Queue validation failed - current expert ${currentExpertId} does not match last reviewer ${lastReviewerInQueue}`
+        );
+        throw new BadRequestError(
+          'Reallocation denied. The reviewer to be replaced must be the last assigned reviewer in the queue.',
+        );
+      }
+
+      // 4. Check if this is the current active level (only current can be replaced)
+      // Current active level is determined by history length (convert to 1-based since controller sends 1-based)
+      const currentActiveIndex = questionSubmission.history.length;
+ 
+      if (levelIndex !== currentActiveIndex) {
+        console.warn(
+          `[replaceQueueExpert] Cannot replace - level ${levelIndex} is not active (active: ${currentActiveIndex})`
+        );
+        throw new BadRequestError(
+          'Can only replace the expert at the current active level. This level has already been completed or is not yet active.',
+        );
+      }
+
+      // Step 2: Fetch History and perform validations
+      const submissionHistory = questionSubmission.history || [];
+      const now = new Date();
+
+      // Find the history entry for the current expert being replaced
+      let currentExpertHistoryIndex = -1;
+      let currentExpertHistoryEntry: ISubmissionHistory | null = null;
+
+      for (let i = 0; i < submissionHistory.length; i++) {
+        const historyEntry = submissionHistory[i];
+        if (historyEntry.updatedBy.toString() === currentExpertId) {
+          currentExpertHistoryIndex = i;
+          currentExpertHistoryEntry = historyEntry;
+          break;
+        }
+      }
+
+
+      // Use the found history entry or create a default one for validation
+      const validationHistoryEntry = currentExpertHistoryEntry || submissionHistory[submissionHistory.length - 1];
+
+      // Time Constraint Validation: At least 2 hours must have passed since assignment (if history exists)
+      if (validationHistoryEntry) {
+        const lastAssignmentTime = new Date(validationHistoryEntry.createdAt);
+        const hoursSinceAssignment = (now.getTime() - lastAssignmentTime.getTime()) / (1000 * 60 * 60);
+        
+        
+        if (hoursSinceAssignment < 2) {
+          console.warn(
+            `[replaceQueueExpert] Time constraint not met - only ${hoursSinceAssignment.toFixed(2)} hours since assignment (requires 2 hours)`
+          );
+          const remainingMinutes = Math.ceil((2 - hoursSinceAssignment) * 60);
+          throw new BadRequestError(
+            `Reallocation denied. At least 2 hours must pass since the review was assigned. Please wait approximately ${remainingMinutes} more minutes.`,
+          );
+        }
+
+        // Review Status Validation: The submission must still be in 'in-review' state
+        if (validationHistoryEntry.status !== 'in-review') {
+          console.warn(
+            `[replaceQueueExpert] Status validation failed - current status is ${validationHistoryEntry.status}, expected 'in-review'`
+          );
+          throw new BadRequestError(
+            `Reallocation denied. The review status is '${validationHistoryEntry.status}'. Only reviews in 'in-review' status can be reallocated.`,
+          );
+        }
+      }
+
+      // Validate reasonForChange is provided
+      if (!reasonForChange || reasonForChange.trim() === '') {
+        console.warn(`[replaceQueueExpert] Reason for change not provided`);
+        throw new BadRequestError('Reason for reallocation is required.');
+      }
+
+      // 5. Validate new expert exists
+      const newExpert = await this.userRepo.findById(newExpertId, session);
+      if (!newExpert) {
+        console.warn(`[replaceQueueExpert] New expert not found: ${newExpertId}`);
+        throw new NotFoundError('New expert not found');
+      }
+      // 6. Check if new expert is already in queue
+      const existingQueueIds = questionSubmission.queue.map(id => id.toString());
+      if (existingQueueIds.includes(newExpertId)) {
+        console.warn(`[replaceQueueExpert] Expert ${newExpertId} already in queue`);
+        throw new BadRequestError(
+          'The selected expert is already in the queue. Please choose another expert.',
+        );
+      }
+
+      // Step 3: Create Previous Allocation Record
+      const previousAllocation: IPreviousAllocations = {
+        reviewerId: new ObjectId(currentExpertId!),
+        reasonForChange: reasonForChange,
+        createdAt: currentExpertHistoryEntry?.createdAt || now,
+        updatedAt: now,
+      };
+
+      // Step 4: Update Queue - Replace the expert at the specified index
+      const updatedQueue = questionSubmission.queue.map((id, idx) =>
+        idx === queueIndex ? new ObjectId(newExpertId) : new ObjectId(id.toString())
+      );
+
+      // Step 5: Build updated history with previousAllocations
+      const updatedHistory = [...submissionHistory];
+
+      if (currentExpertHistoryIndex !== -1 && currentExpertHistoryEntry) {
+        // Update existing history entry with previousAllocations
+        const updatedPreviousAllocations = [
+          ...(currentExpertHistoryEntry.previousAllocations || []),
+          previousAllocation
+        ];
+        const updatedExpertHistory: ISubmissionHistory = {
+          ...currentExpertHistoryEntry,
+          previousAllocations: updatedPreviousAllocations,
+          updatedAt: now,
+        };
+        updatedHistory[currentExpertHistoryIndex] = updatedExpertHistory;
+      } else {
+        // No history entry found for current expert - create one
+        const oldExpertHistoryEntry: ISubmissionHistory = {
+          updatedBy: new ObjectId(currentExpertId!),
+          status: 'in-review',
+          previousAllocations: [previousAllocation],
+          createdAt: now,
+          updatedAt: now,
+        };
+        updatedHistory.push(oldExpertHistoryEntry);
+      }
+
+      // Step 6: Create New History Entry for the new reviewer (with previousAllocations showing who they replaced)
+      const newExpertPreviousAllocation: IPreviousAllocations = {
+        reviewerId: new ObjectId(currentExpertId!),
+        reasonForChange: reasonForChange,
+        createdAt: currentExpertHistoryEntry?.createdAt || now,
+        updatedAt: now,
+      };
+      const newHistoryEntry: ISubmissionHistory = {
+        updatedBy: new ObjectId(newExpertId),
+        status: 'in-review',
+        previousAllocations: [newExpertPreviousAllocation],
+        createdAt: now,
+        updatedAt: now,
+      };
+      updatedHistory.push(newHistoryEntry);
+
+      // Update database with queue and history changes
+      const updateData: any = {
+        $set: {
+          queue: updatedQueue,
+          history: updatedHistory,
+          updatedAt: now,
+        },
+      };
+
+      const updated = await this.questionSubmissionRepo.updateById(
+        questionSubmission._id!.toString(),
+        updateData,
+        session,
+      );
+      
+      try {
+        // Prepare notification data
+        const truncatedQuestionText = this.truncateQuestionText(question.question);
+        const entityId = questionId.toString();
+        const type: INotificationType = 'expert_replacement';
+
+        const replacedExpertMessage = `You have been removed from level ${levelIndex} review of question "${truncatedQuestionText}".`;
+        const replacedExpertTitle = 'Review Assignment Removed';
+
+        const newExpertMessage = `You have been assigned level ${levelIndex} review for question: "${truncatedQuestionText}".`;
+        const newExpertTitle = 'New Review Assigned';
+
+        // Execute all operations in parallel
+        await Promise.all([
+          // 1. Assign penalty to replaced expert
+          this.userService.updatePenaltyAndIncentive(currentExpertId, 'penalty'),
+          
+          // 2. Assign incentive to new expert
+          this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
+          
+          // 3. Send notification to replaced expert (with error handling)
+          this.notificationService.saveTheNotifications(
+            replacedExpertMessage,
+            replacedExpertTitle,
+            entityId,
+            currentExpertId,
+            type,
+          ).catch(notificationError => {
+            console.error(`[replaceQueueExpert] ❌ Failed to send notification to replaced expert: ${currentExpertId}`, notificationError);
+            // Return resolved promise to not break Promise.all
+            return Promise.resolve();
+          }),
+          
+          // 4. Send notification to new expert (with error handling)
+          this.notificationService.saveTheNotifications(
+            newExpertMessage,
+            newExpertTitle,
+            entityId,
+            newExpertId,
+            type,
+          ).catch(notificationError => {
+            console.error(`[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`, notificationError);
+            // Return resolved promise to not break Promise.all
+            return Promise.resolve();
+          })
+        ]);
+
+      } catch (penaltyError) {
+        console.error(`[replaceQueueExpert] Penalty/incentive update failed for queue expert:`, penaltyError);
+        throw new InternalServerError('Failed to update penalty/incentive scores. Operation rolled back.');
+      }
+
+
+      return updated;
+    });
   }
 
   // async deleteQuestion(

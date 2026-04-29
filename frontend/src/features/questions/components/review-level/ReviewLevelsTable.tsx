@@ -1,7 +1,7 @@
 import { Pagination } from "@/components/pagination";
 import { ScrollArea, ScrollBar } from "@/components/atoms/scroll-area";
 import { BaseTable } from "../baseTable";
-import { reviewLevelColumns, type ReviewRow } from "./reviewLevel.coloumn";
+import { useReviewLevelColumns, type ReviewRow } from "./reviewLevel.coloumn";
 import { ReviewLevelMobileCard } from "./ReviewLevelMobile";
 import { useQuestionTableStore } from "@/stores/all-questions";
 import ReviewLevelsCard from "./ReviewLevelsCard";
@@ -22,6 +22,7 @@ type Props = {
 
   limit: number;
   view: "table" | "grid";
+  onRefresh?: () => void;
 };
 
 export function ReviewLevelsTable({
@@ -35,11 +36,15 @@ export function ReviewLevelsTable({
   sort,
   limit,
   view,
+  onRefresh,
 }: Props) {
   //hide question elements
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
+  const { columns, modal, onDelayedClick } = useReviewLevelColumns(onViewMore, visibleColumns, onRefresh);
+
   return (
     <div className="ps-4 md:ps-0">
+      {modal}
       <div
         className={`rounded-lg mb-2 bg-card min-h-[55vh] ${view === "table" && "border"}`}
       >
@@ -48,7 +53,7 @@ export function ReviewLevelsTable({
           {view === "table" ? (
             <ScrollArea className="w-full whitespace-nowrap">
               <BaseTable
-              columns={reviewLevelColumns(onViewMore, visibleColumns)}
+              columns={columns}
               data={data}
               isLoading={isLoading}
               onSort={toggleSort}
@@ -75,6 +80,7 @@ export function ReviewLevelsTable({
                   onViewMore={onViewMore}
                   onSort={toggleSort}
                   sort={sort}
+                  onDelayedClick={onDelayedClick}
                 />
               ))}
             </div>
@@ -91,6 +97,7 @@ export function ReviewLevelsTable({
               onViewMore={onViewMore}
               onSort={toggleSort}
               sort={sort}
+              onDelayedClick={onDelayedClick}
             />
           ))}
         </div>
