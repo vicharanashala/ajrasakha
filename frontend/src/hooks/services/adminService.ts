@@ -12,10 +12,12 @@ export class AdminUserService {
     limit: number,
     search: string,
     sort: string,
-    filter: string
+    filter: string,
+    role: string,
+    isBlocked: string
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number } | null> {
     return apiFetch(
-      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`
+      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}&role=${role}&isBlocked=${isBlocked}`
     );
   }
 }

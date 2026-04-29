@@ -1131,6 +1131,7 @@ export const AddOrEditQuestionDialog = ({
                 <Button
                   variant="default"
                   onClick={() => onSave?.("add")}
+                  disabled={isLoadingAction || !updatedData?.question.trim()}
                 >
                   <Save className="mr-2 h-4 w-4" aria-hidden="true" />
                   {isLoadingAction ? "Adding..." : "Add Question"}
@@ -1140,7 +1141,7 @@ export const AddOrEditQuestionDialog = ({
           ) : userRole === "expert" ? (
             <Button
               variant="destructive"
-              disabled={isLoadingAction}
+              disabled={isLoadingAction || !flagReason.trim()}
               onClick={() => {
                 onSave?.("edit", question?._id!, flagReason);
               }}
@@ -1151,6 +1152,7 @@ export const AddOrEditQuestionDialog = ({
           ) : (
             <Button
               variant="default"
+              disabled={isLoadingAction || !updatedData?.question.trim()}
               onClick={() => {
                 onSave?.("edit", question?._id!);
               }}

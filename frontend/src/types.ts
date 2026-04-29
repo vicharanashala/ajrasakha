@@ -42,6 +42,7 @@ export interface IUser {
   totalAnswers_Created?: number;
   penaltyPercentage?: number;
   rankPosition?: number;
+  expertRank?: number;
   status?: 'active' | 'in-active';
   avatar?: string;
   special_task_force?: boolean;
