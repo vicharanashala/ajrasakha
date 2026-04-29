@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { MultiSelect } from "./MultiSelect";
+import type { ICropAlias } from "@/hooks/services/cropService";
 
 export const CropMultiSelect = ({
   dbCrops,
@@ -7,12 +8,12 @@ export const CropMultiSelect = ({
   selected,
   onChange,
 }: {
-  dbCrops: { _id?: string; name: string; aliases?: string[] }[];
+  dbCrops: { _id?: string; name: string; aliases?: ICropAlias[] }[];
   crops: string[];
   selected: string[];
   onChange: (next: string[]) => void;
 }) => {
-  const cropList: { name: string; aliases?: string[] }[] =
+  const cropList: { name: string; aliases?: ICropAlias[] }[] =
     dbCrops.length > 0 ? dbCrops : crops.map((c) => ({ name: c }));
 
   const items = [

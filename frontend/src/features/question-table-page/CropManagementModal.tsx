@@ -20,15 +20,10 @@ import { toast } from "sonner";
 import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
-import type { ICropResponse } from "@/hooks/services/cropService";
+import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-type ICropAliasObject = {
-  language: string;
-  region: string;
-  en_repr: string;
-  native_repr: string;
-};
+// local alias for readability
+type ICropAliasObject = ICropAlias;
 
 // All 22 scheduled languages of India + widely spoken regional languages
 const INDIAN_LANGUAGES = [
@@ -258,8 +253,7 @@ export const CropManagementModal = ({
   // ── Edit State
   const [editingCropId, setEditingCropId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [editStringAliases, setEditStringAliases] = useState<string[]>([]);
-  const [editStructuredAliases, setEditStructuredAliases] = useState<ICropAliasObject[]>([]);
+  const [editAliases, setEditAliases] = useState<ICropAliasObject[]>([]);
 
   // ── API Hooks
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
@@ -278,16 +272,14 @@ export const CropManagementModal = ({
   const startEditing = (crop: ICropResponse) => {
     setEditingCropId(crop._id || null);
     setEditName(crop.name);
-    setEditStringAliases(crop.aliases || []);
-    setEditStructuredAliases([]);
+    setEditAliases(crop.aliases || []);
     if (isAddFormOpen) resetForm();
   };
 
   const cancelEditing = () => {
     setEditingCropId(null);
     setEditName("");
-    setEditStringAliases([]);
-    setEditStructuredAliases([]);
+    setEditAliases([]);
   };
 
   const handleSave = async () => {
@@ -297,8 +289,7 @@ export const CropManagementModal = ({
     try {
       const res = await createCrop({
         name,
-        // Temporary: pass en_repr values until backend supports the new alias structure
-        aliases: newAliases.length > 0 ? newAliases.map((a) => a.en_repr) : undefined,
+        aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
         toast.success(`Crop "${name}" added successfully!`);
@@ -313,13 +304,9 @@ export const CropManagementModal = ({
     if (!editingCropId) return;
     if (!window.confirm(`Are you sure you want to update aliases for "${editName}"?`)) return;
     try {
-      const combinedAliases = [
-        ...editStringAliases,
-        ...editStructuredAliases.map((a) => a.en_repr),
-      ];
       const res = await updateCrop({
         cropId: editingCropId,
-        payload: { aliases: combinedAliases },
+        payload: { aliases: editAliases },
       });
       if (res?.success) {
         toast.success(`Aliases for "${editName}" updated successfully!`);
@@ -472,46 +459,14 @@ export const CropManagementModal = ({
                           />
                         </div>
 
-                        {/* Existing string aliases from API */}
-                        {editStringAliases.length > 0 && (
-                          <div>
-                            <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                              Existing Aliases
-                              <span className="font-normal normal-case ml-1 text-gray-400 dark:text-gray-600 tracking-normal">
-                                — click × to remove
-                              </span>
-                            </label>
-                            <div className="flex flex-wrap gap-1.5">
-                              {editStringAliases.map((alias) => (
-                                <span
-                                  key={alias}
-                                  className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs font-medium border bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-200/80 dark:border-blue-500/25"
-                                >
-                                  {alias}
-                                  <button
-                                    onClick={() =>
-                                      setEditStringAliases((prev) =>
-                                        prev.filter((a) => a !== alias)
-                                      )
-                                    }
-                                    className="p-0.5 rounded-sm hover:bg-blue-200 dark:hover:bg-blue-500/20 transition-colors"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* New structured alias entry */}
+                        {/* Aliases */}
                         <div>
                           <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                            Add Structured Alias
+                            Aliases
                           </label>
                           <AliasSection
-                            aliases={editStructuredAliases}
-                            onAliasesChange={setEditStructuredAliases}
+                            aliases={editAliases}
+                            onAliasesChange={setEditAliases}
                             accentColor="blue"
                           />
                         </div>
@@ -561,12 +516,19 @@ export const CropManagementModal = ({
                             </p>
                             {crop.aliases && crop.aliases.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {crop.aliases.map((alias) => (
+                                {crop.aliases.map((alias, i) => (
                                   <span
-                                    key={alias}
-                                    className="px-1.5 py-px rounded text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/5 capitalize"
+                                    key={i}
+                                    className="inline-flex items-center gap-1 px-1.5 py-px rounded text-[10px] font-medium bg-gray-100 dark:bg-white/5"
+                                    title={alias.region || alias.language}
                                   >
-                                    {alias}
+                                    <span className="font-mono text-amber-600 dark:text-amber-400">
+                                      {alias.language}
+                                    </span>
+                                    <span className="text-gray-400 dark:text-gray-500">·</span>
+                                    <span className="text-gray-600 dark:text-gray-400">{alias.en_repr}</span>
+                                    <span className="text-gray-400 dark:text-gray-500">·</span>
+                                    <span className="text-gray-500 dark:text-gray-400">{alias.native_repr}</span>
                                   </span>
                                 ))}
                               </div>

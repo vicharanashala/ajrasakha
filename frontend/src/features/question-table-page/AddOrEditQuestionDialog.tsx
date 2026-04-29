@@ -133,7 +133,7 @@ const CropSelect = ({
       selectItems.push({ label: crop.name, value: crop.name, canonicalName: crop.name, isAlias: false });
       // Add each alias as a separate selectable item
       for (const alias of (crop.aliases || [])) {
-        selectItems.push({ label: alias, value: alias, canonicalName: crop.name, isAlias: true });
+        selectItems.push({ label: alias.en_repr, value: alias.en_repr, canonicalName: crop.name, isAlias: true });
       }
     }
   }
