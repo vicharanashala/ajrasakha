@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Plus, Wheat, Pencil, X, Loader2, Check } from "lucide-react";
+import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
@@ -336,8 +336,8 @@ export const CropManagementModal = ({
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <DialogHeader className="space-y-0.5">
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
-              <Wheat className="h-[18px] w-[18px] text-amber-600 dark:text-amber-400" />
-              Crop Management
+              <Cpu className="h-[18px] w-[18px] text-amber-600 dark:text-amber-400" />
+              AgriTech Management
             </DialogTitle>
             <DialogDescription className="text-xs text-gray-500">
               Manage crop names & aliases
