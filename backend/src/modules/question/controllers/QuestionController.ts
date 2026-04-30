@@ -170,7 +170,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
   ): Promise<Partial<any> | { message: string }> {
     const userId = user?._id?.toString();
-
+console.log("before audit payload*****")
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.QUESTION_ADD,
@@ -182,6 +182,7 @@ export class QuestionController {
         avatar: user?.avatar || '',
       },
     };
+    console.log("the audit payload coming====",auditPayload)
 
     if (file) {
       let payload: any[] = [];
@@ -272,6 +273,7 @@ export class QuestionController {
       let data;
 
       try {
+        console.log("the controller body coming===",body)
         const result = await this.questionService.addQuestion(userId, body);
         isDuplicate = result.isDuplicate;
         data = result.data;

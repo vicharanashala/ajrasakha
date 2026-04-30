@@ -354,10 +354,17 @@ export interface ICropRef {
   aliases?: string[];
 }
 
+export interface ICropAlias {
+  language: string;                 // BCP-47 code e.g. "te-IN"
+  region: string;                   // e.g. "Andhra and Telangana"
+  english_representation: string;   // romanised / English representation e.g. "vari"
+  native_representation: string;    // native script e.g. "వరి"
+}
+
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  aliases: string[];
+  aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
   createdAt?: Date;
