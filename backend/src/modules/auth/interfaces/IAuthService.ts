@@ -3,6 +3,7 @@ import {
   ChangePasswordBody,
   GoogleSignUpBody,
 } from '#auth/classes/index.js';
+import { SignUpResponseDto } from '#auth/dtos/AuthResponseDto.js';
 import {IUser} from '#shared/interfaces/models.js';
 
 /**
@@ -25,9 +26,7 @@ export interface IAuthService {
    */
   signup(
     body: SignUpBody,
-  ): Promise<{
-    user: {uid: string; email: string; displayName: string; photoURL: string};
-  } | null>;
+  ): Promise<SignUpResponseDto | null>;
   googleSignup(body: GoogleSignUpBody, token: string): Promise<string | null>;
   getUserIdFromReq(req: any): Promise<string>;
   /**

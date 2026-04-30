@@ -5,6 +5,8 @@ import {
   GoogleSignUpBody,
 } from '#auth/classes/index.js';
 import { IAuthService } from '#auth/interfaces/IAuthService.js';
+import { SignUpResponseDto } from '#auth/dtos/AuthResponseDto.js';
+import { plainToInstance } from 'class-transformer';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { injectable, inject } from 'inversify';
 import { BadRequestError, InternalServerError, UnauthorizedError } from 'routing-controllers';
@@ -99,7 +101,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     return true;
   }
 
-  async signup(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string } } | null> {
+  async signup(body: SignUpBody): Promise<SignUpResponseDto | null> {
     let userRecord: any;
     try {
       if (!/^[^\s@]+@annam\.ai$/.test(body.email) && !appConfig.isDevelopment) {
@@ -138,26 +140,15 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       }
     }
 
-    // Prepare user object for storage in our database
-    const user: Partial<IUser> = {
-      firebaseUID: userRecord.uid,
-      email: body.email,
-      firstName: body.firstName,
-      lastName: body.lastName || '',
-      role: 'expert',
-    };
-
     // create the user in the database will happen on the first successful login after email verification.
     await this.sendVerificationEmail(body.email);
 
-    return {
-      user: {
-        uid: userRecord.uid,
-        email: userRecord.email,
-        displayName: userRecord.displayName || `${body.firstName} ${body.lastName || ''}`,
-        photoURL: userRecord.photoURL || '',
-      }
-    }
+    return plainToInstance(SignUpResponseDto, {
+      uid: userRecord.uid,
+      email: userRecord.email,
+      firstName: body.firstName,
+      lastName: body.lastName || '',
+    });
   }
   async googleSignup(body: GoogleSignUpBody, token: string): Promise<any> {
     await this.verifyToken(token);
