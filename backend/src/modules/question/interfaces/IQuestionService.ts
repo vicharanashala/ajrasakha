@@ -13,7 +13,8 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import {QuestionLevelResponse} from '#root/modules/question/classes/transformers/QuestionLevel.js';
+import { QuestionResponseDto, PaginatedQuestionsResponseDto } from '../dtos/QuestionResponseDto.js';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import {ClientSession, ObjectId} from 'mongodb';
 
 export interface IQuestionService {
@@ -29,20 +30,17 @@ export interface IQuestionService {
   ): Promise<IQuestion[]>;
 
   /** Get questions under a context */
-  getByContextId(contextId: string): Promise<IQuestion[]>;
+  getByContextId(contextId: string): Promise<QuestionResponseDto[]>;
 
   /** Questions allocated to an expert */
   getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
     body: AllocatedQuestionsBodyDto,
-  ): Promise<QuestionResponse[]>;
+  ): Promise<QuestionResponseDto[]>;
 
   /** Paginated + searchable question list */
-  getDetailedQuestions(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{
-    questions: IQuestion[];
-    totalPages: number;
-  }>;
+  getDetailedQuestions(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<PaginatedQuestionsResponseDto>;
 
   /** Generate questions from raw context (AI) */
   getQuestionFromRawContext(
@@ -56,7 +54,7 @@ export interface IQuestionService {
   ): Promise<AddQuestionResult>;
 
   /** Question detail page */
-  getQuestionById(questionId: string): Promise<QuestionResponse>;
+  getQuestionById(questionId: string): Promise<QuestionResponseDto>;
 
   /** Update question fields */
   updateQuestion(
@@ -101,7 +99,7 @@ export interface IQuestionService {
   getQuestionFullData(
     questionId: string,
     userId: string,
-  ): Promise<IQuestion | null>;
+  ): Promise<QuestionResponseDto | null>;
 
   /** Get expert’s allocated question page */
   getAllocatedQuestionPage(userId: string, questionId: string): Promise<any>;

@@ -12,8 +12,9 @@ export function getProjectionFromDto(dtoClass: any): Record<string, number> {
   
   if (exposedMetadatas.length > 0) {
     exposedMetadatas.forEach(meta => {
-      if (meta.propertyName) {
-        projection[meta.propertyName] = 1;
+      const fieldName = (meta.options as any)?.name || meta.propertyName;
+      if (fieldName) {
+        projection[fieldName] = 1;
       }
     });
   } else {

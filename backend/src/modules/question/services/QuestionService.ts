@@ -40,6 +40,8 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
+import { QuestionResponseDto, PaginatedQuestionsResponseDto } from '../dtos/QuestionResponseDto.js';
+import { plainToInstance } from 'class-transformer';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
@@ -282,10 +284,11 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
-  async getByContextId(contextId: string): Promise<IQuestion[]> {
+  async getByContextId(contextId: string): Promise<QuestionResponseDto[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        return this.questionRepo.getByContextId(contextId, session);
+        const questions = await this.questionRepo.getByContextId(contextId, session);
+        return plainToInstance(QuestionResponseDto, questions);
       });
     } catch (error) {
       throw new InternalServerError(`Failed to get questions: ${error}`);
@@ -296,10 +299,11 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
     query: GetDetailedQuestionsQuery,
     body: AllocatedQuestionsBodyDto,
-  ): Promise<QuestionResponse[]> {
+  ): Promise<QuestionResponseDto[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        return this.questionRepo.getAllocatedQuestions(userId, query, session, body);
+        const results = await this.questionRepo.getAllocatedQuestions(userId, query, session, body);
+        return plainToInstance(QuestionResponseDto, results);
       });
     } catch (error) {
       throw new InternalServerError(
@@ -311,7 +315,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
-  ): Promise<{ questions: IQuestion[]; totalPages: number }> {
+  ): Promise<PaginatedQuestionsResponseDto> {
 
     let searchEmbedding: number[] | null = null;
 
@@ -329,10 +333,20 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
     }
 
-    return this.questionRepo.findDetailedQuestions({
+    const result = await this.questionRepo.findDetailedQuestions({
       ...query,
       searchEmbedding,
     }, body);
+
+    return plainToInstance(PaginatedQuestionsResponseDto, {
+      questions: result.questions,
+      meta: {
+        totalItems: result.totalCount,
+        totalPages: result.totalPages,
+        currentPage: query.page || 1,
+        itemsPerPage: query.limit || 10,
+      }
+    });
   }
 
   async getQuestionFromRawContext(
@@ -1098,7 +1112,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
-  async getQuestionById(questionId: string): Promise<QuestionResponse> {
+  async getQuestionById(questionId: string): Promise<QuestionResponseDto> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         const currentQuestion = await this.questionRepo.getById(questionId);
@@ -1159,7 +1173,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           aiApprovedSources = answers[0].sources;
         }
 
-        return {
+        return plainToInstance(QuestionResponseDto, {
           id: currentQuestion._id.toString(),
           text: currentQuestion.question,
           source: currentQuestion.source,
@@ -1169,11 +1183,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           aiInitialAnswer,
           aiApprovedSources,
           isAutoAllocate: currentQuestion.isAutoAllocate,
-          createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
-          updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
+          createdAt: currentQuestion.createdAt,
+          updatedAt: currentQuestion.updatedAt,
           totalAnswersCount: currentQuestion.totalAnswersCount,
           history: submissionHistory,
-        };
+        });
       });
     } catch (error) {
       throw new InternalServerError(
@@ -2260,19 +2274,22 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQuestionFullData(
     questionId: string,
     userId: string,
-  ): Promise<IQuestion | null> {
+  ): Promise<QuestionResponseDto | null> {
     try {
       const user = await this.userRepo.findById(userId);
-      const isExpert = user.role == 'expert';
+      if (!user) throw new NotFoundError('User not found');
+
+      const isExpert = user.role === 'expert';
+
       const question = await this.questionRepo.getQuestionWithFullData(
         questionId,
         userId,
         isExpert,
       );
-      if (!question) {
-        return null;
-      }
-      return question;
+
+      if (!question) return null;
+
+      return plainToInstance(QuestionResponseDto, question);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
     }

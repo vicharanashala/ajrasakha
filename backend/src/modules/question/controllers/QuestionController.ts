@@ -42,10 +42,10 @@ import {
   GenerateQuestionsBody,
   GetDetailedQuestionsQuery,
   QuestionIdParam,
-  QuestionResponse,
   RemoveAllocateBody,
   ApproveInitialAnswerBody
 } from '../classes/validators/QuestionVaidators.js';
+import { QuestionResponseDto, PaginatedQuestionsResponseDto } from '../dtos/QuestionResponseDto.js';
 import * as XLSX from 'xlsx';
 import {
   getBackgroundJobs,
@@ -102,15 +102,15 @@ export class QuestionController {
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get questions by context ID' })
-  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
-  async getByContextId(@Params() params: ContextIdParam): Promise<IQuestion[]> {
+  @ResponseSchema(QuestionResponseDto, { isArray: true })
+  async getByContextId(@Params() params: ContextIdParam): Promise<QuestionResponseDto[]> {
     const { contextId } = params;
     return this.questionService.getByContextId(contextId);
   }
 
   @Post('/allocated')
   @HttpCode(200)
-  @ResponseSchema(QuestionResponse, { isArray: true })
+  @ResponseSchema(QuestionResponseDto, { isArray: true })
   @Authorized()
   @OpenAPI({ summary: 'Get all open status questions' })
   async getAllocatedQuestions(
@@ -118,7 +118,7 @@ export class QuestionController {
     query: GetDetailedQuestionsQuery,
     @Body() body: AllocatedQuestionsBodyDto,
     @CurrentUser() user: IUser,
-  ): Promise<QuestionResponse[]> {
+  ): Promise<QuestionResponseDto[]> {
     const userId = user._id.toString();
     return this.questionService.getAllocatedQuestions(userId, query, body);
   }
@@ -140,11 +140,11 @@ export class QuestionController {
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get detailed questions with advanced filters' })
-  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @ResponseSchema(PaginatedQuestionsResponseDto)
   async getDetailedQuestions(
     @QueryParams() query: GetDetailedQuestionsQuery,
     @Body() body: DetailedQuestionsBodyDto,
-  ): Promise<{ questions: IQuestion[]; totalPages: number }> {
+  ): Promise<PaginatedQuestionsResponseDto> {
     return this.questionService.getDetailedQuestions(query, body);
   }
 
@@ -654,25 +654,23 @@ console.log("before audit payload*****")
   @Get('/:questionId')
   @HttpCode(200)
   @Authorized()
-  @ResponseSchema(QuestionResponse)
+  @ResponseSchema(QuestionResponseDto)
   @OpenAPI({ summary: 'Get selected question by ID' })
   async getQuestionById(
     @Params() params: QuestionIdParam,
-    @Body() updates: Partial<QuestionResponse>,
-  ): Promise<QuestionResponse> {
-    const { questionId } = params;
-    return this.questionService.getQuestionById(questionId);
+  ): Promise<QuestionResponseDto> {
+    return this.questionService.getQuestionById(params.questionId);
   }
 
   @Get('/:questionId/full')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get full details of selected question by ID' })
-  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @ResponseSchema(QuestionResponseDto)
   async getQuestionFull(
     @Params() params: QuestionIdParam,
     @CurrentUser() user: IUser,
-  ) {
+  ): Promise<{ success: true; data: QuestionResponseDto }> {
     const { questionId } = params;
     const userId = user._id.toString();
     const question = await this.questionService.getQuestionFullData(
@@ -863,7 +861,7 @@ console.log("before audit payload*****")
   @Put('/:questionId')
   @HttpCode(200)
   @Authorized()
-  @ResponseSchema(QuestionResponse, { isArray: true })
+  @ResponseSchema(Object)
   @OpenAPI({ summary: 'Update a question by ID' })
   async updateQuestion(
     @Params() params: QuestionIdParam,
@@ -1193,7 +1191,7 @@ console.log("before audit payload*****")
   @Get('/')
   @HttpCode(200)
   @Authorized()
-  @ResponseSchema(QuestionResponse)
+  @ResponseSchema(QuestionLevelResponse)
   @OpenAPI({ summary: 'Get all questions and review levels' })
   async getQuestionsAndReviewlevel(
     @QueryParams() query: GetDetailedQuestionsQuery

@@ -43,6 +43,8 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import { QuestionResponseDto } from '#root/modules/question/dtos/QuestionResponseDto.js';
+import { getProjectionFromDto } from '#root/shared/utils/projection.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -710,13 +712,7 @@ export class QuestionRepository implements IQuestionRepository {
           },
           {
             $project: {
-              submissionData: 0,
-              userId: 0,
-              updatedAt: 0,
-              contextId: 0,
-              metrics: 0,
-              embedding: 0,
-              contextDoc: 0,
+              ...getProjectionFromDto(QuestionResponseDto),
               score: { $meta: 'vectorSearchScore' },
             },
           },
@@ -951,17 +947,7 @@ export class QuestionRepository implements IQuestionRepository {
         },
 
         {
-          $project: {
-            submissionData: 0,
-            userId: 0,
-            updatedAt: 0,
-            contextId: 0,
-            metrics: 0,
-            embedding: 0,
-            contextDoc: 0,
-            priorityOrder: 0,
-            review_level_sort_value: 0,
-          },
+          $project: getProjectionFromDto(QuestionResponseDto),
         },
       ]).toArray();
 
