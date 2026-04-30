@@ -45,10 +45,19 @@ export class CropService extends BaseService implements ICropService {
         dto.aliases,
       );
 
-      //  Backfill via repository — use the DB-normalised values (trimmed + lowercased)
+      //  Backfill via repository — use en_repr values as the searchable strings
       await this.questionRepository.backfillNormalisedCrop(
         crop.name,
-        crop.aliases || [],
+        (crop.aliases || [])
+          .flatMap(a => {
+            if (typeof a === 'string') return [a];
+      
+            return [
+              a.english_representation,
+              a.native_representation,
+            ];
+          })
+          .filter(Boolean) as string[],
       );
 
       return crop;
@@ -73,10 +82,19 @@ export class CropService extends BaseService implements ICropService {
       );
 
       if (updatedCrop) {
-        //  Backfill via repository — use the DB-normalised values (trimmed + lowercased)
+        //  Backfill via repository — use en_repr values as the searchable strings
         await this.questionRepository.backfillNormalisedCrop(
           updatedCrop.name,
-          updatedCrop.aliases || [],
+          (updatedCrop.aliases || [])
+            .flatMap(a => {
+              if (typeof a === 'string') return [a];
+        
+              return [
+                a.english_representation,
+                a.native_representation,
+              ];
+            })
+            .filter(Boolean) as string[],
         );
       }
 

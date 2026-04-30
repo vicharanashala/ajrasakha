@@ -1680,7 +1680,7 @@ const AuditPage = () => {
     EXPERTS_MANAGEMENT = "Experts Management",
     REQUEST_QUEUE = "Request Queue",
     ANALYTICS = "Analytics",
-    CROP_MANAGEMENT = "Crop Management",
+    CROP_MANAGEMENT = "AgriTech Management",
     OUTREACH_REPORT = "Outreach Report",
     AGENTS_INTERFACE = "Agents Interface",
     DOWNLOAD_REPORTS = "Download Reports",
@@ -1805,7 +1805,7 @@ const AuditPage = () => {
             <DropdownMenuRadioItem value="EXPERTS_MANAGEMENT">Experts Management</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="REQUEST_QUEUE">Request Queue</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="ANALYTICS">Analytics</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="CROP_MANAGEMENT">Crop Management</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="CROP_MANAGEMENT">AgriTech Management</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="OUTREACH_REPORT">Outreach Report</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="AGENTS_INTERFACE">Agents Interface</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="DOWNLOAD_REPORTS">Download Reports</DropdownMenuRadioItem>
