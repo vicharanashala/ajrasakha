@@ -3385,15 +3385,18 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async holdQuestion(questionId: string, userId: string, action: "hold" | "unhold"): Promise<{ id: string }> {
     return await this._withTransaction(async session => {
-      if (action === "unhold") {
-        const question = await this.questionRepo.getById(questionId, session);
-        if (!question) {
-          throw new NotFoundError('Question not found');
-        }
-        const user = await this.userRepo.findById(userId, session);
+      const question = await this.questionRepo.getById(questionId, session);
+      if (!question) {
+        throw new NotFoundError('Question not found');
+      }
+
+      const user = await this.userRepo.findById(userId, session);
         if (!user || user.role == 'expert') {
           throw new ForbiddenError('Only moderators or Admins can unhold questions');
         }
+
+      if (action === "unhold") {
+        
         if (!question.isOnHold) {
           throw new BadRequestError('Question is not on hold');
         }
@@ -3406,22 +3409,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           questionId,
           {
             isOnHold: false,
-            status: 'open',
+            status: question.prevStatus || 'open',
             accumulatedHoldMs: prevAccum + segmentMs,
             holdAt: null,
           },
           session,
         );
         return { id: questionId }
-      }
-      const user = await this.userRepo.findById(userId, session);
-      if (user.role == 'expert') {
-        throw new ForbiddenError('Only moderators can hold questions');
-      }
-
-      const question = await this.questionRepo.getById(questionId, session);
-      if (!question) {
-        throw new NotFoundError('Question not found');
       }
 
       if (question.status === 'closed') {
@@ -3432,7 +3426,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         throw new NotFoundError('Question submission not found');
       }
       await this._handleSubmissionOnHold(submission, session);
-      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false, status: 'hold', holdAt: new Date() }, session)
+      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false, status: 'hold', holdAt: new Date(), prevStatus: question.status }, session)
       return { id: questionId }
     })
   }

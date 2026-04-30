@@ -77,6 +77,7 @@ export interface IQuestion {
   holdAt?:Date | null;
   /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
   accumulatedHoldMs?: number;
+  prevStatus?: QuestionStatus;
   originalQuestion?:string
 }
 
