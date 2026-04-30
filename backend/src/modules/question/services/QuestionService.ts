@@ -3362,8 +3362,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new Error('Question not found');
     }
 
-    const { question, details, createdAt, messageId } = questionData;
-
+    const { question, details, createdAt, messageId, userId } = questionData;
     const [analyticsMessages, annamMessages] = await Promise.all([
       this.chatbotRepository.findMatchingMessages({
         question,
@@ -3391,6 +3390,16 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (!message) {
       throw new Error('No matching message found');
     }
+
+    //update userid from the analytics db
+     if (message.userDetails?._id !== userId?.toString()) {
+            await this.questionRepo.updateQuestion(
+              questionId.toString(),
+              {
+                userId: new ObjectId(message.userDetails._id),
+              },
+            );
+          }
 
     return {
       messageId: message.messageId || '',
