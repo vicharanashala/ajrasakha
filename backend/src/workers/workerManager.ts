@@ -30,8 +30,13 @@ function chunkArray<T>(arr: T[], chunkSize: number): T[][] {
 }
 
 
-export const startBackgroundProcessing = (userId: string, isRequiredAiInitialAnswer: boolean, isOutreachQuestion: boolean = false, payload: any[]) => {
-  if (!payload?.length) return;
+export const startBackgroundProcessing = (
+  actor: any,
+  auditService: IAuditTrailsService,
+  isRequiredAiInitialAnswer: boolean,
+  isOutreachQuestion: boolean = false,
+  payload: any[],
+) => {  if (!payload?.length) return;
 
   const jobId = Date.now().toString();
   const total = payload.length;

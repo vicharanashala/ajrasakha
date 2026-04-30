@@ -225,12 +225,20 @@ export class QuestionController {
         }
 
         console.log('Paylod: ', payload);
-        // const insertedIds = await this.questionService.createBulkQuestions(
-        //   userId,
-        //   payload,
-        //   isOutreachQuestion
-        // );
-        setImmediate(() => startBackgroundProcessing(userId, isRequiredAiInitialAnswer, isOutreachQuestion, payload));
+        const actor = {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user?.avatar || '',
+        };
+        setImmediate(() => startBackgroundProcessing(
+            actor,
+            this.auditTrailsService,
+            isRequiredAiInitialAnswer,
+            isOutreachQuestion,
+            payload
+          ));
         
         return {
                 message: `Processing ${payload.length} question(s). Non-duplicate entries are being assigned to experts${isRequiredAiInitialAnswer ? " with AI-generated initial answers" : ""}.`,
