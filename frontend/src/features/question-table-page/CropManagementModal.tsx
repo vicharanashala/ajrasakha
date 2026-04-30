@@ -177,6 +177,85 @@ const AliasEntryForm = ({
     </div>
   );
 };
+// CREATE COMMON COMPONENT
+
+const StructuredAliasesTable = ({
+  aliases,
+  onRemove,
+}: {
+  aliases: ICropAliasObject[];
+  onRemove: (index: number) => void;
+}) => {
+  if (aliases.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
+      {/* Header */}
+      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
+        {["Language", "Region", "English", "Native", ""].map((h, i) => (
+          <div
+            key={i}
+            className="px-3 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider"
+          >
+            {h}
+          </div>
+        ))}
+      </div>
+
+      {/* Rows */}
+      {aliases.map((alias, i) => (
+        <div
+          key={i}
+          className={`grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 items-center group transition-colors
+            ${
+              i < aliases.length - 1
+                ? "border-b border-gray-100 dark:border-gray-800/60"
+                : ""
+            }
+            hover:bg-gray-50/60 dark:hover:bg-white/[0.02]`}
+        >
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/15">
+              <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 truncate">
+                {getLangInfo(alias.language).en}
+              </span>
+            </span>
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block">
+              {alias.region || (
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              )}
+            </span>
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate block">
+              {alias.english_representation}
+            </span>
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <span className="text-xs text-gray-600 dark:text-gray-400 truncate block">
+              {alias.native_representation}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-center pr-1">
+            <button
+              type="button"
+              onClick={() => onRemove(i)}
+              className="p-1 rounded-md opacity-0 group-hover:opacity-100 transition-all text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 // ── AliasManagerModal ─────────────────────────────────────────────────────────
 // Dedicated modal for viewing, adding, and deleting aliases for a single crop.
@@ -277,62 +356,10 @@ const AliasManagerModal = ({
                 </p>
               </div>
             ) : (
-              <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
-                {/* Table header */}
-                <div className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-                  {["Language", "Region", "English", "Native", ""].map((h, i) => (
-                    <div
-                      key={i}
-                      className="px-3 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider"
-                    >
-                      {h}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Table rows */}
-                {structuredAliases.map((alias, i) => (
-                  <div
-                    key={i}
-                    className={`grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 items-center group transition-colors
-                      ${i < structuredAliases.length - 1 ? "border-b border-gray-100 dark:border-gray-800/60" : ""}
-                      hover:bg-gray-50/60 dark:hover:bg-white/[0.02]`}
-                  >
-                    <div className="px-3 py-2.5 min-w-0">
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/15">
-                        <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 leading-tight truncate">
-                          {getLangInfo(alias.language).en}
-                        </span>
-                      </span>
-                    </div>
-                    <div className="px-3 py-2.5 min-w-0">
-                      <span className="text-xs text-gray-600 dark:text-gray-300 truncate block">
-                        {alias.region || <span className="text-gray-300 dark:text-gray-600">—</span>}
-                      </span>
-                    </div>
-                    <div className="px-3 py-2.5 min-w-0">
-                      <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate block">
-                        {alias.english_representation}
-                      </span>
-                    </div>
-                    <div className="px-3 py-2.5 min-w-0">
-                      <span className="text-xs text-gray-600 dark:text-gray-400 truncate block">
-                        {alias.native_representation}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-center pr-1">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveStructured(i)}
-                        className="p-1 rounded-md opacity-0 group-hover:opacity-100 transition-all text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10"
-                        title="Remove alias"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <StructuredAliasesTable
+              aliases={structuredAliases}
+              onRemove={handleRemoveStructured}
+            />
             )}
           </div>
 
@@ -429,29 +456,10 @@ const AliasSection = ({
     <div className="space-y-2">
       <AliasEntryForm onAdd={handleAdd} accentColor="amber" />
       {aliases.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {aliases.map((alias, i) => (
-            <span
-              key={i}
-              className="group relative inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-amber-50 dark:bg-amber-500/[0.06] border-amber-100 dark:border-amber-500/15"
-            >
-              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
-                {getLangInfo(alias.language).en}
-              </span>
-              <span className="text-gray-300 dark:text-gray-600 select-none">·</span>
-              <span className="text-[11px] text-gray-600 dark:text-gray-400">
-                {alias.english_representation}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleRemove(i)}
-                className="p-0.5 rounded transition-colors text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-        </div>
+         <StructuredAliasesTable
+         aliases={aliases}
+         onRemove={handleRemove}
+       />
       )}
     </div>
   );

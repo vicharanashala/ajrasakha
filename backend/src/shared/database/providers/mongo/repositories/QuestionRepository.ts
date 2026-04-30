@@ -3521,7 +3521,6 @@ async backfillNormalisedCrop(
   aliases: string[],
 ): Promise<number> {
   await this.init();
-  console.log("ythe alias list comoing===",aliases)
 
   const escapeRegex = (v: string) =>
     v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

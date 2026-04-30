@@ -235,7 +235,8 @@ export class CropRepository implements ICropRepository {
             $or: [
               {name: regex},
               {aliases: regex},                                    // legacy string format
-              {'aliases.english_representation': regex},           // new object format
+              {'aliases.english_representation': regex}, 
+              { 'aliases.native_representation': regex },          // new object format
             ],
           });
 
