@@ -17,12 +17,12 @@ import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IUser} from '#root/shared/interfaces/models.js';
-import { AddNotificationBody, AddPushSubscriptionBody, DeleteNotificationParams, MessageBody, NotificationResponse } from '#root/modules/notification/validators/NotificationValidators.js';
+import { AddNotificationBody, AddPushSubscriptionBody, DeleteNotificationParams, MessageBody } from '#root/modules/notification/validators/NotificationValidators.js';
+import { NotificationResponseDto, PaginatedNotificationsResponseDto } from '#root/modules/notification/dtos/NotificationResponseDto.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import {
   NotificationErrorResponse,
   InsertedIdResponse,
-  PaginatedNotificationsResponse,
   DeletedCountResponse,
   ModifiedCountResponse,
   SuccessMessageResponse,
@@ -72,7 +72,7 @@ export class NotificationController {
     summary: 'Get all notifications of a user',
     description: 'Retrieves paginated notifications for the current user with pagination metadata.',
   })
-  @ResponseSchema(PaginatedNotificationsResponse, {
+  @ResponseSchema(PaginatedNotificationsResponseDto, {
     statusCode: 200,
     description: 'Notifications retrieved successfully with pagination info',
   })
@@ -87,9 +87,9 @@ export class NotificationController {
   @Get('/')
   @HttpCode(200)
   @Authorized()
-  async getNotifications(@QueryParams() query: {page?: number; limit?: number}, @CurrentUser() user: IUser) {
-    const page = Number(query.page) ?? 1;
-    const limit = Number(query.limit) ?? 10;
+  async getNotifications(@QueryParams() query: {page?: number; limit?: number}, @CurrentUser() user: IUser): Promise<PaginatedNotificationsResponseDto> {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
     const userId = user._id.toString();
     return this.notificationService.getNotifications(userId,page,limit)
   }

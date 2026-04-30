@@ -5,8 +5,9 @@ import { ClientSession, ObjectId } from 'mongodb';
 import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
 import {
   AddPushSubscriptionBody,
-  NotificationResponse,
 } from '#root/modules/notification/validators/NotificationValidators.js';
+import { NotificationResponseDto, PaginatedNotificationsResponseDto } from '#root/modules/notification/dtos/NotificationResponseDto.js';
+import { plainToInstance } from 'class-transformer';
 import { NotFoundError } from 'routing-controllers';
 import {
   notifyUser,
@@ -60,12 +61,7 @@ export class NotificationService extends BaseService {
     userId: string,
     page: number,
     limit: number,
-  ): Promise<{
-    notifications: NotificationResponse[];
-    page: number;
-    totalCount: number;
-    totalPages: number;
-  }> {
+  ): Promise<PaginatedNotificationsResponseDto> {
     return this._withTransaction(async (session: ClientSession) => {
       return await this.notificationRepository.getNotifications(
         userId,

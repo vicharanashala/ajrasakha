@@ -6,7 +6,9 @@ import {MongoDatabase} from '../MongoDatabase.js';
 import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
-import { NotificationResponse } from '#root/modules/notification/validators/NotificationValidators.js';
+import { NotificationResponseDto, PaginatedNotificationsResponseDto } from '#root/modules/notification/dtos/NotificationResponseDto.js';
+import { getProjectionFromDto } from '#root/shared/utils/projection.js';
+import { plainToInstance } from 'class-transformer';
 
 export class NotificationRepository implements INotificationRepository {
   private notificationCollection: Collection<INotification>;
@@ -58,37 +60,39 @@ export class NotificationRepository implements INotificationRepository {
     }
   }
 
-  async getNotifications(userId: string,page:number,limit:number,session?: ClientSession): Promise<{notifications:NotificationResponse[]; page:number; totalCount:number; totalPages:number}> {
+  async getNotifications(userId: string,page:number,limit:number,session?: ClientSession): Promise<PaginatedNotificationsResponseDto> {
     try {
       await this.init()
       if (!userId || !isValidObjectId(userId)) {
         throw new BadRequestError('Invalid or missing userId');
       }
       const skip = (page - 1) * limit
-      // const notification = await this.notificationCollection.findOne({userId: new ObjectId(userId)},{session})
-      const [notification,totalCount] = await Promise.all([
-        this.notificationCollection.find({userId: new ObjectId(userId)},{session}).sort({createdAt:-1}).skip(skip).limit(limit).toArray(),
-        this.notificationCollection.countDocuments({userId: new ObjectId(userId)})
-      ])
-      if (!notification) return null;
+      const projection = getProjectionFromDto(NotificationResponseDto);
 
-      // Convert ObjectId → string
+      const [notifications, totalCount] = await Promise.all([
+        this.notificationCollection
+          .find({ userId: new ObjectId(userId) }, { session, projection })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+        this.notificationCollection.countDocuments({ userId: new ObjectId(userId) }, { session })
+      ]);
 
-      const response = notification.map((n) => ({
-        _id:n._id.toString(),
-        enitity_id:n.enitity_id.toString(),
-        message:n.message,
-        is_read:n.is_read,
-        title:n.title,
-        type: n.type,
-        createdAt:n.createdAt.toString()
-      }))
+      if (!notifications) return null;
 
-    return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}
+      const response = plainToInstance(NotificationResponseDto, notifications);
+
+      return {
+        notifications: response,
+        page,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit)
+      };
     }
-  catch(error){
+    catch (error) {
       throw new InternalServerError(
-        `Error while adding Notification, More/ ${error}`,
+        `Error while fetching Notifications, More/ ${error}`,
       );
     }
   }
