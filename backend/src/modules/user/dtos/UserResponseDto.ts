@@ -99,6 +99,26 @@ export class UserResponseDto {
   createdAt?: string | Date;
 
   @Expose()
+  @IsNumber()
+  @IsOptional()
+  expertRank?: number;
+
+  @Expose()
+  @IsNumber()
+  @IsOptional()
+  rankPosition?: number;
+
+  @Expose()
+  @IsNumber()
+  @IsOptional()
+  penaltyPercentage?: number;
+
+  @Expose()
+  @IsNumber()
+  @IsOptional()
+  totalAnswers_Created?: number;
+
+  @Expose()
   @IsString()
   @IsOptional()
   updatedAt?: string | Date;

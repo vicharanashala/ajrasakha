@@ -22,8 +22,14 @@ import {
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { SubmissionResponse } from '#root/modules/answer/classes/validators/AnswerValidator.js';
 
-export class AnswerRepository implements IAnswerRepository {
-  private AnswerCollection: Collection<IAnswer>;
+import {BaseRepository} from './BaseRepository.js';
+import {BaseAnswerDto} from '#root/modules/answer/dtos/AnswerResponseDto.js';
+import {getProjectionFromDto} from '#root/shared/utils/projection.js';
+import {injectable} from 'inversify';
+
+@injectable()
+export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswerRepository {
+  private AnswerCollection!: Collection<IAnswer>;
   private QuestionCollection: Collection<IQuestion>;
   private usersCollection!: Collection<IUser>;
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
@@ -31,19 +37,23 @@ export class AnswerRepository implements IAnswerRepository {
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
-    private db: MongoDatabase,
-  ) {}
+    db: MongoDatabase,
+  ) {
+    super(db, 'answers');
+  }
 
-  private async init() {
-    this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
-    this.QuestionCollection = await this.db.getCollection<IQuestion>(
-      'questions',
-    );
-    this.usersCollection = await this.db.getCollection<IUser>('users');
-    this.QuestionSubmissionCollection =
-      await this.db.getCollection<IQuestionSubmission>('question_submissions');
-    await this.db.getCollection<IQuestionSubmission>('question_submissions');
-    this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
+  protected async init() {
+    await super.init();
+    this.AnswerCollection = this.collection;
+    if (!this.QuestionCollection) {
+      this.QuestionCollection = await this.db.getCollection<IQuestion>(
+        'questions',
+      );
+      this.usersCollection = await this.db.getCollection<IUser>('users');
+      this.QuestionSubmissionCollection =
+        await this.db.getCollection<IQuestionSubmission>('question_submissions');
+      this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
+    }
   }
 
   async addAnswer(
@@ -149,7 +159,10 @@ export class AnswerRepository implements IAnswerRepository {
 
       const answers = await this.AnswerCollection.find(
         {questionId: new ObjectId(questionId)},
-        {session},
+        {
+          projection: getProjectionFromDto(BaseAnswerDto),
+          session,
+        },
       )
         .sort({createdAt: 1})
         .toArray();
@@ -176,7 +189,10 @@ export class AnswerRepository implements IAnswerRepository {
         {
           _id: new ObjectId(answerId),
         },
-        {session},
+        {
+          projection: getProjectionFromDto(BaseAnswerDto),
+          session,
+        },
       );
       return {
         ...answer,
@@ -258,6 +274,17 @@ export class AnswerRepository implements IAnswerRepository {
           {$sort: {updatedAt: -1}},
           {$skip: skip},
           {$limit: limit},
+          {
+            $project: {
+              _id: 1,
+              text: 1,
+              createdAt: 1,
+              updatedAt: 1,
+              totalAnswersCount: 1,
+              questionStatus: 1,
+              responses: 1,
+            }
+          },
         ]).toArray();
         return submissions.map(sub => ({
           id: sub._id.toString(),
@@ -683,6 +710,16 @@ export class AnswerRepository implements IAnswerRepository {
           {$sort: {updatedAt: -1, statusPriority: 1}},
           {$skip: skip},
           {$limit: limit},
+          {
+            $project: {
+              _id: 1,
+              text: 1,
+              createdAt: 1,
+              updatedAt: 1,
+              questionStatus: 1,
+              responses: 1,
+            }
+          }
         ]).toArray();
         return submissions.map(sub => ({
           id: sub._id.toString(),

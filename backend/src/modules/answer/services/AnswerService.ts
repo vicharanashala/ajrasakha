@@ -35,6 +35,8 @@ import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../class
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
+import { plainToInstance } from 'class-transformer';
+import { AnswerSubmissionResponseDto, PaginatedSubmissionsResponseDto, BaseAnswerDto, FinalizedAnswerResponseDto, GoldenFaqResponseDto } from '../dtos/AnswerResponseDto.js';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService{
@@ -1469,11 +1471,12 @@ export class AnswerService extends BaseService implements IAnswerService{
     limit: number,
     dateRange?: {from: string | undefined; to: string | undefined},
     selectedHistoryId?: string | undefined,
-  ): Promise<SubmissionResponse[]> {
+  ): Promise<AnswerSubmissionResponseDto[]> {
     return await this._withTransaction(async (session: ClientSession) => {
       const user = await this.userRepo.findById(userId);
+      let submissions: any[];
       if (user.role === 'expert') {
-        return await this.questionSubmissionRepo.getUserActivityHistory(
+        submissions = await this.questionSubmissionRepo.getUserActivityHistory(
           userId,
           page,
           limit,
@@ -1482,7 +1485,7 @@ export class AnswerService extends BaseService implements IAnswerService{
           selectedHistoryId,
         );
       } else if (user.role === 'moderator') {
-        return await this.answerRepo.getModeratorActivityHistory(
+        submissions = await this.answerRepo.getModeratorActivityHistory(
           userId,
           page,
           limit,
@@ -1490,7 +1493,13 @@ export class AnswerService extends BaseService implements IAnswerService{
           selectedHistoryId,
           session,
         );
+      } else {
+        submissions = [];
       }
+
+      return plainToInstance(AnswerSubmissionResponseDto, submissions, {
+        excludeExtraneousValues: true,
+      });
     });
   }
   async getFinalAnswerQuestions(
@@ -1498,18 +1507,18 @@ export class AnswerService extends BaseService implements IAnswerService{
     currentUserId: string,
     date: string,
     status: string,
-  ): Promise<{
-    finalizedSubmissions: any[];
-  }> {
+  ): Promise<FinalizedAnswerResponseDto> {
     const {finalizedSubmissions} = await this.answerRepo.getAllFinalizedAnswers(
       userId,
       currentUserId,
       date,
       status,
     );
-    return {
+    return plainToInstance(FinalizedAnswerResponseDto, {
       finalizedSubmissions,
-    };
+    }, {
+      excludeExtraneousValues: true,
+    });
   }
 
   // Currently using for approving answer
@@ -1944,15 +1953,18 @@ answer: ${updates.answer}`;
     page: number,
     limit: number,
     search: string,
-  ): Promise<{faqs: any[]; totalFaqs: number}> {
+  ): Promise<GoldenFaqResponseDto> {
     return await this._withTransaction(async (session: ClientSession) => {
-      return await this.answerRepo.getGoldenFaqs(
+      const result = await this.answerRepo.getGoldenFaqs(
         userId,
         page,
         limit,
         search,
         session,
       );
+      return plainToInstance(GoldenFaqResponseDto, result, {
+        excludeExtraneousValues: true,
+      });
     });
   }
 

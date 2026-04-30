@@ -28,6 +28,7 @@ import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { IQuestionService } from '#root/modules/question/interfaces/index.js';
+import { AnswerSubmissionResponseDto, FinalizedAnswerResponseDto, GoldenFaqResponseDto } from '../dtos/AnswerResponseDto.js';
 
 @OpenAPI({
   tags: ['Answers'],
@@ -77,12 +78,12 @@ export class AnswerController {
   @Get('/submissions')
   @HttpCode(200)
   @Authorized()
-  @ResponseSchema(SubmissionResponse, {isArray: true})
+  @ResponseSchema(AnswerSubmissionResponseDto, {isArray: true})
   @OpenAPI({summary: 'Get all submissions'})
   async getUnAnsweredQuestions(
     @QueryParams() query: {page?: number; limit?: number; start:string | undefined,end:string | undefined,selectedHistoryId:string|undefined},
     @CurrentUser() user: IUser,
-  ): Promise<SubmissionResponse[]> {
+  ): Promise<AnswerSubmissionResponseDto[]> {
     const page = Number(query.page) ?? 1;
     const limit = Number(query.limit) ?? 10;
     const userId = user._id.toString();
@@ -98,16 +99,12 @@ export class AnswerController {
   @Get('/finalizedAnswers')
   @HttpCode(200)
   @Authorized()
-  @ResponseSchema(SubmissionResponse, {isArray: true})
+  @ResponseSchema(FinalizedAnswerResponseDto)
   @OpenAPI({summary: 'Get all FinalizedAnswers'})
   async getfinalAnswerQuestions(
     @QueryParams() query: {userId,date,status},
     @CurrentUser() user: IUser,
-  ): Promise<{
-    finalizedSubmissions: any[],
-    
-   
-  }>  {
+  ): Promise<FinalizedAnswerResponseDto>  {
    
     const userId = query?.userId || "all";
     const date=query?.date || "all";
@@ -239,13 +236,12 @@ export class AnswerController {
   @Get('/faqs/mod')
   @HttpCode(200)
   @Authorized()
-  @ResponseSchema(SubmissionResponse, {isArray: true})
+  @ResponseSchema(GoldenFaqResponseDto)
   @OpenAPI({summary: 'Get all FinalizedAnswers'})
   async getGoldenFaqs(
     @QueryParams() query: {page:number,limit:number,search:string,userId?:string},
     @CurrentUser() user: IUser,
-  ): Promise<{faqs:any[];totalFaqs:number
-  }>  {
+  ): Promise<GoldenFaqResponseDto>  {
     let {page=1,limit=10,search,userId} = query
     if(!userId){
       userId = user._id.toString()

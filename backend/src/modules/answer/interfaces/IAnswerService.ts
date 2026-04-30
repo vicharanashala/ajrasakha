@@ -9,6 +9,8 @@ import type {
   UpdateAnswerBody,
 } from "../classes/validators/AnswerValidator.js";
 
+import {AnswerSubmissionResponseDto, FinalizedAnswerResponseDto, GoldenFaqResponseDto} from '../dtos/AnswerResponseDto.js';
+
 export interface IAnswerService {
   addAnswer(
     questionId: string,
@@ -37,14 +39,14 @@ export interface IAnswerService {
     limit: number,
     dateRange?: { from: string | undefined; to: string | undefined },
     selectedHistoryId?: string | undefined,
-  ): Promise<SubmissionResponse[]>;
+  ): Promise<AnswerSubmissionResponseDto[]>;
 
   getFinalAnswerQuestions(
     userId: string,
     currentUserId: string,
     date: string,
     status: string,
-  ): Promise<{ finalizedSubmissions: any[] }>;
+  ): Promise<FinalizedAnswerResponseDto>;
 
   /*approveAnswer(
     userId: string,
@@ -66,7 +68,7 @@ export interface IAnswerService {
     page: number,
     limit: number,
     search: string,
-  ): Promise<{ faqs: any[]; totalFaqs: number }>;
+  ): Promise<GoldenFaqResponseDto>;
 
   incrementApprovalCount(
     answerId: string,

@@ -296,148 +296,150 @@ async findAllUsers(
 
     const selectedSort = sortMap[sortOption] || sortMap.default;
 
-    const result = await this.usersCollection
-      .aggregate([
-        /** Default isBlocked */
-        {
-          $addFields: {
-            isBlocked: { $ifNull: ['$isBlocked', false] },
-          },
+    const pipeline: any[] = [
+      /** Default isBlocked */
+      {
+        $addFields: {
+          isBlocked: { $ifNull: ['$isBlocked', false] },
         },
+      },
 
-        {
-          $addFields: {
-          status: { $ifNull: ["$status", "active"] },
-          },
+      {
+        $addFields: {
+          status: { $ifNull: ['$status', 'active'] },
         },
+      },
 
-        /** Answers count */
-        {
-          $lookup: {
-            from: 'answers',
-            let: { userId: '$_id' },
-            pipeline: [
-              { $match: { $expr: { $eq: ['$authorId', '$$userId'] } } },
-              { $count: 'count' },
-            ],
-            as: 'answersMeta',
-          },
+      /** Answers count */
+      {
+        $lookup: {
+          from: 'answers',
+          let: { userId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$authorId', '$$userId'] } } },
+            { $count: 'count' },
+          ],
+          as: 'answersMeta',
         },
+      },
 
-        /** Derived fields */
-        {
-          $addFields: {
-            totalAnswers_Created: {
-              $ifNull: [{ $arrayElemAt: ['$answersMeta.count', 0] }, 0],
-            },
-            penalty: { $ifNull: ['$penalty', 0] },
-            incentive: { $ifNull: ['$incentive', 0] },
-            reputation_score: { $ifNull: ['$reputation_score', 0] },
+      /** Derived fields */
+      {
+        $addFields: {
+          totalAnswers_Created: {
+            $ifNull: [{ $arrayElemAt: ['$answersMeta.count', 0] }, 0],
           },
+          penalty: { $ifNull: ['$penalty', 0] },
+          incentive: { $ifNull: ['$incentive', 0] },
+          reputation_score: { $ifNull: ['$reputation_score', 0] },
         },
+      },
 
-        /** Penalty percentage */
-        {
-          $addFields: {
-            penaltyPercentage: {
-              $cond: [
-                { $gt: ['$totalAnswers_Created', 0] },
-                {
-                  $multiply: [
-                    { $divide: ['$penalty', '$totalAnswers_Created'] },
-                    100,
-                  ],
-                },
-                0,
-              ],
-            },
-          },
-        },
-
-        /** Role priority */
-        {
-          $addFields: {
-            roleOrder: {
-              $switch: {
-                branches: [
-                  { case: { $eq: ['$role', 'admin'] }, then: 1 },
-                  { case: { $eq: ['$role', 'moderator'] }, then: 2 },
-                  { case: { $eq: ['$role', 'expert'] }, then: 3 },
+      /** Penalty percentage */
+      {
+        $addFields: {
+          penaltyPercentage: {
+            $cond: [
+              { $gt: ['$totalAnswers_Created', 0] },
+              {
+                $multiply: [
+                  { $divide: ['$penalty', '$totalAnswers_Created'] },
+                  100,
                 ],
-                default: 99,
               },
-            },
+              0,
+            ],
           },
         },
+      },
 
-        /** Rank value */
-        {
-          $addFields: {
-            rankValue: {
-              $cond: [
-                { $eq: ["$role", "expert"] },
-                {
-                  $subtract: [
-                    {
-                      $add: [
-                        { $multiply: ["$totalAnswers_Created", 0.5] },
-                        { $multiply: ["$incentive", 0.3] },
-                      ],
-                    },
-                    { $multiply: ["$penaltyPercentage", 0.2] },
-                  ],
-                },
-                -1,
+      /** Role priority */
+      {
+        $addFields: {
+          roleOrder: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$role', 'admin'] }, then: 1 },
+                { case: { $eq: ['$role', 'moderator'] }, then: 2 },
+                { case: { $eq: ['$role', 'expert'] }, then: 3 },
               ],
+              default: 99,
             },
           },
         },
+      },
 
-        /** Ranking sort (global rank order) */
-        {
-          $sort: {
-            isBlocked: 1,
-            roleOrder: 1,
-            rankValue: -1,
-            reputation_score: -1,
-            totalAnswers_Created: -1,
-            penalty: 1,
-            incentive: -1,
-            createdAt: 1,
+      /** Rank value */
+      {
+        $addFields: {
+          rankValue: {
+            $cond: [
+              { $eq: ['$role', 'expert'] },
+              {
+                $subtract: [
+                  {
+                    $add: [
+                      { $multiply: ['$totalAnswers_Created', 0.5] },
+                      { $multiply: ['$incentive', 0.3] },
+                    ],
+                  },
+                  { $multiply: ['$penaltyPercentage', 0.2] },
+                ],
+              },
+              -1,
+            ],
           },
         },
+      },
 
-        /** Assign rankPosition */
-        {
-          $group: {
-            _id: null,
-            users: { $push: "$$ROOT" },
-          },
+      /** Ranking sort (global rank order) */
+      {
+        $sort: {
+          isBlocked: 1,
+          roleOrder: 1,
+          rankValue: -1,
+          reputation_score: -1,
+          totalAnswers_Created: -1,
+          penalty: 1,
+          incentive: -1,
+          createdAt: 1,
         },
-        {
-          $addFields: {
-            users: {
-              $map: {
-                input: { $range: [0, { $size: "$users" }] },
-                as: "idx",
-                in: {
-                  $mergeObjects: [
-                    { $arrayElemAt: ["$users", "$$idx"] },
-                    { rankPosition: { $add: ["$$idx", 1] } },
-                  ],
-                },
+      },
+
+      /** Assign rankPosition */
+      {
+        $group: {
+          _id: null,
+          users: { $push: '$$ROOT' },
+        },
+      },
+      {
+        $addFields: {
+          users: {
+            $map: {
+              input: { $range: [0, { $size: '$users' }] },
+              as: 'idx',
+              in: {
+                $mergeObjects: [
+                  { $arrayElemAt: ['$users', '$$idx'] },
+                  { rankPosition: { $add: ['$$idx', 1] } },
+                ],
               },
             },
           },
         },
-        {
-          $unwind: "$users",
-        },
-        {
-          $replaceRoot: { newRoot: "$users" },
-        },
+      },
+      {
+        $unwind: '$users',
+      },
+      {
+        $replaceRoot: { newRoot: '$users' },
+      },
+    ];
 
-        /** Calculate Global Expert Rank */
+    /** Calculate Global Expert Rank - Only if role filter is 'expert' */
+    if (role === 'expert') {
+      pipeline.push(
         {
           $facet: {
             experts: [
@@ -452,56 +454,63 @@ async findAllUsers(
                   penalty: 1,
                   incentive: -1,
                   createdAt: 1,
-                }
+                },
               },
               { $group: { _id: null, list: { $push: '$$ROOT' } } },
               { $unwind: { path: '$list', includeArrayIndex: 'expertRank' } },
               {
                 $replaceRoot: {
                   newRoot: {
-                    $mergeObjects: ['$list', { expertRank: { $add: ['$expertRank', 1] } }]
-                  }
-                }
-              }
+                    $mergeObjects: [
+                      '$list',
+                      { expertRank: { $add: ['$expertRank', 1] } },
+                    ],
+                  },
+                },
+              },
             ],
             others: [
               { $match: { role: { $ne: 'expert' } } },
-              { $addFields: { expertRank: null } }
-            ]
-          }
+              { $addFields: { expertRank: null } },
+            ],
+          },
         },
         {
           $project: {
-            allUsers: { $concatArrays: ['$experts', '$others'] }
-          }
+            allUsers: { $concatArrays: ['$experts', '$others'] },
+          },
         },
         { $unwind: '$allUsers' },
         { $replaceRoot: { newRoot: '$allUsers' } },
+      );
+    } else {
+      pipeline.push({
+        $addFields: { expertRank: null },
+      });
+    }
 
-        /** Match users (Applied here for global ranking) */
-        { $match: matchQuery },
-
-        /** UI sorting (dropdown) */
-        {
-          $sort: {
-            isBlocked: 1,
-            ...selectedSort,
-          },
+    /** Match users, UI sorting, Pagination and Projection */
+    pipeline.push(
+      { $match: matchQuery },
+      {
+        $sort: {
+          isBlocked: 1,
+          ...selectedSort,
         },
-
-        /** Pagination and Projection */
-        {
-          $facet: {
-            users: [
-              { $skip: skip }, 
-              { $limit: limit },
-              { $project: getProjectionFromDto(UserResponseDto) }
-            ],
-            meta: [{ $count: "totalUsers" }],
-          },
+      },
+      {
+        $facet: {
+          users: [
+            { $skip: skip },
+            { $limit: limit },
+            { $project: getProjectionFromDto(UserResponseDto) },
+          ],
+          meta: [{ $count: 'totalUsers' }],
         },
-      ])
-      .toArray();
+      },
+    );
+
+    const result = await this.usersCollection.aggregate(pipeline).toArray();
 
     const users = result[0]?.users || [];
     const totalUsers = result[0]?.meta[0]?.totalUsers || 0;
@@ -1142,6 +1151,7 @@ async findAllUsers(
       {
         $addFields: {
           'experts.rankPosition': { $add: ['$rankPosition', 1] },
+          'experts.expertRank': { $add: ['$rankPosition', 1] },
         },
       },
       {
