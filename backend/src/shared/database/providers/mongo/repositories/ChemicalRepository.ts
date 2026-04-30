@@ -118,7 +118,6 @@ export class ChemicalRepository implements IChemicalRepository {
         ...chemical,
         _id: chemical._id?.toString(),
         createdBy: chemical.createdBy?.toString(),
-        updatedBy: chemical.updatedBy?.toString(),
       }));
 
       return {chemicals: sanitizedChemicals, totalCount, totalPages};
@@ -139,8 +138,7 @@ export class ChemicalRepository implements IChemicalRepository {
         ...chemical,
         _id: chemical._id?.toString(),
         createdBy: chemical.createdBy?.toString(),
-        updatedBy: chemical.updatedBy?.toString(),
-      } as IChemical;
+              } as IChemical;
     } catch (error: any) {
       throw new InternalServerError(`Failed to get chemical: ${error.message}`);
     }
@@ -155,12 +153,35 @@ export class ChemicalRepository implements IChemicalRepository {
     try {
       if (!this.ChemicalCollection) await this.init();
 
-      const $set: any = {
+      // Get current chemical to compare changes
+      const currentChemical = await this.ChemicalCollection.findOne({_id: new ObjectId(id)});
+      if (!currentChemical) return null;
+
+      // Check if there are actual changes
+      const nameChanged = updates.name !== undefined && updates.name.trim() !== currentChemical.name;
+      const statusChanged = updates.status !== undefined && updates.status !== currentChemical.status;
+
+      if (!nameChanged && !statusChanged) {
+        // No changes, return current chemical
+        return {
+          ...currentChemical,
+          _id: currentChemical._id?.toString(),
+          createdBy: currentChemical.createdBy?.toString(),
+        } as IChemical;
+      }
+
+      // Prepare audit entry
+      const auditEntry = {
+        createdBy: new ObjectId(updatedBy),
         updatedAt: new Date(),
-        updatedBy: new ObjectId(updatedBy),
+        changesMade: {} as any,
       };
 
-      if (updates.name !== undefined) {
+      const $set: any = {
+        updatedAt: new Date(),
+      };
+
+      if (nameChanged) {
         const normalizedName = updates.name.trim();
 
         const conflict = await this.ChemicalCollection.findOne({
@@ -175,15 +196,29 @@ export class ChemicalRepository implements IChemicalRepository {
         }
 
         $set.name = normalizedName;
+        auditEntry.changesMade.old_name = currentChemical.name;
       }
 
-      if (updates.status !== undefined) {
+      if (statusChanged) {
         $set.status = updates.status;
+        auditEntry.changesMade.old_status = currentChemical.status;
+      }
+
+      // Prepare update operations
+      const updateOps: any = {
+        $set
+      };
+
+      // Add audit entry to history if there are changes
+      if (Object.keys(auditEntry.changesMade).length > 0) {
+        updateOps.$push = {
+          chemical_audit_history: auditEntry
+        };
       }
 
       const result = await this.ChemicalCollection.findOneAndUpdate(
         {_id: new ObjectId(id)},
-        {$set},
+        updateOps,
         {returnDocument: 'after'},
       );
 
@@ -193,7 +228,6 @@ export class ChemicalRepository implements IChemicalRepository {
         ...result,
         _id: result._id?.toString(),
         createdBy: result.createdBy?.toString(),
-        updatedBy: result.updatedBy?.toString(),
       } as IChemical;
     } catch (error: any) {
       if (error instanceof BadRequestError) throw error;
@@ -234,8 +268,7 @@ export class ChemicalRepository implements IChemicalRepository {
         ...chemical,
         _id: chemical._id?.toString(),
         createdBy: chemical.createdBy?.toString(),
-        updatedBy: chemical.updatedBy?.toString(),
-      } as IChemical;
+              } as IChemical;
     } catch (error: any) {
       throw new InternalServerError(`Failed to find chemical by name: ${error.message}`);
     }
