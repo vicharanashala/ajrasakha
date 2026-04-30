@@ -63,7 +63,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getDashboard(@QueryParams() query: DashboardQueryDto) {
-    return this.chatbotService.getDashboard(query.days, query.source);
+    return this.chatbotService.getDashboard(query.days, query.source, query.userType);
   }
 
   @OpenAPI({ 
@@ -86,7 +86,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getKpiSummary(@QueryParams() query: SourceQueryDto) {
-    return this.chatbotService.getKpiSummary(query.source);
+    return this.chatbotService.getKpiSummary(query.source, query.userType);
   }
 
   @OpenAPI({ 
@@ -110,7 +110,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getDailyActiveUsers(@QueryParams() query: DashboardQueryDto) {
-    return this.chatbotService.getDailyActiveUsers(query.days, query.source);
+    return this.chatbotService.getDailyActiveUsers(query.days, query.source, query.userType);
   }
 
   @OpenAPI({ 
@@ -254,7 +254,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getDailyUserTrend(@QueryParams() query: DashboardQueryDto) {
-    return this.chatbotService.getDailyUserTrend(query.days, query.source);
+    return this.chatbotService.getDailyUserTrend(query.days, query.source, query.userType);
   }
 
   @OpenAPI({ 
@@ -289,6 +289,7 @@ export class ChatbotController {
       query.village,
       query.profileCompleted,
       inactiveOnly,
+      query.userType,
     );
   }
 

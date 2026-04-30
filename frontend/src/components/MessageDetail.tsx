@@ -550,7 +550,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         {
                             question?.isHidden !== true &&<Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
                         }
-                        <Button type="button" onClick={handleApprove} size="sm" disabled={isUpdating} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">{isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}{isUpdating ? "Approving..." : "Approve"}</Button>
+                        <Button type="button" onClick={handleApprove} size="sm" disabled={isUpdating || !editedAnswerBody.trim()} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">{isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}{isUpdating ? "Approving..." : "Approve"}</Button>
                     </div>
                 </div>
             )}
@@ -800,7 +800,7 @@ const EditAnswerModal = ({
                             <Button type="button" variant="outline" size="sm" onClick={() => setPendingAction('cancel')} className="gap-2 rounded-xl">
                                 <X className="h-4 w-4" /> Cancel
                             </Button>
-                            <Button type="button" size="sm" onClick={() => { if (validateSources()) setPendingAction('save'); }} className="gap-2 rounded-xl">
+                            <Button type="button" size="sm" onClick={() => { if (validateSources()) setPendingAction('save'); }} className="gap-2 rounded-xl" disabled={!editedAnswerBody.trim()}>
                                 <Save className="h-4 w-4" /> Save Changes
                             </Button>
                         </>

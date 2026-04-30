@@ -1,5 +1,6 @@
 import type { ClientSession } from "mongodb";
 import type {
+  IAnswer,
   SourceItem,
 } from "#root/shared/interfaces/models.js";
 import type {
@@ -71,4 +72,6 @@ export interface IAnswerService {
     answerId: string,
     session?: ClientSession,
   ): Promise<number>;
+
+  getAnswerById(answerId: string): Promise<IAnswer>;
 }

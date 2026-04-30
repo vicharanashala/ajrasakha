@@ -19,24 +19,35 @@ mcp = FastMCP(
     )
 )
 
+MONGO_URI = os.getenv("MONGO_URI")
+DB_NAME = os.getenv("DB_NAME", "ajrasakha_db")
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "chemical_aliases")
+
+db_client = None
+if MONGO_URI:
+    try:
+        db_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        log.info("✅ Global MongoDB Connection Pool Initialized.")
+    except Exception as e:
+        log.error(f"❌ Failed to initialize MongoDB client: {e}")
+else:
+    log.error("CRITICAL: MONGO_URI is missing from environment variables.")
+
 _ALIAS_TO_CHEM_CACHE: Dict[str, str] = {}
 _CHEM_TO_ALIASES_CACHE: Dict[str, List[str]] = {}
 
-def _load_mappings_from_db():
-    global _ALIAS_TO_CHEM_CACHE, _CHEM_TO_ALIASES_CACHE
+def _load_mappings_from_db() -> Dict[str, Any]:
+    """Helper to fetch the mapping list from MongoDB and cache it using the global pool."""
+    global _ALIAS_TO_CHEM_CACHE, _CHEM_TO_ALIASES_CACHE, db_client
     
-    mongo_uri = os.getenv("MONGO_URI")
-    db_name = os.getenv("DB_NAME", "ajrasakha_db")
-    collection_name = os.getenv("COLLECTION_NAME", "chemical_aliases")
+    if not db_client:
+        return {"error": "MongoDB client is not initialized.", "success": False}
 
-    if not mongo_uri:
-        log.error("MONGO_URI missing!")
-        return
+    log.info("Fetching mapping data from MongoDB to build cache...")
 
     try:
-        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
-        db = client[db_name]
-        collection = db[collection_name]
+        db = db_client[DB_NAME]
+        collection = db[COLLECTION_NAME]
 
         cursor = collection.find({}, {"chemical_name": 1, "aliases": 1, "_id": 0})
         
@@ -55,10 +66,15 @@ def _load_mappings_from_db():
                     _ALIAS_TO_CHEM_CACHE[alias.strip().lower()] = official_name
                     
         log.info(f"✅ Loaded {len(_CHEM_TO_ALIASES_CACHE)} chemicals and {len(_ALIAS_TO_CHEM_CACHE)} alias mappings.")
+        return {"success": True}
+        
     except Exception as e:
-        log.error(f"❌ DB Load Error: {e}")
-    finally:
-        if 'client' in locals(): client.close()
+        err_msg = f"Unexpected DB Load Error: {e}"
+        log.error(f"❌ {err_msg}")
+        return {"error": err_msg, "success": False}
+
+_load_mappings_from_db()
+
 
 @mcp.tool()
 def get_chemical_by_alias(alias_name: str) -> Dict[str, Any]:
@@ -66,7 +82,6 @@ def get_chemical_by_alias(alias_name: str) -> Dict[str, Any]:
     Takes a local/common name of a chemical and returns the official chemical name.
     Useful when farmers use trade names like 'Lasso' instead of 'Alachlor'.
     """
-    if not _ALIAS_TO_CHEM_CACHE: _load_mappings_from_db()
     
     search_term = alias_name.strip().lower()
     
@@ -87,12 +102,12 @@ def get_chemical_by_alias(alias_name: str) -> Dict[str, Any]:
     
     return {"success": False, "error": "No matching chemical found for this alias."}
 
+
 @mcp.tool()
 def get_aliases_by_chemical(chemical_name: str) -> Dict[str, Any]:
     """
     Takes an official chemical name and returns all its known aliases/common names.
     """
-    if not _CHEM_TO_ALIASES_CACHE: _load_mappings_from_db()
     
     search_term = chemical_name.strip().lower()
     
@@ -113,6 +128,6 @@ def get_aliases_by_chemical(chemical_name: str) -> Dict[str, Any]:
 
     return {"success": False, "error": "Chemical name not found in database."}
 
+
 if __name__ == "__main__":
-    _load_mappings_from_db()
     mcp.run(transport="stdio")

@@ -991,6 +991,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
         }
 
+
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
         // =====================================================
@@ -1002,9 +1003,56 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
+        }
+
+        if (source === 'AJRASAKHA') {
+          // map the chatbot message/user when we can,
+          // but do not fail question creation if the analytics records are missing.
+          const [analyticsMessages, annamMessages] = await Promise.all([
+            this.chatbotRepository.findMatchingMessages({
+              question: savedQuestion.question,
+              details: savedQuestion.details,
+              createdAt: savedQuestion.createdAt,
+              questionId: savedQuestion._id.toString(),
+              messageId: undefined,
+            }),
+            this.chatbotRepository.findFromSecondDb({
+              question: savedQuestion.question,
+              details: savedQuestion.details,
+              createdAt: savedQuestion.createdAt,
+              questionId: savedQuestion._id.toString(),
+              messageId: undefined,
+            }),
+          ]);
+
+          const allMessages = [...analyticsMessages, ...annamMessages];
+
+          const message = allMessages[0];
+          const messageUserId =
+            message?.userObjectId?.toString?.() ||
+            message?.user?.toString?.() ||
+            null;
+
+          if (message?.messageId || messageUserId) {
+            const updatePayload: Partial<IQuestion> = {};
+
+            if (messageUserId) {
+              updatePayload.userId = new ObjectId(messageUserId);
+              baseQuestion.userId = updatePayload.userId;
+            }
+
+            if (message?.messageId) {
+              updatePayload.messageId = message.messageId;
+            }
+
+            await this.questionRepo.updateQuestion(
+              savedQuestion._id.toString(),
+              updatePayload,
+              session,
+            );
+          }
         }
 
         const users = await this.userRepo.findExpertsByPreference(
@@ -1265,7 +1313,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionId: string,
     session?: ClientSession,
     BATCH_EXPECTED_TO_ADD: number = 6,
-  ): Promise<boolean> {
+  ): Promise<{data?: ObjectId[], status:boolean}> {
     const TOTAL_EXPERTS_LIMIT = 10;
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
@@ -1274,7 +1322,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       console.log(
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
-      return false;
+      return { data: [], status: false };
     }
 
     const details = question.details as PreferenceDto;
@@ -1291,7 +1339,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     if (EXISTING_QUEUE_COUNT >= TOTAL_EXPERTS_LIMIT) {
       console.log('Cannot auto allocate as queue is full');
-      return false;
+      return { data: [], status: false };
     }
 
     const [users, preferredExperts] = await Promise.all([
@@ -1334,6 +1382,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       allExpertIds = Array.from(expertIdsSet);
     }
+
+    let updatedQueue;
 
     if (
       EXISTING_QUEUE_COUNT < 3 ||
@@ -1454,12 +1504,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           type,
         );
       }
-      const updatedQueue = [
+      updatedQueue = [
         ...questionSubmission.queue,
         ...(expertsToAdd || []),
       ]
         .slice(0, TOTAL_EXPERTS_LIMIT)
         .map(id => new ObjectId(id));
+
+        console.log("the updated queue is coming====", updatedQueue)
 
       await this.questionSubmissionRepo.updateQueue(
         questionId,
@@ -1467,10 +1519,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         session,
       );
     }
-    return true;
+    return {
+      data: updatedQueue,
+      status: true
+    };
   }
 
-  async toggleAutoAllocate(questionId: string): Promise<{ message: string }> {
+  async toggleAutoAllocate(questionId: string): Promise<{ message: string, data?: ObjectId[]}> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         //1. Validate question existence
@@ -1482,8 +1537,12 @@ export class QuestionService extends BaseService implements IQuestionService {
           question?.isAutoAllocate,
           session,
         );
+
         const currentStatus = question.isAutoAllocate;
+
         // If currentStatus is false, then we need to set it to true and vice versa
+
+        let out;
 
         if (!currentStatus) {
           let submission = await this.questionSubmissionRepo.getByQuestionId(
@@ -1520,21 +1579,23 @@ export class QuestionService extends BaseService implements IQuestionService {
           if (CURRENT_QUEUE_LENGTH < 3)
             BATCH_EXPECTED_TO_ADD = 3 - CURRENT_QUEUE_LENGTH;
 
-          const out = await this.autoAllocateExperts(
+           out = await this.autoAllocateExperts(
             questionId,
             session,
             BATCH_EXPECTED_TO_ADD,
           );
 
-          if (!out) {
+          if (!out.status) {
             return {
               message: 'Auto allocate toggled, but queue is already full',
+              data: out?.data
             };
           }
         }
 
         return {
           message: `Auto allocate is now set to ${updated.isAutoAllocate}`,
+          data: out?.data
         };
       });
     } catch (error) {
@@ -3313,7 +3374,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new Error('Question not found');
     }
 
-    const { question, details, createdAt } = questionData;
+    const { question, details, createdAt, messageId } = questionData;
 
     const [analyticsMessages, annamMessages] = await Promise.all([
       this.chatbotRepository.findMatchingMessages({
@@ -3321,12 +3382,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         details,
         createdAt,
         questionId: questionId.toString(),
+        messageId: messageId ? messageId.toString() : undefined,
       }),
       this.chatbotRepository.findFromSecondDb({
         question,
         details,
         createdAt,
         questionId: questionId.toString(),
+        messageId: messageId ? messageId.toString() : undefined,
       }),
     ]);
 
@@ -3482,8 +3545,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.getQuestionStatusSummary(query, body);
   }
 
-  async generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer: string }> {
-    return this._withTransaction(async (session) => {
+  async getExprtIdByIndex(questionId: string, index: number): Promise<string | null> {
+    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+    if (!submission || !submission.queue || submission.queue.length <= index) {
+      return null;
+    }
+    return submission.queue[index].toString();
+  }
+  async generateAiInitialAnswer(questionId: string): Promise<{aiInitialAnswer:string}> {
+    return this._withTransaction( async( session ) => {
 
       const question = await this.questionRepo.getById(questionId, session);
 

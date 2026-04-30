@@ -239,6 +239,8 @@ async findAllUsers(
   search: string,
   sortOption: string,
   filter: string,
+  role?: string,
+  isBlockedFilter?: boolean,
   session?: ClientSession,
 ): Promise<{
   users: IUser[];
@@ -265,6 +267,14 @@ async findAllUsers(
       matchQuery['preference.state'] = filter;
     }
 
+    if (role && role !== 'ALL') {
+      matchQuery.role = role;
+    }
+
+    if (isBlockedFilter !== undefined) {
+      matchQuery.isBlocked = isBlockedFilter;
+    }
+
     const sortMap: any = {
       role: { roleOrder: 1 },
       workload_asc: { reputation_score: 1 },
@@ -282,9 +292,6 @@ async findAllUsers(
 
     const result = await this.usersCollection
       .aggregate([
-        /** Match users */
-        { $match: matchQuery },
-
         /** Default isBlocked */
         {
           $addFields: {
@@ -357,11 +364,39 @@ async findAllUsers(
           },
         },
 
+        /** Rank value */
+        {
+          $addFields: {
+            rankValue: {
+              $cond: [
+                { $eq: ["$role", "expert"] },
+                {
+                  $subtract: [
+                    {
+                      $add: [
+                        { $multiply: ["$totalAnswers_Created", 0.5] },
+                        { $multiply: ["$incentive", 0.3] },
+                      ],
+                    },
+                    { $multiply: ["$penaltyPercentage", 0.2] },
+                  ],
+                },
+                -1,
+              ],
+            },
+          },
+        },
+
         /** Ranking sort (global rank order) */
         {
           $sort: {
             isBlocked: 1,
             roleOrder: 1,
+            rankValue: -1,
+            reputation_score: -1,
+            totalAnswers_Created: -1,
+            penalty: 1,
+            incentive: -1,
             createdAt: 1,
           },
         },
@@ -370,23 +405,75 @@ async findAllUsers(
         {
           $group: {
             _id: null,
-            users: { $push: '$$ROOT' },
-          },
-        },
-        {
-          $unwind: {
-            path: '$users',
-            includeArrayIndex: 'rankPosition',
+            users: { $push: "$$ROOT" },
           },
         },
         {
           $addFields: {
-            'users.rankPosition': { $add: ['$rankPosition', 1] },
+            users: {
+              $map: {
+                input: { $range: [0, { $size: "$users" }] },
+                as: "idx",
+                in: {
+                  $mergeObjects: [
+                    { $arrayElemAt: ["$users", "$$idx"] },
+                    { rankPosition: { $add: ["$$idx", 1] } },
+                  ],
+                },
+              },
+            },
           },
         },
         {
-          $replaceRoot: { newRoot: '$users' },
+          $unwind: "$users",
         },
+        {
+          $replaceRoot: { newRoot: "$users" },
+        },
+
+        /** Calculate Global Expert Rank */
+        {
+          $facet: {
+            experts: [
+              { $match: { role: 'expert' } },
+              {
+                $sort: {
+                  status: 1,
+                  isBlocked: 1,
+                  rankValue: -1,
+                  reputation_score: -1,
+                  totalAnswers_Created: -1,
+                  penalty: 1,
+                  incentive: -1,
+                  createdAt: 1,
+                }
+              },
+              { $group: { _id: null, list: { $push: '$$ROOT' } } },
+              { $unwind: { path: '$list', includeArrayIndex: 'expertRank' } },
+              {
+                $replaceRoot: {
+                  newRoot: {
+                    $mergeObjects: ['$list', { expertRank: { $add: ['$expertRank', 1] } }]
+                  }
+                }
+              }
+            ],
+            others: [
+              { $match: { role: { $ne: 'expert' } } },
+              { $addFields: { expertRank: null } }
+            ]
+          }
+        },
+        {
+          $project: {
+            allUsers: { $concatArrays: ['$experts', '$others'] }
+          }
+        },
+        { $unwind: '$allUsers' },
+        { $replaceRoot: { newRoot: '$allUsers' } },
+
+        /** Match users (Applied here for global ranking) */
+        { $match: matchQuery },
 
         /** UI sorting (dropdown) */
         {
@@ -400,7 +487,7 @@ async findAllUsers(
         {
           $facet: {
             users: [{ $skip: skip }, { $limit: limit }],
-            meta: [{ $count: 'totalUsers' }],
+            meta: [{ $count: "totalUsers" }],
           },
         },
       ])
