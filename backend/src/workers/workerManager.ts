@@ -2,6 +2,8 @@ import { Worker } from 'worker_threads';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,6 +52,13 @@ export const startBackgroundProcessing = (
   };
   jobs[jobId] = job;
 
+
+  const aggregateResults = {
+    successIds: [] as string[],
+    duplicateCount: 0,
+    errors: [] as any[],
+  };
+
   // Determine optimal concurrency
   const cpuCount = os.cpus().length;
   const MAX_WORKERS = Math.min(8, Math.max(2, Math.floor(cpuCount / 2))); // Cap at 8 
@@ -62,14 +71,15 @@ export const startBackgroundProcessing = (
     `🧠 Using ${MAX_WORKERS} workers (chunk size ~${CHUNK_SIZE})`
   );
 
-  let completedWorkers = 0;
+  let finishedWorkers = 0;
+  let isJobFinalized = false;
   let failedWorkers = 0;
 
   chunks.forEach((chunk, index) => {
     const worker = new Worker(workerFile, {
       workerData: {
         questions: chunk,
-        userId,
+        userId: actor.id,
         mongoUri: process.env.DB_URL!,
         dbName: process.env.DB_NAME!,
         isRequiredAiInitialAnswer,
@@ -85,9 +95,14 @@ export const startBackgroundProcessing = (
       if (msg?.processed !== undefined) {
         job.processed += msg.processed;
       }
-      if (msg?.success) {
-        completedWorkers++;
-        job.logs.push(`✅ Worker ${index + 1} completed (${msg.processed} processed)`);
+      if (msg?.successIds) {
+        aggregateResults.successIds.push(...msg.successIds);
+      }
+      if (msg?.duplicateCount) {
+        aggregateResults.duplicateCount += msg.duplicateCount;
+      }
+      if (msg?.error) {
+        aggregateResults.errors.push(msg.error);
       }
     });
 
@@ -98,18 +113,47 @@ export const startBackgroundProcessing = (
     });
 
     worker.on('exit', code => {
+      finishedWorkers++
       if (code !== 0) {
         failedWorkers++;
         job.logs.push(`⚠️ Worker ${index + 1} exited with code ${code}`);
+      } else {
+        job.logs.push(`✅ Worker ${index + 1} completed`);
       }
 
       // When all workers are done
-      if (completedWorkers + failedWorkers === chunks.length) {
+      if (finishedWorkers === chunks.length && !isJobFinalized) {
+        isJobFinalized = true; 
         job.finishedAt = new Date();
         job.status = failedWorkers === 0 ? 'completed' : 'failed';
         job.logs.push(
           `🏁 Job finished. Processed ${job.processed}/${job.total}. Failed workers: ${failedWorkers}`
         );
+        
+        // Create Final Audit Trail
+        const auditPayload = {
+          category: AuditCategory.QUESTION,
+          action: AuditAction.QUESTION_BULK_CREATE,
+          actor: actor,
+          context: {
+            totalUploaded: total,
+            createdCount: aggregateResults.successIds.length,
+            duplicateCount: aggregateResults.duplicateCount,
+            questionId: aggregateResults.successIds, 
+            errors: aggregateResults.errors, 
+          },
+          outcome: {
+            status:
+              failedWorkers === 0
+                ? OutComeStatus.SUCCESS
+                : OutComeStatus.PARTIAL,
+          },
+          createdAt: new Date(),
+        };
+
+        auditService.createAuditTrail(auditPayload).catch(err => {
+          console.error('Failed to create audit trail for bulk upload:', err);
+        });
       }
     });
   });

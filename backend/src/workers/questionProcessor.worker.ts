@@ -102,6 +102,10 @@ const { checkDuplicateQuestionHelper } = await import(
   console.log(`🧠 Worker started for ${questionsPayload.length} question(s)`);
 
   let processed = 0;
+  const successIds: string[] = [];
+  let duplicateCount = 0;
+  const errors: any[] = [];
+
   const cropCache = new Map<string, string>();
 
   for (const qRaw of questionsPayload) {
@@ -228,7 +232,8 @@ const { checkDuplicateQuestionHelper } = await import(
               `🔁 Duplicate detected for outreach question. Record moved to duplicates.`,
             );
             processed++;
-            parentPort?.postMessage({ processed: 1 });
+            duplicateCount++;
+            parentPort?.postMessage({ processed: 1, duplicateCount: 1 });
             continue; // Skip allocation
           }
         } catch (dupError: any) {
@@ -299,16 +304,31 @@ const { checkDuplicateQuestionHelper } = await import(
       }
 
       processed++;
-      parentPort?.postMessage({ processed: 1 });
+      successIds.push(qId);
+      parentPort?.postMessage({ processed: 1, successIds: [qId] });
 
     } catch (error: any) {
-      console.error(`❌ Error processing raw question:`, error?.message || error);
-  }
+      console.error(
+        `❌ Error processing raw question:`,
+        error?.message || error,
+      );
+      processed++;
+      errors.push({
+        message: error?.message || 'Unknown error',
+        question: qRaw?.question || 'Unknown',
+      });
+      parentPort?.postMessage({
+        processed: 1,
+        error: error?.message || 'Unknown error',
+      });
+    }
 }
 
   console.log(
     `🏁 Worker finished. Total processed: ${processed}/${questionsPayload.length}`,
   );
-  parentPort?.postMessage({ success: true, processed });
+    parentPort?.postMessage({
+    success: true,
+  });
   process.exit(0);
 })();
