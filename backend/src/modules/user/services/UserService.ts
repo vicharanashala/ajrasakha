@@ -18,6 +18,9 @@ import {INotificationRepository} from '#root/shared/database/interfaces/INotific
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import { getFromContainer } from 'class-validator';
 import { FirebaseAuthService } from '#root/modules/auth/services/FirebaseAuthService.js';
+import { plainToInstance } from 'class-transformer';
+import { UserResponseDto, PaginatedUsersResponseDto } from '../dtos/UserResponseDto.js';
+import { PaginationMetaDto } from '#root/shared/dtos/PaginationDto.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -37,7 +40,7 @@ export class UserService extends BaseService {
     super(mongoDatabase);
   }
 
-  async getUserById(userId: string): Promise<IUser> {
+  async getUserById(userId: string): Promise<UserResponseDto> {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
@@ -53,7 +56,7 @@ export class UserService extends BaseService {
           ...user,
           notifications,
         };
-        return usersWithNotification;
+        return plainToInstance(UserResponseDto, usersWithNotification, { excludeExtraneousValues: true });
       });
     } catch (error) {
       throw new InternalServerError(
@@ -84,7 +87,7 @@ export class UserService extends BaseService {
     }
   }
 
-  async updateUser(userId: string, data: Partial<IUser>): Promise<IUser> {
+  async updateUser(userId: string, data: Partial<IUser>): Promise<UserResponseDto> {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
@@ -105,7 +108,7 @@ export class UserService extends BaseService {
             },
           );
         }
-        return updatedUser;
+        return plainToInstance(UserResponseDto, updatedUser, { excludeExtraneousValues: true });
       });
     } catch (error) {
       throw new InternalServerError(
@@ -117,7 +120,7 @@ export class UserService extends BaseService {
   async toggleUserRole(
     currentUser: IUser,
     userId: string,
-  ): Promise<IUser> {
+  ): Promise<UserResponseDto> {
     try {
       if (!currentUser || currentUser.role !== 'admin') {
         throw new NotFoundError('Only admin can switch user roles');
@@ -137,7 +140,7 @@ export class UserService extends BaseService {
           session,
         );
 
-        return updatedUser;
+        return plainToInstance(UserResponseDto, updatedUser, { excludeExtraneousValues: true });
       });
     } catch (error) {
       throw new InternalServerError(
@@ -154,7 +157,7 @@ async getAllUsers(
   filter: string,
   role?: string,
   isBlocked?: boolean,
-): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
+): Promise<PaginatedUsersResponseDto> {
   return await this._withTransaction(async () => {
     const { users, totalUsers, totalPages } =
       await this.userRepo.findAllUsers(
@@ -166,7 +169,16 @@ async getAllUsers(
         role,
         isBlocked,
       );
-    return { users, totalUsers, totalPages };
+    
+    return plainToInstance(PaginatedUsersResponseDto, {
+      users,
+      meta: {
+        totalItems: totalUsers,
+        totalPages,
+        currentPage: page,
+        limit,
+      } as PaginationMetaDto
+    }, { excludeExtraneousValues: true });
   });
 }
 async getAllUsersforManualSelect(
@@ -176,7 +188,7 @@ async getAllUsersforManualSelect(
   search: string,
   sort: string,
   filter: string,
-): Promise<UsersNameResponseDto> {
+): Promise<PaginatedUsersResponseDto> {
   try {
     return await this._withTransaction(async session => {
       const me = await this.userRepo.findById(userId, session);
@@ -185,33 +197,24 @@ async getAllUsersforManualSelect(
         user => user._id.toString() !== userId,
       );
 
-      const myPreference: PreferenceDto = {
+      const myPreference = {
         state: me?.preference?.state ?? null,
         crop: me?.preference?.crop ?? null,
         domain: me?.preference?.domain ?? null,
       };
-
-      return {
+ 
+      const responseData = {
         myPreference,
-        users: usersExceptMe.map(u => ({
-          _id: u._id.toString(),
-          role: u.role,
-          email: u.email,
-          preference: u.preference,
-          userName: `${u.firstName} ${u.lastName ? u.lastName : ''}`.trim(),
-          firstName: u.firstName ?? "",
-          lastName: u.lastName ?? "",
-          reputation_score: u.reputation_score ?? 0,
-          incentive: u.incentive ?? 0,
-          penaltyPercentage: u.penalty ?? 0,
-          createdAt: u.createdAt ?? null,
-          isBlocked:u.isBlocked,
-          special_task_force: u.special_task_force,
-          special_task_force_moderator: u.special_task_force_moderator
-        })),
-        totalUsers: users.length,
-        totalPages: 5,
+        users: usersExceptMe,
+        meta: {
+          totalItems: usersExceptMe.length,
+          totalPages: 1, // Simplified for manual select
+          currentPage: page,
+          limit,
+        } as PaginationMetaDto
       };
+
+      return plainToInstance(PaginatedUsersResponseDto, responseData, { excludeExtraneousValues: true });
     });
   } catch (error) {
     throw new InternalServerError(`Failed to fetch users: ${error}`);
@@ -249,9 +252,9 @@ async getAllUsersforManualSelect(
     search: string,
     sort: string,
     filter: string,
-  ): Promise<{experts: IUser[]; totalExperts: number; totalPages: number}> {
+  ): Promise<PaginatedUsersResponseDto> {
     return await this._withTransaction(async (session: ClientSession) => {
-      return await this.userRepo.findAllExperts(
+      const { experts, totalExperts, totalPages } = await this.userRepo.findAllExperts(
         page,
         limit,
         search,
@@ -259,6 +262,16 @@ async getAllUsersforManualSelect(
         filter,
         session,
       );
+
+      return plainToInstance(PaginatedUsersResponseDto, {
+        users: experts,
+        meta: {
+          totalItems: totalExperts,
+          totalPages,
+          currentPage: page,
+          limit,
+        } as PaginationMetaDto
+      }, { excludeExtraneousValues: true });
     });
   }
 
@@ -291,9 +304,10 @@ async getAllUsersforManualSelect(
     });
   }
 
-  async getUserByEmail(email: string): Promise<IUser | null> {
+  async getUserByEmail(email: string): Promise<UserResponseDto | null> {
     return await this._withTransaction(async (session: ClientSession) => {
-      return await this.userRepo.findByEmail(email, session);
+      const user = await this.userRepo.findByEmail(email, session);
+      return user ? plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true }) : null;
     });
   }
 }

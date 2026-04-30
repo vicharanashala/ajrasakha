@@ -39,10 +39,9 @@ import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '
 import {
   UserErrorResponse,
   UserSuccessMessageResponse,
-  PaginatedUsersResponse,
   ToggleUserRoleResponse,
-  UserEntryResponse,
 } from '../../core/classes/validators/UserResponseValidators.js';
+import { UserResponseDto, PaginatedUsersResponseDto } from '../dtos/UserResponseDto.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -63,7 +62,7 @@ export class UserController {
     summary: 'Get current user',
     description: 'Retrieves the current authenticated user profile including notification count.',
   })
-  @ResponseSchema(UserEntryResponse, {
+  @ResponseSchema(UserResponseDto, {
     statusCode: 200,
     description: 'Current user retrieved successfully',
   })
@@ -78,7 +77,7 @@ export class UserController {
   @Get('/me')
   @HttpCode(200)
   @Authorized()
-  async getUserById(@CurrentUser() currentUser: IUser): Promise<IUser> {
+  async getUserById(@CurrentUser() currentUser: IUser): Promise<UserResponseDto> {
     const userId = currentUser._id.toString();
     const user = await this.userService.getUserById(userId);
     if (!user) {
@@ -119,7 +118,7 @@ export class UserController {
     summary: 'Update user information',
     description: 'Updates the current user profile information including name and role.',
   })
-  @ResponseSchema(UserEntryResponse, {
+  @ResponseSchema(UserResponseDto, {
     statusCode: 200,
     description: 'User updated successfully - Returns updated user data',
   })
@@ -141,7 +140,7 @@ export class UserController {
   async updateUser(
     @Body() body: UpdateUserDto,
     @CurrentUser() currentUser: IUser,
-  ): Promise<IUser> {
+  ): Promise<UserResponseDto> {
     const userId = currentUser._id.toString();
     const updatedUser = await this.userService.updateUser(userId, body);
     if (!updatedUser) {
@@ -154,7 +153,7 @@ export class UserController {
     summary: 'Get all users with pagination (Admin)',
     description: 'Retrieves paginated list of all users for admin users with search, sort, and filter capabilities.',
   })
-  @ResponseSchema(PaginatedUsersResponse, {
+  @ResponseSchema(PaginatedUsersResponseDto, {
     statusCode: 200,
     description: 'Users retrieved successfully with pagination',
   })
@@ -182,7 +181,7 @@ export class UserController {
       isBlocked?: string;
     },
     
-  ) {
+  ): Promise<PaginatedUsersResponseDto> {
     const pageNum = Number(query.page) || 1;
     const limitNum = Number(query.limit) || 10;
     const search = query.search || '';
@@ -206,7 +205,7 @@ export class UserController {
     summary: 'Get all user names',
     description: 'Retrieves paginated list of users with their names and preferences for manual selection.',
   })
-  @ResponseSchema(PaginatedUsersResponse, {
+  @ResponseSchema(PaginatedUsersResponseDto, {
     statusCode: 200,
     description: 'User names retrieved successfully with pagination',
   })
@@ -227,7 +226,7 @@ export class UserController {
       sort: string;
       filter: string;
     },
-  ): Promise<UsersNameResponseDto> {
+  ): Promise<PaginatedUsersResponseDto> {
     const {
     page = 1,
     limit = 10,
@@ -309,7 +308,7 @@ export class UserController {
     summary: 'Get all Experts',
     description: 'Retrieves paginated list of all expert users with search, sort, and filter capabilities.',
   })
-  @ResponseSchema(PaginatedUsersResponse, {
+  @ResponseSchema(PaginatedUsersResponseDto, {
     statusCode: 200,
     description: 'Experts retrieved successfully with pagination',
   })
@@ -329,7 +328,7 @@ export class UserController {
       sort: string;
       filter: string;
     },
-  ) {
+  ): Promise<PaginatedUsersResponseDto> {
     const {page = 1, limit = 10, search = '', sort = '', filter = ''} = query;
     return await this.userService.findAllExperts(
       Number(page),
@@ -608,7 +607,7 @@ export class UserController {
     summary: 'Get user details by email',
     description: 'Retrieves user details by email address.',
   })
-  @ResponseSchema(UserEntryResponse, {
+  @ResponseSchema(UserResponseDto, {
     statusCode: 200,
     description: 'User details retrieved successfully',
   })
@@ -620,7 +619,7 @@ export class UserController {
   @HttpCode(200)
   async getUserDetails(
     @Params() params: {email: string},
-  ): Promise<IUser | null> {
+  ): Promise<UserResponseDto | null> {
     const {email} = params;
     return await this.userService.getUserByEmail(email);
   }

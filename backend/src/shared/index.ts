@@ -4,3 +4,7 @@ export * from './database/index.js';
 export * from './functions/index.js';
 export * from './interfaces/index.js';
 export * from './middleware/index.js';
+export * from './dtos/PaginationDto.js';
+export * from './dtos/BaseResponseDto.js';
+export * from './database/providers/mongo/repositories/BaseRepository.js';
+export * from './utils/projection.js';

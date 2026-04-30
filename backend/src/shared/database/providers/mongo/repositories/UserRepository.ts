@@ -19,24 +19,31 @@ import {
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 
+import {BaseRepository} from '../BaseRepository.js';
+import {UserResponseDto} from '#root/modules/user/dtos/UserResponseDto.js';
+import {getProjectionFromDto} from '#root/shared/utils/projection.js';
+
 @injectable()
-export class UserRepository implements IUserRepository {
+export class UserRepository extends BaseRepository<IUser> implements IUserRepository {
   private usersCollection!: Collection<IUser>;
   private AnswerCollection: Collection<IAnswer>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
-    private db: MongoDatabase,
-  ) {}
+    db: MongoDatabase,
+  ) {
+    super(db, 'users');
+  }
 
   /**
    * Ensures that `usersCollection` is initialized before usage.
    */
-  private async init(): Promise<void> {
-    if (!this.usersCollection) {
-      this.usersCollection = await this.db.getCollection<IUser>('users');
+  async init(): Promise<void> {
+    await super.init();
+    this.usersCollection = this.collection;
+    if (!this.AnswerCollection) {
+      this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
     }
-    this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
   }
   private async ensureIndexes() {
     try {
@@ -90,7 +97,8 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser | null> {
     await this.init();
 
-    const user = await this.usersCollection.findOne({email}, {session});
+    const projection = getProjectionFromDto(UserResponseDto);
+    const user = await this.usersCollection.findOne({email}, {projection, session});
     return user;
   }
 
@@ -103,13 +111,11 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser | null> {
     await this.init();
 
+    const projection = getProjectionFromDto(UserResponseDto);
     const user = await this.usersCollection.findOne(
       {_id: new ObjectId(id)},
       {
-        projection: {
-          // _id: 0,
-          firebaseUID: 0,
-        },
+        projection,
         session,
       },
     );
@@ -483,10 +489,14 @@ async findAllUsers(
           },
         },
 
-        /** Pagination */
+        /** Pagination and Projection */
         {
           $facet: {
-            users: [{ $skip: skip }, { $limit: limit }],
+            users: [
+              { $skip: skip }, 
+              { $limit: limit },
+              { $project: getProjectionFromDto(UserResponseDto) }
+            ],
             meta: [{ $count: "totalUsers" }],
           },
         },
@@ -1147,10 +1157,14 @@ async findAllUsers(
       },
       { $match: matchQuery },
 
-      /** Pagination */
+      /** Pagination and Projection */
       {
         $facet: {
-          experts: [{ $skip: skip }, { $limit: limit }],
+          experts: [
+            { $skip: skip }, 
+            { $limit: limit },
+            { $project: getProjectionFromDto(UserResponseDto) }
+          ],
           meta: [{ $count: 'totalExperts' }],
         },
       },
