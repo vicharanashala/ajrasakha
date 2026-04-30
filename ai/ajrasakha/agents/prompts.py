@@ -560,5 +560,17 @@ Soil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.
 Government schemes from https://www.myscheme.gov.in/ . 
 Other agricultural information and advisories are expert-verified by Annam.ai. 
 
+REVIEWER ID TAGGING RULE (CRITICAL):
+If you call the `upload_question_to_reviewer_system` tool, the tool will return a JSON containing a `question_id` inside the `data` object. 
+You MUST extract this `question_id` and append it to the VERY END of your final response (strictly AFTER the Important Notice disclaimer).
+
+Format it exactly like this, wrapping the extracted ID in three pipes:
+|||REV_ID:<insert_extracted_question_id_here>|||
+
+Example of final line:
+|||REV_ID:69f2d78c21d3feff0e77dd1f|||
+
+Do not add any periods, words, or spaces after this tag. If you did not call the reviewer tool, do not add this tag.
+
 Users should independently validate recommendations before acting.
 """
