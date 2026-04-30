@@ -52,7 +52,14 @@ export class CropRepository implements ICropRepository {
       if (!this.CropCollection) await this.init();
 
       // Collect all english_representation values + the crop name for conflict checking
-      const allNames = [name.trim(), ...(aliases || []).map(a => (a.english_representation ?? '').trim())];
+     /* const allNames = [name.trim(), ...(aliases || []).map(a => (a.english_representation ?? '').trim())];*/
+     const allNames = [
+      name.trim(),
+      ...(aliases || []).flatMap(a => [
+        (a.english_representation ?? '').trim(),
+        (a.native_representation ?? '').trim(),
+      ]),
+    ].filter(Boolean);
 
       const orConditions: any[] = [];
       for (const n of allNames) {
@@ -60,6 +67,12 @@ export class CropRepository implements ICropRepository {
         orConditions.push({name: {$regex: `^${escaped}$`, $options: 'i'}});
         orConditions.push({aliases: {$regex: `^${escaped}$`, $options: 'i'}});                        // legacy string aliases
         orConditions.push({'aliases.english_representation': {$regex: `^${escaped}$`, $options: 'i'}}); // new object aliases
+        orConditions.push({
+          'aliases.native_representation': {
+            $regex: `^${escaped}$`,
+            $options: 'i',
+          },
+        });
       }
 
       const existing = await this.CropCollection.findOne({$or: orConditions});
@@ -67,7 +80,12 @@ export class CropRepository implements ICropRepository {
       if (existing) {
         const conflictingValue = allNames.find(n => {
           const regex = new RegExp(`^${CropRepository.escapeRegex(n)}$`, 'i');
-          return regex.test(existing.name) || existing.aliases?.some(a => regex.test(CropRepository.getEnRepr(a)));
+          return regex.test(existing.name) ||
+          existing.aliases?.some(a =>
+            regex.test(CropRepository.getEnRepr(a)) ||
+            (typeof a !== 'string' &&
+              regex.test(a.native_representation || ''))
+          );
         });
         throw new BadRequestError(
           `Crop with name or alias "${conflictingValue}" already exists in crop "${existing.name}".`,
