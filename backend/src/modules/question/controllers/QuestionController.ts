@@ -170,8 +170,8 @@ export class QuestionController {
     @CurrentUser() user: IUser,
   ): Promise<Partial<any> | { message: string }> {
     const userId = user?._id?.toString();
-/*console.log("before audit payload*****")
-   let auditPayload: ModeratorAuditTrail = {
+console.log("before audit payload*****")
+    let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.QUESTION_ADD,
       actor: {
@@ -182,7 +182,7 @@ export class QuestionController {
         avatar: user?.avatar || '',
       },
     };
-    console.log("the audit payload coming====",auditPayload)*/
+    console.log("the audit payload coming====",auditPayload)
 
     if (file) {
       let payload: any[] = [];
@@ -230,7 +230,7 @@ export class QuestionController {
           payload,
           isOutreachQuestion
         );
-       /* auditPayload = {
+        auditPayload = {
           ...auditPayload,
           action: AuditAction.QUESTION_BULK_CREATE,
           context: {
@@ -248,7 +248,7 @@ export class QuestionController {
           createdAt: new Date(),
         };
 
-        this.auditTrailsService.createAuditTrail(auditPayload);*/
+        this.auditTrailsService.createAuditTrail(auditPayload);
         setImmediate(() => startBackgroundProcessing(insertedIds, isRequiredAiInitialAnswer, isOutreachQuestion));
         return {
           message: `✅ Successfully uploaded ${insertedIds.length} question(s). The expert allocation process has been initiated.${isRequiredAiInitialAnswer
@@ -259,7 +259,7 @@ export class QuestionController {
           isBulkUpload: !!file,
         };
       } catch (err: any) {
-      /*  auditPayload = {
+        auditPayload = {
           ...auditPayload,
           action: AuditAction.QUESTION_BULK_CREATE,
           context: {
@@ -275,7 +275,7 @@ export class QuestionController {
           createdAt: new Date(),
         };
 
-        this.auditTrailsService.createAuditTrail(auditPayload);*/
+        this.auditTrailsService.createAuditTrail(auditPayload);
         throw new BadRequestError(
           err?.message || 'Failed to process uploaded file',
         );
@@ -290,7 +290,7 @@ export class QuestionController {
         isDuplicate = result.isDuplicate;
         data = result.data;
       } catch(err: any){
-       /* auditPayload = {
+        auditPayload = {
           ...auditPayload,
           context: {
             payload: body,
@@ -303,7 +303,7 @@ export class QuestionController {
             errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
         };
-        this.auditTrailsService.createAuditTrail(auditPayload);*/
+        this.auditTrailsService.createAuditTrail(auditPayload);
         if(err instanceof InternalServerError){
           throw new InternalServerError(err.message);
         }
@@ -319,7 +319,7 @@ export class QuestionController {
         };
       }
 
-     /* auditPayload = {
+      auditPayload = {
         ...auditPayload,
         context: {
           questionId: Array(data._id.toString()),
@@ -337,7 +337,7 @@ export class QuestionController {
         createdAt: new Date(),
       };
 
-      this.auditTrailsService.createAuditTrail(auditPayload);*/
+      this.auditTrailsService.createAuditTrail(auditPayload);
       
       return {
         success: true,
