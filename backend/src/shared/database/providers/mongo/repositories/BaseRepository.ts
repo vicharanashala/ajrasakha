@@ -1,4 +1,4 @@
-import {Collection, Document, Filter, ObjectId, FindOptions} from 'mongodb';
+import {Collection, Document, Filter, ObjectId, FindOptions, ClientSession} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {injectable, unmanaged} from 'inversify';
 
@@ -17,20 +17,23 @@ export abstract class BaseRepository<T extends Document> {
     }
   }
 
-  async findById(id: string | ObjectId, projection?: Document): Promise<T | null> {
+  async findById(id: string | ObjectId, options?: FindOptions | ClientSession): Promise<T | null> {
     await this.init();
     const filter = {_id: new ObjectId(id)} as unknown as Filter<T>;
-    return this.collection.findOne(filter, {projection}) as Promise<T | null>;
+    const findOptions = (options instanceof ClientSession) ? { session: options } : options;
+    return this.collection.findOne(filter, findOptions as any) as any;
   }
 
-  async findOne(filter: Filter<T>, projection?: Document): Promise<T | null> {
+  async findOne(filter: Filter<T>, options?: FindOptions | ClientSession): Promise<T | null> {
     await this.init();
-    return this.collection.findOne(filter, {projection}) as Promise<T | null>;
+    const findOptions = (options instanceof ClientSession) ? { session: options } : options;
+    return this.collection.findOne(filter, findOptions as any) as any;
   }
 
-  async findMany(filter: Filter<T>, projection?: Document, options?: FindOptions): Promise<T[]> {
+  async findMany(filter: Filter<T>, options?: FindOptions | ClientSession): Promise<T[]> {
     await this.init();
-    return this.collection.find(filter, {...options, projection}).toArray();
+    const findOptions = (options instanceof ClientSession) ? { session: options } : options;
+    return this.collection.find(filter, findOptions as any).toArray() as any;
   }
 
   async aggregate<U = any>(pipeline: Document[]): Promise<U[]> {

@@ -19,7 +19,7 @@ import {
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 
-import {BaseRepository} from '../BaseRepository.js';
+import {BaseRepository} from './BaseRepository.js';
 import {UserResponseDto} from '#root/modules/user/dtos/UserResponseDto.js';
 import {getProjectionFromDto} from '#root/shared/utils/projection.js';
 
