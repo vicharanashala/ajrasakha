@@ -284,6 +284,7 @@ export class QuestionController {
       let data;
 
       try {
+        console.log("the controller body coming===",body)
         const result = await this.questionService.addQuestion(userId, body);
         isDuplicate = result.isDuplicate;
         data = result.data;
