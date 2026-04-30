@@ -991,7 +991,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
         }
 
-
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
         // =====================================================
@@ -1003,56 +1002,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
+
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
-        }
-
-        if (source === 'AJRASAKHA') {
-          // map the chatbot message/user when we can,
-          // but do not fail question creation if the analytics records are missing.
-          const [analyticsMessages, annamMessages] = await Promise.all([
-            this.chatbotRepository.findMatchingMessages({
-              question: savedQuestion.question,
-              details: savedQuestion.details,
-              createdAt: savedQuestion.createdAt,
-              questionId: savedQuestion._id.toString(),
-              messageId: undefined,
-            }),
-            this.chatbotRepository.findFromSecondDb({
-              question: savedQuestion.question,
-              details: savedQuestion.details,
-              createdAt: savedQuestion.createdAt,
-              questionId: savedQuestion._id.toString(),
-              messageId: undefined,
-            }),
-          ]);
-
-          const allMessages = [...analyticsMessages, ...annamMessages];
-
-          const message = allMessages[0];
-          const messageUserId =
-            message?.userObjectId?.toString?.() ||
-            message?.user?.toString?.() ||
-            null;
-
-          if (message?.messageId || messageUserId) {
-            const updatePayload: Partial<IQuestion> = {};
-
-            if (messageUserId) {
-              updatePayload.userId = new ObjectId(messageUserId);
-              baseQuestion.userId = updatePayload.userId;
-            }
-
-            if (message?.messageId) {
-              updatePayload.messageId = message.messageId;
-            }
-
-            await this.questionRepo.updateQuestion(
-              savedQuestion._id.toString(),
-              updatePayload,
-              session,
-            );
-          }
         }
 
         const users = await this.userRepo.findExpertsByPreference(
@@ -3362,8 +3314,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new Error('Question not found');
     }
 
-    const { question, details, createdAt, messageId } = questionData;
-
+    const { question, details, createdAt, messageId, userId } = questionData;
     const [analyticsMessages, annamMessages] = await Promise.all([
       this.chatbotRepository.findMatchingMessages({
         question,
@@ -3391,6 +3342,16 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (!message) {
       throw new Error('No matching message found');
     }
+
+    //update userid from the analytics db
+     if (message.userDetails?._id !== userId?.toString()) {
+            await this.questionRepo.updateQuestion(
+              questionId.toString(),
+              {
+                userId: new ObjectId(message.userDetails._id),
+              },
+            );
+          }
 
     return {
       messageId: message.messageId || '',

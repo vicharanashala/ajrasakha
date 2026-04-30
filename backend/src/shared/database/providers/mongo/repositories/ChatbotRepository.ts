@@ -686,6 +686,7 @@ export class ChatbotRepository implements IChatbotRepository {
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
+    let matchedUserId: ObjectId | null = null;
     const result1 = result.filter(doc => {
       try {
         const isNewFlow = new Date(doc.createdAt) > cutoffDate;
@@ -706,25 +707,37 @@ export class ChatbotRepository implements IChatbotRepository {
           const isMatch = questionIdFromOutput == questionId?.toString();
           if (isMatch) {
             matchedMessageId = doc.messageId;
+            matchedUserId = doc.userObjectId ?? null;
           }
           return isMatch;
         }
         const args = JSON.parse(matchedContent.tool_call.args);
 
-        return (
+        const isMatch =
           args?.question?.toLowerCase() === question?.toLowerCase() &&
           args?.details?.state?.toLowerCase() ===
             details?.state?.toLowerCase() &&
-          args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase()
-        );
+          args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase();
+
+        if (isMatch) {
+          matchedMessageId = doc.messageId;
+          matchedUserId = doc.userObjectId ?? null;
+        }
+
+        return isMatch;
       } catch (e) {
         return false;
       }
     });
     if (matchedMessageId && questionId) {
+      const updateFields: Record<string, any> = {messageId: matchedMessageId};
+      if (matchedUserId) {
+        updateFields.userId = matchedUserId;
+      }
+
       await this.QuestionCollection.updateOne(
         {_id: new ObjectId(questionId)},
-        {$set: {messageId: matchedMessageId}},
+        {$set: updateFields},
       );
     }
     
@@ -802,6 +815,7 @@ export class ChatbotRepository implements IChatbotRepository {
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
+    let matchedUserId: ObjectId | null = null;
     const result1 = result.filter(doc => {
       try {
         const isNewFlow = new Date(doc.createdAt) > cutoffDate;
@@ -822,26 +836,38 @@ export class ChatbotRepository implements IChatbotRepository {
           const isMatch = questionIdFromOutput == questionId?.toString();
           if (isMatch) {
             matchedMessageId = doc.messageId;
+            matchedUserId = doc.userObjectId ?? null;
           }
           return isMatch;
         }
 
         const args = JSON.parse(matchedContent.tool_call.args);
 
-        return (
+        const isMatch =
           args?.question?.toLowerCase() === question?.toLowerCase() &&
           args?.details?.state?.toLowerCase() ===
             details?.state?.toLowerCase() &&
-          args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase()
-        );
+          args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase();
+
+        if (isMatch) {
+          matchedMessageId = doc.messageId;
+          matchedUserId = doc.userObjectId ?? null;
+        }
+
+        return isMatch;
       } catch (e) {
         return false;
       }
     });
     if (matchedMessageId && questionId) {
+      const updateFields: Record<string, any> = {messageId: matchedMessageId};
+      if (matchedUserId) {
+        updateFields.userId = matchedUserId;
+      }
+
       await this.QuestionCollection.updateOne(
         {_id: new ObjectId(questionId)},
-        {$set: {messageId: matchedMessageId}},
+        {$set: updateFields},
       );
     }
     return result1;
