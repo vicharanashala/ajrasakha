@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2, RefreshCw, ExternalLink, ArrowUpRight } from "lucide-react";
+import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2, RefreshCw, ExternalLink, ArrowUpRight, AlertCircle } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
@@ -22,7 +22,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/atoms/alert-dialog";
-
+import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 
 interface MessageDetailCardProps {
     question: IQuestionFullData;
@@ -42,12 +42,42 @@ const MessageDetail = ({
         data: messageDetails,
         refetch: refechMessageDetails,
         isLoading,
+        error: fetchError
     } = useGetQuestionMessageDetailsByQuestionId(selectedQuestionId);
+
+    const { mutateAsync: generateAI, isPending: isGenerating } = useGenerateInitialAnswer();
+
+    const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+    const [chatbotError, setChatbotError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (expanded) {
+            if (fetchError) {
+                setChatbotError(fetchError.message);
+                setIsErrorModalOpen(true);
+            } else if (messageDetails && messageDetails.success === false) {
+                setChatbotError(messageDetails.message || "An error occurred with the chatbot.");
+                setIsErrorModalOpen(true);
+            }
+        }
+    }, [fetchError, messageDetails, expanded]);
+
+    const handleGenerateAI = async () => {
+        try {
+            await generateAI(selectedQuestionId!);
+            toast.success("AI Answer generation triggered successfully");
+            setIsErrorModalOpen(false);
+            refechMessageDetails();
+        } catch (err: any) {
+            toast.error(err.message || "Failed to trigger AI generation");
+        }
+    };
 
 
     const msg = messageDetails?.data
 
-    const isError = false;
+    const isError = !!fetchError || (messageDetails && messageDetails.success === false);
+
     // const isLoading = false;
 
     let thinkIndex = 0;
@@ -197,6 +227,45 @@ const MessageDetail = ({
                     )}
                 </div>
             )}
+
+            <Dialog open={isErrorModalOpen} onOpenChange={setIsErrorModalOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive">
+                            <AlertCircle className="h-5 w-5" />
+                            Chatbot Processing Error
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                            {chatbotError || "The chatbot encountered an error while processing this message. This could be due to a temporary failure or missing data."}
+                        </p>
+                        
+                    </div>
+                    <div className="flex items-center justify-end gap-3 mt-4">
+                        <Button variant="outline" onClick={() => setIsErrorModalOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={handleGenerateAI} 
+                            disabled={isGenerating}
+                            className="bg-primary text-primary-foreground hover:opacity-90"
+                        >
+                            {isGenerating ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    Generate AI Answer
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 };

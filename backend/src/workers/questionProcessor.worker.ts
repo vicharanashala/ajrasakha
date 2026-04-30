@@ -10,7 +10,8 @@ import {getBackgroundJobs} from './workerManager.js';
 import {appConfig} from '#root/config/app.js';
 
 interface WorkerData {
-  ids: string[];
+  questions: any[];
+  userId: string;
   mongoUri: string;
   dbName: string;
   isRequiredAiInitialAnswer?: boolean;
@@ -18,7 +19,8 @@ interface WorkerData {
 }
 
 const data = workerData as WorkerData;
-const ids = Array.isArray(data?.ids) ? data.ids : [];
+const questionsPayload = Array.isArray(data?.questions) ? data.questions : [];
+const userId = data.userId;
 const mongoUri = data.mongoUri;
 const dbName = data.dbName;
 const isRequiredAiInitialAnswer = data.isRequiredAiInitialAnswer ?? false;
@@ -63,6 +65,11 @@ const {NotificationService} = await import(
   '#root/modules/notification/services/NotificationService.js'
 );
 const {AiService} = await import('#root/modules/ai/services/AiService.js');
+const { CropRepository } = await import(
+  '#root/shared/database/providers/mongo/repositories/CropRepository.js'
+);
+const { normalizeKeysToLower } = await import('#root/utils/normalizeKeysToLower.js');
+
 const contextRepo = new ContextRepository(database);
 await (contextRepo as any).init();
 const userRepo = new UserRepository(database);
@@ -71,6 +78,8 @@ const submissionRepo = new QuestionSubmissionRepository(database);
 await (submissionRepo as any).init();
 const notificationRepo = new NotificationRepository(database);
 await (notificationRepo as any).init();
+const cropRepo = new CropRepository(database);
+await (cropRepo as any).init();
 const notificationService = new NotificationService(notificationRepo, database);
 const aiService = new AiService();
 
@@ -85,45 +94,85 @@ const { checkDuplicateQuestionHelper } = await import(
 );
 
 (async () => {
-  if (ids.length === 0) {
+  if (questionsPayload.length === 0) {
     parentPort?.postMessage({ success: true, processed: 0 });
     process.exit(0);
   }
 
-  console.log(`🧠 Worker started for ${ids.length} question(s)`);
+  console.log(`🧠 Worker started for ${questionsPayload.length} question(s)`);
 
   let processed = 0;
+  const successIds: string[] = [];
+  let duplicateCount = 0;
+  const errors: any[] = [];
 
-  for (const qId of ids) {
+  const cropCache = new Map<string, string>();
+
+  for (const qRaw of questionsPayload) {
     try {
-      const question = await questionRepo.getById(qId);
-      if (!question) {
-        console.warn(`⚠️ Question not found: ${qId}`);
+      // 1. Normalization
+      const low = normalizeKeysToLower(qRaw || {});
+      const rawCropName = (low.crop || '').toString();
+      let normalised_crop = rawCropName.trim().toLowerCase();
+
+      if (rawCropName.trim()) {
+        const cacheKey = rawCropName.trim().toLowerCase();
+        if (cropCache.has(cacheKey)) {
+          normalised_crop = cropCache.get(cacheKey)!;
+        } else {
+          try {
+            const existingCrop = await cropRepo.findByNameOrAlias(rawCropName);
+            if (existingCrop) {
+              normalised_crop = existingCrop.name;
+            } else {
+              const normalizedName = rawCropName.trim().toLowerCase();
+              await cropRepo.createCrop(normalizedName, userId || '', []);
+              normalised_crop = normalizedName;
+            }
+          } catch (cropError: any) {
+            console.error('Crop normalization warning:', cropError.message);
+          }
+          cropCache.set(cacheKey, normalised_crop);
+        }
+      }
+
+      const details = {
+        state: (low.state || '').toString(),
+        district: (low.district || '').toString(),
+        crop: rawCropName.trim(),
+        normalised_crop,
+        season: (low.season || '').toString(),
+        domain: (low.domain || '').toString(),
+      };
+
+      const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
+      const priorities = ['low', 'high', 'medium'];
+      const priority = priorities.includes(priorityRaw)
+        ? (priorityRaw as any)
+        : 'medium';
+
+      const questionText = (low.question || '').toString().trim();
+      if (!questionText) {
+        console.warn('⚠️ Skipping question with empty text');
         continue;
       }
 
-      //embedding   stage 1
-      const textToEmbed = question.text || question.question;
-      // if (!textToEmbed) {
-      //   await questionRepo.updateQuestionStatus(
-      //     qId,
-      //     'failed',
-      //     'Missing question text',
-      //   );
-      //   continue;
-      // }
-      let textEmbedding = [];
-      let aiInitialAnswer = question.aiInitialAnswer;
+      //2. Embedding and AI Initial Answer Generation
 
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+      let textEmbedding = [];
+      let aiInitialAnswer = qRaw.aiInitialAnswer || '';
 
       if (ENABLE_AI_SERVER) {
-        const { embedding } = await aiService.getEmbedding(textToEmbed);
+        const { embedding } = await aiService.getEmbedding(questionText);
         textEmbedding = embedding;
 
         if (isRequiredAiInitialAnswer && !aiInitialAnswer) {
           try {
-            const result = await aiService.getAnswerByQuestionDetails(question);
+
+            const partialQuestion: any = { question: questionText, details };
+
+            const result = await aiService.getAnswerByQuestionDetails(partialQuestion);
 
             const answer = result?.answer?.trim();
 
@@ -142,49 +191,70 @@ const { checkDuplicateQuestionHelper } = await import(
         }
       }
 
-    const result=  await questionRepo['QuestionCollection'].updateOne(
-        { _id: new (await import('mongodb')).ObjectId(qId) },
-        { $set: { embedding: textEmbedding, aiInitialAnswer, updatedAt: new Date() } },
-      );
+      // 3. Construct IQuestion object
+      const newQuestion: any = {
+        userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
+        question: questionText,
+        priority,
+        source: isOutreachQuestion ? "OUTREACH" : (low.source || 'AGRI_EXPERT'),
+        status: 'open',
+        totalAnswersCount: 0,
+        contextId: null,
+        details,
+        aiInitialAnswer,
+        isAutoAllocate: true,
+        embedding: textEmbedding,
+        metrics: null,
+        text: `Question: ${questionText}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
+      // 4. Duplicate Detection for Outreach Questions
 
-      // ── Duplicate Detection for Outreach Questions ──
       if (isOutreachQuestion && ENABLE_AI_SERVER) {
         const logData: any = {
-          qId,
-          question: question.question,
-          details: question.details,
-          source: question.source,
+          question: questionText,
+          details,
+          source: newQuestion.source,
         };
         try {
           const duplicateResult = await checkDuplicateQuestionHelper(
-            question,
-            question.details,
+            newQuestion,
+            details,
             logData,
             aiService,
             duplicateQuestionRepo,
           );
 
           if (duplicateResult.isDuplicate) {
-           const result3= await questionRepo.deleteQuestion(qId);
             console.log(
-              `🔁 Duplicate detected for outreach question ${qId}. Record moved to duplicates.`,
+              `🔁 Duplicate detected for outreach question. Record moved to duplicates.`,
             );
             processed++;
+            duplicateCount++;
+            parentPort?.postMessage({ processed: 1, duplicateCount: 1 });
             continue; // Skip allocation
           }
         } catch (dupError: any) {
           console.error(
-            `⚠️ Duplicate check failed for question ${qId}, proceeding with normal flow:`,
+            `⚠️ Duplicate check failed, proceeding with normal flow:`,
             dupError?.message,
           );
         }
       }
 
-      // allocation stage - 2
+      // 5. Insert into DB
+      const savedQuestion = await questionRepo.addQuestion(newQuestion);
+      if (!savedQuestion?._id) {
+        throw new Error('Failed to save question to database');
+      }
+      console.log(`✅ Question saved to database with ID: ${savedQuestion._id}`);
+      const qId = savedQuestion._id.toString();
 
+      // 6. Allocation
       const users = await userRepo.findExpertsByReputationScore(
-        question.details as PreferenceDto,
+        details as any,
       );
 
       const intialUsersToAllocate = users.slice(0, 3);
@@ -203,9 +273,10 @@ const { checkDuplicateQuestionHelper } = await import(
         const userId = intialUsersToAllocate[0]._id.toString();
         await userRepo.updateReputationScore(userId, IS_INCREMENT);
       }
-      // 6. Create an empty QuestionSubmission entry for the newly created question
+      console.log(`✅ Experts allocated for question ${qId}`);
+      // 7. Create an empty QuestionSubmission entry for the newly created question
       const submissionData: IQuestionSubmission = {
-        questionId: new ObjectId(question._id.toString()),
+        questionId: new ObjectId(qId),
         lastRespondedBy: null,
         history: [],
         queue,
@@ -213,14 +284,14 @@ const { checkDuplicateQuestionHelper } = await import(
         updatedAt: new Date(),
       };
 
-      // 6. Save QuestionSubmission to DB
-   const result2=   await submissionRepo.addSubmission(submissionData);
+      // 8. Save QuestionSubmission to DB
+      await submissionRepo.addSubmission(submissionData);
 
-      //send the notifications
+      //9. Send the notifications
       if (intialUsersToAllocate[0]) {
         let message = `A Question has been assigned for answering`;
         let title = 'Answer Creation Assigned';
-        let entityId = question._id.toString();
+        let entityId = qId;
         const user = intialUsersToAllocate[0]._id.toString();
         const type = 'answer_creation';
         await notificationService.saveTheNotifications(
@@ -233,19 +304,31 @@ const { checkDuplicateQuestionHelper } = await import(
       }
 
       processed++;
+      successIds.push(qId);
+      parentPort?.postMessage({ processed: 1, successIds: [qId] });
+
     } catch (error: any) {
       console.error(
-        `❌ Error processing question ${qId}:`,
+        `❌ Error processing raw question:`,
         error?.message || error,
       );
-      await questionRepo.deleteQuestion(qId);
-      // await questionRepo.updateQuestionStatus(qId, 'failed', error?.message);
+      processed++;
+      errors.push({
+        message: error?.message || 'Unknown error',
+        question: qRaw?.question || 'Unknown',
+      });
+      parentPort?.postMessage({
+        processed: 1,
+        error: error?.message || 'Unknown error',
+      });
     }
-  }
+}
 
   console.log(
-    `🏁 Worker finished. Total processed: ${processed}/${ids.length}`,
+    `🏁 Worker finished. Total processed: ${processed}/${questionsPayload.length}`,
   );
-  parentPort?.postMessage({ success: true, processed });
+    parentPort?.postMessage({
+    success: true,
+  });
   process.exit(0);
 })();

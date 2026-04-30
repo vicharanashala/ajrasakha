@@ -225,39 +225,27 @@ console.log("before audit payload*****")
           );
         }
 
-        const insertedIds = await this.questionService.createBulkQuestions(
-          userId,
-          payload,
-          isOutreachQuestion
-        );
-        auditPayload = {
-          ...auditPayload,
-          action: AuditAction.QUESTION_BULK_CREATE,
-          context: {
-            questionId: Array.from(insertedIds, (id) => id.toString()),
-          },
-          changes: {
-            after: {
-              message: "Question created via bulk upload",
-            }
-          },
-          
-          outcome: {
-            status: OutComeStatus.SUCCESS,
-          },
-          createdAt: new Date(),
+        console.log('Paylod: ', payload);
+        const actor = {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user?.avatar || '',
         };
-
-        this.auditTrailsService.createAuditTrail(auditPayload);
-        setImmediate(() => startBackgroundProcessing(insertedIds, isRequiredAiInitialAnswer, isOutreachQuestion));
+        setImmediate(() => startBackgroundProcessing(
+            actor,
+            this.auditTrailsService,
+            isRequiredAiInitialAnswer,
+            isOutreachQuestion,
+            payload
+          ));
+        
         return {
-          message: `✅ Successfully uploaded ${insertedIds.length} question(s). The expert allocation process has been initiated.${isRequiredAiInitialAnswer
-              ? " AI-generated initial answers will be included for each question."
-              : ""
-            } Please allow some time for processing and allocation.`,
-          insertedIds,
-          isBulkUpload: !!file,
-        };
+                message: `Processing ${payload.length} question(s). Non-duplicate entries are being assigned to experts${isRequiredAiInitialAnswer ? " with AI-generated initial answers" : ""}.`,
+                count: payload.length,
+                isBulkUpload: !!file,
+            };
       } catch (err: any) {
         auditPayload = {
           ...auditPayload,

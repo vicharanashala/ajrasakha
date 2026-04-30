@@ -979,7 +979,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
-          originalQuestion: originalquestion
+          ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
         };
        const enableDuplicateFeature=false
         // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
@@ -1099,6 +1099,18 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         } else {
+          if(source === 'AJRASAKHA'){
+          const submissionData: IQuestionSubmission = {
+              questionId: new ObjectId(savedQuestion._id.toString()),
+              lastRespondedBy: null,
+              history: [],
+              queue: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+
+          await this.questionSubmissionRepo.addSubmission(submissionData, session);
+          }
           const [allModerators, taskForceModerators] = await Promise.all([
             this.userRepo.findModerators(),
             this.userRepo.getSpecialTaskForceModerators()
@@ -1538,27 +1550,27 @@ export class QuestionService extends BaseService implements IQuestionService {
             session,
           );
 
-          if (!submission && question.source == "AJRASAKHA") {
+          // if (!submission && question.source == "AJRASAKHA") {
 
-            const submissionData: IQuestionSubmission = {
-              questionId: new ObjectId(question._id.toString()),
-              lastRespondedBy: null,
-              history: [],
-              queue: [],
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
+          //   const submissionData: IQuestionSubmission = {
+          //     questionId: new ObjectId(question._id.toString()),
+          //     lastRespondedBy: null,
+          //     history: [],
+          //     queue: [],
+          //     createdAt: new Date(),
+          //     updatedAt: new Date(),
+          //   };
 
-            submission = await this.questionSubmissionRepo.addSubmission(submissionData, session);
-            await this.autoAllocateExperts(
-              questionId,
-              session,
-              3, // Allocate 3 experts initially when toggling on auto-allocate
-            );
-            return {
-              message: "No submission was found for this question. A new submission has been created, and special force users has been assigned to the review queue."
-            };
-          }
+          //   submission = await this.questionSubmissionRepo.addSubmission(submissionData, session);
+          //   await this.autoAllocateExperts(
+          //     questionId,
+          //     session,
+          //     3, // Allocate 3 experts initially when toggling on auto-allocate
+          //   );
+          //   return {
+          //     message: "No submission was found for this question. A new submission has been created, and special force users has been assigned to the review queue."
+          //   };
+          // }
 
           const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
           let BATCH_EXPECTED_TO_ADD = 6;
