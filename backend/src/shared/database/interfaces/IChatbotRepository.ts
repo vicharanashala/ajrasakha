@@ -112,6 +112,11 @@ export interface KccAndAgriAppStats {
   agriAppUsage: DemographicEntry[];
 }
 
+export interface PlatformInstallEntry {
+  platform: string;
+  count: number;
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
@@ -222,6 +227,9 @@ export interface IChatbotRepository {
   getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession)
   getInstalls(startDate:Date,endDate:Date, session?: ClientSession)
   getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession)
+
+  // get platform wise installs
+  getPlatformInstalls(session?: ClientSession): Promise<PlatformInstallEntry[]>;
 }
 
 export interface ChatbotConversationData {

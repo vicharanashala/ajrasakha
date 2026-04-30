@@ -21,6 +21,7 @@ import type {
   UserDemographics,
   DemographicEntry,
   KccAndAgriAppStats,
+  PlatformInstallEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -52,6 +53,7 @@ interface IUser {
     usesAgriApps?: boolean;
     highestEducatedPerson?: string;
     numberOfSmartphones?: number;
+    platform?: string;
     location?: {
       latitude: number;
       longitude: number;
@@ -1490,4 +1492,41 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(`Failed to get active users: ${error}`);    
     }
   }
+
+  //get platform installs
+  async getPlatformInstalls(){
+    try {
+      await this.init('vicharanashala');
+      const result =  await this.users.aggregate<PlatformInstallEntry>(
+        [
+          {
+            $match: {
+              "farmerProfile.platform": { $exists: true, $ne: null }
+            }
+          },
+          {
+            $group: {
+              _id: "$farmerProfile.platform",
+              count: { $sum: 1 }
+            }
+          },
+          {
+            $project: {
+              _id: 0,
+              platform: "$_id",
+              count: 1
+            }
+          }
+        ]
+      ).toArray();
+
+      console.log(result);
+      return result;
+
+    } catch (error) {
+      throw new InternalServerError(`Failed to get platform installs: ${error}`);
+    }
+}
+
+  
 }
