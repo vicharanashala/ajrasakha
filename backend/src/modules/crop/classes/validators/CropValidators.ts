@@ -8,9 +8,10 @@ import {
   Min,
   Max,
   IsIn,
+  ValidateNested,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
-import {Type} from 'class-transformer';
+import {Type, Transform} from 'class-transformer';
 
 // ── Param Validators ──
 
@@ -22,6 +23,30 @@ class CropIdParam {
   })
   @IsMongoId()
   cropId: string;
+}
+
+// ── Nested DTO ──
+
+class CropAliasDto {
+  @JSONSchema({ description: 'BCP-47 language code', example: 'te-IN' })
+  @IsNotEmpty()
+  @IsString()
+  language: string;
+
+  @JSONSchema({ description: 'Region/state where alias is used', example: 'Andhra and Telangana' })
+  @IsNotEmpty()
+  @IsString()
+  region: string;
+
+  @JSONSchema({ description: 'Romanised / English representation', example: 'vari' })
+  @IsNotEmpty()
+  @IsString()
+  english_representation: string;
+
+  @JSONSchema({ description: 'Native script representation', example: 'వరి' })
+  @IsNotEmpty()
+  @IsString()
+  native_representation: string;
 }
 
 // ── Body DTOs ──
@@ -37,29 +62,27 @@ class CreateCropDto {
   name: string;
 
   @JSONSchema({
-    description: 'Alternative names for the crop',
-    example: ['Rice', 'Chawal'],
+    description: 'Structured aliases for the crop across languages',
+    example: [{ language: 'te-IN', region: 'Andhra and Telangana', english_representation: 'vari', native_representation: 'వరి' }],
     type: 'array',
-    items: { type: 'string' },
   })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  aliases?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => CropAliasDto)
+  aliases?: CropAliasDto[];
 }
 
 class UpdateCropDto {
   @JSONSchema({
-    description: 'Updated alternative names for the crop',
-    example: ['Rice', 'Chawal', 'Basmati'],
+    description: 'Updated aliases — accepts both legacy strings and new structured objects',
+    example: [{ language: 'hi-IN', region: 'North India', english_representation: 'dhan', native_representation: 'धान' }],
     type: 'array',
-    items: { type: 'string' }
   })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  aliases?: string[];
-
+  @Transform(({ value }) => value)
+  aliases?: (CropAliasDto | string)[];
 }
 
 // ── Query DTOs ──

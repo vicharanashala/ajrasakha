@@ -13,6 +13,8 @@ import {
   Authorized,
   QueryParams,
   Put,
+  BadRequestError,
+  InternalServerError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -22,6 +24,10 @@ import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { AnswerService } from '../services/AnswerService.js';
 import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { IQuestionService } from '#root/modules/question/interfaces/index.js';
 
 @OpenAPI({
   tags: ['Answers'],
@@ -32,6 +38,12 @@ export class AnswerController {
   constructor(
     @inject(GLOBAL_TYPES.AnswerService)
     private readonly answerService: IAnswerService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(GLOBAL_TYPES.QuestionService)
+    private readonly questionService: IQuestionService,
   ) {}
 
   @OpenAPI({summary: 'Add a new answer to a question'})
@@ -129,11 +141,88 @@ export class AnswerController {
     @CurrentUser() user: IUser,
   ) {
     const {_id: userId} = user;
-
-    return this.answerService.approveAnswer(
-      userId.toString(),
-      body,
-    );
+    let result;
+    let prevAnswer;
+    let questionData;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.APPROVE_ANSWER,
+      actor: {
+        id: userId,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        answerId: body.answerId,
+      },
+      changes: {},
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    try {
+      prevAnswer = await this.answerService.getAnswerById(body.answerId);
+      questionData = await this.questionService.getQuestionById(prevAnswer?.questionId?.toString());
+      result = await this.answerService.approveAnswer(
+        userId.toString(),
+        body,
+      );
+      auditPayload={
+        ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          questionId: prevAnswer?.questionId?.toString() || body.questionId,
+          question: questionData?.text,
+        },
+        changes:{
+          before: {
+            answer: prevAnswer?.answer || ''
+          },
+          after:{}
+        },
+      };
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          before: {
+            answer: prevAnswer?.answer || ''
+          },
+        },
+        context: {
+          ...auditPayload.context,
+          questionId: prevAnswer?.questionId?.toString() || body.questionId,
+          question: questionData?.text,
+        },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to approve answer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to approve answer',
+      );
+    }
+    auditPayload = {
+      ...auditPayload,
+      changes: {
+          ...auditPayload.changes,
+          after: {
+            answer: body.answer          
+          },
+      }
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return result;
   }
 
 

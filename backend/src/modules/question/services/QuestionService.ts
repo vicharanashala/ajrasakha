@@ -1301,7 +1301,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionId: string,
     session?: ClientSession,
     BATCH_EXPECTED_TO_ADD: number = 6,
-  ): Promise<boolean> {
+  ): Promise<{data?: ObjectId[], status:boolean}> {
     const TOTAL_EXPERTS_LIMIT = 10;
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
@@ -1310,7 +1310,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       console.log(
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
-      return false;
+      return { data: [], status: false };
     }
 
     const details = question.details as PreferenceDto;
@@ -1327,7 +1327,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     if (EXISTING_QUEUE_COUNT >= TOTAL_EXPERTS_LIMIT) {
       console.log('Cannot auto allocate as queue is full');
-      return false;
+      return { data: [], status: false };
     }
 
     const [users, preferredExperts] = await Promise.all([
@@ -1370,6 +1370,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       allExpertIds = Array.from(expertIdsSet);
     }
+
+    let updatedQueue;
 
     if (
       EXISTING_QUEUE_COUNT < 3 ||
@@ -1490,12 +1492,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           type,
         );
       }
-      const updatedQueue = [
+      updatedQueue = [
         ...questionSubmission.queue,
         ...(expertsToAdd || []),
       ]
         .slice(0, TOTAL_EXPERTS_LIMIT)
         .map(id => new ObjectId(id));
+
+        console.log("the updated queue is coming====", updatedQueue)
 
       await this.questionSubmissionRepo.updateQueue(
         questionId,
@@ -1503,10 +1507,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         session,
       );
     }
-    return true;
+    return {
+      data: updatedQueue,
+      status: true
+    };
   }
 
-  async toggleAutoAllocate(questionId: string): Promise<{ message: string }> {
+  async toggleAutoAllocate(questionId: string): Promise<{ message: string, data?: ObjectId[]}> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         //1. Validate question existence
@@ -1518,8 +1525,12 @@ export class QuestionService extends BaseService implements IQuestionService {
           question?.isAutoAllocate,
           session,
         );
+
         const currentStatus = question.isAutoAllocate;
+
         // If currentStatus is false, then we need to set it to true and vice versa
+
+        let out;
 
         if (!currentStatus) {
           let submission = await this.questionSubmissionRepo.getByQuestionId(
@@ -1556,21 +1567,23 @@ export class QuestionService extends BaseService implements IQuestionService {
           if (CURRENT_QUEUE_LENGTH < 3)
             BATCH_EXPECTED_TO_ADD = 3 - CURRENT_QUEUE_LENGTH;
 
-          const out = await this.autoAllocateExperts(
+           out = await this.autoAllocateExperts(
             questionId,
             session,
             BATCH_EXPECTED_TO_ADD,
           );
 
-          if (!out) {
+          if (!out.status) {
             return {
               message: 'Auto allocate toggled, but queue is already full',
+              data: out?.data
             };
           }
         }
 
         return {
           message: `Auto allocate is now set to ${updated.isAutoAllocate}`,
+          data: out?.data
         };
       });
     } catch (error) {
@@ -3520,8 +3533,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.getQuestionStatusSummary(query, body);
   }
 
-  async generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer: string }> {
-    return this._withTransaction(async (session) => {
+  async getExprtIdByIndex(questionId: string, index: number): Promise<string | null> {
+    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+    if (!submission || !submission.queue || submission.queue.length <= index) {
+      return null;
+    }
+    return submission.queue[index].toString();
+  }
+  async generateAiInitialAnswer(questionId: string): Promise<{aiInitialAnswer:string}> {
+    return this._withTransaction( async( session ) => {
 
       const question = await this.questionRepo.getById(questionId, session);
 

@@ -1955,4 +1955,8 @@ answer: ${updates.answer}`;
       );
     });
   }
+
+  async getAnswerById(answerId: string): Promise<IAnswer> {
+    return await this.answerRepo.getById(answerId);
+  }
 }
