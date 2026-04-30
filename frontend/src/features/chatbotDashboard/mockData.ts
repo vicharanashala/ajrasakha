@@ -1,4 +1,4 @@
-import type { Segment, KpiCard, DemographicEntry } from "./types";
+import type { Segment, KpiCard, DemographicEntry, IPlatformInstallEntry } from "./types";
 
 export const DASHBOARD_DATA = {
   meta: { season: "Kharif 2025", lastSync: "2 min ago", datasetVersion: "GD-2025-Q3.14", llmVersion: "v2.4.1", p0Bugs: 3 },
@@ -84,4 +84,5 @@ export const DASHBOARD_DATA = {
     { label: 'Medium', count: 980, pct: 29.25 },
     { label: 'Large', count: 550, pct: 16.42 },
   ] as DemographicEntry[],
+  platformInstalls: [] as IPlatformInstallEntry[],
 };

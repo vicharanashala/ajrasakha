@@ -7,6 +7,7 @@ import { formatIndian, calcWeeklyDelta } from '../utils/dashboardHelpers';
 import type { DailyEntry } from '../utils/dashboardHelpers';
 import type { DashboardFilterValues } from '../DashboardFilters';
 import type { DemographicEntry } from '../types';
+import type { IPlatformInstallEntry } from '../types';
 
 export type DashboardDataType = typeof DASHBOARD_DATA;
 
@@ -36,6 +37,7 @@ interface DashboardApiResponse {
   kccAwareness: DemographicEntry[];
   agriAppUsage: DemographicEntry[];
   landHolding: DemographicEntry[];
+  platformInstalls: IPlatformInstallEntry[];
 }
 
 // ── Date range label helpers ──────────────────────────────────────────────────
@@ -169,6 +171,7 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
   updatedData.agriAppUsage = result.agriAppUsage ?? [];
   updatedData.farmingExperience = result.farmingExperience ?? [];
   updatedData.landHolding = result.landHolding?.length ? result.landHolding : DASHBOARD_DATA.landHolding;
+  updatedData.platformInstalls = result.platformInstalls ?? [];
 
   updatedData.kpiRow2 = DASHBOARD_DATA.kpiRow2.map(card => {
     if (card.id === 'totalInstalls') {

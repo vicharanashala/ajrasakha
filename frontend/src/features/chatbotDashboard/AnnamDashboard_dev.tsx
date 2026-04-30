@@ -26,6 +26,7 @@ import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilte
 import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
 import { useInView } from "@/hooks/useInView";
+import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -213,10 +214,13 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                     }}
                   />
                 </div>
-
-                {/* 3-col row */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4 items-stretch">
+                {/* 2-col row */}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4 items-stretch">
+                  <div className="lg:col-span-2">
+                    <PlatformDonutSegments rawData={data.platformInstalls} />
+                  </div>
                   <div
+                    className="lg:col-span-2"
                     ref={(el) => {
                       sectionRefs.current["farmer-segments"] = el;
                     }}
@@ -331,6 +335,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                     </div>
                   </div>
                   <div
+                    className="lg:col-span-2"
                     ref={(el) => {
                       sectionRefs.current["query-analysis"] = el;
                     }}
@@ -343,6 +348,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                     ref={(el) => {
                       sectionRefs.current["feedback-sentiment"] = el;
                     }}
+                    className="lg:col-span-2"
                   >
                     <ChannelSplitCard
                       channelSplit={data.channelSplit}
