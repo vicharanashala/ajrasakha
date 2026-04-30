@@ -209,6 +209,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                       ageGroups: data.ageGroups,
                       genderSplit: data.genderSplit,
                       farmingExperience: data.farmingExperience,
+                      landHolding: (data as any).landHolding ?? [],
                     }}
                   />
                 </div>
