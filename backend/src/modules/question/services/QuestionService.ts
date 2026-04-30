@@ -1006,7 +1006,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
-        console.log("saved question details====", savedQuestion)
+
         if (source === 'AJRASAKHA') {
           // map the chatbot message/user when we can,
           // but do not fail question creation if the analytics records are missing.
@@ -1028,7 +1028,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           ]);
 
           const allMessages = [...analyticsMessages, ...annamMessages];
-          console.log('message detials:',allMessages)
+
           const message = allMessages[0];
           const messageUserId =
             message?.userObjectId?.toString?.() ||
