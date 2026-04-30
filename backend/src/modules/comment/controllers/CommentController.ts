@@ -17,8 +17,10 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import { CommentService } from '../services/CommentService.js';
 import { AddCommentBody, AddCommentParams, GetCommentsParams, GetCommentsQuery } from '../classes/validators/CommentValidator.js';
-import { CommentErrorResponse, GetCommentsResponse, AddCommentResponse } from '../classes/validators/CommentResponseValidators.js';
+import { CommentErrorResponse, AddCommentResponse } from '../classes/validators/CommentResponseValidators.js';
 import { ICommentService } from '../interfaces/ICommentService.js';
+import { PaginatedCommentsResponseDto } from '../dtos/CommentResponseDto.js';
+import { plainToInstance } from 'class-transformer';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
@@ -45,7 +47,7 @@ export class CommentController {
     summary: 'Get comments for a specific answer of a question',
     description: 'Retrieves paginated comments for a specific answer. Returns an array of comments with user information and the total count.',
   })
-  @ResponseSchema(GetCommentsResponse, {
+  @ResponseSchema(PaginatedCommentsResponseDto, {
     statusCode: 200,
     description: 'Comments retrieved successfully with pagination metadata',
   })
@@ -71,7 +73,7 @@ export class CommentController {
   async getComments(
     @Params() params: GetCommentsParams,
     @QueryParams() query: GetCommentsQuery,
-  ): Promise<{comments: IComment[]; total: number}> {
+  ): Promise<PaginatedCommentsResponseDto> {
     const page = query.page ? Number(query.page) : 1;
     const limit = query.limit ? Number(query.limit) : 10;
 

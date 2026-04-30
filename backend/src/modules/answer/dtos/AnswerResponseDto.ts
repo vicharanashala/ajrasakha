@@ -39,6 +39,16 @@ export class BaseAnswerDto {
   sources?: AnswerSourceDto[];
 
   @Expose()
+  @IsString()
+  @IsOptional()
+  questionId?: string;
+
+  @Expose()
+  @IsString()
+  @IsOptional()
+  authorId?: string;
+
+  @Expose()
   @IsDateString()
   @IsOptional()
   createdAt?: string | Date;

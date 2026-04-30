@@ -8,6 +8,8 @@ import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerReposit
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { ICommentService } from '../interfaces/ICommentService.js';
+import { PaginatedCommentsResponseDto } from '../dtos/CommentResponseDto.js';
+import { plainToInstance } from 'class-transformer';
 
 export class CommentService extends BaseService implements ICommentService {
   constructor(
@@ -31,9 +33,9 @@ export class CommentService extends BaseService implements ICommentService {
     answerId: string,
     page: number,
     limit: number,
-  ): Promise<{comments: IComment[]; total: number}> {
+  ): Promise<PaginatedCommentsResponseDto> {
     try {
-      const comments = await this._withTransaction(
+      const result = await this._withTransaction(
         async (session: ClientSession) => {
           return this.commentRepo.getComments(
             questionId,
@@ -45,7 +47,7 @@ export class CommentService extends BaseService implements ICommentService {
         },
       );
 
-      return comments;
+      return plainToInstance(PaginatedCommentsResponseDto, result);
     } catch (err: any) {
       console.error(
         `Error fetching comments for question ${questionId} and answer ${answerId}:`,

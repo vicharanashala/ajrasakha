@@ -5,6 +5,8 @@ import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {InternalServerError} from 'routing-controllers';
+import { getProjectionFromDto } from '#shared/utils/projection.js';
+import { CommentResponseDto } from '#root/modules/comment/dtos/CommentResponseDto.js';
 
 export class CommentRepository implements ICommentRepository {
   private CommentsCollection: Collection<IComment>;
@@ -100,9 +102,10 @@ export class CommentRepository implements ICommentRepository {
     page: number,
     limit: number,
     session?: ClientSession,
-  ): Promise<{comments: IComment[]; total: number}> {
+  ): Promise<{comments: any[]; total: number}> {
     await this.init();
     const skip = (page - 1) * limit;
+    const projection = getProjectionFromDto(CommentResponseDto);
 
     try {
       const result = await this.CommentsCollection.aggregate(
@@ -132,10 +135,7 @@ export class CommentRepository implements ICommentRepository {
                   },
                 },
                 {
-                  $project: {
-                    _id: {$toString: '$_id'},
-                    text: 1,
-                    createdAt: 1,
+                  $addFields: {
                     userName: {
                       $trim: {
                         input: {
@@ -152,7 +152,10 @@ export class CommentRepository implements ICommentRepository {
                         },
                       },
                     },
-                  },
+                  }
+                },
+                {
+                  $project: projection
                 },
                 {$sort: {createdAt: -1}},
                 {$skip: skip},

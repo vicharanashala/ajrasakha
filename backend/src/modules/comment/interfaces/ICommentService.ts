@@ -1,4 +1,4 @@
-import { IComment } from '#root/shared/index.js';
+import { PaginatedCommentsResponseDto } from '../dtos/CommentResponseDto.js';
 
 export interface ICommentService {
   /**
@@ -9,10 +9,7 @@ export interface ICommentService {
     answerId: string,
     page: number,
     limit: number
-  ): Promise<{
-    comments: IComment[];
-    total: number;
-  }>;
+  ): Promise<PaginatedCommentsResponseDto>;
 
   /**
    * Add a new comment to an answer

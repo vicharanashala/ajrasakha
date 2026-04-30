@@ -17,7 +17,7 @@ export interface ICommentRepository {
     page: number,
     limit: number,
     session?: ClientSession,
-  ): Promise<{total: number; comments: IComment[]}>;
+  ): Promise<{total: number; comments: any[]}>;
 
   /**
    * Adds a new comment for a specific answer of a question.

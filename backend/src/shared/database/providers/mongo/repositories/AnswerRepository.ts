@@ -194,6 +194,11 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
           session,
         },
       );
+
+      if (!answer) {
+        throw new BadRequestError(`Answer not found with ID ${answerId}`);
+      }
+
       return {
         ...answer,
         _id: answer._id?.toString(),
@@ -201,6 +206,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
         authorId: answer.authorId?.toString(),
       };
     } catch (error) {
+      if (error instanceof BadRequestError) throw error;
       throw new InternalServerError(`Failed to fetch answers, More/ ${error}`);
     }
   }
