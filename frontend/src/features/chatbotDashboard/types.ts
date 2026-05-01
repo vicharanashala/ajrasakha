@@ -10,6 +10,7 @@ export interface UserDemographics {
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
+  landHolding: DemographicEntry[];
 }
 
 export interface Segment {
