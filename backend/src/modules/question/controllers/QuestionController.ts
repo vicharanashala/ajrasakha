@@ -170,17 +170,21 @@ export class QuestionController {
     @CurrentUser() user: IUser,
   ): Promise<Partial<any> | { message: string }> {
     const userId = user?._id?.toString();
+    console.log("Here is user id-> ", userId)
+    const name = `${user?.firstName} ${user?.lastName}`
+    const actorPayload = userId ? {
+        id: userId,
+        name: name ,
+        email: user?.email,
+        role: user?.role,
+        avatar: user?.avatar || '',
+        source: body.source
+    } : null
 console.log("before audit payload*****")
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.QUESTION_ADD,
-      actor: {
-        id: user._id.toString(),
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
+      actor: actorPayload,
     };
     console.log("the audit payload coming====",auditPayload)
 
@@ -337,7 +341,13 @@ console.log("before audit payload*****")
         createdAt: new Date(),
       };
 
-      this.auditTrailsService.createAuditTrail(auditPayload);
+      
+
+      if(actorPayload !== null){
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+
+      
       
       return {
         success: true,

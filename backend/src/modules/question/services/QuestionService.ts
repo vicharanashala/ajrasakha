@@ -1099,6 +1099,17 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         } else {
+          const submissionData: IQuestionSubmission = {
+              questionId: new ObjectId(savedQuestion._id.toString()),
+              lastRespondedBy: null,
+              history: [],
+              queue: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+ 
+          await this.questionSubmissionRepo.addSubmission(submissionData, session);
+          
           const [allModerators, taskForceModerators] = await Promise.all([
             this.userRepo.findModerators(),
             this.userRepo.getSpecialTaskForceModerators()
@@ -1412,12 +1423,21 @@ export class QuestionService extends BaseService implements IQuestionService {
         const payload: Partial<IAnswer> = {
           status: 'pending-with-moderator',
         };
-        const answer = lastSubmission.answer || lastSubmission.approvedAnswer;
+
+        const answer = lastSubmission?.answer || lastSubmission?.approvedAnswer;
+        if(answer){
         await this.answerRepo.updateAnswerStatus(
           answer.toString(),
           payload,
           session,
         );
+      }
+        
+        // await this.answerRepo.updateAnswerStatus(
+        //   answer.toString(),
+        //   payload,
+        //   session,
+        // );
       }
 
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
@@ -1440,7 +1460,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
         // No submissions send answer_creation notification to the first expert
-        if (EXISTING_QUEUE_COUNT === 0) {
+        if (EXISTING_QUEUE_COUNT === 0 && expertId) {
           let message = `A Question has been assigned for answering`;
           let title = 'Answer Creation Assigned';
           let entityId = questionId.toString();

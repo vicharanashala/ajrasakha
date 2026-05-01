@@ -26,13 +26,18 @@ export class AuditTrailsService
     this.env = process.env.NODE_ENV || 'development';
   }
   async createAuditTrail(paload: ModeratorAuditTrail): Promise<string> {
-    if(this.env !== 'production') {
-      return;
-    }
+    // if(this.env !== 'production') {
+    //   return;
+    // }
     // Implement the logic to create an audit trail
-    return await this.auditTrailsRepository.createAuditTrail(
+    try {
+      return await this.auditTrailsRepository.createAuditTrail(
       this.normalizeAuditToObjectId(paload),
-    );
+    )
+    }catch(error){
+      console.log("Error is coming -> ", error)
+      throw error
+    }
   }
 
   async getAuditTrails(
