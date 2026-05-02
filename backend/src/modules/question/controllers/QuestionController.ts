@@ -170,19 +170,23 @@ export class QuestionController {
     @CurrentUser() user: IUser,
   ): Promise<Partial<any> | { message: string }> {
     const userId = user?._id?.toString();
-console.log("before audit payload*****")
+    
+    const name = `${user?.firstName} ${user?.lastName}`
+    const actorPayload = userId ? {
+        id: userId,
+        name: name ,
+        email: user?.email,
+        role: user?.role,
+        avatar: user?.avatar || '',
+        source: body.source
+    } : null
+
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.QUESTION_ADD,
-      actor: {
-        id: user._id.toString(),
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
+      actor: actorPayload,
     };
-    console.log("the audit payload coming====",auditPayload)
+
 
     if (file) {
       let payload: any[] = [];
@@ -225,39 +229,27 @@ console.log("before audit payload*****")
           );
         }
 
-        const insertedIds = await this.questionService.createBulkQuestions(
-          userId,
-          payload,
-          isOutreachQuestion
-        );
-        auditPayload = {
-          ...auditPayload,
-          action: AuditAction.QUESTION_BULK_CREATE,
-          context: {
-            questionId: Array.from(insertedIds, (id) => id.toString()),
-          },
-          changes: {
-            after: {
-              message: "Question created via bulk upload",
-            }
-          },
-          
-          outcome: {
-            status: OutComeStatus.SUCCESS,
-          },
-          createdAt: new Date(),
+        console.log('Paylod: ', payload);
+        const actor = {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user?.avatar || '',
         };
-
-        this.auditTrailsService.createAuditTrail(auditPayload);
-        setImmediate(() => startBackgroundProcessing(insertedIds, isRequiredAiInitialAnswer, isOutreachQuestion));
+        setImmediate(() => startBackgroundProcessing(
+            actor,
+            this.auditTrailsService,
+            isRequiredAiInitialAnswer,
+            isOutreachQuestion,
+            payload
+          ));
+        
         return {
-          message: `✅ Successfully uploaded ${insertedIds.length} question(s). The expert allocation process has been initiated.${isRequiredAiInitialAnswer
-              ? " AI-generated initial answers will be included for each question."
-              : ""
-            } Please allow some time for processing and allocation.`,
-          insertedIds,
-          isBulkUpload: !!file,
-        };
+                message: `Processing ${payload.length} question(s). Non-duplicate entries are being assigned to experts${isRequiredAiInitialAnswer ? " with AI-generated initial answers" : ""}.`,
+                count: payload.length,
+                isBulkUpload: !!file,
+            };
       } catch (err: any) {
         auditPayload = {
           ...auditPayload,
@@ -337,7 +329,13 @@ console.log("before audit payload*****")
         createdAt: new Date(),
       };
 
-      this.auditTrailsService.createAuditTrail(auditPayload);
+      
+
+      if(actorPayload !== null){
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+
+      
       
       return {
         success: true,
