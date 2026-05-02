@@ -5,6 +5,9 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {MongoDatabase} from '#root/shared/index.js';
 import {ICrop, ICropAlias} from '#root/shared/interfaces/models.js';
 import {ICropRepository} from '#root/shared/database/interfaces/ICropRepository.js';
+import {instanceToPlain, plainToInstance} from 'class-transformer';
+import { CropResponseDto, PaginatedCropsResponseDto } from '#root/modules/crop/dtos/CropResponseDto.js';
+import { getProjectionFromDto } from '#root/shared/utils/projection.js';
 
 @injectable()
 export class CropRepository implements ICropRepository {
@@ -126,7 +129,7 @@ export class CropRepository implements ICropRepository {
     sort?: 'newest' | 'oldest' | 'name_asc' | 'name_desc';
     page?: number;
     limit?: number;
-  }): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
+  }): Promise<PaginatedCropsResponseDto> {
     try {
       if (!this.CropCollection) await this.init();
 
@@ -153,8 +156,9 @@ export class CropRepository implements ICropRepository {
       };
       const sortStage = sortMap[query?.sort || 'name_asc'] || {name: 1};
 
+      const projection = getProjectionFromDto(CropResponseDto);
       const totalCount = await this.CropCollection.countDocuments(filter);
-      const crops = await this.CropCollection.find(filter)
+      const crops = await this.CropCollection.find(filter, { projection })
         .sort(sortStage)
         .skip(skip)
         .limit(limit)
@@ -162,14 +166,16 @@ export class CropRepository implements ICropRepository {
 
       const totalPages = Math.ceil(totalCount / limit);
 
-      const sanitizedCrops: ICrop[] = crops.map(crop => ({
+      const cropsInstance = plainToInstance(CropResponseDto, crops.map(crop => ({
         ...crop,
         _id: crop._id?.toString(),
-        createdBy: crop.createdBy?.toString(),
-        updatedBy: crop.updatedBy?.toString(),
-      }));
+      })), { excludeExtraneousValues: true });
 
-      return {crops: sanitizedCrops, totalCount, totalPages};
+      return {
+        crops: instanceToPlain(cropsInstance) as any,
+        totalCount,
+        totalPages
+      };
     } catch (error: any) {
       throw new InternalServerError(`Failed to fetch crops: ${error.message}`);
     }
@@ -177,19 +183,20 @@ export class CropRepository implements ICropRepository {
 
   // ─── READ (BY ID) ──────────────────────────────────────────────────────────
 
-  async getCropById(cropId: string): Promise<ICrop | null> {
+  async getCropById(cropId: string): Promise<CropResponseDto | null> {
     try {
       if (!this.CropCollection) await this.init();
 
-      const crop = await this.CropCollection.findOne({_id: new ObjectId(cropId)});
+      const projection = getProjectionFromDto(CropResponseDto);
+      const crop = await this.CropCollection.findOne({_id: new ObjectId(cropId)}, { projection });
       if (!crop) return null;
 
-      return {
+      const instance = plainToInstance(CropResponseDto, {
         ...crop,
         _id: crop._id?.toString(),
-        createdBy: crop.createdBy?.toString(),
-        updatedBy: crop.updatedBy?.toString(),
-      } as ICrop;
+      }, { excludeExtraneousValues: true });
+
+      return instanceToPlain(instance) as any;
     } catch (error: any) {
       throw new InternalServerError(`Failed to get crop: ${error.message}`);
     }

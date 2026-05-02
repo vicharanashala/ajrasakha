@@ -11,6 +11,7 @@ import {
   UpdateCropDto,
   GetAllCropsQuery,
 } from '../classes/validators/CropValidators.js';
+import { CropResponseDto, PaginatedCropsResponseDto } from '../dtos/CropResponseDto.js';
 
 @injectable()
 export class CropService extends BaseService implements ICropService {
@@ -29,11 +30,11 @@ export class CropService extends BaseService implements ICropService {
 
   async getAllCrops(
     query?: GetAllCropsQuery,
-  ): Promise<{ crops: ICrop[]; totalCount: number; totalPages: number }> {
+  ): Promise<PaginatedCropsResponseDto> {
     return this.cropRepository.getAllCrops(query);
   }
 
-  async getCropById(cropId: string): Promise<ICrop | null> {
+  async getCropById(cropId: string): Promise<CropResponseDto | null> {
     return this.cropRepository.getCropById(cropId);
   }
 

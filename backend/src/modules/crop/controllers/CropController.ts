@@ -36,6 +36,7 @@ import {
   CropSingleResponse,
   CropSuccessResponse,
 } from '../classes/validators/CropResponseValidators.js';
+import { CropResponseDto, PaginatedCropsResponseDto } from '../dtos/CropResponseDto.js';
 
 // ── Allowed roles for write operations ──
 const WRITE_ROLES = ['admin', 'moderator'];
@@ -82,7 +83,7 @@ export class CropController {
   @Authorized()
   async getAllCrops(
     @QueryParams() query: GetAllCropsQuery,
-  ): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
+  ): Promise<PaginatedCropsResponseDto> {
     return this.cropService.getAllCrops(query);
   }
 
@@ -113,7 +114,7 @@ export class CropController {
   @Authorized()
   async getCropById(
     @Params() params: CropIdParam,
-  ): Promise<{success: boolean; data: ICrop}> {
+  ): Promise<{success: boolean; data: CropResponseDto}> {
     const {cropId} = params;
     const crop = await this.cropService.getCropById(cropId);
 
