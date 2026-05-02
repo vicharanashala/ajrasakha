@@ -39,7 +39,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source, undefined, userType),
           this.chatbotRepository.getUserDemographics(source, undefined, userType),
           this.chatbotRepository.getKccAndAgriAppStats(source, undefined, userType),
-          this.chatbotRepository.getPlatformInstalls(),
+          this.chatbotRepository.getPlatformInstalls(source),
         ]);
 
       return {

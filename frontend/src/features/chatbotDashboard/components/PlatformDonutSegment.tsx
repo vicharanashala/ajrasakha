@@ -1,5 +1,5 @@
 import { Globe } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 interface PlatformData {
   count: number;
@@ -74,6 +74,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
 };
 
 export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ rawData }) => {
+  const [active, setActive] = useState<null | { label: string; count: number }>(null);
   const PLATFORM_COLORS: Record<string, string> = {
     Android: "#22c55e",
     Windows: "#3b82f6",
@@ -83,143 +84,148 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ ra
     default: "#9ca3af",
   };
 
-  const VIEW_W = 440;
-  const VIEW_H = 260;
-  const cx = VIEW_W / 2;
-  const cy = VIEW_H / 2;
-  const r = 55;
-  const circ = 2 * Math.PI * r;
-
   const { segmentsLayout, totalCount } = useMemo(() => {
-    const total = rawData.reduce((sum, item) => sum + item.count, 0) || 1;
-    const sorted = [...rawData].sort((a, b) => b.count - a.count);
-
-    let cumulative = 0;
-
-    const layout = sorted.map((item) => {
+    const total = rawData.reduce((sum, item) => sum + item.count, 0);
+    const layout = rawData.map((item) => {
       const color = PLATFORM_COLORS[item.platform] || PLATFORM_COLORS.default;
-      const startPct = cumulative / total;
-      const midPct = startPct + (item.count / 2) / total;
-      const midAngle = -Math.PI / 2 + midPct * 2 * Math.PI;
-
-      const isRight = Math.cos(midAngle) >= -0.01;
-      const elbowDist = r + 20;
-      const x1 = cx + (r + 4) * Math.cos(midAngle);
-      const y1 = cy + (r + 4) * Math.sin(midAngle);
-      const x2 = cx + elbowDist * Math.cos(midAngle);
-      const y2 = cy + elbowDist * Math.sin(midAngle);
-      const x3 = isRight ? x2 + 25 : x2 - 25;
-      const y3 = y2;
-      const dash = (item.count / total) * circ;
-      cumulative += item.count;
-
       return {
         label: item.platform,
         count: item.count,
-        color,
-        dash,
-        x1,
-        y1,
-        x2,
-        y2,
-        x3,
-        y3,
-        isRight,
+        color
       };
     });
 
     return { segmentsLayout: layout, totalCount: total };
   }, [rawData]);
 
-  let drawOffset = 0;
+  const isEmpty = rawData.length === 0 || totalCount === 0;
+
+  const VIEW = 120;
+  const r = 45;
+  const cx = VIEW / 2;
+  const cy = VIEW / 2;
+  const circ = 2 * Math.PI * r;
+
+  let offset = 0;
 
   return (
-    <div className="w-full p-4 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
-      <div className="mb-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          Installations by Platform
-        </h3>
-      </div>
-      <div
-        className="relative w-full min-h-[280px] overflow-hidden"
-        style={{ aspectRatio: `${VIEW_W} / ${VIEW_H}` }}
-      >
-        <svg
-          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-          className="absolute inset-0 h-full w-full transform drop-shadow-sm"
-        >
-          <circle
-            cx={cx}
-            cy={cy}
-            r={r}
-            fill="none"
-            stroke="currentColor"
-            className="text-gray-100 dark:text-gray-800"
-            strokeWidth={14}
-            strokeLinecap="butt"
-          />
+    <div className="w-full p-4 bg-white rounded-xl border  border-gray-200 
+      dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
+      {/* <div className="mb-3"> */}
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+        Installations by Platform
+      </h3>
+      {/* </div> */}
+      {isEmpty ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-6">
+          <svg width={120} height={120}>
+            <circle
+              cx="60"
+              cy="60"
+              r="45"
+              fill="none"
+              stroke="#e5e7eb"
+              strokeWidth="12"
+            />
+          </svg>
 
-          {segmentsLayout.map((seg) => {
-            const el = (
-              <g key={seg.label}>
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={r}
-                  fill="none"
-                  stroke={seg.color}
-                  strokeWidth={14}
-                  strokeLinecap="butt"
-                  strokeDasharray={`${seg.dash} ${circ * 10}`}
-                  strokeDashoffset={-drawOffset}
-                  transform={`rotate(-90 ${cx} ${cy})`}
-                  className="cursor-pointer transition-all duration-300 ease-in-out hover:stroke-[16px]"
-                />
-                <polyline
-                  points={`${seg.x1},${seg.y1} ${seg.x2},${seg.y2} ${seg.x3},${seg.y3}`}
-                  fill="none"
-                  stroke={seg.color}
-                  strokeWidth="1.5"
-                  className="opacity-50"
-                />
-                <circle cx={seg.x1} cy={seg.y1} r="2.5" fill={seg.color} className="opacity-90" />
-              </g>
-            );
-            drawOffset += seg.dash;
-            return el;
-          })}
-        </svg>
-
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-2xl font-bold leading-none text-gray-800 dark:text-white">{totalCount}</span>
-          <span className="mt-1 text-[10px] font-medium uppercase tracking-wider text-gray-500">Total</span>
+          <p className="text-xs text-gray-400 italic">
+            No platform data available
+          </p>
         </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row items-center gap-6 w-full">
+          <div className="relative flex items-center justify-center">
+            <svg
+              width={VIEW}
+              height={VIEW}
+              viewBox={`0 0 ${VIEW} ${VIEW}`}
+              className="flex-shrink-0"
+            >
+              <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke="#e5e7eb"
+                strokeWidth={14}
+              />
 
-        {segmentsLayout.map((s) => (
-          <div
-            key={`label-${s.label}`}
-            className="absolute z-10 flex items-center rounded-lg border border-gray-100 bg-white px-2 py-1.5 shadow-sm transition-transform hover:scale-105 dark:border-gray-700 dark:bg-gray-800/90 dark:backdrop-blur-sm"
-            style={{
-              left: s.isRight ? `${(s.x3 / VIEW_W) * 100}%` : "auto",
-              right: !s.isRight ? `${((VIEW_W - s.x3) / VIEW_W) * 100}%` : "auto",
-              top: `${(s.y3 / VIEW_H) * 100}%`,
-              transform: "translateY(-50%)",
-              marginLeft: s.isRight ? "6px" : "0",
-              marginRight: !s.isRight ? "6px" : "0",
-            }}
-          >
-            <div className="flex items-center gap-1.5">
-              <PlatformIcon platform={s.label} color={s.color} className="h-3.5 w-3.5" />
-              <span className="whitespace-nowrap text-xs font-medium text-gray-600 dark:text-gray-300">
-                {s.label}
-              </span>
-              <span className="ml-0.5 border-l border-gray-200 pl-1.5 text-xs font-bold text-gray-900 dark:border-gray-700 dark:text-white">
-                {s.count}
-              </span>
+              {segmentsLayout.map((seg) => {
+                const dash = (seg.count / totalCount) * circ;
+
+                const el = (
+                  <circle
+                    key={seg.label}
+                    cx={cx}
+                    cy={cy}
+                    r={r}
+                    fill="none"
+                    stroke={seg.color}
+                    strokeWidth={14}
+                    strokeDasharray={`${dash} ${circ * 10}`}
+                    strokeDashoffset={-offset}
+                    transform={`rotate(-90 ${cx} ${cy})`}
+                    onMouseEnter={() => setActive({ label: seg.label, count: seg.count })}
+                    onMouseLeave={() => setActive(null)}
+                    className="cursor-pointer transition-all duration-300 hover:stroke-[16px]"
+                  />
+                );
+
+                offset += dash;
+                return el;
+              })}
+            </svg>
+            <div className="absolute flex flex-col items-center justify-center pointer-events-none">
+              {active ? (
+                <>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    {active.label}
+                  </span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">
+                    {active.count}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">
+                    {totalCount}
+                  </span>
+                  <span className="text-[10px] text-gray-400 uppercase">
+                    Total
+                  </span>
+                </>
+              )}
             </div>
           </div>
-        ))}
-      </div>
+
+          <div className="flex flex-col gap-2 w-full">
+            {segmentsLayout.map((s) => (
+              <div
+                key={s.label}
+                className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+              >
+                <span
+                  className="w-2 h-2 rounded-sm"
+                  style={{ background: s.color }}
+                />
+
+                <PlatformIcon
+                  platform={s.label}
+                  color={s.color}
+                  className="h-3.5 w-3.5"
+                />
+
+                <span className="flex-1 truncate">{s.label}</span>
+
+                <span className="font-semibold text-gray-800 dark:text-white">
+                  {s.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

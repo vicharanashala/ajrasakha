@@ -25,8 +25,6 @@ import type {
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
-import { createDecipheriv } from 'crypto';
-import { count } from 'console';
 
 interface IUser {
   _id?: any;
@@ -1494,9 +1492,9 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   //get platform installs
-  async getPlatformInstalls(){
+  async getPlatformInstalls(source:'vicharanashala',session?: ClientSession):Promise<PlatformInstallEntry[]> {
     try {
-      await this.init('vicharanashala');
+      await this.init(source);
       const result =  await this.users.aggregate<PlatformInstallEntry>(
         [
           {
@@ -1519,10 +1517,7 @@ export class ChatbotRepository implements IChatbotRepository {
           }
         ]
       ).toArray();
-
-      console.log(result);
       return result;
-
     } catch (error) {
       throw new InternalServerError(`Failed to get platform installs: ${error}`);
     }

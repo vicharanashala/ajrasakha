@@ -229,7 +229,7 @@ export interface IChatbotRepository {
   getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession)
 
   // get platform wise installs
-  getPlatformInstalls(session?: ClientSession): Promise<PlatformInstallEntry[]>;
+  getPlatformInstalls(source: string, session?: ClientSession): Promise<PlatformInstallEntry[]>;
 }
 
 export interface ChatbotConversationData {
