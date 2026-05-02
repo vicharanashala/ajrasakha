@@ -69,7 +69,7 @@ export interface IQuestionService {
     questionId: string,
     session?: any,
     batchSize?: number,
-  ): Promise<{data?: ObjectId[], status: boolean}>;
+  ): Promise<{data?: ObjectId[], status: boolean,  noExpertAvailable?: boolean}>;
 
   /** Toggle auto allocation on/off */
   toggleAutoAllocate(questionId: string): Promise<{ message: string, data?: ObjectId[] }>;

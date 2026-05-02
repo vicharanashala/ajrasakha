@@ -1253,7 +1253,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionId: string,
     session?: ClientSession,
     BATCH_EXPECTED_TO_ADD: number = 6,
-  ): Promise<{data?: ObjectId[], status:boolean}> {
+  ): Promise<{data?: ObjectId[], status:boolean, noExpertAvailable?: boolean}> {
     const TOTAL_EXPERTS_LIMIT = 10;
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
@@ -1364,12 +1364,17 @@ export class QuestionService extends BaseService implements IQuestionService {
         const payload: Partial<IAnswer> = {
           status: 'pending-with-moderator',
         };
-        const answer = lastSubmission.answer || lastSubmission.approvedAnswer;
-        await this.answerRepo.updateAnswerStatus(
+        const answer = lastSubmission?.answer || lastSubmission?.approvedAnswer;
+        if(answer){
+          await this.answerRepo.updateAnswerStatus(
           answer.toString(),
           payload,
           session,
         );
+        }
+        return { data: questionSubmission.queue.map(id =>
+                  typeof id === "string" ? new ObjectId(id) : id), status: true, noExpertAvailable: true };
+
       }
 
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
@@ -1392,7 +1397,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
         // No submissions send answer_creation notification to the first expert
-        if (EXISTING_QUEUE_COUNT === 0) {
+        if (EXISTING_QUEUE_COUNT === 0 && expertId) {
           let message = `A Question has been assigned for answering`;
           let title = 'Answer Creation Assigned';
           let entityId = questionId.toString();
@@ -1502,11 +1507,16 @@ export class QuestionService extends BaseService implements IQuestionService {
             };
 
             submission = await this.questionSubmissionRepo.addSubmission(submissionData, session);
-            await this.autoAllocateExperts(
+            out = await this.autoAllocateExperts(
               questionId,
               session,
               3, // Allocate 3 experts initially when toggling on auto-allocate
             );
+            if (out.noExpertsAvailable) {
+              return {
+                message: "No submission was found for this question. A new submission has been created, but no Special Task Force experts are available."
+              };
+            }
             return {
               message: "No submission was found for this question. A new submission has been created, and special force users has been assigned to the review queue."
             };
@@ -1532,6 +1542,13 @@ export class QuestionService extends BaseService implements IQuestionService {
             };
           }
         }
+
+        if (out.noExpertsAvailable) {
+            return {
+              message: 'Auto-allocate enabled, but no Special Task Force experts are available',
+              data: out?.data
+            };
+          }
 
         return {
           message: `Auto allocate is now set to ${updated.isAutoAllocate}`,
