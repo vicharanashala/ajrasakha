@@ -1,6 +1,3 @@
-from urllib.parse import quote_plus
-from llama_index.core.prompts import PromptTemplate
-from dotenv import load_dotenv
 import os
 
 
@@ -25,7 +22,7 @@ OLLAMA_API_URL = OLLAMA_HOST + "/api/chat"
 LLM_MODEL_MAIN = "deepseek-r1:70b"
 LLM_MODEL_FALL_BACK = "qwen3:1.7b"
 LLM_STRUCTURED_MODEL = "Osmosis/Osmosis-Structure-0.6B:latest"
-EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
+EMBEDDING_API_URL = os.getenv("EMBEDDING_API_URL", "http://100.100.108.44:6001/embed")
 
 
 DEFAULT_CITATION_CHUNK_SIZE = 200
@@ -222,33 +219,32 @@ Answer: Water will be wet when the sky is red [2],
 which occurs in the evening [1].\n
 Now it's your turn."""
 
-CITATION_REFINE_TEMPLATE = PromptTemplate(
-    "Please provide an answer based solely on the provided sources. "
-    "When referencing information from a source, "
-    "cite the appropriate source(s) using their corresponding numbers. "
-    "Every answer should include at least one source citation. "
-    "Only cite a source when you are explicitly referencing it. "
-    "If none of the sources are helpful, you should indicate that. "
-    "For example:\n"
-    "Source 1:\n"
-    "The sky is red in the evening and blue in the morning.\n"
-    "Source 2:\n"
-    "Water is wet when the sky is red.\n"
-    "Query: When is water wet?\n"
-    "Answer: Water will be wet when the sky is red [2], "
-    "which occurs in the evening [1].\n"
-    "Now it's your turn. "
-    "We have provided an existing answer: {existing_answer}"
-    "Below are several numbered sources of information. "
-    "Use them to refine the existing answer. "
-    "If the provided sources are not helpful, you will repeat the existing answer."
-    "\nBegin refining!"
-    "\n------\n"
-    "{context_msg}"
-    "\n------\n"
-    "Query: {query_str}\n"
-    "Answer: "
-)
+CITATION_REFINE_TEMPLATE = """
+Please provide an answer based solely on the provided sources.
+When referencing information from a source,
+cite the appropriate source(s) using their corresponding numbers.
+Every answer should include at least one source citation.
+Only cite a source when you are explicitly referencing it.
+If none of the sources are helpful, you should indicate that.
+For example:
+Source 1:
+The sky is red in the evening and blue in the morning.
+Source 2:
+Water is wet when the sky is red.
+Query: When is water wet?
+Answer: Water will be wet when the sky is red [2], which occurs in the evening [1].
+Now it's your turn.
+We have provided an existing answer: {existing_answer}
+Below are several numbered sources of information.
+Use them to refine the existing answer.
+If the provided sources are not helpful, you will repeat the existing answer.
+Begin refining!
+------
+{context_msg}
+------
+Query: {query_str}
+Answer:
+"""
 
 
 TRANSLATION_PROMPT = """
