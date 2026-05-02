@@ -1364,7 +1364,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         const payload: Partial<IAnswer> = {
           status: 'pending-with-moderator',
         };
+
         const answer = lastSubmission.answer || lastSubmission.approvedAnswer;
+        
         await this.answerRepo.updateAnswerStatus(
           answer.toString(),
           payload,

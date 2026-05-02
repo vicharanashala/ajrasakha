@@ -30,9 +30,10 @@ export class AuditTrailsService
       return;
     }
     // Implement the logic to create an audit trail
+
     return await this.auditTrailsRepository.createAuditTrail(
       this.normalizeAuditToObjectId(paload),
-    );
+    )
   }
 
   async getAuditTrails(
