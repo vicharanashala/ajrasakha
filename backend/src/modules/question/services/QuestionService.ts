@@ -1099,7 +1099,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         } else {
-          if(source === 'AJRASAKHA'){
+          
           const submissionData: IQuestionSubmission = {
               questionId: new ObjectId(savedQuestion._id.toString()),
               lastRespondedBy: null,
@@ -1110,7 +1110,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             };
 
           await this.questionSubmissionRepo.addSubmission(submissionData, session);
-          }
+          
           const [allModerators, taskForceModerators] = await Promise.all([
             this.userRepo.findModerators(),
             this.userRepo.getSpecialTaskForceModerators()
