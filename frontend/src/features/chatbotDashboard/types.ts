@@ -13,6 +13,11 @@ export interface UserDemographics {
   landHolding: DemographicEntry[];
 }
 
+export interface IPlatformInstallEntry{
+  platform: string;
+  count: number;
+}
+
 export interface Segment {
   id: string;
   label: string;
