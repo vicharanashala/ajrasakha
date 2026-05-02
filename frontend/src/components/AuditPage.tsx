@@ -1780,8 +1780,7 @@ const AuditPage = () => {
     page, limit, startDateTime, endDateTime, category, action, order, outComeStatus,
   );
  
-  const entries: AuditEntry[] = data?.data ?? [];
-  console.log("Entries -> ", entries)
+  const entries: AuditEntry[] = data?.data ?? [];  
   const total: number = data?.totalDocuments ?? 0;
   const totalPages = data?.totalPages ?? 1;
  

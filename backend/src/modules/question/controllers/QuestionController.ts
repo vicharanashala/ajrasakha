@@ -170,7 +170,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
   ): Promise<Partial<any> | { message: string }> {
     const userId = user?._id?.toString();
-    console.log("Here is user id-> ", userId)
+    
     const name = `${user?.firstName} ${user?.lastName}`
     const actorPayload = userId ? {
         id: userId,
@@ -180,13 +180,13 @@ export class QuestionController {
         avatar: user?.avatar || '',
         source: body.source
     } : null
-console.log("before audit payload*****")
+
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.QUESTION_ADD,
       actor: actorPayload,
     };
-    console.log("the audit payload coming====",auditPayload)
+
 
     if (file) {
       let payload: any[] = [];
