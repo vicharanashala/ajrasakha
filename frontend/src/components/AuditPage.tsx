@@ -1195,11 +1195,12 @@ import { Input } from "./atoms/input";
 // ─── Types ────────────────────────────────────────────────────────────────────
  
 interface AuditActor {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
+  id?: string;
+  name?: string;
+  email?: string;
+  role?: string;
   avatar?: string;
+  source?: string
 }
  
 interface AuditEntry {
@@ -1505,9 +1506,9 @@ function CompactCard({ entry }: { entry: AuditEntry }) {
       <CardContent className="pt-4 pb-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3 min-w-0">
-            <AvatarComponent name={entry.actor.name} image={entry.actor.avatar} />
+            <AvatarComponent name={entry.actor?.name || entry.actor?.source} image={entry.actor.avatar} />
             <div className="min-w-0">
-              <p className="text-sm font-medium leading-tight truncate">{entry.actor.name}</p>
+              <p className="text-sm font-medium leading-tight truncate">{entry.actor.name || entry.actor.source}</p>
               <p className="text-xs text-muted-foreground">{fmtDate(entry.createdAt)}</p>
             </div>
           </div>
@@ -1551,13 +1552,13 @@ function DetailPanel({ entry }: { entry: AuditEntry }) {
           <table className="text-xs w-full">
             <tbody>
               {[
-                ["Name", entry.actor.name],
-                ["Email", entry.actor.email],
-                ["Role", entry.actor.role],
-                ["Category", entry.category],
+                ["Name", entry.actor.name || "-"],
+                ["Email", entry.actor.email || "-"],
+                ["Role", entry.actor.role || "-"],
+                ["Category", entry.category ],
                 ["Status", entry.outcome.status],
                 ["Created", fmtDate(entry.createdAt)],
-                ["ID", entry.actor.id],
+                ["ID", entry.actor.id || "-"],
               ].map(([label, val]) => (
                 <tr key={label}>
                   <td className="text-muted-foreground py-1 w-24 align-top">{label}</td>
@@ -1569,7 +1570,7 @@ function DetailPanel({ entry }: { entry: AuditEntry }) {
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Context</p>
-          <ContextViewer context={entry.context} />
+          {entry.context ? <ContextViewer context={entry.context} />: "-"}
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Error</p>
@@ -1597,10 +1598,10 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
       <TableRow className="hover:bg-muted/40 transition-colors hidden lg:table-row">
         <TableCell>
           <div className="flex items-center gap-2">
-            <AvatarComponent name={entry.actor.name} image={entry.actor.avatar} />
+            <AvatarComponent name={entry.actor?.name || entry.actor.source} image={entry.actor.avatar} />
             <div>
-              <p className="text-xs font-medium leading-tight">{entry.actor.name}</p>
-              <p className="text-[11px] text-muted-foreground">{entry.actor.email}</p>
+              <p className="text-xs font-medium leading-tight">{entry.actor?.name || entry.actor.source}</p>
+              <p className="text-[11px] text-muted-foreground">{entry.actor.email || ""}</p>
             </div>
           </div>
         </TableCell>
@@ -1633,10 +1634,10 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
           onClick={() => setOpen((o) => !o)}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <AvatarComponent name={entry.actor.name} image={entry.actor.avatar} />
+            <AvatarComponent name={entry.actor?.name || entry.actor.source} image={entry.actor.avatar} />
             <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{entry.actor.name}</p>
-              <p className="text-[11px] text-muted-foreground truncate">{entry.actor.email}</p>
+              <p className="text-sm font-medium truncate">{entry.actor?.name || entry.actor.source}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{entry.actor.email || ""}</p>
               <div className="flex flex-wrap gap-1.5 mt-1.5">
                 <Badge variant="action">{entry.action}</Badge>
                 <Badge variant="category">{entry.category}</Badge>
@@ -1779,7 +1780,7 @@ const AuditPage = () => {
     page, limit, startDateTime, endDateTime, category, action, order, outComeStatus,
   );
  
-  const entries: AuditEntry[] = data?.data ?? [];
+  const entries: AuditEntry[] = data?.data ?? [];  
   const total: number = data?.totalDocuments ?? 0;
   const totalPages = data?.totalPages ?? 1;
  

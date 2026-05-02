@@ -2,14 +2,11 @@ from typing import List, Optional
 import asyncio
 from fastmcp import FastMCP
 import pymongo
-from llama_index.core import Settings
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 from functions import get_retriever
-from constants import DB_NAME, COLLECTION_POP, COLLECTION_QA, EMBEDDING_MODEL, MONGODB_URI
+from constants import DB_NAME, COLLECTION_POP, COLLECTION_QA, MONGODB_URI
 from functions import process_nodes_pop, process_nodes_qa
 from models import ContextPOP, ContextQuestionAnswerPair, POPComplianceNotice, POPContextResponse
-from llama_index.core.settings import Settings
 from chemical_guard import (
     analyze_text_for_chemical_compliance,
     filter_pop_contexts_for_chemical_compliance,
@@ -23,10 +20,6 @@ RESPONSE_GUIDANCE = '''* If retrieved context is relevant and sufficient:
               "# Your query has also been shared with an expert for review. It will be processed within 2 hours. Please ask the same query after 2 hours."
           * If retrieved context is insufficient, respond:
             "# We do not have sufficient information to answer your query at the moment. Your query has been transferred to an expert and will be processed within 2 hours. Please ask the same query after 2 hours."'''
-
-Settings.embed_model = HuggingFaceEmbedding(
-    model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
-)
 
 client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_URI, tlsAllowInvalidCertificates=True)
 

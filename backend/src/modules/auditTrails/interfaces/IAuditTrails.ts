@@ -76,15 +76,17 @@ export enum OutComeStatus {
   PARTIAL = 'PARTIAL',
 }
 
+
 export interface ModeratorAuditTrail {
   category: AuditCategory;
   action: AuditAction;
   actor: {
-    id: string | ObjectId;
-    name: string;
-    email: string;
+    id?: string | ObjectId;
+    name?: string;
+    email?: string;
     role?: string;
     avatar?: string;
+    source?: string
   };
 
   context?: Record<string, any>;
