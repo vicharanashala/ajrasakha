@@ -1,5 +1,6 @@
 import {IContext} from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
+import { ContextResponseDto } from '#root/modules/context/dtos/ContextResponseDto.js';
 
 /**
  * Interface representing a repository for context-related operations.
@@ -22,5 +23,5 @@ export interface IContextRepository {
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to the context if found, or null if not found.
    */
-  getById(contextId: string, session?: ClientSession): Promise<IContext | null>;
+  getById(contextId: string, session?: ClientSession): Promise<ContextResponseDto | null>;
 }

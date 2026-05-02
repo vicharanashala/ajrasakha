@@ -7,6 +7,8 @@ import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
 import {instanceToPlain, plainToInstance} from 'class-transformer';
+import { ContextResponseDto } from '#root/modules/context/dtos/ContextResponseDto.js';
+import { getProjectionFromDto } from '#root/shared/utils/projection.js';
 
 @injectable()
 export class ContextRepository implements IContextRepository {
@@ -51,7 +53,7 @@ export class ContextRepository implements IContextRepository {
   async getById(
     contextId: string,
     session?: ClientSession,
-  ): Promise<IContext | null> {
+  ): Promise<ContextResponseDto | null> {
     try {
       await this.init();
 
@@ -59,19 +61,23 @@ export class ContextRepository implements IContextRepository {
         throw new BadRequestError('Invalid or missing contextId');
       }
 
+      const projection = getProjectionFromDto(ContextResponseDto);
       const context = await this.ContextCollection.findOne(
         {
           _id: new ObjectId(contextId),
         },
-        {session},
+        {session, projection},
       );
 
       if (!context) return null;
 
-      return {
+      // Transform and return plain object to ensure only exposed fields are sent
+      const instance = plainToInstance(ContextResponseDto, {
         ...context,
-        _id: context._id?.toString(),
-      } as IContext;
+        _id: context._id.toString()
+      }, { excludeExtraneousValues: true });
+      
+      return instanceToPlain(instance) as any;
       
     } catch (error) {
       throw new InternalServerError(

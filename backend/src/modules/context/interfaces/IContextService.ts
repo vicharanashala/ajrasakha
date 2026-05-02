@@ -1,4 +1,5 @@
 import { IContext } from '#root/shared/interfaces/models.js';
+import { ContextResponseDto } from '../dtos/ContextResponseDto.js';
 
 export interface IContextService {
   /**
@@ -14,5 +15,5 @@ export interface IContextService {
   /**
    * Fetch context by ID
    */
-  getById(contextId: string): Promise<IContext | null>;
+  getById(contextId: string): Promise<ContextResponseDto | null>;
 }

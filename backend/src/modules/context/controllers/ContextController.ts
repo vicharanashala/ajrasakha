@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import {
   JsonController,
   Post,
+  Get,
+  Params,
   Body,
   HttpCode,
   CurrentUser,
@@ -9,6 +11,7 @@ import {
   Req,
   UploadedFile,
   UseBefore,
+  BadRequestError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -16,7 +19,8 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IUser} from '#root/shared/index.js';
 import multer from 'multer';
-import { ContextResponse } from '../classes/validators/ContextValidator.js';
+import { ContextResponse, ContextIdParam } from '../classes/validators/ContextValidator.js';
+import { ContextResponseDto } from '../dtos/ContextResponseDto.js';
 import { ContextService } from '../services/ContextService.js';
 import { IContextService } from '../interfaces/IContextService.js';
 
@@ -69,5 +73,27 @@ export class ContextController {
     const {transcript} = body;
     const userId = user._id.toString();
     return this.contextService.addContext(userId, transcript);
+  }
+
+  @OpenAPI({
+    summary: 'Get context by ID',
+    description: 'Retrieves a context by its ID.',
+  })
+  @ResponseSchema(ContextResponseDto, {
+    statusCode: 200,
+    description: 'Context retrieved successfully',
+  })
+  @Get('/:contextId')
+  @HttpCode(200)
+  @Authorized()
+  async getContextById(
+    @Params() params: ContextIdParam,
+  ): Promise<ContextResponseDto> {
+    const {contextId} = params;
+    const context = await this.contextService.getById(contextId);
+    if (!context) {
+      throw new BadRequestError(`Context with ID ${contextId} not found`);
+    }
+    return context;
   }
 }

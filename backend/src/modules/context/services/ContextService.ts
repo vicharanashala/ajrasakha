@@ -7,6 +7,7 @@ import {IContext} from '#root/shared/interfaces/models.js';
 import {InternalServerError, BadRequestError} from 'routing-controllers';
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 import { IContextService } from '../interfaces/IContextService.js';
+import { ContextResponseDto } from '../dtos/ContextResponseDto.js';
 
 @injectable()
 export class ContextService extends BaseService implements IContextService {
@@ -50,7 +51,7 @@ export class ContextService extends BaseService implements IContextService {
     }
   }
 
-  async getById(contextId: string): Promise<IContext | null> {
+  async getById(contextId: string): Promise<ContextResponseDto | null> {
     try {
       if (!contextId) {
         throw new BadRequestError('ContextId is required');

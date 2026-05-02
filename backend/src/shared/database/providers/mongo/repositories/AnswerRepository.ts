@@ -7,13 +7,13 @@ import {
   PreviousAnswersItem,
   IReroute
 } from '#root/shared/interfaces/models.js';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {inject} from 'inversify';
-import {ClientSession, Collection, ObjectId} from 'mongodb';
-import {MongoDatabase} from '../MongoDatabase.js';
-import {isValidObjectId} from '#root/utils/isValidObjectId.js';
-import {BadRequestError, InternalServerError} from 'routing-controllers';
-import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { inject } from 'inversify';
+import { ClientSession, Collection, ObjectId } from 'mongodb';
+import { MongoDatabase } from '../MongoDatabase.js';
+import { isValidObjectId } from '#root/utils/isValidObjectId.js';
+import { BadRequestError, InternalServerError } from 'routing-controllers';
+import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {
   Analytics,
   AnalyticsItem,
@@ -22,10 +22,10 @@ import {
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { SubmissionResponse } from '#root/modules/answer/classes/validators/AnswerValidator.js';
 
-import {BaseRepository} from './BaseRepository.js';
-import {BaseAnswerDto} from '#root/modules/answer/dtos/AnswerResponseDto.js';
-import {getProjectionFromDto} from '#root/shared/utils/projection.js';
-import {injectable} from 'inversify';
+import { BaseRepository } from './BaseRepository.js';
+import { BaseAnswerDto } from '#root/modules/answer/dtos/AnswerResponseDto.js';
+import { getProjectionFromDto } from '#root/shared/utils/projection.js';
+import { injectable } from 'inversify';
 
 @injectable()
 export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswerRepository {
@@ -67,8 +67,8 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
     session?: ClientSession,
     status?: string,
     remarks?: string,
-    type?:string,
-  ): Promise<{insertedId: string}> {
+    type?: string,
+  ): Promise<{ insertedId: string }> {
     try {
       await this.init();
       if (!questionId || !isValidObjectId(questionId)) {
@@ -91,14 +91,14 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
         remarks,
         status,
         embedding,
-        reRouted:type ? true : false,
+        reRouted: type ? true : false,
         sources,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      const result = await this.AnswerCollection.insertOne(doc, {session});
+      const result = await this.AnswerCollection.insertOne(doc, { session });
 
-      return {insertedId: result.insertedId.toString()};
+      return { insertedId: result.insertedId.toString() };
     } catch (error) {
       throw new InternalServerError(
         `Error while adding answer, More/ ${error}`,
@@ -112,14 +112,14 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
     sources: SourceItem[],
     embedding: number[],
     session?: ClientSession,
-  ): Promise<{insertedId: string}> {
+  ): Promise<{ insertedId: string }> {
     try {
       await this.init();
-  
+
       if (!questionId || !isValidObjectId(questionId)) {
         throw new BadRequestError('Invalid or missing questionId');
       }
-  
+
       const doc: IAnswer = {
         questionId: new ObjectId(questionId),
         authorId: new ObjectId(userId),
@@ -135,10 +135,10 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-  
-      const result = await this.AnswerCollection.insertOne(doc, {session});
-  
-      return {insertedId: result.insertedId.toString()};
+
+      const result = await this.AnswerCollection.insertOne(doc, { session });
+
+      return { insertedId: result.insertedId.toString() };
     } catch (error) {
       throw new InternalServerError(
         `Error while adding ajrasakha answer, More/ ${error}`,
@@ -158,13 +158,13 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
       }
 
       const answers = await this.AnswerCollection.find(
-        {questionId: new ObjectId(questionId)},
+        { questionId: new ObjectId(questionId) },
         {
           projection: getProjectionFromDto(BaseAnswerDto),
           session,
         },
       )
-        .sort({createdAt: 1})
+        .sort({ createdAt: 1 })
         .toArray();
 
       return answers.map(a => ({
@@ -224,7 +224,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
           authorId: new ObjectId(authorId),
           questionId: new ObjectId(questionId),
         },
-        {session},
+        { session },
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch answer, More/ ${error}`);
@@ -246,7 +246,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
       const role = user.role;
       if (role === 'moderator') {
         const submissions = await this.AnswerCollection.aggregate([
-          {$match: {approvedBy: new ObjectId(userId)}},
+          { $match: { approvedBy: new ObjectId(userId) } },
           {
             $lookup: {
               from: 'questions',
@@ -256,19 +256,19 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             },
           },
 
-          {$unwind: {path: '$question', preserveNullAndEmptyArrays: true}},
+          { $unwind: { path: '$question', preserveNullAndEmptyArrays: true } },
           {
             $group: {
               _id: '$question._id',
-              text: {$first: '$question.question'},
-              createdAt: {$first: '$question.createdAt'},
-              updatedAt: {$first: '$question.updatedAt'},
-              totalAnswersCount: {$sum: 1},
-              questionStatus: {$first: '$question.status'},
+              text: { $first: '$question.question' },
+              createdAt: { $first: '$question.createdAt' },
+              updatedAt: { $first: '$question.updatedAt' },
+              totalAnswersCount: { $sum: 1 },
+              questionStatus: { $first: '$question.status' },
               responses: {
                 $push: {
                   answer: '$answer',
-                  id: {$toString: '$_id'},
+                  id: { $toString: '$_id' },
                   isFinalAnswer: '$isFinalAnswer',
                   createdAt: '$createdAt',
                   answerStatus: '$status',
@@ -276,10 +276,10 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
               },
             },
           },
-          {$match: {_id: {$ne: null}}},
-          {$sort: {updatedAt: -1}},
-          {$skip: skip},
-          {$limit: limit},
+          { $match: { _id: { $ne: null } } },
+          { $sort: { updatedAt: -1 } },
+          { $skip: skip },
+          { $limit: limit },
           {
             $project: {
               _id: 1,
@@ -308,7 +308,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             },
           },
           // 1️⃣ Unwind history to process each phase
-          {$unwind: '$history'},
+          { $unwind: '$history' },
 
           // 2️⃣ Filter only phases performed by the current user
 
@@ -317,17 +317,17 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
               'history.updatedBy': new ObjectId(userId),
               $or: [
                 // ✅ Include all except "in-review"
-                {'history.status': {$ne: 'in-review'}},
+                { 'history.status': { $ne: 'in-review' } },
 
                 // ✅ Include "in-review" only if it has an answer / approvedAnswer / rejectedAnswer
                 {
                   $and: [
-                    {'history.status': 'in-review'},
+                    { 'history.status': 'in-review' },
                     {
                       $or: [
-                        {'history.answer': {$exists: true, $ne: null}},
-                        {'history.approvedAnswer': {$exists: true, $ne: null}},
-                        {'history.rejectedAnswer': {$exists: true, $ne: null}},
+                        { 'history.answer': { $exists: true, $ne: null } },
+                        { 'history.approvedAnswer': { $exists: true, $ne: null } },
+                        { 'history.rejectedAnswer': { $exists: true, $ne: null } },
                       ],
                     },
                   ],
@@ -345,7 +345,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
               as: 'question',
             },
           },
-          {$unwind: {path: '$question', preserveNullAndEmptyArrays: true}},
+          { $unwind: { path: '$question', preserveNullAndEmptyArrays: true } },
 
           // 4️⃣ Lookup all related answers (answer, approvedAnswer, rejectedAnswer)
           {
@@ -361,9 +361,9 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                   $match: {
                     $expr: {
                       $or: [
-                        {$eq: ['$_id', '$$answerId']},
-                        {$eq: ['$_id', '$$approvedAnswerId']},
-                        {$eq: ['$_id', '$$rejectedAnswerId']},
+                        { $eq: ['$_id', '$$answerId'] },
+                        { $eq: ['$_id', '$$approvedAnswerId'] },
+                        { $eq: ['$_id', '$$rejectedAnswerId'] },
                       ],
                     },
                   },
@@ -392,8 +392,8 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                 $cond: [
                   {
                     $and: [
-                      {$ifNull: ['$history.rejectedAnswer', false]}, // previous rejection exists
-                      {$ifNull: ['$history.answer', false]}, // new answer created
+                      { $ifNull: ['$history.rejectedAnswer', false] }, // previous rejection exists
+                      { $ifNull: ['$history.answer', false] }, // new answer created
                     ],
                   },
                   {
@@ -404,7 +404,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                           $filter: {
                             input: '$answerDetails',
                             as: 'a',
-                            cond: {$eq: ['$$a._id', '$history.answer']},
+                            cond: { $eq: ['$$a._id', '$history.answer'] },
                           },
                         },
                         0,
@@ -417,8 +417,8 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                         {
                           // CASE 1️⃣: current document has a reasonForRejection
                           $and: [
-                            {$ne: ['$history.reasonForRejection', null]},
-                            {$ne: ['$history.reasonForRejection', '']},
+                            { $ne: ['$history.reasonForRejection', null] },
+                            { $ne: ['$history.reasonForRejection', ''] },
                           ],
                         },
                         '$history.reasonForRejection',
@@ -456,8 +456,8 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                                         as: 'r',
                                         cond: {
                                           $and: [
-                                            {$ne: ['$$r', null]},
-                                            {$ne: ['$$r', '']},
+                                            { $ne: ['$$r', null] },
+                                            { $ne: ['$$r', ''] },
                                           ],
                                         },
                                       },
@@ -480,7 +480,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
               // 🔴 Rejected answer document
               rejectedDoc: {
                 $cond: [
-                  {$ifNull: ['$history.rejectedAnswer', false]},
+                  { $ifNull: ['$history.rejectedAnswer', false] },
                   {
                     status: 'rejected',
                     reasonForRejection: {
@@ -521,7 +521,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                           $filter: {
                             input: '$answerDetails',
                             as: 'a',
-                            cond: {$eq: ['$$a._id', '$history.rejectedAnswer']},
+                            cond: { $eq: ['$$a._id', '$history.rejectedAnswer'] },
                           },
                         },
                         0,
@@ -535,7 +535,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
               // 🟢 Approved answer document
               approvedDoc: {
                 $cond: [
-                  {$ifNull: ['$history.approvedAnswer', false]},
+                  { $ifNull: ['$history.approvedAnswer', false] },
                   {
                     status: 'approved',
                     answer: {
@@ -544,7 +544,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                           $filter: {
                             input: '$answerDetails',
                             as: 'a',
-                            cond: {$eq: ['$$a._id', '$history.approvedAnswer']},
+                            cond: { $eq: ['$$a._id', '$history.approvedAnswer'] },
                           },
                         },
                         0,
@@ -560,8 +560,8 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                 $cond: [
                   {
                     $and: [
-                      {$not: [{$ifNull: ['$history.rejectedAnswer', false]}]},
-                      {$not: [{$ifNull: ['$history.approvedAnswer', false]}]},
+                      { $not: [{ $ifNull: ['$history.rejectedAnswer', false] }] },
+                      { $not: [{ $ifNull: ['$history.approvedAnswer', false] }] },
                     ],
                   },
                   {
@@ -569,7 +569,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                       $cond: [
                         {
                           $eq: [
-                            {$arrayElemAt: ['$queue', 0]},
+                            { $arrayElemAt: ['$queue', 0] },
                             new ObjectId(userId),
                           ],
                         },
@@ -583,7 +583,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                           $filter: {
                             input: '$answerDetails',
                             as: 'a',
-                            cond: {$eq: ['$$a._id', '$history.answer']},
+                            cond: { $eq: ['$$a._id', '$history.answer'] },
                           },
                         },
                         0,
@@ -601,18 +601,18 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             $project: {
               docs: {
                 $setUnion: [
-                  {$cond: [{$not: ['$approvedDoc']}, [], ['$approvedDoc']]},
-                  {$cond: [{$not: ['$rejectedDoc']}, [], ['$rejectedDoc']]},
+                  { $cond: [{ $not: ['$approvedDoc'] }, [], ['$approvedDoc']] },
+                  { $cond: [{ $not: ['$rejectedDoc'] }, [], ['$rejectedDoc']] },
                   {
                     $cond: [
-                      {$not: ['$updatedAnswerDoc']},
+                      { $not: ['$updatedAnswerDoc'] },
                       [],
                       ['$updatedAnswerDoc'],
                     ],
                   },
                   {
                     $cond: [
-                      {$not: ['$createdOrReviewedDoc']},
+                      { $not: ['$createdOrReviewedDoc'] },
                       [],
                       ['$createdOrReviewedDoc'],
                     ],
@@ -625,7 +625,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
           },
 
           // 7️⃣ Unwind the combined docs array
-          {$unwind: '$docs'},
+          { $unwind: '$docs' },
 
           // 8️⃣ Final projection
           {
@@ -637,7 +637,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
               questionStatus: '$question.status',
               responses: [
                 {
-                  id: {$toString: '$docs.answer._id'},
+                  id: { $toString: '$docs.answer._id' },
                   answer: '$docs.answer.answer',
                   sources: '$docs.answer.sources',
                   status: '$docs.status',
@@ -653,7 +653,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             $addFields: {
               answerUpdatedAt: {
                 $ifNull: [
-                  {$arrayElemAt: ['$responses.updatedAt', 0]},
+                  { $arrayElemAt: ['$responses.updatedAt', 0] },
                   '$updatedAt', // fallback to history.updatedAt
                 ],
               },
@@ -663,7 +663,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                     {
                       case: {
                         $eq: [
-                          {$arrayElemAt: ['$responses.status', 0]},
+                          { $arrayElemAt: ['$responses.status', 0] },
                           'Answer Created',
                         ],
                       },
@@ -672,7 +672,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                     {
                       case: {
                         $eq: [
-                          {$arrayElemAt: ['$responses.status', 0]},
+                          { $arrayElemAt: ['$responses.status', 0] },
                           'approved',
                         ],
                       },
@@ -681,7 +681,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                     {
                       case: {
                         $eq: [
-                          {$arrayElemAt: ['$responses.status', 0]},
+                          { $arrayElemAt: ['$responses.status', 0] },
                           'reviewed',
                         ],
                       },
@@ -690,7 +690,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                     {
                       case: {
                         $eq: [
-                          {$arrayElemAt: ['$responses.status', 0]},
+                          { $arrayElemAt: ['$responses.status', 0] },
                           'rejected',
                         ],
                       },
@@ -699,7 +699,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
                     {
                       case: {
                         $eq: [
-                          {$arrayElemAt: ['$responses.status', 0]},
+                          { $arrayElemAt: ['$responses.status', 0] },
                           'answer created',
                         ],
                       },
@@ -713,9 +713,9 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
           },
 
           // 9️⃣ Sort & paginate
-          {$sort: {updatedAt: -1, statusPriority: 1}},
-          {$skip: skip},
-          {$limit: limit},
+          { $sort: { updatedAt: -1, statusPriority: 1 } },
+          { $skip: skip },
+          { $limit: limit },
           {
             $project: {
               _id: 1,
@@ -761,7 +761,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
         const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId);
 
         if (isEmail) {
-          const user = await this.usersCollection.findOne({email: userId});
+          const user = await this.usersCollection.findOne({ email: userId });
           if (user) userObjectId = user._id;
         } else {
           // Treat it as an ObjectId
@@ -797,10 +797,10 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             as: 'question',
           },
         },
-        {$unwind: '$question'},
+        { $unwind: '$question' },
 
         // ✅ Date filter (works for both cases)
-        ...(Object.keys(dateMatch).length > 0 ? [{$match: dateMatch}] : []),
+        ...(Object.keys(dateMatch).length > 0 ? [{ $match: dateMatch }] : []),
 
         // ✅ If user selected a specific user → restrict questions to that user
         ...(userId !== 'all'
@@ -813,16 +813,16 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
               },
 
               // Sort latest answers first so we can pick the final/latest one
-                {$sort: {createdAt: -1}},
+              { $sort: { createdAt: -1 } },
 
               // ✅ Group → get only the latest answer for each question
               {
                 $group: {
                   _id: '$questionId',
-                    latestAnswer: {$first: '$$ROOT'},
+                  latestAnswer: { $first: '$$ROOT' },
                 },
               },
-                {$replaceRoot: {newRoot: '$latestAnswer'}}, // flatten result
+              { $replaceRoot: { newRoot: '$latestAnswer' } }, // flatten result
             ]
             : [
               {
@@ -833,16 +833,16 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
               },
 
               // Sort latest answers first so we can pick the final/latest one
-                {$sort: {createdAt: -1}},
+              { $sort: { createdAt: -1 } },
 
               // ✅ Group → get only the latest answer for each question
               {
                 $group: {
                   _id: '$questionId',
-                    latestAnswer: {$first: '$$ROOT'},
+                  latestAnswer: { $first: '$$ROOT' },
                 },
               },
-                {$replaceRoot: {newRoot: '$latestAnswer'}}, // flatten result
+              { $replaceRoot: { newRoot: '$latestAnswer' } }, // flatten result
             ]
           : status !== 'all'
             ? [
@@ -856,7 +856,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             : []),
 
         // ✅ Sort final results newest first (applies to both cases)
-        {$sort: {createdAt: -1}},
+        { $sort: { createdAt: -1 } },
       ]).toArray();
       const finalizedSubmissions = submissions.map(sub => ({
         id: sub._id.toString(),
@@ -913,7 +913,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
 
       const totalInreviewQuestionsCount =
         await this.QuestionCollection.countDocuments({
-          status: {$in: ['in-review']},
+          status: { $in: ['in-review'] },
         });
       const totalQuestionsCount = await this.QuestionCollection.countDocuments(
         {},
@@ -933,7 +933,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
     answerId: string,
     updates: Partial<IAnswer>,
     session?: ClientSession,
-  ): Promise<{modifiedCount: number}> {
+  ): Promise<{ modifiedCount: number }> {
     try {
       await this.init();
 
@@ -945,12 +945,12 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
       }
 
       const result = await this.AnswerCollection.updateOne(
-        {_id: new ObjectId(answerId)},
-        {$set: {...updates, updatedAt: new Date()}},
-        {session},
+        { _id: new ObjectId(answerId) },
+        { $set: { ...updates, updatedAt: new Date() } },
+        { session },
       );
 
-      return {modifiedCount: result.modifiedCount};
+      return { modifiedCount: result.modifiedCount };
     } catch (error) {
       throw new InternalServerError(
         `Error while updating answer, More/ ${error}`,
@@ -990,7 +990,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
   async deleteAnswer(
     answerId: string,
     session?: ClientSession,
-  ): Promise<{deletedCount: number}> {
+  ): Promise<{ deletedCount: number }> {
     try {
       await this.init();
 
@@ -999,11 +999,11 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
       }
 
       const result = await this.AnswerCollection.deleteOne(
-        {_id: new ObjectId(answerId)},
-        {session},
+        { _id: new ObjectId(answerId) },
+        { session },
       );
 
-      return {deletedCount: result.deletedCount};
+      return { deletedCount: result.deletedCount };
     } catch (error) {
       throw new InternalServerError(
         `Error while deleting answer, More/ ${error}`,
@@ -1019,8 +1019,8 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
       await this.init();
 
       const result = await this.AnswerCollection.findOneAndUpdate(
-        {_id: new ObjectId(answerId)},
-        {$inc: {approvalCount: 1}},
+        { _id: new ObjectId(answerId) },
+        { $inc: { approvalCount: 1 } },
         {
           session,
           returnDocument: 'after',
@@ -1046,8 +1046,8 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
     try {
       await this.init();
       await this.AnswerCollection.deleteMany(
-        {questionId: new ObjectId(questionId)},
-        {session},
+        { questionId: new ObjectId(questionId) },
+        { session },
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1062,11 +1062,11 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
     limit: number,
     search?: string,
     session?: ClientSession,
-  ): Promise<{faqs: any[]; totalFaqs: number}> {
+  ): Promise<{ faqs: any[]; totalFaqs: number }> {
     try {
       await this.init();
       const skip = (page - 1) * limit;
-      const filter: any = {isFinalAnswer: true};
+      const filter: any = { isFinalAnswer: true };
       if (userId) {
         filter.approvedBy = new ObjectId(userId);
       }
@@ -1076,7 +1076,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
       // }
 
       const pipeline: any[] = [
-        {$match: filter},
+        { $match: filter },
 
         // Lookup Question
         {
@@ -1087,7 +1087,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             as: 'question',
           },
         },
-        {$unwind: {path: '$question', preserveNullAndEmptyArrays: true}},
+        { $unwind: { path: '$question', preserveNullAndEmptyArrays: true } },
 
         // Lookup User (author)
         {
@@ -1098,9 +1098,9 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             as: 'moderator',
           },
         },
-        {$unwind: {path: '$moderator', preserveNullAndEmptyArrays: true}},
-        {$skip: skip},
-        {$limit: limit},
+        { $unwind: { path: '$moderator', preserveNullAndEmptyArrays: true } },
+        { $skip: skip },
+        { $limit: limit },
       ];
 
       // const pipeline: any[] = [
@@ -1136,7 +1136,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
           }
           : null,
       }));
-      return {faqs: formattedFaqs, totalFaqs};
+      return { faqs: formattedFaqs, totalFaqs };
       // if(userId){
       //   const faqs = await this.AnswerCollection.find({isFinalAnswer:true,approvedBy:new ObjectId(userId)}).skip(skip).limit(limit).toArray()
       //   const totalFaqs = await this.AnswerCollection.countDocuments({isFinalAnswer:true,approvedBy:new ObjectId(userId)})
@@ -1158,7 +1158,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
     answerId: string,
     updates: Partial<IAnswer>,
     session?: ClientSession,
-  ): Promise<{modifiedCount: number}> {
+  ): Promise<{ modifiedCount: number }> {
     try {
       await this.init();
 
@@ -1170,12 +1170,12 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
       }
 
       const result = await this.AnswerCollection.updateOne(
-        {_id: new ObjectId(answerId)},
-        {$set: {...updates, updatedAt: new Date()}},
-        {session},
+        { _id: new ObjectId(answerId) },
+        { $set: { ...updates, updatedAt: new Date() } },
+        { session },
       );
 
-      return {modifiedCount: result.modifiedCount};
+      return { modifiedCount: result.modifiedCount };
     } catch (error) {
       throw new InternalServerError(
         `Error while updating answer, More/ ${error}`,
@@ -1195,7 +1195,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
         {
           $group: {
             _id: '$status',
-            count: {$sum: 1},
+            count: { $sum: 1 },
           },
         },
         {
@@ -1206,7 +1206,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
           },
         },
       ],
-      {session},
+      { session },
     ).toArray();
 
     const statusMap: Record<string, string> = {
@@ -1230,7 +1230,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
-  ): Promise<{analytics: Analytics}> {
+  ): Promise<{ analytics: Analytics }> {
     await this.init();
 
     const filterDate: any = {};
@@ -1249,7 +1249,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
     }
 
     const pipeline = [
-      {$match: matchStage},
+      { $match: matchStage },
 
       {
         $lookup: {
@@ -1259,11 +1259,11 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
           as: 'questionDetails',
         },
       },
-      {$unwind: '$questionDetails'},
+      { $unwind: '$questionDetails' },
 
       {
         $match: {
-          'questionDetails.details': {$exists: true},
+          'questionDetails.details': { $exists: true },
         },
       },
 
@@ -1271,10 +1271,10 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
       {
         $group: {
           _id: '$questionDetails.details.crop',
-          count: {$sum: 1},
+          count: { $sum: 1 },
         },
       },
-      {$project: {name: '$_id', count: 1, _id: 0}},
+      { $project: { name: '$_id', count: 1, _id: 0 } },
     ];
 
     // Run first aggregation for cropData
@@ -1289,12 +1289,12 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
         {
           $group: {
             _id: '$questionDetails.details.state',
-            count: {$sum: 1},
+            count: { $sum: 1 },
           },
         },
-        {$project: {name: '$_id', count: 1, _id: 0}},
+        { $project: { name: '$_id', count: 1, _id: 0 } },
       ],
-      {session},
+      { session },
     ).toArray()) as AnalyticsItem[];
 
     // Domain Data
@@ -1304,12 +1304,12 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
         {
           $group: {
             _id: '$questionDetails.details.domain',
-            count: {$sum: 1},
+            count: { $sum: 1 },
           },
         },
-        {$project: {name: '$_id', count: 1, _id: 0}},
+        { $project: { name: '$_id', count: 1, _id: 0 } },
       ],
-      {session},
+      { session },
     ).toArray()) as AnalyticsItem[];
 
     const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
@@ -1336,7 +1336,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
     page: number,
     limit: number,
     dateRange?: { from?: string; to?: string },
-    selectedHistoryId?:string,
+    selectedHistoryId?: string,
     session?: ClientSession,
   ) {
     await this.init();
@@ -1607,8 +1607,8 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
       await this.init();
 
       const result = await this.AnswerCollection.findOneAndUpdate(
-        {_id: new ObjectId(answerId)},
-        {$set:{approvalCount:0}},
+        { _id: new ObjectId(answerId) },
+        { $set: { approvalCount: 0 } },
         {
           session,
           returnDocument: 'after',
@@ -1646,14 +1646,14 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
           }
         },
-      
+
         // Count modifications per answer
         {
           $addFields: {
             modificationsCount: { $size: { $ifNull: ["$modifications", []] } }
           }
         },
-      
+
         // Group per question
         {
           $group: {
@@ -1665,7 +1665,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             latestCreatedAt: { $max: "$createdAt" }
           }
         },
-      
+
         // Month-wise metrics
         {
           $group: {
@@ -1673,14 +1673,14 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
               year: { $year: "$latestCreatedAt" },
               month: { $month: "$latestCreatedAt" }
             },
-      
+
             // Modified questions
             modifiedCount: {
               $sum: {
                 $cond: [{ $eq: ["$hasModifiedAnswer", 1] }, 1, 0]
               }
             },
-      
+
             // Rejected = multiple answers BUT no modifications
             rejectedCount: {
               $sum: {
@@ -1698,13 +1698,13 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             }
           }
         },
-      
+
         { $sort: { "_id.year": 1, "_id.month": 1 } }
       ], {
         allowDiskUse: true
       }).toArray();
-      
-      
+
+
       const questionsPerMonth = await this.QuestionCollection.aggregate([
         {
           $match: {
@@ -1722,8 +1722,8 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
         },
         { $sort: { "_id.year": 1, "_id.month": 1 } }
       ]).toArray();
-     
-     let reasonsPipeline: any[] = [
+
+      let reasonsPipeline: any[] = [
         { $unwind: "$history" },
         {
           $match: {
@@ -1733,7 +1733,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             }
           }
         },
-      
+
         {
           $project: {
             submissionCreatedAt: "$createdAt",
@@ -1742,7 +1742,7 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             reasonForRejection: "$history.reasonForRejection"
           }
         },
-      
+
         {
           $group: {
             _id: "$questionId",
@@ -1751,64 +1751,64 @@ export class AnswerRepository extends BaseRepository<IAnswer> implements IAnswer
             reasonForRejection: { $addToSet: "$reasonForRejection" }
           }
         },
-     ];
+      ];
 
-     // Removed consecutiveApprovals filter - now showing ALL modified/rejected questions
+      // Removed consecutiveApprovals filter - now showing ALL modified/rejected questions
 
-     reasonsPipeline = [
-       ...reasonsPipeline,
-       // Remove null / empty values
-       {
-         $project: {
-           questionId: "$_id",
-           createdAt: 1,
-           reasonForModification: {
-             $filter: {
-               input: "$reasonForModification",
-               as: "r",
-               cond: { $and: [{ $ne: ["$$r", null] }, { $ne: ["$$r", ""] }] }
-             }
-           },
-           reasonForRejection: {
-             $filter: {
-               input: "$reasonForRejection",
-               as: "r",
-               cond: { $and: [{ $ne: ["$$r", null] }, { $ne: ["$$r", ""] }] }
-             }
-           }
-         }
-       },
-     
-       // Join question text
-       {
-         $lookup: {
-           from: "questions",
-           localField: "questionId",
-           foreignField: "_id",
-           as: "q"
-         }
-       },
-       { $unwind: "$q" },
-     
-       {
-         $project: {
-           _id: 0,
-           question: "$q.question",
-           reasonForModification: 1,
-           reasonForRejection: 1,
-           createdAt: 1,
-         }
-       },
-       { $sort: { createdAt: 1 } }
-     ];
+      reasonsPipeline = [
+        ...reasonsPipeline,
+        // Remove null / empty values
+        {
+          $project: {
+            questionId: "$_id",
+            createdAt: 1,
+            reasonForModification: {
+              $filter: {
+                input: "$reasonForModification",
+                as: "r",
+                cond: { $and: [{ $ne: ["$$r", null] }, { $ne: ["$$r", ""] }] }
+              }
+            },
+            reasonForRejection: {
+              $filter: {
+                input: "$reasonForRejection",
+                as: "r",
+                cond: { $and: [{ $ne: ["$$r", null] }, { $ne: ["$$r", ""] }] }
+              }
+            }
+          }
+        },
 
-     const reasons = await this.QuestionSubmissionCollection.aggregate(reasonsPipeline).toArray();
-    
+        // Join question text
+        {
+          $lookup: {
+            from: "questions",
+            localField: "questionId",
+            foreignField: "_id",
+            as: "q"
+          }
+        },
+        { $unwind: "$q" },
+
+        {
+          $project: {
+            _id: 0,
+            question: "$q.question",
+            reasonForModification: 1,
+            reasonForRejection: 1,
+            createdAt: 1,
+          }
+        },
+        { $sort: { createdAt: 1 } }
+      ];
+
+      const reasons = await this.QuestionSubmissionCollection.aggregate(reasonsPipeline).toArray();
+
       if (!result) {
         throw new InternalServerError(`error in finding answers`);
       }
-      
-      return {result, questionsPerMonth, reasons};
+
+      return { result, questionsPerMonth, reasons };
     } catch (error) {
       throw new InternalServerError(
         `error in finding answers. More: ${error}`,
