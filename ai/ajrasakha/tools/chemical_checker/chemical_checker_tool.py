@@ -88,24 +88,75 @@ watcher_thread.start()
 
 @mcp.tool()
 def check_chemical_ban_status(chemicals: List[str]) -> Dict[str, Any]:
-    """Checks chemicals against the real-time banned chemicals database."""
-    result = {}
-    known_chemicals = list(_BANNED_CHEMICALS_CACHE.keys())
+    """
+    Tool for the LLM to verify the regulatory status (e.g., Banned, Restricted) of agricultural chemicals.
     
-    for chem in chemicals:
-        search_term = chem.strip().lower()
+    Use this tool whenever a user asks about a specific fertilizer, pesticide, or chemical 
+    to ensure we do not recommend prohibited substances. The tool automatically handles 
+    minor spelling mistakes (fuzzy matching), so pass the chemical names exactly as the user typed them.
+
+    Args:
+        chemicals (List[str]): A list of chemical names to check (e.g., ["Aldicarb", "Urea", "Endosulfan"]).
+
+    Returns:
+        Dict[str, Any]: A JSON object containing:
+            - 'success' (bool): True if the operation succeeded, False otherwise.
+            - 'results' (Dict[str, str]): A mapping of the queried chemical to its regulatory status.
+              Possible status values include 'Banned', 'Restricted', 'not banned/not found', 
+              or '<Status> (matched with '<correct_name>')' if a spelling mistake was corrected.
+            - 'error' (str, optional): Detailed error message if success is False.
+    """
+    
+    if not isinstance(chemicals, list):
+        log.warning(f"Invalid input type received by tool: {type(chemicals)}. Expected list.")
+        return {
+            "success": False, 
+            "error": "Invalid input format. 'chemicals' argument must be a list of strings."
+        }
         
-        if search_term in _BANNED_CHEMICALS_CACHE:
-            result[chem] = _BANNED_CHEMICALS_CACHE[search_term]
-            continue
-            
-        close_matches = difflib.get_close_matches(search_term, known_chemicals, n=1, cutoff=0.9)
+    if not chemicals:
+        return {
+            "success": True, 
+            "results": {}, 
+            "message": "No chemicals were provided in the list."
+        }
+
+    result = {}
+    
+    try:
+        known_chemicals = list(_BANNED_CHEMICALS_CACHE.keys())
         
-        if close_matches:
-            matched_chem = close_matches[0]
-            status = _BANNED_CHEMICALS_CACHE[matched_chem]
-            result[chem] = f"{status} (matched with '{matched_chem}')"
-        else:
-            result[chem] = "not banned/not found"
+        for chem in chemicals:
+            if not isinstance(chem, str):
+                result[str(chem)] = "invalid input type (not a string)"
+                continue
+                
+            search_term = chem.strip().lower()
             
-    return {"success": True, "results": result}
+            if search_term in _BANNED_CHEMICALS_CACHE:
+                result[chem] = _BANNED_CHEMICALS_CACHE[search_term]
+                continue
+                
+            close_matches = difflib.get_close_matches(search_term, known_chemicals, n=1, cutoff=0.9)
+            
+            if close_matches:
+                matched_chem = close_matches[0]
+                status = _BANNED_CHEMICALS_CACHE[matched_chem]
+                result[chem] = f"{status} (matched with '{matched_chem}')"
+            else:
+                result[chem] = "not banned/not found"
+                
+        log.info(f"Processed batch of {len(chemicals)} chemicals for ban status check.")
+        
+        return {
+            "success": True, 
+            "results": result
+        }
+        
+    except Exception as e:
+        err_msg = f"An internal system error occurred while checking chemicals: {str(e)}"
+        log.error(err_msg, exc_info=True)
+        return {
+            "success": False, 
+            "error": err_msg
+        }
