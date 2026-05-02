@@ -1512,7 +1512,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               session,
               3, // Allocate 3 experts initially when toggling on auto-allocate
             );
-            if (out.noExpertsAvailable) {
+            if (out.noExpertAvailable) {
               return {
                 message: "No submission was found for this question. A new submission has been created, but no Special Task Force experts are available."
               };
@@ -1543,7 +1543,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
         }
 
-        if (out.noExpertsAvailable) {
+        if (out.noExpertAvailable) {
             return {
               message: 'Auto-allocate enabled, but no Special Task Force experts are available',
               data: out?.data
