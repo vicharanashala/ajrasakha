@@ -690,6 +690,7 @@ export class ChatbotRepository implements IChatbotRepository {
     const result1 = result.filter(doc => {
       try {
         const isNewFlow = new Date(doc.createdAt) > cutoffDate;
+        let parsedOutput: any = null;
         const matchedContent = doc.content?.find(
           (item: any) => {
             const isRightTool =
@@ -706,9 +707,9 @@ export class ChatbotRepository implements IChatbotRepository {
 
               if (!innerText) return false;
 
-              const parsedOutput = JSON.parse(innerText);
+              parsedOutput = JSON.parse(innerText);
 
-              const isNotFailed = parsedOutput?.status.toLowerCase() !== 'failed';
+              const isNotFailed = parsedOutput?.status?.toLowerCase() !== 'failed';
 
               return  isNotFailed;
 
@@ -721,10 +722,6 @@ export class ChatbotRepository implements IChatbotRepository {
         if (!matchedContent) return false;
         if (isNewFlow) {
 
-          if (!matchedContent?.tool_call?.output) return false;
-          const outputArr = JSON.parse(matchedContent.tool_call.output);
-          const innerText = outputArr?.[0]?.text;
-          const parsedOutput = JSON.parse(innerText);
           const questionIdFromOutput = parsedOutput?.question_id;
           const isMatch = questionIdFromOutput == questionId?.toString();
           if (isMatch) {
@@ -841,6 +838,7 @@ export class ChatbotRepository implements IChatbotRepository {
     const result1 = result.filter(doc => {
       try {
         const isNewFlow = new Date(doc.createdAt) > cutoffDate;
+        let parsedOutput: any = null;
         const matchedContent = doc.content?.find(
           (item: any) => {
             const isRightTool =
@@ -857,7 +855,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
               if (!innerText) return false;
 
-              const parsedOutput = JSON.parse(innerText);
+              parsedOutput = JSON.parse(innerText);
 
               const isNotFailed = parsedOutput?.status?.toLowerCase() !== 'failed';
 
@@ -872,10 +870,6 @@ export class ChatbotRepository implements IChatbotRepository {
 
         if (!matchedContent) return false;
         if (isNewFlow) {
-          if (!matchedContent?.tool_call?.output) return false;
-          const outputArr = JSON.parse(matchedContent.tool_call.output);
-          const innerText = outputArr?.[0]?.text;
-          const parsedOutput = JSON.parse(innerText);
           const questionIdFromOutput = parsedOutput?.question_id;
           const isMatch = questionIdFromOutput == questionId?.toString();
           if (isMatch) {
