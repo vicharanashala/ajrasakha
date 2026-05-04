@@ -73,6 +73,7 @@ export interface IQuestion {
   passingRemark?:string;
   isOnHold?:boolean;
   messageId?:string;
+  phoneNumber?:string;
   /** Wall-clock moment the current hold segment started (SLA timer freezes until unhold). */
   holdAt?:Date | null;
   /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
