@@ -9,6 +9,7 @@ type Props = {
   onViewMore: (id: string) => void;
   sort: string;
   onSort: (key: string) => void;
+  onDelayedClick?: (row: ReviewRow, index: number, time: string) => void;
 };
 
 export function ReviewLevelMobileCard({
@@ -17,6 +18,7 @@ export function ReviewLevelMobileCard({
   onViewMore,
   sort,
   onSort,
+  onDelayedClick,
 }: Props) {
   return (
     <div className="rounded-xl border border-foreground/20 bg-card shadow-sm p-4">
@@ -52,7 +54,7 @@ export function ReviewLevelMobileCard({
               )}
             </button>
 
-            {renderLevelBadge(row, i)}
+            {renderLevelBadge(row, i, { onDelayedClick })}
           </div>
         ))}
       </div>

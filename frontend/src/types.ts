@@ -387,6 +387,21 @@ export interface IUserRef {
   email: string;
 }
 
+export interface IPreviousAllocation {
+  reviewerId: string;
+  reasonForChange: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IAuthorsHistory {
+  authorId: string;
+  newAuthorId: string;
+  reasonForChange: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ISubmissionHistory {
   updatedBy: IUserRef | null;
   answer: IAnswer | null;
@@ -399,7 +414,10 @@ export interface ISubmissionHistory {
 
   modifiedAnswer: string;
   reasonForLastModification: string;
-  isReroute?: boolean
+  isReroute?: boolean;
+  previousAllocations?: IPreviousAllocation[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ISubmission {
@@ -442,6 +460,7 @@ export interface IQuestionFullData {
   aiInitialAnswer?: string;
   aiApprovedAnswer?: string;
   aiApprovedSources?: SourceItem[];
+  authors_history?: IAuthorsHistory[];
 }
 
 export interface QuestionFullDataResponse {
@@ -510,6 +529,14 @@ export interface IDetailedQuestion {
   accumulatedHoldMs?: number;
   isHidden?: boolean;
   paassingRemark?: string;
+  authors_history?: IAuthorsHistory[];
+  submission?: {
+    _id: string;
+    questionId: string;
+    createdAt: string;
+    history: ISubmissionHistory[];
+    queue: IUserRef[];
+  };
 }
 
 export interface IDetailedQuestionResponse {
