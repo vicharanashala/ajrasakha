@@ -691,14 +691,36 @@ export class ChatbotRepository implements IChatbotRepository {
       try {
         const isNewFlow = new Date(doc.createdAt) > cutoffDate;
         const matchedContent = doc.content?.find(
-          (item: any) =>
-            item?.type === 'tool_call' &&
-            item?.tool_call?.name ===
-              'upload_question_to_reviewer_system_mcp_pop' || item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer',
-        );
+          (item: any) => {
+            const isRightTool =
+              item?.type === 'tool_call' &&
+              (item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_pop' ||
+                item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer');
 
+            if (!isRightTool || !item?.tool_call?.output) {
+              return false;
+            }
+            try {
+              const outputArr = JSON.parse(item.tool_call.output);
+              const innerText = outputArr?.[0]?.text;
+
+              if (!innerText) return false;
+
+              const parsedOutput = JSON.parse(innerText);
+
+              const isNotFailed = parsedOutput?.status.toLowerCase() !== 'failed';
+
+              return  isNotFailed;
+
+            } catch (error) {
+              console.error('Failed to parse tool call output in filter:', error);
+              return false;
+            }
+          }
+        );
         if (!matchedContent) return false;
         if (isNewFlow) {
+
           if (!matchedContent?.tool_call?.output) return false;
           const outputArr = JSON.parse(matchedContent.tool_call.output);
           const innerText = outputArr?.[0]?.text;
@@ -820,10 +842,32 @@ export class ChatbotRepository implements IChatbotRepository {
       try {
         const isNewFlow = new Date(doc.createdAt) > cutoffDate;
         const matchedContent = doc.content?.find(
-          (item: any) =>
-            item?.type === 'tool_call' &&
-            item?.tool_call?.name ===
-              'upload_question_to_reviewer_system_mcp_pop' || item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer',
+          (item: any) => {
+            const isRightTool =
+              item?.type === 'tool_call' &&
+              (item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_pop' ||
+                item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer');
+
+            if (!isRightTool || !item?.tool_call?.output) {
+              return false;
+            }
+            try {
+              const outputArr = JSON.parse(item.tool_call.output);
+              const innerText = outputArr?.[0]?.text;
+
+              if (!innerText) return false;
+
+              const parsedOutput = JSON.parse(innerText);
+
+              const isNotFailed = parsedOutput?.status?.toLowerCase() !== 'failed';
+
+              return  isNotFailed;
+
+            } catch (error) {
+              console.error('Failed to parse tool call output in filter:', error);
+              return false;
+            }
+          }
         );
 
         if (!matchedContent) return false;
@@ -886,6 +930,8 @@ export class ChatbotRepository implements IChatbotRepository {
     inactiveOnly = false,
     session?: ClientSession,
     userType = 'all',
+    sortBy = 'totalQuestions',
+    sortOrder = 'desc',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -997,8 +1043,21 @@ export class ChatbotRepository implements IChatbotRepository {
       // Filter to inactive users only if requested
       const finalList = inactiveOnly ? merged.filter((u) => u.totalQuestions === 0) : merged;
 
-      // Sort by totalQuestions desc
-      finalList.sort((a, b) => b.totalQuestions - a.totalQuestions);
+      // Sort based on sortBy and sortOrder parameters
+      if (sortBy === 'name') {
+        if (sortOrder === 'asc') {
+          finalList.sort((a, b) => a.name.localeCompare(b.name));
+        } else {
+          finalList.sort((a, b) => b.name.localeCompare(a.name));
+        }
+      } else {
+        // Default: totalQuestions
+        if (sortOrder === 'asc') {
+          finalList.sort((a, b) => a.totalQuestions - b.totalQuestions);
+        } else {
+          finalList.sort((a, b) => b.totalQuestions - a.totalQuestions);
+        }
+      }
 
       // Compute summary stats over the full filtered set
       const totalUsers = finalList.length;

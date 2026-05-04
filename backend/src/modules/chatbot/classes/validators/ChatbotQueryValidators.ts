@@ -92,4 +92,14 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsIn(['all', 'external', 'internal'])
   userType: 'all' | 'external' | 'internal' = 'all';
+
+  @JSONSchema({ example: 'totalQuestions', description: 'Sort by field: totalQuestions or name' })
+  @IsOptional()
+  @IsIn(['totalQuestions', 'name'])
+  sortBy: 'totalQuestions' | 'name' = 'totalQuestions';
+
+  @JSONSchema({ example: 'desc', description: 'Sort order: asc or desc' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder: 'asc' | 'desc' = 'desc';
 }

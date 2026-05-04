@@ -99,6 +99,8 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     ...initialFilters,
   }));
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState<'totalQuestions' | 'name'>('totalQuestions');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard)
   useEffect(() => {
@@ -120,6 +122,8 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     filters.profileCompleted,
     filters.inactiveOnly,
     userType,
+    sortBy,
+    sortOrder,
   );
 
   const { users, totalUsers, totalPages, activeUsers, inactiveUsers, totalQuestions } = data;
@@ -131,6 +135,18 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
 
   const handleResetFilters = () => {
     setFilters(DEFAULT_FILTERS);
+    setCurrentPage(1);
+  };
+
+  const handleSort = (newSortBy: 'totalQuestions' | 'name') => {
+    if (sortBy === newSortBy) {
+      // Toggle sort order if same field
+      setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+    } else {
+      // Change field and set default sort order
+      setSortBy(newSortBy);
+      setSortOrder(newSortBy === 'name' ? 'asc' : 'desc');
+    }
     setCurrentPage(1);
   };
 
@@ -256,17 +272,47 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               Failed to load user details. Please try again.
             </div>
           )}
-
+          
           {!isLoading && !error && (
             <div className="rounded-lg border bg-card overflow-x-auto">
               <Table className="min-w-[1600px]">
                 <TableHeader className="bg-card sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="text-center w-12">S.No</TableHead>
-                    <TableHead className="text-center">
-                      Questions Asked
+                    <TableHead 
+                      className={`text-center ${userType === 'external' ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : 'cursor-not-allowed opacity-50'} transition-colors`}
+                      onClick={() => userType === 'external' && handleSort('totalQuestions')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        Questions Asked
+                        {sortBy === 'totalQuestions' ? (
+                          <span className="text-blue-600 dark:text-blue-400">
+                            {sortOrder === 'desc' ? '↓' : '↑'}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500">
+                            ↕
+                          </span>
+                        )}
+                      </div>
                     </TableHead>
-                    <TableHead className="text-center">Name</TableHead>
+                    <TableHead 
+                      className={`text-center ${userType === 'external' ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : 'cursor-not-allowed opacity-50'} transition-colors`}
+                      onClick={() => userType === 'external' && handleSort('name')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        Name
+                        {sortBy === 'name' ? (
+                          <span className="text-blue-600 dark:text-blue-400">
+                            {sortOrder === 'desc' ? '↓' : '↑'}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500">
+                            ↕
+                          </span>
+                        )}
+                      </div>
+                    </TableHead>
                     <TableHead className="text-center">Email</TableHead>
                     <TableHead className="text-center">Farmer Name</TableHead>
                     <TableHead className="text-center">Age</TableHead>

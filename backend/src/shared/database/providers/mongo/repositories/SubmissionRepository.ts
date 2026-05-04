@@ -375,6 +375,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               'history.reasonForLastModification': 1,
               'history.createdAt': 1,
               'history.updatedAt': 1,
+              'history.previousAllocations': 1,
             },
           },
         ],

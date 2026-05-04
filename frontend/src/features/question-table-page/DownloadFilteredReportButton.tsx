@@ -35,7 +35,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
   const questionService = new QuestionService();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { data: cropsData } = useGetAllCrops();
+  const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops ?? [];
   
   const [filters, setFilters] = useState({

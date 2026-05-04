@@ -67,16 +67,17 @@ export class RequestService extends BaseService implements IRequestService{
         const moderators = await this.userRepo.findModerators();
         let message = `A new Question Flag raised QuestionId ${data.entityId}`;
         let title = 'New Flag Raised';
-        for (let mod of moderators) {
-          const notification =
-            await this.notificationRepository.addNotification(
+        await Promise.all(
+          moderators.map(mod =>
+            this.notificationRepository.addNotification(
               mod._id.toString(),
               data.entityId.toString(),
               type,
               message,
               title,
-            );
-        }
+            )
+          )
+        );
         return request;
       });
     } catch (error) {
@@ -152,21 +153,24 @@ export class RequestService extends BaseService implements IRequestService{
           session,
         );
 
-        await this.notificationRepository.addNotification(
-          requestedUserId,
-          entityId,
-          type,
-          message,
-          title,
-          session,
-        );
         const subscription =
           await this.notificationRepository.getSubscriptionByUserId(
             requestedUserId,
           );
-        await notifyUser(requestedUserId, title, subscription, async (endpoint: string) => {
-          this.notificationService.deleteExpiredSubscriptionForUser(endpoint)
-        });
+
+        await Promise.all([
+          this.notificationRepository.addNotification(
+            requestedUserId,
+            entityId,
+            type,
+            message,
+            title,
+            session,
+          ),
+          notifyUser(requestedUserId, title, subscription, async (endpoint: string) => {
+            this.notificationService.deleteExpiredSubscriptionForUser(endpoint);
+          }),
+        ]);
         return result;
       });
     } catch (error) {

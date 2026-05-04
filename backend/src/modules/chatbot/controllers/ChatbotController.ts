@@ -290,6 +290,8 @@ export class ChatbotController {
       query.profileCompleted,
       inactiveOnly,
       query.userType,
+      query.sortBy,
+      query.sortOrder,
     );
   }
 
