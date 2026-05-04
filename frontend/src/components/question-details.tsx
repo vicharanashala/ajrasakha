@@ -229,7 +229,7 @@ export const QuestionDetails = ({
             isApproving={isApproving}
           />
 
-          {question && question.source == "AJRASAKHA" && currentUser && currentUser.role != "expert" &&
+          {question && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && currentUser && currentUser.role != "expert" &&
             <MessageDetail question={question} isQuestionAllocatedToExpert={submissionExists &&
               (question?.submission?.queue?.length ?? 0) > 0} navigateToQuestionPage={navigateToQuestionPage} />
           }

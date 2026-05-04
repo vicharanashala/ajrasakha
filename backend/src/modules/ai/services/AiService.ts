@@ -15,6 +15,9 @@ export class AiService {
   private _openAIServerUrl =
     'http://' + aiConfig.openAIServerIP + ':' + aiConfig.openAIServerPort;
 
+  private _whatsAppServerUrl =
+    'http://' + aiConfig.serverIP + ':' + aiConfig.whatsAppServerPort;
+
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
@@ -263,94 +266,251 @@ export class AiService {
     }
   }
 
+  async fetchWhatsAppMessage(
+    phoneNumber: string,
+    questionId: string
+  ): Promise<{
+    messageId: string;
+    createdAt: string;
+    updatedAt: string;
+    userDetails: {
+      username: string;
+      email: string;
+      emailVerified: boolean;
+      avatar: string | null;
+    };
+    content: {
+      type: "human" | "ai" | "tool";
+      text?: string;
+      toolName?: string;
+      toolArgs?: Record<string, any>;
+      toolResponse?: any;
+    }[];
+  } | null> {
+    try {
+      // ✅ Enhanced API type based on TES.JSON
+      interface AgriFlowResponse {
+        values: {
+          messages: {
+            content: any;
+            type: "human" | "ai" | "tool";
+            name?: string;
+            tool_calls?: {
+              name: string;
+              args: Record<string, any>;
+              id: string;
+              type: string;
+            }[];
+            artifact?: {
+              structured_content?: {
+                result?: any;
+              };
+            };
+          }[];
+        };
+        metadata: {
+          user_display_name: string;
+        };
+        created_at: string;
+        checkpoint_id: string;
+      }
 
+      const fullUrl = `${this._whatsAppServerUrl}/threads/${phoneNumber}/state`;
+      console.log("Fetching WhatsApp state from:", fullUrl);
 
+      const response = await fetch(fullUrl);
 
+      if (!response.ok) {
+        console.error("Failed to fetch WhatsApp message:", response.statusText);
+        return null;
+      }
 
+      const data = (await response.json()) as AgriFlowResponse;
 
+      if (!data?.values || !Array.isArray(data.values.messages)) {
+        console.warn("Invalid API response", data);
+        return null;
+      }
 
+      const messages = data.values.messages;
 
+      // Helper to extract ID from various formats in TES.JSON
+      const extractId = (id: any): string | null => {
+        if (typeof id === 'string') return id;
+        if (!id) return null;
+        if (id.buffer && Array.isArray(id.buffer.data)) {
+          return id.buffer.data.map((b: number) => b.toString(16).padStart(2, '0')).join('');
+        }
+        if (id.$oid) return id.$oid;
+        return String(id);
+      };
 
+      /* =======================================================
+         🔹 STEP 1: FIND START INDEX USING questionId
+      ======================================================= */
 
+      let startIndex = -1;
 
+      for (let i = 0; i < messages.length; i++) {
+        const msg = messages[i];
 
+        if (msg.type === "tool" && msg.name === "upload_question_to_reviewer_system") {
+          try {
+            let extractedId: string | null = null;
 
+            // 1. Try extracting from artifact if present
+            if (msg.artifact?.structured_content?.result?.data) {
+              const resData = msg.artifact.structured_content.result.data;
+              extractedId = extractId(resData.data?._id || resData.question_id);
+            }
 
+            // 2. Fallback to parsing content
+            if (!extractedId) {
+              const textBlock = Array.isArray(msg.content)
+                ? msg.content.find((c: any) => c.type === "text")?.text
+                : (typeof msg.content === 'string' ? msg.content : null);
 
+              if (textBlock) {
+                const parsed = JSON.parse(textBlock);
+                extractedId = extractId(parsed?.data?.data?._id || parsed?.data?.data?.question_id || parsed?.question_id);
+              }
+            }
 
+            if (extractedId === questionId) {
+              // 🔹 move back to corresponding human
+              startIndex = i - 1;
 
+              while (startIndex >= 0 && messages[startIndex].type !== "human") {
+                startIndex--;
+              }
 
+              break;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+      }
 
+      if (startIndex === -1) {
+        console.warn("Question block not found for questionId:", questionId);
+        return null;
+      }
 
+      /* =======================================================
+         🔹 STEP 2: COLLECT STRUCTURED CONVERSATION
+      ======================================================= */
 
+      const structuredContent: {
+        type: "human" | "ai" | "tool";
+        text?: string;
+        toolName?: string;
+        toolArgs?: Record<string, any>;
+        toolResponse?: any;
+      }[] = [];
 
+      for (let i = startIndex; i < messages.length; i++) {
+        const msg = messages[i];
 
+        // ✅ STOP at next human (skip first)
+        if (i !== startIndex && msg.type === "human") break;
 
+        /* ---------------- HUMAN ---------------- */
+        if (msg.type === "human") {
+          structuredContent.push({
+            type: "human",
+            text: typeof msg.content === "string" ? msg.content : (Array.isArray(msg.content) ? msg.content.map((c: any) => c.text || '').join(' ') : ""),
+          });
+        }
 
+        /* ---------------- AI ---------------- */
+        else if (msg.type === "ai") {
+          // 🔹 Tool calls (Intent to call)
+          if (msg.tool_calls?.length) {
+            for (const tool of msg.tool_calls) {
+              structuredContent.push({
+                type: "tool",
+                toolName: tool.name,
+                toolArgs: tool.args,
+              });
+            }
+          }
 
+          // 🔹 AI text answer
+          if (typeof msg.content === "string") {
+            structuredContent.push({
+              type: "ai",
+              text: msg.content,
+            });
+          } else if (Array.isArray(msg.content)) {
+            const text = msg.content
+              .map((c: any) => (typeof c === "string" ? c : c?.text || ""))
+              .join(" ")
+              .trim();
 
+            if (text) {
+              structuredContent.push({
+                type: "ai",
+                text,
+              });
+            }
+          }
+        }
 
+        /* ---------------- TOOL RESPONSE ---------------- */
+        else if (msg.type === "tool") {
+          let parsedResponse: any = null;
 
+          try {
+            if (msg.artifact?.structured_content?.result) {
+              parsedResponse = msg.artifact.structured_content.result;
+            } else {
+              const textBlock = Array.isArray(msg.content)
+                ? msg.content.find((c: any) => c.type === "text")?.text
+                : (typeof msg.content === 'string' ? msg.content : null);
 
+              if (textBlock) {
+                parsedResponse = JSON.parse(textBlock);
+              } else {
+                parsedResponse = msg.content;
+              }
+            }
+          } catch {
+            parsedResponse = msg.content;
+          }
 
+          structuredContent.push({
+            type: "tool",
+            toolName: msg.name,
+            toolResponse: parsedResponse,
+          });
+        }
+      }
 
+      /* =======================================================
+         🔹 FINAL RETURN
+      ======================================================= */
 
-
-
-
-
-
-
-
-  // async getEmbedding(text: string): Promise<{embedding: number[]}> {
-  //   const response = await fetch(`${this._aiServerUrl}/embed`, {
-  //     method: 'POST',
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //     },
-  //     body: JSON.stringify({text}),
-  //   });
-
-  //   if (!response.ok) {
-  //     throw new InternalServerError(
-  //       `Failed to get embedding from AI server: ${response.statusText}`,
-  //     );
-  //   }
-
-  //   const data = (await response.json()) as {embedding: number[]};
-  //   return data;
-  // }
-
-
-  /*async getEmbedding(text: string): Promise<{ embedding: number[] } | null> {
-    const fullUrl = `${this._aiServerUrl}/embed`;
-  
-    console.log("FULL FETCH URL:", fullUrl);
-    console.log("FULL URL LENGTH:", fullUrl.length);
-    console.log("LAST CHAR CODE:", fullUrl.charCodeAt(fullUrl.length - 1));
-  
-    const response = await fetch(fullUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
-  
-    console.log("Response object:", response);
-    console.log("Response status:", response.status);
-    console.log("Response status text:", response.statusText);
-  
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.log("Embedding request failed");
-      console.log("Error status:", response.status);
-      console.log("Error body:", errorText);
+      return {
+        messageId: data.checkpoint_id || "",
+        createdAt: data.created_at
+          ? new Date(data.created_at).toISOString()
+          : "",
+        updatedAt: data.created_at
+          ? new Date(data.created_at).toISOString()
+          : "",
+        userDetails: {
+          username: data.metadata?.user_display_name || "N/A",
+          email: "<not_specified>",
+          emailVerified: false,
+          avatar: null,
+        },
+        content: structuredContent,
+      };
+    } catch (error) {
+      console.error("Error fetching WhatsApp message:", error);
       return null;
     }
-  
-    const data = (await response.json()) as { embedding: number[] };
-    console.log("Embedding received successfully");
-    console.log("Embedding length:", data?.embedding?.length);
-  
-    return data;
-  }*/
+  }
+
 }
