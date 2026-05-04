@@ -167,7 +167,7 @@ export class AnswerController {
       if (hasAnswerId) {
         prevAnswer = await this.answerService.getAnswerById(body.answerId);
       }
-      questionData = await this.questionService.getQuestionById(prevAnswer?.questionId?.toString()||body.questionId);
+      questionData = await this.questionService.getQuestionTextById(prevAnswer?.questionId?.toString()||body.questionId);
       result = await this.answerService.approveAnswer(
         userId.toString(),
         body,
