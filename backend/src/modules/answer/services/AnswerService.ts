@@ -1746,18 +1746,27 @@ answer: ${updates.answer}`;
           session,
         );
 
-        // Create submission with empty history — expert is the author
-        // and will see the pre-filled answer from the answers collection
-        const submissionData: IQuestionSubmission = {
-          questionId: new ObjectId(updates?.questionId?.toString()),
-          lastRespondedBy: new ObjectId(userId),
-          history: [],
-          queue,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-  
-        await this.questionSubmissionRepo.addSubmission(submissionData, session);
+        let submission = await this.questionSubmissionRepo.getByQuestionId(
+            updates.questionId,
+            session,
+          );
+
+        if (!submission) {
+          // Create submission with empty history — expert is the author
+          // and will see the pre-filled answer from the answers collection
+          const submissionData: IQuestionSubmission = {
+            questionId: new ObjectId(updates?.questionId?.toString()),
+            lastRespondedBy: new ObjectId(userId),
+            history: [],
+            queue,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          await this.questionSubmissionRepo.addSubmission(submissionData, session);
+        }
+
+        
   
         if (initialUsersToAllocate[0]) {
           await this.notificationService.saveTheNotifications(
