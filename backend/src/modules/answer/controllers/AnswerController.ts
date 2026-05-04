@@ -177,7 +177,7 @@ export class AnswerController {
         context: {
           ...auditPayload.context,
           questionId: prevAnswer?.questionId?.toString() || body.questionId,
-          question: questionData?.text,
+          question: questionData?.question,
         },
         changes:{
           before: {
@@ -197,7 +197,7 @@ export class AnswerController {
         context: {
           ...auditPayload.context,
           questionId: prevAnswer?.questionId?.toString() || body.questionId,
-          question: questionData?.text,
+          question: questionData?.question,
         },
         outcome: {
           status: OutComeStatus.FAILED,
