@@ -1112,11 +1112,11 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
 
-  async getQuestionTextById(questionId: string): Promise<string | null> {
+  async getQuestionDataById(questionId: string): Promise<IQuestion | null> {
     try {
       const question = await this.questionRepo.getById(questionId);
       if (!question) return null;
-      return question.text || question.question;
+      return question
     } catch (error) {
       console.error(error);
       return null;
