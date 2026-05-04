@@ -20,6 +20,7 @@ export interface FarmerProfile {
   usesAgriApps?: boolean;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
+  platform?: string;
   location?: {
     latitude: number;
     longitude: number;

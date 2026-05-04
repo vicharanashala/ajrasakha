@@ -989,6 +989,7 @@ export class ChatbotRepository implements IChatbotRepository {
           usesAgriApps: u.farmerProfile.usesAgriApps,
           highestEducatedPerson: u.farmerProfile.highestEducatedPerson,
           numberOfSmartphones: u.farmerProfile.numberOfSmartphones,
+          platform: u.farmerProfile.platform,
           location: u.farmerProfile.location,
         } : undefined,
       }));
