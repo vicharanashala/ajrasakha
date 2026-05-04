@@ -1,8 +1,8 @@
-import { IChemical } from '#root/shared/interfaces/models.js';
+import { IChemical, ICropAlias } from '#root/shared/interfaces/models.js';
 
 export interface IChemicalService {
   createChemical(
-    data: { name: string; status: 'Restricted' | 'Banned' },
+    data: { name: string; status: 'Restricted' | 'Banned'; aliases?: ICropAlias[] },
     createdBy: string,
   ): Promise<IChemical>;
 

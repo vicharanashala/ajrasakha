@@ -3,7 +3,7 @@ import {Collection, ObjectId} from 'mongodb';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {MongoDatabase} from '#root/shared/index.js';
-import {IChemical} from '#root/shared/interfaces/models.js';
+import {IChemical, ICropAlias} from '#root/shared/interfaces/models.js';
 import {IChemicalRepository} from '#root/shared/database/interfaces/IChemicalRepository.js';
 
 @injectable()
@@ -37,6 +37,7 @@ export class ChemicalRepository implements IChemicalRepository {
     name: string,
     status: 'Restricted' | 'Banned',
     createdBy: string,
+    aliases?: ICropAlias[],
   ): Promise<IChemical> {
     try {
       if (!this.ChemicalCollection) await this.init();
@@ -53,8 +54,14 @@ export class ChemicalRepository implements IChemicalRepository {
 
       const now = new Date();
       const payload: IChemical = {
-        name: name.trim(),
+        name: name.trim().toLowerCase(),
         status,
+        aliases: (aliases || []).map(a => ({
+          language: (a.language ?? '').trim(),
+          region: (a.region ?? '').trim(),
+          english_representation: (a.english_representation ?? '').trim().toLowerCase(),
+          native_representation: (a.native_representation ?? '').trim(),
+        })),
         createdBy: new ObjectId(createdBy),
         createdAt: now,
         updatedAt: now,
