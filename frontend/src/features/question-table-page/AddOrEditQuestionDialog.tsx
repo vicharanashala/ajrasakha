@@ -120,7 +120,7 @@ const CropSelect = ({
   placeholder?: string;
   onNormalisedCropResolved?: (canonicalName: string) => void;
 }) => {
-  const { data: cropsData, isLoading } = useGetAllCrops();
+  const { data: cropsData, isLoading } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
   const useDbCrops = dbCrops.length > 0;
 
