@@ -21,9 +21,15 @@ import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useCreateChemical } from "@/hooks/api/chemical/useCreateChemical";
+import { useGetAllChemicals } from "@/hooks/api/chemical/useGetAllChemicals";
 import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
+import type { IChemical } from "@/hooks/services/chemicalService";
 
 type EntryType = "crop" | "chemical" | "other";
+
+type UnifiedItem =
+  | { kind: "crop"; data: ICropResponse }
+  | { kind: "chemical"; data: IChemical };
 
 type ICropAliasObject = ICropAlias;
 
@@ -499,14 +505,29 @@ export const CropManagementModal = ({
 
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
   const { mutateAsync: createChemical, isPending: isCreatingChemical } = useCreateChemical();
-  const { data: cropsData, isLoading: isLoadingCrops, isFetching } = useGetAllCrops({
+  const { data: cropsData, isLoading: isLoadingCrops, isFetching: isFetchingCrops } = useGetAllCrops({
+    search: searchQuery,
+    page,
+    limit: PAGE_SIZE,
+  });
+  const { data: chemicalsData, isLoading: isLoadingChemicals, isFetching: isFetchingChemicals } = useGetAllChemicals({
     search: searchQuery,
     page,
     limit: PAGE_SIZE,
   });
 
   const crops = cropsData?.crops || [];
-  const totalPages = cropsData?.totalPages ?? 1;
+  const chemicals = chemicalsData?.chemicals || [];
+
+  // Merge and sort alphabetically
+  const unifiedItems: UnifiedItem[] = [
+    ...crops.map((c): UnifiedItem => ({ kind: "crop", data: c })),
+    ...chemicals.map((c): UnifiedItem => ({ kind: "chemical", data: c })),
+  ].sort((a, b) => a.data.name.localeCompare(b.data.name));
+
+  const isLoadingList = isLoadingCrops || isLoadingChemicals;
+  const isFetching = isFetchingCrops || isFetchingChemicals;
+  const totalPages = Math.max(cropsData?.totalPages ?? 1, chemicalsData?.totalPages ?? 1);
 
   const resetForm = () => {
     setNewCropName("");
@@ -598,7 +619,7 @@ export const CropManagementModal = ({
                     isAddFormOpen ? "rotate-45" : ""
                   }`}
                 />
-                {isAddFormOpen ? "Cancel" : "Add Crop"}
+                {isAddFormOpen ? "Cancel" : "AgriTech Item"}
               </Button>
               <button
                 onClick={() => onOpenChange(false)}
@@ -734,36 +755,53 @@ export const CropManagementModal = ({
 
             {/* ── Crop List ──────────────────────────────────────────────── */}
             <div className="px-5 py-3">
-              {isLoadingCrops ? (
+              {isLoadingList ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                 </div>
-              ) : crops.length === 0 ? (
+              ) : unifiedItems.length === 0 ? (
                 <div className="text-center py-12">
                   <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                   <p className="text-sm text-gray-400 dark:text-gray-500">
-                    {searchQuery ? `No crops found for "${searchQuery}"` : "No crops added yet"}
+                    {searchQuery ? `No results for "${searchQuery}"` : "No entries added yet"}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-px">
-                  {crops.map((crop, index) => {
-                    const aliasCount = (crop.aliases || []).length;
+                  {unifiedItems.map((item, index) => {
+                    const isCrop = item.kind === "crop";
+                    const isChemical = item.kind === "chemical";
+                    const id = item.data._id || item.data.name;
+                    const name = item.data.name;
+                    const aliasCount = (item.data.aliases || []).length;
+                    const status = isChemical ? (item.data as IChemical).status : null;
+
+                    const Icon = isCrop ? Wheat : isChemical ? FlaskConical : LayoutGrid;
 
                     return (
-                      <div key={crop._id || crop.name}>
+                      <div key={id}>
                         <div className="group flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="w-8 h-8 rounded-lg bg-amber-100/80 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                              <Wheat className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                              <Icon className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                             </div>
                             <div className="flex items-center gap-2 min-w-0 flex-wrap">
                               <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight capitalize">
-                                {crop.name}
+                                {name}
                               </p>
                               {aliasCount > 0 && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700/60 leading-tight">
                                   {aliasCount} alias{aliasCount !== 1 ? "es" : ""}
+                                </span>
+                              )}
+                              {status === "Restricted" && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-yellow-100 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-500/20">
+                                  Restricted
+                                </span>
+                              )}
+                              {status === "Banned" && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20">
+                                  Banned
                                 </span>
                               )}
                             </div>
@@ -771,13 +809,13 @@ export const CropManagementModal = ({
 
                           <button
                             className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 border border-transparent hover:border-blue-100 dark:hover:border-blue-500/20 transition-all flex-shrink-0"
-                            onClick={() => setAliasManagerCrop(crop)}
+                            onClick={() => setAliasManagerCrop(item.data as ICropResponse)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                             <span>Manage Aliases</span>
                           </button>
                         </div>
-                        {index < crops.length - 1 && (
+                        {index < unifiedItems.length - 1 && (
                           <div className="mx-3 border-b border-gray-100 dark:border-gray-800/50" />
                         )}
                       </div>
