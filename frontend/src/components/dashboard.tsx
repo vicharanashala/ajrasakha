@@ -90,15 +90,18 @@ export const Dashboard = () => {
       [key]: value,
     }));
   };
-
+  const[sendingReport, setSendingReport] = useState(false);
   const handleSendCronReport = async () => {
+    setSendingReport(true);
     try {
       const service = new PerformaneService();
       await service.sendCronSnapshotReport();
       toast.success("Cron snapshot report sent successfully");
+      setSendingReport(false);
     } catch (err) {
       toast.error("Failed to send cron snapshot report");
       console.error("Failed to fetch cron snapshot", err);
+      setSendingReport(false);
     }
   };
 
@@ -275,8 +278,9 @@ export const Dashboard = () => {
           <button
             onClick={handleSendCronReport}
             className="px-4 py-2 rounded-md bg-green-500 text-white text-sm hover:bg-green-600 shadow-md transition-all relative"
+            disabled={sendingReport}
           >
-            Send Report
+            {sendingReport ? "Sending Report..." : "Send Report"}
           </button>
         </div>
       )}
