@@ -64,22 +64,22 @@ const MOCK_MESSAGES: Record<string, Message[]> = {
 };
 
 export function WhatsAppHistoryPage() {
-  const [selectedThreadId, setSelectedThreadId] = useState<string | undefined>(MOCK_THREADS[0].id);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | undefined>("");
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredThreads = useMemo(() => {
-    return MOCK_THREADS.filter(t => 
-      t.phoneNumber.includes(searchQuery) || 
+    return MOCK_THREADS.filter(t =>
+      t.phoneNumber.includes(searchQuery) ||
       t.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [searchQuery]);
 
-  const selectedThread = useMemo(() => 
+  const selectedThread = useMemo(() =>
     MOCK_THREADS.find(t => t.id === selectedThreadId),
     [selectedThreadId]
   );
 
-  const currentMessages = useMemo(() => 
+  const currentMessages = useMemo(() =>
     selectedThreadId ? (MOCK_MESSAGES[selectedThreadId] || []) : [],
     [selectedThreadId]
   );
