@@ -307,6 +307,22 @@ export class QuestionService {
     );
   }
 
+  async replaceQueueExpert(
+    questionId: string,
+    levelIndex: number,
+    newExpertId: string,
+    isAuthor?: boolean,
+    reasonForChange?: string,
+  ): Promise<IDetailedQuestion | null> {
+    return apiFetch<IDetailedQuestion>(
+      `${this._baseUrl}/${questionId}/replace-queue-expert`,
+      {
+        method: "POST",
+        body: JSON.stringify({ levelIndex, newExpertId, isAuthor, reasonForChange }),
+      },
+    );
+  }
+
   async getAllocatedQuestionPage(questionId: string) {
     return apiFetch<number>(
       `${this._baseUrl}/allocated/page?questionId=${questionId}`,

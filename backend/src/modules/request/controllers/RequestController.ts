@@ -20,7 +20,7 @@ import {
   CreateRequestBodyDto,
   GetAllRequestsQueryDto,
   RequestParamsDto,
-  RequestStatusBody,
+  UpdateRequestStatusDto,
   RequestErrorResponse,
 } from '../classes/validators/RequestValidators.js';
 import {
@@ -136,7 +136,7 @@ export class RequestController {
   @Authorized()
   async updateStatus(
     @Params() params: RequestParamsDto,
-    @Body() body: RequestStatusBody,
+    @Body() body: UpdateRequestStatusDto,
     @CurrentUser() user: IUser,
   ): Promise<RequestResponseDto> {
     const {requestId} = params;
