@@ -203,6 +203,8 @@ export interface IChatbotRepository {
     inactiveOnly?: boolean,
     session?: ClientSession,
     userType?: string,
+    sortBy?: string,
+    sortOrder?: string,
   ): Promise<PaginatedUserDetails>;
 
   /** Aggregate conversations from the messages collection for Excel export. */

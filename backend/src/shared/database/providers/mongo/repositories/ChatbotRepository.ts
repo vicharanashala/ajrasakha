@@ -777,6 +777,8 @@ export class ChatbotRepository implements IChatbotRepository {
     inactiveOnly = false,
     session?: ClientSession,
     userType = 'all',
+    sortBy = 'totalQuestions',
+    sortOrder = 'desc',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -887,8 +889,21 @@ export class ChatbotRepository implements IChatbotRepository {
       // Filter to inactive users only if requested
       const finalList = inactiveOnly ? merged.filter((u) => u.totalQuestions === 0) : merged;
 
-      // Sort by totalQuestions desc
-      finalList.sort((a, b) => b.totalQuestions - a.totalQuestions);
+      // Sort based on sortBy and sortOrder parameters
+      if (sortBy === 'name') {
+        if (sortOrder === 'asc') {
+          finalList.sort((a, b) => a.name.localeCompare(b.name));
+        } else {
+          finalList.sort((a, b) => b.name.localeCompare(a.name));
+        }
+      } else {
+        // Default: totalQuestions
+        if (sortOrder === 'asc') {
+          finalList.sort((a, b) => a.totalQuestions - b.totalQuestions);
+        } else {
+          finalList.sort((a, b) => b.totalQuestions - a.totalQuestions);
+        }
+      }
 
       // Compute summary stats over the full filtered set
       const totalUsers = finalList.length;

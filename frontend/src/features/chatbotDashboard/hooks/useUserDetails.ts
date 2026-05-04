@@ -55,6 +55,8 @@ export function useUserDetails(
   profileCompleted: 'all' | 'yes' | 'no' = 'all',
   inactiveOnly = false,
   userType: 'all' | 'external' | 'internal' = 'all',
+  sortBy: 'totalQuestions' | 'name' = 'totalQuestions',
+  sortOrder: 'asc' | 'desc' = 'desc',
 ) {
   const startISO = startDate?.toISOString();
   // Extend endDate to end of day (23:59:59.999) so the selected day is fully included.
@@ -64,7 +66,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, userType],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, userType, sortBy, sortOrder],
     staleTime: 30 * 1000,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
@@ -80,6 +82,8 @@ export function useUserDetails(
       if (profileCompleted !== 'all') params.set('profileCompleted', profileCompleted);
       if (inactiveOnly) params.set('inactiveOnly', 'true');
       if (userType !== 'all') params.set('userType', userType);
+      params.set('sortBy', sortBy);
+      params.set('sortOrder', sortOrder);
 
       const result = await apiFetch<PaginatedUserDetailsResponse>(
         `${API_BASE_URL}/analytics/user-details?${params.toString()}`,
