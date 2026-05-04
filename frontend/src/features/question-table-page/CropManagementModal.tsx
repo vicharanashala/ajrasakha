@@ -139,7 +139,7 @@ const AliasEntryForm = ({
             Region
           </span>
           <Input
-            placeholder="e.g. Andhra & Telangana"
+            placeholder="Enter region"
             value={entry.region}
             onChange={(e) => setEntry((f) => ({ ...f, region: e.target.value }))}
             className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
@@ -151,7 +151,7 @@ const AliasEntryForm = ({
             English Name
           </span>
           <Input
-            placeholder="e.g. vari"
+            placeholder="Enter English name"
             value={entry.english_representation}
             onChange={(e) => setEntry((f) => ({ ...f, english_representation: e.target.value }))}
             className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
@@ -163,7 +163,7 @@ const AliasEntryForm = ({
             Native Name
           </span>
           <Input
-            placeholder="e.g. వరి"
+            placeholder="Enter native name"
             value={entry.native_representation}
             onChange={(e) => setEntry((f) => ({ ...f, native_representation: e.target.value }))}
             className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
@@ -677,7 +677,7 @@ export const CropManagementModal = ({
                     {entryType === "crop" ? "Crop Name" : entryType === "chemical" ? "Chemical Name" : "Name"}
                   </label>
                   <Input
-                    placeholder={entryType === "crop" ? "e.g. Jowar" : entryType === "chemical" ? "e.g. Chlorpyrifos" : "e.g. Soil Health Card"}
+                    placeholder={entryType === "crop" ? "Enter crop name" : entryType === "chemical" ? "Enter chemical name" : "Enter name"}
                     value={newCropName}
                     onChange={(e) => setNewCropName(e.target.value)}
                     className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700"
@@ -742,7 +742,7 @@ export const CropManagementModal = ({
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
                 <Input
-                  placeholder="Search crops…"
+                  placeholder="Search entries…"
                   value={searchInput}
                   onChange={handleSearchChange}
                   className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
@@ -773,7 +773,7 @@ export const CropManagementModal = ({
                     const isChemical = item.kind === "chemical";
                     const id = item.data._id || item.data.name;
                     const name = item.data.name;
-                    const aliasCount = (item.data.aliases || []).length;
+                    const aliasCount = ('aliases' in item.data ? item.data.aliases || [] : []).length;
                     const status = isChemical ? (item.data as IChemical).status : null;
 
                     const Icon = isCrop ? Wheat : isChemical ? FlaskConical : LayoutGrid;
