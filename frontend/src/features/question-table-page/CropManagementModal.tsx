@@ -20,16 +20,9 @@ import { toast } from "sonner";
 import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
-import { useCreateChemical } from "@/hooks/api/chemical/useCreateChemical";
-import { useGetAllChemicals } from "@/hooks/api/chemical/useGetAllChemicals";
 import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
-import type { IChemical } from "@/hooks/services/chemicalService";
 
 type EntryType = "crop" | "chemical" | "other";
-
-type UnifiedItem =
-  | { kind: "crop"; data: ICropResponse }
-  | { kind: "chemical"; data: IChemical };
 
 type ICropAliasObject = ICropAlias;
 
@@ -504,30 +497,14 @@ export const CropManagementModal = ({
   }, []);
 
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
-  const { mutateAsync: createChemical, isPending: isCreatingChemical } = useCreateChemical();
-  const { data: cropsData, isLoading: isLoadingCrops, isFetching: isFetchingCrops } = useGetAllCrops({
-    search: searchQuery,
-    page,
-    limit: PAGE_SIZE,
-  });
-  const { data: chemicalsData, isLoading: isLoadingChemicals, isFetching: isFetchingChemicals } = useGetAllChemicals({
+  const { data: cropsData, isLoading: isLoadingList, isFetching } = useGetAllCrops({
     search: searchQuery,
     page,
     limit: PAGE_SIZE,
   });
 
-  const crops = cropsData?.crops || [];
-  const chemicals = chemicalsData?.chemicals || [];
-
-  // Merge and sort alphabetically
-  const unifiedItems: UnifiedItem[] = [
-    ...crops.map((c): UnifiedItem => ({ kind: "crop", data: c })),
-    ...chemicals.map((c): UnifiedItem => ({ kind: "chemical", data: c })),
-  ].sort((a, b) => a.data.name.localeCompare(b.data.name));
-
-  const isLoadingList = isLoadingCrops || isLoadingChemicals;
-  const isFetching = isFetchingCrops || isFetchingChemicals;
-  const totalPages = Math.max(cropsData?.totalPages ?? 1, chemicalsData?.totalPages ?? 1);
+  const items: ICropResponse[] = cropsData?.crops || [];
+  const totalPages = cropsData?.totalPages ?? 1;
 
   const resetForm = () => {
     setNewCropName("");
@@ -540,35 +517,18 @@ export const CropManagementModal = ({
     setPage(1);
   };
 
-  const isSaving = isCreating || isCreatingChemical;
+  const isSaving = isCreating;
 
   const handleSave = async () => {
     const name = newCropName.trim();
     if (!name) return;
 
-    if (entryType === "chemical") {
-      if (!window.confirm(`Are you sure you want to create the chemical "${name}"?`)) return;
-      try {
-        const res = await createChemical({
-          name,
-          status: chemicalStatus,
-          aliases: newAliases.length > 0 ? newAliases : undefined,
-        } as any);
-        if (res?.success) {
-          toast.success(`Chemical "${name}" added successfully!`);
-          resetForm();
-        }
-      } catch (error: any) {
-        toast.error(error?.message || "Failed to add chemical");
-      }
-      return;
-    }
-
-    // crop or other — both use createCrop
     if (!window.confirm(`Are you sure you want to create "${name}"?`)) return;
     try {
       const res = await createCrop({
         name,
+        type: entryType,
+        ...(entryType === "chemical" ? { status: chemicalStatus } : {}),
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
@@ -747,7 +707,7 @@ export const CropManagementModal = ({
                   onChange={handleSearchChange}
                   className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
                 />
-                {isFetching && !isLoadingCrops && (
+                {isFetching && !isLoadingList && (
                   <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
                 )}
               </div>
@@ -759,7 +719,7 @@ export const CropManagementModal = ({
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                 </div>
-              ) : unifiedItems.length === 0 ? (
+              ) : items.length === 0 ? (
                 <div className="text-center py-12">
                   <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                   <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -768,22 +728,24 @@ export const CropManagementModal = ({
                 </div>
               ) : (
                 <div className="space-y-px">
-                  {unifiedItems.map((item, index) => {
-                    const isCrop = item.kind === "crop";
-                    const isChemical = item.kind === "chemical";
-                    const id = item.data._id || item.data.name;
-                    const name = item.data.name;
-                    const aliasCount = ('aliases' in item.data ? item.data.aliases || [] : []).length;
-                    const status = isChemical ? (item.data as IChemical).status : null;
+                  {items.map((item, index) => {
+                    const itemType = item.type ?? "crop";
+                    const isChemical = itemType === "chemical";
+                    const isOther = itemType === "other";
+                    const isCrop = !isChemical && !isOther;
+                    const id = item._id || item.name;
+                    const name = item.name;
+                    const aliasCount = (item.aliases || []).length;
+                    const status = item.status ?? null;
 
-                    const Icon = isCrop ? Wheat : isChemical ? FlaskConical : LayoutGrid;
+                    const Icon = isChemical ? FlaskConical : isOther ? LayoutGrid : Wheat;
 
                     return (
                       <div key={id}>
                         <div className="group flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-amber-100/80 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                              <Icon className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isChemical ? "bg-purple-100/80 dark:bg-purple-500/10" : isOther ? "bg-blue-100/80 dark:bg-blue-500/10" : "bg-amber-100/80 dark:bg-amber-500/10"}`}>
+                              <Icon className={`h-3.5 w-3.5 ${isChemical ? "text-purple-600 dark:text-purple-400" : isOther ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"}`} />
                             </div>
                             <div className="flex items-center gap-2 min-w-0 flex-wrap">
                               <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight capitalize">
@@ -809,13 +771,13 @@ export const CropManagementModal = ({
 
                           <button
                             className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 border border-transparent hover:border-blue-100 dark:hover:border-blue-500/20 transition-all flex-shrink-0"
-                            onClick={() => setAliasManagerCrop(item.data as ICropResponse)}
+                            onClick={() => setAliasManagerCrop(item)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                             <span>Manage Aliases</span>
                           </button>
                         </div>
-                        {index < unifiedItems.length - 1 && (
+                        {index < items.length - 1 && (
                           <div className="mx-3 border-b border-gray-100 dark:border-gray-800/50" />
                         )}
                       </div>
