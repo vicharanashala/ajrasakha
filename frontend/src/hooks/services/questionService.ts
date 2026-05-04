@@ -238,8 +238,8 @@ export class QuestionService {
   async updateQuestion(
     questionId: string,
     updatedData: Partial<IDetailedQuestion>,
-  ): Promise<IDetailedQuestion | null> {
-    return apiFetch<IDetailedQuestion>(`${this._baseUrl}/${questionId}`, {
+  ): Promise<{ message: string } | null> {
+    return apiFetch<{ message: string }>(`${this._baseUrl}/${questionId}`, {
       method: "PUT",
       body: JSON.stringify(updatedData),
     });

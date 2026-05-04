@@ -11,7 +11,7 @@ export const useUpdateQuestion = () => {
     mutationKey: ["updateQuestion"],
     mutationFn: async (
       question: Partial<IDetailedQuestion>
-    ): Promise<IDetailedQuestion | null> => {
+    ): Promise<{ message: string } | null> => {
       return await questionService.updateQuestion(question._id!, question);
     },
     onSuccess: () => {

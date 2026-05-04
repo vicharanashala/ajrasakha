@@ -865,7 +865,7 @@ export class QuestionController {
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<IQuestion>,
     // @CurrentUser() user: IUser,
-  ): Promise<{ modifiedCount: number }> {
+  ): Promise<{ success: boolean, message: string }> {
     const { questionId } = params;
     let prevQuestion;
     let response;
@@ -897,7 +897,8 @@ export class QuestionController {
       //   priority: prevQuestion.priority,
       //   aiInitialAnswer: prevQuestion.aiInitialAnswer,
       // }
-      response = await this.questionService.updateQuestion(questionId, updates);
+      const result = await this.questionService.updateQuestion(questionId, updates);
+      return { success: true, message: result.message };
     }
     catch(err: any){
       // auditPayload = {
@@ -948,7 +949,6 @@ export class QuestionController {
     //   },
     // };
     // this.auditTrailsService.createAuditTrail(auditPayload);
-    return response;
   }
 
   @Delete('/:questionId/allocation')

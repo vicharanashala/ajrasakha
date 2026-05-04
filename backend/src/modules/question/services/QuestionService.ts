@@ -1223,7 +1223,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
-  ): Promise<{ modifiedCount: number }> {
+  ): Promise<{ message: string }> {
     try {
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
@@ -1252,7 +1252,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         updates.details.normalised_crop = normalised_crop;
       }
 
-      return this._withTransaction(async (session: ClientSession) => {
+      await this._withTransaction(async (session: ClientSession) => {
         const existingQuestion = await this.questionRepo.getById(
           questionId,
           session,
@@ -1282,6 +1282,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
+
+      return { message: 'Question updated successfully' };
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);
     }
