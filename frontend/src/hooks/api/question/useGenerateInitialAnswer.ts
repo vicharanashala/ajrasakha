@@ -3,11 +3,11 @@ import { QuestionService } from "../../services/questionService";
 
 const questionService = new QuestionService();
 
-export const useGenerateInitialAnswer = () => {
+export const useGenerateInitialAnswer = (currentUserId?: string) => {
   return useMutation({
     mutationFn: async (questionId: string) => {
       if (!questionId) throw new Error("Question ID is required");
-      return await questionService.generateAIInitialAnswer(questionId);
+      return await questionService.generateAIInitialAnswer(questionId, currentUserId);
     },
   });
 };

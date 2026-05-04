@@ -373,14 +373,42 @@ export interface ICropRef {
   aliases?: string[];
 }
 
+export interface ICropAlias {
+  language: string;                 // BCP-47 code e.g. "te-IN"
+  region: string;                   // e.g. "Andhra and Telangana"
+  english_representation: string;   // romanised / English representation e.g. "vari"
+  native_representation: string;    // native script e.g. "వరి"
+}
+
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  aliases: string[];
+  aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export type ChemicalStatus = 'Restricted' | 'Banned';
+
+export interface IChemicalAuditHistory {
+  createdBy: ObjectId;
+  updatedAt: Date;
+  changesMade?: {
+    old_name?: string;
+    old_status?: string;
+  };
+}
+
+export interface IChemical {
+  _id?: ObjectId | string;
+  name: string;
+  status: ChemicalStatus;
+  createdBy?: ObjectId | string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  chemical_audit_history?: IChemicalAuditHistory[];
 }
 export interface ISource {
   source: string;     // URL or document reference

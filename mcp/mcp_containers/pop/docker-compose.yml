@@ -10,9 +10,4 @@ services:
       - "9024:9002"
     env_file:
       - .env
-    volumes:
-      - hf_cache:/app/hf_cache
     restart: unless-stopped
-
-volumes:
-  hf_cache:

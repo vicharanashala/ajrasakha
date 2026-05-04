@@ -91,6 +91,7 @@ export const QuestionsPage = ({
   const [viewMode, setViewMode] = useState<"all" | "review-level">("all");
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewLimit] = useState(12);
+  const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
 
   //handle sort by turn around time
   const [sort, setSort] = useState("");
@@ -236,6 +237,52 @@ export const QuestionsPage = ({
     if (currentUser?.role !== "expert") onReset();
   }, [debouncedSearch]);
 
+  const currentItems = useMemo(() => {
+    if (viewMode === "all") return questionData?.questions || [];
+    return reviewData?.data || [];
+  }, [viewMode, questionData, reviewData]);
+
+  const currentIndex = useMemo(() => {
+    return currentItems.findIndex((q) => q._id === selectedQuestionId);
+  }, [currentItems, selectedQuestionId]);
+
+  const totalPages = viewMode === "all" ? (questionData?.totalPages || 0) : (reviewData?.totalPages || 0);
+  const currentPageVal = viewMode === "all" ? currentPage : reviewPage;
+
+  const hasNext = currentIndex < currentItems.length - 1 || currentPageVal < totalPages;
+  const hasPrev = currentIndex > 0 || currentPageVal > 1;
+
+  const handleNext = () => {
+    if (currentIndex < currentItems.length - 1) {
+      setSelectedQuestionId(currentItems[currentIndex + 1]._id);
+    } else if (currentPageVal < totalPages) {
+      setPendingNav("next");
+      if (viewMode === "all") setCurrentPage(prev => prev + 1);
+      else setReviewPage(prev => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setSelectedQuestionId(currentItems[currentIndex - 1]._id);
+    } else if (currentPageVal > 1) {
+      setPendingNav("prev");
+      if (viewMode === "all") setCurrentPage(prev => prev - 1);
+      else setReviewPage(prev => prev - 1);
+    }
+  };
+
+  useEffect(() => {
+    if (pendingNav && !isLoading && !isReviewLoading && currentItems.length > 0) {
+      if (pendingNav === "next") {
+        setSelectedQuestionId(currentItems[0]._id);
+      } else {
+        setSelectedQuestionId(currentItems[currentItems.length - 1]._id);
+      }
+      setPendingNav(null);
+    }
+  }, [pendingNav, isLoading, isReviewLoading, currentItems]);
+
   const onChangeFilters = (next: {
     status?: QuestionFilterStatus;
     source?: QuestionSourceFilter;
@@ -377,6 +424,10 @@ export const QuestionsPage = ({
                 setSelectedQuestionId("");
               }}
               currentUser={currentUser!}
+              onNext={handleNext}
+              onPrev={handlePrev}
+              hasNext={hasNext}
+              hasPrev={hasPrev}
             />
           )
         )

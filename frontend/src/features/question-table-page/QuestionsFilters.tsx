@@ -23,10 +23,11 @@ import {
   Activity,
   EyeOff,
   Eye,
-  Wheat,
+  Cpu,
   ChevronDown,
   ChevronUp,
   Loader2,
+  Beaker,
 } from "lucide-react";
 import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
@@ -63,6 +64,7 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
+import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 
 type QuestionsFiltersProps = {
@@ -171,6 +173,7 @@ export const QuestionsFilters = ({
   const [isReAllocateOpen, setIsReAllocateOpen] = useState(false);
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
 
   const handleReAllocateLessWorkload = async () => {
     try {
@@ -217,8 +220,10 @@ export const QuestionsFilters = ({
     try {
       if (mode !== "add") return;
       if (formData) {
+        const isOutreach = formData.get("isOutreachQuestion") === "true";
         await addQuestion(formData as any);
         // toast.success('File Uploaded succesfully')
+        handleAnswerModeChange(isOutreach ? "outreach" : "manual");
         setAddQuestionErrors({});
         setAddOpen(false);
         return;
@@ -294,6 +299,7 @@ export const QuestionsFilters = ({
       setAddQuestionErrors({});
       await addQuestion(payload);
       // toast.success("Question added successfully.");
+      handleAnswerModeChange("manual");
       setAddOpen(false);
     } catch (error) {
       console.error("Error in handleAddQuestion:", error);
@@ -816,16 +822,43 @@ export const QuestionsFilters = ({
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-500">
-                      <Wheat size={20} />
+                      <Cpu size={20} />
                     </div>
                     <div className="text-left">
                       <div className="flex items-center gap-2">
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
-                          Update Crops
+                          AgriTech Management
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500">
-                        Manage crop master list
+                        Manage AgriTech List
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {/* update chemicals */}
+              {userRole !== "expert" && (
+                <button
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  onClick={() => {
+                    setIsChemicalModalOpen(true);
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-500">
+                      <Beaker size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                          Update Chemicals
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Manage chemical master list
                       </p>
                     </div>
                   </div>
@@ -1047,6 +1080,10 @@ export const QuestionsFilters = ({
       <CropManagementModal
         open={isCropModalOpen}
         onOpenChange={setIsCropModalOpen}
+      />
+      <ChemicalManagementModal
+        open={isChemicalModalOpen}
+        onOpenChange={setIsChemicalModalOpen}
       />
     </div>
   );

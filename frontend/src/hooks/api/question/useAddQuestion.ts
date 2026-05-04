@@ -23,14 +23,12 @@ export const useAddQuestion = (
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
-      if (data?.insertedIds?.length) {
-        const count = data?.insertedIds?.length ?? 0;
-        const isBulk = Boolean(data?.isBulkUpload);
+      
+      const count = data?.insertedIds?.length ?? data?.count ?? 0;
+      const isBulk = Boolean(data?.isBulkUpload);
 
-        // Call callback with both values
-        if (count > 0) {
-          onUploaded?.(count, isBulk);
-        }
+      if (count > 0) {
+        onUploaded?.(count, isBulk);
       }
       if (data?.message) {
         toast.success(data.message);

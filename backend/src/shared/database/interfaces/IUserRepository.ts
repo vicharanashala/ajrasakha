@@ -131,6 +131,8 @@ findAllUsers(
   search: string,
   sortOption: string,
   filter: string,
+  role?: string,
+  isBlocked?: boolean,
   session?: ClientSession,
 ): Promise<{
   users: IUser[];

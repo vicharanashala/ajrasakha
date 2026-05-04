@@ -14,6 +14,7 @@ import { Route as ProfileIndexRouteImport } from './routes/profile/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as AuditIndexRouteImport } from './routes/audit/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,9 +41,15 @@ const AuthIndexRoute = AuthIndexRouteImport.update({
   path: '/auth/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuditIndexRoute = AuditIndexRouteImport.update({
+  id: '/audit/',
+  path: '/audit/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
   '/home': typeof HomeIndexRoute
   '/notifications': typeof NotificationsIndexRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
   '/home': typeof HomeIndexRoute
   '/notifications': typeof NotificationsIndexRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/audit/': typeof AuditIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/home/': typeof HomeIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
@@ -65,14 +74,22 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/home' | '/notifications' | '/profile'
+  fullPaths: '/' | '/audit' | '/auth' | '/home' | '/notifications' | '/profile'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/home' | '/notifications' | '/profile'
-  id: '__root__' | '/' | '/auth/' | '/home/' | '/notifications/' | '/profile/'
+  to: '/' | '/audit' | '/auth' | '/home' | '/notifications' | '/profile'
+  id:
+    | '__root__'
+    | '/'
+    | '/audit/'
+    | '/auth/'
+    | '/home/'
+    | '/notifications/'
+    | '/profile/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuditIndexRoute: typeof AuditIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
   NotificationsIndexRoute: typeof NotificationsIndexRoute
@@ -116,11 +133,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/audit/': {
+      id: '/audit/'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuditIndexRoute: AuditIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
   NotificationsIndexRoute: NotificationsIndexRoute,

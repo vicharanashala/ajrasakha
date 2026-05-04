@@ -411,7 +411,7 @@ class AddQuestionBodyDto {
 
   @IsString()
   @IsOptional()
-  originalQuestion?: string;
+  originalquestion?: string;
 
   
 }

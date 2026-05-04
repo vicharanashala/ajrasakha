@@ -7,6 +7,7 @@ import { formatIndian, calcWeeklyDelta } from '../utils/dashboardHelpers';
 import type { DailyEntry } from '../utils/dashboardHelpers';
 import type { DashboardFilterValues } from '../DashboardFilters';
 import type { DemographicEntry } from '../types';
+import type { IPlatformInstallEntry } from '../types';
 
 export type DashboardDataType = typeof DASHBOARD_DATA;
 
@@ -35,6 +36,8 @@ interface DashboardApiResponse {
   farmingExperience: DemographicEntry[];
   kccAwareness: DemographicEntry[];
   agriAppUsage: DemographicEntry[];
+  landHolding: DemographicEntry[];
+  platformInstalls: IPlatformInstallEntry[];
 }
 
 // ── Date range label helpers ──────────────────────────────────────────────────
@@ -167,6 +170,8 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
   updatedData.kccAwareness = result.kccAwareness ?? [];
   updatedData.agriAppUsage = result.agriAppUsage ?? [];
   updatedData.farmingExperience = result.farmingExperience ?? [];
+  updatedData.landHolding = result.landHolding?.length ? result.landHolding : DASHBOARD_DATA.landHolding;
+  updatedData.platformInstalls = result.platformInstalls ?? [];
 
   updatedData.kpiRow2 = DASHBOARD_DATA.kpiRow2.map(card => {
     if (card.id === 'totalInstalls') {
@@ -225,6 +230,7 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
 export function useDashboardData(filters?: DashboardFilterValues, source: 'vicharanashala' | 'annam' = 'vicharanashala') {
   const startISO = filters?.startTime?.toISOString();
   const endISO = filters?.endTime?.toISOString();
+  const userType = filters?.userType ?? 'all';
 
   const { data, isLoading, error } = useQuery<DashboardDataType, Error>({
     queryKey: [
@@ -235,6 +241,7 @@ export function useDashboardData(filters?: DashboardFilterValues, source: 'vicha
       startISO,
       endISO,
       source,
+      userType,
     ],
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
@@ -247,6 +254,7 @@ export function useDashboardData(filters?: DashboardFilterValues, source: 'vicha
       if (startISO) params.set('startTime', startISO);
       if (endISO) params.set('endTime', endISO);
       params.set('source', source);
+      if (userType !== 'all') params.set('userType', userType);
       const queryString = params.toString();
 
       const result = await apiFetch<DashboardApiResponse>(

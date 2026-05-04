@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 from bson import ObjectId
 from pymongo import AsyncMongoClient
+from pymongo.errors import PyMongoError
 import reviewer_values
 from normalised_crop_names import golden_crop_names
 
@@ -231,33 +232,39 @@ async def find_exact_question_context_in_golden(
     if not (original_question or "").strip():
         return {"found": False, "reason": "missing_original_question"}
 
-    client = AsyncMongoClient(mongo_uri)
-    db = client[mongo_database]
-    golden_collection = db[mongo_collection]
+    try:
+        client = AsyncMongoClient(mongo_uri)
+        db = client[mongo_database]
+        golden_collection = db[mongo_collection]
 
-    # Golden text usually stores: "<question>\\n\\n<answer>".
-    # Match question as prefix before answer body, not full-text equality.
-    query_filter: Dict[str, Any] = {
-        "$and": [
-            {"text": {"$regex": _escape_question_prefix_regex(original_question), "$options": "is"}},
-        ]
-    }
-    if state:
-        query_filter["$and"].append(
-            {"metadata.State": {"$regex": _escape_exact_regex(state), "$options": "i"}}
-        )
-    if crop:
-        crop_variants = _get_golden_crop_search_variants(crop)
-        crop_filters = [
-            {"metadata.Crop": {"$regex": _escape_exact_regex(crop_name), "$options": "i"}}
-            for crop_name in crop_variants
-        ]
-        if crop_filters:
-            query_filter["$and"].append({"$or": crop_filters})
+        # Golden text usually stores: "<question>\\n\\n<answer>".
+        # Match question as prefix before answer body, not full-text equality.
+        query_filter: Dict[str, Any] = {
+            "$and": [
+                {"text": {"$regex": _escape_question_prefix_regex(original_question), "$options": "is"}},
+            ]
+        }
+        if state:
+            query_filter["$and"].append(
+                {"metadata.State": {"$regex": _escape_exact_regex(state), "$options": "i"}}
+            )
+        if crop:
+            crop_variants = _get_golden_crop_search_variants(crop)
+            crop_filters = [
+                {"metadata.Crop": {"$regex": _escape_exact_regex(crop_name), "$options": "i"}}
+                for crop_name in crop_variants
+            ]
+            if crop_filters:
+                query_filter["$and"].append({"$or": crop_filters})
 
-    matched_doc = await golden_collection.find_one(query_filter, sort=[("_id", -1)])
-    if not matched_doc:
-        return {"found": False}
+        matched_doc = await golden_collection.find_one(query_filter, sort=[("_id", -1)])
+        if not matched_doc:
+            return {"found": False}
+    except PyMongoError as exc:
+        # Golden lookup is optional fallback; authorization/config errors should not fail the tool call.
+        return {"found": False, "reason": "golden_query_failed", "error": str(exc)}
+    except Exception as exc:
+        return {"found": False, "reason": "golden_query_failed", "error": str(exc)}
 
     metadata = matched_doc.get("metadata", {}) if isinstance(matched_doc, dict) else {}
     golden_sources = _build_golden_sources(metadata.get("Source [Name and Link]"))

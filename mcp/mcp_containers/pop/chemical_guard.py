@@ -160,6 +160,46 @@ def _find_policy_matches(text: str) -> Dict[str, ChemicalPolicy]:
     return matched
 
 
+def _compliance_from_matched_policies(
+    matched_policies: Dict[str, ChemicalPolicy],
+) -> Tuple[Dict[str, RestrictedChemicalFlag], Set[str], bool]:
+    """Classify matched policies into restricted flags, blocked (banned) names, and whether any non-restricted match exists."""
+    restricted_flags: Dict[str, RestrictedChemicalFlag] = {}
+    blocked_chemical_names: Set[str] = set()
+    has_blocked_match = False
+    for policy in matched_policies.values():
+        if _normalize(policy.status) != "restricted":
+            has_blocked_match = True
+            if policy.chemical_name:
+                blocked_chemical_names.add(policy.chemical_name)
+            continue
+
+        restricted_flags[policy.chemical_id] = RestrictedChemicalFlag(
+            chemical_id=policy.chemical_id,
+            chemical_name=policy.chemical_name,
+            allowed_usage=policy.allowed_usage,
+            restriction_text=policy.restriction_text,
+        )
+
+    return restricted_flags, blocked_chemical_names, has_blocked_match
+
+
+def analyze_text_for_chemical_compliance(
+    text: str,
+) -> Tuple[List[RestrictedChemicalFlag], List[str]]:
+    """
+    Apply the same chemical policy rules as retrieved POP context, but to arbitrary text (e.g. the user query).
+    """
+    matched = _find_policy_matches(text)
+    if not matched:
+        return [], []
+    restricted, blocked, _ = _compliance_from_matched_policies(matched)
+    return (
+        sorted(restricted.values(), key=lambda flag: flag.chemical_name.lower()),
+        sorted(blocked, key=str.lower),
+    )
+
+
 def filter_pop_contexts_for_chemical_compliance(
     contexts: List[ContextPOP],
 ) -> Tuple[List[ContextPOP], List[RestrictedChemicalFlag], List[str]]:
@@ -173,20 +213,11 @@ def filter_pop_contexts_for_chemical_compliance(
             filtered_contexts.append(context)
             continue
 
-        has_blocked_match = False
-        for policy in matched_policies.values():
-            if _normalize(policy.status) != "restricted":
-                has_blocked_match = True
-                if policy.chemical_name:
-                    blocked_chemical_names.add(policy.chemical_name)
-                continue
-
-            restricted_flags[policy.chemical_id] = RestrictedChemicalFlag(
-                chemical_id=policy.chemical_id,
-                chemical_name=policy.chemical_name,
-                allowed_usage=policy.allowed_usage,
-                restriction_text=policy.restriction_text,
-            )
+        ctx_restricted, ctx_blocked, has_blocked_match = _compliance_from_matched_policies(
+            matched_policies
+        )
+        restricted_flags.update(ctx_restricted)
+        blocked_chemical_names.update(ctx_blocked)
 
         if not has_blocked_match:
             filtered_contexts.append(context)

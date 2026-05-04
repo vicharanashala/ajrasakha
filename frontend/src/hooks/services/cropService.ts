@@ -3,10 +3,17 @@ import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
 
+export interface ICropAlias {
+  language: string;
+  region: string;
+  english_representation: string;
+  native_representation: string;
+}
+
 export interface ICropResponse {
   _id?: string;
   name: string;
-  aliases: string[];
+  aliases: (ICropAlias | string)[];  // string = legacy format from older crops
   createdBy?: string;
   updatedBy?: string;
   createdAt?: string;
@@ -15,7 +22,7 @@ export interface ICropResponse {
 
 export interface ICreateCropPayload {
   name: string;
-  aliases?: string[];
+  aliases?: ICropAlias[];
 }
 
 export interface ICreateCropResponse {
@@ -32,7 +39,7 @@ export interface IGetAllCropsResponse {
 
 export interface IUpdateCropPayload {
   name?: string;
-  aliases?: string[];
+  aliases?: (ICropAlias | string)[];
 }
 
 export class CropService {

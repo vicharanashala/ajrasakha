@@ -11,6 +11,7 @@ services:
     env_file:
       - .env
     volumes:
+      - /home/shubhankar/Shubhankar/mcp/pop/ajrasakha/mcp/mcp_containers/reviewer_system/reviewer_values.py:/app/reviewer_values.py
       - hf_cache:/app/hf_cache
     restart: unless-stopped
 
