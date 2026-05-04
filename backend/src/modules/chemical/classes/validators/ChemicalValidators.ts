@@ -4,8 +4,6 @@ import {
   IsIn,
   IsOptional,
   IsNumber,
-  IsArray,
-  ValidateNested,
   Min,
   Max,
 } from 'class-validator';
@@ -17,24 +15,6 @@ export class ChemicalIdParam {
   chemicalId: string;
 }
 
-class ChemicalAliasDto {
-  @IsNotEmpty()
-  @IsString()
-  language: string;
-
-  @IsNotEmpty()
-  @IsString()
-  region: string;
-
-  @IsNotEmpty()
-  @IsString()
-  english_representation: string;
-
-  @IsNotEmpty()
-  @IsString()
-  native_representation: string;
-}
-
 export class CreateChemicalDto {
   @IsString()
   @IsNotEmpty()
@@ -43,12 +23,6 @@ export class CreateChemicalDto {
   @IsString()
   @IsIn(['Restricted', 'Banned'])
   status: 'Restricted' | 'Banned';
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ChemicalAliasDto)
-  aliases?: ChemicalAliasDto[];
 }
 
 export class UpdateChemicalDto {
