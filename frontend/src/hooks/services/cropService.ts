@@ -13,6 +13,8 @@ export interface ICropAlias {
 export interface ICropResponse {
   _id?: string;
   name: string;
+  type?: "crop" | "chemical" | "other";
+  status?: "Restricted" | "Banned";
   aliases: (ICropAlias | string)[];  // string = legacy format from older crops
   createdBy?: string;
   updatedBy?: string;
@@ -22,6 +24,8 @@ export interface ICropResponse {
 
 export interface ICreateCropPayload {
   name: string;
+  type?: "crop" | "chemical" | "other";
+  status?: "Restricted" | "Banned";
   aliases?: ICropAlias[];
 }
 

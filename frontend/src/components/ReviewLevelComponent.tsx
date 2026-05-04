@@ -115,7 +115,7 @@ const defaultFilters: Filters = {
 };
 export const ReviewLevelComponent = () => {
   const { data: userNameReponse, isLoading } = useGetAllUsers();
-  const { data: cropsData } = useGetAllCrops({ type: "crop" });
+  const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops ?? [];
   const {key,ref} = useRestartOnView()
   const [openFilter, setOpenFilter] = useState(false);
