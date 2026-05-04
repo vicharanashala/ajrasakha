@@ -1,11 +1,10 @@
-import { IChemical, ICropAlias } from '#root/shared/interfaces/models.js';
+import { IChemical } from '#root/shared/interfaces/models.js';
 
 export interface IChemicalRepository {
   createChemical(
     name: string,
     status: 'Restricted' | 'Banned',
     createdBy: string,
-    aliases?: ICropAlias[],
   ): Promise<IChemical>;
 
   getAllChemicals(query?: {

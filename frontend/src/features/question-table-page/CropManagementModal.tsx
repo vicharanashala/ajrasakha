@@ -318,9 +318,17 @@ const AliasManagerModal = ({
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-amber-100/80 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-              <Wheat className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            </div>
+            {(() => {
+              const t = crop.type ?? "crop";
+              const isC = t === "chemical";
+              const isO = t === "other";
+              const ModalIcon = isC ? FlaskConical : isO ? LayoutGrid : Wheat;
+              return (
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isC ? "bg-purple-100/80 dark:bg-purple-500/10" : isO ? "bg-blue-100/80 dark:bg-blue-500/10" : "bg-amber-100/80 dark:bg-amber-500/10"}`}>
+                  <ModalIcon className={`h-4 w-4 ${isC ? "text-purple-600 dark:text-purple-400" : isO ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"}`} />
+                </div>
+              );
+            })()}
             <div className="min-w-0">
               <h2 className="text-sm font-bold text-gray-900 dark:text-white capitalize leading-tight">
                 {crop.name}

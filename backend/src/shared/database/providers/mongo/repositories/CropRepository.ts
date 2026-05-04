@@ -325,11 +325,14 @@ export class CropRepository implements ICropRepository {
       const regex = new RegExp(`^${escaped}$`, 'i');
 
       const crop = await this.CropCollection.findOne({
-        $or: [
-          {name: regex},
-          {aliases: regex},
-          {'aliases.english_representation': regex},
-          {'aliases.native_representation': regex},
+        $and: [
+          {$or: [{type: 'crop'}, {type: {$exists: false}}]},
+          {$or: [
+            {name: regex},
+            {aliases: regex},
+            {'aliases.english_representation': regex},
+            {'aliases.native_representation': regex},
+          ]},
         ],
       });
 
