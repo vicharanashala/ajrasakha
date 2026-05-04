@@ -1755,6 +1755,12 @@ answer: ${updates.answer}`;
           };
 
           await this.questionSubmissionRepo.addSubmission(submissionData, session);
+        } else {
+          await this.questionSubmissionRepo.updateQueue(
+            updates.questionId.toString(),
+            queue,
+            session,
+          );
         }
 
         
