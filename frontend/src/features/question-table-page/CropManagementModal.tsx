@@ -13,14 +13,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, ChevronLeft, ChevronRight, FlaskConical, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
 import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { useCreateChemical } from "@/hooks/api/chemical/useCreateChemical";
 import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
+
+type EntryType = "crop" | "chemical" | "other";
 
 type ICropAliasObject = ICropAlias;
 
@@ -471,8 +474,10 @@ export const CropManagementModal = ({
   onOpenChange,
 }: CropManagementModalProps) => {
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
+  const [entryType, setEntryType] = useState<EntryType>("crop");
   const [newCropName, setNewCropName] = useState("");
   const [newAliases, setNewAliases] = useState<ICropAliasObject[]>([]);
+  const [chemicalStatus, setChemicalStatus] = useState<"Restricted" | "Banned">("Restricted");
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
 
   const [searchInput, setSearchInput] = useState("");
@@ -493,6 +498,7 @@ export const CropManagementModal = ({
   }, []);
 
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
+  const { mutateAsync: createChemical, isPending: isCreatingChemical } = useCreateChemical();
   const { data: cropsData, isLoading: isLoadingCrops, isFetching } = useGetAllCrops({
     search: searchQuery,
     page,
@@ -505,27 +511,51 @@ export const CropManagementModal = ({
   const resetForm = () => {
     setNewCropName("");
     setNewAliases([]);
+    setChemicalStatus("Restricted");
+    setEntryType("crop");
     setIsAddFormOpen(false);
     setSearchInput("");
     setSearchQuery("");
     setPage(1);
   };
 
+  const isSaving = isCreating || isCreatingChemical;
+
   const handleSave = async () => {
     const name = newCropName.trim();
     if (!name) return;
-    if (!window.confirm(`Are you sure you want to create the crop "${name}"?`)) return;
+
+    if (entryType === "chemical") {
+      if (!window.confirm(`Are you sure you want to create the chemical "${name}"?`)) return;
+      try {
+        const res = await createChemical({
+          name,
+          status: chemicalStatus,
+          aliases: newAliases.length > 0 ? newAliases : undefined,
+        } as any);
+        if (res?.success) {
+          toast.success(`Chemical "${name}" added successfully!`);
+          resetForm();
+        }
+      } catch (error: any) {
+        toast.error(error?.message || "Failed to add chemical");
+      }
+      return;
+    }
+
+    // crop or other — both use createCrop
+    if (!window.confirm(`Are you sure you want to create "${name}"?`)) return;
     try {
       const res = await createCrop({
         name,
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
-        toast.success(`Crop "${name}" added successfully!`);
+        toast.success(`"${name}" added successfully!`);
         resetForm();
       }
     } catch (error: any) {
-      toast.error(error?.message || "Failed to add crop");
+      toast.error(error?.message || "Failed to add entry");
     }
   };
 
@@ -586,12 +616,47 @@ export const CropManagementModal = ({
             {/* ── Add Form ────────────────────────────────────────────────── */}
             {isAddFormOpen && (
               <div className="mx-5 mt-4 mb-3 p-4 rounded-xl border-l-[3px] border-l-amber-500 border border-amber-200/60 dark:border-amber-500/15 bg-amber-50/30 dark:bg-amber-500/[0.03] space-y-3">
+
+                {/* Type selector */}
                 <div>
                   <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                    Crop Name
+                    Type
+                  </label>
+                  <div className="flex gap-2">
+                    {(["crop", "chemical", "other"] as EntryType[]).map((t) => {
+                      const icons = {
+                        crop: <Wheat className="h-3.5 w-3.5" />,
+                        chemical: <FlaskConical className="h-3.5 w-3.5" />,
+                        other: <LayoutGrid className="h-3.5 w-3.5" />,
+                      };
+                      const labels = { crop: "Crop", chemical: "Chemical", other: "Other" };
+                      const isActive = entryType === t;
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => { setEntryType(t); setNewCropName(""); setNewAliases([]); setChemicalStatus("Restricted"); }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                            isActive
+                              ? "bg-amber-600 text-white border-amber-600"
+                              : "bg-white dark:bg-[#141414] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-600/40"
+                          }`}
+                        >
+                          {icons[t]}
+                          {labels[t]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Name field — label changes by type */}
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                    {entryType === "crop" ? "Crop Name" : entryType === "chemical" ? "Chemical Name" : "Name"}
                   </label>
                   <Input
-                    placeholder="e.g. Jowar"
+                    placeholder={entryType === "crop" ? "e.g. Jowar" : entryType === "chemical" ? "e.g. Chlorpyrifos" : "e.g. Soil Health Card"}
                     value={newCropName}
                     onChange={(e) => setNewCropName(e.target.value)}
                     className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700"
@@ -599,6 +664,25 @@ export const CropManagementModal = ({
                   />
                 </div>
 
+                {/* Chemical-only: status */}
+                {entryType === "chemical" && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                      Status
+                    </label>
+                    <Select value={chemicalStatus} onValueChange={(v) => setChemicalStatus(v as "Restricted" | "Banned")}>
+                      <SelectTrigger className="h-9 text-sm bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Restricted">Restricted</SelectItem>
+                        <SelectItem value="Banned">Banned</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Aliases — shown for all types */}
                 <div>
                   <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
                     Aliases
@@ -616,16 +700,16 @@ export const CropManagementModal = ({
                   <Button
                     size="sm"
                     onClick={handleSave}
-                    disabled={!newCropName.trim() || isCreating}
+                    disabled={!newCropName.trim() || isSaving}
                     className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
                   >
-                    {isCreating ? (
+                    {isSaving ? (
                       <>
                         <Loader2 className="h-3 w-3 animate-spin mr-1" />
                         Saving...
                       </>
                     ) : (
-                      "Save Crop"
+                      `Save ${entryType === "crop" ? "Crop" : entryType === "chemical" ? "Chemical" : "Entry"}`
                     )}
                   </Button>
                 </div>
