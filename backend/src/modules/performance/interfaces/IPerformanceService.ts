@@ -13,6 +13,17 @@ import {
   StatusOverview,
   UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
+import {
+  DashboardResponseDto,
+  AnalyticsDto,
+  ExpertPerformanceDto,
+  GoldenDatasetDto,
+  ModeratorApprovalRateDto,
+  QuestionContributionTrendDto,
+  StatusOverviewDto,
+  UserRoleOverviewDto,
+  OverviewResponseDto,
+} from '#root/modules/dashboard/dtos/DashboardResponseDto.js';
 
 export interface IPerformanceService {
   /**
@@ -38,23 +49,20 @@ export interface IPerformanceService {
     currentUserId: string,
     query: GetDashboardQuery
   ): Promise<{
-    data: DashboardResponse;
+    data: DashboardResponseDto;
   }>;
 
-  getOverview(currentUserId: string): Promise<{
-    userRoleOverview: UserRoleOverview[];
-    moderatorApprovalRate: ModeratorApprovalRate;
-  }>;
+  getOverview(currentUserId: string): Promise<OverviewResponseDto>;
 
-  getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDataset>;
+  getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDatasetDto>;
 
-  getContributionTrend(timeRange: string): Promise<QuestionContributionTrend[]>;
+  getContributionTrend(timeRange: string): Promise<QuestionContributionTrendDto[]>;
 
-  getStatusOverview(): Promise<StatusOverview>;
+  getStatusOverview(): Promise<StatusOverviewDto>;
 
-  getExpertPerformance(): Promise<ExpertPerformance[]>;
+  getExpertPerformance(): Promise<ExpertPerformanceDto[]>;
 
-  getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<Analytics>;
+  getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<AnalyticsDto>;
 
   updateCheckInTime(userId: string, time: Date): Promise<void>;
 

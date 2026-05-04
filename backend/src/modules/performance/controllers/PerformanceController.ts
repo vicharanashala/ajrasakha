@@ -43,6 +43,8 @@ import {
   ExpertPerformance,
   Analytics
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
+import { DashboardResponseDto, OverviewResponseDto, GoldenDatasetDto, QuestionContributionTrendDto, StatusOverviewDto, ExpertPerformanceDto, AnalyticsDto } from '#root/modules/dashboard/dtos/DashboardResponseDto.js';
+import { plainToInstance, instanceToPlain } from 'class-transformer';
 import { IPerformanceService } from '../interfaces/IPerformanceService.js';
 import {
   PerformanceErrorResponse,
@@ -52,6 +54,11 @@ import {
   CronSnapshotReportResponse,
   LevelReportErrorResponse,
 } from '../classes/validators/PerformanceResponseValidators.js';
+import {
+  WorkloadResponseDto,
+  ReviewerHeatmapResponseDto,
+  CheckInResponseDto,
+} from '../dtos/PerformanceResponseDto.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
@@ -75,7 +82,7 @@ export class PerformanceController {
     summary: 'Get dashboard analytics',
     description: 'Retrieves comprehensive dashboard analytics including user role overview, golden dataset, expert performance, and question/answer analytics. Requires moderator or admin role.',
   })
-  @ResponseSchema(DashboardResponse, {
+  @ResponseSchema(DashboardResponseDto, {
     statusCode: 200,
     description: 'Dashboard analytics retrieved successfully',
   })
@@ -97,59 +104,75 @@ export class PerformanceController {
   async getDashboardData(
     @QueryParams() query: GetDashboardQuery,
     @CurrentUser() user: IUser,
-  ): Promise<DashboardResponse> {
+  ): Promise<DashboardResponseDto> {
     const currentUserId = user._id.toString();
     const {data} = await this.performanceService.getDashboardData(
       currentUserId,
       query,
     );
 
-    return data;
+    const instance = plainToInstance(DashboardResponseDto, data, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({ summary: 'Get role overview and approval rates' })
   @Get('/overview')
   @Authorized()
-  async getOverview(@CurrentUser() user: IUser): Promise<{
-    userRoleOverview: UserRoleOverview[];
-    moderatorApprovalRate: ModeratorApprovalRate;
-  }> {
-    return this.performanceService.getOverview(user._id.toString());
+  @ResponseSchema(OverviewResponseDto)
+  async getOverview(@CurrentUser() user: IUser): Promise<OverviewResponseDto> {
+    const data = await this.performanceService.getOverview(user._id.toString());
+    const instance = plainToInstance(OverviewResponseDto, data, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({ summary: 'Get golden dataset analytics' })
   @Get('/golden-dataset')
   @Authorized()
-  async getGoldenDataset(@QueryParams() query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
-    return this.performanceService.getGoldenDataset(query);
+  @ResponseSchema(GoldenDatasetDto)
+  async getGoldenDataset(@QueryParams() query: GetGoldenDatasetQuery): Promise<GoldenDatasetDto> {
+    const data = await this.performanceService.getGoldenDataset(query);
+    const instance = plainToInstance(GoldenDatasetDto, data, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({ summary: 'Get question contribution trends' })
   @Get('/contribution-trend')
   @Authorized()
-  async getContributionTrend(@QueryParams() query: GetContributionTrendQuery): Promise<QuestionContributionTrend[]> {
-    return this.performanceService.getContributionTrend(query.timeRange);
+  @ResponseSchema(QuestionContributionTrendDto, { isArray: true })
+  async getContributionTrend(@QueryParams() query: GetContributionTrendQuery): Promise<QuestionContributionTrendDto[]> {
+    const data = await this.performanceService.getContributionTrend(query.timeRange);
+    const instance = plainToInstance(QuestionContributionTrendDto, data, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({ summary: 'Get status overview' })
   @Get('/status-overview')
   @Authorized()
-  async getStatusOverview(): Promise<StatusOverview> {
-    return this.performanceService.getStatusOverview();
+  @ResponseSchema(StatusOverviewDto)
+  async getStatusOverview(): Promise<StatusOverviewDto> {
+    const data = await this.performanceService.getStatusOverview();
+    const instance = plainToInstance(StatusOverviewDto, data, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({ summary: 'Get expert performance metrics' })
   @Get('/expert-performance')
   @Authorized()
-  async getExpertPerformance(): Promise<ExpertPerformance[]> {
-    return this.performanceService.getExpertPerformance();
+  @ResponseSchema(ExpertPerformanceDto, { isArray: true })
+  async getExpertPerformance(): Promise<ExpertPerformanceDto[]> {
+    const data = await this.performanceService.getExpertPerformance();
+    const instance = plainToInstance(ExpertPerformanceDto, data, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({ summary: 'Get detailed questions/answers analytics' })
   @Get('/questions-analytics')
   @Authorized()
-  async getQuestionsAnalytics(@QueryParams() query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
-    return this.performanceService.getQuestionsAnalytics(query);
+  @ResponseSchema(AnalyticsDto)
+  async getQuestionsAnalytics(@QueryParams() query: GetQuestionsAnalyticsQuery): Promise<AnalyticsDto> {
+    const data = await this.performanceService.getQuestionsAnalytics(query);
+    const instance = plainToInstance(AnalyticsDto, data, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({
@@ -171,13 +194,16 @@ export class PerformanceController {
   @Get('/heatMapofReviewers')
   @HttpCode(200)
   @Authorized()
+  @ResponseSchema(ReviewerHeatmapResponseDto)
   async getHeatMapresults(
     @QueryParams() query: GetHeatMapQuery,
-  ): Promise<IReviewerHeatmapResponse | null> {
+  ): Promise<ReviewerHeatmapResponseDto | null> {
     
     const result = await this.performanceService.getHeatMapresults(query);
+    if (!result) return null;
 
-    return result;
+    const instance = plainToInstance(ReviewerHeatmapResponseDto, result, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({
@@ -195,17 +221,14 @@ export class PerformanceController {
   @Get('/workload')
   @HttpCode(200)
   @Authorized()
-  async getWorkLoadCount(@CurrentUser() user: IUser): Promise<{
-    currentUserAnswersCount: number;
-    totalQuestionsCount: number;
-    totalInreviewQuestionsCount: number;
-  }> {
+  @ResponseSchema(WorkloadResponseDto)
+  async getWorkLoadCount(@CurrentUser() user: IUser): Promise<WorkloadResponseDto> {
     const currentUserId = user._id.toString();
     const result = await this.performanceService.getCurrentUserWorkLoad(
       currentUserId,
     );
-    // console.log("the service result====",result)
-    return result;
+    const instance = plainToInstance(WorkloadResponseDto, result, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   // ─── GET LEVEL WISE REPORT ────────────────────────────────────────────
@@ -274,9 +297,13 @@ export class PerformanceController {
   @Post('/check-in')
   @HttpCode(200)
   @Authorized()
-  async checkIn(@CurrentUser() user: IUser) {
-    await this.performanceService.updateCheckInTime(user._id.toString(), new Date());
-    return { success: true, lastCheckInAt: new Date() };
+  @ResponseSchema(CheckInResponseDto)
+  async checkIn(@CurrentUser() user: IUser): Promise<CheckInResponseDto> {
+    const checkInTime = new Date();
+    await this.performanceService.updateCheckInTime(user._id.toString(), checkInTime);
+    const data = { success: true, lastCheckInAt: checkInTime.toISOString() };
+    const instance = plainToInstance(CheckInResponseDto, data, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({

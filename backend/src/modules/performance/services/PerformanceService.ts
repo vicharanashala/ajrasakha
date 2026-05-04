@@ -28,6 +28,18 @@ import {
   ModeratorApprovalRate,
   QuestionContributionTrend
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
+import {
+  DashboardResponseDto,
+  AnalyticsDto,
+  ExpertPerformanceDto,
+  GoldenDatasetDto,
+  ModeratorApprovalRateDto,
+  QuestionContributionTrendDto,
+  StatusOverviewDto,
+  UserRoleOverviewDto,
+  OverviewResponseDto,
+  GoldenDatasetEntryDto,
+} from '#root/modules/dashboard/dtos/DashboardResponseDto.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 import { IPerformanceService } from '../interfaces/IPerformanceService.js';
 import { sendStatsEmail } from '#root/utils/backupEmailService.js';
@@ -77,10 +89,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     await this.userRepo.updateCheckInTime(userId, time);
   }
 
-  async getOverview(currentUserId: string): Promise<{
-    userRoleOverview: UserRoleOverview[];
-    moderatorApprovalRate: ModeratorApprovalRate;
-  }> {
+  async getOverview(currentUserId: string): Promise<OverviewResponseDto> {
     return await this._withTransaction(async (session: ClientSession) => {
       const userRoleOverview = await this.userRepo.getUserRoleCount(session);
       const moderatorApprovalRate = await this.questionRepo.getModeratorApprovalRate(
@@ -91,13 +100,13 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
+  async getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDatasetDto> {
     return await this._withTransaction(async (session: ClientSession) => {
       const { viewType, selectedYear, selectedMonth, selectedWeek, selectedDay } = query;
       const verifiedEntries = await this.questionRepo.getClosedQuestionsCount(session);
       const { todayApproved } = await this.questionRepo.getTodayApproved(session);
 
-      let goldenDataset = {} as GoldenDataset;
+      let goldenDataset = {} as GoldenDatasetDto;
 
       if (viewType === 'year') {
         const { yearData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
@@ -121,13 +130,13 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getContributionTrend(timeRange: string): Promise<QuestionContributionTrend[]> {
+  async getContributionTrend(timeRange: string): Promise<QuestionContributionTrendDto[]> {
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.questionRepo.getCountBySource(timeRange, session);
     });
   }
 
-  async getStatusOverview(): Promise<StatusOverview> {
+  async getStatusOverview(): Promise<StatusOverviewDto> {
     return await this._withTransaction(async (session: ClientSession) => {
       const questionsOverview = await this.questionRepo.getQuestionOverviewByStatus(session);
       const answerOverView = await this.answerRepo.getAnswerOverviewByStatus(session);
@@ -138,13 +147,13 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getExpertPerformance(): Promise<ExpertPerformance[]> {
+  async getExpertPerformance(): Promise<ExpertPerformanceDto[]> {
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.userRepo.getExpertPerformance(session);
     });
   }
 
-  async getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
+  async getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<AnalyticsDto> {
     return await this._withTransaction(async (session: ClientSession) => {
       const { type, startTime, endTime } = query;
       if (type === 'question') {
@@ -160,7 +169,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
   async getDashboardData(
     currentUserId: string,
     query: GetDashboardQuery,
-  ): Promise<{data: DashboardResponse}> {
+  ): Promise<{data: DashboardResponseDto}> {
     return await this._withTransaction(async (session: ClientSession) => {
       const {
         goldenDataViewType,
@@ -206,7 +215,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
         })
       ]);
 
-      const response: DashboardResponse = {
+      const response: DashboardResponseDto = {
         userRoleOverview: overview.userRoleOverview,
         moderatorApprovalRate: overview.moderatorApprovalRate,
         goldenDataset,
