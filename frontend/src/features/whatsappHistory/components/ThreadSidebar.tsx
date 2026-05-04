@@ -69,8 +69,8 @@ export function ThreadSidebar({
       <Separator />
 
       {/* Thread list */}
-      <ScrollArea className="flex-1">
-        <div>
+      <ScrollArea className="flex-1 w-full overflow-hidden">
+        <div className="w-full flex flex-col">
           {isLoading ? (
             <div className="flex flex-col">
               {[1, 2, 3, 4, 5, 6].map((i) => (

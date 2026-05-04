@@ -4,19 +4,19 @@ import { ThreadSidebar } from './components/ThreadSidebar';
 import { ChatWindow } from './components/ChatWindow';
 import type { Thread, Message } from './types';
 
-// Importing JSON files directly for the hooks
-import uniqueNumbersData from '../../../fetch_unique_numbers.json';
-import threadDetailsData from '../../../fetch_thread_details.json';
+// Base URL for LangGraph server from environment variables
+const LANGRAPH_URL = `http://${import.meta.env.VITE_LANGRAPH_SERVER_IP}:${import.meta.env.VITE_LANGRAPH_SERVER_PORT}`;
 
 
 function useThreads() {
   return useQuery({
     queryKey: ['whatsapp-threads'],
     queryFn: async () => {
-      // Simulate API fetch
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      const response = await fetch(`${LANGRAPH_URL}/threads`);
+      if (!response.ok) throw new Error('Failed to fetch threads');
+      const data = await response.json();
 
-      const threads: Thread[] = (uniqueNumbersData.threads as any[])
+      const threads: Thread[] = (data.threads as any[])
         .filter((t: any) => /^\d{12}$/.test(t.thread_id))
         .map((t: any) => ({
           id: t.thread_id,
@@ -37,10 +37,11 @@ function useThreadDetails(threadId: string | undefined) {
     queryFn: async () => {
       if (!threadId) return [];
       
-      // Simulate API fetch
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const response = await fetch(`${LANGRAPH_URL}/threads/${threadId}/state`);
+      if (!response.ok) throw new Error('Failed to fetch thread details');
+      const data = await response.json();
 
-      const messages = threadDetailsData.values.messages as any[];
+      const messages = data.values.messages as any[];
       
       // 1. Find the last human message index
       const lastHumanIndex = [...messages].reverse().findIndex((m: any) => m.type === 'human');
@@ -80,7 +81,7 @@ function useThreadDetails(threadId: string | undefined) {
         id: humanMsg.id || `h-${humanIdx}`,
         role: 'user',
         content: typeof humanMsg.content === 'string' ? humanMsg.content : '',
-        timestamp: new Date(threadDetailsData.created_at),
+        timestamp: new Date(data.created_at || Date.now()),
       });
 
       // Add the final AI message with all collected tool calls and their responses
@@ -100,7 +101,7 @@ function useThreadDetails(threadId: string | undefined) {
             : (Array.isArray(finalAiMsg.content) 
                 ? finalAiMsg.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n') 
                 : ''),
-          timestamp: new Date(threadDetailsData.created_at),
+          timestamp: new Date(data.created_at || Date.now()),
           toolCalls
         });
       }
