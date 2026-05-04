@@ -19,9 +19,22 @@ graph TD
 
     subgraph Agent ["Agent Process"]
         Main["Main Agent\n(Claude Sonnet)"]
-        GDB["GDB Subagent\n(Claude Sonnet)"]
-        Main -- "knowledge queries" --> GDB
-        GDB -- "raw results" --> Main
+
+        subgraph Subagents ["Subagents  —  each a dedicated LLM react loop"]
+            SA1["GDB Subagent"]
+            SA2["Weather Subagent"]
+            SA3["Market Subagent"]
+            SA4["Soil Subagent"]
+            SA5["Schemes Subagent"]
+            SA6["Chemical Checker Subagent"]
+        end
+
+        Main -- "tool call" --> SA1
+        Main -- "tool call" --> SA2
+        Main -- "tool call" --> SA3
+        Main -- "tool call" --> SA4
+        Main -- "tool call" --> SA5
+        Main -- "tool call" --> SA6
     end
 
     subgraph MCP ["MCP Tool Servers  —  deployed separately"]
@@ -31,6 +44,7 @@ graph TD
         S4["Soil Health"]
         S5["Location"]
         S6["Govt Schemes"]
+        S7["Chemical / Banned DB"]
     end
 
     User -->|"HTTP / WebSocket"| API
@@ -38,13 +52,14 @@ graph TD
     Main -->|"response"| API
     API -->|"stream"| User
 
-    GDB -. "HTTP (MCP)" .-> S1
-    Main -. "HTTP (MCP)" .-> S1
-    Main -. "HTTP (MCP)" .-> S2
-    Main -. "HTTP (MCP)" .-> S3
-    Main -. "HTTP (MCP)" .-> S4
-    Main -. "HTTP (MCP)" .-> S5
-    Main -. "HTTP (MCP)" .-> S6
+    Main -. "HTTP (MCP)\nlocation + reviewer" .-> S5
+
+    SA1 -. "HTTP (MCP)" .-> S1
+    SA2 -. "HTTP (MCP)" .-> S2
+    SA3 -. "HTTP (MCP)" .-> S3
+    SA4 -. "HTTP (MCP)" .-> S4
+    SA5 -. "HTTP (MCP)" .-> S6
+    SA6 -. "HTTP (MCP)" .-> S7
 ```
 
 ### Clients
@@ -53,12 +68,18 @@ The agent exposes a **standard LangGraph HTTP API** (streaming SSE). Any client 
 
 ### The Agent in detail
 
-The agent is a **supervisor + subagent** setup:
+The agent is a **supervisor + subagents** setup. The main agent exposes every subagent as a **tool** and decides which to call based on the query. Each subagent is a dedicated LLM react loop with access only to its own domain's MCP server — it does the heavy tool-calling work and returns a clean result to the main agent.
 
-- The **main agent** handles routing, location resolution, language detection, and final response synthesis.
-- For deep knowledge retrieval (diseases, pests, crop management), it delegates to a **GDB subagent** — a separate LLM react loop with access only to knowledge base tools. The subagent receives the full conversation history for context, exhausts all available knowledge sources, and returns raw results to the main agent.
+| Subagent | Connects to | Responsibility |
+|---|---|---|
+| GDB Subagent | Knowledge Base MCP | Searches expert Q&A (vector + full-text + POP) |
+| Weather Subagent | IMD MCP | Fetches forecasts, warnings, rainfall data |
+| Market Subagent | Agmarknet + eNAM MCP | Fetches live mandi prices |
+| Soil Subagent | Soil Health MCP | Computes fertilizer dosage from soil test values |
+| Schemes Subagent | Govt Schemes MCP | Finds matching government schemes by demographics |
+| Chemical Checker Subagent | Chemical/Banned DB MCP | Validates chemicals, flags banned substances, resolves colloquial names |
 
-This keeps the main agent's context clean while giving the subagent everything it needs to search thoroughly.
+The main agent also calls **Location** and **Reviewer** MCP servers directly (not through a subagent) — location for GPS-to-state/district resolution, and reviewer to submit every query to the expert team and check for previously reviewed answers.
 
 ### Query flow
 
@@ -67,8 +88,8 @@ sequenceDiagram
     actor User
     participant API as LangGraph API
     participant Main as Main Agent
-    participant GDB as GDB Subagent
-    participant MCP as MCP Servers
+    participant Sub as Domain Subagent
+    participant MCP as MCP Server
 
     User->>API: query (any Indian language)
     API->>Main: forward messages
@@ -76,17 +97,19 @@ sequenceDiagram
     Main->>MCP: resolve location (if missing)
     MCP-->>Main: state + district
 
-    alt knowledge query (disease / pest / crop mgmt)
-        Main->>GDB: delegate + full conversation history
-        GDB->>MCP: search knowledge base exhaustively
-        MCP-->>GDB: raw results
-        GDB-->>Main: consolidated results
-    else weather / market / soil / schemes
-        Main->>MCP: fetch domain data directly
-        MCP-->>Main: raw data
+    Main->>MCP: submit query to reviewer system
+    MCP-->>Main: reviewed answer (if exists) or queued
+
+    alt reviewed answer found
+        Main-->>API: return reviewed answer directly
+    else needs live data
+        Main->>Sub: tool call (GDB / Weather / Market / Soil / Schemes / Chemical)
+        Sub->>MCP: call domain MCP tools
+        MCP-->>Sub: raw data
+        Sub-->>Main: synthesized domain result
+        Main-->>API: final language-matched response
     end
 
-    Main-->>API: synthesized, language-matched response
     API-->>User: streamed response
 ```
 
