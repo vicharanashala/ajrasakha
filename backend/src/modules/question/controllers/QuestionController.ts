@@ -711,7 +711,7 @@ export class QuestionController {
     let questionDetails;
     let expertDetails;
     try{
-      questionDetails = await this.questionService.getQuestionById(questionId);
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
       result = await this.questionService.toggleAutoAllocate(questionId);
       if(result?.data?.length > 0){
         const expertIdToString = result?.data?.map(id => id.toString()) || [];
@@ -722,7 +722,7 @@ export class QuestionController {
         ...auditPayload,
         context: {
           ...auditPayload.context,
-          question: questionDetails?.text,
+          question: questionDetails?.question,
         },
         changes: {
           before: {
@@ -815,7 +815,7 @@ export class QuestionController {
         ...auditPayload,
         context: {
           ...auditPayload.context,
-          question: questionDetails?.text,
+          question: questionDetails?.question,
         },
         outcome: {
           status: OutComeStatus.FAILED,
@@ -864,62 +864,62 @@ export class QuestionController {
   async updateQuestion(
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<IQuestion>,
-    @CurrentUser() user: IUser,
+    // @CurrentUser() user: IUser,
   ): Promise<{ modifiedCount: number }> {
     const { questionId } = params;
     let prevQuestion;
     let response;
     let questionDetails;
 
-    let auditPayload: ModeratorAuditTrail = {
-      category: AuditCategory.QUESTION,
-      action: AuditAction.QUESTION_UPDATE,
-      actor: {
-        id: user._id.toString(),
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
-      context: {
-        questionId: questionId,
-      },
-      outcome: {
-        status: OutComeStatus.SUCCESS,
-      },
-    };
+    // let auditPayload: ModeratorAuditTrail = {
+    //   category: AuditCategory.QUESTION,
+    //   action: AuditAction.QUESTION_UPDATE,
+    //   actor: {
+    //     id: user._id.toString(),
+    //     name: `${user.firstName} ${user.lastName}`,
+    //     email: user.email,
+    //     role: user.role,
+    //     avatar: user?.avatar || '',
+    //   },
+    //   context: {
+    //     questionId: questionId,
+    //   },
+    //   outcome: {
+    //     status: OutComeStatus.SUCCESS,
+    //   },
+    // };
     try{
-      prevQuestion = await this.questionService.getQuestionById(questionId);
-      questionDetails = {
-        text: prevQuestion.text,
-        details: prevQuestion.details,
-        status: prevQuestion.status,
-        priority: prevQuestion.priority,
-        aiInitialAnswer: prevQuestion.aiInitialAnswer,
-      }
+      // prevQuestion = await this.questionService.getQuestionById(questionId);
+      // questionDetails = {
+      //   text: prevQuestion.text,
+      //   details: prevQuestion.details,
+      //   status: prevQuestion.status,
+      //   priority: prevQuestion.priority,
+      //   aiInitialAnswer: prevQuestion.aiInitialAnswer,
+      // }
       response = await this.questionService.updateQuestion(questionId, updates);
     }
     catch(err: any){
-      auditPayload = {
-        ...auditPayload,
-        changes: {
-          before: {
-            question: questionDetails,
-          },
-        },
-        context: {
-          ...auditPayload.context,
-          question: questionDetails.text,
-        },
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || 'Failed to update question',
-          errorName: err?.name || 'Error',
-          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available', 
-        },
-      };
-      this.auditTrailsService.createAuditTrail(auditPayload);
+      // auditPayload = {
+      //   ...auditPayload,
+      //   changes: {
+      //     before: {
+      //       question: questionDetails,
+      //     },
+      //   },
+      //   context: {
+      //     ...auditPayload.context,
+      //     question: questionDetails.text,
+      //   },
+      //   outcome: {
+      //     status: OutComeStatus.FAILED,
+      //     errorCode: err?.errorCode || 'INTERNAL_ERROR',
+      //     errorMessage: err?.message || 'Failed to update question',
+      //     errorName: err?.name || 'Error',
+      //     errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available', 
+      //   },
+      // };
+      // this.auditTrailsService.createAuditTrail(auditPayload);
       if(err instanceof InternalServerError){
         throw new InternalServerError(err.message);
       }
@@ -927,27 +927,27 @@ export class QuestionController {
         err?.message || 'Failed to update question',
       );
     }
-    const updatedQuestion = {
-      text: updates.question || questionDetails.text,
-      details: updates.details || questionDetails.details,
-      status: updates.status || questionDetails.status,
-      priority: updates.priority || questionDetails.priority,
-      aiInitialAnswer: updates.aiInitialAnswer || questionDetails.aiInitialAnswer,
-    }
+    // const updatedQuestion = {
+    //   text: updates.question || questionDetails.text,
+    //   details: updates.details || questionDetails.details,
+    //   status: updates.status || questionDetails.status,
+    //   priority: updates.priority || questionDetails.priority,
+    //   aiInitialAnswer: updates.aiInitialAnswer || questionDetails.aiInitialAnswer,
+    // }
     
-    auditPayload = {
-      ...auditPayload,
-      changes: {
-        before: {
-          question: questionDetails,
-        },
-        ...auditPayload.changes,
-        after: {
-          question: updatedQuestion,
-        },
-      },
-    };
-    this.auditTrailsService.createAuditTrail(auditPayload);
+    // auditPayload = {
+    //   ...auditPayload,
+    //   changes: {
+    //     before: {
+    //       question: questionDetails,
+    //     },
+    //     ...auditPayload.changes,
+    //     after: {
+    //       question: updatedQuestion,
+    //     },
+    //   },
+    // };
+    // this.auditTrailsService.createAuditTrail(auditPayload);
     return response;
   }
 

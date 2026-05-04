@@ -57,7 +57,7 @@ export interface IQuestionService {
   getQuestionById(questionId: string): Promise<QuestionResponseDto>;
 
   /** Get only question text by ID */
-  getQuestionTextById(questionId: string): Promise<string | null>;
+  getQuestionDataById(questionId: string): Promise<IQuestion | null>;
 
   /** Update question fields */
   updateQuestion(
