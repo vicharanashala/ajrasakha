@@ -1,8 +1,10 @@
+import { useEffect, useRef } from 'react';
 import type { Message, Thread } from '../types';
 import { ChatMessage } from './ChatMessage';
 import { Phone, Info, MoreVertical, Check, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/atoms/button';
 import { formatPhoneNumber } from '@/utils/formatPhoneNumber';
+import { ScrollArea } from '@/components/atoms/scroll-area';
 
 interface ChatWindowProps {
   selectedThread?: Thread;
@@ -11,6 +13,16 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ selectedThread, messages, isLoading }: ChatWindowProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
+  }, [messages, isLoading]);
   if (!selectedThread) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-muted/20 gap-0 p-8">
@@ -90,8 +102,8 @@ export function ChatWindow({ selectedThread, messages, isLoading }: ChatWindowPr
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="flex flex-col gap-3">
+      <ScrollArea ref={scrollRef} className="flex-1 px-4">
+        <div className="flex flex-col gap-3 py-4">
           {isLoading ? (
             <div className="flex justify-center p-8">
               <div className="animate-spin rounded-full h-7 w-7 border-2 border-muted border-t-green-500" />
@@ -106,7 +118,7 @@ export function ChatWindow({ selectedThread, messages, isLoading }: ChatWindowPr
             </div>
           )}
         </div>
-      </div>
+      </ScrollArea>
 
       {/* Footer notice */}
       <div className="px-4 py-2 border-t border-border bg-card flex items-center justify-center gap-1.5 shrink-0">
