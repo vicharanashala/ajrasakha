@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2 } from "lucide-react";
+import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
@@ -475,15 +475,40 @@ export const CropManagementModal = ({
   const [newAliases, setNewAliases] = useState<ICropAliasObject[]>([]);
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
 
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchInput(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setSearchQuery(value);
+      setPage(1);
+    }, 350);
+  }, []);
+
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
-  const { data: cropsData, isLoading: isLoadingCrops } = useGetAllCrops();
+  const { data: cropsData, isLoading: isLoadingCrops, isFetching } = useGetAllCrops({
+    search: searchQuery,
+    page,
+    limit: PAGE_SIZE,
+  });
 
   const crops = cropsData?.crops || [];
+  const totalPages = cropsData?.totalPages ?? 1;
 
   const resetForm = () => {
     setNewCropName("");
     setNewAliases([]);
     setIsAddFormOpen(false);
+    setSearchInput("");
+    setSearchQuery("");
+    setPage(1);
   };
 
   const handleSave = async () => {
@@ -607,6 +632,22 @@ export const CropManagementModal = ({
               </div>
             )}
 
+            {/* ── Search Bar ────────────────────────────────────────────── */}
+            <div className="px-5 pt-3 pb-1">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                <Input
+                  placeholder="Search crops…"
+                  value={searchInput}
+                  onChange={handleSearchChange}
+                  className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
+                />
+                {isFetching && !isLoadingCrops && (
+                  <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+                )}
+              </div>
+            </div>
+
             {/* ── Crop List ──────────────────────────────────────────────── */}
             <div className="px-5 py-3">
               {isLoadingCrops ? (
@@ -616,7 +657,9 @@ export const CropManagementModal = ({
               ) : crops.length === 0 ? (
                 <div className="text-center py-12">
                   <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400 dark:text-gray-500">No crops added yet</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    {searchQuery ? `No crops found for "${searchQuery}"` : "No crops added yet"}
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-px">
@@ -659,6 +702,31 @@ export const CropManagementModal = ({
                 </div>
               )}
             </div>
+
+            {/* ── Pagination ─────────────────────────────────────────────── */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-gray-800/60">
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                  Page {page} of {totalPages}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="h-7 w-7 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="h-7 w-7 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
