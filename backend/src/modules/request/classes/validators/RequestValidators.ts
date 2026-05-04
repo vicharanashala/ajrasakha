@@ -6,7 +6,9 @@ import {
   IsInt,
   Min,
   IsIn,
+  IsNotEmpty,
 } from 'class-validator';
+import {JSONSchema} from 'class-validator-jsonschema';
 import {Type} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 import {IQuestion} from '#root/shared/index.js';
@@ -113,6 +115,18 @@ class GetAllRequestsQueryDto {
   sortOrder?: 'newest' | 'oldest';
 }
 
+class RequestErrorResponse {
+  @JSONSchema({
+    description: 'The error message',
+    example: 'Request not found',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsNotEmpty()
+  @IsString()
+  message: string;
+}
+
 export {
   UpdateRequestStatusDto,
   CreateRequestBodyDto,
@@ -124,6 +138,7 @@ export {
   RequestParamsDto,
   RequestStatus,
   GetAllRequestsQueryDto,
+  RequestErrorResponse,
 };
 export const REQUEST_VALIDATORS = [
   UpdateRequestStatusDto,
@@ -134,4 +149,5 @@ export const REQUEST_VALIDATORS = [
   RequestStatusBody,
   RequestParamsDto,
   GetAllRequestsQueryDto,
+  RequestErrorResponse,
 ];

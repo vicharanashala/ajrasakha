@@ -21,19 +21,25 @@ import {
   GetAllRequestsQueryDto,
   RequestParamsDto,
   RequestStatusBody,
+  RequestErrorResponse,
 } from '../classes/validators/RequestValidators.js';
+import {
+  RequestDto,
+  PaginatedRequestsResponseDto,
+  RequestDiffResponseDto,
+  RequestResponseDto,
+} from '../dtos/RequestResponseDto.js';
 import { RequestService } from '../services/RequestService.js';
 import { IRequestService } from '../interfaces/IRequestService.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
-import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import {
-  RequestErrorResponse,
-  RequestCreateResponse,
-  PaginatedRequestsResponse,
-  RequestDiffResponse,
-  RequestStatusUpdateResponse,
-} from '../classes/validators/RequestResponseValidators.js';
+  AuditAction,
+  AuditCategory,
+  ModeratorAuditTrail,
+  OutComeStatus,
+} from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { plainToInstance, instanceToPlain } from 'class-transformer';
 
 @OpenAPI({
   tags: ['requests'],
@@ -54,21 +60,13 @@ export class RequestController {
     summary: 'Create a new request',
     description: 'Creates a new flag request for a question or other entity. Notifications are sent to all moderators.',
   })
-  @ResponseSchema(RequestCreateResponse, {
+  @ResponseSchema(RequestDto, {
     statusCode: 201,
     description: 'Request created successfully - Returns the created request',
   })
-  @ResponseSchema(RequestErrorResponse, {
+  @ResponseSchema(BadRequestErrorResponse, {
     statusCode: 400,
     description: 'Bad request - Invalid request data',
-  })
-  @ResponseSchema(RequestErrorResponse, {
-    statusCode: 401,
-    description: 'Unauthorized - Authentication required',
-  })
-  @ResponseSchema(RequestErrorResponse, {
-    statusCode: 500,
-    description: 'Internal server error - Failed to create request',
   })
   @Post('/')
   @HttpCode(201)
@@ -76,30 +74,20 @@ export class RequestController {
   async create(
     @Body() body: CreateRequestBodyDto,
     @CurrentUser() user: IUser,
-  ): Promise<IRequest> {
+  ): Promise<RequestDto> {
     const userId = user._id.toString();
-    return this.requestService.createRequest(body, userId);
+    const result = await this.requestService.createRequest(body, userId);
+    const instance = plainToInstance(RequestDto, result, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({
     summary: 'Get all requests',
     description: 'Retrieves paginated list of all requests with optional filtering by status and request type. Only moderators and admins can access this.',
   })
-  @ResponseSchema(PaginatedRequestsResponse, {
+  @ResponseSchema(PaginatedRequestsResponseDto, {
     statusCode: 200,
     description: 'Requests retrieved successfully with pagination',
-  })
-  @ResponseSchema(RequestErrorResponse, {
-    statusCode: 401,
-    description: 'Unauthorized - Authentication required',
-  })
-  @ResponseSchema(RequestErrorResponse, {
-    statusCode: 403,
-    description: 'Forbidden - Only moderators and admins can view all requests',
-  })
-  @ResponseSchema(RequestErrorResponse, {
-    statusCode: 500,
-    description: 'Internal server error - Failed to fetch requests',
   })
   @Get('/')
   @HttpCode(200)
@@ -107,29 +95,19 @@ export class RequestController {
   async getAll(
     @CurrentUser() user: IUser,
     @QueryParams() query: GetAllRequestsQueryDto,
-  ): Promise<{
-    requests: IRequest[];
-    totalPages: number;
-    totalCount: number;
-  }> {
+  ): Promise<PaginatedRequestsResponseDto> {
     const userId = user._id.toString();
-    return this.requestService.getAllRequests(userId, query);
+    const result = await this.requestService.getAllRequests(userId, query);
+    const instance = plainToInstance(PaginatedRequestsResponseDto, result, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
   @OpenAPI({
     summary: 'Get request difference by ID',
     description: 'Retrieves the diff view showing current document, existing document, and all responses for a specific request.',
   })
-  @ResponseSchema(RequestDiffResponse, {
+  @ResponseSchema(RequestDiffResponseDto, {
     statusCode: 200,
     description: 'Request diff retrieved successfully',
-  })
-  @ResponseSchema(RequestErrorResponse, {
-    statusCode: 401,
-    description: 'Unauthorized - Authentication required',
-  })
-  @ResponseSchema(RequestErrorResponse, {
-    statusCode: 404,
-    description: 'Not found - Request not found',
   })
   @Get('/:requestId')
   @HttpCode(200)
@@ -137,35 +115,21 @@ export class RequestController {
   async getRequestDiff(
     @Params() params: RequestParamsDto,
     @CurrentUser() user: IUser,
-  ): Promise<{
-    currentDoc: any;
-    existingDoc: any;
-    responses: IRequestResponse[]
-  }> {
+  ): Promise<RequestDiffResponseDto> {
     const {requestId} = params;
     const userId = user._id.toString();
-    return this.requestService.getRequestDiff(userId, requestId);
+    const result = await this.requestService.getRequestDiff(userId, requestId);
+    const instance = plainToInstance(RequestDiffResponseDto, result, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({
     summary: 'Update request status',
     description: 'Updates the status of a request (pending, approved, rejected, in-review) and adds a response. If approved, applies the requested changes to the entity.',
   })
-  @ResponseSchema(RequestStatusUpdateResponse, {
+  @ResponseSchema(RequestResponseDto, {
     statusCode: 200,
     description: 'Request status updated successfully - Returns the response entry',
-  })
-  @ResponseSchema(RequestErrorResponse, {
-    statusCode: 400,
-    description: 'Bad request - Invalid status or request already closed',
-  })
-  @ResponseSchema(RequestErrorResponse, {
-    statusCode: 401,
-    description: 'Unauthorized - Authentication required',
-  })
-  @ResponseSchema(RequestErrorResponse, {
-    statusCode: 404,
-    description: 'Not found - Request not found',
   })
   @Put('/:requestId/status')
   @HttpCode(200)
@@ -174,7 +138,7 @@ export class RequestController {
     @Params() params: RequestParamsDto,
     @Body() body: RequestStatusBody,
     @CurrentUser() user: IUser,
-  ): Promise<IRequestResponse> {
+  ): Promise<RequestResponseDto> {
     const {requestId} = params;
     const {status, response} = body;
     const userId = user._id.toString();
@@ -220,14 +184,15 @@ export class RequestController {
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
       if(err instanceof InternalServerError){
-        throw new InternalServerError(err.message);
+         throw new InternalServerError(err.message);
       }
       throw new BadRequestError(
         err?.message || 'Failed to update request status',
       );
     }
     this.auditTrailsService.createAuditTrail(auditPayload);
-    return result;
+    const instance = plainToInstance(RequestResponseDto, result, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   @OpenAPI({

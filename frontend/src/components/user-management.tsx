@@ -100,16 +100,18 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
 
   const tableItems = isAdmin
     ? adminUsers?.users ?? []
-    : expertDetails?.experts ?? [];
+    : expertDetails?.users ?? [];
 
 
     console.log("Admin users ->", adminUsers?.users);
-    console.log("Expert details ->", expertDetails?.experts); 
+    console.log("Expert details ->", expertDetails?.users); 
     console.log("Table items ->", tableItems);
 
   const isLoading = isAdmin ? adminLoading : expertLoading;
 
-  const totalPages = isAdmin ? 1 : expertDetails?.totalPages || 0;
+  const totalPages = isAdmin 
+    ? (adminUsers?.meta?.totalPages || 1) 
+    : (expertDetails?.meta?.totalPages || 0);
 
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
@@ -227,8 +229,8 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
             limit={LIMIT}
             totalPages={
               isAdmin
-                ? adminUsers?.totalPages || 1
-                : expertDetails?.totalPages || 0
+                ? adminUsers?.meta?.totalPages || 1
+                : expertDetails?.meta?.totalPages || 0
             }
             isLoading={isLoading}
             setSelectExpertId={setSelectExpertId}

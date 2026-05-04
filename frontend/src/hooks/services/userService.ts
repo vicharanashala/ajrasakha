@@ -1,4 +1,4 @@
-import type { IUser,ReviewLevelCount } from "@/types";
+import type { IUser,ReviewLevelCount, PaginatedUsersResponse } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 import { formatDateLocal } from "@/utils/formatDate";
@@ -13,8 +13,8 @@ export class UserService {
     return apiFetch<IUser>(`${this._baseUrl}/me`);
   }
 
-   async useGetAllUsers(): Promise<IUsersNameResponse | null> {
-  return apiFetch<IUsersNameResponse>(`${this._baseUrl}/all`);
+   async useGetAllUsers(): Promise<PaginatedUsersResponse | null> {
+  return apiFetch<PaginatedUsersResponse>(`${this._baseUrl}/all`);
 }
 
 
@@ -32,8 +32,8 @@ export class UserService {
     })
   }
 
-  async useGetAllExperts(page:number,limit:number,search:string,sort:string,filter:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number} | null>{
-    return apiFetch<{experts:IUser[]; totalExperts:number; totalPages:number}>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`);
+  async useGetAllExperts(page:number,limit:number,search:string,sort:string,filter:string):Promise<PaginatedUsersResponse | null>{
+    return apiFetch<PaginatedUsersResponse>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`);
   }
 
   async isBlockUser(userId:string,action:string):Promise<void | null>{

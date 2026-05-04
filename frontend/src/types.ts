@@ -61,6 +61,19 @@ export interface ReviewLevelCount {
 
 }
 
+export interface PaginationMeta {
+  totalItems: number;
+  totalPages: number;
+  currentPage: number;
+  limit: number;
+}
+
+export interface PaginatedUsersResponse {
+  users: IUser[];
+  meta: PaginationMeta;
+  myPreference?: IMyPreference;
+}
+
 export interface IReviewParmeters {
   contextRelevance: boolean;
   technicalAccuracy: boolean;

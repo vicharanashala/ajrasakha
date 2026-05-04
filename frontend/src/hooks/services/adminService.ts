@@ -1,6 +1,6 @@
 import { apiFetch } from "../api/api-fetch";
 import { env } from "@/config/env";
-import type { IUser } from "@/types";
+import type { IUser, PaginatedUsersResponse } from "@/types";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -15,7 +15,7 @@ export class AdminUserService {
     filter: string,
     role: string,
     isBlocked: string
-  ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number } | null> {
+  ): Promise<PaginatedUsersResponse | null> {
     return apiFetch(
       `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}&role=${role}&isBlocked=${isBlocked}`
     );

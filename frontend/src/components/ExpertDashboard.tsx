@@ -119,11 +119,11 @@ export const ExpertDashboard = ({
 
   const expertArr = expertDetailsList || expertDetails;
   useEffect(() => {
-    if (!expertArr || !expertArr.experts) return; // safety check
-    const filteredUsers = expertArr.experts.filter((ele: any) => {
+    if (!expertArr || !expertArr.users) return; // safety check
+    const filteredUsers = expertArr.users.filter((ele: any) => {
       return ele._id === userId; // optional chaining for user
     });
-    setTotalUsers(expertArr.totalExperts);
+    setTotalUsers(expertArr.meta?.totalItems || 0);
     setUserDetails(filteredUsers);
   }, [expertArr, user?.email]);
 
