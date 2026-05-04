@@ -28,6 +28,7 @@ import {
   ChevronUp,
   Loader2,
   Beaker,
+  MessageSquare,
 } from "lucide-react";
 import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
@@ -45,6 +46,7 @@ import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { OutreachReportModal } from "@/features/question_details/components/OutreachReport";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
+import { useNavigate } from "@tanstack/react-router";
 
 import {
   AddOrEditQuestionDialog,
@@ -142,6 +144,7 @@ export const QuestionsFilters = ({
   view,
   setView,
 }: QuestionsFiltersProps) => {
+  const navigate = useNavigate();
   //question global state
   const { visibleColumns, toggleColumn } = useQuestionTableStore();
   const activeColumns = [
@@ -809,6 +812,33 @@ export const QuestionsFilters = ({
                     </div>
                   </button>
                 </div>
+              )}
+
+              {/* WhatsApp History */}
+              {userRole !== "expert" && (
+                <button
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  onClick={() => {
+                    navigate({ to: "/whatsapp-history" });
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
+                      <MessageSquare size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                          WhatsApp History
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        View conversation logs
+                      </p>
+                    </div>
+                  </div>
+                </button>
               )}
 
               {/* update crops */}
