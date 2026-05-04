@@ -713,7 +713,7 @@ export class QuestionController {
     let questionDetails;
     let expertDetails;
     try{
-      questionDetails = await this.questionService.getQuestionById(questionId);
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
       result = await this.questionService.toggleAutoAllocate(questionId);
       if(result?.data?.length > 0){
         const expertIdToString = result?.data?.map(id => id.toString()) || [];
@@ -724,7 +724,7 @@ export class QuestionController {
         ...auditPayload,
         context: {
           ...auditPayload.context,
-          question: questionDetails?.text,
+          question: questionDetails?.question,
         },
         changes: {
           before: {
@@ -817,7 +817,7 @@ export class QuestionController {
         ...auditPayload,
         context: {
           ...auditPayload.context,
-          question: questionDetails?.text,
+          question: questionDetails?.question,
         },
         outcome: {
           status: OutComeStatus.FAILED,
