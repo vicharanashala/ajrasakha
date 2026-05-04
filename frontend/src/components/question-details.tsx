@@ -230,7 +230,7 @@ export const QuestionDetails = ({
           />
 
           {question && question.source == "AJRASAKHA" && currentUser && currentUser.role != "expert" &&
-            <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.queue?.length !== 0} navigateToQuestionPage={navigateToQuestionPage} />
+            <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.queue?.length == 0||submissionExists} navigateToQuestionPage={navigateToQuestionPage} />
           }
 
           {/* {currentUser.role !== "expert" && ( */}
