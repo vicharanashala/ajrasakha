@@ -344,7 +344,7 @@ export const RequestCard = ({
                   {(req.status == "pending" || req.status == "in-review") && (
                     <Button
                       onClick={handleSubmit}
-                      disabled={reqDiffLoading || updatingStatus}
+                      disabled={reqDiffLoading || updatingStatus || !response.trim()}
                       className="bg-primary text-primary-foreground text-xs sm:text-sm"
                     >
                       {updatingStatus ? "Submitting..." : "Submit Response"}

@@ -11,6 +11,7 @@ import type {
   UserDetailEntry,
   PaginatedUserDetails,
   DemographicEntry,
+  PlatformInstallEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -29,6 +30,7 @@ export interface DashboardResponse {
   farmingExperience: DemographicEntry[];
   kccAwareness: DemographicEntry[];
   agriAppUsage: DemographicEntry[];
+  platformInstalls: PlatformInstallEntry[];
 }
 
 export interface IChatbotService {

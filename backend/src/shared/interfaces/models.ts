@@ -73,6 +73,7 @@ export interface IQuestion {
   passingRemark?:string;
   isOnHold?:boolean;
   messageId?:string;
+  phoneNumber?:string;
   /** Wall-clock moment the current hold segment started (SLA timer freezes until unhold). */
   holdAt?:Date | null;
   /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
@@ -354,10 +355,21 @@ export interface ICropRef {
   aliases?: string[];
 }
 
+export interface ICropAlias {
+  language: string;                 // BCP-47 code e.g. "te-IN"
+  region: string;                   // e.g. "Andhra and Telangana"
+  english_representation: string;   // romanised / English representation e.g. "vari"
+  native_representation: string;    // native script e.g. "వరి"
+}
+
+export type CropType = 'crop' | 'chemical' | 'other';
+
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  aliases: string[];
+  type?: CropType;                    // 'crop' (default) | 'chemical' | 'other'
+  status?: 'Restricted' | 'Banned';  // only relevant when type === 'chemical'
+  aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
   createdAt?: Date;
@@ -379,6 +391,7 @@ export interface IChemical {
   _id?: ObjectId | string;
   name: string;
   status: ChemicalStatus;
+  aliases?: (ICropAlias | string)[];  // optional structured aliases
   createdBy?: ObjectId | string;
   createdAt?: Date;
   updatedAt?: Date;

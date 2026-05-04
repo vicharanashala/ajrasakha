@@ -112,6 +112,11 @@ export interface KccAndAgriAppStats {
   agriAppUsage: DemographicEntry[];
 }
 
+export interface PlatformInstallEntry {
+  platform: string;
+  count: number;
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
@@ -175,8 +180,8 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<DailyActiveUsersEntry[]>;
-  findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string});
-  findFromSecondDb(data: {question: string; details: any; createdAt: Date; questionId: string});
+  findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
+  findFromSecondDb(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
 
   /** Inactivity-gap based avg session duration in minutes (KPI number). Requires MongoDB 5.0+. */
   getAvgSessionDurationV2(source?: string, session?: ClientSession, userType?: string): Promise<number>;
@@ -224,6 +229,9 @@ export interface IChatbotRepository {
   getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession)
   getInstalls(startDate:Date,endDate:Date, session?: ClientSession)
   getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession)
+
+  // get platform wise installs
+  getPlatformInstalls(source: string, session?: ClientSession): Promise<PlatformInstallEntry[]>;
 }
 
 export interface ChatbotConversationData {

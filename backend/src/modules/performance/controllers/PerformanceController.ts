@@ -15,6 +15,8 @@ import {
   Put,
   Res,
   ContentType,
+  InternalServerError,
+  BadRequestError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -50,6 +52,9 @@ import {
   CronSnapshotReportResponse,
   LevelReportErrorResponse,
 } from '../classes/validators/PerformanceResponseValidators.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 
 @OpenAPI({
@@ -61,6 +66,9 @@ export class PerformanceController {
   constructor(
     @inject(GLOBAL_TYPES.PerformanceService)
     private readonly performanceService: IPerformanceService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   @OpenAPI({
@@ -295,10 +303,50 @@ export class PerformanceController {
   @HttpCode(200)
   @Authorized()
   async sendCronSnapshotReport(@CurrentUser() user: IUser) {
-    await this.performanceService.sendCronSnapshotEmail(
-      user._id.toString(),
-    );
 
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ADMIN_REPORT,
+      action: AuditAction.SEND_DASHBOARD_REPORT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        reportType: 'Dashboard Report',
+        timestamp: new Date().toISOString(),
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      await this.performanceService.sendCronSnapshotEmail(
+        user._id.toString(),
+      );
+    } catch (err) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to process uploaded file',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      await this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to generate overall question report',
+      );
+    }
+    await this.auditTrailsService.createAuditTrail(auditPayload);
     return {
       message: "Cron snapshot report email sent successfully.",
     };

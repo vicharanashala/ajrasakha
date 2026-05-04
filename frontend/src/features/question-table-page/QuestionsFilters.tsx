@@ -23,7 +23,7 @@ import {
   Activity,
   EyeOff,
   Eye,
-  Wheat,
+  Cpu,
   ChevronDown,
   ChevronUp,
   Loader2,
@@ -220,8 +220,10 @@ export const QuestionsFilters = ({
     try {
       if (mode !== "add") return;
       if (formData) {
+        const isOutreach = formData.get("isOutreachQuestion") === "true";
         await addQuestion(formData as any);
         // toast.success('File Uploaded succesfully')
+        handleAnswerModeChange(isOutreach ? "outreach" : "manual");
         setAddQuestionErrors({});
         setAddOpen(false);
         return;
@@ -297,6 +299,7 @@ export const QuestionsFilters = ({
       setAddQuestionErrors({});
       await addQuestion(payload);
       // toast.success("Question added successfully.");
+      handleAnswerModeChange("manual");
       setAddOpen(false);
     } catch (error) {
       console.error("Error in handleAddQuestion:", error);
@@ -819,16 +822,16 @@ export const QuestionsFilters = ({
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-500">
-                      <Wheat size={20} />
+                      <Cpu size={20} />
                     </div>
                     <div className="text-left">
                       <div className="flex items-center gap-2">
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
-                          Update Crops
+                          AgriTech Management
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500">
-                        Manage crop master list
+                        Manage AgriTech List
                       </p>
                     </div>
                   </div>

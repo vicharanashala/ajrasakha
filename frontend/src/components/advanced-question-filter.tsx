@@ -60,7 +60,6 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  TooltipProvider,
 } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
@@ -153,7 +152,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const { data: userNameReponse, isLoading } = useGetAllUsers();
-  const { data: cropsData } = useGetAllCrops();
+  const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
@@ -385,24 +384,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Sprout className="h-4 w-4 text-primary" />
                   Crop Type
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Info className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs text-sm">
-                      <p>
-                        Filter by the standardized crop name. You can view a
-                        crop's alternative names by hovering over the "+" icon
-                        next to it. Use "Not Set" to find older questions
-                        without a normalized crop.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
                 </Label>
                 <CropMultiSelect
                   dbCrops={dbCrops}

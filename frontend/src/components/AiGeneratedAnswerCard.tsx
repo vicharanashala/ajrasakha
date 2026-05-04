@@ -44,7 +44,7 @@ export const AiGeneratedAnswerCard = ({
 
   const hasSources = Array.isArray(aiApprovedSources) && aiApprovedSources.length > 0;
 
-  const isEligibleSource = source === "AGRI_EXPERT" || source === "OUTREACH" || source === "AJRASAKHA";
+  const isEligibleSource = source === "AGRI_EXPERT" || source === "OUTREACH" || source === "AJRASAKHA" || source === "WHATSAPP";
 
   const hasAIAnswer = !!(tempAiAnswer || aiInitialAnswer || aiApprovedAnswer);
 
@@ -121,7 +121,7 @@ export const AiGeneratedAnswerCard = ({
                 !hasAIAnswer ? (
                   <>
                     <p className="text-sm text-muted-foreground text-center py-6">
-                      No AI answer available
+                      {hasSubmissions ? "AI initial answer cannot be created after an expert has already submitted an answer." : "No AI answer available"}
                     </p>
                   </>
                 ) : (

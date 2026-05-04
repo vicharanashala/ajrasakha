@@ -25,6 +25,7 @@ import { ExpertDashboard } from "./ExpertDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from '../features/chatbotDashboard/AnnamDashboard_dev'
 import { cn } from "@/lib/utils";
+import AuditPage from "./AuditPage";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -428,6 +429,7 @@ export const PlaygroundPage = () => {
                     selectedHistoryId={selectedHistoryId}
                   />
                 </TabsContent>
+                
               )}
             </div>
           </div>

@@ -21,11 +21,10 @@ import type {
   UserDemographics,
   DemographicEntry,
   KccAndAgriAppStats,
+  PlatformInstallEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
-import { createDecipheriv } from 'crypto';
-import { count } from 'console';
 
 interface IUser {
   _id?: any;
@@ -52,6 +51,7 @@ interface IUser {
     usesAgriApps?: boolean;
     highestEducatedPerson?: string;
     numberOfSmartphones?: number;
+    platform?: string;
     location?: {
       latitude: number;
       longitude: number;
@@ -109,19 +109,54 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.db.getCollection<IQuestion>('questions');
   }
 
-  private async getExternalUserIds(): Promise<string[]> {
-    const externalUsers = await this.users
-      .find({ email: { $regex: '^rup', $options: 'i' } }, { projection: { _id: 1 } })
-      .toArray();
-    return externalUsers.map(u => String(u._id));
-  }
+  /**
+   * Returns aggregation pipeline stages that join messages → users via $lookup
+   * and filter by user type (external/internal). When userType is 'all', returns
+   * an empty array (zero overhead). This replaces the old two-step pattern of
+   * getExternalUserIds() + buildUserMessageFilter() which caused a separate DB
+   * query for every method call.
+   */
+  private buildUserTypeLookupStages(userType: string): any[] {
+    if (userType === 'all') return [];
 
-  private async buildUserMessageFilter(userType: string): Promise<Record<string, any>> {
-    if (userType === 'all') return {};
-    const externalIds = await this.getExternalUserIds();
-    return userType === 'external'
-      ? { user: { $in: externalIds } }
-      : { user: { $nin: externalIds } };
+    const stages: any[] = [
+      {
+        $addFields: {
+          _userOid: {
+            $cond: [
+              { $and: [{ $ne: ['$user', null] }, { $ne: ['$user', ''] }] },
+              { $toObjectId: '$user' },
+              null,
+            ],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_userOid',
+          foreignField: '_id',
+          as: '_userDoc',
+        },
+      },
+    ];
+
+    if (userType === 'external') {
+      // $unwind without preserveNull drops messages with no matching user (correct)
+      stages.push(
+        { $unwind: '$_userDoc' },
+        { $match: { '_userDoc.email': { $regex: '^rup', $options: 'i' } } },
+      );
+    } else {
+      // internal: preserve messages from unknown users, exclude 'rup' emails
+      stages.push(
+        { $unwind: { path: '$_userDoc', preserveNullAndEmptyArrays: true } },
+        { $match: { '_userDoc.email': { $not: { $regex: '^rup', $options: 'i' } } } },
+      );
+    }
+
+    stages.push({ $unset: ['_userOid', '_userDoc'] });
+    return stages;
   }
 
   private buildUserDocFilter(userType: string): Record<string, any> {
@@ -146,8 +181,8 @@ export class ChatbotRepository implements IChatbotRepository {
       threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
       threeDaysAgo.setHours(0, 0, 0, 0);
 
-      const userDocFilter = await this.buildUserDocFilter(userType);
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userDocFilter = this.buildUserDocFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls, activeUsersLast3Days] =
         await Promise.all([
@@ -205,7 +240,8 @@ export class ChatbotRepository implements IChatbotRepository {
           this.messagesCollection
             .aggregate(
               [
-                { $match: { createdAt: { $gte: threeDaysAgo }, isCreatedByUser: true, ...userMsgFilter } },
+                { $match: { createdAt: { $gte: threeDaysAgo }, isCreatedByUser: true } },
+                ...userTypeLookupStages,
                 { $group: { _id: '$user' } },
                 { $count: 'total' },
               ],
@@ -258,12 +294,13 @@ export class ChatbotRepository implements IChatbotRepository {
       since.setDate(1);
       since.setHours(0, 0, 0, 0);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            { $match: { createdAt: { $gte: since }, isCreatedByUser: true, ...userMsgFilter } },
+            { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
+            ...userTypeLookupStages,
             // Deduplicate: one entry per (month, user) pair
             {
               $group: {
@@ -432,12 +469,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const since = new Date();
       since.setDate(since.getDate() - days);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true, ...userMsgFilter}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            ...userTypeLookupStages,
             {
               $group: {
                 _id: {$dateToString: {format: '%Y-%m-%d', date: '$createdAt'}},
@@ -467,13 +505,14 @@ export class ChatbotRepository implements IChatbotRepository {
       since.setDate(since.getDate() - days);
       since.setHours(0, 0, 0, 0);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
             // Filter to last N days, user-sent messages only
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true, ...userMsgFilter}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            ...userTypeLookupStages,
             // Deduplicate: one entry per (day, user) pair
             {
               $group: {
@@ -513,12 +552,13 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(source);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {isCreatedByUser: true, ...userMsgFilter}},
+            {$match: {isCreatedByUser: true}},
+            ...userTypeLookupStages,
             {
               $group: {
                 _id: {
@@ -553,12 +593,20 @@ export class ChatbotRepository implements IChatbotRepository {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-      return this.messagesCollection.countDocuments(
-        {createdAt: {$gte: today}, isCreatedByUser: true, ...userMsgFilter},
-        {session},
-      );
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {$match: {createdAt: {$gte: today}, isCreatedByUser: true}},
+            ...userTypeLookupStages,
+            {$count: 'total'},
+          ],
+          {session},
+        )
+        .toArray();
+
+      return (result as any[])[0]?.total ?? 0;
     } catch (error) {
       throw new InternalServerError(
         `Failed to get today query count: ${error}`,
@@ -571,16 +619,27 @@ export class ChatbotRepository implements IChatbotRepository {
     details: any;
     createdAt: Date;
     questionId: string;
+    messageId: string | undefined;
   }) {
     await this.init();
     await this.initReviewSystem();
-    const {question, details, createdAt, questionId} = data;
+    const {question, details, createdAt, questionId, messageId} = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
 
-    let result = await this.messagesCollection
-      .aggregate([
+    let pipeline = [];
+    
+    if(messageId){
+      pipeline.push(
+        {
+        $match: {
+          messageId
+        }
+      }
+      )
+    }else{
+      pipeline.push(
         {
           $match: {
             createdAt: {
@@ -588,8 +647,11 @@ export class ChatbotRepository implements IChatbotRepository {
               $lte: end,
             },
           },
-        },
-        {
+        }
+      )
+    }
+    pipeline.push(
+       {
           $addFields: {
             userObjectId: {
               $cond: [
@@ -615,24 +677,50 @@ export class ChatbotRepository implements IChatbotRepository {
             path: '$userDetails',
             preserveNullAndEmptyArrays: true,
           },
-        },
-      ])
+        }
+    )
+    let result = await this.messagesCollection
+      .aggregate(pipeline)
       .toArray();
+    if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
+    let matchedUserId: ObjectId | null = null;
     const result1 = result.filter(doc => {
       try {
         const isNewFlow = new Date(doc.createdAt) > cutoffDate;
         const matchedContent = doc.content?.find(
-          (item: any) =>
-            item?.type === 'tool_call' &&
-            item?.tool_call?.name ===
-              'upload_question_to_reviewer_system_mcp_pop' || item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer',
-        );
+          (item: any) => {
+            const isRightTool =
+              item?.type === 'tool_call' &&
+              (item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_pop' ||
+                item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer');
 
+            if (!isRightTool || !item?.tool_call?.output) {
+              return false;
+            }
+            try {
+              const outputArr = JSON.parse(item.tool_call.output);
+              const innerText = outputArr?.[0]?.text;
+
+              if (!innerText) return false;
+
+              const parsedOutput = JSON.parse(innerText);
+
+              const isNotFailed = parsedOutput?.status.toLowerCase() !== 'failed';
+
+              return  isNotFailed;
+
+            } catch (error) {
+              console.error('Failed to parse tool call output in filter:', error);
+              return false;
+            }
+          }
+        );
         if (!matchedContent) return false;
         if (isNewFlow) {
+
           if (!matchedContent?.tool_call?.output) return false;
           const outputArr = JSON.parse(matchedContent.tool_call.output);
           const innerText = outputArr?.[0]?.text;
@@ -641,27 +729,40 @@ export class ChatbotRepository implements IChatbotRepository {
           const isMatch = questionIdFromOutput == questionId?.toString();
           if (isMatch) {
             matchedMessageId = doc.messageId;
+            matchedUserId = doc.userObjectId ?? null;
           }
           return isMatch;
         }
         const args = JSON.parse(matchedContent.tool_call.args);
 
-        return (
+        const isMatch =
           args?.question?.toLowerCase() === question?.toLowerCase() &&
           args?.details?.state?.toLowerCase() ===
             details?.state?.toLowerCase() &&
-          args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase()
-        );
+          args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase();
+
+        if (isMatch) {
+          matchedMessageId = doc.messageId;
+          matchedUserId = doc.userObjectId ?? null;
+        }
+
+        return isMatch;
       } catch (e) {
         return false;
       }
     });
     if (matchedMessageId && questionId) {
+      const updateFields: Record<string, any> = {messageId: matchedMessageId};
+      if (matchedUserId) {
+        updateFields.userId = matchedUserId;
+      }
+
       await this.QuestionCollection.updateOne(
         {_id: new ObjectId(questionId)},
-        {$set: {messageId: matchedMessageId}},
+        {$set: updateFields},
       );
     }
+    
     return result1;
   }
 
@@ -670,15 +771,25 @@ export class ChatbotRepository implements IChatbotRepository {
     details: any;
     createdAt: Date;
     questionId: string;
+    messageId: string | undefined;
   }) {
     await this.initSecondDb();
     await this.initReviewSystem();
-    const {question, details, createdAt, questionId} = data;
+    const {question, details, createdAt, questionId,messageId} = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
-    let result = await this.annamMessagesCollection
-      .aggregate([
+
+     let pipeline = []
+    
+    if(messageId){
+      pipeline.push( {
+        $match: {
+          messageId
+        }
+      })
+    }else{
+      pipeline.push(
         {
           $match: {
             createdAt: {
@@ -686,8 +797,12 @@ export class ChatbotRepository implements IChatbotRepository {
               $lte: end,
             },
           },
-        },
-        {
+        }
+      )
+    }
+
+    pipeline.push(
+      {
           $addFields: {
             userObjectId: {
               $cond: [
@@ -713,20 +828,46 @@ export class ChatbotRepository implements IChatbotRepository {
             path: '$userDetails',
             preserveNullAndEmptyArrays: true,
           },
-        },
-      ])
+        }
+    )
+    let result = await this.annamMessagesCollection
+      .aggregate(pipeline)
       .toArray();
+    if(messageId)return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
+    let matchedUserId: ObjectId | null = null;
     const result1 = result.filter(doc => {
       try {
         const isNewFlow = new Date(doc.createdAt) > cutoffDate;
         const matchedContent = doc.content?.find(
-          (item: any) =>
-            item?.type === 'tool_call' &&
-            item?.tool_call?.name ===
-              'upload_question_to_reviewer_system_mcp_pop' || item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer',
+          (item: any) => {
+            const isRightTool =
+              item?.type === 'tool_call' &&
+              (item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_pop' ||
+                item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_reviewer');
+
+            if (!isRightTool || !item?.tool_call?.output) {
+              return false;
+            }
+            try {
+              const outputArr = JSON.parse(item.tool_call.output);
+              const innerText = outputArr?.[0]?.text;
+
+              if (!innerText) return false;
+
+              const parsedOutput = JSON.parse(innerText);
+
+              const isNotFailed = parsedOutput?.status?.toLowerCase() !== 'failed';
+
+              return  isNotFailed;
+
+            } catch (error) {
+              console.error('Failed to parse tool call output in filter:', error);
+              return false;
+            }
+          }
         );
 
         if (!matchedContent) return false;
@@ -739,26 +880,38 @@ export class ChatbotRepository implements IChatbotRepository {
           const isMatch = questionIdFromOutput == questionId?.toString();
           if (isMatch) {
             matchedMessageId = doc.messageId;
+            matchedUserId = doc.userObjectId ?? null;
           }
           return isMatch;
         }
 
         const args = JSON.parse(matchedContent.tool_call.args);
 
-        return (
+        const isMatch =
           args?.question?.toLowerCase() === question?.toLowerCase() &&
           args?.details?.state?.toLowerCase() ===
             details?.state?.toLowerCase() &&
-          args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase()
-        );
+          args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase();
+
+        if (isMatch) {
+          matchedMessageId = doc.messageId;
+          matchedUserId = doc.userObjectId ?? null;
+        }
+
+        return isMatch;
       } catch (e) {
         return false;
       }
     });
     if (matchedMessageId && questionId) {
+      const updateFields: Record<string, any> = {messageId: matchedMessageId};
+      if (matchedUserId) {
+        updateFields.userId = matchedUserId;
+      }
+
       await this.QuestionCollection.updateOne(
         {_id: new ObjectId(questionId)},
-        {$set: {messageId: matchedMessageId}},
+        {$set: updateFields},
       );
     }
     return result1;
@@ -939,12 +1092,12 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(source);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            ...(Object.keys(userMsgFilter).length > 0 ? [{ $match: userMsgFilter }] : []),
+            ...userTypeLookupStages,
             {$sort: {conversationId: 1, createdAt: 1}},
             {
               $setWindowFields: {
@@ -1007,12 +1160,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const since = new Date();
       since.setDate(since.getDate() - weeks * 7);
 
-      const userMsgFilter = await this.buildUserMessageFilter(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, ...userMsgFilter}},
+            {$match: {createdAt: {$gte: since}}},
+            ...userTypeLookupStages,
             {$sort: {conversationId: 1, createdAt: 1}},
             {
               $setWindowFields: {
@@ -1395,4 +1549,38 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(`Failed to get active users: ${error}`);    
     }
   }
+
+  //get platform installs
+  async getPlatformInstalls(source:'vicharanashala',session?: ClientSession):Promise<PlatformInstallEntry[]> {
+    try {
+      await this.init(source);
+      const result =  await this.users.aggregate<PlatformInstallEntry>(
+        [
+          {
+            $match: {
+              "farmerProfile.platform": { $exists: true, $ne: null }
+            }
+          },
+          {
+            $group: {
+              _id: "$farmerProfile.platform",
+              count: { $sum: 1 }
+            }
+          },
+          {
+            $project: {
+              _id: 0,
+              platform: "$_id",
+              count: 1
+            }
+          }
+        ]
+      ).toArray();
+      return result;
+    } catch (error) {
+      throw new InternalServerError(`Failed to get platform installs: ${error}`);
+    }
+}
+
+  
 }

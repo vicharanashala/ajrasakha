@@ -16,6 +16,7 @@ import {
   Patch,
   UploadedFile,
   BadRequestError,
+  InternalServerError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -47,6 +48,9 @@ import {
 import { ROUTE_TYPES } from '../types.js';
 import { ModeratorRejectParam, RerouteIdParam } from '../classes/validators/RerouteValidator.js';
 import { IReRouteService } from '../interfaces/IRerouteService.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import {
   ReRouteErrorResponse,
   ReRouteSuccessResponse,
@@ -55,6 +59,7 @@ import {
   AllocatedQuestionsArrayResponse,
   QuestionByIdResponse,
 } from '../classes/validators/ReRouteResponseValidators.js';
+import { UserService } from '#root/modules/user/index.js';
 
 @OpenAPI({
   tags: ['reroute'],
@@ -66,6 +71,12 @@ export class ReRouteController {
   constructor(
     @inject(ROUTE_TYPES.ReRouteService)
     private readonly reRouteService: IReRouteService,
+
+    @inject(GLOBAL_TYPES.UserService)
+    private readonly userSevice: UserService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   // @Get('/allocat')
@@ -110,7 +121,57 @@ export class ReRouteController {
     const {_id: userId} = user;
     const {questionId} = params;
     const {expertId,answerId,moderatorId,comment,status} = body;
-    await this.reRouteService.addrerouteAnswer(questionId,expertId,answerId,moderatorId,comment,status as RerouteStatus)
+    const expertDetails = await this.userSevice.getUserById(expertId);
+    let auditPayload : ModeratorAuditTrail= {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.REROUTE_ANSWER,
+      actor: {
+        id: userId.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+        },
+      context: {
+        questionId: questionId,
+        answerId: answerId,
+        comment: comment,
+        },
+      changes:{
+        after:{
+          expertDetails: {
+            name: `${expertDetails?.firstName} ${expertDetails?.lastName || ''}`.trim(),
+            email: expertDetails?.email,
+            role: expertDetails?.role,
+          }
+        }
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    try{
+      await this.reRouteService.addrerouteAnswer(questionId,expertId,answerId,moderatorId,comment,status as RerouteStatus)
+    } catch(err:any){
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to allocate expert',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+       if(err instanceof InternalServerError){
+         throw new InternalServerError(err.message);
+       }
+       throw new BadRequestError(
+        err?.message || 'Failed to allocate expert',
+      );
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
     return {message:"Re routed succesfully"}
   }
   @OpenAPI({
@@ -206,7 +267,57 @@ export class ReRouteController {
    // const expertId = user._id.toString();
     const {rerouteId,questionId} = params;
     const {reason,moderatorId,role,expertId} = body
-    await this.reRouteService.rejectRerouteRequest(rerouteId,questionId,expertId,moderatorId,reason,role)
+    const userId = user._id.toString();
+    const expertDetails = await this.userSevice.getUserById(expertId);
+    let auditPayload : ModeratorAuditTrail= {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.REROUTE_REJECTION,
+      actor: {
+        id: userId.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+        },
+      context: {
+        questionId: questionId,
+        comment: reason,
+        },
+      changes:{
+        before:{
+          expertDetails: {
+            name: `${expertDetails?.firstName} ${expertDetails?.lastName || ''}`.trim(),
+            email: expertDetails?.email,
+            role: expertDetails?.role,
+          }
+        }
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      }
+    };
+    try{
+      await this.reRouteService.rejectRerouteRequest(rerouteId,questionId,expertId,moderatorId,reason,role)
+    } catch(err:any){
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to reject re-route request',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+       if(err instanceof InternalServerError){
+         throw new InternalServerError(err.message);
+       }
+        throw new BadRequestError(
+        err?.message || 'Failed to reject re-route request',
+      );
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
     return {message:"Rejected the request succesfully"}
   }
 

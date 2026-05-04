@@ -10,6 +10,12 @@ export interface UserDemographics {
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
+  landHolding: DemographicEntry[];
+}
+
+export interface IPlatformInstallEntry{
+  platform: string;
+  count: number;
 }
 
 export interface Segment {

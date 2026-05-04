@@ -152,6 +152,8 @@ async getAllUsers(
   search: string,
   sort: string,
   filter: string,
+  role?: string,
+  isBlocked?: boolean,
 ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
   return await this._withTransaction(async () => {
     const { users, totalUsers, totalPages } =
@@ -161,6 +163,8 @@ async getAllUsers(
         search,
         sort,
         filter,
+        role,
+        isBlocked,
       );
     return { users, totalUsers, totalPages };
   });

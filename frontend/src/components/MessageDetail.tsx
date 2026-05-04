@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2, RefreshCw, ExternalLink, ArrowUpRight } from "lucide-react";
+import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2, RefreshCw, ExternalLink, ArrowUpRight, AlertCircle } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
@@ -22,7 +22,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/atoms/alert-dialog";
-
+import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 
 interface MessageDetailCardProps {
     question: IQuestionFullData;
@@ -42,12 +42,42 @@ const MessageDetail = ({
         data: messageDetails,
         refetch: refechMessageDetails,
         isLoading,
+        error: fetchError
     } = useGetQuestionMessageDetailsByQuestionId(selectedQuestionId);
+
+    const { mutateAsync: generateAI, isPending: isGenerating } = useGenerateInitialAnswer();
+
+    const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+    const [chatbotError, setChatbotError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (expanded) {
+            if (fetchError) {
+                setChatbotError(fetchError.message);
+                setIsErrorModalOpen(true);
+            } else if (messageDetails && messageDetails.success === false) {
+                setChatbotError(messageDetails.message || "An error occurred with the chatbot.");
+                setIsErrorModalOpen(true);
+            }
+        }
+    }, [fetchError, messageDetails, expanded]);
+
+    const handleGenerateAI = async () => {
+        try {
+            await generateAI(selectedQuestionId!);
+            toast.success("AI Answer generation triggered successfully");
+            setIsErrorModalOpen(false);
+            refechMessageDetails();
+        } catch (err: any) {
+            toast.error(err.message || "Failed to trigger AI generation");
+        }
+    };
 
 
     const msg = messageDetails?.data
 
-    const isError = false;
+    const isError = !!fetchError || (messageDetails && messageDetails.success === false);
+
     // const isLoading = false;
 
     let thinkIndex = 0;
@@ -167,36 +197,75 @@ const MessageDetail = ({
                                     Processing Steps ({msg.content.length})
                                 </p>
                                 {msg.content.map((item: any, i: number) => {
-  const isLastItem = i === msg.content.length - 1;
- 
-  if (item.type === "think") {
-    const idx = thinkIndex++;
-    return <ContentThinkStep key={i} think={item.think} index={idx} />;
-  }
- 
-  if (item.type === "tool_call") {
-    return <ContentToolCall key={i} toolCall={item.tool_call} />;
-  }
- 
-  if (item.type === "text" && isLastItem) {
-    return (
-      <ContentAnswer
-        key={i}
-        text={item.text}
-        question={question}
-        isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
-        navigateToQuestionPage={navigateToQuestionPage}
-      />
-    );
-  }
- 
-  return null;
-})}
+                                    const isLastItem = i === msg.content.length - 1;
+
+                                    if (item.type === "think") {
+                                        const idx = thinkIndex++;
+                                        return <ContentThinkStep key={i} think={item.think} index={idx} />;
+                                    }
+
+                                    if (item.type === "tool_call") {
+                                        return <ContentToolCall key={i} toolCall={item.tool_call} />;
+                                    }
+
+                                    if (item.type === "text" && isLastItem) {
+                                        return (
+                                            <ContentAnswer
+                                                key={i}
+                                                text={item.text}
+                                                question={question}
+                                                isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
+                                                navigateToQuestionPage={navigateToQuestionPage}
+                                            />
+                                        );
+                                    }
+
+                                    return null;
+                                })}
                             </div>
                         </div>
                     )}
                 </div>
             )}
+
+            <Dialog open={isErrorModalOpen} onOpenChange={setIsErrorModalOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive">
+                            <AlertCircle className="h-5 w-5" />
+                            Chatbot Processing Error
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                            {chatbotError || "The chatbot encountered an error while processing this message. This could be due to a temporary failure or missing data."}
+                        </p>
+
+                    </div>
+                    <div className="flex items-center justify-end gap-3 mt-4">
+                        <Button variant="outline" onClick={() => setIsErrorModalOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleGenerateAI}
+                            disabled={isGenerating}
+                            className="bg-primary text-primary-foreground hover:opacity-90"
+                        >
+                            {isGenerating ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    Generate AI Answer
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 };
@@ -340,7 +409,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [editModalKey, setEditModalKey] = useState(0);
     const [translatedText, setTranslatedText] = useState<string>("");
     const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "approve" | "save" | "cancel"; remark?: string }>({ open: false, type: "pass" });
-    const [ passRemarkError, setPassRemarkError] = useState("");
+    const [passRemarkError, setPassRemarkError] = useState("");
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
@@ -424,139 +493,139 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
 
     return (
         <>
-        <div className="rounded-lg border-2 border-info/30 bg-card overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 bg-info/5 border-b border-info/20">
-                <MessageSquareText className="h-4 w-4 text-info" />
-                <span className="text-sm font-semibold text-foreground">Final Answer</span>
+            <div className="rounded-lg border-2 border-info/30 bg-card overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 bg-info/5 border-b border-info/20">
+                    <MessageSquareText className="h-4 w-4 text-info" />
+                    <span className="text-sm font-semibold text-foreground">Final Answer</span>
 
-                <div className="ml-auto flex items-center gap-2">
-                    <SarvamTranslateDropdown
-                        query={editedAnswerBody}
-                        onTranslate={(result) => setTranslatedText(result)}
-                    />
-                    {approved === true && <span className="flex items-center gap-1 text-xs text-success font-medium"><CheckCircle className="h-3.5 w-3.5" /> Approved</span>}
-                    {approved === false && <span className="flex items-center gap-1 text-xs text-destructive font-medium"><XCircle className="h-3.5 w-3.5" /> Rejected</span>}
-                </div>
-            </div>
-
-            <div className="px-4 py-4 text-sm text-foreground/90 space-y-4">
-                {renderAnswerBody(translatedText || editedAnswerBody)}
-
-                {editedSpecialists.length > 0 && (
-                    <div className="mt-4">
-                        <div className="flex items-center gap-2 mb-2"><User className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Agri Specialists</span></div>
-                        <div className="overflow-x-auto"><table className="w-full text-sm border border-border rounded"><thead><tr className="bg-surface"><th className="px-3 py-2 text-left text-xs font-semibold text-foreground border-b border-border">Specialist Name</th><th className="px-3 py-2 text-left text-xs font-semibold text-foreground border-b border-border">Source</th></tr></thead><tbody>
-                            {editedSpecialists.map((spec, idx) => (<tr key={idx} className="border-b border-border last:border-0"><td className="px-3 py-2 text-muted-foreground">{spec.name}</td><td className="px-3 py-2">{spec.sourceLink ? <a href={spec.sourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">{spec.sourceLink} <ExternalLink className="h-3 w-3" /></a> : <span className="text-muted-foreground">No link</span>}</td></tr>))}
-                        </tbody></table></div>
+                    <div className="ml-auto flex items-center gap-2">
+                        <SarvamTranslateDropdown
+                            query={editedAnswerBody}
+                            onTranslate={(result) => setTranslatedText(result)}
+                        />
+                        {approved === true && <span className="flex items-center gap-1 text-xs text-success font-medium"><CheckCircle className="h-3.5 w-3.5" /> Approved</span>}
+                        {approved === false && <span className="flex items-center gap-1 text-xs text-destructive font-medium"><XCircle className="h-3.5 w-3.5" /> Rejected</span>}
                     </div>
-                )}
+                </div>
 
-                {editedPdfSources.length > 0 && (
-                    <div className="mt-4">
-                        <div className="flex items-center gap-2 mb-2"><Hash className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reference Sources</span></div>
-                        <div className="space-y-2">
-                            {editedPdfSources.map((src, idx) => (
-                                <div key={idx} className="grid grid-cols-[140px_1fr_auto_auto] items-center gap-6 rounded-lg border bg-muted/30 p-3">
-                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
-                                        Other{src.name ? `: ${src.name}` : ""}
-                                    </span>
-                                    <span className="text-sm truncate text-blue-600 dark:text-blue-400 hover:underline cursor-pointer" onClick={() => src.link && window.open(src.link, "_blank")}>
-                                        {src.link || <span className="text-muted-foreground">No link</span>}
-                                    </span>
-                                    {src.pages ? <span className="text-xs text-muted-foreground whitespace-nowrap">pg {src.pages}</span> : <span />}
-                                    <a href={src.link} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-muted/20 transition-colors">
-                                        <ArrowUpRight className="w-4 h-4 text-foreground/80" />
-                                    </a>
-                                </div>
-                            ))}
+                <div className="px-4 py-4 text-sm text-foreground/90 space-y-4">
+                    {renderAnswerBody(translatedText || editedAnswerBody)}
+
+                    {editedSpecialists.length > 0 && (
+                        <div className="mt-4">
+                            <div className="flex items-center gap-2 mb-2"><User className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Agri Specialists</span></div>
+                            <div className="overflow-x-auto"><table className="w-full text-sm border border-border rounded"><thead><tr className="bg-surface"><th className="px-3 py-2 text-left text-xs font-semibold text-foreground border-b border-border">Specialist Name</th><th className="px-3 py-2 text-left text-xs font-semibold text-foreground border-b border-border">Source</th></tr></thead><tbody>
+                                {editedSpecialists.map((spec, idx) => (<tr key={idx} className="border-b border-border last:border-0"><td className="px-3 py-2 text-muted-foreground">{spec.name}</td><td className="px-3 py-2">{spec.sourceLink ? <a href={spec.sourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">{spec.sourceLink} <ExternalLink className="h-3 w-3" /></a> : <span className="text-muted-foreground">No link</span>}</td></tr>))}
+                            </tbody></table></div>
+                        </div>
+                    )}
+
+                    {editedPdfSources.length > 0 && (
+                        <div className="mt-4">
+                            <div className="flex items-center gap-2 mb-2"><Hash className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reference Sources</span></div>
+                            <div className="space-y-2">
+                                {editedPdfSources.map((src, idx) => (
+                                    <div key={idx} className="grid grid-cols-[140px_1fr_auto_auto] items-center gap-6 rounded-lg border bg-muted/30 p-3">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
+                                            Other{src.name ? `: ${src.name}` : ""}
+                                        </span>
+                                        <span className="text-sm truncate text-blue-600 dark:text-blue-400 hover:underline cursor-pointer" onClick={() => src.link && window.open(src.link, "_blank")}>
+                                            {src.link || <span className="text-muted-foreground">No link</span>}
+                                        </span>
+                                        {src.pages ? <span className="text-xs text-muted-foreground whitespace-nowrap">pg {src.pages}</span> : <span />}
+                                        <a href={src.link} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-muted/20 transition-colors">
+                                            <ArrowUpRight className="w-4 h-4 text-foreground/80" />
+                                        </a>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+                {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && !question.aiInitialAnswer && (
+                    <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
+                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">On approval, this answer will be finalized, the question will be marked as closed, and the result will be pushed to the Golden dataset. Please review carefully before approving.</p>
+                        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                            <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-2 rounded-xl px-4"><Pencil className="h-4 w-4" /> Edit Answer</Button>
+                            {
+                                question?.isHidden !== true && <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
+                            }
+                            <Button type="button" onClick={handleApprove} size="sm" disabled={isUpdating || !editedAnswerBody.trim()} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">{isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}{isUpdating ? "Approving..." : "Approve"}</Button>
                         </div>
                     </div>
                 )}
             </div>
-            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && !isQuestionAllocatedToExpert  && (
-                <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
-                    <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">On approval, this answer will be finalized, the question will be marked as closed, and the result will be pushed to the Golden dataset. Please review carefully before approving.</p>
-                    <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
-                        <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-2 rounded-xl px-4"><Pencil className="h-4 w-4" /> Edit Answer</Button>
-                        {
-                            question?.isHidden !== true &&<Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
-                        }
-                        <Button type="button" onClick={handleApprove} size="sm" disabled={isUpdating} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">{isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}{isUpdating ? "Approving..." : "Approve"}</Button>
-                    </div>
-                </div>
-            )}
-        </div>
 
-        <EditAnswerModal
-            key={editModalKey}
-            open={isEditModalOpen}
-            onOpenChange={(open) => {
-                if (!open) {
-                    handleCancelEdit();
-                }
-            }}
-            editedAnswerBody={editedAnswerBody}
-            onAnswerBodyChange={setEditedAnswerBody}
-            initialTranslatedText={translatedText}
-            editedSpecialists={editedSpecialists}
-            onSpecialistsChange={setEditedSpecialists}
-            editedPdfSources={editedPdfSources}
-            onPdfSourcesChange={setEditedPdfSources}
-            onSave={handleSaveEdit}
-            onCancel={handleCancelEdit}
-        />
+            <EditAnswerModal
+                key={editModalKey}
+                open={isEditModalOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        handleCancelEdit();
+                    }
+                }}
+                editedAnswerBody={editedAnswerBody}
+                onAnswerBodyChange={setEditedAnswerBody}
+                initialTranslatedText={translatedText}
+                editedSpecialists={editedSpecialists}
+                onSpecialistsChange={setEditedSpecialists}
+                editedPdfSources={editedPdfSources}
+                onPdfSourcesChange={setEditedPdfSources}
+                onSave={handleSaveEdit}
+                onCancel={handleCancelEdit}
+            />
 
-        <AlertDialog open={confirmDialog.open} onOpenChange={(open) => {
+            <AlertDialog open={confirmDialog.open} onOpenChange={(open) => {
                 if (!open) setPassRemarkError("");
                 setConfirmDialog((prev) => open ? { ...prev, open } : { open: false, type: "pass", remark: "" });
             }}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>
-                        {confirmDialog.type === "pass" && "Pass this question?"}
-                        {confirmDialog.type === "approve" && "Approve this answer?"}
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {confirmDialog.type === "save" && "Are you sure you want to save these changes to the answer?"}
-                        {confirmDialog.type === "cancel" && "Are you sure you want to cancel? Any unsaved changes will be lost."}
-                        {confirmDialog.type === "pass" && "Are you sure you want to pass this question? It will be hidden from the Question list."}
-                        {confirmDialog.type === "approve" && "Are you sure you want to approve this answer? The question will  allocate to task_force team."}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                {confirmDialog.type === "pass" && (
-                    <div className="px-6 pb-4">
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {confirmDialog.type === "pass" && "Pass this question?"}
+                            {confirmDialog.type === "approve" && "Approve this answer?"}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {confirmDialog.type === "save" && "Are you sure you want to save these changes to the answer?"}
+                            {confirmDialog.type === "cancel" && "Are you sure you want to cancel? Any unsaved changes will be lost."}
+                            {confirmDialog.type === "pass" && "Are you sure you want to pass this question? It will be hidden from the Question list."}
+                            {confirmDialog.type === "approve" && "Are you sure you want to approve this answer? The question will  allocate to task_force team."}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    {confirmDialog.type === "pass" && (
+                        <div className="px-6 pb-4">
                             <label htmlFor="pass-remark" className="block text-xs font-semibold text-muted-foreground tracking-wider mb-2">
                                 Remark<span className="text-red-500 ml-0 mb-4">*</span>
                             </label>
-                        <textarea
-                            id="pass-remark"
-                            value={confirmDialog.remark ?? ""}
-                            onChange={(event) => {
-                                setConfirmDialog((prev) => ({ ...prev, remark: event.target.value }));
-                                if (passRemarkError) setPassRemarkError("");
-                            }}
-                            className={`w-full min-h-[100px] rounded-xl border ${passRemarkError ? "border-destructive" : "border-border"} bg-background px-3 py-3 text-sm text-foreground outline-none resize-none focus:ring-2 focus:ring-primary/30`}
-                            placeholder="Enter remark explaining why this question is being passed..."
-                        />
-                        {passRemarkError && (
-                            <p className="mt-2 text-xs text-destructive">{passRemarkError}</p>
-                        )}
-                    </div>
-                )}
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Go back</AlertDialogCancel>
-                    {confirmDialog.type === "pass" ? (
-                        <Button type="button" size="sm" onClick={handleConfirm} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
-                            <CheckCircle className="h-4 w-4" /> Yes, pass
-                        </Button>
-                    ) : (
-                        <AlertDialogAction onClick={handleConfirm}>
-                            Yes, approve
-                        </AlertDialogAction>
+                            <textarea
+                                id="pass-remark"
+                                value={confirmDialog.remark ?? ""}
+                                onChange={(event) => {
+                                    setConfirmDialog((prev) => ({ ...prev, remark: event.target.value }));
+                                    if (passRemarkError) setPassRemarkError("");
+                                }}
+                                className={`w-full min-h-[100px] rounded-xl border ${passRemarkError ? "border-destructive" : "border-border"} bg-background px-3 py-3 text-sm text-foreground outline-none resize-none focus:ring-2 focus:ring-primary/30`}
+                                placeholder="Enter remark explaining why this question is being passed..."
+                            />
+                            {passRemarkError && (
+                                <p className="mt-2 text-xs text-destructive">{passRemarkError}</p>
+                            )}
+                        </div>
                     )}
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Go back</AlertDialogCancel>
+                        {confirmDialog.type === "pass" ? (
+                            <Button type="button" size="sm" onClick={handleConfirm} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                                <CheckCircle className="h-4 w-4" /> Yes, pass
+                            </Button>
+                        ) : (
+                            <AlertDialogAction onClick={handleConfirm}>
+                                Yes, approve
+                            </AlertDialogAction>
+                        )}
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 };
@@ -731,7 +800,7 @@ const EditAnswerModal = ({
                             <Button type="button" variant="outline" size="sm" onClick={() => setPendingAction('cancel')} className="gap-2 rounded-xl">
                                 <X className="h-4 w-4" /> Cancel
                             </Button>
-                            <Button type="button" size="sm" onClick={() => { if (validateSources()) setPendingAction('save'); }} className="gap-2 rounded-xl">
+                            <Button type="button" size="sm" onClick={() => { if (validateSources()) setPendingAction('save'); }} className="gap-2 rounded-xl" disabled={!editedAnswerBody.trim()}>
                                 <Save className="h-4 w-4" /> Save Changes
                             </Button>
                         </>

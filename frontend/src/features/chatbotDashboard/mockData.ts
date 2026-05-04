@@ -1,4 +1,4 @@
-import type { Segment, KpiCard, DemographicEntry } from "./types";
+import type { Segment, KpiCard, DemographicEntry, IPlatformInstallEntry } from "./types";
 
 export const DASHBOARD_DATA = {
   meta: { season: "Kharif 2025", lastSync: "2 min ago", datasetVersion: "GD-2025-Q3.14", llmVersion: "v2.4.1", p0Bugs: 3 },
@@ -11,8 +11,8 @@ export const DASHBOARD_DATA = {
   kpiRow2: [
     // { id: "csat", label: "CSAT rating", value: "4.2 ★", delta: "+0.3 pts this month", deltaDir: "up" as const, accentColor: "#1D9E75" },
     { id: "totalInstalls", label: "Total Installs", value: "0", delta: "All platforms", deltaDir: "up" as const, accentColor: "#1D9E75", icon: "download" },
-    { id: "androidInstalls", label: "Android Installs", value: "5,820", delta: "90.2% of total", deltaDir: "up" as const, accentColor: "#3AAA5A", icon: "android" },
-    { id: "iosInstalls", label: "iOS Installs", value: "630", delta: "9.8% of total", deltaDir: "up" as const, accentColor: "#378ADD", icon: "apple" },
+    // { id: "androidInstalls", label: "Android Installs", value: "5,820", delta: "90.2% of total", deltaDir: "up" as const, accentColor: "#3AAA5A", icon: "android" },
+    // { id: "iosInstalls", label: "iOS Installs", value: "630", delta: "9.8% of total", deltaDir: "up" as const, accentColor: "#378ADD", icon: "apple" },
     { id: "repeatQuery", label: "Repeat query rate", value: "28%", delta: "Target: <10% · gap", deltaDir: "down" as const, accentColor: "#EF9F27", valueColor: "#854F0B" },
     // { id: "voice", label: "Voice usage share", value: "61%", delta: "Primary mode", deltaDir: "up" as const, accentColor: "#378ADD" },
     { id: "states", label: "States active", value: "19 / 28", delta: "3 new states added", deltaDir: "up" as const, accentColor: "#7C6FD4" },
@@ -79,4 +79,10 @@ export const DASHBOARD_DATA = {
   ageGroups: [] as DemographicEntry[],
   genderSplit: [] as DemographicEntry[],
   farmingExperience: [] as DemographicEntry[],
+  landHolding: [
+    { label: 'Small', count: 1820, pct: 54.32 },
+    { label: 'Medium', count: 980, pct: 29.25 },
+    { label: 'Large', count: 550, pct: 16.42 },
+  ] as DemographicEntry[],
+  platformInstalls: [] as IPlatformInstallEntry[],
 };
