@@ -140,6 +140,7 @@ export class AnswerController {
     const {_id: userId} = user;
     let result;
     let prevAnswer;
+    const hasAnswerId = !!body.answerId;
     let questionData;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
@@ -160,8 +161,10 @@ export class AnswerController {
       },
     };
     try {
-      prevAnswer = await this.answerService.getAnswerById(body.answerId);
-      questionData = await this.questionService.getQuestionById(prevAnswer?.questionId?.toString());
+      if (hasAnswerId) {
+        prevAnswer = await this.answerService.getAnswerById(body.answerId);
+      }
+      questionData = await this.questionService.getQuestionById(prevAnswer?.questionId?.toString()||body.questionId);
       result = await this.answerService.approveAnswer(
         userId.toString(),
         body,

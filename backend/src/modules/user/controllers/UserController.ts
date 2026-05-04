@@ -367,9 +367,6 @@ export class UserController {
     if (!expertDetails) {
       throw new NotFoundError('User not found');
     }
-    if (expertDetails.role !== 'expert') {
-      throw new BadRequestErrorResponse();
-    }
 
     let auditPayload : ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_MANAGEMENT,
@@ -391,9 +388,6 @@ export class UserController {
         before:{
           status: action === 'block' ? 'unblocked' : 'blocked',
         },
-        after:{
-          status: action === 'block' ? 'blocked' : 'unblocked',
-        }
       },
       outcome: {
         status: OutComeStatus.SUCCESS,
@@ -420,7 +414,15 @@ export class UserController {
         err?.message || 'Failed to block/unblock expert',
       );
     }
-
+    auditPayload = {
+      ...auditPayload,
+      changes:{
+        ...auditPayload.changes,
+        after:{
+          status: action === 'block' ? 'blocked' : 'unblocked',
+        }
+      }
+    }
     this.auditTrailsService.createAuditTrail(auditPayload);
     return {message: `${action} Expert successfully`};
   }
@@ -470,9 +472,6 @@ export class UserController {
         before:{
           status: status === 'in-active' ? 'active' : 'in-active',
         },
-        after:{
-          status: status === 'in-active' ? 'in-active' : 'active',
-        }
       },
       outcome: {
         status: OutComeStatus.SUCCESS,
@@ -499,7 +498,15 @@ export class UserController {
         err?.message || 'Failed to update expert status',
       );
     }
-
+    auditPayload = {
+      ...auditPayload,
+      changes:{
+        ...auditPayload.changes,
+        after:{
+          status: status === 'in-active' ? 'in-active' : 'active',
+        }
+      }
+    }
     this.auditTrailsService.createAuditTrail(auditPayload);
     return {message: `Expert status updated to ${status} successfully`};
   }

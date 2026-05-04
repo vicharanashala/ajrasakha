@@ -7,7 +7,7 @@ import {
   DialogDescription,
 } from "@/components/atoms/dialog";
 
-import { Plus, FlaskConical, Pencil, X, Loader2, Check, Trash2 } from "lucide-react";
+import { Plus, FlaskConical, Pencil, X, Loader2, Check, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
@@ -36,6 +36,9 @@ export const ChemicalManagementModal = ({
   const [editName, setEditName] = useState("");
   const [editStatus, setEditStatus] = useState<'Restricted' | 'Banned'>('Restricted');
 
+  // ── Search State
+  const [searchQuery, setSearchQuery] = useState("");
+
   // ── API Hooks
   const { mutateAsync: createChemical, isPending: isCreating } = useCreateChemical();
   const { mutateAsync: updateChemical, isPending: isUpdating } = useUpdateChemical();
@@ -43,6 +46,28 @@ export const ChemicalManagementModal = ({
   const { data: chemicalsData, isLoading: isLoadingChemicals } = useGetAllChemicals();
 
   const chemicals = chemicalsData?.chemicals || [];
+
+  // ── Filter chemicals based on search query with relevance sorting
+  const filteredChemicals = chemicals
+    .filter((chemical: IChemical) =>
+      chemical.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a: IChemical, b: IChemical) => {
+      const query = searchQuery.toLowerCase();
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      
+      // Exact match gets highest priority
+      if (aName === query && bName !== query) return -1;
+      if (bName === query && aName !== query) return 1;
+      
+      // Starts with query gets second priority
+      if (aName.startsWith(query) && !bName.startsWith(query)) return -1;
+      if (bName.startsWith(query) && !aName.startsWith(query)) return 1;
+      
+      // Alphabetical order as final tie-breaker
+      return aName.localeCompare(bName);
+    });
 
   // ── Actions
   const resetForm = () => {
@@ -132,36 +157,49 @@ export const ChemicalManagementModal = ({
         showCloseButton={false}
       >
         {/* ── Header ───────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
-          <DialogHeader className="space-y-0.5">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold">
-              <FlaskConical className="h-[18px] w-[18px] text-purple-600 dark:text-purple-400" />
-              Chemical Management
-            </DialogTitle>
-            <DialogDescription className="text-xs text-gray-500">
-              Manage chemical names and status
-            </DialogDescription>
-          </DialogHeader>
+        <div className="flex flex-col gap-3 px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <DialogHeader className="space-y-0.5">
+              <DialogTitle className="flex items-center gap-2 text-base font-bold">
+                <FlaskConical className="h-[18px] w-[18px] text-purple-600 dark:text-purple-400" />
+                Chemical Management
+              </DialogTitle>
+              <DialogDescription className="text-xs text-gray-500">
+                Manage chemical names and status
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              className="h-8 text-xs gap-1.5 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
-              onClick={() => {
-                cancelEditing();
-                setIsAddFormOpen(!isAddFormOpen);
-              }}
-            >
-              <Plus className={`h-3.5 w-3.5 transition-transform duration-200 ${isAddFormOpen ? "rotate-45" : ""}`} />
-              {isAddFormOpen ? "Cancel" : "Add Chemical"}
-            </Button>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="group h-8 w-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-[#1a1a1a] hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-gray-200 dark:border-gray-800 hover:border-rose-200 dark:hover:border-rose-800/30 text-gray-500 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 shadow-sm transition-all duration-300 focus:outline-none"
-              title="Close"
-            >
-              <X className="h-4 w-4 transition-transform duration-300 group-hover:scale-110 group-active:scale-95" />
-            </button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                className="h-8 text-xs gap-1.5 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+                onClick={() => {
+                  cancelEditing();
+                  setIsAddFormOpen(!isAddFormOpen);
+                }}
+              >
+                <Plus className={`h-3.5 w-3.5 transition-transform duration-200 ${isAddFormOpen ? "rotate-45" : ""}`} />
+                {isAddFormOpen ? "Cancel" : "Add Chemical"}
+              </Button>
+              <button
+                onClick={() => onOpenChange(false)}
+                className="group h-8 w-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-[#1a1a1a] hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-gray-200 dark:border-gray-800 hover:border-rose-200 dark:hover:border-rose-800/30 text-gray-500 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 shadow-sm transition-all duration-300 focus:outline-none"
+                title="Close"
+              >
+                <X className="h-4 w-4 transition-transform duration-300 group-hover:scale-110 group-active:scale-95" />
+              </button>
+            </div>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search chemicals by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700"
+            />
           </div>
         </div>
 
@@ -224,14 +262,16 @@ export const ChemicalManagementModal = ({
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
               </div>
-            ) : chemicals.length === 0 ? (
+            ) : filteredChemicals.length === 0 ? (
               <div className="text-center py-12">
                 <FlaskConical className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                <p className="text-sm text-gray-400 dark:text-gray-500">No chemicals added yet</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">
+                  {searchQuery ? "No chemicals found matching your search" : "No chemicals added yet"}
+                </p>
               </div>
             ) : (
               <div className="space-y-1.5">
-                {chemicals.map((chemical: IChemical, index: number) => {
+                {filteredChemicals.map((chemical: IChemical, index: number) => {
                   const isEditing = editingChemicalId === chemical._id;
 
                   if (isEditing) {
@@ -334,7 +374,7 @@ export const ChemicalManagementModal = ({
                           </button>
                         </div>
                       </div>
-                      {index < chemicals.length - 1 && !editingChemicalId && (
+                      {index < filteredChemicals.length - 1 && !editingChemicalId && (
                         <div className="mx-3 border-b border-gray-100 dark:border-gray-800/50" />
                       )}
                     </div>
