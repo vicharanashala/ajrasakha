@@ -10,7 +10,7 @@ export const useToggleAutoAllocateQuestion = () => {
     mutationKey: ["toggleAutoAllocateQuestion"],
     mutationFn: async (
       questionId: string
-    ): Promise<IDetailedQuestion | null> => {
+    ): Promise<string | null> => {
       return await questionService.toggleAutoAllocate(questionId);
     },
     onSuccess: () => {

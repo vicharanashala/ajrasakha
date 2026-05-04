@@ -85,6 +85,10 @@ export const AllocationQueueHeader = ({
         return;
       }
       await toggleAutoAllocateStatus(question._id);
+      const response = await toggleAutoAllocateStatus(question._id);
+      if (response) {
+        toast.success(response);
+      }
       setAutoAllocate(checked);
     } catch (error) {
       console.error("Error toggling auto-allocate:", error);

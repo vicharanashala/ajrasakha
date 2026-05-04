@@ -1550,7 +1550,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
         }
 
-        if (out.noExpertAvailable) {
+        if (out?.noExpertAvailable) {
             return {
               message: 'Auto-allocate enabled, but no Special Task Force experts are available',
               data: out?.data

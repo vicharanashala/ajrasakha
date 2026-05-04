@@ -263,8 +263,8 @@ export class QuestionService {
 
   async toggleAutoAllocate(
     questionId: string,
-  ): Promise<IDetailedQuestion | null> {
-    return apiFetch<IDetailedQuestion>(
+  ): Promise<string | null> {
+    return apiFetch<string>(
       `${this._baseUrl}/${questionId}/toggle-auto-allocate`,
       {
         method: "PATCH",
