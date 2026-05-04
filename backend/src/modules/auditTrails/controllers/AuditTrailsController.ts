@@ -14,8 +14,8 @@ import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {AUDIT_TRAILS_TYPES} from '../types.js';
 import {AuditTrailsService} from '../services/AuditTrailsService.js';
 import {BadRequestErrorResponse} from '#root/shared/index.js';
-// import { AuditTrailsResponse, AuditTrailUserIdParams } from "../classes/validators/AuditTrailsValidators.js";
-import {AuditTrailsResponse} from '../classes/Validators/AuditTrailsValidators.js';
+import { AuditTrailListResponseDto } from '../dtos/AuditTrailResponseDto.js';
+import { plainToInstance, instanceToPlain } from 'class-transformer';
 import { AuditFilters } from '../interfaces/IAuditTrails.js';
 
 @OpenAPI({
@@ -38,7 +38,7 @@ class AuditTrailsController {
   @Authorized()
   @Get('/')
   @HttpCode(200)
-  @ResponseSchema(AuditTrailsResponse, {
+  @ResponseSchema(AuditTrailListResponseDto, {
     description: 'List of audit trails',
     statusCode: 200,
   })
@@ -83,13 +83,16 @@ class AuditTrailsController {
       );
     }
 
-    return {
+    const result = {
       message: 'Audit trails retrieved successfully',
       data: auditTrails.data,
       totalDocuments: auditTrails.totalDocuments,
       totalPages: Math.ceil(auditTrails.totalDocuments / limit),
       currentPage: page,
     };
+
+    const instance = plainToInstance(AuditTrailListResponseDto, result, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 
   //     @OpenAPI({
@@ -126,7 +129,7 @@ class AuditTrailsController {
   @Authorized()
   @Get('/moderator')
   @HttpCode(200)
-  @ResponseSchema(AuditTrailsResponse, {
+  @ResponseSchema(AuditTrailListResponseDto, {
     description: 'List of audit trails',
     statusCode: 200,
   })
@@ -150,13 +153,16 @@ class AuditTrailsController {
         endDate,
       );
 
-    return {
+    const result = {
       message: 'Audit trails retrieved successfully',
       data: auditTrails.data,
       totalDocuments: auditTrails.totalDocuments,
       totalPages: Math.ceil(auditTrails.totalDocuments / limit),
       currentPage: page,
     };
+
+    const instance = plainToInstance(AuditTrailListResponseDto, result, { excludeExtraneousValues: true });
+    return instanceToPlain(instance) as any;
   }
 }
 
