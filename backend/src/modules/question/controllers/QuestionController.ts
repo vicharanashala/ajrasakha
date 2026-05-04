@@ -724,7 +724,7 @@ export class QuestionController {
         ...auditPayload,
         context: {
           ...auditPayload.context,
-          question: questionDetails?.text,
+          question: questionDetails?.question,
         },
         changes: {
           before: {
@@ -817,7 +817,7 @@ export class QuestionController {
         ...auditPayload,
         context: {
           ...auditPayload.context,
-          question: questionDetails?.text,
+          question: questionDetails?.question,
         },
         outcome: {
           status: OutComeStatus.FAILED,
