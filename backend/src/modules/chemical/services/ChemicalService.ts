@@ -1,41 +1,25 @@
 import { inject, injectable } from 'inversify';
-import { GLOBAL_TYPES } from '#root/types.js';
-import { IChemical, ICropAlias } from '#root/shared/interfaces/models.js';
-import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
-import { IChemicalService } from '../interfaces/IChemicalService.js';
-
-// Maps a crop_master document (type='chemical') to the IChemical shape expected by the controller
-function toChemical(crop: any): IChemical {
-  return {
-    _id: crop._id,
-    name: crop.name,
-    status: crop.status,
-    aliases: crop.aliases,
-    createdBy: crop.createdBy,
-    createdAt: crop.createdAt,
-    updatedAt: crop.updatedAt,
-  };
-}
+import {GLOBAL_TYPES} from '#root/types.js';
+import {IChemical} from '#root/shared/interfaces/models.js';
+import {IChemicalRepository} from '#root/shared/database/interfaces/IChemicalRepository.js';
+import {IChemicalService} from '../interfaces/IChemicalService.js';
 
 @injectable()
 export class ChemicalService implements IChemicalService {
   constructor(
-    @inject(GLOBAL_TYPES.CropRepository)
-    private readonly cropRepository: ICropRepository,
+    @inject(GLOBAL_TYPES.ChemicalRepository)
+    private readonly chemicalRepository: IChemicalRepository,
   ) {}
 
   async createChemical(
-    data: { name: string; status: 'Restricted' | 'Banned'; aliases?: ICropAlias[] },
+    data: { name: string; status: 'Restricted' | 'Banned' },
     createdBy: string,
   ): Promise<IChemical> {
-    const crop = await this.cropRepository.createCrop(
+    return this.chemicalRepository.createChemical(
       data.name,
-      createdBy,
-      data.aliases,
-      'chemical',
       data.status,
+      createdBy,
     );
-    return toChemical(crop);
   }
 
   async getAllChemicals(query?: {
@@ -44,18 +28,11 @@ export class ChemicalService implements IChemicalService {
     page?: number;
     limit?: number;
   }): Promise<{chemicals: IChemical[]; totalCount: number; totalPages: number}> {
-    const result = await this.cropRepository.getAllCrops({ ...query, type: 'chemical' });
-    return {
-      chemicals: result.crops.map(toChemical),
-      totalCount: result.totalCount,
-      totalPages: result.totalPages,
-    };
+    return this.chemicalRepository.getAllChemicals(query);
   }
 
   async getChemicalById(chemicalId: string): Promise<IChemical | null> {
-    const crop = await this.cropRepository.getCropById(chemicalId);
-    if (!crop) return null;
-    return toChemical(crop);
+    return this.chemicalRepository.getChemicalById(chemicalId);
   }
 
   async updateChemical(
@@ -63,12 +40,10 @@ export class ChemicalService implements IChemicalService {
     updates: {name?: string; status?: 'Restricted' | 'Banned'},
     updatedBy: string,
   ): Promise<IChemical | null> {
-    const crop = await this.cropRepository.updateCrop(chemicalId, updates, updatedBy);
-    if (!crop) return null;
-    return toChemical(crop);
+    return this.chemicalRepository.updateChemical(chemicalId, updates, updatedBy);
   }
 
   async deleteChemical(chemicalId: string): Promise<boolean> {
-    return this.cropRepository.deleteCrop(chemicalId);
+    return this.chemicalRepository.deleteChemical(chemicalId);
   }
 }
