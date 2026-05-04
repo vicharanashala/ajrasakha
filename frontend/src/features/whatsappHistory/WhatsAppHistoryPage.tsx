@@ -1,87 +1,133 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ThreadSidebar } from './components/ThreadSidebar';
 import { ChatWindow } from './components/ChatWindow';
 import type { Thread, Message } from './types';
 
-// Mock Data
-const MOCK_THREADS: Thread[] = [
-  {
-    id: '1',
-    phoneNumber: '919876543210',
-    lastMessage: 'I will help you with information on growing paddy in Kerala...',
-    lastMessageTimestamp: new Date(Date.now() - 1000 * 60 * 30),
-    unreadCount: 2,
-  },
-  {
-    id: '2',
-    phoneNumber: '917994170107',
-    lastMessage: 'Your question has been uploaded to our Agri experts.',
-    lastMessageTimestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-  },
-  {
-    id: '3',
-    phoneNumber: '918888888888',
-    lastMessage: 'Thank you for your query. Here is the answer.',
-    lastMessageTimestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-  },
-];
+// Importing JSON files directly for the hooks
+import uniqueNumbersData from '../../../fetch_unique_numbers.json';
+import threadDetailsData from '../../../fetch_thread_details.json';
 
-const MOCK_MESSAGES: Record<string, Message[]> = {
-  '1': [
-    {
-      id: 'm1',
-      role: 'user',
-      content: 'How can I grow paddy in kerala?',
-      timestamp: new Date(Date.now() - 1000 * 60 * 35),
+
+function useThreads() {
+  return useQuery({
+    queryKey: ['whatsapp-threads'],
+    queryFn: async () => {
+      // Simulate API fetch
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      const threads: Thread[] = (uniqueNumbersData.threads as any[])
+        .filter((t: any) => /^\d{12}$/.test(t.thread_id))
+        .map((t: any) => ({
+          id: t.thread_id,
+          phoneNumber: t.thread_id,
+          lastMessage: t.metadata.thread_name || 'WhatsApp Conversation',
+          lastMessageTimestamp: new Date(t.updated_at),
+          unreadCount: 0,
+        }));
+
+      return threads;
     },
-    {
-      id: 'm2',
-      role: 'assistant',
-      content: "I'll help you with information on growing paddy in Kerala. Let me first upload your question to our Agri experts and then gather some context for you.",
-      timestamp: new Date(Date.now() - 1000 * 60 * 34),
+  });
+}
+
+function useThreadDetails(threadId: string | undefined) {
+  return useQuery({
+    queryKey: ['whatsapp-thread-details', threadId],
+    queryFn: async () => {
+      if (!threadId) return [];
+      
+      // Simulate API fetch
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      const messages = threadDetailsData.values.messages as any[];
+      
+      // 1. Find the last human message index
+      const lastHumanIndex = [...messages].reverse().findIndex((m: any) => m.type === 'human');
+      if (lastHumanIndex === -1) return [];
+      
+      const humanIdx = messages.length - 1 - lastHumanIndex;
+      const humanMsg = messages[humanIdx];
+
+      // 2. Collect all tool calls and tool responses after this human message
+      const toolCallsMap: Record<string, any> = {};
+      const toolResponsesMap: Record<string, any> = {};
+      let finalAiMsg = null;
+
+      for (let i = humanIdx + 1; i < messages.length; i++) {
+        const msg = messages[i];
+        if (msg.type === 'ai') {
+          finalAiMsg = msg;
+          if (msg.tool_calls) {
+            msg.tool_calls.forEach((tc: any) => {
+              toolCallsMap[tc.id] = { ...tc };
+            });
+          }
+        } else if (msg.type === 'tool') {
+          // Extract response from artifact or content
+          let response = msg.artifact?.structured_content?.result || msg.content;
+          if (typeof response === 'string' && response.startsWith('{')) {
+            try { response = JSON.parse(response); } catch (e) {}
+          }
+          toolResponsesMap[msg.tool_call_id] = response;
+        }
+      }
+
+      const formattedMessages: Message[] = [];
+
+      // Add the user message
+      formattedMessages.push({
+        id: humanMsg.id || `h-${humanIdx}`,
+        role: 'user',
+        content: typeof humanMsg.content === 'string' ? humanMsg.content : '',
+        timestamp: new Date(threadDetailsData.created_at),
+      });
+
+      // Add the final AI message with all collected tool calls and their responses
+      if (finalAiMsg) {
+        const toolCalls = Object.values(toolCallsMap).map((tc: any) => ({
+          name: tc.name,
+          args: tc.args,
+          id: tc.id,
+          response: toolResponsesMap[tc.id]
+        }));
+
+        formattedMessages.push({
+          id: finalAiMsg.id || `a-${messages.length}`,
+          role: 'assistant',
+          content: typeof finalAiMsg.content === 'string' 
+            ? finalAiMsg.content 
+            : (Array.isArray(finalAiMsg.content) 
+                ? finalAiMsg.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n') 
+                : ''),
+          timestamp: new Date(threadDetailsData.created_at),
+          toolCalls
+        });
+      }
+
+      return formattedMessages;
     },
-    {
-      id: 'm3',
-      role: 'assistant',
-      content: "Growing paddy in Kerala requires specific attention to the monsoon seasons (Virippu and Mundakan). Ensure you use high-yielding varieties like Uma or Jyothi for better results in acidic soils.",
-      timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    },
-  ],
-  '2': [
-    {
-      id: 'm4',
-      role: 'user',
-      content: 'What is the price of rubber today?',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2.5),
-    },
-    {
-      id: 'm5',
-      role: 'assistant',
-      content: 'The current market price for RSS-4 grade rubber in Kottayam is ₹185 per kg.',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2.2),
-    },
-  ]
-};
+    enabled: !!threadId,
+  });
+}
 
 export function WhatsAppHistoryPage() {
   const [selectedThreadId, setSelectedThreadId] = useState<string | undefined>("");
   const [searchQuery, setSearchQuery] = useState('');
 
+  const { data: threads = [], isLoading: isLoadingThreads } = useThreads();
+  const { data: messages = [], isLoading: isLoadingMessages } = useThreadDetails(selectedThreadId);
+
   const filteredThreads = useMemo(() => {
-    return MOCK_THREADS.filter(t =>
+    return threads.filter(t =>
       t.phoneNumber.includes(searchQuery) ||
       t.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery]);
+  }, [threads, searchQuery]);
 
   const selectedThread = useMemo(() =>
-    MOCK_THREADS.find(t => t.id === selectedThreadId),
-    [selectedThreadId]
-  );
-
-  const currentMessages = useMemo(() =>
-    selectedThreadId ? (MOCK_MESSAGES[selectedThreadId] || []) : [],
-    [selectedThreadId]
+    threads.find(t => t.id === selectedThreadId),
+    [threads, selectedThreadId]
   );
 
   return (
@@ -92,10 +138,12 @@ export function WhatsAppHistoryPage() {
         onThreadSelect={setSelectedThreadId}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        isLoading={isLoadingThreads}
       />
       <ChatWindow
         selectedThread={selectedThread}
-        messages={currentMessages}
+        messages={messages}
+        isLoading={isLoadingMessages}
       />
     </div>
   );

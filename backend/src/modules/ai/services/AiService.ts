@@ -288,7 +288,6 @@ export class AiService {
     }[];
   } | null> {
     try {
-      // ✅ Enhanced API type based on TES.JSON
       interface AgriFlowResponse {
         values: {
           messages: {
@@ -334,7 +333,6 @@ export class AiService {
 
       const messages = data.values.messages;
 
-      // Helper to extract ID from various formats in TES.JSON
       const extractId = (id: any): string | null => {
         if (typeof id === 'string') return id;
         if (!id) return null;
@@ -346,7 +344,7 @@ export class AiService {
       };
 
       /* =======================================================
-         🔹 STEP 1: FIND START INDEX USING questionId
+          STEP 1: FIND START INDEX USING questionId
       ======================================================= */
 
       let startIndex = -1;
@@ -377,7 +375,7 @@ export class AiService {
             }
 
             if (extractedId === questionId) {
-              // 🔹 move back to corresponding human
+              //  move back to corresponding human
               startIndex = i - 1;
 
               while (startIndex >= 0 && messages[startIndex].type !== "human") {
@@ -398,7 +396,7 @@ export class AiService {
       }
 
       /* =======================================================
-         🔹 STEP 2: COLLECT STRUCTURED CONVERSATION
+         STEP 2: COLLECT STRUCTURED CONVERSATION
       ======================================================= */
 
       const structuredContent: {
@@ -425,7 +423,7 @@ export class AiService {
 
         /* ---------------- AI ---------------- */
         else if (msg.type === "ai") {
-          // 🔹 Tool calls (Intent to call)
+          //  Tool calls (Intent to call)
           if (msg.tool_calls?.length) {
             for (const tool of msg.tool_calls) {
               structuredContent.push({
@@ -436,7 +434,7 @@ export class AiService {
             }
           }
 
-          // 🔹 AI text answer
+          //  AI text answer
           if (typeof msg.content === "string") {
             structuredContent.push({
               type: "ai",
@@ -488,7 +486,7 @@ export class AiService {
       }
 
       /* =======================================================
-         🔹 FINAL RETURN
+          FINAL RETURN
       ======================================================= */
 
       return {

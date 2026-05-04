@@ -1,0 +1,518 @@
+{
+    "values": {
+        "messages": [
+            {
+                "content": "How can I grow paddy in kerala?",
+                "additional_kwargs": {},
+                "response_metadata": {},
+                "type": "human",
+                "name": null,
+                "id": "d6df6066-8e66-40c8-b73a-4bc085358f91"
+            },
+            {
+                "content": [
+                    {
+                        "text": "I'll help you with information on growing paddy in Kerala. Let me first upload your question to our Agri experts and then gather detailed information for you.",
+                        "type": "text"
+                    },
+                    {
+                        "id": "toolu_01EBL2oZaT8gxoLLsauTBRF7",
+                        "caller": {
+                            "type": "direct"
+                        },
+                        "input": {
+                            "question": "How can I grow paddy in Kerala?",
+                            "state_name": "Kerala",
+                            "crop": "Paddy",
+                            "details": {
+                                "state": "Kerala",
+                                "district": "General",
+                                "crop": "Paddy",
+                                "season": "General",
+                                "domain": "Crop Production"
+                            }
+                        },
+                        "name": "upload_question_to_reviewer_system",
+                        "type": "tool_use"
+                    },
+                    {
+                        "id": "toolu_018MdiGNNR52vvshxprHSBQx",
+                        "caller": {
+                            "type": "direct"
+                        },
+                        "input": {
+                            "query": "How to grow paddy in Kerala? Complete cultivation practices for paddy cultivation",
+                            "address": "Kerala"
+                        },
+                        "name": "gdb",
+                        "type": "tool_use"
+                    }
+                ],
+                "additional_kwargs": {},
+                "response_metadata": {
+                    "id": "msg_01WYgLoCVpvPrgKCWxEmgLaU",
+                    "container": null,
+                    "model": "claude-sonnet-4-5-20250929",
+                    "stop_details": null,
+                    "stop_reason": "tool_use",
+                    "stop_sequence": null,
+                    "usage": {
+                        "cache_creation": {
+                            "ephemeral_1h_input_tokens": 0,
+                            "ephemeral_5m_input_tokens": 0
+                        },
+                        "cache_creation_input_tokens": 0,
+                        "cache_read_input_tokens": 0,
+                        "inference_geo": "not_available",
+                        "input_tokens": 3343,
+                        "output_tokens": 267,
+                        "server_tool_use": null,
+                        "service_tier": "standard"
+                    },
+                    "model_name": "claude-sonnet-4-5-20250929",
+                    "model_provider": "anthropic"
+                },
+                "type": "ai",
+                "name": null,
+                "id": "lc_run--019df27a-49c2-7241-96df-253292103b9a-0",
+                "tool_calls": [
+                    {
+                        "name": "upload_question_to_reviewer_system",
+                        "args": {
+                            "question": "How can I grow paddy in Kerala?",
+                            "state_name": "Kerala",
+                            "crop": "Paddy",
+                            "details": {
+                                "state": "Kerala",
+                                "district": "General",
+                                "crop": "Paddy",
+                                "season": "General",
+                                "domain": "Crop Production"
+                            }
+                        },
+                        "id": "toolu_01EBL2oZaT8gxoLLsauTBRF7",
+                        "type": "tool_call"
+                    },
+                    {
+                        "name": "gdb",
+                        "args": {
+                            "query": "How to grow paddy in Kerala? Complete cultivation practices for paddy cultivation",
+                            "address": "Kerala"
+                        },
+                        "id": "toolu_018MdiGNNR52vvshxprHSBQx",
+                        "type": "tool_call"
+                    }
+                ],
+                "invalid_tool_calls": [],
+                "usage_metadata": {
+                    "input_tokens": 3343,
+                    "output_tokens": 267,
+                    "total_tokens": 3610,
+                    "input_token_details": {
+                        "cache_creation": 0,
+                        "cache_read": 0,
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                    }
+                }
+            },
+            {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "{\n  \"status\": \"success\",\n  \"status_code\": 201,\n  \"data\": {\n    \"success\": true,\n    \"message\": \"Your question is similar to an existing question.\",\n    \"data\": {\n      \"userId\": {\n        \"buffer\": {\n          \"type\": \"Buffer\",\n          \"data\": [\n            105,\n            248,\n            113,\n            63,\n            157,\n            3,\n            201,\n            169,\n            188,\n            129,\n            73,\n            195\n          ]\n        }\n      },\n      \"question\": \"How can I grow paddy in Kerala?\",\n      \"priority\": \"medium\",\n      \"source\": \"WHATSAPP\",\n      \"status\": \"open\",\n      \"totalAnswersCount\": 0,\n      \"contextId\": null,\n      \"details\": {\n        \"state\": \"Kerala\",\n        \"district\": \"General\",\n        \"crop\": \"Paddy\",\n        \"season\": \"General\",\n        \"domain\": \"Crop Production\",\n        \"normalised_crop\": \"paddy\"\n      },\n      \"isAutoAllocate\": false,\n    \n      \"metrics\": null,\n      \"aiInitialAnswer\": \"\",\n      \"text\": \"Question: How can I grow paddy in Kerala?\",\n      \"createdAt\": \"2026-05-04T10:13:19.854Z\",\n      \"updatedAt\": \"2026-05-04T10:13:19.854Z\",\n      \"originalQuestion\": \"\",\n      \"similarityScore\": 90.99,\n      \"referenceQuestionId\": {\n        \"buffer\": {\n          \"type\": \"Buffer\",\n          \"data\": [\n            105,\n            245,\n            228,\n            241,\n            181,\n            209,\n            98,\n            205,\n            82,\n            119,\n            226,\n            94\n          ]\n        }\n      },\n      \"referenceQuestion\": \"how to grow paddy in kerala?\",\n      \"referenceSource\": \"reviewer\",\n      \"_id\": {\n        \"buffer\": {\n          \"type\": \"Buffer\",\n          \"data\": [\n            105,\n            248,\n            113,\n            67,\n            157,\n            3,\n            201,\n            169,\n            188,\n            129,\n            73,\n            197\n          ]\n        }\n      }\n    }\n  }\n}",
+                        "id": "lc_0d26de32-89e0-4af3-accb-91fd7732491a"
+                    }
+                ],
+                "additional_kwargs": {},
+                "response_metadata": {},
+                "type": "tool",
+                "name": "upload_question_to_reviewer_system",
+                "id": "f27971c4-3085-4ee9-a9bf-c72a3cad4f31",
+                "tool_call_id": "toolu_01EBL2oZaT8gxoLLsauTBRF7",
+                "artifact": {
+                    "structured_content": {
+                        "result": {
+                            "status": "success",
+                            "status_code": 201,
+                            "data": {
+                                "success": true,
+                                "message": "Your question is similar to an existing question.",
+                                "data": {
+                                    "userId": {
+                                        "buffer": {
+                                            "type": "Buffer",
+                                            "data": [
+                                                105,
+                                                248,
+                                                113,
+                                                63,
+                                                157,
+                                                3,
+                                                201,
+                                                169,
+                                                188,
+                                                129,
+                                                73,
+                                                195
+                                            ]
+                                        }
+                                    },
+                                    "question": "How can I grow paddy in Kerala?",
+                                    "priority": "medium",
+                                    "source": "WHATSAPP",
+                                    "status": "open",
+                                    "totalAnswersCount": 0,
+                                    "contextId": null,
+                                    "details": {
+                                        "state": "Kerala",
+                                        "district": "General",
+                                        "crop": "Paddy",
+                                        "season": "General",
+                                        "domain": "Crop Production",
+                                        "normalised_crop": "paddy"
+                                    },
+                                    "isAutoAllocate": false,
+                                    "metrics": null,
+                                    "aiInitialAnswer": "",
+                                    "text": "Question: How can I grow paddy in Kerala?",
+                                    "createdAt": "2026-05-04T10:13:19.854Z",
+                                    "updatedAt": "2026-05-04T10:13:19.854Z",
+                                    "originalQuestion": "",
+                                    "similarityScore": 90.99,
+                                    "referenceQuestionId": {
+                                        "buffer": {
+                                            "type": "Buffer",
+                                            "data": [
+                                                105,
+                                                245,
+                                                228,
+                                                241,
+                                                181,
+                                                209,
+                                                98,
+                                                205,
+                                                82,
+                                                119,
+                                                226,
+                                                94
+                                            ]
+                                        }
+                                    },
+                                    "referenceQuestion": "how to grow paddy in kerala?",
+                                    "referenceSource": "reviewer",
+                                    "_id": {
+                                        "buffer": {
+                                            "type": "Buffer",
+                                            "data": [
+                                                105,
+                                                248,
+                                                113,
+                                                67,
+                                                157,
+                                                3,
+                                                201,
+                                                169,
+                                                188,
+                                                129,
+                                                73,
+                                                197
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "status": "success"
+            },
+            {
+                "content": "---\n\n## **COMPREHENSIVE PADDY CULTIVATION PRACTICES FOR KERALA**\n\nBased on exhaustive retrieval from the Golden Database, here are the complete cultivation practices for paddy in Kerala:\n\n---\n\n### **📋 TOP RELEVANT RESULT (Score: 90.99%)**\n\n**Agri Expert:** Aditya  \n**Source:** KAU Package of Practices Recommendations  \n**Source Link:** https://workdrive.zohoexternal.in/file/zu51zeb12dc4ed178424d823468e33e535815\n\n---\n\n## **COMPLETE PADDY CULTIVATION GUIDE FOR KERALA**\n\n### **1. CLIMATE AND SOIL REQUIREMENTS**\n\n- Rice can be cultivated under a wide range of climatic and soil conditions\n- **Critical mean temperature for flowering and fertilization:** 16–20°C\n- **Temperature during ripening:** 18–32°C\n- **Temperature above 35°C adversely affects grain filling**\n- **Suitable soil pH range:** 5.0–8.0\n\n---\n\n### **2. CROPPING SEASONS**\n\n- Rice is grown in **three seasons** depending on agroclimatic situations\n- In **Palakkad district** (second crop), flowering should coincide with second fortnight of December for better yield and grain filling\n\n---\n\n### **3. SEED RATE**\n\n- **Transplanting:** 60–85 kg/ha (24.3–34.4 kg/acre)\n- **Broadcasting:** 80–100 kg/ha (32.4–40.5 kg/acre)\n- **Dibbling:** 80–90 kg/ha (32.4–36.4 kg/acre)\n- **For Pokkali cultivation (Vyttila varieties):** 100 kg/ha (40.5 kg/acre)\n- **In Kuttanad:** seed rate can be increased up to 125 kg/ha (50.6 kg/acre) with thinning later\n\n---\n\n### **4. SEED TREATMENT**\n\n**Dry Seed Treatment:**\n1. Treat seeds with **Pseudomonas fluorescens @ 10 g/kg seed**\n2. OR treat with **Carbendazim @ 2 g/kg seed**\n\n**Wet Seed Treatment:**\n1. Soak seeds for **12–16 hours** in solution\n2. Use Pseudomonas fluorescens or Carbendazim solution\n3. Protects seedlings from blast disease up to 30–60 days\n\n**Micronutrient Treatment:**\n1. Soak seeds in **0.25% CuSO₄ + 1% ZnSO₄ solution for 24 hours**\n2. Drain and allow sprouting\n\n---\n\n### **5. NURSERY MANAGEMENT**\n\n**a. WET NURSERY METHOD:**\n1. Prepare field by ploughing and puddling\n2. Make raised beds (5–10 cm height, 1–1.5 m width)\n3. Provide drainage channels between beds\n4. **Seedbed area:** 1000 m² per hectare\n5. Apply **1 kg compost or FYM/m²**\n6. Sow pre-germinated seeds on third day\n7. Maintain **5 cm water level**\n8. Drain occasionally to produce strong seedlings\n9. Avoid continuous flooding to prevent weak seedlings\n10. Apply **urea @ 1 kg/100 m²** if nitrogen deficiency appears\n\n**b. DRY NURSERY METHOD:**\n1. Prepare land to fine tilth\n2. Make raised beds 1–1.5 m width and 15 cm height\n3. Apply compost @ 1 kg/m²\n4. Sow treated seeds evenly\n5. Cover with soil or sand\n6. Irrigate as required depending on rainfall\n\n---\n\n### **6. AGE OF SEEDLINGS**\n\n- **Short duration varieties:** 18 days\n- **Medium duration varieties:** 20–25 days\n- **Long duration varieties:** up to 30 days\n- Older seedlings recover slowly after transplanting\n- In virippu season, seedlings can be slightly older\n\n---\n\n### **7. LAND PREPARATION**\n\n1. Plough thoroughly to incorporate weeds and crop residues\n2. Ensure smooth and level field\n3. Apply organic manure and fertilizers during final ploughing\n\n**Region-specific practices:**\n- **Kuttanad:** Drain water, plough and maintain thin water layer\n- **Kole lands:** Dewatering after monsoon and then transplanting\n- **Onattukara:** Dibbling behind plough\n- **Pokkali:** Prepare mounds and manage salinity\n- **Koottumundakan:** Mixed cropping of two varieties\n\n---\n\n### **8. TRANSPLANTING**\n\n1. Transplant **2–3 seedlings per hill**\n2. Maintain proper spacing as per variety\n3. Leave **30 cm alleyways** after every 3 m rows\n4. Plant at **3–4 cm depth**\n5. Use drum seeding and cono weeder where suitable\n\n---\n\n### **9. MANURING AND FERTILIZATION (KERALA-SPECIFIC)**\n\n**FOR UPLANDS (MODAN):**\n- **Local varieties:** 16.2 kg N, 8.1 kg P₂O₅, 12.1 kg K₂O per acre\n  - (Urea 35 kg, SSP 51 kg, MOP 20 kg/acre)\n- **High yielding short duration:** 24.3 kg N, 12.1 kg P₂O₅, 12.1 kg K₂O per acre\n  - (Urea 53 kg, SSP 76 kg, MOP 20 kg/acre)\n\n**FOR WETLANDS (ALL REGIONS):**\n- **High yielding short duration:** 28.3 kg N, 14.2 kg P₂O₅, 14.2 kg K₂O per acre\n  - (Urea 62 kg, SSP 89 kg, MOP 24 kg/acre)\n- **High yielding medium duration:** 36.4 kg N, 18.2 kg P₂O₅, 18.2 kg K₂O per acre\n  - (Urea 79 kg, SSP 114 kg, MOP 30 kg/acre)\n\n**FOR KOLE LANDS:**\n- **Short duration:** 36.4 kg N, 14.2 kg P₂O₅, 18.2 kg K₂O per acre\n- **Medium duration HYV:** 44.5 kg N, 18.2 kg P₂O₅, 18.2 kg K₂O per acre\n\n**FOR KUTTANAD:**\n- **Medium duration HYV:** 36.4 kg N, 18.2 kg P₂O₅, 6.1 kg K₂O per acre\n\n---\n\n### **10. ORGANIC MANURING**\n\n1. Apply **FYM/compost/green leaf manure @ 5 t/ha (2.0 tonnes per acre)**\n2. **Vermicompost/coirpith compost @ 2.5 t/ha (1.0 tonne per acre)** can substitute FYM\n3. Apply full dose of phosphorus along with organics\n\n**GREEN MANURING:**\n1. Grow cowpea or daincha as intercrop\n2. Incorporate at 30–40 days after sowing\n3. Reduces weed pressure and improves soil fertility\n\n---\n\n### **11. FERTILIZER APPLICATION METHOD**\n\n1. **Nitrogen:** Applied in 3–4 split doses\n   - Basal\n   - Tillering stage\n   - Panicle initiation stage\n2. **Phosphorus:** Applied fully as basal dose\n3. **Potash:** Applied as basal or split doses\n4. In sandy soils, apply more split doses\n5. **Zinc sulphate @ 20 kg/ha (8.1 kg/acre)** if deficiency appears\n6. Apply lime if soil pH is low\n   - General dose: 600 kg/ha\n   - Pokkali area: 1000 kg/ha\n\n---\n\n### **12. WATER MANAGEMENT**\n\n1. Maintain **1.5 cm water at transplanting**\n2. Increase gradually to **5 cm till maximum tillering stage**\n3. Drain water **13 days before harvest**\n4. In mundakan season: **irrigate once in 6 days**\n5. In summer: irrigate after disappearance of water\n6. Practice phasic stress irrigation under limited water\n7. **Drain and refill every 15 days in acidic soils**\n\n---\n\n### **13. WEED MANAGEMENT**\n\n1. Keep field **weed-free for 45 days**\n2. Use herbicides depending on method:\n   - **Pre-emergence:** Butachlor, Oxyfluorfen, Pendimethalin\n   - **Follow-up:** Pretilachlor + 2,4-D\n   - **For grass weeds:** Cyhalofop butyl\n   - Hand weeding also recommended\n\n---\n\n### **14. PEST MANAGEMENT**\n\n1. Apply control measures only when ETL is reached\n2. **Major pests:**\n   - Stem borer\n   - Gall midge\n   - Leaf folder\n   - Brown plant hopper\n3. Use recommended insecticides and cultural practices\n\n---\n\n### **15. HARVESTING AND POST-HARVEST**\n\n1. Harvest when **80% grains mature**\n2. Drain water before harvesting\n3. Thresh on same day\n4. Dry seeds to **13% moisture**\n5. Store in moisture-proof conditions\n\n---\n\n### **🌾 ADDITIONAL INFORMATION:**\n\n**Available Domains for Paddy in Kerala:**\n- Crop Protection\n- Crop Varieties\n- Crop Cultivation\n\n**Available Seasons:**\n- General\n- Monsoon\n- Not specified\n\n---\n\n**For more information, please contact your nearest Krishi Vigyan Kendra (KVK) and Block Agriculture Officer.**",
+                "additional_kwargs": {},
+                "response_metadata": {},
+                "type": "tool",
+                "name": "gdb",
+                "id": "59c5d5c2-8347-413d-85e8-d3a484166638",
+                "tool_call_id": "toolu_018MdiGNNR52vvshxprHSBQx",
+                "artifact": null,
+                "status": "success"
+            },
+            {
+                "content": "---\n\n🌾 **Paddy Cultivation Guide for Kerala** 🌾\n\nYour question has been sent to Agri Experts at annam.ai, and they will review it within 2 hours. Please ask the same question after 2 hours for a detailed answer from our experts.\n\nMeanwhile, here's complete information on growing paddy in Kerala:\n\n---\n\n**Climate & Soil Requirements**\n\nPaddy grows well in Kerala's climate. Best temperature for flowering is 16 to 20°C and for ripening is 18 to 32°C. Avoid temperatures above 35°C during grain filling. Suitable soil pH range is 5.0 to 8.0. Rice can be grown in wide range of soil types.\n\n---\n\n**Cropping Seasons**\n\nPaddy is grown in three seasons in Kerala depending on local climate conditions. In Palakkad, flowering during second half of December gives better yield.\n\n---\n\n**Seed Rate**\n\nFor transplanting use 60 to 85 kg per hectare\nFor broadcasting use 80 to 100 kg per hectare\nFor dibbling use 80 to 90 kg per hectare\n\n---\n\n**Seed Treatment**\n\nTreat seeds with Pseudomonas fluorescens at 10 grams per kg seed OR Carbendazim at 2 grams per kg seed before sowing. This protects seedlings from blast disease for 30 to 60 days.\n\nFor micronutrient treatment, soak seeds in 0.25% CuSO4 plus 1% ZnSO4 solution for 24 hours, then drain and allow sprouting.\n\n---\n\n**Nursery Management**\n\nPrepare seedbed area of 1000 square meters per hectare. Make raised beds 5 to 10 cm height and 1 to 1.5 m width. Apply 1 kg compost or FYM per square meter. Sow pre germinated seeds and maintain 5 cm water level. Drain water occasionally to produce strong seedlings.\n\nAge of seedlings: 18 days for short duration varieties, 20 to 25 days for medium duration and up to 30 days for long duration varieties.\n\n---\n\n**Land Preparation**\n\nPlough thoroughly to mix weeds and crop residues. Ensure smooth and level field. Apply organic manure during final ploughing.\n\n---\n\n**Transplanting**\n\nTransplant 2 to 3 seedlings per hill at proper spacing. Plant at 3 to 4 cm depth. Leave 30 cm alleyways after every 3 meter rows.\n\n---\n\n**Fertilizer Application (Kerala Wetlands)**\n\n**For short duration high yielding varieties:**\nApply 28.3 kg Nitrogen, 14.2 kg Phosphorus, 14.2 kg Potash per acre\nThis equals Urea 62 kg, SSP 89 kg, MOP 24 kg per acre\n\n**For medium duration high yielding varieties:**\nApply 36.4 kg Nitrogen, 18.2 kg Phosphorus, 18.2 kg Potash per acre\nThis equals Urea 79 kg, SSP 114 kg, MOP 30 kg per acre\n\nApply Nitrogen in 3 to 4 split doses at basal, tillering and panicle initiation stages. Apply full Phosphorus as basal dose.\n\n---\n\n**Organic Manuring**\n\nApply FYM or compost at 2 tonnes per acre OR Vermicompost at 1 tonne per acre. You can grow cowpea or daincha as green manure crop and incorporate at 30 to 40 days.\n\n---\n\n**Water Management**\n\nMaintain 1.5 cm water at transplanting. Increase gradually to 5 cm till maximum tillering. Drain water 13 days before harvest. During summer irrigate after water disappears from field.\n\n---\n\n**Weed Management**\n\nKeep field weed free for first 45 days. Do manual weeding or use pre emergence herbicides like Butachlor or Pendimethalin as per recommended doses.\n\n---\n\n**Harvesting**\n\nHarvest when 80% grains mature. Drain water before harvesting. Thresh on same day. Dry seeds to 13% moisture and store in moisture proof conditions.\n\n---\n\nThe answer I provided is sourced only from the following approved materials.\n\n**Source:**\n1. Source: KAU Package of Practices Recommendations, Link: https://workdrive.zohoexternal.in/file/zu51zeb12dc4ed178424d823468e33e535815\n\n**Agriexpert:**\n1. Agriexpert: Aditya\n\n---\n\n⚠️ **Important Notice (Testing)** ⚠️\n\nThis AjraSakha application is under development and intended only for testing and validation. \nAdvisories are experimental and currently cover major crops in selected states. \nWeather data is sourced from IMD.\nMarket data from eNAM, Agmarknet, and State APMCs.\nSoil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.\nGovernment schemes from https://www.myscheme.gov.in/ . \nOther agricultural information and advisories are expert verified by Annam.ai. \n\nUsers should independently validate recommendations before acting.",
+                "additional_kwargs": {},
+                "response_metadata": {
+                    "id": "msg_01YDn82YBKGjUigbSFDovNwm",
+                    "container": null,
+                    "model": "claude-sonnet-4-5-20250929",
+                    "stop_details": null,
+                    "stop_reason": "end_turn",
+                    "stop_sequence": null,
+                    "usage": {
+                        "cache_creation": {
+                            "ephemeral_1h_input_tokens": 0,
+                            "ephemeral_5m_input_tokens": 0
+                        },
+                        "cache_creation_input_tokens": 0,
+                        "cache_read_input_tokens": 0,
+                        "inference_geo": "not_available",
+                        "input_tokens": 18532,
+                        "output_tokens": 1264,
+                        "server_tool_use": null,
+                        "service_tier": "standard"
+                    },
+                    "model_name": "claude-sonnet-4-5-20250929",
+                    "model_provider": "anthropic"
+                },
+                "type": "ai",
+                "name": null,
+                "id": "lc_run--019df27b-5c6f-75b1-aa0c-5052905a6ec7-0",
+                "tool_calls": [],
+                "invalid_tool_calls": [],
+                "usage_metadata": {
+                    "input_tokens": 18532,
+                    "output_tokens": 1264,
+                    "total_tokens": 19796,
+                    "input_token_details": {
+                        "cache_creation": 0,
+                        "cache_read": 0,
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                    }
+                }
+            },
+            {
+                "content": "what are the best methods to test soil health and analyze nutrients deficiencies in my field?",
+                "additional_kwargs": {},
+                "response_metadata": {},
+                "type": "human",
+                "name": null,
+                "id": "e0b583e0-3fd2-4734-bfad-908a4d997373"
+            },
+            {
+                "content": [
+                    {
+                        "text": "I'll help you with information on soil testing methods and nutrient deficiency analysis. Let me first upload your question to our Agri experts and then gather detailed information for you.",
+                        "type": "text"
+                    },
+                    {
+                        "id": "toolu_01Cy6icyx5SYxY7sHNMzEH8F",
+                        "caller": {
+                            "type": "direct"
+                        },
+                        "input": {
+                            "question": "What are the best methods to test soil health and analyze nutrient deficiencies in my field?",
+                            "state_name": "Kerala",
+                            "crop": "General",
+                            "details": {
+                                "state": "Kerala",
+                                "district": "General",
+                                "crop": "General",
+                                "season": "General",
+                                "domain": "Soil Health"
+                            }
+                        },
+                        "name": "upload_question_to_reviewer_system",
+                        "type": "tool_use"
+                    },
+                    {
+                        "id": "toolu_01TczyNZicuLJkXoEc6cTtUo",
+                        "caller": {
+                            "type": "direct"
+                        },
+                        "input": {
+                            "query": "Best methods to test soil health and analyze nutrient deficiencies in field. Soil testing procedures and nutrient analysis methods",
+                            "address": "Kerala"
+                        },
+                        "name": "gdb",
+                        "type": "tool_use"
+                    }
+                ],
+                "additional_kwargs": {},
+                "response_metadata": {
+                    "id": "msg_01ML4fZfzxR3jWF5ESr98SYL",
+                    "container": null,
+                    "model": "claude-sonnet-4-5-20250929",
+                    "stop_details": null,
+                    "stop_reason": "tool_use",
+                    "stop_sequence": null,
+                    "usage": {
+                        "cache_creation": {
+                            "ephemeral_1h_input_tokens": 0,
+                            "ephemeral_5m_input_tokens": 0
+                        },
+                        "cache_creation_input_tokens": 0,
+                        "cache_read_input_tokens": 0,
+                        "inference_geo": "not_available",
+                        "input_tokens": 19818,
+                        "output_tokens": 276,
+                        "server_tool_use": null,
+                        "service_tier": "standard"
+                    },
+                    "model_name": "claude-sonnet-4-5-20250929",
+                    "model_provider": "anthropic"
+                },
+                "type": "ai",
+                "name": null,
+                "id": "lc_run--019df282-bf49-7f51-8859-080387a3f787-0",
+                "tool_calls": [
+                    {
+                        "name": "upload_question_to_reviewer_system",
+                        "args": {
+                            "question": "What are the best methods to test soil health and analyze nutrient deficiencies in my field?",
+                            "state_name": "Kerala",
+                            "crop": "General",
+                            "details": {
+                                "state": "Kerala",
+                                "district": "General",
+                                "crop": "General",
+                                "season": "General",
+                                "domain": "Soil Health"
+                            }
+                        },
+                        "id": "toolu_01Cy6icyx5SYxY7sHNMzEH8F",
+                        "type": "tool_call"
+                    },
+                    {
+                        "name": "gdb",
+                        "args": {
+                            "query": "Best methods to test soil health and analyze nutrient deficiencies in field. Soil testing procedures and nutrient analysis methods",
+                            "address": "Kerala"
+                        },
+                        "id": "toolu_01TczyNZicuLJkXoEc6cTtUo",
+                        "type": "tool_call"
+                    }
+                ],
+                "invalid_tool_calls": [],
+                "usage_metadata": {
+                    "input_tokens": 19818,
+                    "output_tokens": 276,
+                    "total_tokens": 20094,
+                    "input_token_details": {
+                        "cache_creation": 0,
+                        "cache_read": 0,
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                    }
+                }
+            },
+            {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "{\n  \"status\": \"success\",\n  \"status_code\": 201,\n  \"data\": {\n    \"success\": true,\n    \"message\": \"Question submitted successfully.\",\n    \"question_id\": \"69f8736d9d03c9a9bc8149f0\"\n  }\n}",
+                        "id": "lc_bf3d9e61-a7eb-4cf7-9657-c4a32fa04f15"
+                    }
+                ],
+                "additional_kwargs": {},
+                "response_metadata": {},
+                "type": "tool",
+                "name": "upload_question_to_reviewer_system",
+                "id": "f04032d3-471a-4dd0-8949-d8a234220f67",
+                "tool_call_id": "toolu_01Cy6icyx5SYxY7sHNMzEH8F",
+                "artifact": {
+                    "structured_content": {
+                        "result": {
+                            "status": "success",
+                            "status_code": 201,
+                            "data": {
+                                "success": true,
+                                "message": "Question submitted successfully.",
+                                "question_id": "69f8736d9d03c9a9bc8149f0"
+                            }
+                        }
+                    }
+                },
+                "status": "success"
+            },
+            {
+                "content": "---\n\n## **COMPREHENSIVE SOIL TESTING & NUTRIENT ANALYSIS GUIDE FOR KERALA**\n\nBased on exhaustive Golden Database retrieval, here are the complete soil testing procedures and nutrient analysis methods:\n\n---\n\n### **📋 TOP RELEVANT RESULTS**\n\n**Result 1 - Score: 92.14%**  \n**Agri Expert:** MONICA  \n**Source:** TNAU Soil sampling procedure  \n**Source Link:** https://workdrive.zoho.in/file/lwpx052fc9f08ddb14774aad40bd2246607e6\n\n**Result 2 - Score: 91.32%**  \n**Agri Expert:** AKHIL  \n**Source:** Tamil Nadu Agricultural University, Coimbatore  \n**Source Link:** https://workdrive.zohoexternal.in/file/flcw21417d637e3784281b711358cebdd842d\n\n**Result 3 - Score: 90.94%**  \n**Agri Expert:** Rohan  \n**Source:** ICAR - Soil and water testing services  \n**Source Link:** https://workdrive.zoho.in/file/fdy6bb91b98d9cc474472bd031ffd150072ba\n\n---\n\n## **COMPLETE SOIL TESTING PROCEDURE**\n\n### **1. IMPORTANCE OF SOIL TESTING**\n\nSoil testing is an essential component of soil resource management that helps:\n- Identify nutrient deficiencies (N, P, K)\n- Determine pH levels\n- Measure organic matter content\n- Assess electrical conductivity (salinity)\n- Provide customized fertilizer recommendations\n- Reduce input costs\n- Improve crop yields\n- Prevent nutrient toxicity or deficiency\n\n---\n\n### **2. MATERIALS REQUIRED FOR SOIL SAMPLING**\n\n1. **Spade or auger** (screw/tube/post hole type)\n2. **Khurpi** (small hand tool)\n3. **Core sampler**\n4. **Clean sampling bags** (cloth or polythene)\n5. **Plastic tray or bucket**\n6. **Labels and marker**\n\n---\n\n### **3. WHEN TO COLLECT SOIL SAMPLES**\n\n✅ **Best Time:**\n- **After harvest** or during fallow period\n- **Before sowing** the next crop\n- **2-4 weeks before planting** (to allow time for amendments)\n\n❌ **Avoid Sampling:**\n- Immediately after fertilizer or manure application\n- From waterlogged areas\n- Near field boundaries, trees, or irrigation channels\n- From compost pits or manure heaps\n- During or immediately after heavy rainfall\n\n---\n\n### **4. DETAILED SOIL SAMPLING PROCEDURE**\n\n#### **STEP 1: FIELD DIVISION**\n- Divide the field into **homogeneous units** based on:\n  - Visual appearance\n  - Soil color and texture\n  - Slope and drainage\n  - Past management practices\n  - Cropping history\n- **Sampling rate:** 1 sample per 2 hectares (5 acres)\n- **Maximum area:** 1 sample per 5 hectares\n\n#### **STEP 2: SAMPLE COLLECTION POINTS**\n- Walk in a **zig-zag pattern** across the field\n- Collect **10-15 sub-samples** from each sampling unit\n- Remove surface litter before sampling\n\n#### **STEP 3: COLLECTION DEPTH**\n- **Shallow-rooted crops:** 0-15 cm depth\n- **Deep-rooted crops:** 0-30 cm depth\n- **Tree crops:** Profile samples at multiple depths\n\n#### **STEP 4: SAMPLING METHOD**\n\n**Method A - Using Auger:**\n1. Drive the auger to **15 cm depth** (plough depth)\n2. Draw the soil sample\n3. Place in bucket or tray\n4. Repeat at 10-15 locations\n\n**Method B - Using Spade:**\n1. Make a **'V' shaped cut** to 15 cm depth\n2. Remove thick slices of soil from **top to bottom**\n3. Place in clean container\n4. Repeat at 10-15 locations\n\n---\n\n### **5. SAMPLE PROCESSING**\n\n#### **A. MIXING AND CLEANING**\n1. Mix all sub-samples **thoroughly** in bucket/tray\n2. Remove foreign materials:\n   - Roots\n   - Stones\n   - Pebbles\n   - Gravels\n   - Plant debris\n\n#### **B. SAMPLE REDUCTION**\n\n**Quartering Method:**\n1. Divide mixed sample into **4 equal parts**\n2. Discard **2 opposite quarters**\n3. Remix remaining 2 quarters\n4. Repeat until **500 grams to 1 kg** sample obtained\n\n**Compartmentalization Method:**\n1. Spread soil uniformly on clean surface\n2. Draw lines along length and breadth\n3. Collect a pinch from each compartment\n4. Repeat until desired quantity obtained\n\n---\n\n### **6. SAMPLE LABELING & SUBMISSION**\n\n#### **LABEL INFORMATION (Must Include):**\n✓ Farmer's name  \n✓ Location/village  \n✓ Survey number  \n✓ Field area (acreage)  \n✓ Previous crop grown  \n✓ Present crop  \n✓ Crop to be grown next season  \n✓ Date of collection  \n✓ Sampler's name  \n✓ Mobile number  \n✓ Aadhaar number (if required)\n\n#### **SUBMISSION:**\n- Collect sample in **clean cloth or polythene bag**\n- **Dry in shade** (not under direct sunlight)\n- Submit within **2-3 days** of collection\n- Store in cool, dry place before submission\n\n---\n\n### **7. WHERE TO SUBMIT SOIL SAMPLES IN KERALA**\n\n1. **Krishi Vigyan Kendras (KVKs)**\n2. **State Soil Testing Laboratories**\n3. **Kerala Agricultural University (KAU) labs**\n4. **District Agriculture Offices**\n5. **Block Agriculture Offices**\n6. **Accredited private laboratories**\n\n**Government Service:** Usually **free or nominal cost** under Soil Health Card scheme\n\n**Report Timeline:** Results available within **7-15 days**\n\n---\n\n### **8. SOIL TEST PARAMETERS ANALYZED**\n\n#### **A. PRIMARY PARAMETERS:**\n- **Soil pH:** Optimal range 5.0-8.0 for most crops\n- **Electrical Conductivity (EC):** Indicates salinity\n- **Organic Carbon:** Reflects organic matter content\n\n#### **B. MAJOR NUTRIENTS:**\n- **Available Nitrogen (N)**\n- **Available Phosphorus (P₂O₅)**\n- **Available Potassium (K₂O)**\n\n#### **C. SECONDARY NUTRIENTS:**\n- Calcium (Ca)\n- Magnesium (Mg)\n- Sulphur (S)\n\n#### **D. MICRONUTRIENTS:**\n- **Zinc (Zn)** - Most commonly deficient\n- **Iron (Fe)**\n- **Boron (B)**\n- **Manganese (Mn)**\n- **Copper (Cu)**\n- **Molybdenum (Mo)**\n\n---\n\n### **9. SOIL HEALTH CARD (SHC)**\n\nThe Soil Health Card provides:\n- Current nutrient status (Low/Medium/High)\n- Soil pH and EC levels\n- **Crop-specific fertilizer recommendations**\n- Organic manure requirements\n- Lime/gypsum recommendations (if needed)\n- Micronutrient application guidance\n\n---\n\n### **10. FREQUENCY OF SOIL TESTING**\n\n- **Regular fields:** Once every **2-3 years**\n- **Intensive cropping:** **Annually**\n- **Problem soils:** Every **year**\n- **When yield decline observed:** Immediately\n\n---\n\n### **11. SAFETY GUIDELINES**\n\n✓ Wash hands thoroughly after handling soil  \n✓ Use clean equipment to avoid contamination  \n✓ Store samples away from chemicals/fertilizers  \n✓ Label all samples clearly  \n✓ Avoid eating/drinking during sampling  \n✓ Wear gloves when handling samples\n\n---\n\n### **12. SPECIAL CONSIDERATIONS FOR KERALA**\n\n#### **For Paddy Fields:**\n- Sample at **plough depth (15 cm)**\n- Collect after harvest, before land preparation\n- Test for **iron toxicity** in problem areas (Onattukara, Kuttanad)\n\n#### **For Plantation Crops:**\n- Collect **profile samples** at different depths\n- Sample around tree canopy area\n- Avoid sampling near trunk\n\n#### **For Acid Soils:**\n- pH testing critical\n- Lime requirement assessment needed\n\n---\n\n### **13. INTERPRETING SOIL TEST RESULTS**\n\n**Nutrient Levels Classification:**\n\n| Nutrient | Low | Medium | High |\n|----------|-----|--------|------|\n| **N (Organic Carbon %)** | \u003C0.4 | 0.4-0.75 | \u003E0.75 |\n| **P (kg/acre)** | \u003C5 | 5-10 | \u003E10 |\n| **K (kg/acre)** | \u003C55 | 55-280 | \u003E280 |\n| **Zn (ppm)** | \u003C0.6 | 0.6-1.2 | \u003E1.2 |\n\n---\n\n### **14. BENEFITS OF PROPER SOIL TESTING**\n\n✅ **Economic Benefits:**\n- Reduced fertilizer costs (25-30% savings)\n- Targeted nutrient application\n- Higher crop yields\n\n✅ **Environmental Benefits:**\n- Prevents over-fertilization\n- Reduces groundwater contamination\n- Maintains soil health\n\n✅ **Agronomic Benefits:**\n- Balanced nutrition\n- Better crop quality\n- Disease resistance improvement\n\n---\n\n### **15. COMMON MISTAKES TO AVOID**\n\n❌ Sampling from non-representative areas  \n❌ Mixing soils from different field types  \n❌ Sampling immediately after fertilizer application  \n❌ Using rusty or contaminated tools  \n❌ Not providing proper labeling  \n❌ Delayed submission to laboratory  \n❌ Collecting wet samples\n\n---\n\n## **CONTACT FOR SOIL TESTING IN KERALA**\n\n**For more information, farmers should contact:**\n- **Nearest Krishi Vigyan Kendra (KVK)**\n- **Block Agriculture Officer**\n- **Kerala Agricultural University (KAU)**\n- **Soil Health Card helpline**\n\n---\n\n**Available Domains for Soil Testing:**\n- Crop Production\n- Crop cultivation\n- Irrigation and Water Management\n\nThis comprehensive guide provides scientifically validated, field-tested procedures for soil sampling and nutrient analysis specifically applicable to Kerala's agricultural conditions.",
+                "additional_kwargs": {},
+                "response_metadata": {},
+                "type": "tool",
+                "name": "gdb",
+                "id": "3406c9bd-3eef-41b3-8170-52894b2fabfa",
+                "tool_call_id": "toolu_01TczyNZicuLJkXoEc6cTtUo",
+                "artifact": null,
+                "status": "success"
+            },
+            {
+                "content": "---\n\n🧪 **Soil Testing & Nutrient Analysis Guide** 🧪\n\nYour question has been sent to Agri Experts at annam.ai, and they will review it within 2 hours. Please ask the same question after 2 hours for a detailed answer from our experts.\n\nMeanwhile, here's complete information on soil testing methods and nutrient analysis:\n\n---\n\n**Why Soil Testing is Important**\n\nSoil testing helps identify nutrient deficiencies, measure pH levels, assess organic matter content and provide customized fertilizer recommendations. This reduces input costs and improves crop yields.\n\n---\n\n**When to Collect Soil Samples**\n\nBest time is after harvest or during fallow period, 2 to 4 weeks before planting.\n\nAvoid sampling immediately after fertilizer application, from waterlogged areas, near field boundaries or during heavy rainfall.\n\n---\n\n**Materials Required**\n\nYou need spade or auger, khurpi, clean sampling bags (cloth or polythene), plastic bucket, labels and marker pen.\n\n---\n\n**Soil Sampling Procedure**\n\n**Step 1 - Divide Field**\nDivide your field into similar areas based on soil color, texture, slope and past cropping history. Take 1 sample per 2 hectares (5 acres).\n\n**Step 2 - Collection Points**\nWalk in zigzag pattern across the field. Collect 10 to 15 sub samples from each area. Remove surface litter before sampling.\n\n**Step 3 - Collection Depth**\nFor shallow rooted crops collect from 0 to 15 cm depth. For deep rooted crops collect from 0 to 30 cm depth.\n\n**Step 4 - Sampling Method**\nUsing spade, make V shaped cut to 15 cm depth. Remove thick slices of soil from top to bottom. Place in clean bucket. Repeat at 10 to 15 locations.\n\n---\n\n**Sample Processing**\n\nMix all sub samples thoroughly in bucket. Remove roots, stones, pebbles and plant debris.\n\n**Quartering Method:**\nDivide mixed sample into 4 equal parts. Discard 2 opposite quarters. Remix remaining 2 quarters. Repeat until 500 grams to 1 kg sample obtained.\n\n---\n\n**Sample Labeling**\n\nLabel must include your name, location, survey number, field area, previous crop, present crop, date of collection and mobile number.\n\n---\n\n**Where to Submit in Kerala**\n\nSubmit samples to:\n- Krishi Vigyan Kendras (KVKs)\n- State Soil Testing Laboratories\n- Kerala Agricultural University labs\n- District or Block Agriculture Offices\n\nService is usually free or nominal cost under Soil Health Card scheme. Results available within 7 to 15 days.\n\n---\n\n**Parameters Analyzed**\n\n**Primary Parameters:**\nSoil pH, Electrical Conductivity, Organic Carbon\n\n**Major Nutrients:**\nAvailable Nitrogen, Phosphorus and Potassium\n\n**Secondary Nutrients:**\nCalcium, Magnesium, Sulphur\n\n**Micronutrients:**\nZinc (most commonly deficient), Iron, Boron, Manganese, Copper, Molybdenum\n\n---\n\n**Soil Health Card Benefits**\n\nThe Soil Health Card provides current nutrient status, soil pH and EC levels, crop specific fertilizer recommendations, organic manure requirements and lime or gypsum recommendations if needed.\n\n---\n\n**Frequency of Testing**\n\nRegular fields should be tested once every 2 to 3 years. For intensive cropping test annually. For problem soils test every year. When yield decline is observed test immediately.\n\n---\n\n**Interpreting Results**\n\n**Nutrient Levels:**\n- **Nitrogen (Organic Carbon %):** Low below 0.4, Medium 0.4 to 0.75, High above 0.75\n- **Phosphorus (kg/acre):** Low below 5, Medium 5 to 10, High above 10\n- **Potassium (kg/acre):** Low below 55, Medium 55 to 280, High above 280\n- **Zinc (ppm):** Low below 0.6, Medium 0.6 to 1.2, High above 1.2\n\n---\n\n**Benefits of Proper Soil Testing**\n\nSaves 25 to 30% on fertilizer costs, prevents over fertilization, maintains soil health, provides balanced nutrition and improves crop quality.\n\n---\n\n**Common Mistakes to Avoid**\n\nDo not sample from non representative areas. Do not mix soils from different field types. Do not sample immediately after fertilizer application. Do not use rusty or contaminated tools. Do not delay submission to laboratory.\n\n---\n\nFor more information contact your nearest Krishi Vigyan Kendra, Block Agriculture Officer or Kerala Agricultural University.\n\n---\n\nThe answer I provided is sourced only from the following approved materials.\n\n**Sources:**\n1. Source: TNAU Soil sampling procedure, Link: https://workdrive.zoho.in/file/lwpx052fc9f08ddb14774aad40bd2246607e6\n2. Source: Tamil Nadu Agricultural University, Coimbatore, Link: https://workdrive.zohoexternal.in/file/flcw21417d637e3784281b711358cebdd842d\n3. Source: ICAR - Soil and water testing services, Link: https://workdrive.zoho.in/file/fdy6bb91b98d9cc474472bd031ffd150072ba\n\n**Agriexperts:**\n1. Agriexpert: MONICA\n2. Agriexpert: AKHIL\n3. Agriexpert: Rohan\n\n---\n\n⚠️ **Important Notice (Testing)** ⚠️\n\nThis AjraSakha application is under development and intended only for testing and validation. \nAdvisories are experimental and currently cover major crops in selected states. \nWeather data is sourced from IMD.\nMarket data from eNAM, Agmarknet, and State APMCs.\nSoil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.\nGovernment schemes from https://www.myscheme.gov.in/ . \nOther agricultural information and advisories are expert verified by Annam.ai. \n\nUsers should independently validate recommendations before acting.",
+                "additional_kwargs": {},
+                "response_metadata": {
+                    "id": "msg_016KzbxMGRKHfAGEdPfTAEUp",
+                    "container": null,
+                    "model": "claude-sonnet-4-5-20250929",
+                    "stop_details": null,
+                    "stop_reason": "end_turn",
+                    "stop_sequence": null,
+                    "usage": {
+                        "cache_creation": {
+                            "ephemeral_1h_input_tokens": 0,
+                            "ephemeral_5m_input_tokens": 0
+                        },
+                        "cache_creation_input_tokens": 0,
+                        "cache_read_input_tokens": 0,
+                        "inference_geo": "not_available",
+                        "input_tokens": 22815,
+                        "output_tokens": 1484,
+                        "server_tool_use": null,
+                        "service_tier": "standard"
+                    },
+                    "model_name": "claude-sonnet-4-5-20250929",
+                    "model_provider": "anthropic"
+                },
+                "type": "ai",
+                "name": null,
+                "id": "lc_run--019df283-e6e7-7420-b586-44e7c7c9cd8a-0",
+                "tool_calls": [],
+                "invalid_tool_calls": [],
+                "usage_metadata": {
+                    "input_tokens": 22815,
+                    "output_tokens": 1484,
+                    "total_tokens": 24299,
+                    "input_token_details": {
+                        "cache_creation": 0,
+                        "cache_read": 0,
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                    }
+                }
+            }
+        ],
+        "location": {
+            "city": null,
+            "state": null,
+            "address": null,
+            "latitude": 10.5404529,
+            "longitude": 76.2474151
+        }
+    },
+    "next": [],
+    "tasks": [],
+    "interrupts": [],
+    "metadata": {
+        "step": 10,
+        "run_id": "6aafee81-cb7c-4913-9d14-f0220e064ea4",
+        "source": "loop",
+        "parents": {},
+        "user_id": "anonymous",
+        "session_id": "917994170107",
+        "langfuse_user_id": "anonymous",
+        "user_display_name": "Anonymous User",
+        "langfuse_session_id": "917994170107"
+    },
+    "created_at": "2026-05-04T10:24:07.784461Z",
+    "checkpoint": {
+        "checkpoint_id": "1f147a36-2317-6113-800a-cf99bbb79a6e",
+        "thread_id": "917994170107",
+        "checkpoint_ns": ""
+    },
+    "parent_checkpoint": {
+        "checkpoint_id": "1f147a35-3e7c-6732-8009-a99285905bfe",
+        "thread_id": "917994170107",
+        "checkpoint_ns": ""
+    },
+    "checkpoint_id": "1f147a36-2317-6113-800a-cf99bbb79a6e",
+    "parent_checkpoint_id": "1f147a35-3e7c-6732-8009-a99285905bfe"
+}

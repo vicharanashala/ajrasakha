@@ -1,6 +1,7 @@
 import { formatDistanceToNow } from 'date-fns';
 import type { Thread } from '../types';
 import { cn } from '@/lib/utils';
+import { formatPhoneNumber } from '@/utils/formatPhoneNumber';
 
 interface ThreadItemProps {
   thread: Thread;
@@ -18,7 +19,7 @@ export function ThreadItem({ thread, isActive, onClick }: ThreadItemProps) {
       )}
     >
       <div className="flex justify-between items-start mb-1">
-        <span className="font-medium text-sm">+{thread.phoneNumber}</span>
+        <span className="font-medium text-sm">{formatPhoneNumber(thread.phoneNumber)}</span>
         <span className="text-[10px] text-muted-foreground">
           {formatDistanceToNow(thread.lastMessageTimestamp, { addSuffix: true })}
         </span>

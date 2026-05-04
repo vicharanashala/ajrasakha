@@ -2,6 +2,7 @@ import type { Message, Thread } from '../types';
 import { ChatMessage } from './ChatMessage';
 import { Phone, Info, MoreVertical, Check, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/atoms/button';
+import { formatPhoneNumber } from '@/utils/formatPhoneNumber';
 
 interface ChatWindowProps {
   selectedThread?: Thread;
@@ -68,7 +69,7 @@ export function ChatWindow({ selectedThread, messages, isLoading }: ChatWindowPr
           </div>
           <div>
             <h3 className="font-semibold text-sm leading-none">
-              {selectedThread.phoneNumber}
+              {formatPhoneNumber(selectedThread.phoneNumber)}
             </h3>
             <div className="flex items-center gap-1.5 mt-1">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500" />

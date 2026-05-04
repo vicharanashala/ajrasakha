@@ -4,6 +4,7 @@ import { Input } from '@/components/atoms/input';
 import { ThreadItem } from './ThreadItem';
 import type { Thread } from '../types';
 import { Separator } from '@/components/atoms/separator';
+import { ScrollArea } from '@/components/atoms/scroll-area';
 
 interface ThreadSidebarProps {
   threads: Thread[];
@@ -11,6 +12,7 @@ interface ThreadSidebarProps {
   onThreadSelect: (threadId: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  isLoading?: boolean;
 }
 
 export function ThreadSidebar({
@@ -19,6 +21,7 @@ export function ThreadSidebar({
   onThreadSelect,
   searchQuery,
   onSearchChange,
+  isLoading,
 }: ThreadSidebarProps) {
   const navigate = useNavigate();
 
@@ -66,22 +69,38 @@ export function ThreadSidebar({
       <Separator />
 
       {/* Thread list */}
-      <div className="flex-1 overflow-y-auto">
-        {threads.length > 0 ? (
-          threads.map((thread) => (
-            <ThreadItem
-              key={thread.id}
-              thread={thread}
-              isActive={selectedThreadId === thread.id}
-              onClick={() => onThreadSelect(thread.id)}
-            />
-          ))
-        ) : (
-          <div className="p-8 text-center text-muted-foreground text-sm">
-            No threads found
-          </div>
-        )}
-      </div>
+      <ScrollArea className="flex-1">
+        <div>
+          {isLoading ? (
+            <div className="flex flex-col">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="p-4 border-b border-border/50 animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-muted" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-muted rounded w-3/4" />
+                      <div className="h-2 bg-muted rounded w-1/2" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : threads.length > 0 ? (
+            threads.map((thread) => (
+              <ThreadItem
+                key={thread.id}
+                thread={thread}
+                isActive={selectedThreadId === thread.id}
+                onClick={() => onThreadSelect(thread.id)}
+              />
+            ))
+          ) : (
+            <div className="p-8 text-center text-muted-foreground text-sm">
+              No threads found
+            </div>
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }
