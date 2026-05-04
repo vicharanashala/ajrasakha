@@ -996,10 +996,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: new Date(),
           ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
         };
-       const enableDuplicateFeature=false
+        const enableDuplicateFeature = false
         // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
-       // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-       // if (enableDuplicateFeature)
+        // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+        // if (enableDuplicateFeature)
         if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
           const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
           if (duplicateResult.isDuplicate) {
@@ -1067,18 +1067,18 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         } else {
-          
+
           const submissionData: IQuestionSubmission = {
-              questionId: new ObjectId(savedQuestion._id.toString()),
-              lastRespondedBy: null,
-              history: [],
-              queue: [],
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
+            questionId: new ObjectId(savedQuestion._id.toString()),
+            lastRespondedBy: null,
+            history: [],
+            queue: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
 
           await this.questionSubmissionRepo.addSubmission(submissionData, session);
-          
+
           const [allModerators, taskForceModerators] = await Promise.all([
             this.userRepo.findModerators(),
             this.userRepo.getSpecialTaskForceModerators()
@@ -1293,7 +1293,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionId: string,
     session?: ClientSession,
     BATCH_EXPECTED_TO_ADD: number = 6,
-  ): Promise<{data?: ObjectId[], status:boolean}> {
+  ): Promise<{ data?: ObjectId[], status: boolean }> {
     const TOTAL_EXPERTS_LIMIT = 10;
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
@@ -1406,7 +1406,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         };
 
         const answer = lastSubmission.answer || lastSubmission.approvedAnswer;
-        
+
         await this.answerRepo.updateAnswerStatus(
           answer.toString(),
           payload,
@@ -1493,7 +1493,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         .slice(0, TOTAL_EXPERTS_LIMIT)
         .map(id => new ObjectId(id));
 
-        console.log("the updated queue is coming====", updatedQueue)
+      console.log("the updated queue is coming====", updatedQueue)
 
       await this.questionSubmissionRepo.updateQueue(
         questionId,
@@ -1507,7 +1507,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
   }
 
-  async toggleAutoAllocate(questionId: string): Promise<{ message: string, data?: ObjectId[]}> {
+  async toggleAutoAllocate(questionId: string): Promise<{ message: string, data?: ObjectId[] }> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         //1. Validate question existence
@@ -1561,7 +1561,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           if (CURRENT_QUEUE_LENGTH < 3)
             BATCH_EXPECTED_TO_ADD = 3 - CURRENT_QUEUE_LENGTH;
 
-           out = await this.autoAllocateExperts(
+          out = await this.autoAllocateExperts(
             questionId,
             session,
             BATCH_EXPECTED_TO_ADD,
@@ -3775,6 +3775,30 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (!questionData) {
       throw new Error('Question not found');
     }
+    const questionSource = questionData.source;
+    if (questionSource == "WHATSAPP") {
+      if (!questionData.phoneNumber)
+        throw new Error('Phone number not found for WhatsApp question');
+      const response = await this.aiService.fetchWhatsAppMessage(questionData.phoneNumber, questionData._id.toString());
+
+      if (response) {
+        return {
+          messageId: response.messageId || '',
+          createdAt: response.createdAt ? new Date(response.createdAt).toISOString() : '',
+          updatedAt: response.updatedAt ? new Date(response.updatedAt).toISOString() : '',
+          user: {
+            username: response.userDetails?.username || 'N/A',
+            email: response.userDetails?.email || '',
+            emailVerified: response.userDetails?.emailVerified || false,
+            avatar: response.userDetails?.avatar || null,
+          },
+          content: response.content || [],
+        }
+      } else {
+        throw new Error('No matching WhatsApp message found');
+      }
+    }
+
 
     const { question, details, createdAt, messageId, userId } = questionData;
     const [analyticsMessages, annamMessages] = await Promise.all([
@@ -3806,14 +3830,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     //update userid from the analytics db
-     if (message.userDetails?._id !== userId?.toString()) {
-            await this.questionRepo.updateQuestion(
-              questionId.toString(),
-              {
-                userId: new ObjectId(message.userDetails._id),
-              },
-            );
-          }
+    if (message.userDetails?._id !== userId?.toString()) {
+      await this.questionRepo.updateQuestion(
+        questionId.toString(),
+        {
+          userId: new ObjectId(message.userDetails._id),
+        },
+      );
+    }
 
     return {
       messageId: message.messageId || '',
@@ -3963,8 +3987,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
     return submission.queue[index].toString();
   }
-  async generateAiInitialAnswer(questionId: string): Promise<{aiInitialAnswer:string}> {
-    return this._withTransaction( async( session ) => {
+  async generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer: string }> {
+    return this._withTransaction(async (session) => {
 
       const question = await this.questionRepo.getById(questionId, session);
 

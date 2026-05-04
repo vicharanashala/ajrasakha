@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WhatsappHistoryRouteImport } from './routes/whatsapp-history'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProfileIndexRouteImport } from './routes/profile/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
@@ -16,6 +17,11 @@ import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuditIndexRouteImport } from './routes/audit/index'
 
+const WhatsappHistoryRoute = WhatsappHistoryRouteImport.update({
+  id: '/whatsapp-history',
+  path: '/whatsapp-history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -49,6 +55,7 @@ const AuditIndexRoute = AuditIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
   '/home': typeof HomeIndexRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
   '/home': typeof HomeIndexRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit/': typeof AuditIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/home/': typeof HomeIndexRoute
@@ -74,12 +83,27 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/audit' | '/auth' | '/home' | '/notifications' | '/profile'
+  fullPaths:
+    | '/'
+    | '/whatsapp-history'
+    | '/audit'
+    | '/auth'
+    | '/home'
+    | '/notifications'
+    | '/profile'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/audit' | '/auth' | '/home' | '/notifications' | '/profile'
+  to:
+    | '/'
+    | '/whatsapp-history'
+    | '/audit'
+    | '/auth'
+    | '/home'
+    | '/notifications'
+    | '/profile'
   id:
     | '__root__'
     | '/'
+    | '/whatsapp-history'
     | '/audit/'
     | '/auth/'
     | '/home/'
@@ -89,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  WhatsappHistoryRoute: typeof WhatsappHistoryRoute
   AuditIndexRoute: typeof AuditIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
@@ -98,6 +123,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/whatsapp-history': {
+      id: '/whatsapp-history'
+      path: '/whatsapp-history'
+      fullPath: '/whatsapp-history'
+      preLoaderRoute: typeof WhatsappHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -145,6 +177,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  WhatsappHistoryRoute: WhatsappHistoryRoute,
   AuditIndexRoute: AuditIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
