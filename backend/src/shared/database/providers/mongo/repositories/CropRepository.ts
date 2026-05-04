@@ -3,7 +3,7 @@ import {Collection, ObjectId} from 'mongodb';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {MongoDatabase} from '#root/shared/index.js';
-import {ICrop, ICropAlias} from '#root/shared/interfaces/models.js';
+import {ICrop, ICropAlias, CropType} from '#root/shared/interfaces/models.js';
 import {ICropRepository} from '#root/shared/database/interfaces/ICropRepository.js';
 
 @injectable()
@@ -27,6 +27,7 @@ export class CropRepository implements ICropRepository {
       try { await this.CropCollection.dropIndex('aliases_1'); } catch { /* already gone */ }
       // Index english_representation for fast search queries
       await this.CropCollection.createIndex({'aliases.english_representation': 1}, {sparse: true});
+      await this.CropCollection.createIndex({type: 1}, {sparse: true});
     } catch (error) {
       console.error('Failed to create crop indexes:', error);
     }
@@ -47,32 +48,27 @@ export class CropRepository implements ICropRepository {
     name: string,
     createdBy: string,
     aliases?: ICropAlias[],
+    type?: CropType,
+    status?: 'Restricted' | 'Banned',
   ): Promise<ICrop> {
     try {
       if (!this.CropCollection) await this.init();
 
-      // Collect all english_representation values + the crop name for conflict checking
-     /* const allNames = [name.trim(), ...(aliases || []).map(a => (a.english_representation ?? '').trim())];*/
-     const allNames = [
-      name.trim(),
-      ...(aliases || []).flatMap(a => [
-        (a.english_representation ?? '').trim(),
-        (a.native_representation ?? '').trim(),
-      ]),
-    ].filter(Boolean);
+      const allNames = [
+        name.trim(),
+        ...(aliases || []).flatMap(a => [
+          (a.english_representation ?? '').trim(),
+          (a.native_representation ?? '').trim(),
+        ]),
+      ].filter(Boolean);
 
       const orConditions: any[] = [];
       for (const n of allNames) {
         const escaped = CropRepository.escapeRegex(n);
         orConditions.push({name: {$regex: `^${escaped}$`, $options: 'i'}});
-        orConditions.push({aliases: {$regex: `^${escaped}$`, $options: 'i'}});                        // legacy string aliases
-        orConditions.push({'aliases.english_representation': {$regex: `^${escaped}$`, $options: 'i'}}); // new object aliases
-        orConditions.push({
-          'aliases.native_representation': {
-            $regex: `^${escaped}$`,
-            $options: 'i',
-          },
-        });
+        orConditions.push({aliases: {$regex: `^${escaped}$`, $options: 'i'}});
+        orConditions.push({'aliases.english_representation': {$regex: `^${escaped}$`, $options: 'i'}});
+        orConditions.push({'aliases.native_representation': {$regex: `^${escaped}$`, $options: 'i'}});
       }
 
       const existing = await this.CropCollection.findOne({$or: orConditions});
@@ -81,20 +77,21 @@ export class CropRepository implements ICropRepository {
         const conflictingValue = allNames.find(n => {
           const regex = new RegExp(`^${CropRepository.escapeRegex(n)}$`, 'i');
           return regex.test(existing.name) ||
-          existing.aliases?.some(a =>
-            regex.test(CropRepository.getEnRepr(a)) ||
-            (typeof a !== 'string' &&
-              regex.test(a.native_representation || ''))
-          );
+            existing.aliases?.some(a =>
+              regex.test(CropRepository.getEnRepr(a)) ||
+              (typeof a !== 'string' && regex.test(a.native_representation || ''))
+            );
         });
         throw new BadRequestError(
-          `Crop with name or alias "${conflictingValue}" already exists in crop "${existing.name}".`,
+          `Entry with name or alias "${conflictingValue}" already exists as "${existing.name}".`,
         );
       }
 
+      const resolvedType = type ?? 'crop';
       const now = new Date();
       const payload: ICrop = {
         name: name.trim().toLowerCase(),
+        type: resolvedType,
         aliases: (aliases || []).map(a => ({
           language: (a.language ?? '').trim(),
           region: (a.region ?? '').trim(),
@@ -106,6 +103,11 @@ export class CropRepository implements ICropRepository {
         updatedAt: now,
       };
 
+      // Store status only for chemicals
+      if (resolvedType === 'chemical' && status) {
+        payload.status = status;
+      }
+
       const {insertedId} = await this.CropCollection.insertOne(payload);
 
       return {
@@ -115,7 +117,7 @@ export class CropRepository implements ICropRepository {
       } as ICrop;
     } catch (error: any) {
       if (error instanceof BadRequestError) throw error;
-      throw new InternalServerError(`Failed to create crop: ${error.message}`);
+      throw new InternalServerError(`Failed to create entry: ${error.message}`);
     }
   }
 
@@ -126,6 +128,7 @@ export class CropRepository implements ICropRepository {
     sort?: 'newest' | 'oldest' | 'name_asc' | 'name_desc';
     page?: number;
     limit?: number;
+    type?: CropType;
   }): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
     try {
       if (!this.CropCollection) await this.init();
@@ -136,12 +139,25 @@ export class CropRepository implements ICropRepository {
 
       const filter: any = {};
 
+      // Filter by type if provided.
+      // 'crop' includes documents where type is explicitly 'crop' OR type field doesn't exist (legacy data).
+      if (query?.type) {
+        if (query.type === 'crop') {
+          filter.$and = [
+            ...(filter.$and || []),
+            { $or: [{ type: 'crop' }, { type: { $exists: false } }] },
+          ];
+        } else {
+          filter.type = query.type;
+        }
+      }
+
       if (query?.search) {
         filter.$or = [
           {name: {$regex: query.search, $options: 'i'}},
-          {aliases: {$regex: query.search, $options: 'i'}},                                      // legacy string aliases
-          {'aliases.english_representation': {$regex: query.search, $options: 'i'}},             // new format
-          {'aliases.native_representation': {$regex: query.search, $options: 'i'}},              // new format
+          {aliases: {$regex: query.search, $options: 'i'}},
+          {'aliases.english_representation': {$regex: query.search, $options: 'i'}},
+          {'aliases.native_representation': {$regex: query.search, $options: 'i'}},
         ];
       }
 
@@ -191,29 +207,32 @@ export class CropRepository implements ICropRepository {
         updatedBy: crop.updatedBy?.toString(),
       } as ICrop;
     } catch (error: any) {
-      throw new InternalServerError(`Failed to get crop: ${error.message}`);
+      throw new InternalServerError(`Failed to get entry: ${error.message}`);
     }
   }
 
-  // ─── UPDATE (only aliases — crop name is immutable) ────────────────────────
+  // ─── UPDATE ────────────────────────────────────────────────────────────────
 
   async updateCrop(
     id: string,
-    updates: {name?: string; aliases?: (ICropAlias | string)[]},
+    updates: {name?: string; aliases?: (ICropAlias | string)[]; status?: 'Restricted' | 'Banned'},
     updatedBy: string,
   ): Promise<ICrop | null> {
     try {
       if (!this.CropCollection) await this.init();
 
-      // Crop name is immutable — silently ignore if sent
+      // name is immutable — silently ignore if sent
       const $set: any = {
         updatedAt: new Date(),
         updatedBy: new ObjectId(updatedBy),
       };
 
+      if (updates.status !== undefined) {
+        $set.status = updates.status;
+      }
+
       // ── Alias conflict check ──────────────────────────────────────────────
       if (updates.aliases !== undefined) {
-        // Normalize: preserve legacy strings, fully normalize new objects
         const normalizedAliases = updates.aliases.map(a => {
           if (typeof a === 'string') return a.trim().toLowerCase();
           return {
@@ -234,16 +253,16 @@ export class CropRepository implements ICropRepository {
             _id: {$ne: new ObjectId(id)},
             $or: [
               {name: regex},
-              {aliases: regex},                                    // legacy string format
-              {'aliases.english_representation': regex}, 
-              { 'aliases.native_representation': regex },          // new object format
+              {aliases: regex},
+              {'aliases.english_representation': regex},
+              {'aliases.native_representation': regex},
             ],
           });
 
           if (conflict) {
-            const conflictType = regex.test(conflict.name) ? 'a crop name' : 'an alias';
+            const conflictType = regex.test(conflict.name) ? 'a name' : 'an alias';
             throw new BadRequestError(
-              `Cannot add alias "${enRepr}" — it already exists as ${conflictType} in crop "${conflict.name}".`,
+              `Cannot add alias "${enRepr}" — it already exists as ${conflictType} in "${conflict.name}".`,
             );
           }
         }
@@ -254,7 +273,7 @@ export class CropRepository implements ICropRepository {
             const enRepr = CropRepository.getEnRepr(alias);
             if (enRepr === currentCrop.name.trim().toLowerCase()) {
               throw new BadRequestError(
-                `Cannot add alias "${enRepr}" — it is the same as this crop's own name.`,
+                `Cannot add alias "${enRepr}" — it is the same as the entry's own name.`,
               );
             }
           }
@@ -279,7 +298,20 @@ export class CropRepository implements ICropRepository {
       } as ICrop;
     } catch (error: any) {
       if (error instanceof BadRequestError) throw error;
-      throw new InternalServerError(`Failed to update crop: ${error.message}`);
+      throw new InternalServerError(`Failed to update entry: ${error.message}`);
+    }
+  }
+
+  // ─── DELETE ────────────────────────────────────────────────────────────────
+
+  async deleteCrop(id: string): Promise<boolean> {
+    try {
+      if (!this.CropCollection) await this.init();
+
+      const result = await this.CropCollection.deleteOne({_id: new ObjectId(id)});
+      return result.deletedCount > 0;
+    } catch (error: any) {
+      throw new InternalServerError(`Failed to delete entry: ${error.message}`);
     }
   }
 
@@ -293,11 +325,14 @@ export class CropRepository implements ICropRepository {
       const regex = new RegExp(`^${escaped}$`, 'i');
 
       const crop = await this.CropCollection.findOne({
-        $or: [
-          {name: regex},
-          {aliases: regex},                                  // legacy string format
-          {'aliases.english_representation': regex},         // new format
-          {'aliases.native_representation': regex},          // new format
+        $and: [
+          {$or: [{type: 'crop'}, {type: {$exists: false}}]},
+          {$or: [
+            {name: regex},
+            {aliases: regex},
+            {'aliases.english_representation': regex},
+            {'aliases.native_representation': regex},
+          ]},
         ],
       });
 
@@ -310,7 +345,7 @@ export class CropRepository implements ICropRepository {
         updatedBy: crop.updatedBy?.toString(),
       } as ICrop;
     } catch (error: any) {
-      throw new InternalServerError(`Failed to find crop by name or alias: ${error.message}`);
+      throw new InternalServerError(`Failed to find entry by name or alias: ${error.message}`);
     }
   }
 }

@@ -7,15 +7,16 @@ interface UseGetAllCropsParams {
   search?: string;
   page?: number;
   limit?: number;
+  type?: "crop" | "chemical" | "other";
 }
 
 export const useGetAllCrops = (params?: UseGetAllCropsParams) => {
-  const { search = "", page = 1, limit = 10 } = params ?? {};
+  const { search = "", page = 1, limit = 10, type } = params ?? {};
 
   return useQuery({
-    queryKey: ["crops", search, page, limit],
+    queryKey: ["crops", search, page, limit, type],
     queryFn: async () => {
-      return await cropService.getAllCrops({ search, page, limit, sort: "name_asc" });
+      return await cropService.getAllCrops({ search, page, limit, sort: "name_asc", type });
     },
     placeholderData: (prev) => prev,
   });
