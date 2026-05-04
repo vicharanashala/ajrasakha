@@ -2,7 +2,7 @@ import { Search, Home } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 import { Input } from '@/components/atoms/input';
 import { ThreadItem } from './ThreadItem';
-import { Thread } from '../types';
+import type { Thread } from '../types';
 
 interface ThreadSidebarProps {
   threads: Thread[];

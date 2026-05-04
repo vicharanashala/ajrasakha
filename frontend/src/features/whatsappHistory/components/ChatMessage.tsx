@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { Message } from '../types';
+import type { Message } from '../types';
 import { cn } from '@/lib/utils';
 import { Bot, User } from 'lucide-react';
 

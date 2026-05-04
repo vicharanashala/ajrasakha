@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { ThreadSidebar } from './components/ThreadSidebar';
 import { ChatWindow } from './components/ChatWindow';
-import { Thread, Message } from './types';
+import type { Thread, Message } from './types';
 
 // Mock Data
 const MOCK_THREADS: Thread[] = [

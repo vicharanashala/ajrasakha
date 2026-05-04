@@ -1,4 +1,4 @@
-import { Message, Thread } from '../types';
+import type { Message, Thread } from '../types';
 import { ChatMessage } from './ChatMessage';
 import { Phone, Info } from 'lucide-react';
 import { Button } from '@/components/atoms/button';

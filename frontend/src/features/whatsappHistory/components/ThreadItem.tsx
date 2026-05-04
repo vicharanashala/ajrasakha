@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from 'date-fns';
-import { Thread } from '../types';
+import type { Thread } from '../types';
 import { cn } from '@/lib/utils';
 
 interface ThreadItemProps {
