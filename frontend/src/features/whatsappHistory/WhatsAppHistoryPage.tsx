@@ -1,12 +1,11 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ThreadSidebar } from './components/ThreadSidebar';
 import { ChatWindow } from './components/ChatWindow';
 import type { Thread, Message } from './types';
 
 // Base URL for LangGraph server from environment variables
 const LANGRAPH_URL = `http://${import.meta.env.VITE_LANGRAPH_SERVER_IP}:${import.meta.env.VITE_LANGRAPH_SERVER_PORT}`;
-
 
 function useThreads() {
   return useQuery({
@@ -21,7 +20,7 @@ function useThreads() {
         .map((t: any) => ({
           id: t.thread_id,
           phoneNumber: t.thread_id,
-          lastMessage: t.metadata.thread_name || 'WhatsApp Conversation',
+          lastMessage: t.metadata.thread_name || 'No message available',
           lastMessageTimestamp: new Date(t.updated_at),
           unreadCount: 0,
         }));
@@ -36,75 +35,61 @@ function useThreadDetails(threadId: string | undefined) {
     queryKey: ['whatsapp-thread-details', threadId],
     queryFn: async () => {
       if (!threadId) return [];
-      
+
       const response = await fetch(`${LANGRAPH_URL}/threads/${threadId}/state`);
       if (!response.ok) throw new Error('Failed to fetch thread details');
       const data = await response.json();
 
       const messages = data.values.messages as any[];
-      
-      // 1. Find the last human message index
-      const lastHumanIndex = [...messages].reverse().findIndex((m: any) => m.type === 'human');
-      if (lastHumanIndex === -1) return [];
-      
-      const humanIdx = messages.length - 1 - lastHumanIndex;
-      const humanMsg = messages[humanIdx];
+      const formattedMessages: Message[] = [];
 
-      // 2. Collect all tool calls and tool responses after this human message
-      const toolCallsMap: Record<string, any> = {};
+      // 1. First, map all tool responses in the entire thread
       const toolResponsesMap: Record<string, any> = {};
-      let finalAiMsg = null;
-
-      for (let i = humanIdx + 1; i < messages.length; i++) {
-        const msg = messages[i];
-        if (msg.type === 'ai') {
-          finalAiMsg = msg;
-          if (msg.tool_calls) {
-            msg.tool_calls.forEach((tc: any) => {
-              toolCallsMap[tc.id] = { ...tc };
-            });
-          }
-        } else if (msg.type === 'tool') {
-          // Extract response from artifact or content
+      messages.forEach((msg: any) => {
+        if (msg.type === 'tool') {
           let response = msg.artifact?.structured_content?.result || msg.content;
           if (typeof response === 'string' && response.startsWith('{')) {
-            try { response = JSON.parse(response); } catch (e) {}
+            try { response = JSON.parse(response); } catch (e) { }
           }
           toolResponsesMap[msg.tool_call_id] = response;
         }
-      }
-
-      const formattedMessages: Message[] = [];
-
-      // Add the user message
-      formattedMessages.push({
-        id: humanMsg.id || `h-${humanIdx}`,
-        role: 'user',
-        content: typeof humanMsg.content === 'string' ? humanMsg.content : '',
-        timestamp: new Date(data.created_at || Date.now()),
       });
 
-      // Add the final AI message with all collected tool calls and their responses
-      if (finalAiMsg) {
-        const toolCalls = Object.values(toolCallsMap).map((tc: any) => ({
-          name: tc.name,
-          args: tc.args,
-          id: tc.id,
-          response: toolResponsesMap[tc.id]
-        }));
+      // 2. Iterate through all messages to build the conversation
+      messages.forEach((msg: any, idx: number) => {
+        if (msg.type === 'human') {
+          formattedMessages.push({
+            id: msg.id || `h-${idx}`,
+            role: 'user',
+            content: typeof msg.content === 'string' ? msg.content : '',
+            timestamp: new Date(data.created_at || Date.now()),
+          });
+        } else if (msg.type === 'ai') {
+          const toolCalls = msg.tool_calls?.map((tc: any) => ({
+            name: tc.name,
+            args: tc.args,
+            id: tc.id,
+            response: toolResponsesMap[tc.id]
+          })) || [];
 
-        formattedMessages.push({
-          id: finalAiMsg.id || `a-${messages.length}`,
-          role: 'assistant',
-          content: typeof finalAiMsg.content === 'string' 
-            ? finalAiMsg.content 
-            : (Array.isArray(finalAiMsg.content) 
-                ? finalAiMsg.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n') 
-                : ''),
-          timestamp: new Date(data.created_at || Date.now()),
-          toolCalls
-        });
-      }
+          // Only add AI message if it has content OR tool calls
+          const content = typeof msg.content === 'string'
+            ? msg.content
+            : (Array.isArray(msg.content)
+              ? msg.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n')
+              : '');
+
+          if (content || toolCalls.length > 0) {
+            formattedMessages.push({
+              id: msg.id || `a-${idx}`,
+              role: 'assistant',
+              content: content || (toolCalls.length > 0 ? "Executing tools..." : ""),
+              timestamp: new Date(data.created_at || Date.now()),
+              toolCalls: toolCalls.length > 0 ? toolCalls : undefined
+            });
+          }
+        }
+      });
 
       return formattedMessages;
     },
@@ -113,18 +98,43 @@ function useThreadDetails(threadId: string | undefined) {
 }
 
 export function WhatsAppHistoryPage() {
+  const queryClient = useQueryClient();
   const [selectedThreadId, setSelectedThreadId] = useState<string | undefined>("");
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Local cache for latest messages to override the initial 'thread_name' from API
+  const [lastMessageOverrides, setLastMessageOverrides] = useState<Record<string, string>>({});
 
   const { data: threads = [], isLoading: isLoadingThreads } = useThreads();
   const { data: messages = [], isLoading: isLoadingMessages } = useThreadDetails(selectedThreadId);
 
+  // Sync the latest message to our local overrides whenever a thread is loaded
+  useEffect(() => {
+    if (messages.length > 0 && selectedThreadId) {
+      // Find the last message that isn't just a tool-only AI response if possible
+      const lastMeaningfulMsg = [...messages].reverse().find(m => m.content && m.content.length > 0);
+      if (lastMeaningfulMsg) {
+        setLastMessageOverrides(prev => ({
+          ...prev,
+          [selectedThreadId]: lastMeaningfulMsg.content
+        }));
+      }
+    }
+  }, [messages, selectedThreadId]);
+
+  const enrichedThreads = useMemo(() => {
+    return threads.map(t => ({
+      ...t,
+      lastMessage: lastMessageOverrides[t.id] || t.lastMessage
+    }));
+  }, [threads, lastMessageOverrides]);
+
   const filteredThreads = useMemo(() => {
-    return threads.filter(t =>
+    return enrichedThreads.filter(t =>
       t.phoneNumber.includes(searchQuery) ||
       t.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [threads, searchQuery]);
+  }, [enrichedThreads, searchQuery]);
 
   const selectedThread = useMemo(() =>
     threads.find(t => t.id === selectedThreadId),
