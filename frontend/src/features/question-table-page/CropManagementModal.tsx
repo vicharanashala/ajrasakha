@@ -477,6 +477,7 @@ export const CropManagementModal = ({
   const [newCropName, setNewCropName] = useState("");
   const [newAliases, setNewAliases] = useState<ICropAliasObject[]>([]);
   const [chemicalStatus, setChemicalStatus] = useState<"Restricted" | "Banned">("Restricted");
+  const [otherType, setOtherType] = useState("");
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
 
   const [searchInput, setSearchInput] = useState("");
@@ -510,6 +511,7 @@ export const CropManagementModal = ({
     setNewCropName("");
     setNewAliases([]);
     setChemicalStatus("Restricted");
+    setOtherType("");
     setEntryType("crop");
     setIsAddFormOpen(false);
     setSearchInput("");
@@ -529,6 +531,7 @@ export const CropManagementModal = ({
         name,
         type: entryType,
         ...(entryType === "chemical" ? { status: chemicalStatus } : {}),
+        ...(entryType === "other" && otherType.trim() ? { otherType: otherType.trim() } : {}),
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
@@ -616,7 +619,7 @@ export const CropManagementModal = ({
                         <button
                           key={t}
                           type="button"
-                          onClick={() => { setEntryType(t); setNewCropName(""); setNewAliases([]); setChemicalStatus("Restricted"); }}
+                          onClick={() => { setEntryType(t); setNewCropName(""); setNewAliases([]); setChemicalStatus("Restricted"); setOtherType(""); }}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                             isActive
                               ? "bg-amber-600 text-white border-amber-600"
@@ -630,6 +633,24 @@ export const CropManagementModal = ({
                     })}
                   </div>
                 </div>
+
+                {/* Other-only: specify type */}
+                {entryType === "other" && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                      Other Type
+                      <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
+                        — e.g. Equipment, Fertilizer, Pest…
+                      </span>
+                    </label>
+                    <Input
+                      placeholder="Specify what type of item this is"
+                      value={otherType}
+                      onChange={(e) => setOtherType(e.target.value)}
+                      className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700"
+                    />
+                  </div>
+                )}
 
                 {/* Name field — label changes by type */}
                 <div>
@@ -731,8 +752,8 @@ export const CropManagementModal = ({
                   {items.map((item, index) => {
                     const itemType = item.type ?? "crop";
                     const isChemical = itemType === "chemical";
-                    const isOther = itemType === "other";
-                    const isCrop = !isChemical && !isOther;
+                    const isCrop = itemType === "crop";
+                    const isOther = !isCrop && !isChemical;
                     const id = item._id || item.name;
                     const name = item.name;
                     const aliasCount = (item.aliases || []).length;
@@ -754,6 +775,11 @@ export const CropManagementModal = ({
                               {aliasCount > 0 && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700/60 leading-tight">
                                   {aliasCount} alias{aliasCount !== 1 ? "es" : ""}
+                                </span>
+                              )}
+                              {isOther && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20 capitalize">
+                                  {itemType}
                                 </span>
                               )}
                               {status === "Restricted" && (
