@@ -123,10 +123,10 @@ export async function checkDuplicateQuestionHelper(
         referenceSource: referenceSourcefrom
       }
 
-      await duplicateQuestionRepository.addDuplicate(
-        duplicateQuestion,
-        session
-      )
+      // await duplicateQuestionRepository.addDuplicate(
+      //   duplicateQuestion,
+      //   session
+      // )
       logData.outcome = 'DUPLICATE_DETECTED'
       logData.matchedQuestion = matchedQuestion
       logData.similarityScore = matchedScore.toFixed(2)

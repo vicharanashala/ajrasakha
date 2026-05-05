@@ -996,17 +996,29 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: new Date(),
           ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
         };
-        const enableDuplicateFeature = false
+        // const enableDuplicateFeature = false
         // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
         // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
         // if (enableDuplicateFeature)
-        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+        if (true) {
           const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
+          console.log('duplicateResult', duplicateResult)
           if (duplicateResult.isDuplicate) {
-            return { isDuplicate: true, data: duplicateResult.duplicateData };
+            const savedDuplicateQuestion = await this.questionRepo.addQuestion(
+              duplicateResult?.duplicateData,
+              session,
+            ); 
+            console.log('savedDuplicateQuestion', savedDuplicateQuestion)
+            return {
+              isDuplicate: true,
+              data: {
+                ...duplicateResult?.duplicateData,
+                _id: savedDuplicateQuestion?._id?.toString?.(),
+                userId: savedDuplicateQuestion?.userId?.toString?.(),
+              }
+            };
           }
         }
-
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
         // =====================================================
