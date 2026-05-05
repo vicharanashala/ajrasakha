@@ -54,29 +54,24 @@ async def gdb(query: str, latitude: Optional[float], longitude: Optional[float],
     Use when the task needs location-aware data lookup.
     Pass a focused query. Location is resolved automatically if not provided.
     """
-    try:
-        injected: dict = (config.get("configurable") or {}).get("location") or {}
+    injected: dict = (config.get("configurable") or {}).get("location") or {}
 
-        lat  = injected.get("latitude")  or latitude
-        lon  = injected.get("longitude") or longitude
-        addr = injected.get("address")   or address
+    lat  = injected.get("latitude")  or latitude
+    lon  = injected.get("longitude") or longitude
+    addr = injected.get("address")   or address
 
-        context = f"""
+    context = f"""
 Location Context:
 - Address  : {addr or "unknown"}
 - Latitude : {lat or "unknown"}
 - Longitude: {lon or "unknown"}
 
 Query: {query}
-        """.strip()
+    """.strip()
 
-        agent = await _get_gdb_agent()
-        result = await agent.ainvoke(
-            {"messages": [HumanMessage(content=context)]},
-            config=config
-        )
-        return result["messages"][-1].content
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error("gdb sub-agent failed: %s", exc)
-        return f"⚠️ The database service is temporarily unavailable. Error: {type(exc).__name__}"
+    agent = await _get_gdb_agent()
+    result = await agent.ainvoke(
+        {"messages": [HumanMessage(content=context)]},
+        config=config
+    )
+    return result["messages"][-1].content
