@@ -53,8 +53,6 @@ const INDIAN_LANGUAGES = [
   { code: "ur-IN",  en: "Urdu",              native: "اردو" },
 ];
 
-const getLangInfo = (code: string) =>
-  INDIAN_LANGUAGES.find((l) => l.code === code) ?? { en: code, native: "" };
 
 const emptyAliasEntry = (): ICropAliasObject => ({
   language: "",
@@ -122,9 +120,9 @@ const AliasEntryForm = ({
             </SelectTrigger>
             <SelectContent>
               {INDIAN_LANGUAGES.map((lang) => (
-                <SelectItem key={lang.code} value={lang.code} className="text-xs">
-                  <span className="font-mono">{lang.code}</span>
-                  <span className="text-gray-400 dark:text-gray-500 ml-1.5">— {lang.en}</span>
+                <SelectItem key={lang.code} value={lang.en} className="text-xs">
+                  {lang.en}
+                  <span className="text-gray-400 dark:text-gray-500 ml-1.5">— {lang.native}</span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -223,7 +221,7 @@ const StructuredAliasesTable = ({
           <div className="px-3 py-2.5 min-w-0">
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/15">
               <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 truncate">
-                {getLangInfo(alias.language).en}
+                {alias.language}
               </span>
             </span>
           </div>
