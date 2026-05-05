@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, ChevronLeft, ChevronRight, FlaskConical, LayoutGrid } from "lucide-react";
+import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, ChevronLeft, ChevronRight, FlaskConical, LayoutGrid, Upload } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
@@ -73,9 +73,13 @@ type CropManagementModalProps = {
 const AliasEntryForm = ({
   onAdd,
   accentColor = "amber",
+  isChemical = false,
+  isOther = false,
 }: {
   onAdd: (alias: ICropAliasObject) => void;
   accentColor?: "amber" | "blue";
+  isChemical?: boolean;
+  isOther?: boolean;
 }) => {
   const [entry, setEntry] = useState<ICropAliasObject>(emptyAliasEntry());
   const isAmber = accentColor === "amber";
@@ -99,7 +103,7 @@ const AliasEntryForm = ({
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/80 bg-gray-50/50 dark:bg-[#141414] p-4 space-y-3">
       <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        Add New Alias
+        {isChemical ? "Add New Trade Name" : isOther ? "Add New Alias" : "Add New Alias"}
       </p>
       <div className="grid grid-cols-2 gap-2.5">
         <div className="space-y-1">
@@ -132,7 +136,7 @@ const AliasEntryForm = ({
             Region
           </span>
           <Input
-            placeholder="Enter region"
+            placeholder="Punjabi"
             value={entry.region}
             onChange={(e) => setEntry((f) => ({ ...f, region: e.target.value }))}
             className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
@@ -144,7 +148,7 @@ const AliasEntryForm = ({
             English Name
           </span>
           <Input
-            placeholder="Enter English name"
+            placeholder={isChemical ? "e.g. Alachlor" : isOther ? "e.g. Seed Drill" : "e.g. Dhaan"}
             value={entry.english_representation}
             onChange={(e) => setEntry((f) => ({ ...f, english_representation: e.target.value }))}
             className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
@@ -153,10 +157,10 @@ const AliasEntryForm = ({
 
         <div className="space-y-1">
           <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
-            Native Name
+            {isChemical ? "Native Script" : "Native Name"}
           </span>
           <Input
-            placeholder="Enter native name"
+            placeholder={isChemical ? "e.g. ग्लाइफोसेट" : isOther ? "e.g. सीड ड्रिल" : "e.g. धान"}
             value={entry.native_representation}
             onChange={(e) => setEntry((f) => ({ ...f, native_representation: e.target.value }))}
             className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
@@ -173,7 +177,7 @@ const AliasEntryForm = ({
           className={`h-7 text-[11px] gap-1 px-3 rounded-md disabled:opacity-40 ${addBtnClass}`}
         >
           <Plus className="h-3 w-3" />
-          Add Alias
+          {isChemical ? "Add Trade Name" : isOther ? "Add Alias" : "Add Alias"}
         </Button>
       </div>
     </div>
@@ -450,9 +454,13 @@ const AliasManagerModal = ({
 const AliasSection = ({
   aliases,
   onAliasesChange,
+  isChemical = false,
+  isOther = false,
 }: {
   aliases: ICropAliasObject[];
   onAliasesChange: (next: ICropAliasObject[]) => void;
+  isChemical?: boolean;
+  isOther?: boolean;
 }) => {
   const handleAdd = (alias: ICropAliasObject) => {
     onAliasesChange([...aliases, alias]);
@@ -464,7 +472,7 @@ const AliasSection = ({
 
   return (
     <div className="space-y-2">
-      <AliasEntryForm onAdd={handleAdd} accentColor="amber" />
+      <AliasEntryForm onAdd={handleAdd} accentColor="amber" isChemical={isChemical} isOther={isOther} />
       {aliases.length > 0 && (
          <StructuredAliasesTable
          aliases={aliases}
@@ -494,6 +502,7 @@ export const CropManagementModal = ({
   const PAGE_SIZE = 10;
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -548,6 +557,28 @@ export const CropManagementModal = ({
       }
     } catch (error: any) {
       toast.error(error?.message || "Failed to add entry");
+    }
+  };
+
+  const handleBulkUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast.error("Please upload a CSV file");
+      return;
+    }
+
+    // TODO: Process CSV file here
+    toast.info(`Selected file: ${file.name}. Backend integration pending.`);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -666,7 +697,7 @@ export const CropManagementModal = ({
                     {entryType === "crop" ? "Crop Name" : entryType === "chemical" ? "Chemical Name" : "Name"}
                   </label>
                   <Input
-                    placeholder={entryType === "crop" ? "Enter crop name" : entryType === "chemical" ? "Enter chemical name" : "Enter name"}
+                    placeholder={entryType === "crop" ? "Paddy" : entryType === "chemical" ? "Alachlor" : "Seed Drill"}
                     value={newCropName}
                     onChange={(e) => setNewCropName(e.target.value)}
                     className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700"
@@ -695,7 +726,7 @@ export const CropManagementModal = ({
                 {/* Aliases — shown for all types */}
                 <div>
                   <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                    Aliases
+                    {entryType === "chemical" ? "Trade Names" : "Aliases"}
                     <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
                       — optional, can add later
                     </span>
@@ -703,10 +734,29 @@ export const CropManagementModal = ({
                   <AliasSection
                     aliases={newAliases}
                     onAliasesChange={setNewAliases}
+                    isChemical={entryType === "chemical"}
+                    isOther={entryType === "other"}
                   />
                 </div>
 
-                <div className="flex justify-end pt-1">
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1.5 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                    onClick={handleBulkUploadClick}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    Bulk Upload {entryType === "crop" ? "Crops" : entryType === "chemical" ? "Chemicals" : "Entries"}
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
                   <Button
                     size="sm"
                     onClick={handleSave}
