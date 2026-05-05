@@ -59,7 +59,8 @@ async def soil(query: str, address: str, state: str, district: str, crop: str, n
     Use when the user asks for soil health recommendations, fertilizer dosages, or crop suitability based on soil tests.
     Always pass the user's state, district, crop of interest, soil test results (N, P, K, OC), and a focused query about soil health or recommendations.
     """
-    context = f"""
+    try:
+        context = f"""
     Address : {address}
     State   : {state}
     District: {district}
@@ -72,13 +73,17 @@ async def soil(query: str, address: str, state: str, district: str, crop: str, n
     - Organic Carbon: {oc} %
 
     Query: {query}
-    """.strip()
+        """.strip()
 
-    agent = await _get_soil_agent()
-    result = await agent.ainvoke(
-        {"messages": [
-            HumanMessage(content=context)
-        ]},
-        config=config
-    )
-    return result["messages"][-1].content
+        agent = await _get_soil_agent()
+        result = await agent.ainvoke(
+            {"messages": [
+                HumanMessage(content=context)
+            ]},
+            config=config
+        )
+        return result["messages"][-1].content
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("soil sub-agent failed: %s", exc)
+        return f"⚠️ The soil analysis service is temporarily unavailable. Error: {type(exc).__name__}"

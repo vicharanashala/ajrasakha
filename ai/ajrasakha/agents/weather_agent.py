@@ -51,20 +51,25 @@ async def weather(query: str, latitude: float, longitude: float, address: str, c
     Use when the user asks for weather forecasts, rainfall predictions, or IMD alerts.
     Always pass the user's latitude, longitude, address, and a focused query about the weather.
     """
-    context = f"""
+    try:
+        context = f"""
 Location Context:
 - Address  : {address}
 - Latitude : {latitude}
 - Longitude: {longitude}
 
 Query: {query}
-    """.strip()
+        """.strip()
 
-    agent = await _get_weather_agent()
-    result = await agent.ainvoke(
-        {"messages": [
-            HumanMessage(content=context)
-        ]},
-        config=config
-    )
-    return result["messages"][-1].content
+        agent = await _get_weather_agent()
+        result = await agent.ainvoke(
+            {"messages": [
+                HumanMessage(content=context)
+            ]},
+            config=config
+        )
+        return result["messages"][-1].content
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("weather sub-agent failed: %s", exc)
+        return f"⚠️ The weather service is temporarily unavailable. Error: {type(exc).__name__}"
