@@ -461,6 +461,7 @@ export interface IQuestionFullData {
   aiApprovedAnswer?: string;
   aiApprovedSources?: SourceItem[];
   authors_history?: IAuthorsHistory[];
+  originalQuestion?: string;
 }
 
 export interface QuestionFullDataResponse {
