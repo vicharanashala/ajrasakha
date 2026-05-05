@@ -87,11 +87,12 @@ const AliasEntryForm = ({
     ? "bg-amber-600 hover:bg-amber-700 text-white"
     : "bg-blue-600 hover:bg-blue-700 text-white";
 
-  const canAdd =
-    entry.language.trim() !== "" &&
-    entry.region.trim() !== "" &&
-    entry.english_representation.trim() !== "" &&
-    entry.native_representation.trim() !== "";
+  const canAdd = isChemical
+    ? entry.english_representation.trim() !== ""
+    : entry.language.trim() !== "" &&
+      entry.region.trim() !== "" &&
+      entry.english_representation.trim() !== "" &&
+      entry.native_representation.trim() !== "";
 
   const handleAdd = () => {
     if (!canAdd) return;
@@ -491,7 +492,7 @@ export const CropManagementModal = ({
   const [entryType, setEntryType] = useState<EntryType>("crop");
   const [newCropName, setNewCropName] = useState("");
   const [newAliases, setNewAliases] = useState<ICropAliasObject[]>([]);
-  const [chemicalStatus, setChemicalStatus] = useState<"Restricted" | "Banned">("Restricted");
+  const [chemicalStatus, setChemicalStatus] = useState("");
   const [otherType, setOtherType] = useState("");
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
 
@@ -527,7 +528,7 @@ export const CropManagementModal = ({
   const resetForm = () => {
     setNewCropName("");
     setNewAliases([]);
-    setChemicalStatus("Restricted");
+    setChemicalStatus("");
     setOtherType("");
     setEntryType("crop");
     setIsAddFormOpen(false);
@@ -574,14 +575,14 @@ export const CropManagementModal = ({
       return;
     }
 
-    if (entryType !== "crop") {
-      toast.error("Bulk upload is only supported for crop type");
+    if (entryType !== "crop" && entryType !== "chemical") {
+      toast.error("Bulk upload is only supported for crop and chemical types");
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     try {
-      const res = await bulkUploadCrops(file);
+      const res = await bulkUploadCrops({ file, type: entryType as "crop" | "chemical" });
       if (res?.success) {
         toast.success(`${res.count} rows are being processed in the background. The list will refresh shortly.`);
       }
@@ -668,7 +669,7 @@ export const CropManagementModal = ({
                         <button
                           key={t}
                           type="button"
-                          onClick={() => { setEntryType(t); setNewCropName(""); setNewAliases([]); setChemicalStatus("Restricted"); setOtherType(""); }}
+                          onClick={() => { setEntryType(t); setNewCropName(""); setNewAliases([]); setChemicalStatus(""); setOtherType(""); }}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                             isActive
                               ? "bg-amber-600 text-white border-amber-600"
@@ -721,15 +722,12 @@ export const CropManagementModal = ({
                     <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
                       Status
                     </label>
-                    <Select value={chemicalStatus} onValueChange={(v) => setChemicalStatus(v as "Restricted" | "Banned")}>
-                      <SelectTrigger className="h-9 text-sm bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Restricted">Restricted</SelectItem>
-                        <SelectItem value="Banned">Banned</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      placeholder="e.g. Restricted, Banned, Under Review..."
+                      value={chemicalStatus}
+                      onChange={(e) => setChemicalStatus(e.target.value)}
+                      className="h-9 text-sm bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700"
+                    />
                   </div>
                 )}
 
@@ -754,7 +752,7 @@ export const CropManagementModal = ({
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={entryType !== "crop" || isBulkUploading}
+                    disabled={(entryType !== "crop" && entryType !== "chemical") || isBulkUploading}
                     className="h-8 text-xs gap-1.5 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={handleBulkUploadClick}
                   >
@@ -763,7 +761,7 @@ export const CropManagementModal = ({
                     ) : (
                       <Upload className="h-3.5 w-3.5" />
                     )}
-                    {isBulkUploading ? "Uploading..." : "Bulk Upload Crops"}
+                    {isBulkUploading ? "Uploading..." : entryType === "chemical" ? "Bulk Upload Chemicals" : "Bulk Upload Crops"}
                   </Button>
                   <input
                     ref={fileInputRef}

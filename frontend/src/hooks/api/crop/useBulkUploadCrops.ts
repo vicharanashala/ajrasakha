@@ -8,11 +8,10 @@ export const useBulkUploadCrops = () => {
 
   return useMutation({
     mutationKey: ["bulkUploadCrops"],
-    mutationFn: async (file: File): Promise<IBulkUploadCropResponse | null> => {
-      return cropService.bulkUploadCrops(file);
+    mutationFn: async ({ file, type }: { file: File; type: "crop" | "chemical" }): Promise<IBulkUploadCropResponse | null> => {
+      return cropService.bulkUploadCrops(file, type);
     },
     onSuccess: () => {
-      // Invalidate after a short delay to allow the worker to process initial crops
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["crops"] });
       }, 3000);

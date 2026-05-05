@@ -387,7 +387,7 @@ export interface ICrop {
   _id?: ObjectId | string;
   name: string;
   type?: CropType;                    // 'crop' (default) | 'chemical' | 'other'
-  status?: 'Restricted' | 'Banned';  // only relevant when type === 'chemical'
+  status?: string;                    // only relevant when type === 'chemical', any custom string
   aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;

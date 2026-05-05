@@ -73,14 +73,13 @@ class CreateCropDto {
   type?: CropType;
 
   @JSONSchema({
-    description: 'Status — only for type=chemical',
+    description: 'Status — only for type=chemical, any custom string',
     example: 'Restricted',
     type: 'string',
-    enum: ['Restricted', 'Banned'],
   })
   @IsOptional()
-  @IsIn(['Restricted', 'Banned'])
-  status?: 'Restricted' | 'Banned';
+  @IsString()
+  status?: string;
 
   @JSONSchema({
     description: 'Structured aliases across languages',
@@ -105,10 +104,10 @@ class UpdateCropDto {
   @Transform(({ value }) => value)
   aliases?: (CropAliasDto | string)[];
 
-  @JSONSchema({description: 'Status update — only applicable for chemical entries', type: 'string', enum: ['Restricted', 'Banned']})
+  @JSONSchema({description: 'Status update — only applicable for chemical entries, any custom string', type: 'string'})
   @IsOptional()
-  @IsIn(['Restricted', 'Banned'])
-  status?: 'Restricted' | 'Banned';
+  @IsString()
+  status?: string;
 }
 
 // ── Query DTOs ──

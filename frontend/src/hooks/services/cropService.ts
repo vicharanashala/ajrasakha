@@ -15,7 +15,7 @@ export interface ICropResponse {
   name: string;
   type?: "crop" | "chemical" | "other";
   otherType?: string;
-  status?: "Restricted" | "Banned";
+  status?: string;
   aliases: (ICropAlias | string)[];  // string = legacy format from older crops
   createdBy?: string;
   updatedBy?: string;
@@ -27,7 +27,7 @@ export interface ICreateCropPayload {
   name: string;
   type?: "crop" | "chemical" | "other";
   otherType?: string;
-  status?: "Restricted" | "Banned";
+  status?: string;
   aliases?: ICropAlias[];
 }
 
@@ -73,9 +73,10 @@ export class CropService {
     });
   }
 
-  async bulkUploadCrops(file: File): Promise<IBulkUploadCropResponse | null> {
+  async bulkUploadCrops(file: File, type: "crop" | "chemical"): Promise<IBulkUploadCropResponse | null> {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("type", type);
     return apiFetch<IBulkUploadCropResponse>(this._baseUrl, {
       method: "POST",
       body: formData,

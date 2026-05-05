@@ -38,7 +38,7 @@ import {
   CropSuccessResponse,
 } from '../classes/validators/CropResponseValidators.js';
 import { CsvUploadFileOptions } from '../classes/validators/fileUploadOptions.js';
-import { startCropBulkProcessing, getCropBulkJobById, getCropBulkJobs } from '#root/workers/cropWorkerManager.js';
+import { startCropBulkProcessing, startChemicalBulkProcessing, getCropBulkJobById, getCropBulkJobs } from '#root/workers/cropWorkerManager.js';
 import * as XLSX from 'xlsx';
 
 // ── Allowed roles for write operations ──
@@ -193,11 +193,17 @@ export class CropController {
         throw new BadRequestError(err?.message || 'Failed to parse CSV file');
       }
 
-      const jobId = startCropBulkProcessing(rows, userId, actor, this.auditTrailsService);
+      const uploadType = body?.type === 'chemical' ? 'chemical' : 'crop';
+
+      const jobId = uploadType === 'chemical'
+        ? startChemicalBulkProcessing(rows, userId, actor, this.auditTrailsService)
+        : startCropBulkProcessing(rows, userId, actor, this.auditTrailsService);
+
+      const label = uploadType === 'chemical' ? 'Chemicals' : 'Crops';
 
       return {
         success: true,
-        message: `Processing ${rows.length} CSV rows in the background. Crops will be created/updated shortly.`,
+        message: `Processing ${rows.length} CSV rows in the background. ${label} will be created/updated shortly.`,
         jobId,
         count: rows.length,
         isBulkUpload: true,
