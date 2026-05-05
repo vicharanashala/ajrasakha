@@ -391,13 +391,8 @@ export type CropType = 'crop' | 'chemical' | (string & {});
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-<<<<<<< fix/changing-ui-names-agritech-management
-  type?: CropType;                    // 'crop' (default) | 'chemical' | 'other'
-  status?: string;                    // only relevant when type === 'chemical', any custom string
-=======
   type?: CropType;                    // 'crop' (default) | 'chemical' | any custom string
-  status?: 'Restricted' | 'Banned';  // only relevant when type === 'chemical'
->>>>>>> main
+  status?: string;                    // only relevant when type === 'chemical', any custom string
   aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
