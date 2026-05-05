@@ -272,18 +272,13 @@ export class CropRepository implements ICropRepository {
         }
 
         const currentCrop = await this.CropCollection.findOne({_id: new ObjectId(id)});
-        if (currentCrop) {
-          for (const alias of normalizedAliases) {
-            const enRepr = CropRepository.getEnRepr(alias);
-            if (enRepr === currentCrop.name.trim().toLowerCase()) {
-              throw new BadRequestError(
-                `Cannot add alias "${enRepr}" — it is the same as the entry's own name.`,
-              );
-            }
-          }
-        }
+        const cropName = currentCrop?.name?.trim().toLowerCase() ?? '';
+        const filteredAliases = normalizedAliases.filter(alias => {
+          const enRepr = CropRepository.getEnRepr(alias);
+          return !enRepr || enRepr !== cropName;
+        });
 
-        $set.aliases = normalizedAliases;
+        $set.aliases = filteredAliases;
       }
 
       const result = await this.CropCollection.findOneAndUpdate(
