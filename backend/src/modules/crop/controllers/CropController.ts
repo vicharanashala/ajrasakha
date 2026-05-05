@@ -14,6 +14,7 @@ import {
   NotFoundError,
   BadRequestError,
   InternalServerError,
+  UploadedFile,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -36,6 +37,9 @@ import {
   CropSingleResponse,
   CropSuccessResponse,
 } from '../classes/validators/CropResponseValidators.js';
+import { CsvUploadFileOptions } from '../classes/validators/fileUploadOptions.js';
+import { startCropBulkProcessing, getCropBulkJobById, getCropBulkJobs } from '#root/workers/cropWorkerManager.js';
+import * as XLSX from 'xlsx';
 
 // ── Allowed roles for write operations ──
 const WRITE_ROLES = ['admin', 'moderator'];
@@ -154,28 +158,62 @@ export class CropController {
   @HttpCode(201)
   @Authorized()
   async createCrop(
-    @Body() body: CreateCropDto,
+    @UploadedFile('file', { options: CsvUploadFileOptions, required: false }) file: Express.Multer.File | undefined,
+    @Body({ validate: false }) body: CreateCropDto,
     @CurrentUser() user: IUser,
-  ): Promise<{success: boolean; message: string; data: ICrop}> {
+  ): Promise<any> {
     // Role check
     if (!WRITE_ROLES.includes(user.role)) {
-      throw new ForbiddenError(
-        'Only admins and moderators can add crops.',
-      );
+      throw new ForbiddenError('Only admins and moderators can add crops.');
     }
+
     const userId = user._id.toString();
+    const actor = {
+      id: userId,
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      role: user.role,
+      avatar: user?.avatar || '',
+    };
+
+    // ── BULK UPLOAD (CSV) ────────────────────────────────────────────────────
+    if (file) {
+      let rows: any[] = [];
+      try {
+        const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        rows = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!rows.length) {
+          throw new BadRequestError('CSV file is empty or has no valid rows');
+        }
+      } catch (err: any) {
+        throw new BadRequestError(err?.message || 'Failed to parse CSV file');
+      }
+
+      const jobId = startCropBulkProcessing(rows, userId, actor, this.auditTrailsService);
+
+      return {
+        success: true,
+        message: `Processing ${rows.length} CSV rows in the background. Crops will be created/updated shortly.`,
+        jobId,
+        count: rows.length,
+        isBulkUpload: true,
+      };
+    }
+
+    // ── SINGLE CROP CREATE ───────────────────────────────────────────────────
+    if (!body?.name || typeof body.name !== 'string' || !body.name.trim()) {
+      throw new BadRequestError('Crop name is required');
+    }
+
     let crop;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.CROP_MANAGEMENT,
       action: AuditAction.ADD_CROP,
-      actor: {
-        id: user._id.toString(),
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
-    }
+      actor,
+    };
     try{
       crop = await this.cropService.createCrop(body, userId);
     } catch(err: any) {
@@ -196,9 +234,7 @@ export class CropController {
       if(err instanceof InternalServerError){
         throw new InternalServerError(err.message);
       }
-      throw new BadRequestError(
-        err?.message || 'Failed to create crop',
-      );
+      throw new BadRequestError(err?.message || 'Failed to create crop');
     }
     auditPayload = {
       ...auditPayload,
@@ -207,9 +243,7 @@ export class CropController {
         cropName: crop.name,
       },
       changes: {
-        after: {
-          name: crop.name,
-        },
+        after: { name: crop.name },
       },
       outcome: {
         status: OutComeStatus.SUCCESS,
@@ -352,6 +386,24 @@ export class CropController {
       message: `Crop "${updated.name}" updated successfully.`,
       data: updated,
     };
+  }
+
+  // ─── BULK JOB STATUS ──────────────────────────────────────────────────────
+
+  @Get('/bulk-status')
+  @HttpCode(200)
+  @Authorized()
+  getBulkJobs(): any {
+    return getCropBulkJobs();
+  }
+
+  @Get('/bulk-status/:jobId')
+  @HttpCode(200)
+  @Authorized()
+  getBulkJobById(@Params() params: { jobId: string }): any {
+    const job = getCropBulkJobById(params.jobId);
+    if (!job) throw new NotFoundError(`Bulk job "${params.jobId}" not found`);
+    return job;
   }
 }
 

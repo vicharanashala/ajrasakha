@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { useBulkUploadCrops } from "@/hooks/api/crop/useBulkUploadCrops";
 import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
 
 type EntryType = "crop" | "chemical" | "other";
@@ -513,6 +514,7 @@ export const CropManagementModal = ({
   }, []);
 
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
+  const { mutateAsync: bulkUploadCrops, isPending: isBulkUploading } = useBulkUploadCrops();
   const { data: cropsData, isLoading: isLoadingList, isFetching } = useGetAllCrops({
     search: searchQuery,
     page,
@@ -562,21 +564,31 @@ export const CropManagementModal = ({
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.csv')) {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
       toast.error("Please upload a CSV file");
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    // TODO: Process CSV file here
-    toast.info(`Selected file: ${file.name}. Backend integration pending.`);
-    
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    if (entryType !== "crop") {
+      toast.error("Bulk upload is only supported for crop type");
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    try {
+      const res = await bulkUploadCrops(file);
+      if (res?.success) {
+        toast.success(`${res.count} rows are being processed in the background. The list will refresh shortly.`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to upload CSV");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -742,11 +754,16 @@ export const CropManagementModal = ({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 text-xs gap-1.5 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                    disabled={entryType !== "crop" || isBulkUploading}
+                    className="h-8 text-xs gap-1.5 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={handleBulkUploadClick}
                   >
-                    <Upload className="h-3.5 w-3.5" />
-                    Bulk Upload {entryType === "crop" ? "Crops" : entryType === "chemical" ? "Chemicals" : "Entries"}
+                    {isBulkUploading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    {isBulkUploading ? "Uploading..." : "Bulk Upload Crops"}
                   </Button>
                   <input
                     ref={fileInputRef}

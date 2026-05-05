@@ -48,6 +48,14 @@ export interface IUpdateCropPayload {
   aliases?: (ICropAlias | string)[];
 }
 
+export interface IBulkUploadCropResponse {
+  success: boolean;
+  message: string;
+  jobId: string;
+  count: number;
+  isBulkUpload: true;
+}
+
 export class CropService {
   private _baseUrl = `${API_BASE_URL}/crops`;
 
@@ -62,6 +70,15 @@ export class CropService {
     return apiFetch<ICreateCropResponse>(`${this._baseUrl}/${cropId}`, {
       method: "PUT",
       body: JSON.stringify(payload),
+    });
+  }
+
+  async bulkUploadCrops(file: File): Promise<IBulkUploadCropResponse | null> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiFetch<IBulkUploadCropResponse>(this._baseUrl, {
+      method: "POST",
+      body: formData,
     });
   }
 
