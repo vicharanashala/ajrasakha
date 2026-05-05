@@ -86,7 +86,7 @@ export class CropService {
     sort?: string;
     page?: number;
     limit?: number;
-    type?: "crop" | "chemical" | "other";
+    type?: string;
   }): Promise<IGetAllCropsResponse | null> {
     const params = new URLSearchParams();
     if (query?.search) params.append("search", query.search);
