@@ -215,7 +215,7 @@ export class CropRepository implements ICropRepository {
 
   async updateCrop(
     id: string,
-    updates: {name?: string; aliases?: (ICropAlias | string)[]; status?: 'Restricted' | 'Banned'},
+    updates: {name?: string; aliases?: (ICropAlias | string)[]; status?: 'Restricted' | 'Banned'; type?: string},
     updatedBy: string,
   ): Promise<ICrop | null> {
     try {
@@ -226,6 +226,10 @@ export class CropRepository implements ICropRepository {
         updatedAt: new Date(),
         updatedBy: new ObjectId(updatedBy),
       };
+
+      if (updates.type !== undefined) {
+        $set.type = updates.type;
+      }
 
       if (updates.status !== undefined) {
         $set.status = updates.status;

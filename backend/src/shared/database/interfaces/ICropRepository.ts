@@ -10,7 +10,7 @@ export interface ICropRepository {
     type?: CropType;
   }): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}>;
   getCropById(cropId: string): Promise<ICrop | null>;
-  updateCrop(id: string, updates: {name?: string; aliases?: (ICropAlias | string)[]; status?: 'Restricted' | 'Banned'}, updatedBy: string): Promise<ICrop | null>;
+  updateCrop(id: string, updates: {name?: string; aliases?: (ICropAlias | string)[]; status?: 'Restricted' | 'Banned'; type?: CropType}, updatedBy: string): Promise<ICrop | null>;
   deleteCrop(id: string): Promise<boolean>;
   findByNameOrAlias(cropName: string): Promise<ICrop | null>;
 }

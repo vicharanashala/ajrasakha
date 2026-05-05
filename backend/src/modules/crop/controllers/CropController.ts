@@ -180,7 +180,8 @@ export class CropController {
     if (file) {
       let rows: any[] = [];
       try {
-        const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+        const csvString = file.buffer.toString('utf8');
+        const workbook = XLSX.read(csvString, { type: 'string' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         rows = XLSX.utils.sheet_to_json(worksheet);

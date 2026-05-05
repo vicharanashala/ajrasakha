@@ -111,7 +111,7 @@ for (const [, group] of cropMap) {
         if (!isDup) merged.push(newAlias);
       }
 
-      await cropRepo.updateCrop(existing._id!.toString(), { aliases: merged }, userId);
+      await cropRepo.updateCrop(existing._id!.toString(), { aliases: merged, type: 'crop' }, userId);
       updated++;
     } else {
       await cropRepo.createCrop(group.name, userId, group.aliases, 'crop');
