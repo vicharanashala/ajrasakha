@@ -13,9 +13,14 @@ export interface ICropAlias {
 export interface ICropResponse {
   _id?: string;
   name: string;
+<<<<<<< fix/changing-ui-names-agritech-management
   type?: "crop" | "chemical" | "other";
   otherType?: string;
   status?: string;
+=======
+  type?: string;
+  status?: "Restricted" | "Banned";
+>>>>>>> main
   aliases: (ICropAlias | string)[];  // string = legacy format from older crops
   createdBy?: string;
   updatedBy?: string;
@@ -25,9 +30,14 @@ export interface ICropResponse {
 
 export interface ICreateCropPayload {
   name: string;
+<<<<<<< fix/changing-ui-names-agritech-management
   type?: "crop" | "chemical" | "other";
   otherType?: string;
   status?: string;
+=======
+  type?: string;
+  status?: "Restricted" | "Banned";
+>>>>>>> main
   aliases?: ICropAlias[];
 }
 

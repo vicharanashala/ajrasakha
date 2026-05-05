@@ -2,31 +2,44 @@ import os
 from typing import List, Optional
 
 from bson import ObjectId
-from langchain.tools import tool
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient
 
-from utils import get_mongodb_vector_store, get_huggingface_embedding_model
-
-EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
-MONGODB_URI = os.getenv("REVIEWER_MONGODB_URI")
-MONGODB_DATABASE = "agriai"
-MONGODB_COLLECTION = "questions"
-MONGODB_INDEX = os.getenv("REVIEWER_MONGODB_INDEX")
-
-embedding_model = get_huggingface_embedding_model(EMBEDDING_MODEL)
-vector_store = get_mongodb_vector_store(
-    embedding_model,
-    MONGODB_URI,
-    MONGODB_DATABASE,
-    MONGODB_COLLECTION,
-    MONGODB_INDEX,
+from vector_retrieval import (
+    fetch_query_embedding,
+    get_sync_questions_collection,
+    vector_search_with_prefetched_embedding,
+    vector_search_with_score,
 )
 
-mongo_client = AsyncMongoClient(MONGODB_URI)
-database = mongo_client["agriai"]
-answers_collection = database["answers"]
-users_collection = database["users"]
+MONGODB_URI = os.getenv("REVIEWER_MONGODB_URI")
+MONGODB_DATABASE = os.getenv("REVIEWER_MONGODB_DATABASE", "agriai")
+MONGODB_COLLECTION = os.getenv("REVIEWER_MONGODB_COLLECTION", "questions")
+MONGODB_INDEX = os.getenv("REVIEWER_MONGODB_INDEX")
+
+_sync_questions_collection = None
+
+
+def _get_sync_questions_collection():
+    global _sync_questions_collection
+    if _sync_questions_collection is None:
+        if not MONGODB_URI:
+            raise ValueError("REVIEWER_MONGODB_URI must be set")
+        if not MONGODB_INDEX:
+            raise ValueError("REVIEWER_MONGODB_INDEX must be set")
+        _sync_questions_collection = get_sync_questions_collection(
+            MONGODB_URI, MONGODB_DATABASE, MONGODB_COLLECTION
+        )
+    return _sync_questions_collection
+
+
+mongo_client = AsyncMongoClient(MONGODB_URI) if MONGODB_URI else None
+# AsyncDatabase does not support truthiness (if database); compare client explicitly.
+database = mongo_client[MONGODB_DATABASE] if mongo_client is not None else None
+answers_collection = (
+    database["answers"] if mongo_client is not None else None
+)
+users_collection = database["users"] if mongo_client is not None else None
 
 
 class QuestionAnswerPair(BaseModel):
@@ -74,18 +87,23 @@ def _crop_filter_values(crop: str | list[str] | None) -> list[str] | None:
     return out or None
 
 
-def _similarity_search_merge_variants(
+async def _similarity_search_merge_variants(
     query: str,
     k: int,
     base_filters: dict,
     crop_variants: list[str],
 ):
     """One search per crop string; merge by question id keeping best score."""
+    coll = _get_sync_questions_collection()
+    embedding = await fetch_query_embedding(query)
     best: dict[str, tuple] = {}
+    index_name = MONGODB_INDEX
     for c in crop_variants:
         fl = dict(base_filters)
         fl["details.crop"] = c
-        batch = vector_store.similarity_search_with_score(query, k=k, pre_filter=fl)
+        batch = await vector_search_with_prefetched_embedding(
+            coll, index_name, embedding, fl, k
+        )
         for document, score in batch:
             qid = document.metadata.get("_id")
             if qid is None:
@@ -97,15 +115,14 @@ def _similarity_search_merge_variants(
     return merged
 
 
-@tool
 async def reviewer_retriever_tool(
-        query: str,
-        crop: str | list[str] | None = None,
-        season: str | None = None,
-        state: str | None = None,
-        domain: str | None = None,
+    query: str,
+    crop: str | list[str] | None = None,
+    season: str | None = None,
+    state: str | None = None,
+    domain: str | None = None,
 ):
-    '''Retrieve relevant documents from the reviewer dataset based on the query and optional filters.'''
+    """Retrieve relevant documents from the reviewer dataset based on the query and optional filters."""
     filters: dict = {"status": "closed"}
 
     crop_variants = _crop_filter_values(crop)
@@ -121,18 +138,21 @@ async def reviewer_retriever_tool(
     if domain:
         filters["details.domain"] = domain
 
+    coll = _get_sync_questions_collection()
+
     try:
-        docs = vector_store.similarity_search_with_score(query, k=5, pre_filter=filters)
+        docs = await vector_search_with_score(
+            coll, MONGODB_INDEX, query, filters, 5
+        )
     except Exception:
         if crop_variants and len(crop_variants) > 1:
             base = {k: v for k, v in filters.items() if k != "details.crop"}
-            docs = _similarity_search_merge_variants(query, 5, base, crop_variants)
+            docs = await _similarity_search_merge_variants(query, 5, base, crop_variants)
         else:
             raise
 
     result = []
-    for doc in docs:
-        document, score = doc
+    for document, score in docs:
         answer, sources, author_name = await _get_answer_text_sources_and_author_name(
             document.metadata['_id']
         )

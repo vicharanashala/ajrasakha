@@ -12,6 +12,7 @@ export async function checkDuplicateQuestionHelper(
   aiService: AiService,
   duplicateQuestionRepository: IDuplicateQuestionRepository,
   session?: ClientSession,
+  fromOutReach?: boolean,
 ): Promise<{ isDuplicate: boolean; duplicateData?: any }> {
   const cropName = typeof details.crop === 'string' ? details.crop : details.crop?.name || '';
 
@@ -123,10 +124,12 @@ export async function checkDuplicateQuestionHelper(
         referenceSource: referenceSourcefrom
       }
 
-      await duplicateQuestionRepository.addDuplicate(
-        duplicateQuestion,
-        session
-      )
+      if(fromOutReach){
+        await duplicateQuestionRepository.addDuplicate(
+          duplicateQuestion,
+          session
+        )
+      }
       logData.outcome = 'DUPLICATE_DETECTED'
       logData.matchedQuestion = matchedQuestion
       logData.similarityScore = matchedScore.toFixed(2)
@@ -146,10 +149,12 @@ export async function checkDuplicateQuestionHelper(
       referenceSource: referenceSourcefrom,
     };
 
-    await duplicateQuestionRepository.addDuplicate(
+   if(fromOutReach){
+     await duplicateQuestionRepository.addDuplicate(
       duplicateQuestion,
       session,
     );
+   }
 
     logData.outcome = 'DUPLICATE_DETECTED';
     logData.matchedQuestion = matchedQuestion;
