@@ -3,10 +3,13 @@ import axios from 'axios';
 import { appConfig } from '#root/config/app.js';
 import type { IWhatsAppService, Thread, Message, ToolCall } from '../interfaces/IWhatsAppService.js';
 import { InternalServerError } from 'routing-controllers';
+import { aiConfig } from '#root/config/ai.js';
 
 @injectable()
 export class WhatsAppService implements IWhatsAppService {
-  private readonly baseUrl = appConfig.langGraphUrl;
+  // private readonly baseUrl = aiConfig.serverIP;
+  private readonly baseUrl =
+    'http://' + aiConfig.serverIP + ':' + aiConfig.whatsAppServerPort;
 
   async getThreads(): Promise<Thread[]> {
     try {
@@ -46,7 +49,7 @@ export class WhatsAppService implements IWhatsAppService {
           if (typeof response === 'string' && response.startsWith('{')) {
             try {
               response = JSON.parse(response);
-            } catch (e) {}
+            } catch (e) { }
           }
           toolResponsesMap[msg.tool_call_id] = response;
         }
@@ -75,11 +78,11 @@ export class WhatsAppService implements IWhatsAppService {
             typeof msg.content === 'string'
               ? msg.content
               : Array.isArray(msg.content)
-              ? msg.content
+                ? msg.content
                   .filter((c: any) => c.type === 'text')
                   .map((c: any) => c.text)
                   .join('\n')
-              : '';
+                : '';
 
           if (content || toolCalls.length > 0) {
             formattedMessages.push({
