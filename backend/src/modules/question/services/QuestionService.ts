@@ -1101,9 +1101,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         }
 
-
-        // return { isDuplicate: false, data: baseQuestion };
-        return {
+        let responseobj= {
           isDuplicate: false,
           data: {
             ...baseQuestion,
@@ -1111,6 +1109,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             userId: baseQuestion.userId?.toString?.(),
           },
         };
+        // return { isDuplicate: false, data: baseQuestion };
+        console.log("the response onject coming===",responseobj)
+        return responseobj
       });
     } catch (error) {
       console.error(error);
