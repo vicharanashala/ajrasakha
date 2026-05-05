@@ -1,7 +1,7 @@
-import { GLOBAL_TYPES } from '#root/types.js';
-import { IDatabase } from '#shared/database/interfaces/IDatabase.js';
-import { injectable, inject } from 'inversify';
-import { Db, MongoClient, Document, Collection } from 'mongodb';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {IDatabase} from '#shared/database/interfaces/IDatabase.js';
+import {injectable, inject} from 'inversify';
+import {Db, MongoClient, Document, Collection} from 'mongodb';
 
 /**
  * @class MongoDatabase
@@ -17,7 +17,6 @@ import { Db, MongoClient, Document, Collection } from 'mongodb';
 export class MongoDatabase implements IDatabase<Db> {
   private client: MongoClient | null;
   public database: Db | null;
-  private connectingPromise: Promise<Db> | null = null;
 
   /**
    * Creates an instance of MongoDatabase.
@@ -30,7 +29,7 @@ export class MongoDatabase implements IDatabase<Db> {
     @inject(GLOBAL_TYPES.dbName)
     private readonly dbName: string,
     protected readonly dbIdentifier: string = 'vicharanshala',
-  ) {
+) {
     if (process.env.SKIP_DB_CONNECTION === 'true') {
       this.client = null;
       this.database = null;
@@ -41,7 +40,7 @@ export class MongoDatabase implements IDatabase<Db> {
     }
 
     console.log(`[${this.dbIdentifier}] Initializing database connection...`);
-
+    
     this.client = new MongoClient(uri, {
       ssl: true,
       tls: true,
@@ -58,32 +57,12 @@ export class MongoDatabase implements IDatabase<Db> {
    * @returns {Promise<Db>} The connected database instance.
    */
   private async connect(): Promise<Db> {
-    if (this.database) {
-      return this.database;
-    }
-
-    if (!this.connectingPromise) {
-      this.connectingPromise = (async () => {
-        try {
-          await this.client?.connect();
-          this.database = this.client?.db(this.dbName);
-          return this.database!;
-        } catch (err) {
-          this.connectingPromise = null;
-          throw err;
-        }
-      })();
-    }
-
-    return this.connectingPromise;
-  }
-  //   private async connect(): Promise<Db> {
-  //     console.log(`[${this.dbIdentifier}] Connecting to database: ${this.dbName}`);
-  //     await this.client?.connect();
-  //     this.database = this.client?.db(this.dbName) || null;
-  //     console.log(`[${this.dbIdentifier}] Connected to database: ${this.dbName}`);
-  //     return this.database;
-  // }
+    console.log(`[${this.dbIdentifier}] Connecting to database: ${this.dbName}`);
+    await this.client?.connect();
+    this.database = this.client?.db(this.dbName) || null;
+    console.log(`[${this.dbIdentifier}] Connected to database: ${this.dbName}`);
+    return this.database;
+}
 
   /**
    * Disconnects from the MongoDB database.
@@ -98,11 +77,11 @@ export class MongoDatabase implements IDatabase<Db> {
   }
 
   public async init(): Promise<Db> {
-    if (!this.database) {
-      await this.connect();
-    }
-    return this.database;
+  if (!this.database) {
+    await this.connect();
   }
+  return this.database;
+}
 
   /**
    * Checks if the database is connected.
@@ -133,9 +112,9 @@ export class MongoDatabase implements IDatabase<Db> {
     if (!this.database) {
       await this.connect();
     }
-    // if (!this.database) {
-    //   throw new Error('Database is not connected');
-    // }
+    if (!this.database) {
+      throw new Error('Database is not connected');
+    }
     return this.database.collection<T>(name);
   }
 }
