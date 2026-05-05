@@ -1,12 +1,18 @@
-import { injectable } from 'inversify';
 import axios from 'axios';
 import { appConfig } from '#root/config/app.js';
 import type { IWhatsAppService, Thread, Message, ToolCall } from '../interfaces/IWhatsAppService.js';
-import { InternalServerError } from 'routing-controllers';
+import { InternalServerError, UnauthorizedError } from 'routing-controllers';
 import { aiConfig } from '#root/config/ai.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { inject, injectable } from 'inversify';
 
 @injectable()
 export class WhatsAppService implements IWhatsAppService {
+  constructor(
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
+  ) { }
   // private readonly baseUrl = aiConfig.serverIP;
   private readonly baseUrl =
     'http://' + aiConfig.serverIP + ':' + aiConfig.whatsAppServerPort;
@@ -108,12 +114,15 @@ export class WhatsAppService implements IWhatsAppService {
     }
   }
 
-  async sendMessage(phoneNumber: string, messageText: string): Promise<void> {
+  async sendMessage(userId: string, phoneNumber: string, messageText: string): Promise<void> {
     try {
-      console.log("PhoneNumber", phoneNumber)
-      console.log("Message", messageText)
-      console.log("Webhook URL", appConfig.WA_SEND_MESSAGE_WEBHOOK_API_URL)
-      console.log("API Key", appConfig.WA_WEBHOOK_API_KEY)
+
+      const user = await this.userRepo.findById(userId);
+
+      if (!user || user.role == 'expert')
+        throw new UnauthorizedError(
+          "You don't have permission to send message!",
+        );
 
       const response = await fetch(appConfig.WA_SEND_MESSAGE_WEBHOOK_API_URL, {
         method: 'POST',
@@ -134,9 +143,6 @@ export class WhatsAppService implements IWhatsAppService {
       } else {
         responseData = await response.text();
       }
-
-      console.log("Response:", responseData);
-      console.log("Status:", response.status);
 
       if (!response.ok) {
         throw new Error(`Failed to send message: ${response.status} - ${responseData}`);
