@@ -17,7 +17,12 @@ export class WhatsAppService implements IWhatsAppService {
       const data = response.data;
 
       const threads: Thread[] = (data.threads as any[])
-        .filter((t: any) => /^\d{12}$/.test(t.thread_id))
+        .filter((t: any) => 
+          /^\d{12}$/.test(t.thread_id) && 
+          t.metadata && 
+          Object.keys(t.metadata).length > 0 &&
+          t.updated_at !== null
+        )
         .map((t: any) => ({
           id: t.thread_id,
           phoneNumber: t.thread_id,
@@ -38,7 +43,7 @@ export class WhatsAppService implements IWhatsAppService {
       const response = await axios.get(`${this.baseUrl}/threads/${threadId}/state`);
       const data = response.data;
 
-      const messages = data.values.messages as any[];
+      const messages = (data.values?.messages as any[]) || [];
       const formattedMessages: Message[] = [];
 
       // 1. First, map all tool responses in the entire thread
