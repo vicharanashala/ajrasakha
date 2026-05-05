@@ -13,6 +13,9 @@ export function WhatsAppHistoryPage() {
     isLoadingThreads,
     isLoadingMessages,
     selectedThread,
+    canSendMessage,
+    sendMessage,
+    isSending,
   } = useWhatsAppHistory();
 
   return (
@@ -29,7 +32,10 @@ export function WhatsAppHistoryPage() {
         selectedThread={selectedThread}
         messages={messages}
         isLoading={isLoadingMessages}
+        onSendMessage={sendMessage}
+        canSendMessage={canSendMessage}
+        isSending={isSending}
       />
     </div>
   );
-}
+}
