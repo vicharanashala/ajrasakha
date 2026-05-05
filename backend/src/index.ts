@@ -21,10 +21,40 @@ import {fileURLToPath} from 'url';
 import { initJobs } from './bootstrap/jobs/index.js';
 import { apiReference } from '@scalar/express-api-reference';
 import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
+import http from 'http';
+import { initWebSocket } from './bootstrap/websocket.js';
+
 
 const app = express();
 
 app.use(loggingHandler);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (!origin || appConfig.origins.includes(origin as string)) {
+    res.header('Access-Control-Allow-Origin', (origin as string) || '*');
+  }
+
+  res.header(
+    'Access-Control-Allow-Methods',
+    'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+  );
+
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, X-Requested-With'
+  );
+
+  res.header('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 
 const {controllers, validators} = await loadAppModules(
   appConfig.module.toLowerCase(),
@@ -83,7 +113,12 @@ app.use(
   }),
 );
 
-app.listen(appConfig.port, () => {
+const server = http.createServer(app);
+
+initWebSocket(server);
+
+server.listen(appConfig.port, () => {
   initJobs();
   printStartupSummary();
 });
+

@@ -45,4 +45,9 @@ export const appConfig = {
   WEB_WEBHOOK_API_URL:env("WEB_WEBHOOK_API_URL")||"http://localhost:3080/api/webhooks/notifications",
   WEB_WEBHOOK_API_KEY:env("WEB_WEBHOOK_API_KEY")||"",
   langGraphUrl: `http://${env('LANGRAPH_SERVER_IP')}:${env('LANGRAPH_SERVER_PORT')}`,
+  plivo: {
+    streamUrl: env('PLIVO_STREAM_URL'),
+    authId: env('PLIVO_AUTH_ID'),
+    authToken: env('PLIVO_AUTH_TOKEN'),
+  },
 };
