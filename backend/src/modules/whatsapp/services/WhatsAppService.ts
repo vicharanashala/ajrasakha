@@ -17,9 +17,9 @@ export class WhatsAppService implements IWhatsAppService {
       const data = response.data;
 
       const threads: Thread[] = (data.threads as any[])
-        .filter((t: any) => 
-          /^\d{12}$/.test(t.thread_id) && 
-          t.metadata && 
+        .filter((t: any) =>
+          /^\d{12}$/.test(t.thread_id) &&
+          t.metadata &&
           Object.keys(t.metadata).length > 0 &&
           t.updated_at !== null
         )
@@ -105,6 +105,46 @@ export class WhatsAppService implements IWhatsAppService {
     } catch (error) {
       console.error(`Error fetching thread details for ${threadId} from LangGraph:`, error);
       throw new InternalServerError(`Failed to fetch thread details from LangGraph`);
+    }
+  }
+
+  async sendMessage(phoneNumber: string, messageText: string): Promise<void> {
+    try {
+      console.log("PhoneNumber", phoneNumber)
+      console.log("Message", messageText)
+      console.log("Webhook URL", appConfig.WA_SEND_MESSAGE_WEBHOOK_API_URL)
+      console.log("API Key", appConfig.WA_WEBHOOK_API_KEY)
+
+      const response = await fetch(appConfig.WA_SEND_MESSAGE_WEBHOOK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-api-key': appConfig.WA_WEBHOOK_API_KEY,
+        },
+        body: JSON.stringify({
+          phoneNumber, messageText
+        }),
+      });
+      const contentType = response.headers.get('content-type');
+
+      let responseData;
+
+      if (contentType && contentType.includes('application/json')) {
+        responseData = await response.json();
+      } else {
+        responseData = await response.text();
+      }
+
+      console.log("Response:", responseData);
+      console.log("Status:", response.status);
+
+      if (!response.ok) {
+        throw new Error(`Failed to send message: ${response.status} - ${responseData}`);
+      }
+    } catch (error: any) {
+      console.error(`Error sending WhatsApp message to ${phoneNumber}:`, error.response?.data || error.message);
+      const detail = error.response?.data?.message || error.message;
+      throw new InternalServerError(`WhatsApp API Error: ${detail}`);
     }
   }
 }

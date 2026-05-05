@@ -2,8 +2,10 @@ import 'reflect-metadata';
 import {
   JsonController,
   Get,
+  Post,
   HttpCode,
   Param,
+  Body,
   Authorized,
 } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
@@ -43,5 +45,17 @@ export class WhatsAppController {
   @Authorized()
   async getThreadDetails(@Param('threadId') threadId: string) {
     return this.whatsappService.getThreadDetails(threadId);
+  }
+
+  @OpenAPI({
+    summary: 'Send a WhatsApp message',
+    description: 'Sends a direct WhatsApp message to a specific phone number.',
+  })
+  @Post('/send-message')
+  @HttpCode(200)
+  @Authorized()
+  async sendMessage(@Body() body: { phoneNumber: string; messageText: string }) {
+    await this.whatsappService.sendMessage(body.phoneNumber, body.messageText);
+    return { success: true, message: 'Message sent successfully' };
   }
 }
