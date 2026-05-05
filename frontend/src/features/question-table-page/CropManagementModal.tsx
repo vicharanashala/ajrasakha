@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, ChevronLeft, ChevronRight, FlaskConical, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
@@ -21,6 +21,8 @@ import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
+
+type EntryType = "crop" | "chemical" | "other";
 
 type ICropAliasObject = ICropAlias;
 
@@ -130,7 +132,7 @@ const AliasEntryForm = ({
             Region
           </span>
           <Input
-            placeholder="e.g. Andhra & Telangana"
+            placeholder="Enter region"
             value={entry.region}
             onChange={(e) => setEntry((f) => ({ ...f, region: e.target.value }))}
             className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
@@ -142,7 +144,7 @@ const AliasEntryForm = ({
             English Name
           </span>
           <Input
-            placeholder="e.g. vari"
+            placeholder="Enter English name"
             value={entry.english_representation}
             onChange={(e) => setEntry((f) => ({ ...f, english_representation: e.target.value }))}
             className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
@@ -154,7 +156,7 @@ const AliasEntryForm = ({
             Native Name
           </span>
           <Input
-            placeholder="e.g. వరి"
+            placeholder="Enter native name"
             value={entry.native_representation}
             onChange={(e) => setEntry((f) => ({ ...f, native_representation: e.target.value }))}
             className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
@@ -316,9 +318,17 @@ const AliasManagerModal = ({
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-amber-100/80 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-              <Wheat className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            </div>
+            {(() => {
+              const t = crop.type ?? "crop";
+              const isC = t === "chemical";
+              const isO = t === "other";
+              const ModalIcon = isC ? FlaskConical : isO ? LayoutGrid : Wheat;
+              return (
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isC ? "bg-purple-100/80 dark:bg-purple-500/10" : isO ? "bg-blue-100/80 dark:bg-blue-500/10" : "bg-amber-100/80 dark:bg-amber-500/10"}`}>
+                  <ModalIcon className={`h-4 w-4 ${isC ? "text-purple-600 dark:text-purple-400" : isO ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"}`} />
+                </div>
+              );
+            })()}
             <div className="min-w-0">
               <h2 className="text-sm font-bold text-gray-900 dark:text-white capitalize leading-tight">
                 {crop.name}
@@ -471,8 +481,11 @@ export const CropManagementModal = ({
   onOpenChange,
 }: CropManagementModalProps) => {
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
+  const [entryType, setEntryType] = useState<EntryType>("crop");
   const [newCropName, setNewCropName] = useState("");
   const [newAliases, setNewAliases] = useState<ICropAliasObject[]>([]);
+  const [chemicalStatus, setChemicalStatus] = useState<"Restricted" | "Banned">("Restricted");
+  const [otherType, setOtherType] = useState("");
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
 
   const [searchInput, setSearchInput] = useState("");
@@ -493,39 +506,48 @@ export const CropManagementModal = ({
   }, []);
 
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
-  const { data: cropsData, isLoading: isLoadingCrops, isFetching } = useGetAllCrops({
+  const { data: cropsData, isLoading: isLoadingList, isFetching } = useGetAllCrops({
     search: searchQuery,
     page,
     limit: PAGE_SIZE,
   });
 
-  const crops = cropsData?.crops || [];
+  const items: ICropResponse[] = cropsData?.crops || [];
   const totalPages = cropsData?.totalPages ?? 1;
 
   const resetForm = () => {
     setNewCropName("");
     setNewAliases([]);
+    setChemicalStatus("Restricted");
+    setOtherType("");
+    setEntryType("crop");
     setIsAddFormOpen(false);
     setSearchInput("");
     setSearchQuery("");
     setPage(1);
   };
 
+  const isSaving = isCreating;
+
   const handleSave = async () => {
     const name = newCropName.trim();
     if (!name) return;
-    if (!window.confirm(`Are you sure you want to create the crop "${name}"?`)) return;
+
+    if (!window.confirm(`Are you sure you want to create "${name}"?`)) return;
     try {
       const res = await createCrop({
         name,
+        type: entryType,
+        ...(entryType === "chemical" ? { status: chemicalStatus } : {}),
+        ...(entryType === "other" && otherType.trim() ? { otherType: otherType.trim() } : {}),
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
-        toast.success(`Crop "${name}" added successfully!`);
+        toast.success(`"${name}" added successfully!`);
         resetForm();
       }
     } catch (error: any) {
-      toast.error(error?.message || "Failed to add crop");
+      toast.error(error?.message || "Failed to add entry");
     }
   };
 
@@ -568,7 +590,7 @@ export const CropManagementModal = ({
                     isAddFormOpen ? "rotate-45" : ""
                   }`}
                 />
-                {isAddFormOpen ? "Cancel" : "Add Crop"}
+                {isAddFormOpen ? "Cancel" : "AgriTech Item"}
               </Button>
               <button
                 onClick={() => onOpenChange(false)}
@@ -586,12 +608,65 @@ export const CropManagementModal = ({
             {/* ── Add Form ────────────────────────────────────────────────── */}
             {isAddFormOpen && (
               <div className="mx-5 mt-4 mb-3 p-4 rounded-xl border-l-[3px] border-l-amber-500 border border-amber-200/60 dark:border-amber-500/15 bg-amber-50/30 dark:bg-amber-500/[0.03] space-y-3">
+
+                {/* Type selector */}
                 <div>
                   <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                    Crop Name
+                    Type
+                  </label>
+                  <div className="flex gap-2">
+                    {(["crop", "chemical", "other"] as EntryType[]).map((t) => {
+                      const icons = {
+                        crop: <Wheat className="h-3.5 w-3.5" />,
+                        chemical: <FlaskConical className="h-3.5 w-3.5" />,
+                        other: <LayoutGrid className="h-3.5 w-3.5" />,
+                      };
+                      const labels = { crop: "Crop", chemical: "Chemical", other: "Other" };
+                      const isActive = entryType === t;
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => { setEntryType(t); setNewCropName(""); setNewAliases([]); setChemicalStatus("Restricted"); setOtherType(""); }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                            isActive
+                              ? "bg-amber-600 text-white border-amber-600"
+                              : "bg-white dark:bg-[#141414] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-600/40"
+                          }`}
+                        >
+                          {icons[t]}
+                          {labels[t]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Other-only: specify type */}
+                {entryType === "other" && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                      Other Type
+                      <span className="font-normal normal-case tracking-normal ml-1 text-gray-400 dark:text-gray-600">
+                        — e.g. Equipment, Fertilizer, Pest…
+                      </span>
+                    </label>
+                    <Input
+                      placeholder="Specify what type of item this is"
+                      value={otherType}
+                      onChange={(e) => setOtherType(e.target.value)}
+                      className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700"
+                    />
+                  </div>
+                )}
+
+                {/* Name field — label changes by type */}
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                    {entryType === "crop" ? "Crop Name" : entryType === "chemical" ? "Chemical Name" : "Name"}
                   </label>
                   <Input
-                    placeholder="e.g. Jowar"
+                    placeholder={entryType === "crop" ? "Enter crop name" : entryType === "chemical" ? "Enter chemical name" : "Enter name"}
                     value={newCropName}
                     onChange={(e) => setNewCropName(e.target.value)}
                     className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700"
@@ -599,6 +674,25 @@ export const CropManagementModal = ({
                   />
                 </div>
 
+                {/* Chemical-only: status */}
+                {entryType === "chemical" && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                      Status
+                    </label>
+                    <Select value={chemicalStatus} onValueChange={(v) => setChemicalStatus(v as "Restricted" | "Banned")}>
+                      <SelectTrigger className="h-9 text-sm bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Restricted">Restricted</SelectItem>
+                        <SelectItem value="Banned">Banned</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Aliases — shown for all types */}
                 <div>
                   <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
                     Aliases
@@ -616,16 +710,16 @@ export const CropManagementModal = ({
                   <Button
                     size="sm"
                     onClick={handleSave}
-                    disabled={!newCropName.trim() || isCreating}
+                    disabled={!newCropName.trim() || isSaving}
                     className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
                   >
-                    {isCreating ? (
+                    {isSaving ? (
                       <>
                         <Loader2 className="h-3 w-3 animate-spin mr-1" />
                         Saving...
                       </>
                     ) : (
-                      "Save Crop"
+                      `Save ${entryType === "crop" ? "Crop" : entryType === "chemical" ? "Chemical" : "Entry"}`
                     )}
                   </Button>
                 </div>
@@ -637,12 +731,12 @@ export const CropManagementModal = ({
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
                 <Input
-                  placeholder="Search crops…"
+                  placeholder="Search entries…"
                   value={searchInput}
                   onChange={handleSearchChange}
                   className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
                 />
-                {isFetching && !isLoadingCrops && (
+                {isFetching && !isLoadingList && (
                   <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
                 )}
               </div>
@@ -650,36 +744,60 @@ export const CropManagementModal = ({
 
             {/* ── Crop List ──────────────────────────────────────────────── */}
             <div className="px-5 py-3">
-              {isLoadingCrops ? (
+              {isLoadingList ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                 </div>
-              ) : crops.length === 0 ? (
+              ) : items.length === 0 ? (
                 <div className="text-center py-12">
                   <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                   <p className="text-sm text-gray-400 dark:text-gray-500">
-                    {searchQuery ? `No crops found for "${searchQuery}"` : "No crops added yet"}
+                    {searchQuery ? `No results for "${searchQuery}"` : "No entries added yet"}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-px">
-                  {crops.map((crop, index) => {
-                    const aliasCount = (crop.aliases || []).length;
+                  {items.map((item, index) => {
+                    const itemType = item.type ?? "crop";
+                    const isChemical = itemType === "chemical";
+                    const isCrop = itemType === "crop";
+                    const isOther = !isCrop && !isChemical;
+                    const id = item._id || item.name;
+                    const name = item.name;
+                    const aliasCount = (item.aliases || []).length;
+                    const status = item.status ?? null;
+
+                    const Icon = isChemical ? FlaskConical : isOther ? LayoutGrid : Wheat;
 
                     return (
-                      <div key={crop._id || crop.name}>
+                      <div key={id}>
                         <div className="group flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-amber-100/80 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                              <Wheat className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isChemical ? "bg-purple-100/80 dark:bg-purple-500/10" : isOther ? "bg-blue-100/80 dark:bg-blue-500/10" : "bg-amber-100/80 dark:bg-amber-500/10"}`}>
+                              <Icon className={`h-3.5 w-3.5 ${isChemical ? "text-purple-600 dark:text-purple-400" : isOther ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"}`} />
                             </div>
                             <div className="flex items-center gap-2 min-w-0 flex-wrap">
                               <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight capitalize">
-                                {crop.name}
+                                {name}
                               </p>
                               {aliasCount > 0 && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700/60 leading-tight">
                                   {aliasCount} alias{aliasCount !== 1 ? "es" : ""}
+                                </span>
+                              )}
+                              {isOther && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20 capitalize">
+                                  {item.otherType || "Other"}
+                                </span>
+                              )}
+                              {status === "Restricted" && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-yellow-100 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-500/20">
+                                  Restricted
+                                </span>
+                              )}
+                              {status === "Banned" && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20">
+                                  Banned
                                 </span>
                               )}
                             </div>
@@ -687,13 +805,13 @@ export const CropManagementModal = ({
 
                           <button
                             className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 border border-transparent hover:border-blue-100 dark:hover:border-blue-500/20 transition-all flex-shrink-0"
-                            onClick={() => setAliasManagerCrop(crop)}
+                            onClick={() => setAliasManagerCrop(item)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                             <span>Manage Aliases</span>
                           </button>
                         </div>
-                        {index < crops.length - 1 && (
+                        {index < items.length - 1 && (
                           <div className="mx-3 border-b border-gray-100 dark:border-gray-800/50" />
                         )}
                       </div>

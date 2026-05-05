@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {Type, Transform} from 'class-transformer';
+import type { CropType } from '#root/shared/interfaces/models.js';
 
 // ── Param Validators ──
 
@@ -62,7 +63,36 @@ class CreateCropDto {
   name: string;
 
   @JSONSchema({
-    description: 'Structured aliases for the crop across languages',
+    description: 'Type of entry — crop (default), chemical, or other',
+    example: 'crop',
+    type: 'string',
+    enum: ['crop', 'chemical', 'other'],
+  })
+  @IsOptional()
+  @IsIn(['crop', 'chemical', 'other'])
+  type?: CropType;
+
+  @JSONSchema({
+    description: 'Status — only for type=chemical',
+    example: 'Restricted',
+    type: 'string',
+    enum: ['Restricted', 'Banned'],
+  })
+  @IsOptional()
+  @IsIn(['Restricted', 'Banned'])
+  status?: 'Restricted' | 'Banned';
+
+  @JSONSchema({
+    description: 'User-defined label when type is other — e.g. Fertilizer, Equipment, Pest',
+    example: 'Fertilizer',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  otherType?: string;
+
+  @JSONSchema({
+    description: 'Structured aliases across languages',
     example: [{ language: 'te-IN', region: 'Andhra and Telangana', english_representation: 'vari', native_representation: 'వరి' }],
     type: 'array',
   })
@@ -83,15 +113,30 @@ class UpdateCropDto {
   @IsArray()
   @Transform(({ value }) => value)
   aliases?: (CropAliasDto | string)[];
+
+  @JSONSchema({description: 'Status update — only applicable for chemical entries', type: 'string', enum: ['Restricted', 'Banned']})
+  @IsOptional()
+  @IsIn(['Restricted', 'Banned'])
+  status?: 'Restricted' | 'Banned';
+
+  @JSONSchema({description: 'User-defined label when type is other', type: 'string'})
+  @IsOptional()
+  @IsString()
+  otherType?: string;
 }
 
 // ── Query DTOs ──
 
 class GetAllCropsQuery {
-  @JSONSchema({description: 'Search crop by name or alias', example: 'Rice', type: 'string'})
+  @JSONSchema({description: 'Search by name or alias', example: 'Rice', type: 'string'})
   @IsOptional()
   @IsString()
   search?: string;
+
+  @JSONSchema({description: 'Filter by entry type', example: 'crop', type: 'string', enum: ['crop', 'chemical', 'other']})
+  @IsOptional()
+  @IsIn(['crop', 'chemical', 'other'])
+  type?: CropType;
 
   @JSONSchema({description: 'Sort order', example: 'newest', type: 'string'})
   @IsOptional()

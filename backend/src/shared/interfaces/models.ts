@@ -361,9 +361,14 @@ export interface ICropAlias {
   native_representation: string;    // native script e.g. "వరి"
 }
 
+export type CropType = 'crop' | 'chemical' | 'other';
+
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
+  type?: CropType;                    // 'crop' (default) | 'chemical' | 'other'
+  otherType?: string;                 // user-defined label when type === 'other', e.g. 'Fertilizer'
+  status?: 'Restricted' | 'Banned';  // only relevant when type === 'chemical'
   aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
@@ -386,6 +391,7 @@ export interface IChemical {
   _id?: ObjectId | string;
   name: string;
   status: ChemicalStatus;
+  aliases?: (ICropAlias | string)[];  // optional structured aliases
   createdBy?: ObjectId | string;
   createdAt?: Date;
   updatedAt?: Date;

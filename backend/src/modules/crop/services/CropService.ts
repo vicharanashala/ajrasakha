@@ -43,22 +43,23 @@ export class CropService extends BaseService implements ICropService {
         dto.name,
         userId,
         dto.aliases,
+        dto.type,
+        dto.status,
+        dto.otherType,
       );
 
-      //  Backfill via repository — use en_repr values as the searchable strings
-      await this.questionRepository.backfillNormalisedCrop(
-        crop.name,
-        (crop.aliases || [])
-          .flatMap(a => {
-            if (typeof a === 'string') return [a];
-      
-            return [
-              a.english_representation,
-              a.native_representation,
-            ];
-          })
-          .filter(Boolean) as string[],
-      );
+      // Backfill questions normalised_crop — only for actual crop entries, not 'other'
+      if ((crop.type ?? 'crop') === 'crop') {
+        await this.questionRepository.backfillNormalisedCrop(
+          crop.name,
+          (crop.aliases || [])
+            .flatMap(a => {
+              if (typeof a === 'string') return [a];
+              return [a.english_representation, a.native_representation];
+            })
+            .filter(Boolean) as string[],
+        );
+      }
 
       return crop;
     } catch (error: any) {
@@ -77,22 +78,18 @@ export class CropService extends BaseService implements ICropService {
     try {
       const updatedCrop = await this.cropRepository.updateCrop(
         cropId,
-        { aliases: dto.aliases },
+        { aliases: dto.aliases, status: dto.status, otherType: dto.otherType },
         userId,
       );
 
-      if (updatedCrop) {
-        //  Backfill via repository — use en_repr values as the searchable strings
+      // Backfill questions normalised_crop — only for actual crop entries, not 'other'
+      if (updatedCrop && (updatedCrop.type ?? 'crop') === 'crop') {
         await this.questionRepository.backfillNormalisedCrop(
           updatedCrop.name,
           (updatedCrop.aliases || [])
             .flatMap(a => {
               if (typeof a === 'string') return [a];
-        
-              return [
-                a.english_representation,
-                a.native_representation,
-              ];
+              return [a.english_representation, a.native_representation];
             })
             .filter(Boolean) as string[],
         );
