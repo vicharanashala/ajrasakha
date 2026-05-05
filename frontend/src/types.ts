@@ -537,6 +537,10 @@ export interface IDetailedQuestion {
     history: ISubmissionHistory[];
     queue: IUserRef[];
   };
+  similarityScore?: number;        // percentage (0–100)
+  referenceQuestionId?: string;
+  referenceQuestion?:string
+  referenceSource?: string;
 }
 
 export interface IDetailedQuestionResponse {

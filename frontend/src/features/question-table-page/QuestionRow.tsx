@@ -322,6 +322,15 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           onViewMore(q._id?.toString() || "");
                         }}
                       >
+                        {
+                        q?.similarityScore&&
+                        q?.referenceQuestionId&&
+                        q?.referenceQuestion&&
+                        q?.referenceSource&&
+                        (
+                          <span className='text-xs text-red-600 mr-1'>(DUPLICATE)</span>
+                        )
+                        }
                         {truncate(q.question, 50)}
                       </span>
                     </TooltipTrigger>

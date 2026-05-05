@@ -80,6 +80,11 @@ export interface IQuestion {
   accumulatedHoldMs?: number;
   originalQuestion?:string
   authors_history?: IAuthorsHistory[];
+  /** for duplicate quesitons */
+  similarityScore?: number;        // percentage (0–100)
+  referenceQuestionId?: ObjectId;
+  referenceQuestion?:string
+  referenceSource?: string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

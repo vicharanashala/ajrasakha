@@ -996,15 +996,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: new Date(),
           ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
         };
-        const enableDuplicateFeature = false
+        // const enableDuplicateFeature = false
         // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
         // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
         // if (enableDuplicateFeature)
+        let duplicateResult:{ isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
         if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-          const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
-          if (duplicateResult.isDuplicate) {
-            return { isDuplicate: true, data: duplicateResult.duplicateData };
-          }
+           duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
         }
 
         // =====================================================
@@ -1014,7 +1012,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
         const savedQuestion = await this.questionRepo.addQuestion(
-          baseQuestion,
+          duplicateResult?.isDuplicate ? duplicateResult?.duplicateData:baseQuestion,
           session,
         );
 
