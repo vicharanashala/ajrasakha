@@ -9,22 +9,15 @@ import {
 } from 'class-validator';
 import {Type} from 'class-transformer';
 import {ObjectId} from 'mongodb';
-import {IQuestion} from '#root/shared/index.js';
+import {IQuestion, RequestStatus} from '#root/shared/index.js';
 
-type RequestStatus = 'pending' | 'rejected' | 'approved' | 'in-review';
 
 class RequestParamsDto {
   @IsString()
   requestId!: string;
 }
 
-class RequestStatusBody {
-  @IsEnum(['pending', 'rejected', 'approved', 'in-review'])
-  status!: RequestStatus;
 
-  @IsString()
-  response: string;
-}
 
 class ModeratorResponseDto {
   @IsString()
@@ -120,7 +113,6 @@ export {
   RequestDetailsOtherDto,
   RequestDetailsQuestionDto,
   ModeratorResponseDto,
-  RequestStatusBody,
   RequestParamsDto,
   RequestStatus,
   GetAllRequestsQueryDto,
@@ -131,7 +123,6 @@ export const REQUEST_VALIDATORS = [
   RequestDetailsOtherDto,
   RequestDetailsQuestionDto,
   ModeratorResponseDto,
-  RequestStatusBody,
   RequestParamsDto,
   GetAllRequestsQueryDto,
 ];

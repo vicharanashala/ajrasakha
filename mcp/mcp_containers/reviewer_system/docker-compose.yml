@@ -10,10 +10,8 @@ services:
       - "9023:9023"
     env_file:
       - .env
+    environment:
+      - EMBEDDING_API_URL=${EMBEDDING_API_URL:-http://100.100.108.44:6001/embed}
     volumes:
       - /home/shubhankar/Shubhankar/mcp/pop/ajrasakha/mcp/mcp_containers/reviewer_system/reviewer_values.py:/app/reviewer_values.py
-      - hf_cache:/app/hf_cache
     restart: unless-stopped
-
-volumes:
-  hf_cache:

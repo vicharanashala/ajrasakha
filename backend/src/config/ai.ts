@@ -8,6 +8,7 @@ export const aiConfig = {
     agerntServerPort: Number(env('AGENT_SERVER_PORT')?.trim()) || 9017,
     openAIServerIP: env('OPENAI_SERVER_IP'),
     openAIServerPort: Number(env('OPENAI_SERVER_PORT')?.trim()) || 8080,
+    whatsAppServerPort: Number(env('WHATSAPP_SERVER_PORT')?.trim()) || 2026,
     gemma_api: env('GEMMA_API'),
     gemma_api_key: env('GEMMA_API_KEY') || 'test-key',
 };

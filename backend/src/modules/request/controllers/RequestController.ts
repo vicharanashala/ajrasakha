@@ -20,7 +20,7 @@ import {
   CreateRequestBodyDto,
   GetAllRequestsQueryDto,
   RequestParamsDto,
-  RequestStatusBody,
+  UpdateRequestStatusDto,
 } from '../classes/validators/RequestValidators.js';
 import { RequestService } from '../services/RequestService.js';
 import { IRequestService } from '../interfaces/IRequestService.js';
@@ -172,7 +172,7 @@ export class RequestController {
   @Authorized()
   async updateStatus(
     @Params() params: RequestParamsDto,
-    @Body() body: RequestStatusBody,
+    @Body() body: UpdateRequestStatusDto,
     @CurrentUser() user: IUser,
   ): Promise<IRequestResponse> {
     const {requestId} = params;

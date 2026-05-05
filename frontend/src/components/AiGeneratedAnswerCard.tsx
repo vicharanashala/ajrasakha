@@ -121,7 +121,7 @@ export const AiGeneratedAnswerCard = ({
                 !hasAIAnswer ? (
                   <>
                     <p className="text-sm text-muted-foreground text-center py-6">
-                      No AI answer available
+                      {hasSubmissions ? "AI initial answer cannot be created after an expert has already submitted an answer." : "No AI answer available"}
                     </p>
                   </>
                 ) : (

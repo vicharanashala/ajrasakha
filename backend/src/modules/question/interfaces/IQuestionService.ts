@@ -58,6 +58,9 @@ export interface IQuestionService {
   /** Question detail page */
   getQuestionById(questionId: string): Promise<QuestionResponse>;
 
+  /** Get only question text by ID */
+  getQuestionDataById(questionId: string): Promise<IQuestion | null>;
+
   /** Update question fields */
   updateQuestion(
     questionId: string,
@@ -86,6 +89,16 @@ export interface IQuestionService {
     userId: string,
     questionId: string,
     index: number,
+  ): Promise<IQuestionSubmission>;
+
+  /** Replace expert at specific level in queue or the author */
+  replaceQueueExpert(
+    userId: string,
+    questionId: string,
+    levelIndex: number,
+    newExpertId: string,
+    isAuthor?: boolean,
+    reasonForChange?: string,
   ): Promise<IQuestionSubmission>;
 
   /** Delete a question (cascade delete) */

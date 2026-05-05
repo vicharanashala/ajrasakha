@@ -44,7 +44,8 @@ import {
   QuestionIdParam,
   QuestionResponse,
   RemoveAllocateBody,
-  ApproveInitialAnswerBody
+  ApproveInitialAnswerBody,
+  ReplaceQueueExpertRequest
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
 import {
@@ -713,7 +714,7 @@ export class QuestionController {
     let questionDetails;
     let expertDetails;
     try{
-      questionDetails = await this.questionService.getQuestionById(questionId);
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
       result = await this.questionService.toggleAutoAllocate(questionId);
       if(result?.data?.length > 0){
         const expertIdToString = result?.data?.map(id => id.toString()) || [];
@@ -724,7 +725,7 @@ export class QuestionController {
         ...auditPayload,
         context: {
           ...auditPayload.context,
-          question: questionDetails?.text,
+          question: questionDetails?.question,
         },
         changes: {
           before: {
@@ -817,7 +818,7 @@ export class QuestionController {
         ...auditPayload,
         context: {
           ...auditPayload.context,
-          question: questionDetails?.text,
+          question: questionDetails?.question,
         },
         outcome: {
           status: OutComeStatus.FAILED,
@@ -860,68 +861,68 @@ export class QuestionController {
 
   @Put('/:questionId')
   @HttpCode(200)
-  @Authorized()
+  // @Authorized()
   @ResponseSchema(QuestionResponse, { isArray: true })
   @OpenAPI({ summary: 'Update a question by ID' })
   async updateQuestion(
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<IQuestion>,
-    @CurrentUser() user: IUser,
+    // @CurrentUser() user: IUser,
   ): Promise<{ modifiedCount: number }> {
     const { questionId } = params;
     let prevQuestion;
     let response;
     let questionDetails;
 
-    let auditPayload: ModeratorAuditTrail = {
-      category: AuditCategory.QUESTION,
-      action: AuditAction.QUESTION_UPDATE,
-      actor: {
-        id: user._id.toString(),
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
-      context: {
-        questionId: questionId,
-      },
-      outcome: {
-        status: OutComeStatus.SUCCESS,
-      },
-    };
+    // let auditPayload: ModeratorAuditTrail = {
+    //   category: AuditCategory.QUESTION,
+    //   action: AuditAction.QUESTION_UPDATE,
+    //   actor: {
+    //     id: user._id.toString(),
+    //     name: `${user.firstName} ${user.lastName}`,
+    //     email: user.email,
+    //     role: user.role,
+    //     avatar: user?.avatar || '',
+    //   },
+    //   context: {
+    //     questionId: questionId,
+    //   },
+    //   outcome: {
+    //     status: OutComeStatus.SUCCESS,
+    //   },
+    // };
     try{
-      prevQuestion = await this.questionService.getQuestionById(questionId);
-      questionDetails = {
-        text: prevQuestion.text,
-        details: prevQuestion.details,
-        status: prevQuestion.status,
-        priority: prevQuestion.priority,
-        aiInitialAnswer: prevQuestion.aiInitialAnswer,
-      }
+      // prevQuestion = await this.questionService.getQuestionById(questionId);
+      // questionDetails = {
+      //   text: prevQuestion.text,
+      //   details: prevQuestion.details,
+      //   status: prevQuestion.status,
+      //   priority: prevQuestion.priority,
+      //   aiInitialAnswer: prevQuestion.aiInitialAnswer,
+      // }
       response = await this.questionService.updateQuestion(questionId, updates);
     }
     catch(err: any){
-      auditPayload = {
-        ...auditPayload,
-        changes: {
-          before: {
-            question: questionDetails,
-          },
-        },
-        context: {
-          ...auditPayload.context,
-          question: questionDetails.text,
-        },
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || 'Failed to update question',
-          errorName: err?.name || 'Error',
-          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available', 
-        },
-      };
-      this.auditTrailsService.createAuditTrail(auditPayload);
+      // auditPayload = {
+      //   ...auditPayload,
+      //   changes: {
+      //     before: {
+      //       question: questionDetails,
+      //     },
+      //   },
+      //   context: {
+      //     ...auditPayload.context,
+      //     question: questionDetails.text,
+      //   },
+      //   outcome: {
+      //     status: OutComeStatus.FAILED,
+      //     errorCode: err?.errorCode || 'INTERNAL_ERROR',
+      //     errorMessage: err?.message || 'Failed to update question',
+      //     errorName: err?.name || 'Error',
+      //     errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available', 
+      //   },
+      // };
+      // this.auditTrailsService.createAuditTrail(auditPayload);
       if(err instanceof InternalServerError){
         throw new InternalServerError(err.message);
       }
@@ -929,27 +930,27 @@ export class QuestionController {
         err?.message || 'Failed to update question',
       );
     }
-    const updatedQuestion = {
-      text: updates.question || questionDetails.text,
-      details: updates.details || questionDetails.details,
-      status: updates.status || questionDetails.status,
-      priority: updates.priority || questionDetails.priority,
-      aiInitialAnswer: updates.aiInitialAnswer || questionDetails.aiInitialAnswer,
-    }
+    // const updatedQuestion = {
+    //   text: updates.question || questionDetails.text,
+    //   details: updates.details || questionDetails.details,
+    //   status: updates.status || questionDetails.status,
+    //   priority: updates.priority || questionDetails.priority,
+    //   aiInitialAnswer: updates.aiInitialAnswer || questionDetails.aiInitialAnswer,
+    // }
     
-    auditPayload = {
-      ...auditPayload,
-      changes: {
-        before: {
-          question: questionDetails,
-        },
-        ...auditPayload.changes,
-        after: {
-          question: updatedQuestion,
-        },
-      },
-    };
-    this.auditTrailsService.createAuditTrail(auditPayload);
+    // auditPayload = {
+    //   ...auditPayload,
+    //   changes: {
+    //     before: {
+    //       question: questionDetails,
+    //     },
+    //     ...auditPayload.changes,
+    //     after: {
+    //       question: updatedQuestion,
+    //     },
+    //   },
+    // };
+    // this.auditTrailsService.createAuditTrail(auditPayload);
     return response;
   }
 
@@ -1430,6 +1431,29 @@ export class QuestionController {
     const { questionId } = params;
     const { answer } = body;
     return this.questionService.approveAiInitialAnswer(questionId, answer);
+  }
+
+  @Post('/:questionId/replace-queue-expert')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Replace an expert at a specific level in the queue or the author' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async replaceQueueExpert(
+    @Params() params: QuestionIdParam,
+    @Body() body: ReplaceQueueExpertRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    const { _id: userId } = user;
+    const { questionId } = params;
+    const { levelIndex, newExpertId, isAuthor, reasonForChange } = body;
+    return await this.questionService.replaceQueueExpert(
+      userId.toString(),
+      questionId,
+      levelIndex+1,
+      newExpertId,
+      isAuthor,
+      reasonForChange,
+    );
   }
 
   private flattenPayload(payload: any[]) {
