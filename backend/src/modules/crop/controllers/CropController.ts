@@ -90,6 +90,26 @@ export class CropController {
     return this.cropService.getAllCrops(query);
   }
 
+  // ─── BULK JOB STATUS ──────────────────────────────────────────────────────
+  // IMPORTANT: these static routes must come BEFORE /:cropId to avoid being
+  // swallowed by the wildcard param route.
+
+  @Get('/bulk-status')
+  @HttpCode(200)
+  @Authorized()
+  getBulkJobs(): any {
+    return getCropBulkJobs();
+  }
+
+  @Get('/bulk-status/:jobId')
+  @HttpCode(200)
+  @Authorized()
+  getBulkJobById(@Params() params: { jobId: string }): any {
+    const job = getCropBulkJobById(params.jobId);
+    if (!job) throw new NotFoundError(`Bulk job "${params.jobId}" not found`);
+    return job;
+  }
+
   // ─── GET CROP BY ID ──────────────────────────────────────────────────────
 
   @OpenAPI({
@@ -395,22 +415,5 @@ export class CropController {
     };
   }
 
-  // ─── BULK JOB STATUS ──────────────────────────────────────────────────────
-
-  @Get('/bulk-status')
-  @HttpCode(200)
-  @Authorized()
-  getBulkJobs(): any {
-    return getCropBulkJobs();
-  }
-
-  @Get('/bulk-status/:jobId')
-  @HttpCode(200)
-  @Authorized()
-  getBulkJobById(@Params() params: { jobId: string }): any {
-    const job = getCropBulkJobById(params.jobId);
-    if (!job) throw new NotFoundError(`Bulk job "${params.jobId}" not found`);
-    return job;
-  }
 }
 
