@@ -63,13 +63,12 @@ class CreateCropDto {
   name: string;
 
   @JSONSchema({
-    description: 'Type of entry — crop (default), chemical, or other',
+    description: 'Type of entry — crop (default), chemical, or any custom string',
     example: 'crop',
     type: 'string',
-    enum: ['crop', 'chemical', 'other'],
   })
   @IsOptional()
-  @IsIn(['crop', 'chemical', 'other'])
+  @IsString()
   type?: CropType;
 
   @JSONSchema({
@@ -119,9 +118,9 @@ class GetAllCropsQuery {
   @IsString()
   search?: string;
 
-  @JSONSchema({description: 'Filter by entry type', example: 'crop', type: 'string', enum: ['crop', 'chemical', 'other']})
+  @JSONSchema({description: 'Filter by entry type', example: 'crop', type: 'string'})
   @IsOptional()
-  @IsIn(['crop', 'chemical', 'other'])
+  @IsString()
   type?: CropType;
 
   @JSONSchema({description: 'Sort order', example: 'newest', type: 'string'})

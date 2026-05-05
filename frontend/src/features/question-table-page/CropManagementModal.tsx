@@ -537,9 +537,8 @@ export const CropManagementModal = ({
     try {
       const res = await createCrop({
         name,
-        type: entryType,
+        type: entryType === "other" && otherType.trim() ? otherType.trim() : entryType,
         ...(entryType === "chemical" ? { status: chemicalStatus } : {}),
-        ...(entryType === "other" && otherType.trim() ? { otherType: otherType.trim() } : {}),
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
@@ -787,7 +786,7 @@ export const CropManagementModal = ({
                               )}
                               {isOther && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20 capitalize">
-                                  {itemType}
+                                  {item.type}
                                 </span>
                               )}
                               {status === "Restricted" && (
