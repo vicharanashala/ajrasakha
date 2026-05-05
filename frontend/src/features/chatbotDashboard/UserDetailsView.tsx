@@ -6,6 +6,8 @@ import { Spinner } from "@/components/atoms/spinner";
 import { useUserDetails } from "./hooks/useUserDetails";
 import { BarGraph } from "./components/shared/BarGrapgh";
 import { Pagination } from "@/components/pagination";
+import { Maximize2 } from "lucide-react";
+import { createPortal } from "react-dom";
 import {
   Table,
   TableBody,
@@ -101,6 +103,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<'totalQuestions' | 'name'>('totalQuestions');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard)
   useEffect(() => {
@@ -217,17 +220,63 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
 
         {/* Bar graph — col 1 row 2 on sm+, after all 3 cards on mobile */}
         {!isLoading && !error && users.length > 0 && !filters.inactiveOnly && (
-          <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BarGraph
-                data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
-                height={120}
-              />
-            </CardContent>
-          </Card>
+          <>
+            <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2 relative">
+              <button
+                onClick={() => setIsBarGraphMaximized(true)}
+                className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
+                title="Maximize chart"
+              >
+                <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              </button>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarGraph
+                  data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
+                  height={120}
+                  showMaximize={false}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Maximized Bar Graph Modal */}
+            {isBarGraphMaximized && createPortal(
+              <div 
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+                onClick={() => setIsBarGraphMaximized(false)}
+              >
+                <div 
+                  className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-4xl w-full p-8 relative"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => setIsBarGraphMaximized(false)}
+                    className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    title="Close"
+                  >
+                    <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  </button>
+
+                  <div className="mb-8">
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+                      Questions per User
+                    </h3>
+                  </div>
+
+                  <div className="w-full">
+                    <BarGraph
+                      data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
+                      height={400}
+                      showMaximize={false}
+                    />
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
+          </>
         )}
       </div>
 
