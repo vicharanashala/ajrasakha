@@ -1000,25 +1000,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
         // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
         // if (enableDuplicateFeature)
-        if (true) {
-          const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
-          console.log('duplicateResult', duplicateResult)
-          if (duplicateResult.isDuplicate) {
-            const savedDuplicateQuestion = await this.questionRepo.addQuestion(
-              duplicateResult?.duplicateData,
-              session,
-            ); 
-            console.log('savedDuplicateQuestion', savedDuplicateQuestion)
-            return {
-              isDuplicate: true,
-              data: {
-                ...duplicateResult?.duplicateData,
-                _id: savedDuplicateQuestion?._id?.toString?.(),
-                userId: savedDuplicateQuestion?.userId?.toString?.(),
-              }
-            };
-          }
+        let duplicateResult:{ isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
+        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+           duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
         }
+
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
         // =====================================================
@@ -1026,7 +1012,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
         const savedQuestion = await this.questionRepo.addQuestion(
-          baseQuestion,
+          duplicateResult?.isDuplicate ? duplicateResult?.duplicateData:baseQuestion,
           session,
         );
 

@@ -225,6 +225,8 @@ const { checkDuplicateQuestionHelper } = await import(
             logData,
             aiService,
             duplicateQuestionRepo,
+            null,
+            true
           );
 
           if (duplicateResult.isDuplicate) {
