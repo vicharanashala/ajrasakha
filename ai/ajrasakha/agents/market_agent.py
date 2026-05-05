@@ -58,23 +58,18 @@ async def market(query: str, state: str, district: str, crop: str, date: str | N
     Use when the user asks for mandi prices, APMC rates, or commodity arrivals.
     Always pass the user's state, district, crop of interest, and a focused query.
     """
-    try:
-        context = f"""
+    context = f"""
     State   : {state}
     District: {district}
     Crop    : {crop}
     Date    : {date or "today"}
 
     Query: {query}
-        """.strip()
+    """.strip()
 
-        agent = await _get_market_agent()
-        result = await agent.ainvoke(
-            {"messages": [HumanMessage(content=context)]},
-            config=config
-        )
-        return result["messages"][-1].content
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error("market sub-agent failed: %s", exc)
-        return f"⚠️ The market price service is temporarily unavailable. Error: {type(exc).__name__}"
+    agent = await _get_market_agent()
+    result = await agent.ainvoke(
+        {"messages": [HumanMessage(content=context)]},
+        config=config
+    )
+    return result["messages"][-1].content

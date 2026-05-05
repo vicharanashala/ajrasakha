@@ -73,8 +73,7 @@ async def schemes(
     Pass all known farmer demographics (state, age, caste, etc.) for more targeted results.
     The agent will first search for matching schemes, then fetch details for the most relevant ones.
     """
-    try:
-        context = f"""
+    context = f"""
     State             : {state}
     Gender            : {gender or 'Not specified'}
     Age               : {age or 'Not specified'}
@@ -87,15 +86,11 @@ async def schemes(
     Differently Abled : {'Yes' if is_differently_abled else 'No'}
 
     Query: {query}
-        """.strip()
+    """.strip()
 
-        agent = await _get_schemes_agent()
-        result = await agent.ainvoke(
-            {"messages": [HumanMessage(content=context)]},
-            config=config,
-        )
-        return result["messages"][-1].content
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error("schemes sub-agent failed: %s", exc)
-        return f"⚠️ The government schemes service is temporarily unavailable. Error: {type(exc).__name__}"
+    agent = await _get_schemes_agent()
+    result = await agent.ainvoke(
+        {"messages": [HumanMessage(content=context)]},
+        config=config,
+    )
+    return result["messages"][-1].content
