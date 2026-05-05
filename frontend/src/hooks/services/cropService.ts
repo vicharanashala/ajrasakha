@@ -13,6 +13,8 @@ export interface ICropAlias {
 export interface ICropResponse {
   _id?: string;
   name: string;
+  type?: string;
+  status?: "Restricted" | "Banned";
   aliases: (ICropAlias | string)[];  // string = legacy format from older crops
   createdBy?: string;
   updatedBy?: string;
@@ -22,6 +24,8 @@ export interface ICropResponse {
 
 export interface ICreateCropPayload {
   name: string;
+  type?: string;
+  status?: "Restricted" | "Banned";
   aliases?: ICropAlias[];
 }
 
@@ -64,12 +68,14 @@ export class CropService {
     sort?: string;
     page?: number;
     limit?: number;
+    type?: "crop" | "chemical" | "other";
   }): Promise<IGetAllCropsResponse | null> {
     const params = new URLSearchParams();
     if (query?.search) params.append("search", query.search);
     if (query?.sort) params.append("sort", query.sort);
     if (query?.page) params.append("page", query.page.toString());
     if (query?.limit) params.append("limit", query.limit.toString());
+    if (query?.type) params.append("type", query.type);
 
     return apiFetch<IGetAllCropsResponse>(`${this._baseUrl}?${params.toString()}`);
   }

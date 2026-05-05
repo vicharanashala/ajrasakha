@@ -152,7 +152,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const { data: userNameReponse, isLoading } = useGetAllUsers();
-  const { data: cropsData } = useGetAllCrops();
+  const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
 
   const users = (userNameReponse?.users || []).sort((a, b) =>

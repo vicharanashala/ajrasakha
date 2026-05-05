@@ -63,13 +63,12 @@ class CreateCropDto {
   name: string;
 
   @JSONSchema({
-    description: 'Type of entry — crop (default), chemical, or other',
+    description: 'Type of entry — crop (default), chemical, or any custom string',
     example: 'crop',
     type: 'string',
-    enum: ['crop', 'chemical', 'other'],
   })
   @IsOptional()
-  @IsIn(['crop', 'chemical', 'other'])
+  @IsString()
   type?: CropType;
 
   @JSONSchema({
@@ -81,15 +80,6 @@ class CreateCropDto {
   @IsOptional()
   @IsIn(['Restricted', 'Banned'])
   status?: 'Restricted' | 'Banned';
-
-  @JSONSchema({
-    description: 'User-defined label when type is other — e.g. Fertilizer, Equipment, Pest',
-    example: 'Fertilizer',
-    type: 'string',
-  })
-  @IsOptional()
-  @IsString()
-  otherType?: string;
 
   @JSONSchema({
     description: 'Structured aliases across languages',
@@ -118,11 +108,6 @@ class UpdateCropDto {
   @IsOptional()
   @IsIn(['Restricted', 'Banned'])
   status?: 'Restricted' | 'Banned';
-
-  @JSONSchema({description: 'User-defined label when type is other', type: 'string'})
-  @IsOptional()
-  @IsString()
-  otherType?: string;
 }
 
 // ── Query DTOs ──
@@ -133,9 +118,9 @@ class GetAllCropsQuery {
   @IsString()
   search?: string;
 
-  @JSONSchema({description: 'Filter by entry type', example: 'crop', type: 'string', enum: ['crop', 'chemical', 'other']})
+  @JSONSchema({description: 'Filter by entry type', example: 'crop', type: 'string'})
   @IsOptional()
-  @IsIn(['crop', 'chemical', 'other'])
+  @IsString()
   type?: CropType;
 
   @JSONSchema({description: 'Sort order', example: 'newest', type: 'string'})
