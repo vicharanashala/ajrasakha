@@ -59,17 +59,22 @@ async def chemical_checker(
     Always extract all chemical names mentioned by the user and pass them as a list.
     Pass the crop and state for context-aware advice.
     """
-    context = f"""
+    try:
+        context = f"""
     State    : {state}
     Crop     : {crop}
     Chemicals: {', '.join(chemicals)}
 
     Query: {query}
-    """.strip()
+        """.strip()
 
-    agent = await _get_chemical_agent()
-    result = await agent.ainvoke(
-        {"messages": [HumanMessage(content=context)]},
-        config=config,
-    )
-    return result["messages"][-1].content
+        agent = await _get_chemical_agent()
+        result = await agent.ainvoke(
+            {"messages": [HumanMessage(content=context)]},
+            config=config,
+        )
+        return result["messages"][-1].content
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("chemical_checker sub-agent failed: %s", exc)
+        return f"⚠️ The chemical checker service is temporarily unavailable. Error: {type(exc).__name__}"
