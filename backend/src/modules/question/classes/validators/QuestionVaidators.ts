@@ -405,6 +405,15 @@ class AddQuestionBodyDto {
   @IsBooleanString()
   isOutreachQuestion?: string;
 
+  @IsOptional()
+  @IsIn(['expert', 'draft', 'pae_expert'])
+  allocationMode?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsMongoId()
+  paeExpertId?: string;
+
   @IsString()
   @IsOptional()
   createdAt?: string;

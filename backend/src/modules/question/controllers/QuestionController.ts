@@ -20,6 +20,7 @@ import {
   Res,
   UseBefore,
   InternalServerError,
+  Req,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -169,6 +170,7 @@ export class QuestionController {
     file: Express.Multer.File,
     @Body() body: AddQuestionBodyDto,
     @CurrentUser() user: IUser,
+    @Req() req: any,
   ): Promise<Partial<any> | { message: string }> {
     const userId = user?._id?.toString();
     
@@ -196,6 +198,13 @@ export class QuestionController {
 
       const isOutreachQuestion =
         body.isOutreachQuestion === 'true';
+
+      // Read directly from req.body (multer-parsed) to avoid class-transformer dropping fields
+      const rawBody = req.body || {};
+      const allocationMode = rawBody.allocationMode || body.allocationMode || 'expert';
+      const paeExpertId: string | undefined = rawBody.paeExpertId || body.paeExpertId;
+      console.log('[BulkUpload] rawBody:', rawBody);
+      console.log('[BulkUpload] allocationMode:', allocationMode, '| paeExpertId:', paeExpertId);
 
       try {
         const mimetype = file.mimetype;
@@ -243,7 +252,9 @@ export class QuestionController {
             this.auditTrailsService,
             isRequiredAiInitialAnswer,
             isOutreachQuestion,
-            payload
+            payload,
+            allocationMode,
+            paeExpertId
           ));
         
         return {
