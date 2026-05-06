@@ -42,10 +42,10 @@ async def _get_soil_agent():
 
 class SoilInput(BaseModel):
     query: str
-    address: str  # e.g., "123 Main St, Rangareddy, Telangana"
-    state: str  # e.g., "Telangana"
-    district: str  # e.g., "Rangareddy"
-    crop: str  # e.g., "Rice"
+    address: Optional[str] = None  # e.g., "123 Main St, Rangareddy, Telangana"
+    state: Optional[str] = None  # e.g., "Telangana"
+    district: Optional[str] = None  # e.g., "Rangareddy"
+    crop: Optional[str] = None  # e.g., "Rice"
     n: float  # Available Nitrogen (kg/ha)
     p: float  # Available Phosphorus (kg/ha)
     k: float  # Available Potassium (kg/ha)
@@ -53,12 +53,17 @@ class SoilInput(BaseModel):
 
 
 @tool(args_schema=SoilInput)
-async def soil(query: str, address: str, state: str, district: str, crop: str, n: float, p: float, k: float, oc: float, config: RunnableConfig) -> str:
+async def soil(query: str, address: Optional[str], state: Optional[str], district: Optional[str], crop: Optional[str], n: float, p: float, k: float, oc: float, config: RunnableConfig) -> str:
     """
     Query the soil agent.
     Use when the user asks for soil health recommendations, fertilizer dosages, or crop suitability based on soil tests.
     Always pass the user's state, district, crop of interest, soil test results (N, P, K, OC), and a focused query about soil health or recommendations.
     """
+    injected: dict = (config.get("configurable") or {}).get("location") or {}
+    address = address or injected.get("address") or injected.get("city") or "unknown"
+    state = state or injected.get("state") or "unknown"
+    district = district or injected.get("district") or injected.get("city") or "unknown"
+    crop = crop or "unknown"
     context = f"""
     Address : {address}
     State   : {state}

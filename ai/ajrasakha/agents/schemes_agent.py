@@ -40,7 +40,7 @@ async def _get_schemes_agent():
 
 class SchemesInput(BaseModel):
     query: str                                      # e.g., "What subsidies are available for drip irrigation?"
-    state: str                                      # e.g., "Telangana"
+    state: Optional[str] = None                                      # e.g., "Telangana"
     gender: Optional[str] = None                    # e.g., "Male", "Female"
     age: Optional[int] = None                       # e.g., 45
     caste: Optional[str] = None                     # e.g., "SC", "OBC"
@@ -55,7 +55,7 @@ class SchemesInput(BaseModel):
 @tool(args_schema=SchemesInput)
 async def schemes(
     query: str,
-    state: str,
+    state: Optional[str],
     gender: Optional[str],
     age: Optional[int],
     caste: Optional[str],
@@ -67,6 +67,8 @@ async def schemes(
     is_differently_abled: bool,
     config: RunnableConfig,
 ) -> str:
+    injected: dict = (config.get("configurable") or {}).get("location") or {}
+    state = state or injected.get("state") or "unknown"
     """
     Query the government schemes agent.
     Use when the user asks about subsidies, government benefits, welfare schemes, or financial assistance.

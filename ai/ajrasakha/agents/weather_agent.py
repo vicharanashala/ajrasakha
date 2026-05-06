@@ -40,12 +40,16 @@ async def _get_weather_agent():
 
 class WeatherInput(BaseModel):
     query: str
-    latitude: float
-    longitude: float
-    address: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    address: Optional[str] = None
 
 @tool(args_schema=WeatherInput)
-async def weather(query: str, latitude: float, longitude: float, address: str, config: RunnableConfig) -> str:
+async def weather(query: str, latitude: Optional[float], longitude: Optional[float], address: Optional[str], config: RunnableConfig) -> str:
+    injected: dict = (config.get("configurable") or {}).get("location") or {}
+    lat = latitude if latitude is not None else injected.get("latitude")
+    lon = longitude if longitude is not None else injected.get("longitude")
+    addr = address or injected.get("address") or injected.get("city") or "unknown"
     """
     Query the weather agent.
     Use when the user asks for weather forecasts, rainfall predictions, or IMD alerts.
@@ -53,9 +57,9 @@ async def weather(query: str, latitude: float, longitude: float, address: str, c
     """
     context = f"""
 Location Context:
-- Address  : {address}
-- Latitude : {latitude}
-- Longitude: {longitude}
+- Address  : {addr}
+- Latitude : {lat or 'unknown'}
+- Longitude: {lon or 'unknown'}
 
 Query: {query}
     """.strip()

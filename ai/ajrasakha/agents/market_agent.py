@@ -45,14 +45,18 @@ async def _get_market_agent():
 
 class MarketInput(BaseModel):
     query: str        # e.g., "What is the current price of rice in Rangareddy?"
-    state: str        # e.g., "Telangana"
-    district: str     # e.g., "Rangareddy"
-    crop: str         # e.g., "Rice"
+    state: Optional[str] = None        # e.g., "Telangana"
+    district: Optional[str] = None     # e.g., "Rangareddy"
+    crop: Optional[str] = None         # e.g., "Rice"
     date: str | None = None  # Optional: "YYYY-MM-DD", defaults to today if omitted
 
 
 @tool(args_schema=MarketInput)
-async def market(query: str, state: str, district: str, crop: str, date: str | None, config: RunnableConfig) -> str:
+async def market(query: str, state: Optional[str], district: Optional[str], crop: Optional[str], date: str | None, config: RunnableConfig) -> str:
+    injected: dict = (config.get("configurable") or {}).get("location") or {}
+    state = state or injected.get("state") or "unknown"
+    district = district or injected.get("district") or injected.get("city") or "unknown"
+    crop = crop or "unknown"
     """
     Query the market price agent.
     Use when the user asks for mandi prices, APMC rates, or commodity arrivals.
