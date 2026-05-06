@@ -1799,7 +1799,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       const result = await this.QuestionCollection.updateMany(
         {
-          status: { $nin: ['hold', 'delayed', 'in-review', 'closed', 're-routed'] },
+          status: { $nin: ['hold', 'delayed', 'in-review', 'closed', 're-routed', 'pass', 'duplicate'] },
           isOnHold: { $ne: true },
           $expr: {
             $lte: [
