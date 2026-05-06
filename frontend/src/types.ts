@@ -465,6 +465,7 @@ export interface IQuestionFullData {
   referenceQuestionId?: string;
   referenceQuestion?:string
   referenceSource?: string;
+  originalQuestion?: string;
 }
 
 export interface QuestionFullDataResponse {

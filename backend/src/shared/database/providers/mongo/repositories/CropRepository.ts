@@ -49,7 +49,7 @@ export class CropRepository implements ICropRepository {
     createdBy: string,
     aliases?: ICropAlias[],
     type?: CropType,
-    status?: 'Restricted' | 'Banned',
+    status?: string,
   ): Promise<ICrop> {
     try {
       if (!this.CropCollection) await this.init();
@@ -215,7 +215,7 @@ export class CropRepository implements ICropRepository {
 
   async updateCrop(
     id: string,
-    updates: {name?: string; aliases?: (ICropAlias | string)[]; status?: 'Restricted' | 'Banned'},
+    updates: {name?: string; aliases?: (ICropAlias | string)[]; status?: string; type?: string},
     updatedBy: string,
   ): Promise<ICrop | null> {
     try {
@@ -226,6 +226,10 @@ export class CropRepository implements ICropRepository {
         updatedAt: new Date(),
         updatedBy: new ObjectId(updatedBy),
       };
+
+      if (updates.type !== undefined) {
+        $set.type = updates.type;
+      }
 
       if (updates.status !== undefined) {
         $set.status = updates.status;
@@ -268,18 +272,13 @@ export class CropRepository implements ICropRepository {
         }
 
         const currentCrop = await this.CropCollection.findOne({_id: new ObjectId(id)});
-        if (currentCrop) {
-          for (const alias of normalizedAliases) {
-            const enRepr = CropRepository.getEnRepr(alias);
-            if (enRepr === currentCrop.name.trim().toLowerCase()) {
-              throw new BadRequestError(
-                `Cannot add alias "${enRepr}" — it is the same as the entry's own name.`,
-              );
-            }
-          }
-        }
+        const cropName = currentCrop?.name?.trim().toLowerCase() ?? '';
+        const filteredAliases = normalizedAliases.filter(alias => {
+          const enRepr = CropRepository.getEnRepr(alias);
+          return !enRepr || enRepr !== cropName;
+        });
 
-        $set.aliases = normalizedAliases;
+        $set.aliases = filteredAliases;
       }
 
       const result = await this.CropCollection.findOneAndUpdate(
@@ -346,6 +345,38 @@ export class CropRepository implements ICropRepository {
       } as ICrop;
     } catch (error: any) {
       throw new InternalServerError(`Failed to find entry by name or alias: ${error.message}`);
+    }
+  }
+
+  // ─── FIND CHEMICAL BY NAME OR ALIAS ────────────────────────────────────────
+
+  async findChemicalByNameOrAlias(name: string): Promise<ICrop | null> {
+    try {
+      if (!this.CropCollection) await this.init();
+
+      const escaped = CropRepository.escapeRegex(name.trim());
+      const regex = new RegExp(`^${escaped}$`, 'i');
+
+      const crop = await this.CropCollection.findOne({
+        $and: [
+          {type: 'chemical'},
+          {$or: [
+            {name: regex},
+            {'aliases.english_representation': regex},
+          ]},
+        ],
+      });
+
+      if (!crop) return null;
+
+      return {
+        ...crop,
+        _id: crop._id?.toString(),
+        createdBy: crop.createdBy?.toString(),
+        updatedBy: crop.updatedBy?.toString(),
+      } as ICrop;
+    } catch (error: any) {
+      throw new InternalServerError(`Failed to find chemical by name or alias: ${error.message}`);
     }
   }
 }

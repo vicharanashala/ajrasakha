@@ -68,44 +68,62 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
     doHold();
   };
   const isQuestionOnHold = question.isOnHold;
+  const originalQuestion = question.originalQuestion?.trim();
+
   return (
     <>
       <header className="grid gap-3 w-full">
         {/* Title + Timer + Exit */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words flex-1">
-            {translatedText || question.question}
-          </h1>
-          {currentUser.role !='expert' && isQuestionAllocatedToExpert && question.status!== 'closed' &&<Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">{isQuestionOnHold ? "Release Hold" : "Hold the question"}</Button>}
-          <SarvamTranslateDropdown query={question.question} onTranslate={(result) => setTranslatedText(result)} />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words">
+              {translatedText || question.question}
+            </h1>
+            {originalQuestion && (
+              <p className="mt-1 text-sm sm:text-base text-muted-foreground break-words">
+                ({originalQuestion})
+              </p>
+            )}
+          </div>
 
-          <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
+          <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-start sm:justify-end sm:flex-shrink-0">
+            <div className="flex flex-wrap justify-end gap-2">
+              {currentUser.role !='expert' && isQuestionAllocatedToExpert && question.status!== 'closed' && (
+                <Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">
+                  {isQuestionOnHold ? "Release Hold" : "Hold the question"}
+                </Button>
+              )}
+              <SarvamTranslateDropdown query={question.question} onTranslate={(result) => setTranslatedText(result)} />
+            </div>
+
+            <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
             {/* <TimerDisplay timer={timer} status={question.status} size="lg" /> */}
-            <TimerDisplay timer={timer} status={question.status} source={question.source} size="lg" />
+              <TimerDisplay timer={timer} status={question.status} source={question.source} size="lg" />
 
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                variant="outline"
-                className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
-                onClick={goBack}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-4 h-4"
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+                  onClick={goBack}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17 8l4 4m0 0l-4 4m4-4H3"
-                  />
-                </svg>
-                <span className="leading-none">Exit</span>
-              </Button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    stroke="currentColor"
+                    className="w-4 h-4"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17 8l4 4m0 0l-4 4m4-4H3"
+                    />
+                  </svg>
+                  <span className="leading-none">Exit</span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -1102,15 +1102,17 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
 
-        // return { isDuplicate: false, data: baseQuestion };
-        return {
-          isDuplicate: false,
+        let responseobj= {
+          isDuplicate:duplicateResult?.isDuplicate ? true:false,
           data: {
             ...baseQuestion,
-            _id: baseQuestion._id?.toString?.(),
+            _id: savedQuestion._id?.toString?.(),
             userId: baseQuestion.userId?.toString?.(),
           },
         };
+        // return { isDuplicate: false, data: baseQuestion };
+        console.log("the response onject coming===",responseobj)
+        return responseobj
       });
     } catch (error) {
       console.error(error);

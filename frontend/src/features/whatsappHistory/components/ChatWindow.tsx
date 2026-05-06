@@ -1,19 +1,46 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Message, Thread } from '../types';
 import { ChatMessage } from './ChatMessage';
-import { Phone, Info, MoreVertical, Check, MessageCircle } from 'lucide-react';
+import { Phone, Info, MoreVertical, Check, MessageCircle, Send, AlertCircle, Lock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/atoms/button';
 import { formatPhoneNumber } from '@/utils/formatPhoneNumber';
 import { ScrollArea } from '@/components/atoms/scroll-area';
+import { Textarea } from '@/components/atoms/textarea';
+import { cn } from '@/lib/utils';
 
 interface ChatWindowProps {
   selectedThread?: Thread;
   messages: Message[];
   isLoading?: boolean;
+  onSendMessage?: (content: string) => void;
+  canSendMessage?: boolean;
+  isSending?: boolean;
 }
 
-export function ChatWindow({ selectedThread, messages, isLoading }: ChatWindowProps) {
+export function ChatWindow({
+  selectedThread,
+  messages,
+  isLoading,
+  onSendMessage,
+  canSendMessage = false,
+  isSending = false
+}: ChatWindowProps) {
+  const [message, setMessage] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleSend = () => {
+    if (message.trim() && onSendMessage && canSendMessage) {
+      onSendMessage(message.trim());
+      setMessage('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -120,12 +147,59 @@ export function ChatWindow({ selectedThread, messages, isLoading }: ChatWindowPr
         </div>
       </ScrollArea>
 
-      {/* Footer notice */}
-      <div className="px-4 py-2 border-t border-border bg-card flex items-center justify-center gap-1.5 shrink-0">
-        <Info className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-        <p className="text-[11px] text-muted-foreground/70 leading-snug">
-          Showing final AI responses only — tool calls and internal logs are hidden.
-        </p>
+      {/* Footer / Message Input */}
+      <div className="border-t border-border bg-card/50 backdrop-blur-sm p-4">
+        {canSendMessage ? (
+          <div className="flex flex-col gap-2">
+            <div className="relative flex items-end gap-2 bg-background/50 rounded-xl border border-border p-1.5 focus-within:ring-2 focus-within:ring-green-500/20 focus-within:border-green-500/50 transition-all">
+              <Textarea
+                placeholder="Type a message..."
+                className="flex-1 min-h-[44px] max-h-[120px] bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none py-2.5 px-3 text-sm"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isSending}
+              />
+              <Button
+                size="icon"
+                className={cn(
+                  "h-9 w-9 rounded-lg shrink-0 transition-all",
+                  message.trim() ? "bg-green-600 hover:bg-green-700 text-white" : "bg-muted text-muted-foreground"
+                )}
+                disabled={!message.trim() || isSending}
+                onClick={handleSend}
+              >
+                {isSending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <div className="flex items-center justify-center gap-1.5 px-1">
+              <Info className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+              <p className="text-[10px] text-muted-foreground/70 leading-snug">
+                This will send a direct WhatsApp message to the user.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-4 px-6 bg-muted/20 rounded-xl border border-dashed border-border/60">
+            <div className="w-10 h-10 rounded-full bg-background border border-border flex items-center justify-center mb-3 shadow-sm">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <h4 className="text-sm font-semibold text-foreground mb-1">Standard Messaging Disabled</h4>
+            <p className="text-[11px] text-muted-foreground text-center max-w-[320px] leading-relaxed">
+              The 24-hour window since the user's last message has expired. 
+              WhatsApp requires a <strong>Message Template</strong> to continue the conversation.
+            </p>
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" size="sm" className="h-8 text-[10px] font-medium px-3 opacity-50 cursor-not-allowed">
+                Choose Template
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
