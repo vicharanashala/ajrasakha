@@ -46,7 +46,6 @@ export interface IGetAllCropsResponse {
 export interface IUpdateCropPayload {
   name?: string;
   aliases?: (ICropAlias | string)[];
-  status?: "Restricted" | "Banned";
   crops?: string[];
   status?: string;
 }

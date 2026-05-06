@@ -109,18 +109,19 @@ class UpdateCropDto {
   @Transform(({ value }) => value)
   aliases?: (CropAliasDto | string)[];
 
-  @JSONSchema({description: 'Status update — only applicable for chemical entries, any custom string', type: 'string'})
+  @JSONSchema({
+    description: 'Status update — only applicable for chemical entries, any custom string',
+    type: 'string',
+  })
   @IsOptional()
-  @IsIn(['Restricted', 'Banned'])
-  status?: 'Restricted' | 'Banned';
+  @IsString()
+  status?: string;
 
   @JSONSchema({ description: 'Updated associated crops', type: 'array', items: { type: 'string' } })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   crops?: string[];
-  @IsString()
-  status?: string;
 }
 
 // ── Query DTOs ──
