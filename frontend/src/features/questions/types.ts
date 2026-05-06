@@ -19,6 +19,10 @@ export type ReviewLevelQuestion = {
   status: string;
   createdAt: string;
   reviewLevels: ReviewLevelEntry[];
+  similarityScore?: number | null;
+  referenceQuestionId?: string | null;
+  referenceQuestion?: string | null;
+  referenceSource?: string | null;
 };
 
 export type ReviewLevelsApiResponse = {

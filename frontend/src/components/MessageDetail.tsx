@@ -23,6 +23,7 @@ import {
     AlertDialogTitle,
 } from "@/components/atoms/alert-dialog";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
+import { ScrollArea } from "./atoms/scroll-area";
 
 interface MessageDetailCardProps {
     question: IQuestionFullData;
@@ -196,32 +197,75 @@ const MessageDetail = ({
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
                                     Processing Steps ({msg.content.length})
                                 </p>
-                                {msg.content.map((item: any, i: number) => {
-                                    const isLastItem = i === msg.content.length - 1;
+                                {question.source === "WHATSAPP" ? (
+                                    (() => {
+                                        const lastAiIndex = msg.content.map((item: any) => item.type).lastIndexOf("ai");
+                                        return msg.content.map((item: any, i: number) => {
+                                            if (item.type === "human") {
+                                                return <ContentHuman key={i} text={item.text} />;
+                                            }
 
-                                    if (item.type === "think") {
-                                        const idx = thinkIndex++;
-                                        return <ContentThinkStep key={i} think={item.think} index={idx} />;
-                                    }
+                                            if (item.type === "ai") {
+                                                if (i === lastAiIndex) {
+                                                    return (
+                                                        <ContentAnswer
+                                                            key={i}
+                                                            text={item.text}
+                                                            question={question}
+                                                            isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
+                                                            navigateToQuestionPage={navigateToQuestionPage}
+                                                        />
+                                                    );
+                                                }
+                                                return <ContentTextStep key={i} text={item.text} />;
+                                            }
 
-                                    if (item.type === "tool_call") {
-                                        return <ContentToolCall key={i} toolCall={item.tool_call} />;
-                                    }
+                                            if (item.type === "tool") {
+                                                return (
+                                                    <ContentToolCall
+                                                        key={i}
+                                                        toolCall={{
+                                                            id: i.toString(),
+                                                            name: item.toolName || "tool",
+                                                            args: item.toolArgs || {},
+                                                            progress: item.toolResponse ? 1 : 0,
+                                                            output: item.toolResponse || "Calling tool..."
+                                                        }}
+                                                    />
+                                                );
+                                            }
 
-                                    if (item.type === "text" && isLastItem) {
-                                        return (
-                                            <ContentAnswer
-                                                key={i}
-                                                text={item.text}
-                                                question={question}
-                                                isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
-                                                navigateToQuestionPage={navigateToQuestionPage}
-                                            />
-                                        );
-                                    }
+                                            return null;
+                                        });
+                                    })()
+                                ) : (
+                                    msg.content.map((item: any, i: number) => {
+                                        const isLastItem = i === msg.content.length - 1;
 
-                                    return null;
-                                })}
+                                        if (item.type === "think") {
+                                            const idx = thinkIndex++;
+                                            return <ContentThinkStep key={i} think={item.think} index={idx} />;
+                                        }
+
+                                        if (item.type === "tool_call") {
+                                            return <ContentToolCall key={i} toolCall={item.tool_call} />;
+                                        }
+
+                                        if (item.type === "text" && isLastItem) {
+                                            return (
+                                                <ContentAnswer
+                                                    key={i}
+                                                    text={item.text}
+                                                    question={question}
+                                                    isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
+                                                    navigateToQuestionPage={navigateToQuestionPage}
+                                                />
+                                            );
+                                        }
+
+                                        return null;
+                                    })
+                                )}
                             </div>
                         </div>
                     )}
@@ -480,16 +524,48 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         else if (type === "approve") { doApprove(); }
     };
 
+    const renderAnswerBody = (raw: string) => (
+        <ScrollArea className="h-[400px] w-full rounded-md border p-4">
+            <div className="space-y-2">
+                {raw.split("\n").map((line, i) => {
+                    if (line.trim() === "") return <br key={i} />;
 
-    const renderAnswerBody = (raw: string) => raw.split("\n").map((line, i) => {
-        if (line.trim() === "") return <br key={i} />;
-        const parts = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
-        return (<p key={i} className="leading-relaxed">{parts.map((part, pi) => {
-            if (part.startsWith("**") && part.endsWith("**")) return <strong key={pi} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
-            if (part.startsWith("*") && part.endsWith("*") && !part.startsWith("**")) return <em key={pi} className="italic text-foreground/80">{part.slice(1, -1)}</em>;
-            return <span key={pi}>{part}</span>;
-        })}</p>);
-    });
+                    const parts = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+
+                    return (
+                        <p key={i} className="leading-relaxed">
+                            {parts.map((part, pi) => {
+                                if (part.startsWith("**") && part.endsWith("**")) {
+                                    return (
+                                        <strong
+                                            key={pi}
+                                            className="font-semibold text-foreground"
+                                        >
+                                            {part.slice(2, -2)}
+                                        </strong>
+                                    );
+                                }
+
+                                if (
+                                    part.startsWith("*") &&
+                                    part.endsWith("*") &&
+                                    !part.startsWith("**")
+                                ) {
+                                    return (
+                                        <em key={pi} className="italic text-foreground/80">
+                                            {part.slice(1, -2 + 1)}
+                                        </em>
+                                    );
+                                }
+
+                                return <span key={pi}>{part}</span>;
+                            })}
+                        </p>
+                    );
+                })}
+            </div>
+        </ScrollArea>
+    );
 
     return (
         <>
@@ -827,7 +903,62 @@ const EditAnswerModal = ({
 
 
 
+
+interface ContentHumanProps {
+    text: string;
+}
+
+const ContentHuman = ({ text }: ContentHumanProps) => {
+    return (
+        <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/10">
+                <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-xs font-medium text-foreground">Farmer Question</span>
+            </div>
+            <div className="px-4 py-3 text-sm text-foreground/80 whitespace-pre-wrap">
+                {text}
+            </div>
+        </div>
+    );
+};
+
+interface ContentTextStepProps {
+    text: string;
+}
+
+const ContentTextStep = ({ text }: ContentTextStepProps) => {
+    const [expanded, setExpanded] = useState(false);
+    const preview = text.slice(0, 120) + (text.length > 120 ? "…" : "");
+
+    return (
+        <div className="rounded-lg border border-border bg-surface/50 overflow-hidden">
+            <button
+                onClick={() => setExpanded(!expanded)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface transition-colors"
+            >
+                <MessageSquareText className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-xs font-medium text-primary">AI Update</span>
+                <span className="text-xs text-muted-foreground truncate flex-1">
+                    {!expanded && preview}
+                </span>
+                {expanded ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                )}
+            </button>
+            {expanded && (
+                <div className="px-4 pb-4 text-sm text-foreground/80 whitespace-pre-wrap border-t border-border bg-surface/30">
+                    <div className="pt-3">{text}</div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 interface ContentThinkStepProps {
+
     think: string;
     index: number;
 }

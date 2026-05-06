@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
 const SidebarButton = ({
@@ -59,6 +60,7 @@ export const MobileSidebar = ({
   setTab: (value: string) => void;
   setChatbotSource: (value: "vicharanashala" | "annam") => void;
 }) => {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(
     user?.role !== "expert" ? "performance" : "questions"
@@ -70,6 +72,8 @@ export const MobileSidebar = ({
       setChatbotSource(source);
       setTab("chatbotanalytics");
       setActiveTab(value);
+    } else if (value === "whatsapp_history") {
+      navigate({ to: "/whatsapp-history" });
     } else {
       setTab(value);
       setActiveTab(value);
@@ -128,6 +132,7 @@ export const MobileSidebar = ({
       : []),
 
     ...(user ? [{ id: "history", label: "History", icon: History }] : []),
+    ...(user ? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
   ];
 
   return (

@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/atoms/card";
-import { Download, Smartphone, Apple } from "lucide-react";
+import { Download, Smartphone, Apple, Maximize2, X } from "lucide-react";
 
 type BadgeVariant = "green" | "red" | "amber" | "blue";
 
@@ -213,6 +213,7 @@ function getIcon(icon?: string, color?: string, size: number = 16) {
   return null;
 }
 function KpiCard({ kpi }: { kpi: KpiCardData }) {
+  const [isMaximized, setIsMaximized] = useState(false);
   const deltaColor =
     kpi.deltaDir === "up"
       ? "#1E7A3C"
@@ -221,69 +222,160 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
         : "#888";
 
   return (
-    <Card className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]">
-      <div
-        className="absolute inset-x-0 top-0 h-1"
-        style={{ background: kpi.accentColor }}
-      />
-      <CardContent className="p-4 flex flex-col gap-2">
-        {/* Upper: label + value + delta with icon on left */}
-        <div className="flex items-center gap-3">
-          {kpi.icon && (
-            <div
-              className="flex items-center justify-center w-10 h-10 rounded-full flex-shrink-0"
-              style={{ background: `${kpi.accentColor}20` }}
-            >
-              {getIcon(kpi.icon, kpi.accentColor, 24)}
-            </div>
-          )}
-          <div className="flex flex-col gap-0.5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              {kpi.label}
-            </div>
-            <div
-              className="text-2xl font-semibold dark:text-slate-100"
-              style={{ color: kpi.valueColor }}
-            >
-              {kpi.value}
-            </div>
-            <div
-              className="flex items-center gap-1 text-xs dark:text-gray-300"
-              style={{ color: deltaColor }}
-            >
-              <DeltaIcon dir={kpi.deltaDir} /> {kpi.delta}
+    <>
+      <Card className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]">
+        <div
+          className="absolute inset-x-0 top-0 h-1"
+          style={{ background: kpi.accentColor }}
+        />
+        
+        {/* Maximize Button */}
+        {kpi.sparkPoints && (
+          <button
+            onClick={() => setIsMaximized(true)}
+            className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
+            title="Maximize graph"
+          >
+            <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+          </button>
+        )}
+
+        <CardContent className="p-4 flex flex-col gap-2">
+          {/* Upper: label + value + delta with icon on left */}
+          <div className="flex items-center gap-3">
+            {kpi.icon && (
+              <div
+                className="flex items-center justify-center w-10 h-10 rounded-full flex-shrink-0"
+                style={{ background: `${kpi.accentColor}20` }}
+              >
+                {getIcon(kpi.icon, kpi.accentColor, 24)}
+              </div>
+            )}
+            <div className="flex flex-col gap-0.5">
+              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {kpi.label}
+              </div>
+              <div
+                className="text-2xl font-semibold dark:text-slate-100"
+                style={{ color: kpi.valueColor }}
+              >
+                {kpi.value}
+              </div>
+              <div
+                className="flex items-center gap-1 text-xs dark:text-gray-300"
+                style={{ color: deltaColor }}
+              >
+                <DeltaIcon dir={kpi.deltaDir} /> {kpi.delta}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Lower: sparkline, badges */}
-        <div className="flex flex-col gap-1.5">
-          {kpi.sparkPoints && (
-            <div className="mt-1">
+          {/* Lower: sparkline, badges */}
+          <div className="flex flex-col gap-1.5">
+            {kpi.sparkPoints && (
+              <div className="mt-1">
+                <Sparkline
+                  points={kpi.sparkPoints}
+                  color={kpi.accentColor}
+                  labels={kpi.sparkLabels}
+                />
+              </div>
+            )}
+            {kpi.badges && (
+              <div className="flex gap-1 flex-wrap">
+                {kpi.badges.map((b) => (
+                  <SmallBadge key={b.label} label={b.label} variant={b.variant} />
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+
+        {/* // Remove this div when data is dynamic */}
+        {kpi.isDummy && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10 cursor-not-allowed">
+            <span className="text-white text-xs font-semibold tracking-wide"></span>
+          </div>
+        )}
+      </Card>
+
+      {/* Maximized Modal */}
+      {isMaximized && kpi.sparkPoints && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+          onClick={() => setIsMaximized(false)}
+        >
+          <div 
+            className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-4xl w-full p-6 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setIsMaximized(false)}
+              className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              title="Close"
+            >
+              <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+            </button>
+
+            {/* Header */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                {kpi.icon && (
+                  <div
+                    className="flex items-center justify-center w-12 h-12 rounded-full"
+                    style={{ background: `${kpi.accentColor}20` }}
+                  >
+                    {getIcon(kpi.icon, kpi.accentColor, 28)}
+                  </div>
+                )}
+                <div>
+                  <div className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {kpi.label}
+                  </div>
+                  <div
+                    className="text-4xl font-semibold dark:text-slate-100"
+                    style={{ color: kpi.valueColor }}
+                  >
+                    {kpi.value}
+                  </div>
+                </div>
+              </div>
+              <div
+                className="flex items-center gap-1.5 text-sm dark:text-gray-300"
+                style={{ color: deltaColor }}
+              >
+                <DeltaIcon dir={kpi.deltaDir} /> {kpi.delta}
+              </div>
+            </div>
+
+            {/* Enlarged Graph */}
+            <div className="h-64 relative">
+              {/* Y-axis border */}
+              <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700"></div>
+              {/* X-axis border */}
+              <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700"></div>
+              
               <Sparkline
                 points={kpi.sparkPoints}
                 color={kpi.accentColor}
                 labels={kpi.sparkLabels}
               />
             </div>
-          )}
-          {kpi.badges && (
-            <div className="flex gap-1 flex-wrap">
-              {kpi.badges.map((b) => (
-                <SmallBadge key={b.label} label={b.label} variant={b.variant} />
-              ))}
-            </div>
-          )}
-        </div>
-      </CardContent>
 
-      {/* // Remove this div when data is dynamic */}
-      {kpi.isDummy && (
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10 cursor-not-allowed">
-          <span className="text-white text-xs font-semibold tracking-wide"></span>
-        </div>
+            {/* Badges */}
+            {kpi.badges && (
+              <div className="flex gap-2 flex-wrap mt-6">
+                {kpi.badges.map((b) => (
+                  <SmallBadge key={b.label} label={b.label} variant={b.variant} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
-    </Card>
+    </>
   );
 }
 

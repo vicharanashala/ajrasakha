@@ -17,9 +17,6 @@ from crop_name_lookup import (
     get_top_local_candidates,
 )
 from crop_variants import expand_crop_variants_for_state
-# We import the tool function directly. Note that it's an async function decorated with @tool.
-# FastMCP can wrap it, or we can call it directly. 
-# Since we need to match the signature requested by the user, we will wrap it.
 from reviewer_rag_tool import reviewer_retriever_tool
 from context_validator import validate_retrieved_context
 from reviewer_exact_match import (
@@ -555,8 +552,10 @@ async def get_context_from_reviewer_dataset(query: str, state: str = None, crop:
         crop_for_retriever = expand_crop_variants_for_state(state_to_pass, crop)
 
     # Trigger the underlying retriever logic.
-    retrieved_chunks = await reviewer_retriever_tool.ainvoke(
-        {"query": query, "crop": crop_for_retriever, "state": state_to_pass}
+    retrieved_chunks = await reviewer_retriever_tool(
+        query=query,
+        crop=crop_for_retriever,
+        state=state_to_pass,
     )
     retrieved_chunks = retrieved_chunks or []
     retrieval_preview = []

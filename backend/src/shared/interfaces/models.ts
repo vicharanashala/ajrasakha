@@ -80,6 +80,11 @@ export interface IQuestion {
   accumulatedHoldMs?: number;
   originalQuestion?:string
   authors_history?: IAuthorsHistory[];
+  /** for duplicate quesitons */
+  similarityScore?: number;        // percentage (0–100)
+  referenceQuestionId?: ObjectId;
+  referenceQuestion?:string
+  referenceSource?: string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -381,14 +386,15 @@ export interface ICropAlias {
   native_representation: string;    // native script e.g. "వరి"
 }
 
-export type CropType = 'crop' | 'chemical' | 'other';
+export type CropType = 'crop' | 'chemical' | (string & {});
 
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  type?: CropType;                    // 'crop' (default) | 'chemical' | 'other'
-  status?: 'Restricted' | 'Banned';  // only relevant when type === 'chemical'
+  type?: CropType;                    // 'crop' (default) | 'chemical' | any custom string
+  status?: string;                    // only relevant when type === 'chemical', any custom string
   aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
+  crops?: string[];                  // associated crops (only for type === 'chemical')
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
   createdAt?: Date;

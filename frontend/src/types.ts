@@ -461,6 +461,11 @@ export interface IQuestionFullData {
   aiApprovedAnswer?: string;
   aiApprovedSources?: SourceItem[];
   authors_history?: IAuthorsHistory[];
+  similarityScore?: number;        // percentage (0–100)
+  referenceQuestionId?: string;
+  referenceQuestion?:string
+  referenceSource?: string;
+  originalQuestion?: string;
 }
 
 export interface QuestionFullDataResponse {
@@ -537,6 +542,10 @@ export interface IDetailedQuestion {
     history: ISubmissionHistory[];
     queue: IUserRef[];
   };
+  similarityScore?: number;        // percentage (0–100)
+  referenceQuestionId?: string;
+  referenceQuestion?:string
+  referenceSource?: string;
 }
 
 export interface IDetailedQuestionResponse {

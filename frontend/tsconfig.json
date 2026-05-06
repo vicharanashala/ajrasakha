@@ -25,6 +25,7 @@
       "@/*": ["./src/*"],
     },
 
-    "allowJs": true
+    "allowJs": true,
+    "resolveJsonModule": true
   }
 }
