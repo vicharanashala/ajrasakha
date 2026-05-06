@@ -1,11 +1,11 @@
 import 'reflect-metadata';
-import { JsonController, Post, Req, Res } from 'routing-controllers';
+import { Controller, JsonController, Post, Req, Res } from 'routing-controllers';
 import { Request, Response } from 'express';
 import { appConfig } from '#root/config/app.js';
 import { injectable } from 'inversify';
 
 @injectable()
-@JsonController('/plivo')
+@Controller('/plivo')
 export class PlivoController {
   @Post('/answer')
   answer(@Req() req: Request, @Res() res: Response) {
@@ -13,7 +13,9 @@ export class PlivoController {
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  <Speak>Hello, Annam agri specialist here.</Speak>
   <Stream bidirectional="true">${streamUrl}</Stream>
+  <Wait length="100" />
 </Response>`;
 
     res.set('Content-Type', 'text/xml');

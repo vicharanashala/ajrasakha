@@ -1,5 +1,7 @@
 import { WebSocketServer } from 'ws';
 import { IncomingMessage, Server } from 'http';
+import fs from 'fs';
+import path from 'path';
 
 export const initWebSocket = (server: Server) => {
   const wss = new WebSocketServer({
@@ -9,6 +11,11 @@ export const initWebSocket = (server: Server) => {
 
   wss.on('connection', (ws, req: IncomingMessage) => {
     console.log('🔌 Plivo stream connected');
+
+    // Create a unique filename for this call
+    const callId = Date.now();
+    const filePath = path.join(process.cwd(), `call_${callId}.mp3`);
+    const fileStream = fs.createWriteStream(filePath);
 
     ws.on('message', (data: Buffer) => {
       try {
@@ -21,8 +28,19 @@ export const initWebSocket = (server: Server) => {
         if (msg.event === 'media') {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
           console.log('🎧 Audio chunk received, size:', audioBuffer.length);
-          // Process audio chunk here
-        }
+          fileStream.write(audioBuffer);
+      //     // Calculate volume level (RMS - Root Mean Square)
+      //     let sum = 0;
+      //     for (let i = 0; i < audioBuffer.length; i++) {
+      //       // 128 is the 'zero' point for mu-law bytes
+      //       sum += Math.pow(audioBuffer[i] - 128, 2);
+      //     }
+      //     const rms = Math.sqrt(sum / audioBuffer.length);
+      //     const visualBar = '█'.repeat(Math.min(Math.floor(rms / 2), 30));
+
+      //     console.log(`🎤 [${new Date().toISOString()}] Volume: ${visualBar}`);
+      //   // Process audio chunk here
+      }
 
         if (msg.event === 'stop') {
           console.log('📴 Call ended');
