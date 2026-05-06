@@ -67,9 +67,21 @@ async def market(query: str, state: str, district: str, crop: str, date: str | N
     Query: {query}
     """.strip()
 
+    import asyncio
     agent = await _get_market_agent()
-    result = await agent.ainvoke(
-        {"messages": [HumanMessage(content=context)]},
-        config=config
-    )
-    return result["messages"][-1].content
+    try:
+        coro = agent.ainvoke(
+            {"messages": [HumanMessage(content=context)]},
+            config=config
+        )
+        result = await asyncio.wait_for(asyncio.shield(coro), timeout=45.0)
+        return result["messages"][-1].content
+    except asyncio.CancelledError:
+        task = asyncio.current_task()
+        if task and hasattr(task, "uncancel"):
+            task.uncancel()
+        return "⚠️ The request was cancelled."
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("market sub-agent failed: %s", exc)
+        return f"⚠️ The market price service is temporarily unavailable. Error: {type(exc).__name__}"

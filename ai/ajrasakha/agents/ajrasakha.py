@@ -107,7 +107,39 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
 
     enriched_config = patch_config(config, configurable={"location": state.get("location")})
 
-    return await ToolNode([gdb,weather,soil,market, location, schemes, chemical_checker, reviewer]).ainvoke(state)
+    import asyncio
+    from langchain_core.messages import ToolMessage
+    
+    tool_node = ToolNode([gdb,weather,soil,market, location, schemes, chemical_checker, reviewer])
+    
+    try:
+        coro = tool_node.ainvoke(state, config=enriched_config)
+        return await asyncio.wait_for(asyncio.shield(coro), timeout=60.0)
+    except (asyncio.CancelledError, Exception) as e:
+        is_cancel = isinstance(e, asyncio.CancelledError)
+        if is_cancel:
+            task = asyncio.current_task()
+            if task and hasattr(task, "uncancel"):
+                task.uncancel()
+        
+        err_msg = "⚠️ The request was cancelled or timed out." if is_cancel else f"⚠️ Tool execution failed: {type(e).__name__}"
+        
+        last_message = state["messages"][-1]
+        tool_messages = []
+        if hasattr(last_message, "tool_calls"):
+            for tc in last_message.tool_calls:
+                tool_messages.append(
+                    ToolMessage(
+                        tool_call_id=tc["id"],
+                        name=tc["name"],
+                        content=err_msg
+                    )
+                )
+        if tool_messages:
+            return {"messages": tool_messages}
+        if is_cancel:
+            raise e
+        return {"messages": []}
 
 
 builder = StateGraph(AjraSakhaState)
