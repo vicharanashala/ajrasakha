@@ -26,6 +26,11 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 import {NotificationService} from '#root/modules/core/index.js';
 import { AllocatedQuestionsBodyDto, GetDetailedQuestionsQuery } from '../classes/validators/QuestionValidators.js';
 import { IReRouteService } from '../interfaces/IRerouteService.js';
+import {
+  AllocatedQuestionDto,
+  QuestionDetailedResponseDto,
+  RerouteHistoryEntryDto,
+} from '../dtos/ReRouteResponseDto.js';
 
 @injectable()
 export class ReRouteService extends BaseService implements IReRouteService {
@@ -254,16 +259,32 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
   }
   
 
-  async getAllocatedQuestions(userId: string, query: GetDetailedQuestionsQuery, body: AllocatedQuestionsBodyDto) {
+  async getAllocatedQuestions(
+    userId: string,
+    query: GetDetailedQuestionsQuery,
+    body: AllocatedQuestionsBodyDto,
+  ): Promise<AllocatedQuestionDto[]> {
     return await this._withTransaction(async (session: ClientSession) => {
       const expert = await this.userRepo.findById(userId.toString());
       if (!expert) {
         throw new NotFoundError('Expert not found');
       }
-      return await this.reRouteRepository.getAllocatedQuestions(userId.toString(), query, session, body);
+      const questions = await this.reRouteRepository.getAllocatedQuestions(userId.toString(), query, session, body);
+      
+      // Explicitly map to ensure it matches AllocatedQuestionDto
+      return questions.map(q => ({
+        id: q.id.toString(),
+        text: q.text,
+        status: q.status,
+        priority: q.priority,
+        source: q.source,
+        totalAnswersCount: q.totalAnswersCount,
+        createdAt: q.createdAt?.toISOString?.() || q.createdAt,
+        updatedAt: q.updatedAt?.toISOString?.() || q.updatedAt,
+      }));
     });
   }
-  async getQuestionById(questionId: string,userId:string){
+  async getQuestionById(questionId: string, userId: string): Promise<QuestionDetailedResponseDto> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         const currentQuestion = await this.questionRepo.getById(questionId);
@@ -272,54 +293,38 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
           throw new NotFoundError(
             `Failed to find question with id: ${questionId}`,
           );
-          let result= await this.reRouteRepository.getAllocatedQuestionsByID(questionId,userId,session)
-          
-          
+        const result = await this.reRouteRepository.getAllocatedQuestionsByID(questionId, userId, session);
 
         // Only author needs to see ai initial answer
-        let aiInitialAnswer = '';
-
-        
+        const aiInitialAnswer = '';
 
         return {
           id: currentQuestion._id.toString(),
           text: currentQuestion.question,
           source: currentQuestion.source,
-          details: currentQuestion.details,
+          details: {
+            ...currentQuestion.details,
+            crop: typeof currentQuestion.details.crop === 'object' ? currentQuestion.details.crop.name : currentQuestion.details.crop,
+          },
           status: currentQuestion.status,
           priority: currentQuestion.priority,
           aiInitialAnswer,
-          createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
-          updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
+          createdAt: currentQuestion.createdAt instanceof Date ? currentQuestion.createdAt.toISOString() : new Date(currentQuestion.createdAt).toISOString(),
+          updatedAt: currentQuestion.updatedAt instanceof Date ? currentQuestion.updatedAt.toISOString() : new Date(currentQuestion.updatedAt).toISOString(),
           totalAnswersCount: currentQuestion.totalAnswersCount,
-          history: result,
-          // currentAnswers: currentAnswers.map(currentAnswer => ({
-          //   id: currentAnswer._id.toString(),
-          //   answer: currentAnswer.answer,
-          //   isFinalAnswer: currentAnswer.isFinalAnswer,
-          //   createdAt: currentAnswer.createdAt,
-          // })),
+          history: result?.map((h: any) => ({
+            ...h,
+            reroutedBy: h.reroutedBy?.toString(),
+            reroutedTo: h.reroutedTo?.toString(),
+            answerId: h.answerId?.toString(),
+            reroutedAt: h.reroutedAt instanceof Date ? h.reroutedAt.toISOString() : h.reroutedAt,
+            updatedAt: h.updatedAt instanceof Date ? h.updatedAt.toISOString() : h.updatedAt,
+          })),
         };
       });
-
-        // const currentAnswers = await this.answerRepo.getByQuestionId(
-        //   questionId,
-        //   session,
-        // );
-
-           
-       
-          // currentAnswers: currentAnswers.map(currentAnswer => ({
-          //   id: currentAnswer._id.toString(),
-          //   answer: currentAnswer.answer,
-          //   isFinalAnswer: currentAnswer.isFinalAnswer,
-          //   createdAt: currentAnswer.createdAt,
-          // })),
-        
-      
     } catch (error) {
       throw new InternalServerError(
-        `Failed to get unanswered questions: ${error}`,
+        `Failed to get question by ID: ${error instanceof Error ? error.message : error}`,
       );
     }
   }
@@ -378,10 +383,29 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
     }
   }
 
-  async getRerouteHistory(answerId:string){
-    return await this._withTransaction(async (session:ClientSession) => {
-      return await this.reRouteRepository.getRerouteHistory(answerId,session)
-    })
+  async getRerouteHistory(answerId: string): Promise<RerouteHistoryEntryDto[]> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const results = await this.reRouteRepository.getRerouteHistory(answerId, session);
+      if (!results || results.length === 0) {
+        return [];
+      }
+      
+      // The repo returns an array of documents, each with a reroutes array.
+      // We take the reroutes from the first matched document.
+      const history = results[0].reroutes || [];
+      
+      return history.map((h: any) => ({
+        reroutedBy: h.reroutedBy?._id || h.reroutedBy?.toString(),
+        reroutedTo: h.reroutedTo?._id || h.reroutedTo?.toString(),
+        reroutedAt: h.reroutedAt instanceof Date ? h.reroutedAt.toISOString() : h.reroutedAt,
+        answerId: h.answer?._id || h.answerId?.toString(),
+        status: h.status,
+        rejectionReason: h.rejectionReason,
+        moderatorRejectionReason: h.moderatorRejectionReason,
+        comment: h.comment,
+        updatedAt: h.updatedAt instanceof Date ? h.updatedAt.toISOString() : h.updatedAt,
+      }));
+    });
   }
 
   async moderatorReject(questionId:string,expertId:string,status:RerouteStatus,reason:string){

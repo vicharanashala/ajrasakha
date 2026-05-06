@@ -1,4 +1,4 @@
-import { Expose, Type } from 'class-transformer';
+import { Expose, Type, Transform } from 'class-transformer';
 import { IsString, IsEmail, IsBoolean, IsNumber, IsOptional, ValidateNested, IsObject, IsArray, IsEnum, IsDate } from 'class-validator';
 import { IQuestionPriority, ICropRef, QuestionStatus, QuestionSource } from '#shared/interfaces/models.js';
 import { PaginationMetaDto } from '#root/shared/dtos/PaginationDto.js';
@@ -32,6 +32,7 @@ export class QuestionDetailsDto {
 
 export class UpdatedByDto {
   @Expose()
+  @Transform(({ value }) => value?.toString())
   @IsString()
   _id: string;
 
@@ -47,6 +48,7 @@ export class UpdatedByDto {
 
 export class AnswerDetailsDto {
   @Expose()
+  @Transform(({ value }) => value?.toString())
   @IsString()
   _id: string;
 
@@ -101,13 +103,21 @@ export class HistoryItemDto {
 }
 
 export class QuestionResponseDto {
-  @Expose({ name: '_id' })
-  @IsString()
+  @Expose()
+  @Transform(({ value, obj }) => value?.toString() || obj._id?.toString() || obj.id?.toString())
   id: string;
 
-  @Expose({ name: 'question' })
-  @IsString()
+  @Expose()
+  @Transform(({ value, obj }) => value?.toString() || obj._id?.toString() || obj.id?.toString())
+  _id: string;
+
+  @Expose()
+  @Transform(({ value, obj }) => value || obj.question || obj.text)
   text: string;
+
+  @Expose()
+  @Transform(({ value, obj }) => value || obj.question || obj.text)
+  question: string;
 
   @Expose()
   @IsEnum(['low', 'medium', 'high'])
@@ -135,7 +145,7 @@ export class QuestionResponseDto {
   details?: QuestionDetailsDto;
 
   @Expose()
-  @IsOptional()
+  @Transform(({ value }) => value?.toString())
   @IsString()
   userId?: string;
 

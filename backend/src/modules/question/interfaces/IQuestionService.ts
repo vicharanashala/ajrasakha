@@ -63,7 +63,7 @@ export interface IQuestionService {
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
-  ): Promise<{ message: string }>;
+  ): Promise<QuestionResponseDto>;
 
   /** Auto allocate experts */
   autoAllocateExperts(

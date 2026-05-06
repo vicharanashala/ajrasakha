@@ -3,6 +3,11 @@ import {
   RerouteStatus,
 } from '#root/shared/interfaces/models.js';
 import { AllocatedQuestionsBodyDto, GetDetailedQuestionsQuery } from '../classes/validators/QuestionValidators.js';
+import {
+  AllocatedQuestionDto,
+  QuestionDetailedResponseDto,
+  RerouteHistoryEntryDto,
+} from '../dtos/ReRouteResponseDto.js';
 
 export interface IReRouteService {
   /**
@@ -24,7 +29,7 @@ export interface IReRouteService {
     userId: string,
     query: GetDetailedQuestionsQuery,
     body: AllocatedQuestionsBodyDto,
-  ): Promise<any>;
+  ): Promise<AllocatedQuestionDto[]>;
 
   /**
    * Get re-routed question details for expert
@@ -32,19 +37,7 @@ export interface IReRouteService {
   getQuestionById(
     questionId: string,
     userId: string
-  ): Promise<{
-    id: string;
-    text: string;
-    source: string;
-    details: any;
-    status: string;
-    priority: string;
-    aiInitialAnswer: string;
-    createdAt: string;
-    updatedAt: string;
-    totalAnswersCount: number;
-    history: any;
-  }>;
+  ): Promise<QuestionDetailedResponseDto>;
 
   /**
    * Expert or moderator rejects re-route
@@ -61,7 +54,7 @@ export interface IReRouteService {
   /**
    * Get re-route history for an answer
    */
-  getRerouteHistory(answerId: string): Promise<IRerouteHistory[]>;
+  getRerouteHistory(answerId: string): Promise<RerouteHistoryEntryDto[]>;
 
   /**
    * Moderator rejects & updates re-route status

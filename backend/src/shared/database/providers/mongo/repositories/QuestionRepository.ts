@@ -21,7 +21,7 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import { detailsArray,dummyEmbeddings,priorities,questionStatus,sources } from '#root/modules/question/utils/questionGen.js';
+import { detailsArray, dummyEmbeddings, priorities, questionStatus, sources } from '#root/modules/question/utils/questionGen.js';
 import {
   Analytics,
   AnalyticsItem,
@@ -329,26 +329,26 @@ export class QuestionRepository implements IQuestionRepository {
         duplicateQuestions,
         isOnHold,
       } = query;
-    //  const filter: any = {};
-    const filter: any = {
-      isHidden: { $ne: true }, // default to exclude hidden questions
-      isOnHold: { $ne: true }, // default to exclude on hold questions
-    };
+      //  const filter: any = {};
+      const filter: any = {
+        isHidden: { $ne: true }, // default to exclude hidden questions
+        isOnHold: { $ne: true }, // default to exclude on hold questions
+      };
 
-    // --- Hidden question filter ---
-    if(hiddenQuestions === 'true'){
+      // --- Hidden question filter ---
+      if (hiddenQuestions === 'true') {
         filter.isHidden = { $eq: true }; // filter by hidden questions
-    }
+      }
 
-    // --- on Hold question filter ---
-    if(isOnHold === 'true')filter.isOnHold = { $eq: true }; // filter by on hold questions
+      // --- on Hold question filter ---
+      if (isOnHold === 'true') filter.isOnHold = { $eq: true }; // filter by on hold questions
 
-    //for duplicate questions.
-    // duplicateQuestions === 'true'
-    //       ? this.DuplicateQuestionCollection
-    //       :
+      //for duplicate questions.
+      // duplicateQuestions === 'true'
+      //       ? this.DuplicateQuestionCollection
+      //       :
 
-    // --- setting the collection with respect to the duplicate questions filter ---
+      // --- setting the collection with respect to the duplicate questions filter ---
       const questionsCollection = this.QuestionCollection as Collection<IQuestion>;
 
       // --- Auto Allocate Filter ---
@@ -540,14 +540,14 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         filter.closedAt = filterDate;
-      } 
+      }
 
       if (closedInTwoHrs) {
         // Filter for questions closed within 2 hours of creation
         filter.status = 'closed';
         filter.$expr = {
           $lte: [
-            {$subtract: ['$closedAt', '$createdAt']},
+            { $subtract: ['$closedAt', '$createdAt'] },
             2 * 60 * 60 * 1000, // 2 hours in milliseconds
           ],
         };
@@ -1332,27 +1332,21 @@ export class QuestionRepository implements IQuestionRepository {
       pipeline.push({ $limit: limit });
 
       pipeline.push({
-        $project: {
-          id: { $toString: '$_id' },
-          text: '$question',
-          priority: '$priority',
-          createdAt: '$createdAt',
-          updatedAt: '$updatedAt',
-          totalAnswersCount: 1,
-          'details.crop': 1,
-          'details.state': 1,
-          source: 1,
-          status: 1,
-          _id: 0,
-        },
+        $project: getProjectionFromDto(QuestionResponseDto),
       });
 
-      const results = await this.QuestionCollection.aggregate<QuestionResponse>(
+      const results = await this.QuestionCollection.aggregate<any>(
         pipeline,
         { session },
       ).toArray();
 
-      return results;
+      const formattedResults = results.map(q => ({
+        ...q,
+        _id: q._id?.toString(),
+        userId: q.userId?.toString(),
+      }));
+
+      return formattedResults as any;
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch unanswered questions: ${error}`,
@@ -3066,7 +3060,7 @@ export class QuestionRepository implements IQuestionRepository {
               -1,
             ],
           },
-          
+
           // Author timer start time logic (same as getTimerStartTime)
           authorTimerStartTime: {
             $let: {
@@ -3090,10 +3084,12 @@ export class QuestionRepository implements IQuestionRepository {
                   '$$isAuthor',
                   {
                     $cond: [
-                      { $and: [
-                        { $gt: [{ $size: { $ifNull: ['$authors_history', []] } }, 0] },
-                        { $ne: ['$$lastAuthorEntry', null] }
-                      ]},
+                      {
+                        $and: [
+                          { $gt: [{ $size: { $ifNull: ['$authors_history', []] } }, 0] },
+                          { $ne: ['$$lastAuthorEntry', null] }
+                        ]
+                      },
                       '$$lastAuthorEntry.createdAt',
                       {
                         $cond: [
@@ -3735,109 +3731,109 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   // Backfill normalised_crop (OPTIMIZED)
-async backfillNormalisedCrop(
-  name: string,
-  aliases: string[],
-): Promise<number> {
-  await this.init();
+  async backfillNormalisedCrop(
+    name: string,
+    aliases: string[],
+  ): Promise<number> {
+    await this.init();
 
-  const escapeRegex = (v: string) =>
-    v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapeRegex = (v: string) =>
+      v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  const allValues = [name, ...(aliases || [])].map(v =>
-    v.toLowerCase().trim(),
-  );
+    const allValues = [name, ...(aliases || [])].map(v =>
+      v.toLowerCase().trim(),
+    );
 
-  const conditions = allValues.map(val => ({
-    'details.crop': { $regex: `^\\s*${escapeRegex(val)}\\s*$`, $options: 'i' },
-  }));
+    const conditions = allValues.map(val => ({
+      'details.crop': { $regex: `^\\s*${escapeRegex(val)}\\s*$`, $options: 'i' },
+    }));
 
-  const result = await this.QuestionCollection.updateMany(
-    {
-      $and: [
-        { $or: conditions },
-        {
-          $or: [
-            { 'details.normalised_crop': { $exists: false } },
-            { 'details.normalised_crop': null },
-          ],
+    const result = await this.QuestionCollection.updateMany(
+      {
+        $and: [
+          { $or: conditions },
+          {
+            $or: [
+              { 'details.normalised_crop': { $exists: false } },
+              { 'details.normalised_crop': null },
+            ],
+          },
+        ],
+      },
+      {
+        $set: {
+          'details.normalised_crop': name.trim().toLowerCase(),
         },
-      ],
-    },
-    {
-      $set: {
-        'details.normalised_crop': name.trim().toLowerCase(),
       },
-    },
-  );
+    );
 
-  return result.modifiedCount;
-}
+    return result.modifiedCount;
+  }
 
-async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusResponse[]> {
-  await  this.init()
-  const objectIds = questionIds.map(id => new ObjectId(id));
-  
-  const data =await this.QuestionCollection.aggregate([
-    {
-      $match: {
-        _id: { $in: objectIds },
+  async getQuestionsWithAnswerDetails(questionIds: string[]): Promise<ICheckStatusResponse[]> {
+    await this.init()
+    const objectIds = questionIds.map(id => new ObjectId(id));
+
+    const data = await this.QuestionCollection.aggregate([
+      {
+        $match: {
+          _id: { $in: objectIds },
+        },
       },
-    },
 
-    // Lookup FINAL ANSWERS ONLY
-    {
-      $lookup: {
-        from: 'answers',
-        let: { qId: '$_id' },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $eq: ['$questionId', '$$qId'] },
-                  { $eq: ['$isFinalAnswer', true] },
-                ],
-              },
-            },
-          },
-
-          // Join author
-          {
-            $lookup: {
-              from: 'users',
-              localField: 'authorId',
-              foreignField: '_id',
-              as: 'author',
-            },
-          },
-          {
-            $unwind: {
-              path: '$author',
-              preserveNullAndEmptyArrays: true,
-            },
-          },
-
-          // Shape answer
-          {
-            $project: {
-              _id: 0,
-              answer: 1,
-
-              sources: {
-                $map: {
-                  input: { $ifNull: ['$sources', []] },
-                  as: 's',
-                  in: {
-                    source: '$$s.source',
-                    page: '$$s.page',
-                    sourceType: '$$s.sourceType',
-                    sourceName: '$$s.sourceName',
-                  },
+      // Lookup FINAL ANSWERS ONLY
+      {
+        $lookup: {
+          from: 'answers',
+          let: { qId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$questionId', '$$qId'] },
+                    { $eq: ['$isFinalAnswer', true] },
+                  ],
                 },
               },
+            },
 
-              
+            // Join author
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'authorId',
+                foreignField: '_id',
+                as: 'author',
+              },
+            },
+            {
+              $unwind: {
+                path: '$author',
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+
+            // Shape answer
+            {
+              $project: {
+                _id: 0,
+                answer: 1,
+
+                sources: {
+                  $map: {
+                    input: { $ifNull: ['$sources', []] },
+                    as: 's',
+                    in: {
+                      source: '$$s.source',
+                      page: '$$s.page',
+                      sourceType: '$$s.sourceType',
+                      sourceName: '$$s.sourceName',
+                    },
+                  },
+                },
+
+
                 authorName: {
                   $trim: {
                     input: {
@@ -3851,85 +3847,85 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
                 },
               },
             },
-          
-        ],
-        as: 'finalAnswer',
+
+          ],
+          as: 'finalAnswer',
+        },
       },
-    },
 
-    // Flatten answer (take first if exists)
-    {
-      $addFields: {
-        finalAnswer: { $arrayElemAt: ['$finalAnswer', 0] },
+      // Flatten answer (take first if exists)
+      {
+        $addFields: {
+          finalAnswer: { $arrayElemAt: ['$finalAnswer', 0] },
+        },
       },
-    },
 
-    // Final response shape
-    {
-      $project: {
-        _id: 0,
+      // Final response shape
+      {
+        $project: {
+          _id: 0,
 
-        question_id: { $toString: '$_id' },
+          question_id: { $toString: '$_id' },
 
-        status: {
-          $cond: {
-            if: { $ifNull: ['$finalAnswer', false] },
-            then: 'closed',
-            else: 'pending',
+          status: {
+            $cond: {
+              if: { $ifNull: ['$finalAnswer', false] },
+              then: 'closed',
+              else: 'pending',
+            },
+          },
+
+          // Question fields (include what you need)
+          question: '$text',
+          metadata: "$details",
+          priority: 1,
+          details: 1,
+          createdAt: 1,
+
+          // Answer fields
+          answer: {
+            $ifNull: ['$finalAnswer.answer', null],
+          },
+
+          sources: {
+            $ifNull: ['$finalAnswer.sources', []],
+          },
+
+          author: {
+            $ifNull: ['$finalAnswer.authorName', null],
           },
         },
-
-        // Question fields (include what you need)
-        question: '$text',
-        metadata:"$details",
-        priority: 1,
-        details: 1,
-        createdAt: 1,
-
-        // Answer fields
-        answer: {
-          $ifNull: ['$finalAnswer.answer', null],
-        },
-
-        sources: {
-          $ifNull: ['$finalAnswer.sources', []],
-        },
-
-        author: {
-          $ifNull: ['$finalAnswer.authorName', null],
-        },
       },
-    },
-  ]).toArray()
-  // 🔥 Create map for quick lookup
-  const map = new Map(data.map(item => [item.question_id, item]));
+    ]).toArray()
+    // 🔥 Create map for quick lookup
+    const map = new Map(data.map(item => [item.question_id, item]));
 
-  // 🔥 Final response based on input order
-  return questionIds.map(id => {
-    const found = map.get(id);
+    // 🔥 Final response based on input order
+    return questionIds.map(id => {
+      const found = map.get(id);
 
-    if (!found) {
+      if (!found) {
+        return {
+          question_id: id,
+          status: 'not_found',
+          answer: null,
+          sources: [],
+          author: null,
+          metadata: null,
+          message: 'Question not exist',
+        };
+      }
+
       return {
-        question_id: id,
-        status: 'not_found',
-        answer: null,
-        sources: [],
-        author: null,
-        metadata: null,
-        message: 'Question not exist',
+        question_id: found.question_id,
+        status: found.status,
+        answer: found.status === 'closed' ? found.answer : null,
+        sources: found.status === 'closed' ? found.sources : [],
+        author: found.status === 'closed' ? found.author : null,
+        metadata: found.metadata ?? null,
       };
-    }
-
-    return {
-      question_id: found.question_id,
-      status: found.status,
-      answer: found.status === 'closed' ? found.answer : null,
-      sources: found.status === 'closed' ? found.sources : [],
-      author: found.status === 'closed' ? found.author : null,
-      metadata: found.metadata ?? null,
-    };
-  });
-}
+    });
+  }
 
   async getQuestionStatusSummary(
     query: GetDetailedQuestionsQuery,

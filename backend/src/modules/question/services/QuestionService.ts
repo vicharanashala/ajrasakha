@@ -1238,7 +1238,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
-  ): Promise<{ message: string }> {
+  ): Promise<QuestionResponseDto> {
     try {
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
@@ -1298,7 +1298,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
 
-      return { message: 'Question updated successfully' };
+      const updatedQuestion = await this.getQuestionById(questionId);
+      return plainToInstance(QuestionResponseDto, updatedQuestion);
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);
     }
@@ -1636,7 +1637,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (!questionSubmission) {
           if (question.source == "WHATSAPP") {
             const newSubmission: IQuestionSubmission = {
-              questionId: new ObjectId(questionId),
+              questionId: (() => {
+                if (!ObjectId.isValid(questionId)) {
+                  throw new BadRequestError(`Invalid question ID: ${questionId}`);
+                }
+                return new ObjectId(questionId);
+              })(),
               lastRespondedBy: null,
               history: [],
               queue: [],
@@ -1717,7 +1723,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
         //6. Allocate experts
-        const expertIds = experts.map(e => new ObjectId(e));
+        const expertIds = experts.map(e => {
+          if (!ObjectId.isValid(e)) {
+            throw new BadRequestError(`Invalid expert ID: ${e}`);
+          }
+          return new ObjectId(e);
+        });
 
         // if the last expert is  reviewing other question  (if status is not reviewed or not submitted an answer)
         const lastSubmission = questionSubmission.history.at(-1);

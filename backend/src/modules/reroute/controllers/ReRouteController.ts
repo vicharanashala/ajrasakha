@@ -19,6 +19,7 @@ import {
   InternalServerError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
+import {plainToInstance} from 'class-transformer';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {
@@ -52,13 +53,12 @@ import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAudit
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import {
-  ReRouteErrorResponse,
-  ReRouteSuccessResponse,
-  RejectRequestResponse,
-  RerouteHistoryArrayResponse,
-  AllocatedQuestionsArrayResponse,
-  QuestionByIdResponse,
-} from '../classes/validators/ReRouteResponseValidators.js';
+  ReRouteErrorResponseDto,
+  ReRouteMessageResponseDto,
+  RerouteHistoryEntryDto,
+  AllocatedQuestionDto,
+  QuestionDetailedResponseDto,
+} from '../dtos/ReRouteResponseDto.js';
 import { UserService } from '#root/modules/user/index.js';
 
 @OpenAPI({
@@ -66,7 +66,7 @@ import { UserService } from '#root/modules/user/index.js';
   description: 'Operations for managing questions',
 })
 @injectable()
-@JsonController('/reroute',{ transformResponse: false })
+@JsonController('/reroute')
 export class ReRouteController {
   constructor(
     @inject(ROUTE_TYPES.ReRouteService)
@@ -94,19 +94,19 @@ export class ReRouteController {
     summary: 'Manually allocate experts to a selected question',
     description: 'Assigns a re-routed expert to review an answer for a specific question. Sends notification to the assigned expert.',
   })
-  @ResponseSchema(ReRouteSuccessResponse, {
+  @ResponseSchema(ReRouteMessageResponseDto, {
     statusCode: 200,
     description: 'Expert allocated successfully - Returns success message',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 400,
     description: 'Bad request - Answer already rerouted or invalid parameters',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 404,
     description: 'Not found - Expert not found',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 500,
     description: 'Internal server error - Failed to allocate expert',
   })
@@ -117,7 +117,7 @@ export class ReRouteController {
     @Params() params: QuestionIdParam,
     @Body() body: AllocateReRouteExpertsRequest,
     @CurrentUser() user: IUser,
-  ):Promise<{message:string}> {
+  ): Promise<ReRouteMessageResponseDto> {
     const {_id: userId} = user;
     const {questionId} = params;
     const {expertId,answerId,moderatorId,comment,status} = body;
@@ -172,54 +172,57 @@ export class ReRouteController {
       );
     }
     this.auditTrailsService.createAuditTrail(auditPayload);
-    return {message:"Re routed succesfully"}
+    return plainToInstance(ReRouteMessageResponseDto, {message: 'Re routed successfully'});
   }
   @OpenAPI({
     summary: 'Get all re-routed allocated',
     description: 'Retrieves all re-routed questions allocated to the current expert with filtering options.',
   })
-  @ResponseSchema(AllocatedQuestionsArrayResponse, {
+  @ResponseSchema(AllocatedQuestionDto, {
     statusCode: 200,
     description: 'Allocated questions retrieved successfully',
+    isArray: true,
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 401,
     description: 'Unauthorized - Authentication required',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 404,
     description: 'Not found - Expert not found',
   })
   @Post('/allocated')
   @HttpCode(200)
   @Authorized()
+  @ResponseSchema(AllocatedQuestionDto, { isArray: true })
   async getAllocatedQuestions(
     @QueryParams()
     query: GetDetailedQuestionsQuery,
     @Body() body: AllocatedQuestionsBodyDto,
     @CurrentUser() user: IUser,
-  ): Promise<any[]> {
+  ): Promise<AllocatedQuestionDto[]> {
     const userId = user._id.toString();
-    return this.reRouteService.getAllocatedQuestions(userId, query, body);
+    const questions = await this.reRouteService.getAllocatedQuestions(userId, query, body);
+    return plainToInstance(AllocatedQuestionDto, questions, { excludeExtraneousValues: true });
   }
 
   @OpenAPI({
     summary: 'Get selected question by ID',
     description: 'Retrieves a re-routed question by ID including its details and reroute history.',
   })
-  @ResponseSchema(QuestionByIdResponse, {
+  @ResponseSchema(QuestionDetailedResponseDto, {
     statusCode: 200,
     description: 'Question retrieved successfully with reroute history',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 401,
     description: 'Unauthorized - Authentication required',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 404,
     description: 'Not found - Question not found',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 500,
     description: 'Internal server error - Failed to fetch question',
   })
@@ -230,12 +233,12 @@ export class ReRouteController {
     @Params() params: QuestionIdParam,
     @Body() updates: any,
     @CurrentUser() user: IUser
-  ): Promise<any> {
-    const {questionId,actionType} = params;
+  ): Promise<QuestionDetailedResponseDto> {
+    const {questionId} = params;
     const userId = user._id.toString();
-   // return null
    
-    return this.reRouteService.getQuestionById(questionId,userId);
+    const result = await this.reRouteService.getQuestionById(questionId, userId);
+    return plainToInstance(QuestionDetailedResponseDto, result);
   }
 
 
@@ -244,15 +247,15 @@ export class ReRouteController {
     summary: 'Expert can reject the re-route request',
     description: 'Allows an expert to reject a re-route request. Updates reputation score and sends notification to moderator.',
   })
-  @ResponseSchema(RejectRequestResponse, {
+  @ResponseSchema(ReRouteMessageResponseDto, {
     statusCode: 200,
     description: 'Request rejected successfully - Returns success message',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 400,
     description: 'Bad request - Request already rejected or in invalid state',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 401,
     description: 'Unauthorized - Authentication required',
   })
@@ -263,7 +266,7 @@ export class ReRouteController {
     @Params() params: RerouteIdParam,
     @Body() body: {reason:string,moderatorId:string,role:string,expertId:string},
     @CurrentUser() user: IUser,
-  ):Promise<{message:string}> {
+  ): Promise<ReRouteMessageResponseDto> {
    // const expertId = user._id.toString();
     const {rerouteId,questionId} = params;
     const {reason,moderatorId,role,expertId} = body
@@ -318,30 +321,32 @@ export class ReRouteController {
       );
     }
     this.auditTrailsService.createAuditTrail(auditPayload);
-    return {message:"Rejected the request succesfully"}
+    return plainToInstance(ReRouteMessageResponseDto, {message: 'Rejected the request successfully'});
   }
 
   @OpenAPI({
     summary: 'Get reroute history for an answer',
     description: 'Retrieves the complete reroute history for a specific answer including all reroute entries.',
   })
-  @ResponseSchema(RerouteHistoryArrayResponse, {
+  @ResponseSchema(RerouteHistoryEntryDto, {
     statusCode: 200,
     description: 'Reroute history retrieved successfully',
+    isArray: true,
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 401,
     description: 'Unauthorized - Authentication required',
   })
   @Get('/:answerId/history')
   @HttpCode(200)
   @Authorized()
+  @ResponseSchema(RerouteHistoryEntryDto, { isArray: true })
   async getRerouteHistory(
     @Params() params: {answerId:string},
-  ){
-    
-    const {answerId} =params
-    return await this.reRouteService.getRerouteHistory(answerId)
+  ): Promise<RerouteHistoryEntryDto[]> {
+    const {answerId} = params;
+    const history = await this.reRouteService.getRerouteHistory(answerId);
+    return plainToInstance(RerouteHistoryEntryDto, history, { excludeExtraneousValues: true });
   }
 
 
@@ -349,15 +354,15 @@ export class ReRouteController {
     summary: 'Moderator can reject the re-route request',
     description: 'Allows a moderator to reject a re-route request for a specific expert. Updates the reroute status.',
   })
-  @ResponseSchema(RejectRequestResponse, {
+  @ResponseSchema(ReRouteMessageResponseDto, {
     statusCode: 200,
     description: 'Request rejected successfully by moderator - Returns success message',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 400,
     description: 'Bad request - Invalid status or parameters',
   })
-  @ResponseSchema(ReRouteErrorResponse, {
+  @ResponseSchema(ReRouteErrorResponseDto, {
     statusCode: 401,
     description: 'Unauthorized - Authentication required',
   })
@@ -367,10 +372,10 @@ export class ReRouteController {
   async moderatorRejected(
     @Params() params: ModeratorRejectParam,
     @Body() body: {status:RerouteStatus,reason:string},
-  ):Promise<{message:string}> {
+  ): Promise<ReRouteMessageResponseDto> {
     const {questionId,expertId} = params;
     const {status,reason} = body
     await this.reRouteService.moderatorReject(questionId.toString(),expertId.toString(),status,reason)
-    return {message:"Rejected the request succesfully"}
+    return plainToInstance(ReRouteMessageResponseDto, {message: 'Rejected the request successfully'});
   }
 }

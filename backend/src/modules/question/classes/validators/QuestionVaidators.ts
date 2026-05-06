@@ -430,6 +430,24 @@ class ExpertInput {
 }
 
 class AllocateExpertsRequest {
+  @IsArray()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) {
+      return value.map(v => {
+        if (v && typeof v === 'object') {
+          // Handle { buffer: { type: 'Buffer', data: [...] } }
+          if (v.buffer && v.buffer.data) {
+            return new ObjectId(Buffer.from(v.buffer.data)).toString();
+          }
+          // Handle standard ObjectId or objects with toString
+          return v.toString();
+        }
+        return v;
+      });
+    }
+    return value;
+  })
+  @IsMongoId({ each: true })
   experts!: string[];
 }
 class RemoveAllocateBody {

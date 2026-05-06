@@ -112,6 +112,9 @@ export class UserRepository extends BaseRepository<IUser> implements IUserReposi
     await this.init();
 
     const projection = getProjectionFromDto(UserResponseDto);
+    if (id && !ObjectId.isValid(id.toString())) {
+      return null;
+    }
     const user = await this.usersCollection.findOne(
       {_id: new ObjectId(id)},
       {
@@ -236,7 +239,10 @@ export class UserRepository extends BaseRepository<IUser> implements IUserReposi
     }
     const uniqueUsers = Array.from(uniqueUsersMap.values());
 
-    return uniqueUsers;
+    return uniqueUsers.map(u => ({
+      ...u,
+      _id: u._id.toString(),
+    }));
   }
 
 async findAllUsers(

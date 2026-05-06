@@ -1,4 +1,4 @@
-import {Expose, Type} from 'class-transformer';
+import {Expose, Type, Transform} from 'class-transformer';
 import {IsString, IsEmail, IsBoolean, IsNumber, IsOptional, ValidateNested, IsObject} from 'class-validator';
 import {PaginationMetaDto} from '#root/shared/dtos/PaginationDto.js';
 
@@ -21,6 +21,7 @@ export class UserPreferenceDto {
 
 export class UserResponseDto {
   @Expose()
+  @Transform(({ value }) => value?.toString())
   @IsString()
   _id: string;
 
