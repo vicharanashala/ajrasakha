@@ -9,13 +9,20 @@ import { injectable } from 'inversify';
 export class PlivoController {
   @Post('/answer')
   answer(@Req() req: Request, @Res() res: Response) {
-    const streamUrl = appConfig.plivo.streamUrl;
+    const streamUrl = /*appConfig.plivo.streamUrl*/`wss://kevin-south-bios-inexpensive.trycloudflare.com/plivo-stream`;
+    const agentNumber = appConfig.plivo.agentNumber
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Speak>Hello, Annam agri specialist here.</Speak>
-  <Stream bidirectional="true">${streamUrl}</Stream>
-  <Wait length="100" />
+  <Speak voice="WOMAN" language="hi-IN">
+  Namaskar! Welcome to Annam Agri Support. 
+  Please stay on the line, our agriculture expert will connect with you shortly.
+  </Speak>
+  <Stream bidirectional="true" >${streamUrl}</Stream>
+  <Dial> 
+  <Number>${agentNumber}</Number> 
+  </Dial>
+  <Wait length="10" />
 </Response>`;
 
     res.set('Content-Type', 'text/xml');
