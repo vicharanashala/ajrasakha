@@ -13,7 +13,7 @@ import type { DateRange } from "react-day-picker";
 import { useUserGrowth } from "../hooks/useUserGrowth";
 import Spinner from "@/components/atoms/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
-import { Maximize2, X, CalendarIcon } from "lucide-react";
+import { Maximize2, X, CalendarIcon, RefreshCcw } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
 import { Button } from "@/components/atoms/button";
@@ -96,6 +96,12 @@ const UserGrowthChart = () => {
         ? prev.filter((m) => m !== key)
         : [...prev, key]
     );
+  };
+  const resetDateRange = () => {
+    setDateRange({
+      from: subDays(new Date(), 29),
+      to: new Date(),
+    });
   };
   const tickInterval = getTickInterval(chartData.length);
   const visibleMetricCount = activeMetrics.length;
@@ -207,35 +213,46 @@ const UserGrowthChart = () => {
     className = "",
     popoverClassName = ""
   ) => (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={`justify-start text-left font-normal bg-gray-100 dark:bg-[#2a2a2a] border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-gray-200 max-w-full whitespace-normal h-auto min-h-10 ${className}`}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {dateRange?.from ? (
-            dateRange.to ? (
-              `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`
+    <div className={`flex items-center gap-2 ${className}`}>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="justify-start text-left font-normal bg-gray-100 dark:bg-[#2a2a2a] border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-gray-200 max-w-full whitespace-normal h-auto min-h-10 flex-1"
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {dateRange?.from ? (
+              dateRange.to ? (
+                `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`
+              ) : (
+                format(dateRange.from, "MMM dd, yyyy")
+              )
             ) : (
-              format(dateRange.from, "MMM dd, yyyy")
-            )
-          ) : (
-            "Select date range"
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className={`w-auto p-0 ${popoverClassName}`} align="end">
-        <Calendar
-          initialFocus
-          mode="range"
-          defaultMonth={dateRange?.from}
-          selected={dateRange}
-          onSelect={setDateRange}
-          numberOfMonths={1}
-        />
-      </PopoverContent>
-    </Popover>
+              "Select date range"
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className={`w-auto p-0 ${popoverClassName}`} align="end">
+          <Calendar
+            initialFocus
+            mode="range"
+            defaultMonth={dateRange?.from}
+            selected={dateRange}
+            onSelect={setDateRange}
+            numberOfMonths={1}
+          />
+        </PopoverContent>
+      </Popover>
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={resetDateRange}
+        title="Reset to last 30 days"
+        className="shrink-0 bg-gray-100 dark:bg-[#2a2a2a] border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-gray-200"
+      >
+        <RefreshCcw className="h-4 w-4" />
+      </Button>
+    </div>
   );
 
   return (
@@ -255,7 +272,7 @@ const UserGrowthChart = () => {
               <CardTitle className="text-sm font-medium">User Growth Trend</CardTitle>
             </div>
 
-            {renderDateRangePicker("w-full sm:w-auto")}
+            {renderDateRangePicker("w-full sm:w-auto sm:max-w-[420px]")}
           </div>
         </CardHeader>
 
@@ -289,7 +306,7 @@ const UserGrowthChart = () => {
             onClick={() => setIsMaximized(false)}
           >
             <div
-              className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-6xl w-full p-6 relative"
+              className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-6xl w-full max-h-[calc(100vh-4rem)] overflow-y-auto p-6 relative"
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -309,7 +326,7 @@ const UserGrowthChart = () => {
                   </div>
 
                   {renderDateRangePicker(
-                    "w-full md:w-auto md:min-w-[280px]",
+                    "w-full md:w-auto md:min-w-[320px] md:max-w-[480px]",
                     "z-[10001]"
                   )}
                 </div>
