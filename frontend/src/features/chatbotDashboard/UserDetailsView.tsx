@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from "react";
-import { X, MapPin } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { X, MapPin, Maximize2 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
 import { useUserDetails } from "./hooks/useUserDetails";
+import { useDashboardData } from "./hooks/useDashboardData";
 import { BarGraph } from "./components/shared/BarGrapgh";
 import { Pagination } from "@/components/pagination";
+import { createPortal } from "react-dom";
 import {
   Table,
   TableBody,
@@ -19,6 +21,11 @@ import {
   type UserDetailsFilters,
 } from "./components/UserDetailsPreferenceFilter";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+import { EightCardsComponent } from "./MetricCard ";
+import { TopCropsCard } from "./components/TopCropsCard";
+import { useTopCrops } from "./hooks/useTopCrops";
+import { UserDemographicsSection } from "./components/UserDemographicsSection";
+import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 
 const PAGE_SIZE = 10;
 
@@ -101,6 +108,8 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<'totalQuestions' | 'name'>('totalQuestions');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
+  const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard)
   useEffect(() => {
@@ -127,6 +136,46 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   );
 
   const { users, totalUsers, totalPages, activeUsers, inactiveUsers, totalQuestions } = data;
+
+  // Fetch dashboard data with the same filters for charts
+  const dashboardFilters = {
+    village: filters.village || 'all',
+    crop: filters.crop || 'all',
+    season: 'all',
+    startTime: filters.startTime,
+    endTime: filters.endTime,
+    userType: userType,
+  };
+  const { data: dashboardData, isLoading: isDashboardLoading } = useDashboardData(dashboardFilters, source);
+  const { data: topCrops, isLoading: isLoadingTopCrops, error: errorLoadingTopCrops } = useTopCrops();
+
+  // Patch the DAU card to show "active today / total" instead of just total (same as dashboard)
+  const patchedKpiRow1 = useMemo(() => {
+    if (!dashboardData?.kpiRow1) return [];
+    // Use activeUsers from user details as the "today" count (users with activity in the filtered period)
+    // This makes sense in the context of User Details page where we're showing filtered data
+    return dashboardData.kpiRow1.map(card => {
+      if (card.id === 'dau') {
+        return {
+          ...card,
+          value: `${activeUsers.toLocaleString()} / ${totalUsers.toLocaleString()}`,
+        };
+      }
+      return card;
+    });
+  }, [dashboardData?.kpiRow1, activeUsers, totalUsers]);
+
+  // Mark cards as dummy (to blur them) - same logic as dashboard
+  const dynamicIds = ['dau', 'queries', 'session'];
+  const kpiRow1WithOverlay = patchedKpiRow1.map(card => ({
+    ...card,
+    isDummy: !dynamicIds.includes(card.id),
+  }));
+
+  const kpiRow2WithOverlay = dashboardData?.kpiRow2.map((card) => ({
+    ...card,
+    isDummy: card.id !== "totalInstalls",
+  })) || [];
 
   const handleApplyFilters = (newFilters: UserDetailsFilters) => {
     setFilters(newFilters);
@@ -174,6 +223,187 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
         </p>
       </div>
 
+      {/* Dashboard Charts Section */}
+      <div className="mb-6">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+          Overview Analytics
+        </h3>
+        
+        {isDashboardLoading ? (
+          <div className="py-8">
+            <Spinner text="Loading analytics..." fullScreen={false} />
+          </div>
+        ) : dashboardData ? (
+          <>
+            {/* KPI Cards */}
+            <EightCardsComponent 
+              kpiRow1={kpiRow1WithOverlay} 
+              kpiRow2={kpiRow2WithOverlay} 
+            />
+
+            {/* Additional Charts */}
+            <div className="mb-4">
+              {/* User Demographics - renders its own grid of 4 cards */}
+              <UserDemographicsSection 
+                data={{
+                  ageGroups: dashboardData.ageGroups || [],
+                  genderSplit: dashboardData.genderSplit || [],
+                  farmingExperience: dashboardData.farmingExperience || [],
+                  landHolding: dashboardData.landHolding || [],
+                }}
+              />
+            </div>
+
+            {/* Platform Installations & Knowledge Awareness */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+              {/* Platform Installations */}
+              <PlatformDonutSegments rawData={dashboardData.platformInstalls || []} />
+
+              {/* Knowledge & Awareness */}
+              <div className="rounded-xl border border-gray-200 bg-white dark:border-[#2a2a2a] dark:bg-[#1a1a1a] p-4 relative min-h-[240px] flex flex-col">
+                <button
+                  onClick={() => setIsKnowledgeMaximized(true)}
+                  className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
+                  title="Maximize chart"
+                >
+                  <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                </button>
+
+                <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-6">
+                  Knowledge & Awareness
+                </div>
+                <div className="flex gap-8 justify-center items-center flex-1 py-4">
+                  {/* KCC Awareness Circle */}
+                  {(() => {
+                    const pct = dashboardData.kccAwareness?.[0]?.pct ?? 0;
+                    const r = 45, cx = 60, cy = 60, circ = 2 * Math.PI * r;
+                    const dash = (pct / 100) * circ;
+                    return (
+                      <div className="flex flex-col items-center gap-3">
+                        <svg viewBox="0 0 120 120" className="w-[120px] h-[120px]">
+                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={10} />
+                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#3AAA5A" strokeWidth={10}
+                            strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
+                            transform={`rotate(-90 ${cx} ${cy})`} />
+                          <text x={cx} y={cy + 6} textAnchor="middle" fontSize={16} fontWeight={600} fill="#3AAA5A">
+                            {pct.toFixed(2)}%
+                          </text>
+                        </svg>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">KCC Awareness</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Agri Apps Usage Circle */}
+                  {(() => {
+                    const pct = dashboardData.agriAppUsage?.[0]?.pct ?? 0;
+                    const r = 45, cx = 60, cy = 60, circ = 2 * Math.PI * r;
+                    const dash = (pct / 100) * circ;
+                    return (
+                      <div className="flex flex-col items-center gap-3">
+                        <svg viewBox="0 0 120 120" className="w-[120px] h-[120px]">
+                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={10} />
+                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#378ADD" strokeWidth={10}
+                            strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
+                            transform={`rotate(-90 ${cx} ${cy})`} />
+                          <text x={cx} y={cy + 6} textAnchor="middle" fontSize={16} fontWeight={600} fill="#378ADD">
+                            {pct.toFixed(2)}%
+                          </text>
+                        </svg>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Uses Agri Apps</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Top Crops - Full Width */}
+            <div className="grid grid-cols-1 gap-4 mb-4">
+              <TopCropsCard 
+                topCrops={topCrops}
+                isLoadingTopCrops={isLoadingTopCrops}
+                errorLoadingtopCrops={errorLoadingTopCrops}
+              />
+            </div>
+
+            {/* Knowledge & Awareness Maximized Modal */}
+            {isKnowledgeMaximized && createPortal(
+              <div 
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+                onClick={() => setIsKnowledgeMaximized(false)}
+              >
+                <div 
+                  className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-2xl w-full p-8 relative"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => setIsKnowledgeMaximized(false)}
+                    className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    title="Close"
+                  >
+                    <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  </button>
+
+                  <div className="mb-8">
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+                      Knowledge & Awareness
+                    </h3>
+                  </div>
+
+                  <div className="flex gap-12 justify-center items-center">
+                    {/* KCC Awareness - Enlarged */}
+                    {(() => {
+                      const pct = dashboardData.kccAwareness?.[0]?.pct ?? 0;
+                      const r = 80, cx = 100, cy = 100, circ = 2 * Math.PI * r;
+                      const dash = (pct / 100) * circ;
+                      return (
+                        <div className="flex flex-col items-center gap-4">
+                          <svg viewBox="0 0 200 200" className="w-[180px] h-[180px]">
+                            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={16} />
+                            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#3AAA5A" strokeWidth={16}
+                              strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
+                              transform={`rotate(-90 ${cx} ${cy})`} />
+                            <text x={cx} y={cy} textAnchor="middle" dy="0.35em"
+                              className="text-4xl font-bold fill-gray-800 dark:fill-gray-100">
+                              {pct.toFixed(2)}%
+                            </text>
+                          </svg>
+                          <span className="text-base text-gray-700 dark:text-gray-200 font-medium">KCC Awareness</span>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Agri Apps - Enlarged */}
+                    {(() => {
+                      const pct = dashboardData.agriAppUsage?.[0]?.pct ?? 0;
+                      const r = 80, cx = 100, cy = 100, circ = 2 * Math.PI * r;
+                      const dash = (pct / 100) * circ;
+                      return (
+                        <div className="flex flex-col items-center gap-4">
+                          <svg viewBox="0 0 200 200" className="w-[180px] h-[180px]">
+                            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={16} />
+                            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#378ADD" strokeWidth={16}
+                              strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
+                              transform={`rotate(-90 ${cx} ${cy})`} />
+                            <text x={cx} y={cy} textAnchor="middle" dy="0.35em"
+                              className="text-4xl font-bold fill-gray-800 dark:fill-gray-100">
+                              {pct.toFixed(2)}%
+                            </text>
+                          </svg>
+                          <span className="text-base text-gray-700 dark:text-gray-200 font-medium">Uses Agri Apps</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
+          </>
+        ) : null}
+      </div>
+
       {/* Summary cards + graphs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         {/* Active Users — col 1 row 1 */}
@@ -217,17 +447,68 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
 
         {/* Bar graph — col 1 row 2 on sm+, after all 3 cards on mobile */}
         {!isLoading && !error && users.length > 0 && !filters.inactiveOnly && (
-          <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BarGraph
-                data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
-                height={120}
-              />
-            </CardContent>
-          </Card>
+          <>
+            <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2 relative">
+              <button
+                onClick={() => setIsBarGraphMaximized(true)}
+                className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
+                title="Maximize chart"
+              >
+                <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              </button>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarGraph
+                  data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
+                  height={120}
+                  showMaximize={false}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Maximized Bar Graph Modal */}
+            {isBarGraphMaximized && createPortal(
+              <div 
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+                onClick={() => setIsBarGraphMaximized(false)}
+              >
+                <div 
+                  className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-4xl w-full p-8 relative"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => setIsBarGraphMaximized(false)}
+                    className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    title="Close"
+                  >
+                    <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  </button>
+
+                  <div className="mb-8">
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+                      Questions per User
+                    </h3>
+                  </div>
+
+                  <div className="w-full relative">
+                    {/* Y-axis border */}
+                    <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700 z-10"></div>
+                    {/* X-axis border */}
+                    <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700 z-10"></div>
+                    
+                    <BarGraph
+                      data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
+                      height={400}
+                      showMaximize={false}
+                    />
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
+          </>
         )}
       </div>
 
