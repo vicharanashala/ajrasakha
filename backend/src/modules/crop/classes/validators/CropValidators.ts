@@ -90,6 +90,12 @@ class CreateCropDto {
   @ValidateNested({ each: true })
   @Type(() => CropAliasDto)
   aliases?: CropAliasDto[];
+
+  @JSONSchema({ description: 'Associated crops for chemicals', type: 'array', items: { type: 'string' } })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  crops?: string[];
 }
 
 class UpdateCropDto {
@@ -103,10 +109,19 @@ class UpdateCropDto {
   @Transform(({ value }) => value)
   aliases?: (CropAliasDto | string)[];
 
-  @JSONSchema({description: 'Status update — only applicable for chemical entries, any custom string', type: 'string'})
+  @JSONSchema({
+    description: 'Status update — only applicable for chemical entries, any custom string',
+    type: 'string',
+  })
   @IsOptional()
   @IsString()
   status?: string;
+
+  @JSONSchema({ description: 'Updated associated crops', type: 'array', items: { type: 'string' } })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  crops?: string[];
 }
 
 // ── Query DTOs ──
