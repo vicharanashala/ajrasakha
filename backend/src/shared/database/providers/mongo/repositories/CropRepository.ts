@@ -49,6 +49,8 @@ export class CropRepository implements ICropRepository {
     createdBy: string,
     aliases?: ICropAlias[],
     type?: CropType,
+    status?: 'Restricted' | 'Banned',
+    crops?: string[],
     status?: string,
     crops?: string[],
   ): Promise<ICrop> {

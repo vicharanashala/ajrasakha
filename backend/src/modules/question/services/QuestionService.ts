@@ -61,6 +61,7 @@ import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
 import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
 import { checkDuplicateQuestionHelper } from '../helpers/duplicateQuestionHelper.js';
+import { DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT, TOTAL_EXPERTS_LIMIT } from '#root/shared/constants/general.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -1000,9 +1001,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
         // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
         // if (enableDuplicateFeature)
-        let duplicateResult:{ isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
+        let duplicateResult: { isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
         if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-           duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
+          duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
         }
 
         // =====================================================
@@ -1012,7 +1013,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
         const savedQuestion = await this.questionRepo.addQuestion(
-          duplicateResult?.isDuplicate ? duplicateResult?.duplicateData:baseQuestion,
+          duplicateResult?.isDuplicate ? duplicateResult?.duplicateData : baseQuestion,
           session,
         );
 
@@ -1029,7 +1030,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         let initialUsersToAllocate: typeof users = [];
 
         if (source === 'AGRI_EXPERT') {
-          initialUsersToAllocate = users.slice(0, 3);
+          initialUsersToAllocate = users.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
 
           queue = initialUsersToAllocate.map(
             (user) => new ObjectId(user._id.toString()),
@@ -1102,8 +1103,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
 
-        let responseobj= {
-          isDuplicate:duplicateResult?.isDuplicate ? true:false,
+        let responseobj = {
+          isDuplicate: duplicateResult?.isDuplicate ? true : false,
           data: {
             ...baseQuestion,
             _id: savedQuestion._id?.toString?.(),
@@ -1111,7 +1112,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           },
         };
         // return { isDuplicate: false, data: baseQuestion };
-        console.log("the response onject coming===",responseobj)
+        console.log("the response onject coming===", responseobj)
         return responseobj
       });
     } catch (error) {
@@ -1292,9 +1293,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   async autoAllocateExperts(
     questionId: string,
     session?: ClientSession,
-    BATCH_EXPECTED_TO_ADD: number = 6,
+    BATCH_EXPECTED_TO_ADD: number = DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
   ): Promise<{ data?: ObjectId[], status: boolean }> {
-    const TOTAL_EXPERTS_LIMIT = 10;
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
@@ -1314,6 +1314,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new NotFoundError('Question submission not found');
     }
 
+    // checking last submission in history to see if there is an expert who has not yet responded and if !lastSubmission.answer is added to ensure that we are not blocking the queue in case of reviewers who are just reviewing the answer without providing any answers
+    const lastSubmission = questionSubmission.history.at(-1);
+    if (lastSubmission && lastSubmission.status === 'in-review' && !lastSubmission.answer) {
+      return { data: [], status: false };
+    }
+
     const EXISTING_QUEUE_COUNT = questionSubmission.queue.length || 0;
     const EXISTING_HISTORY_COUNT = questionSubmission.history.length || 0;
 
@@ -1322,27 +1328,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       return { data: [], status: false };
     }
 
-    const [users, preferredExperts] = await Promise.all([
-      this.userRepo.findAll(),
-      this.userRepo.findExpertsByPreference(details, session),
-    ]);
 
-    /*const expertIdsSet = new Set<string>();
-    preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
-    users
-      .filter(user => user.role === 'expert' && user.isBlocked !== true)
-      .forEach(user => expertIdsSet.add(user._id.toString()));
-
-    const allExpertIds = Array.from(expertIdsSet);*/
     let allExpertIds: string[] = [];
     const isAjrasakha = question.source == "AJRASAKHA" ? true : false
     if (isAjrasakha) {
-      // ✅ AJRASAKHA FLOW
       const users = await this.userRepo.getSpecialTaskForceExperts(session);
 
       allExpertIds = users.map(user => user._id.toString());
     } else {
-      // ✅ NORMAL FLOW
       const [users, preferredExperts] = await Promise.all([
         this.userRepo.findAll(),
         this.userRepo.findExpertsByPreference(details, session),
@@ -1350,10 +1343,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const expertIdsSet = new Set<string>();
 
+      // Add preferred experts first to the set to ensure they get priority in allocation
       preferredExperts.forEach(user =>
         expertIdsSet.add(user._id.toString()),
       );
 
+      // Add remaining
       users
         .filter(user => user.role === 'expert' && user.isBlocked !== true)
         .forEach(user =>
@@ -1365,8 +1360,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     let updatedQueue;
 
+    // condition to check if we have room in the queue to add more experts and also to ensure we are not adding more experts if there is already an expert in the queue who has not yet responded (to avoid flooding the queue with multiple experts at once and to give existing experts a chance to respond before adding more)
     if (
-      EXISTING_QUEUE_COUNT < 3 ||
+      EXISTING_QUEUE_COUNT < DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT ||
       (EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
         EXISTING_QUEUE_COUNT <= allExpertIds.length)
     ) {
@@ -1493,8 +1489,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         .slice(0, TOTAL_EXPERTS_LIMIT)
         .map(id => new ObjectId(id));
 
-      console.log("the updated queue is coming====", updatedQueue)
-
       await this.questionSubmissionRepo.updateQueue(
         questionId,
         updatedQueue,
@@ -1554,17 +1548,17 @@ export class QuestionService extends BaseService implements IQuestionService {
           //   };
           // }
 
-          const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
-          let BATCH_EXPECTED_TO_ADD = 6;
+          // const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
+          // let BATCH_EXPECTED_TO_ADD = 6;
 
           // If removing first 3 intial allocation, so allocate only 3 intially
-          if (CURRENT_QUEUE_LENGTH < 3)
-            BATCH_EXPECTED_TO_ADD = 3 - CURRENT_QUEUE_LENGTH;
+          // if (CURRENT_QUEUE_LENGTH < 3)
+          //   BATCH_EXPECTED_TO_ADD = 3 - CURRENT_QUEUE_LENGTH;
 
           out = await this.autoAllocateExperts(
             questionId,
             session,
-            BATCH_EXPECTED_TO_ADD,
+            // BATCH_EXPECTED_TO_ADD,
           );
 
           if (!out.status) {
@@ -2066,29 +2060,29 @@ export class QuestionService extends BaseService implements IQuestionService {
           }*/
 
       //7. Handle auto reallocation logic if autoAllocate is enabled
-      if (!skipAutoAllocate && index >= 0 && question.isAutoAllocate) {
-        // Get updated queue and history lengths
-        const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
-        const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
-        let BATCH_EXPECTED_TO_ADD = 6;
+      // if (!skipAutoAllocate && index >= 0 && question.isAutoAllocate) {
+      //   // Get updated queue and history lengths
+      //   const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
+      //   const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
+      //   let BATCH_EXPECTED_TO_ADD = 6;
 
-        // Adjust batch size if initial allocation (<3) experts are being removed
-        if (UPDATED_QUEUE_LENGTH < 3)
-          BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
+      //   // Adjust batch size if initial allocation (<3) experts are being removed
+      //   if (UPDATED_QUEUE_LENGTH < 3)
+      //     BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
 
-        // If all previous experts have responded and queue is not full, trigger auto allocation
-        if (
-          UPDATED_QUEUE_LENGTH < 3 ||
-          (UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
-            UPDATED_QUEUE_LENGTH < 10)
-        ) {
-          await this.autoAllocateExperts(
-            questionId,
-            session,
-            BATCH_EXPECTED_TO_ADD,
-          );
-        }
-      }
+      //   // If all previous experts have responded and queue is not full, trigger auto allocation
+      //   if (
+      //     UPDATED_QUEUE_LENGTH < 3 ||
+      //     (UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
+      //       UPDATED_QUEUE_LENGTH < 10)
+      //   ) {
+      //     await this.autoAllocateExperts(
+      //       questionId,
+      //       session,
+      //       BATCH_EXPECTED_TO_ADD,
+      //     );
+      //   }
+      // }
 
       //8. Return the updated question submission
       return updated;
@@ -2231,9 +2225,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             { authorId: new ObjectId(newExpertId) },
             session
           );
-          }
+        }
 
-        
+
         try {
           // Prepare notification data
           const truncatedQuestionText = this.truncateQuestionText(question.question);
@@ -2250,10 +2244,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           await Promise.all([
             // 1. Assign penalty to replaced expert
             this.userService.updatePenaltyAndIncentive(currentAuthorId!.toString(), 'penalty'),
-            
+
             // 2. Assign incentive to new expert
             this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
-            
+
             // 3. Send notification to replaced expert (with error handling)
             this.notificationService.saveTheNotifications(
               replacedExpertMessage,
@@ -2266,7 +2260,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               // Return resolved promise to not break Promise.all
               return Promise.resolve();
             }),
-            
+
             // 4. Send notification to new expert (with error handling)
             this.notificationService.saveTheNotifications(
               newExpertMessage,
@@ -2306,7 +2300,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const lastHistoryEntry = questionSubmission.history[questionSubmission.history.length - 1];
       const lastReviewerInQueue = lastHistoryEntry?.updatedBy?.toString();
       const currentExpertId = questionSubmission.queue[queueIndex]?.toString();
-      
+
 
       // Validate that the reviewer to be replaced matches the current active reviewer
       // The last reviewer in queue must be the one being replaced (validation rule)
@@ -2321,8 +2315,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // 4. Check if this is the current active level (only current can be replaced)
       // Current active level is determined by history length (convert to 1-based since controller sends 1-based)
-      const currentActiveIndex = questionSubmission.history.length-1;
- 
+      const currentActiveIndex = questionSubmission.history.length - 1;
+
       if (levelIndex !== currentActiveIndex) {
         console.warn(
           `[replaceQueueExpert] Cannot replace - level ${levelIndex} is not active (active: ${currentActiveIndex})`
@@ -2357,8 +2351,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (validationHistoryEntry) {
         const lastAssignmentTime = new Date(validationHistoryEntry.createdAt);
         const hoursSinceAssignment = (now.getTime() - lastAssignmentTime.getTime()) / (1000 * 60 * 60);
-        
-        
+
+
         if (hoursSinceAssignment < 2) {
           console.warn(
             `[replaceQueueExpert] Time constraint not met - only ${hoursSinceAssignment.toFixed(2)} hours since assignment (requires 2 hours)`
@@ -2415,7 +2409,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         const resultId = shouldReplace ? new ObjectId(newExpertId) : new ObjectId(id.toString());
         return resultId;
       });
-      
+
 
       // Step 5: Build updated history with previousAllocations
       const updatedHistory = [...submissionHistory];
@@ -2461,7 +2455,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         updateData,
         session,
       );
-      
+
       try {
         // Prepare notification data
         const truncatedQuestionText = this.truncateQuestionText(question.question);
@@ -2478,10 +2472,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         await Promise.all([
           // 1. Assign penalty to replaced expert
           this.userService.updatePenaltyAndIncentive(currentExpertId, 'penalty'),
-          
+
           // 2. Assign incentive to new expert
           this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
-          
+
           // 3. Send notification to replaced expert (with error handling)
           this.notificationService.saveTheNotifications(
             replacedExpertMessage,
@@ -2494,7 +2488,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             // Return resolved promise to not break Promise.all
             return Promise.resolve();
           }),
-          
+
           // 4. Send notification to new expert (with error handling)
           this.notificationService.saveTheNotifications(
             newExpertMessage,
@@ -2877,24 +2871,28 @@ export class QuestionService extends BaseService implements IQuestionService {
       const UPDATED_HISTORY_LENGTH = latestSubmission.history.length || 0;
       if (UPDATED_QUEUE_LENGTH === 0) {
         // if (question?.isAutoAllocate) {
-        await this.autoAllocateExperts(questionId.toString(), session, 3);
+        await this.autoAllocateExperts(
+          questionId.toString(),
+          session,
+          // 3
+        );
         // }
         continue;
       }
 
-      let BATCH_EXPECTED_TO_ADD = 6;
-      if (UPDATED_QUEUE_LENGTH < 3) {
-        BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
-      }
+      // let BATCH_EXPECTED_TO_ADD = 6;
+      // if (UPDATED_QUEUE_LENGTH < 3) {
+      //   BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
+      // }
       if (
-        UPDATED_QUEUE_LENGTH < 3 ||
+        UPDATED_QUEUE_LENGTH < DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT ||
         (UPDATED_QUEUE_LENGTH === UPDATED_HISTORY_LENGTH &&
           UPDATED_QUEUE_LENGTH < 10)
       ) {
         await this.autoAllocateExperts(
           questionId.toString(),
           session,
-          BATCH_EXPECTED_TO_ADD,
+          // BATCH_EXPECTED_TO_ADD,
         );
       }
     }
