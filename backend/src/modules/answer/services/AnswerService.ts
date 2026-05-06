@@ -1,9 +1,9 @@
-import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
-import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
-import {BaseService, MongoDatabase} from '#root/shared/index.js';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {inject, injectable} from 'inversify';
-import {ClientSession, ObjectId} from 'mongodb';
+import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
+import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { BaseService, MongoDatabase } from '#root/shared/index.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { inject, injectable } from 'inversify';
+import { ClientSession, ObjectId } from 'mongodb';
 import {
   IAnswer,
   INotificationType,
@@ -22,22 +22,23 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from 'routing-controllers';
-import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
-import {notifyUser} from '#root/utils/pushNotification.js';
-import {IReviewRepository} from '#root/shared/database/interfaces/IReviewRepository.js';
-import {appConfig} from '#root/config/app.js';
+import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
+import { notifyUser } from '#root/utils/pushNotification.js';
+import { IReviewRepository } from '#root/shared/database/interfaces/IReviewRepository.js';
+import { appConfig } from '#root/config/app.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
-import { CORE_TYPES, NotificationService} from '#root/modules/core/index.js';
+import { CORE_TYPES, NotificationService } from '#root/modules/core/index.js';
 import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
-import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
+import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
+import { DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT } from '#root/shared/constants/general.js';
 
 @injectable()
-export class AnswerService extends BaseService implements IAnswerService{
+export class AnswerService extends BaseService implements IAnswerService {
   constructor(
     @inject(CORE_TYPES.AIService)
     private readonly aiService: AiService,
@@ -83,8 +84,8 @@ export class AnswerService extends BaseService implements IAnswerService{
     session?: ClientSession,
     status?: string,
     remarks?: string,
-    type?:string,
-  ): Promise<{insertedId: string; isFinalAnswer: boolean}> {
+    type?: string,
+  ): Promise<{ insertedId: string; isFinalAnswer: boolean }> {
     const execute = async (activeSession: ClientSession) => {
       const question = await this.questionRepo.getById(
         questionId,
@@ -116,11 +117,11 @@ export class AnswerService extends BaseService implements IAnswerService{
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
 
       if (ENABLE_AI_SERVER) {
-        const {embedding} = await this.aiService.getEmbedding(answer);
+        const { embedding } = await this.aiService.getEmbedding(answer);
         textEmbedding = embedding;
       }
 
-      const {insertedId} = await this.answerRepo.addAnswer(
+      const { insertedId } = await this.answerRepo.addAnswer(
         questionId,
         authorId,
         answer,
@@ -143,7 +144,7 @@ export class AnswerService extends BaseService implements IAnswerService{
         activeSession,
       );
 
-      return {insertedId, isFinalAnswer};
+      return { insertedId, isFinalAnswer };
     };
 
     if (session) {
@@ -158,7 +159,7 @@ export class AnswerService extends BaseService implements IAnswerService{
   async reviewAnswer(
     userId: string,
     body: ReviewAnswerBody,
-  ): Promise<{message: string}> {
+  ): Promise<{ message: string }> {
     try {
       await this._withTransaction(async (session: ClientSession) => {
         // -----------------------------------------------------------
@@ -207,29 +208,29 @@ export class AnswerService extends BaseService implements IAnswerService{
         }
 
         //check if it is re-routed
-      /*  if(type){
-          const intialStatus = 'in-review' as IAnswer['status'];
-          const isIncrement=false
-          const message="Expert created an answer for the re-routed question"
-          const title="New answer for re-routed Question"
-          const type:INotificationType='re-routed-answer-created'
-          const {insertedId: answerId} = await this.addAnswer(
-            questionId,
-            userId,
-            answer,
-            sources,
-            session,
-            intialStatus,
-            remarks,
-            type
-          );
-          const reroute = await this.reRouteRepository.findByQuestionId(questionId.toString(),session)
-          const moderatorId = reroute.reroutes[0].reroutedBy.toString()
-          await this.userRepo.updateReputationScore(userId.toString(),isIncrement,session)
-          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'expert_completed',answerId,undefined,session)
-          await this.notificationService.saveTheNotifications(message,title,questionId,moderatorId,type,session)
-          return
-        }*/
+        /*  if(type){
+            const intialStatus = 'in-review' as IAnswer['status'];
+            const isIncrement=false
+            const message="Expert created an answer for the re-routed question"
+            const title="New answer for re-routed Question"
+            const type:INotificationType='re-routed-answer-created'
+            const {insertedId: answerId} = await this.addAnswer(
+              questionId,
+              userId,
+              answer,
+              sources,
+              session,
+              intialStatus,
+              remarks,
+              type
+            );
+            const reroute = await this.reRouteRepository.findByQuestionId(questionId.toString(),session)
+            const moderatorId = reroute.reroutes[0].reroutedBy.toString()
+            await this.userRepo.updateReputationScore(userId.toString(),isIncrement,session)
+            await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'expert_completed',answerId,undefined,session)
+            await this.notificationService.saveTheNotifications(message,title,questionId,moderatorId,type,session)
+            return
+          }*/
 
 
         // -----------------------------------------------------------
@@ -330,10 +331,10 @@ export class AnswerService extends BaseService implements IAnswerService{
             status === 'rejected'
               ? reasonForRejection ?? ''
               : status === 'modified'
-              ? reasonForModification ?? ''
-              : '';
+                ? reasonForModification ?? ''
+                : '';
 
-          const {insertedId} = await this.reviewRepo.createReview(
+          const { insertedId } = await this.reviewRepo.createReview(
             'answer' as ReviewType,
             status as ReviewAction,
             questionId,
@@ -369,7 +370,7 @@ export class AnswerService extends BaseService implements IAnswerService{
         if (!status) {
           // -------------------- FIRST SUBMISSION --------------------------------
           const intialStatus = 'in-review' as IAnswer['status'];
-          const {insertedId: answerId} = await this.addAnswer(
+          const { insertedId: answerId } = await this.addAnswer(
             questionId,
             userId,
             answer,
@@ -426,7 +427,7 @@ export class AnswerService extends BaseService implements IAnswerService{
           ) {
             await this.answerRepo.updateAnswerStatus(
               approvedAnswer,
-              {status: 'pending-with-moderator'},
+              { status: 'pending-with-moderator' },
               session,
             );
           }
@@ -438,13 +439,13 @@ export class AnswerService extends BaseService implements IAnswerService{
             await this.questionSubmissionRepo.updateHistoryByUserId(
               questionId,
               approvedExpertId,
-              {status: 'approved'},
+              { status: 'approved' },
               session,
             );
 
             await this.questionRepo.updateQuestion(
               questionId,
-              {status: 'in-review'},
+              { status: 'in-review' },
               session,
             );
 
@@ -456,7 +457,7 @@ export class AnswerService extends BaseService implements IAnswerService{
               session,
             );
 
-            return {message: 'Your response recorded successfully, thank you!'};
+            return { message: 'Your response recorded successfully, thank you!' };
           }
         }
 
@@ -507,7 +508,7 @@ export class AnswerService extends BaseService implements IAnswerService{
               ? 'pending-with-moderator'
               : 'in-review';
 
-          const {insertedId: newAnswerId} = await this.addAnswer(
+          const { insertedId: newAnswerId } = await this.addAnswer(
             questionId,
             userId,
             answer,
@@ -583,7 +584,7 @@ export class AnswerService extends BaseService implements IAnswerService{
 
           await this.answerRepo.updateAnswer(
             modifiedAnswer,
-            {answer, sources, status: newStatus},
+            { answer, sources, status: newStatus },
             session,
           );
 
@@ -641,9 +642,9 @@ export class AnswerService extends BaseService implements IAnswerService{
           const isQueueNotFull = currentSumbmissionQueue.length < 10;
           // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
           //currentSubmissionHistory.length <10
-          
-         // if (isNotLast &&isQueueNotFull  ) {
-          if (isNotLast &&currentSubmissionHistory.length <10 ) {
+
+          // if (isNotLast &&isQueueNotFull  ) {
+          if (isNotLast && currentSubmissionHistory.length < 10) {
             const nextExpertId =
               currentSumbmissionQueue[currentUserIndexInQueue + 1];
 
@@ -685,7 +686,7 @@ export class AnswerService extends BaseService implements IAnswerService{
           }
 
           // Case 2: Current user is the last in the queue but the queue isn't full
-           if (
+          if (
             currentUserIndexInQueue === currentSumbmissionQueue.length - 1 &&
             currentSumbmissionQueue.length < 10 &&
             question.isAutoAllocate
@@ -699,7 +700,7 @@ export class AnswerService extends BaseService implements IAnswerService{
         if (currentSubmissionHistory.length == 10) {
           await this.questionRepo.updateQuestion(
             questionId,
-            {status: 'in-review'},
+            { status: 'in-review' },
             session,
           );
         }
@@ -712,7 +713,7 @@ export class AnswerService extends BaseService implements IAnswerService{
         );
       });
 
-      return {message: 'Your response recorded sucessfully, thankyou!'};
+      return { message: 'Your response recorded sucessfully, thankyou!' };
     } catch (error) {
       throw new InternalServerError(`${error}`);
     }
@@ -720,7 +721,7 @@ export class AnswerService extends BaseService implements IAnswerService{
   async reRouteReviewAnswer(
     userId: string,
     body: ReviewAnswerBody,
-  ): Promise<{message: string}> {
+  ): Promise<{ message: string }> {
     try {
       await this._withTransaction(async (session: ClientSession) => {
         // -----------------------------------------------------------
@@ -758,80 +759,80 @@ export class AnswerService extends BaseService implements IAnswerService{
           remarks,
           type
         } = body;
-      
+
 
         const question = await this.questionRepo.getById(questionId, session);
 
         if (!question) {
           throw new NotFoundError(`Failed to find question. Please try again.`);
         }
-        const questionSubmission = await this.reRouteRepository.findByQuestionId(questionId.toString(),session)
+        const questionSubmission = await this.reRouteRepository.findByQuestionId(questionId.toString(), session)
         const submissionHistory = questionSubmission.reroutes ?? [];
         const lastHistory = submissionHistory[submissionHistory.length - 1]
         const moderatorId = lastHistory.reroutedBy.toString()
-        const lastAnswerId = questionSubmission ?.answerId?.toString();
+        const lastAnswerId = questionSubmission?.answerId?.toString();
         //check if it is re-routed
-       /* if(type=="re-routed"){
-          const intialStatus = 'in-review' as IAnswer['status'];
-          const isIncrement=false
-          const message="Expert created an answer for the re-routed question"
-          const title="New answer for re-routed Question"
-          const type:INotificationType='re-routed-answer-created'
-          const {insertedId: answerId} = await this.addAnswer(
-            questionId,
-            userId,
-            answer,
-            sources,
-            session,
-            intialStatus,
-            remarks,
-            type
-          );
-          const reroute = await this.reRouteRepository.findByQuestionId(questionId.toString(),session)
-          const moderatorId = reroute.reroutes[0].reroutedBy.toString()
-          await this.userRepo.updateReputationScore(userId.toString(),isIncrement,session)
-          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'expert_completed',answerId,undefined,session)
-          await this.notificationService.saveTheNotifications(message,title,questionId,moderatorId,type,session)
-          return
-        }*/
+        /* if(type=="re-routed"){
+           const intialStatus = 'in-review' as IAnswer['status'];
+           const isIncrement=false
+           const message="Expert created an answer for the re-routed question"
+           const title="New answer for re-routed Question"
+           const type:INotificationType='re-routed-answer-created'
+           const {insertedId: answerId} = await this.addAnswer(
+             questionId,
+             userId,
+             answer,
+             sources,
+             session,
+             intialStatus,
+             remarks,
+             type
+           );
+           const reroute = await this.reRouteRepository.findByQuestionId(questionId.toString(),session)
+           const moderatorId = reroute.reroutes[0].reroutedBy.toString()
+           await this.userRepo.updateReputationScore(userId.toString(),isIncrement,session)
+           await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'expert_completed',answerId,undefined,session)
+           await this.notificationService.saveTheNotifications(message,title,questionId,moderatorId,type,session)
+           return
+         }*/
         if (!questionSubmission) {
           throw new NotFoundError(
             `Failed to find submission details for this question.`,
           );
         }
         if (submissionHistory.length === 0) {
-         
-          
+
+
           throw new UnauthorizedError(
             'You are not authorized to review this question. It has been assigned to another reviewer.',
           );
-        
-      } else {
-        // Ongoing review: Reviewer must match last updatedBy
-        const lastHistory = submissionHistory[submissionHistory.length - 1];
-        const assignedReviewer = lastHistory?.reroutedTo?.toString();
-        if (!assignedReviewer) {
-          throw new UnauthorizedError(
-            'Unable to find reviewer info for this question. Please try later.',
-          );
+
+        } else {
+          // Ongoing review: Reviewer must match last updatedBy
+          const lastHistory = submissionHistory[submissionHistory.length - 1];
+          const assignedReviewer = lastHistory?.reroutedTo?.toString();
+          if (!assignedReviewer) {
+            throw new UnauthorizedError(
+              'Unable to find reviewer info for this question. Please try later.',
+            );
+          }
+
+          if (assignedReviewer !== user._id.toString()) {
+            throw new UnauthorizedError(
+              'This question is currently being reviewed by another expert.',
+            );
+          }
         }
 
-        if (assignedReviewer !== user._id.toString()) {
-          throw new UnauthorizedError(
-            'This question is currently being reviewed by another expert.',
-          );
-        }
-      }
 
 
-       
-        
-
-       
-        
 
 
-        
+
+
+
+
+
 
 
         let reviewId: ObjectId | null = null;
@@ -841,10 +842,10 @@ export class AnswerService extends BaseService implements IAnswerService{
             status === 'rejected'
               ? reasonForRejection ?? ''
               : status === 'modified'
-              ? reasonForModification ?? ''
-              : '';
+                ? reasonForModification ?? ''
+                : '';
 
-          const {insertedId} = await this.reviewRepo.createReview(
+          const { insertedId } = await this.reviewRepo.createReview(
             'answer' as ReviewType,
             status as ReviewAction,
             questionId,
@@ -863,13 +864,13 @@ export class AnswerService extends BaseService implements IAnswerService{
           }
           await this.questionRepo.updateQuestion(
             questionId,
-            {status: 'in-review'},
+            { status: 'in-review' },
             session,
           );
 
           reviewId = new ObjectId(insertedId);
         }
-        
+
         let review_answerId
         if (status === 'accepted') {
           review_answerId = approvedAnswer
@@ -877,17 +878,17 @@ export class AnswerService extends BaseService implements IAnswerService{
             review_answerId,
             session,
           );
-          
-          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),"approved",review_answerId,undefined,session)
+
+          await this.reRouteRepository.updateStatus(questionId.toString(), userId.toString(), "approved", review_answerId, undefined, session)
           /*await this.answerRepo.updateAnswerStatus(review_answerId , {
             reRouted: true,
           });*/
 
-           }
-        
+        }
+
         if (status === 'rejected') {
-         const answerToReject = await this.answerRepo.getById(rejectedAnswer);
-         
+          const answerToReject = await this.answerRepo.getById(rejectedAnswer);
+
           if (
             answerToReject.answer &&
             answerToReject.answer.trim() === answer.trim()
@@ -896,14 +897,14 @@ export class AnswerService extends BaseService implements IAnswerService{
               `The submitted answer is either identical to the existing answer or not provided. Please modify your response before saving.`,
             );
           }
-         await this.answerRepo.updateAnswerStatus(rejectedAnswer, {
+          await this.answerRepo.updateAnswerStatus(rejectedAnswer, {
             status: 'rejected',
           });
-    const newStatus =
+          const newStatus =
             'pending-with-moderator'
-             
 
-          const {insertedId: answerId} = await this.addAnswer(
+
+          const { insertedId: answerId } = await this.addAnswer(
             questionId,
             userId,
             answer,
@@ -913,13 +914,13 @@ export class AnswerService extends BaseService implements IAnswerService{
             remarks,
             type
           );
-          review_answerId=answerId
-          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'rejected',review_answerId,undefined,session)
+          review_answerId = answerId
+          await this.reRouteRepository.updateStatus(questionId.toString(), userId.toString(), 'rejected', review_answerId, undefined, session)
         }
 
         if (status === 'modified') {
-          
-         
+
+
 
           const answerToModify = await this.answerRepo.getById(modifiedAnswer);
 
@@ -932,22 +933,22 @@ export class AnswerService extends BaseService implements IAnswerService{
             );
           }
 
-         
+
 
           // 2. Update answer
           const newStatus =
             'pending-with-moderator'
-             
+
 
           await this.answerRepo.updateAnswer(
             modifiedAnswer,
-            {answer, sources, status: newStatus,reRouted: true},
+            { answer, sources, status: newStatus, reRouted: true },
             session,
           );
-         
 
 
-         
+
+
 
           //update in the modifications array
           const modificationEntry: PreviousAnswersItem = {
@@ -962,42 +963,42 @@ export class AnswerService extends BaseService implements IAnswerService{
             session,
           );
           review_answerId = modifiedAnswer
-          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'modified',review_answerId,undefined,session)
-          
+          await this.reRouteRepository.updateStatus(questionId.toString(), userId.toString(), 'modified', review_answerId, undefined, session)
+
         }
-      
+
 
         const intialStatus = 'in-review' as IAnswer['status'];
-        const isIncrement=false
-        const message="Expert created an answer for the re-routed question"
-        const title="New answer for re-routed Question"
-        const typeNoti:INotificationType='re-routed-answer-created'
-       
-        await this.userRepo.updateReputationScore(userId.toString(),isIncrement,session)
-       
-        await this.notificationService.saveTheNotifications(message,title,questionId,moderatorId,typeNoti,session)
-        
+        const isIncrement = false
+        const message = "Expert created an answer for the re-routed question"
+        const title = "New answer for re-routed Question"
+        const typeNoti: INotificationType = 're-routed-answer-created'
 
-        
-          
-          
+        await this.userRepo.updateReputationScore(userId.toString(), isIncrement, session)
 
-         
+        await this.notificationService.saveTheNotifications(message, title, questionId, moderatorId, typeNoti, session)
 
-        
-      
 
-     
+
+
+
+
+
+
+
+
+
+
       })
-      return {message: 'Your response recorded successfully, thank you!'};
-  
+      return { message: 'Your response recorded successfully, thank you!' };
+
+    }
+    catch (error) {
+      throw new InternalServerError(
+        `Failed to increment approved count /More ${error}`,
+      );
+    }
   }
-  catch (error) {
-    throw new InternalServerError(
-      `Failed to increment approved count /More ${error}`,
-    );
-  }
-}
   // async reviewAnswer(
   //   userId: string,
   //   body: ReviewAnswerBody,
@@ -1467,7 +1468,7 @@ export class AnswerService extends BaseService implements IAnswerService{
     userId: string,
     page: number,
     limit: number,
-    dateRange?: {from: string | undefined; to: string | undefined},
+    dateRange?: { from: string | undefined; to: string | undefined },
     selectedHistoryId?: string | undefined,
   ): Promise<SubmissionResponse[]> {
     return await this._withTransaction(async (session: ClientSession) => {
@@ -1501,7 +1502,7 @@ export class AnswerService extends BaseService implements IAnswerService{
   ): Promise<{
     finalizedSubmissions: any[];
   }> {
-    const {finalizedSubmissions} = await this.answerRepo.getAllFinalizedAnswers(
+    const { finalizedSubmissions } = await this.answerRepo.getAllFinalizedAnswers(
       userId,
       currentUserId,
       date,
@@ -1513,318 +1514,325 @@ export class AnswerService extends BaseService implements IAnswerService{
   }
 
   // Currently using for approving answer
- /* async approveAnswer(
-    userId: string,
-    answerId: string|undefined,
-    updates: UpdateAnswerBody,
-  ): Promise<{modifiedCount: number}> {
-    return this._withTransaction(async (session: ClientSession) => {
-      if (!answerId) throw new BadRequestError('AnswerId not found');
-      const answer = await this.answerRepo.getById(answerId, session);
-
-      if (!answer) {
-        throw new BadRequestError(`Answer with ID ${answerId} not found`);
-      }
-
-      const user = await this.userRepo.findById(userId, session);
-
-      if (!user || user.role == 'expert')
-        throw new UnauthorizedError(
-          "You don't have permission to approve an answer!",
-        );
-
-      const questionId = answer.questionId.toString();
-
-      const question = await this.questionRepo.getById(questionId);
-
-      if (!question) {
-        throw new BadRequestError(`Question with ID ${questionId} not found`);
-      }
-
-      if (question.status !== 'in-review') {
-        throw new BadRequestError(
-          `Can't approve this answer:${answerId}, currently question is not in review!`,
-        );
-      }
-
-      await this.answerRepo.getByQuestionId(questionId, session);
-
-      const text = `Question: ${question.question}
-
-answer: ${updates.answer}`;
-
-      let questionEmbedding = [];
-
-      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
-
-      if (ENABLE_AI_SERVER) {
-        const {embedding} = await this.aiService.getEmbedding(text);
-        questionEmbedding = embedding;
-      }
-
-      // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
-      //   text,
-      // );
-      // const questionEmbedding = [];
-      const authorId = answer.authorId.toString();
-
-      await this.userRepo.updatePenaltyAndIncentive(
-        authorId,
-        'incentive',
-        session,
-      );
-      
-      await this.questionRepo.updateQuestion(
-        questionId,
-        {
-          text,
-          embedding: questionEmbedding,
-          status: 'closed',
-          closedAt: new Date(),
-        },
-        session,
-        true,
-      );
-
-      let textEmbedding = [];
-
-      if (ENABLE_AI_SERVER) {
-        const {embedding} = await this.aiService.getEmbedding(text);
-        textEmbedding = embedding;
-      }
-
-      const payload: Partial<IAnswer> = {
-        answer: updates.answer,
-        sources: updates.sources,
-        approvedBy: new ObjectId(userId),
-        embedding: textEmbedding,
-        isFinalAnswer: true,
-        status: 'approved',
-      };
-      return this.answerRepo.updateAnswer(answerId, payload, session);
-    });
-  }*/
+  /* async approveAnswer(
+     userId: string,
+     answerId: string|undefined,
+     updates: UpdateAnswerBody,
+   ): Promise<{modifiedCount: number}> {
+     return this._withTransaction(async (session: ClientSession) => {
+       if (!answerId) throw new BadRequestError('AnswerId not found');
+       const answer = await this.answerRepo.getById(answerId, session);
+ 
+       if (!answer) {
+         throw new BadRequestError(`Answer with ID ${answerId} not found`);
+       }
+ 
+       const user = await this.userRepo.findById(userId, session);
+ 
+       if (!user || user.role == 'expert')
+         throw new UnauthorizedError(
+           "You don't have permission to approve an answer!",
+         );
+ 
+       const questionId = answer.questionId.toString();
+ 
+       const question = await this.questionRepo.getById(questionId);
+ 
+       if (!question) {
+         throw new BadRequestError(`Question with ID ${questionId} not found`);
+       }
+ 
+       if (question.status !== 'in-review') {
+         throw new BadRequestError(
+           `Can't approve this answer:${answerId}, currently question is not in review!`,
+         );
+       }
+ 
+       await this.answerRepo.getByQuestionId(questionId, session);
+ 
+       const text = `Question: ${question.question}
+ 
+ answer: ${updates.answer}`;
+ 
+       let questionEmbedding = [];
+ 
+       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+ 
+       if (ENABLE_AI_SERVER) {
+         const {embedding} = await this.aiService.getEmbedding(text);
+         questionEmbedding = embedding;
+       }
+ 
+       // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+       //   text,
+       // );
+       // const questionEmbedding = [];
+       const authorId = answer.authorId.toString();
+ 
+       await this.userRepo.updatePenaltyAndIncentive(
+         authorId,
+         'incentive',
+         session,
+       );
+       
+       await this.questionRepo.updateQuestion(
+         questionId,
+         {
+           text,
+           embedding: questionEmbedding,
+           status: 'closed',
+           closedAt: new Date(),
+         },
+         session,
+         true,
+       );
+ 
+       let textEmbedding = [];
+ 
+       if (ENABLE_AI_SERVER) {
+         const {embedding} = await this.aiService.getEmbedding(text);
+         textEmbedding = embedding;
+       }
+ 
+       const payload: Partial<IAnswer> = {
+         answer: updates.answer,
+         sources: updates.sources,
+         approvedBy: new ObjectId(userId),
+         embedding: textEmbedding,
+         isFinalAnswer: true,
+         status: 'approved',
+       };
+       return this.answerRepo.updateAnswer(answerId, payload, session);
+     });
+   }*/
   async approveAnswer(
     userId: string,
     updates: UpdateAnswerBody,
-  ): Promise<{modifiedCount: number} | {insertedId: string}> {
+  ): Promise<{ modifiedCount: number } | { insertedId: string }> {
     return this._withTransaction(async (session: ClientSession) => {
-  
+
       const isAjrasakha = updates.source === 'AJRASAKHA';
-      
-  
+
+
       // ✅ AJRASAKHA flow
-      if (isAjrasakha ) {
-       
-        if (!updates.questionId) {
-          throw new BadRequestError('questionId is required for AJRASAKHA source');
-        }
-  
-        const user = await this.userRepo.findById(userId, session);
-  
-        if (!user || user.role == 'expert')
-          throw new UnauthorizedError(
-            "You don't have permission to approve an answer!",
-          );
-  
-        const question = await this.questionRepo.getById(updates.questionId);
-  
-        if (!question) {
-          throw new BadRequestError(`Question with ID ${updates.questionId} not found`);
-        }
-  
-       /* if (question.isAutoAllocate ==true) {
-          throw new BadRequestError(
-            `Can't approve this answer, currently question is auto allocated!`,
-          );
-        }*/
-        if (question.status=='closed') {
-          throw new BadRequestError(
-            `Can't approve this answer, currently question is closed!`,
-          );
-        }
-  
-        const text = `Question: ${question.question}
-  
-  answer: ${updates.answer}`;
-  
-        let questionEmbedding = [];
-  
-        const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
-  
-        if (ENABLE_AI_SERVER) {
-          const {embedding} = await this.aiService.getEmbedding(text);
-          questionEmbedding = embedding;
-        }
-  
-        await this.questionRepo.updateQuestion(
-          updates.questionId,
-          {
-            text,
-            embedding: questionEmbedding,
-            aiApprovedSources: updates.sources ?? [],
-            aiInitialAnswer: updates.answer ?? '',
-            // aiApprovedAnswer: updates.answer ?? '',
-            // question stays 'open' so experts can call reviewAnswer()
-          },
-          session,
-          true,
-        );
+      //     if (isAjrasakha ) {
 
-        const users = await this.userRepo.getExpertsWithFallback(
-          question.details,
-          session,
-        );
-  
-       
-        let queue: ObjectId[] = [];
-        let initialUsersToAllocate: typeof users = [];
+      // const users = await this.userRepo.getExpertsWithFallback(
+      //   question.details,
+      //   session,
+      // );
 
-        
-          initialUsersToAllocate = users.slice(0, 4);
 
-          queue = initialUsersToAllocate.map(
-            (user) => new ObjectId(user._id.toString()),
-          );
-        
-  
-      //  const initialUsersToAllocate = users.slice(0, 3);
-  
-       /* const queue = initialUsersToAllocate.map(
-          (user) => new ObjectId(user._id.toString()),
-        );*/
-  
-        if (initialUsersToAllocate[0]) {
-          await this.userRepo.updateReputationScore(
-            initialUsersToAllocate[0]._id.toString(),
-            true,
-            session,
-          );
-        }
+      // let queue: ObjectId[] = [];
+      // let initialUsersToAllocate: typeof users = [];
+      //       if (!updates.questionId) {
+      //         throw new BadRequestError('questionId is required for AJRASAKHA source');
+      //       }
 
-        // Create an answer document so the expert can see the moderator-approved
-        // answer text from the answers collection (not the raw AI blob)
-        // const firstExpertId = initialUsersToAllocate[0]
-        //   ? initialUsersToAllocate[0]._id.toString()
-        //   : userId;
+      //       const user = await this.userRepo.findById(userId, session);
 
-        // let answerEmbedding: number[] = [];
-        // if (ENABLE_AI_SERVER) {
-        //   try {
-        //     const { embedding } = await this.aiService.getEmbedding(updates.answer);
-        //     answerEmbedding = embedding;
-        //   } catch {
-        //     answerEmbedding = [];
-        //   }
-        // }
+      //       if (!user || user.role == 'expert')
+      //         throw new UnauthorizedError(
+      //           "You don't have permission to approve an answer!",
+      //         );
 
-        // const { insertedId: answerId } = await this.answerRepo.addAnswer(
-        //   updates.questionId,
-        //   firstExpertId,
-        //   updates.answer,
-        //   updates.sources ?? [],
-        //   answerEmbedding,
-        //   false,       // isFinalAnswer
-        //   1,           // updatedAnswerCount
-        //   session,
-        //   'pending',   // status
-        //   'AI Generated Answer', // remarks
-        // );
+      //       const question = await this.questionRepo.getById(updates.questionId);
 
-        // Update question totalAnswersCount
-        await this.questionRepo.updateQuestion(
-          updates.questionId,
-          { totalAnswersCount: 1 },
-          session,
-        );
+      //       if (!question) {
+      //         throw new BadRequestError(`Question with ID ${updates.questionId} not found`);
+      //       }
 
-        let submission = await this.questionSubmissionRepo.getByQuestionId(
-            updates.questionId,
-            session,
-          );
+      //      /* if (question.isAutoAllocate ==true) {
+      //         throw new BadRequestError(
+      //           `Can't approve this answer, currently question is auto allocated!`,
+      //         );
+      //       }*/
+      //       if (question.status=='closed') {
+      //         throw new BadRequestError(
+      //           `Can't approve this answer, currently question is closed!`,
+      //         );
+      //       }
 
-        if (!submission) {
-          // Create submission with empty history — expert is the author
-          // and will see the pre-filled answer from the answers collection
-          const submissionData: IQuestionSubmission = {
-            questionId: new ObjectId(updates?.questionId?.toString()),
-            lastRespondedBy: new ObjectId(userId),
-            history: [],
-            queue,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
+      //       const text = `Question: ${question.question}
 
-          await this.questionSubmissionRepo.addSubmission(submissionData, session);
-        } else {
-          await this.questionSubmissionRepo.updateQueue(
-            updates.questionId.toString(),
-            queue,
-            session,
-          );
-        }
+      // answer: ${updates.answer}`;
 
-        
-  
-        if (initialUsersToAllocate[0]) {
-          await this.notificationService.saveTheNotifications(
-            `A Question has been assigned for answering`,
-            'Answer Creation Assigned',
-            updates.questionId.toString(),
-            initialUsersToAllocate[0]._id.toString(),
-            'answer_creation',
-          );
-        }
-  
-        return { modifiedCount: 1 };
-      }
-  
+      //       let questionEmbedding = [];
+
+      //       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+
+      //       if (ENABLE_AI_SERVER) {
+      //         const {embedding} = await this.aiService.getEmbedding(text);
+      //         questionEmbedding = embedding;
+      //       }
+
+      //       await this.questionRepo.updateQuestion(
+      //         updates.questionId,
+      //         {
+      //           text,
+      //           embedding: questionEmbedding,
+      //           aiApprovedSources: updates.sources ?? [],
+      //           aiInitialAnswer: updates.answer ?? '',
+      //           // aiApprovedAnswer: updates.answer ?? '',
+      //           // question stays 'open' so experts can call reviewAnswer()
+      //         },
+      //         session,
+      //         true,
+      //       );
+
+      //       const users = await this.userRepo.getSpecialTaskForceExperts(
+      //         session,
+      //       );
+
+
+      //       let queue: ObjectId[] = [];
+      //       let initialUsersToAllocate: typeof users = [];
+
+
+      //         initialUsersToAllocate = users.slice(0, 4);
+
+      //         queue = initialUsersToAllocate.map(
+      //           (user) => new ObjectId(user._id.toString()),
+      //         );
+
+
+      //     //  const initialUsersToAllocate = users.slice(0, 3);
+
+      //      /* const queue = initialUsersToAllocate.map(
+      //         (user) => new ObjectId(user._id.toString()),
+      //       );*/
+
+      //       if (initialUsersToAllocate[0]) {
+      //         await this.userRepo.updateReputationScore(
+      //           initialUsersToAllocate[0]._id.toString(),
+      //           true,
+      //           session,
+      //         );
+      //       }
+
+      //       // Create an answer document so the expert can see the moderator-approved
+      //       // answer text from the answers collection (not the raw AI blob)
+      //       // const firstExpertId = initialUsersToAllocate[0]
+      //       //   ? initialUsersToAllocate[0]._id.toString()
+      //       //   : userId;
+
+      //       // let answerEmbedding: number[] = [];
+      //       // if (ENABLE_AI_SERVER) {
+      //       //   try {
+      //       //     const { embedding } = await this.aiService.getEmbedding(updates.answer);
+      //       //     answerEmbedding = embedding;
+      //       //   } catch {
+      //       //     answerEmbedding = [];
+      //       //   }
+      //       // }
+
+      //       // const { insertedId: answerId } = await this.answerRepo.addAnswer(
+      //       //   updates.questionId,
+      //       //   firstExpertId,
+      //       //   updates.answer,
+      //       //   updates.sources ?? [],
+      //       //   answerEmbedding,
+      //       //   false,       // isFinalAnswer
+      //       //   1,           // updatedAnswerCount
+      //       //   session,
+      //       //   'pending',   // status
+      //       //   'AI Generated Answer', // remarks
+      //       // );
+
+      //       // Update question totalAnswersCount
+      //       await this.questionRepo.updateQuestion(
+      //         updates.questionId,
+      //         { totalAnswersCount: 1 },
+      //         session,
+      //       );
+
+      //       let submission = await this.questionSubmissionRepo.getByQuestionId(
+      //           updates.questionId,
+      //           session,
+      //         );
+
+      //       if (!submission) {
+      //         // Create submission with empty history — expert is the author
+      //         // and will see the pre-filled answer from the answers collection
+      //         const submissionData: IQuestionSubmission = {
+      //           questionId: new ObjectId(updates?.questionId?.toString()),
+      //           lastRespondedBy: new ObjectId(userId),
+      //           history: [],
+      //           queue,
+      //           createdAt: new Date(),
+      //           updatedAt: new Date(),
+      //         };
+
+      //         await this.questionSubmissionRepo.addSubmission(submissionData, session);
+      //       } else {
+      //         await this.questionSubmissionRepo.updateQueue(
+      //           updates.questionId.toString(),
+      //           queue,
+      //           session,
+      //         );
+      //       }
+
+
+
+      //       if (initialUsersToAllocate[0]) {
+      //         await this.notificationService.saveTheNotifications(
+      //           `A Question has been assigned for answering`,
+      //           'Answer Creation Assigned',
+      //           updates.questionId.toString(),
+      //           initialUsersToAllocate[0]._id.toString(),
+      //           'answer_creation',
+      //         );
+      //       }
+
+      //       return { modifiedCount: 1 };
+      //     }
+
       // ✅ Original default flow (unchanged)
       const answerId = updates.answerId;
-  
+
       if (!answerId) throw new BadRequestError('AnswerId not found');
       const answer = await this.answerRepo.getById(answerId, session);
-  
+
       if (!answer) {
         throw new BadRequestError(`Answer with ID ${answerId} not found`);
       }
-  
+
       const user = await this.userRepo.findById(userId, session);
-  
+
       if (!user || user.role == 'expert')
         throw new UnauthorizedError(
           "You don't have permission to approve an answer!",
         );
-  
+
       const questionId = answer.questionId.toString();
-  
+
       const question = await this.questionRepo.getById(questionId);
-  
+
       if (!question) {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
-  
+
       if (question.status !== 'in-review') {
         throw new BadRequestError(
           `Can't approve this answer:${answerId}, currently question is not in review!`,
         );
       }
-  
+
       await this.answerRepo.getByQuestionId(questionId, session);
-  
+
       const text = `Question: ${question.question}
   
   answer: ${updates.answer}`;
-  
+
       let questionEmbedding = [];
-  
+
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
-  
+
       if (ENABLE_AI_SERVER) {
-        const {embedding} = await this.aiService.getEmbedding(text);
+        const { embedding } = await this.aiService.getEmbedding(text);
         questionEmbedding = embedding;
       }
-  
+
       // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
       //   text,
       // );
@@ -1835,7 +1843,7 @@ answer: ${updates.answer}`;
         'incentive',
         session,
       );
-  
+
       await this.questionRepo.updateQuestion(
         questionId,
         {
@@ -1847,14 +1855,14 @@ answer: ${updates.answer}`;
         session,
         true,
       );
-  
+
       let textEmbedding = [];
-  
+
       if (ENABLE_AI_SERVER) {
-        const {embedding} = await this.aiService.getEmbedding(text);
+        const { embedding } = await this.aiService.getEmbedding(text);
         textEmbedding = embedding;
       }
-  
+
       const payload: Partial<IAnswer> = {
         answer: updates.answer,
         sources: updates.sources,
@@ -1863,14 +1871,13 @@ answer: ${updates.answer}`;
         isFinalAnswer: true,
         status: 'approved',
       };
-  
-      let result= this.answerRepo.updateAnswer(answerId, payload, session);
+
+      let result = this.answerRepo.updateAnswer(answerId, payload, session);
       const author = await this.userRepo.findById(authorId, session);
-      
-      if(question.source==="WHATSAPP")
-      {
+
+      if (question.source === "WHATSAPP") {
         try {
-          const webhookResponse=  await fetch(appConfig.WA_WEBHOOK_API_URL, {
+          const webhookResponse = await fetch(appConfig.WA_WEBHOOK_API_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1891,10 +1898,9 @@ answer: ${updates.answer}`;
           console.error('[WhatsApp webhook] Failed to notify:', err);
         }
       }
-      if(question.source=="AJRASAKHA")
-      {
+      if (question.source == "AJRASAKHA") {
         try {
-          const webhookResponse=  await fetch(appConfig.WEB_WEBHOOK_API_URL, {
+          const webhookResponse = await fetch(appConfig.WEB_WEBHOOK_API_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1906,9 +1912,9 @@ answer: ${updates.answer}`;
               answer: updates.answer ?? '',
               author: `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() || 'Expert',  // ✅ author name from userRepo
               sources: updates.sources ?? [],
-              question:question.question,
-             // originalQuestion:question.originalQuestion?? "",
-             messageId:question.messageId
+              question: question.question,
+              // originalQuestion:question.originalQuestion?? "",
+              messageId: question.messageId
 
             }),
           });
@@ -1919,15 +1925,140 @@ answer: ${updates.answer}`;
           console.error('[Browser webhook] Failed to notify:', err);
         }
       }
-      
+
       return result
+    });
+  }
+
+  async approveLLMAnswer(
+    userId: string,
+    updates: UpdateAnswerBody,
+  ): Promise<{ modifiedCount: number }> {
+    return this._withTransaction(async (session: ClientSession) => {
+      const isAjrasakha = updates.source === 'AJRASAKHA';
+      const isWhatsApp = updates.source === 'WHATSAPP';
+
+      if (!isAjrasakha && !isWhatsApp) {
+        throw new BadRequestError('Only AJRASAKHA or WHATSAPP sources are supported for this action');
+      }
+
+      if (!updates.questionId) {
+        throw new BadRequestError('questionId is required');
+      }
+
+      const user = await this.userRepo.findById(userId, session);
+
+      if (!user || user.role === 'expert') {
+        throw new UnauthorizedError("You don't have permission to approve an answer!");
+      }
+
+      const question = await this.questionRepo.getById(updates.questionId, session);
+
+      if (!question) {
+        throw new BadRequestError(`Question with ID ${updates.questionId} not found`);
+      }
+
+      //open and delay:only allow
+      if (question.status !== 'open' && question.status !== 'delayed') {
+        throw new BadRequestError(
+          `Can't approve this answer. Current question status is '${question.status}'.`
+        );
+      }
+
+      // const text = `Question: ${question.question}\n\nanswer: ${updates.answer}`;
+
+      // let questionEmbedding = [];
+      // const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+
+      // if (ENABLE_AI_SERVER) {
+      //   const {embedding} = await this.aiService.getEmbedding(text);
+      //   questionEmbedding = embedding;
+      // }
+
+      const isAddTextRequired = true
+      // Update question with approved AI answer details
+      await this.questionRepo.updateQuestion(
+        updates.questionId,
+        {
+          // text,
+          // embedding: questionEmbedding,
+          aiApprovedSources: updates.sources ?? [],
+          aiInitialAnswer: updates.answer ?? '',
+          // totalAnswersCount: 1,
+          isAutoAllocate: true,
+        },
+        session,
+        isAddTextRequired,
+      );
+
+      let queue: ObjectId[] = [];
+      let initialExpert: any = null;
+
+      if (isAjrasakha) {
+        // Special Task Force allocation for Ajrasakha (4 experts)
+        const taskForceExperts = await this.userRepo.getExpertsWithFallback(question.details,session);
+        const expertsToAllocate = taskForceExperts.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
+        queue = expertsToAllocate.map(u => new ObjectId(u._id.toString()));
+        initialExpert = expertsToAllocate[0];
+      } else if (isWhatsApp) {
+        // Normal expert allocation for WhatsApp (3 experts based on preference)
+        const experts = await this.userRepo.findExpertsByPreference(question.details as PreferenceDto, session);
+        const expertsToAllocate = experts.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
+        queue = expertsToAllocate.map(u => new ObjectId(u._id.toString()));
+        initialExpert = expertsToAllocate[0];
+      }
+
+
+      let submission = await this.questionSubmissionRepo.getByQuestionId(
+        updates.questionId,
+        session,
+      );
+
+      if (!submission) {
+        const submissionData: IQuestionSubmission = {
+          questionId: new ObjectId(updates.questionId.toString()),
+          lastRespondedBy: new ObjectId(userId),
+          history: [],
+          queue,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        await this.questionSubmissionRepo.addSubmission(submissionData, session);
+      } else {
+        if (submission.history.length > 0) {
+          throw new BadRequestError('Cannot approve AI answer after expert reviews have started');
+        }
+        await this.questionSubmissionRepo.updateQueue(
+          updates.questionId.toString(),
+          queue,
+          session,
+        );
+      }
+
+      if (initialExpert) {
+        await this.userRepo.updateReputationScore(
+          initialExpert._id.toString(),
+          true,
+          session,
+        );
+        await this.notificationService.saveTheNotifications(
+          `A Question has been assigned for answering`,
+          'Answer Creation Assigned',
+          updates.questionId.toString(),
+          initialExpert._id.toString(),
+          'answer_creation',
+          session
+        );
+      }
+
+      return { modifiedCount: 1 };
     });
   }
 
   async deleteAnswer(
     questionId: string,
     answerId: string,
-  ): Promise<{deletedCount: number}> {
+  ): Promise<{ deletedCount: number }> {
     return this._withTransaction(async (session: ClientSession) => {
       const answer = await this.answerRepo.getById(answerId);
       if (!answer) {
@@ -1960,7 +2091,7 @@ answer: ${updates.answer}`;
     page: number,
     limit: number,
     search: string,
-  ): Promise<{faqs: any[]; totalFaqs: number}> {
+  ): Promise<{ faqs: any[]; totalFaqs: number }> {
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.answerRepo.getGoldenFaqs(
         userId,

@@ -1703,6 +1703,7 @@ export class QuestionRepository implements IQuestionRepository {
           reasonForLastModification: h.reasonForLastModification?.toString(),
           reviewId: h.reviewId?.toString(),
           isReroute: false,
+          updatedAt: h.updatedAt,
         })) || [];
 
       // 7.1 Merge submission history with reroute history and sort by date

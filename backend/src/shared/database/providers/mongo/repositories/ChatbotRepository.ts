@@ -52,6 +52,7 @@ interface IUser {
     highestEducatedPerson?: string;
     numberOfSmartphones?: number;
     platform?: string;
+    platformHistory?: { os: string; timestamp: string }[];
     location?: {
       latitude: number;
       longitude: number;
@@ -1035,6 +1036,8 @@ export class ChatbotRepository implements IChatbotRepository {
           usesAgriApps: u.farmerProfile.usesAgriApps,
           highestEducatedPerson: u.farmerProfile.highestEducatedPerson,
           numberOfSmartphones: u.farmerProfile.numberOfSmartphones,
+          platform: u.farmerProfile.platform,
+          platformHistory: u.farmerProfile.platformHistory,
           location: u.farmerProfile.location,
         } : undefined,
       }));
