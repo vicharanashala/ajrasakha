@@ -64,6 +64,7 @@ import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { UserService } from '#root/modules/user/index.js';
 import { IContextService } from '#root/modules/context/interfaces/index.js';
+import { restoreBackupBson } from '#root/utils/DBMigration.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -1467,5 +1468,19 @@ export class QuestionController {
 
     return result;
   }
+
+
+  // @Post('/restore-json-from-zip')
+  // @HttpCode(200)
+  // @OpenAPI({ summary: 'Restore collection using existing JSON restore logic' })
+  // async restoreJsonFromZip(
+  //   @Body()
+  //   body: {
+  //     fileName: string;        // agriai__06-05-2026.zip
+  //     collectionName: string;  // users / questions
+  //   },
+  // ) {
+  // //  return await restoreBackupBson(body);
+  // }
 
 }

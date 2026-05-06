@@ -2,7 +2,7 @@ import {DailyStats, IReviewWiseStats} from './getDailyStats.js';
 
 export const buildBackupEmailTemplate = (
   timestamp: string,
-  publicUrl: string,
+  results: {db: string; publicUrl: string | null; status: 'success' | 'failed' | 'Already exists'; error?: any; timestamp?: string}[],
   stats?: DailyStats,
 ) => {
   return `
@@ -15,9 +15,17 @@ export const buildBackupEmailTemplate = (
       <div style="background-color: #f7f7f7; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
         <p><strong>Backup Completed:</strong> ${timestamp}</p>
         <p style="margin-top: 5px;">
-          🔗 <a href="${publicUrl}" target="_blank" style="color: #16a34a; text-decoration: none;">
-            View Backup File
-          </a>
+          ${results.map(result => `
+            <div>
+              <strong>${result.db}</strong> - ${result.status}
+              ${result.timestamp ? `<span style="margin: 5px 0; font-size: 0.9em; color: #666;">Date: ${result.timestamp}</span>` : ''}
+              ${result.publicUrl ? `
+                🔗 <a href="${result.publicUrl}" target="_blank" style="color: #16a34a; text-decoration: none;">
+                  View Backup File
+                </a>
+              ` : ''}
+            </div>
+          `).join('')}
         </p>
       </div>
 
