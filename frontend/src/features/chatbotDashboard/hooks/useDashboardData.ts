@@ -177,7 +177,7 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
     if (card.id === 'totalInstalls') {
       return {
         ...card,
-        value: `${result.kpi.totalAppInstalls.toString()}${result?.kpi?.dau ? ` / ${result.kpi.dau.toString()}` : ''}`, 
+        value: `${result.kpi.totalAppInstalls.toString()}${result?.kpi?.dau ? ` / ${Number(result.kpi.dau).toLocaleString()}` : ''}`, 
       };
     }
     return card;
