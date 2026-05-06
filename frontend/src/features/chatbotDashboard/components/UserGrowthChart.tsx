@@ -9,10 +9,15 @@ import {
 } from "recharts";
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import type { DateRange } from "react-day-picker";
 import { useUserGrowth } from "../hooks/useUserGrowth";
 import Spinner from "@/components/atoms/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, X, CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/atoms/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
+import { Button } from "@/components/atoms/button";
+import { format, subDays } from "date-fns";
 
 const formatYAxis = (value: number): string => {
   if (value >= 1000) return `${value / 1000}k`;
@@ -50,14 +55,19 @@ const metricsConfig = [
   },
 ];
 
+const defaultDateRange: DateRange = {
+  from: subDays(new Date(), 29),
+  to: new Date(),
+};
+
 const UserGrowthChart = () => {
-  const [range, setRange] = useState(30);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultDateRange);
   const [activeMetrics, setActiveMetrics] = useState(
     metricsConfig.map((m) => m.key)
   );
   const [hovered, setHovered] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
-  const { data, isLoading, isError } = useUserGrowth(range);
+  const { data, isLoading, isError } = useUserGrowth(dateRange?.from, dateRange?.to);
 
   if (isLoading) {
     return (
@@ -193,6 +203,38 @@ const UserGrowthChart = () => {
     </div>
   );
 
+  const renderDateRangePicker = () => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="justify-start text-left font-normal bg-gray-100 dark:bg-[#2a2a2a] border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-gray-200"
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {dateRange?.from ? (
+            dateRange.to ? (
+              `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`
+            ) : (
+              format(dateRange.from, "MMM dd, yyyy")
+            )
+          ) : (
+            "Select date range"
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="end">
+        <Calendar
+          initialFocus
+          mode="range"
+          defaultMonth={dateRange?.from}
+          selected={dateRange}
+          onSelect={setDateRange}
+          numberOfMonths={1}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+
   return (
     <>
       <Card className="flex flex-col h-full bg-white dark:bg-[#1a1a1a] shadow-sm overflow-hidden relative dark:border-[#2a2a2a]">
@@ -210,15 +252,7 @@ const UserGrowthChart = () => {
               <CardTitle className="text-sm font-medium">User Growth Trend</CardTitle>
             </div>
 
-            <select
-              value={range}
-              onChange={(e) => setRange(Number(e.target.value))}
-              className="bg-gray-100 dark:bg-[#2a2a2a] border border-gray-300 dark:border-[#3a3a3a] text-sm px-3 py-1.5 rounded-md text-gray-700 dark:text-gray-200"
-            >
-              <option value={30}>Last 30 Days</option>
-              <option value={60}>Last 60 Days</option>
-              <option value={90}>Last 90 Days</option>
-            </select>
+            {renderDateRangePicker()}
           </div>
         </CardHeader>
 
@@ -271,15 +305,7 @@ const UserGrowthChart = () => {
                     </h3>
                   </div>
 
-                  <select
-                    value={range}
-                    onChange={(e) => setRange(Number(e.target.value))}
-                    className="bg-gray-100 dark:bg-[#2a2a2a] border border-gray-300 dark:border-[#3a3a3a] text-sm px-3 py-1.5 rounded-md text-gray-700 dark:text-gray-200"
-                  >
-                    <option value={30}>Last 30 Days</option>
-                    <option value={60}>Last 60 Days</option>
-                    <option value={90}>Last 90 Days</option>
-                  </select>
+                  {renderDateRangePicker()}
                 </div>
               </div>
 
