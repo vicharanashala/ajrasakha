@@ -1314,9 +1314,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new NotFoundError('Question submission not found');
     }
 
-    // Added this because in new flow we need only one expert at a time in in-review state to avoid flooding the queue with multiple experts at once and to give existing experts a chance to respond before adding more, so if there is already an expert in the queue who has not yet responded we will not add more experts to the queue until we get a response from that expert (either answer or review)
+    // checking last submission in history to see if there is an expert who has not yet responded and if !lastSubmission.answer is added to ensure that we are not blocking the queue in case of reviewers who are just reviewing the answer without providing any answers
     const lastSubmission = questionSubmission.history.at(-1);
-    if (lastSubmission && lastSubmission.status === 'in-review') {
+    if (lastSubmission && lastSubmission.status === 'in-review' && !lastSubmission.answer) {
       return { data: [], status: false };
     }
 
