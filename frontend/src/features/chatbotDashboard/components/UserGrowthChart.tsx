@@ -203,12 +203,15 @@ const UserGrowthChart = () => {
     </div>
   );
 
-  const renderDateRangePicker = () => (
+  const renderDateRangePicker = (
+    className = "",
+    popoverClassName = ""
+  ) => (
     <Popover>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="justify-start text-left font-normal bg-gray-100 dark:bg-[#2a2a2a] border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-gray-200"
+          className={`justify-start text-left font-normal bg-gray-100 dark:bg-[#2a2a2a] border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-gray-200 max-w-full whitespace-normal h-auto min-h-10 ${className}`}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
           {dateRange?.from ? (
@@ -222,7 +225,7 @@ const UserGrowthChart = () => {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="end">
+      <PopoverContent className={`w-auto p-0 ${popoverClassName}`} align="end">
         <Calendar
           initialFocus
           mode="range"
@@ -247,12 +250,12 @@ const UserGrowthChart = () => {
         </button>
 
         <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-3 pr-10">
+          <div className="flex flex-col gap-3 pr-10 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle className="text-sm font-medium">User Growth Trend</CardTitle>
             </div>
 
-            {renderDateRangePicker()}
+            {renderDateRangePicker("w-full sm:w-auto")}
           </div>
         </CardHeader>
 
@@ -298,14 +301,17 @@ const UserGrowthChart = () => {
               </button>
 
               <div className="mb-6 pr-12">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
                       User Growth Trend
                     </h3>
                   </div>
 
-                  {renderDateRangePicker()}
+                  {renderDateRangePicker(
+                    "w-full md:w-auto md:min-w-[280px]",
+                    "z-[10001]"
+                  )}
                 </div>
               </div>
 
