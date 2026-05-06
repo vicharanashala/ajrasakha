@@ -206,7 +206,12 @@ export const TopCropsCard = ({topCrops,
             </div>
 
             {/* Enlarged Chart */}
-            <div className="w-full h-[500px]">
+            <div className="w-full h-[500px] relative">
+              {/* Y-axis border */}
+              <div className="absolute left-0 top-0 bottom-12 w-px bg-gray-300 dark:bg-gray-700 z-10"></div>
+              {/* X-axis border */}
+              <div className="absolute left-0 right-0 bottom-12 h-px bg-gray-300 dark:bg-gray-700 z-10"></div>
+              
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={processedData}

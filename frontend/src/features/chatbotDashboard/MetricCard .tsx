@@ -350,7 +350,12 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
             </div>
 
             {/* Enlarged Graph */}
-            <div className="h-64">
+            <div className="h-64 relative">
+              {/* Y-axis border */}
+              <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700"></div>
+              {/* X-axis border */}
+              <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700"></div>
+              
               <Sparkline
                 points={kpi.sparkPoints}
                 color={kpi.accentColor}
