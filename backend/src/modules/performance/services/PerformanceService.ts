@@ -100,21 +100,21 @@ export class PerformanceService extends BaseService implements IPerformanceServi
       let goldenDataset = {} as GoldenDataset;
 
       if (viewType === 'year') {
-        const { yearData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown } =
+        const { yearData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min } =
           await this.questionRepo.getYearAnalytics(selectedYear!, session);
-        goldenDataset = { yearData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown };
+        goldenDataset = { yearData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min };
       } else if (viewType === 'month') {
-        const { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown } =
+        const { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min } =
           await this.questionRepo.getMonthAnalytics(selectedYear!, selectedMonth!, session);
-        goldenDataset = { weeksData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown };
+        goldenDataset = { weeksData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min };
       } else if (viewType === 'week') {
-        const { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown } =
+        const { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min } =
           await this.questionRepo.getWeekAnalytics(selectedYear!, selectedMonth!, selectedWeek!, session);
-        goldenDataset = { dailyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown };
+        goldenDataset = { dailyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min };
       } else if (viewType === 'day') {
-        const { dayHourlyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown } =
+        const { dayHourlyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min } =
           await this.questionRepo.getDailyAnalytics(selectedYear!, selectedMonth!, selectedWeek!, selectedDay!, session);
-        goldenDataset = { dayHourlyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown };
+        goldenDataset = { dayHourlyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min };
       }
 
       return goldenDataset;
