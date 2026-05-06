@@ -76,7 +76,12 @@ export const AllocationTimeline = ({
 
   const getUserActivityText = (userId: string): string => {
     const submission = getUserSubmission(userId);
-    if (!submission) return "No activity yet.";
+    if (!submission) {
+      if(currentUser.role !== "expert"){
+        return `${queue[0].name} is reviewing the question!!`
+      }
+      return "Author is reviewing the question"
+    };
 
     const userName = submission?.updatedBy?.name || "User";
 
