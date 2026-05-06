@@ -657,17 +657,13 @@ export class UserRepository implements IUserRepository {
     details: PreferenceDto,
     session: ClientSession,
   ): Promise<IUser[]> {
-    // 1. Try Special Task Force first
+    // 1. STF users
     const stfUsers = await this.getSpecialTaskForceExperts(details, session);
 
-    if (stfUsers && stfUsers.length > 0) {
-      return stfUsers; // return ALL STF users
-    }
-
-    // 2. Fallback to preference-based experts
+    // 2. Preference users
     const prefUsers = await this.findExpertsByPreference(details, session);
 
-    return prefUsers; // return ALL sorted experts
+    return [...stfUsers, ...prefUsers];
   }
 
   async getSpecialTaskForceModerators(session: ClientSession): Promise<IUser[]> {
