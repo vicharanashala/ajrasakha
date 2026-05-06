@@ -1516,37 +1516,24 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         const currentStatus = question.isAutoAllocate;
 
-        // If currentStatus is false, then we need to set it to true and vice versa
 
+        // If currentStatus is false, then we need to set it to true and vice versa
         let out;
 
         if (!currentStatus) {
-          let submission = await this.questionSubmissionRepo.getByQuestionId(
-            questionId,
-            session,
-          );
 
-          // if (!submission && question.source == "AJRASAKHA") {
+          const questionSubmission =
+            await this.questionSubmissionRepo.getByQuestionId(questionId, session);
 
-          //   const submissionData: IQuestionSubmission = {
-          //     questionId: new ObjectId(question._id.toString()),
-          //     lastRespondedBy: null,
-          //     history: [],
-          //     queue: [],
-          //     createdAt: new Date(),
-          //     updatedAt: new Date(),
-          //   };
-
-          //   submission = await this.questionSubmissionRepo.addSubmission(submissionData, session);
-          //   await this.autoAllocateExperts(
-          //     questionId,
-          //     session,
-          //     3, // Allocate 3 experts initially when toggling on auto-allocate
-          //   );
-          //   return {
-          //     message: "No submission was found for this question. A new submission has been created, and special force users has been assigned to the review queue."
-          //   };
-          // }
+          if (!questionSubmission)
+            await this.questionSubmissionRepo.addSubmission({
+              questionId: new ObjectId(questionId),
+              lastRespondedBy: null,
+              history: [],
+              queue: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }, session)
 
           // const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
           // let BATCH_EXPECTED_TO_ADD = 6;
