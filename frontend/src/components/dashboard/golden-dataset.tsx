@@ -64,6 +64,7 @@ export interface GoldenDataset {
   moderatorBreakdown?: { moderatorName: string; count: number }[];
   questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
   questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+  averageResponseTime?: { whatsapp: number; ajrasakha: number };
   yearData: { month: string; entries: number; verified: number }[];
   weeksData: { week: string; entries: number; verified: number }[];
   dailyData: { day: string; entries: number; verified: number }[];
