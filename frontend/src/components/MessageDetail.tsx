@@ -505,7 +505,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const handleSkip = () => { setPassRemarkError(""); setConfirmDialog({ open: true, type: "pass", remark: "" }); };
 
     const doSkip = async (remark?: string) => {
-        await updateQuestion({ isHidden: true, _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
+        await updateQuestion({ isHidden: true,status:'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
         toast.success("Question has been hidden");
         navigateToQuestionPage();
     };
