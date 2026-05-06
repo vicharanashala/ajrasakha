@@ -86,9 +86,6 @@ export const QuestionSourceCharts = ({
               <p className="text-lg font-semibold text-foreground">
                 <CountUp end={item.value} duration={2} preserveValue />
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {((item.value / totalQuestions) * 100).toFixed(1)}% of total
-              </p>
             </div>
           ))}
         </div>
