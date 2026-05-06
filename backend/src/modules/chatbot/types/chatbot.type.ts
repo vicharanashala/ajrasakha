@@ -1,5 +1,7 @@
 export type GrowthQuery = {
-  range: number; // 30 | 60 | 90
+  range?: number;
+  startDate?: string;
+  endDate?: string;
 };
 
 export type GrowthResponse = {

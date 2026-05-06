@@ -100,21 +100,21 @@ export class PerformanceService extends BaseService implements IPerformanceServi
       let goldenDataset = {} as GoldenDataset;
 
       if (viewType === 'year') {
-        const { yearData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
+        const { yearData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime } =
           await this.questionRepo.getYearAnalytics(selectedYear!, session);
-        goldenDataset = { yearData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
+        goldenDataset = { yearData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
       } else if (viewType === 'month') {
-        const { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
+        const { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime } =
           await this.questionRepo.getMonthAnalytics(selectedYear!, selectedMonth!, session);
-        goldenDataset = { weeksData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
+        goldenDataset = { weeksData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
       } else if (viewType === 'week') {
-        const { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
+        const { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime } =
           await this.questionRepo.getWeekAnalytics(selectedYear!, selectedMonth!, selectedWeek!, session);
-        goldenDataset = { dailyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
+        goldenDataset = { dailyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
       } else if (viewType === 'day') {
-        const { dayHourlyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
+        const { dayHourlyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime } =
           await this.questionRepo.getDailyAnalytics(selectedYear!, selectedMonth!, selectedWeek!, selectedDay!, session);
-        goldenDataset = { dayHourlyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
+        goldenDataset = { dayHourlyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
       }
 
       return goldenDataset;

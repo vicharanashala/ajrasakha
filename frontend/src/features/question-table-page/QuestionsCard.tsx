@@ -172,6 +172,12 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
     ? "hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
     : "hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400";
 
+  const isDuplicate = Boolean(
+    q?.similarityScore &&
+    q?.referenceQuestionId &&
+    q?.referenceQuestion &&
+    q?.referenceSource
+  );
   return (
     <div
       onContextMenu={handleContextMenu}
@@ -227,12 +233,22 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
         )}
 
         {visibleColumns.question && (
-        <div className="flex flex-col h-[5rem] justify-between">
+        <div className="flex flex-col h-[5.75rem] justify-between">
+          <div className="h-6 flex items-start">
+            {isDuplicate && (
+              <Badge
+                variant="outline"
+                className="bg-red-500/10 text-red-600 border-red-500/30"
+              >
+                Duplicate
+              </Badge>
+            )}
+          </div>
           <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-green-700 transition-colors line-clamp-2 dark:text-gray-100 dark:group-hover:text-green-400" title={q.question}>
             {truncate(q.question, 80)}
           </h3>
           <div className="mt-1 h-5 flex items-center">
-          <TimerDisplay timer={timer} status={q.status} source={q.source} />
+            <TimerDisplay timer={timer} status={q.status} source={q.source} />
             </div>
           </div>
         )}

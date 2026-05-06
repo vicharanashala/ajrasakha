@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useThreads } from './useThreads';
 import { useThreadDetails } from './useThreadDetails';
+import { useSendMessage } from './useSendMessage';
 
 export function useWhatsAppHistory() {
   const [selectedThreadId, setSelectedThreadId] = useState<string | undefined>("");
@@ -45,6 +46,16 @@ export function useWhatsAppHistory() {
     [threads, selectedThreadId]
   );
 
+  const sendMessageMutation = useSendMessage(selectedThreadId, selectedThread?.phoneNumber);
+
+  const canSendMessage = useMemo(() => {
+    if (!selectedThread?.lastMessageTimestamp) return false;
+    const lastMsgDate = new Date(selectedThread.lastMessageTimestamp);
+    const now = new Date();
+    const diffInHours = (now.getTime() - lastMsgDate.getTime()) / (1000 * 60 * 60);
+    return diffInHours < 24;
+  }, [selectedThread]);
+
   return {
     selectedThreadId,
     setSelectedThreadId,
@@ -55,5 +66,8 @@ export function useWhatsAppHistory() {
     isLoadingThreads,
     isLoadingMessages,
     selectedThread,
+    canSendMessage,
+    sendMessage: (content: string) => sendMessageMutation.mutate(content),
+    isSending: sendMessageMutation.isPending,
   };
 }

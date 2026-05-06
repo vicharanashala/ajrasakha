@@ -1,0 +1,2 @@
+export   const TOTAL_EXPERTS_LIMIT = 10;
+export const DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT = 1;

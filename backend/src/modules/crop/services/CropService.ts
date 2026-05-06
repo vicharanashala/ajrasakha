@@ -45,6 +45,7 @@ export class CropService extends BaseService implements ICropService {
         dto.aliases,
         dto.type,
         dto.status,
+        dto.crops,
       );
 
       // Backfill questions normalised_crop — only for actual crop entries, not 'other'
@@ -77,7 +78,7 @@ export class CropService extends BaseService implements ICropService {
     try {
       const updatedCrop = await this.cropRepository.updateCrop(
         cropId,
-        { aliases: dto.aliases, status: dto.status },
+        { aliases: dto.aliases, status: dto.status, crops: dto.crops },
         userId,
       );
 
