@@ -12,6 +12,9 @@ import {
   type DateRange,
 } from "./dashboard/questions-analytics";
 import { SourcesChart } from "./dashboard/sources-chart";
+import { QuestionSourceCharts } from "./dashboard/question-source-charts";
+import { QuestionsAnswered120Min } from "./dashboard/questions-answered-120min";
+import { ResponseAdherence } from "./dashboard/response-adherence";
 import HeatMap from "./HeatMap";
 import { Card, CardHeader, CardTitle } from "./atoms/card";
 import {
@@ -196,6 +199,34 @@ export const Dashboard = () => {
             viewType={viewType}
           />
         </div>
+
+        {/* Question Source Charts Row */}
+        {goldenData?.questionSourceBreakdown && (
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <QuestionSourceCharts
+              whatsappCount={goldenData.questionSourceBreakdown.whatsapp}
+              ajrasakhaCount={goldenData.questionSourceBreakdown.ajrasakha}
+            />
+            {goldenData?.questionsAnsweredWithin120Min && (
+              <QuestionsAnswered120Min
+                whatsappCount={goldenData.questionsAnsweredWithin120Min.whatsapp}
+                ajrasakhaCount={goldenData.questionsAnsweredWithin120Min.ajrasakha}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Response Adherence Row */}
+        {goldenData?.questionSourceBreakdown && goldenData?.questionsAnsweredWithin120Min && (
+          <div className="mb-6">
+            <ResponseAdherence
+              totalWhatsapp={goldenData.questionSourceBreakdown.whatsapp}
+              totalAjrasakha={goldenData.questionSourceBreakdown.ajrasakha}
+              answeredWithin120WhatsApp={goldenData.questionsAnsweredWithin120Min.whatsapp}
+              answeredWithin120Ajrasakha={goldenData.questionsAnsweredWithin120Min.ajrasakha}
+            />
+          </div>
+        )}
 
         {/* Sources Chart Row */}
         <div className="mb-6">
