@@ -89,95 +89,107 @@ const UserGrowthChart = () => {
   };
   const tickInterval = getTickInterval(chartData.length);
   const visibleMetricCount = activeMetrics.length;
+  const isAllMetricsActive = visibleMetricCount === metricsConfig.length;
   const maxBarSize =
     visibleMetricCount >= 3
       ? chartData.length > 75
-        ? 10
+        ? 24
         : chartData.length > 45
-        ? 12
-        : 16
+        ? 32
+        : 50
       : chartData.length > 75
       ? 8
       : chartData.length > 45
       ? 12
       : 18;
   const minPointSize = 4;
+  const minChartWidth = isAllMetricsActive
+    ? Math.max(chartData.length * 36, 1100)
+    : 0;
 
   const renderChart = (height: number, tickFontSize: number) => (
-    <div className="w-full" style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={chartData}
-          barGap={visibleMetricCount >= 3 ? 0 : chartData.length > 45 ? 2 : 6}
-          barCategoryGap={
-            visibleMetricCount >= 3
-              ? chartData.length > 45
-                ? "4%"
-                : "2%"
-              : chartData.length > 45
-              ? "32%"
-              : "20%"
-          }
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            vertical={false}
-            stroke="var(--color-border, #e2e8f0)"
-          />
+    <div
+      className={isAllMetricsActive ? "w-full overflow-x-auto" : "w-full"}
+      style={{ height }}
+    >
+      <div
+        className="h-full"
+        style={{ minWidth: minChartWidth ? `${minChartWidth}px` : "100%" }}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            barGap={visibleMetricCount >= 3 ? 0 : chartData.length > 45 ? 2 : 6}
+            barCategoryGap={
+              visibleMetricCount >= 3
+                ? chartData.length > 45
+                  ? "4%"
+                  : "8%"
+                : chartData.length > 45
+                ? "20%"
+                : "12%"
+            }
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              vertical={false}
+              stroke="var(--color-border, #e2e8f0)"
+            />
 
-          <XAxis
-            dataKey="date"
-            stroke="var(--color-muted-foreground, #64748b)"
-            tick={{ fontSize: tickFontSize }}
-            tickLine={false}
-            axisLine={false}
-            interval={tickInterval}
-            minTickGap={20}
-            tickFormatter={(value) => value.slice(5)}
-          />
+            <XAxis
+              dataKey="date"
+              stroke="var(--color-muted-foreground, #64748b)"
+              tick={{ fontSize: tickFontSize }}
+              tickLine={false}
+              axisLine={false}
+              interval={tickInterval}
+              minTickGap={20}
+              tickFormatter={(value) => value.slice(5)}
+            />
 
-          <YAxis
-            tickFormatter={formatYAxis}
-            stroke="var(--color-muted-foreground, #64748b)"
-            tick={{ fontSize: tickFontSize }}
-            tickLine={false}
-            axisLine={false}
-            width={34}
-          />
+            <YAxis
+              tickFormatter={formatYAxis}
+              stroke="var(--color-muted-foreground, #64748b)"
+              tick={{ fontSize: tickFontSize }}
+              tickLine={false}
+              axisLine={false}
+              width={34}
+            />
 
-          <Tooltip
-            cursor={{ fill: "var(--color-muted, #f1f5f9)", opacity: 0.4 }}
-            contentStyle={{
-              background: "#1f1f1f",
-              border: "1px solid #333",
-              borderRadius: "8px",
-              color: "#fff",
-            }}
-          />
+            <Tooltip
+              cursor={{ fill: "var(--color-muted, #f1f5f9)", opacity: 0.4 }}
+              contentStyle={{
+                background: "#1f1f1f",
+                border: "1px solid #333",
+                borderRadius: "8px",
+                color: "#fff",
+              }}
+            />
 
-          {metricsConfig.map((m) => {
-            if (!activeMetrics.includes(m.key)) return null;
-            const dim = hovered && hovered !== m.key;
-            return (
-              <Bar
-                key={m.key}
-                dataKey={m.key}
-                fill={m.color}
-                radius={[4, 4, 0, 0]}
-                opacity={dim ? 0.25 : 0.92}
-                maxBarSize={maxBarSize}
-                minPointSize={minPointSize}
-                stroke="rgba(255,255,255,0.45)"
-                strokeWidth={hovered === m.key ? 1.5 : 1}
-                background={{ fill: "rgba(148,163,184,0.08)" }}
-                onMouseEnter={() => setHovered(m.key)}
-                onMouseLeave={() => setHovered(null)}
-                className="dark:[filter:drop-shadow(0px_2px_6px_rgba(0,0,0,0.35))]"
-              />
-            );
-          })}
-        </BarChart>
-      </ResponsiveContainer>
+            {metricsConfig.map((m) => {
+              if (!activeMetrics.includes(m.key)) return null;
+              const dim = hovered && hovered !== m.key;
+              return (
+                <Bar
+                  key={m.key}
+                  dataKey={m.key}
+                  fill={m.color}
+                  radius={[4, 4, 0, 0]}
+                  opacity={dim ? 0.25 : 0.92}
+                  maxBarSize={maxBarSize}
+                  minPointSize={minPointSize}
+                  stroke="rgba(255,255,255,0.45)"
+                  strokeWidth={hovered === m.key ? 1.5 : 1}
+                  background={{ fill: "rgba(148,163,184,0.08)" }}
+                  onMouseEnter={() => setHovered(m.key)}
+                  onMouseLeave={() => setHovered(null)}
+                  className="dark:[filter:drop-shadow(0px_2px_6px_rgba(0,0,0,0.35))]"
+                />
+              );
+            })}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 
