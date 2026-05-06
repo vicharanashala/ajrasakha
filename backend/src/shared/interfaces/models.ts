@@ -392,7 +392,7 @@ export interface ICrop {
   _id?: ObjectId | string;
   name: string;
   type?: CropType;                    // 'crop' (default) | 'chemical' | any custom string
-  status?: 'Restricted' | 'Banned';  // only relevant when type === 'chemical'
+  status?: string;                    // only relevant when type === 'chemical', any custom string
   aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
   crops?: string[];                  // associated crops (only for type === 'chemical')
   createdBy?: ObjectId | string;

@@ -32,6 +32,14 @@ const ReviewLevelsCard = ({ row, index, onViewMore, sort, onSort, onDelayedClick
 
       {/* Question */}
       <div className="px-5 pb-4">
+        {row.isDuplicate && (
+          <Badge
+            variant="outline"
+            className="mb-2 bg-red-500/10 text-red-600 border-red-500/30"
+          >
+            Duplicate
+          </Badge>
+        )}
         <button
           onClick={() => onViewMore(row._id)}
           className="text-left w-full group/title"

@@ -13,8 +13,8 @@ export interface ICropAlias {
 export interface ICropResponse {
   _id?: string;
   name: string;
+  status?: string;
   type?: string;
-  status?: "Restricted" | "Banned";
   aliases: (ICropAlias | string)[];  // string = legacy format from older crops
   createdBy?: string;
   updatedBy?: string;
@@ -25,8 +25,8 @@ export interface ICropResponse {
 
 export interface ICreateCropPayload {
   name: string;
+  status?: string;
   type?: string;
-  status?: "Restricted" | "Banned";
   aliases?: ICropAlias[];
   crops?: string[];
 }
@@ -48,6 +48,15 @@ export interface IUpdateCropPayload {
   aliases?: (ICropAlias | string)[];
   status?: "Restricted" | "Banned";
   crops?: string[];
+  status?: string;
+}
+
+export interface IBulkUploadCropResponse {
+  success: boolean;
+  message: string;
+  jobId: string;
+  count: number;
+  isBulkUpload: true;
 }
 
 export class CropService {
@@ -67,12 +76,22 @@ export class CropService {
     });
   }
 
+  async bulkUploadCrops(file: File, type: "crop" | "chemical"): Promise<IBulkUploadCropResponse | null> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+    return apiFetch<IBulkUploadCropResponse>(this._baseUrl, {
+      method: "POST",
+      body: formData,
+    });
+  }
+
   async getAllCrops(query?: {
     search?: string;
     sort?: string;
     page?: number;
     limit?: number;
-    type?: "crop" | "chemical" | "other";
+    type?: string;
   }): Promise<IGetAllCropsResponse | null> {
     const params = new URLSearchParams();
     if (query?.search) params.append("search", query.search);
