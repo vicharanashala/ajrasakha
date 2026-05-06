@@ -173,6 +173,10 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       icon: AlertTriangle,
       className: "bg-orange-500/10 text-orange-600 border-orange-500/30",
     },
+    pae_submitted: {
+      icon: Clock,
+      className: "bg-amber-600/10 text-amber-700 border-amber-600/30",
+    },
   } as const;
   const statusBadge = useMemo(() => {
     // const status = q.status || "NIL";
@@ -194,7 +198,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
             ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
             : effectiveStatus === "delayed"
               ? "bg-orange-500/10 text-orange-600 border-orange-500/30"
-              : "bg-muted text-foreground";
+              : effectiveStatus === "pae_submitted"
+                ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+                : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={`gap-1.5 ${colorClass}`}>

@@ -113,7 +113,9 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
           ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
           : effectiveStatus === "closed"
             ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-            : "bg-muted text-foreground";
+            : effectiveStatus === "pae_submitted"
+              ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+              : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={colorClass}>

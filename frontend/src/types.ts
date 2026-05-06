@@ -158,6 +158,7 @@ export interface IQuestion {
   priority: QuestionPriority;
   status: QuestionStatus;
   source: QuestionSource;
+  pae_review?: boolean;
   history: HistoryItem[];
   details: {
     state: string;
@@ -257,7 +258,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -689,6 +690,7 @@ export interface ReroutedQuestionItem {
   reroute: Reroute;
   details: QuestionDetailsReRoute;
   source: QuestionSource
+  pae_review?: boolean;
 }
 
 interface Moderator {

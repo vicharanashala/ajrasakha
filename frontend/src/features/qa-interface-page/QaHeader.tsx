@@ -275,6 +275,11 @@ const QaQuestionItem = ({
           />
 
           <div className="flex-1 min-w-0">
+            {question.pae_review && question.status === "re-routed" && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 mb-1">
+                PAE Reroute
+              </span>
+            )}
             <Label
               htmlFor={question?.id}
               className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"

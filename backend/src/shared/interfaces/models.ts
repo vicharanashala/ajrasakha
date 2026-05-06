@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted';
 export interface IPreference {
   state: string;
   crop: string;
@@ -85,6 +85,8 @@ export interface IQuestion {
   referenceQuestionId?: ObjectId;
   referenceQuestion?:string
   referenceSource?: string;
+  saved_to_draft?: boolean;
+  pae_review?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

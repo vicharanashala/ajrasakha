@@ -44,13 +44,14 @@ interface AnswerActionsProps {
   setRejectionReason: (reason: string) => void;
   handleRejectReRouteAnswer: (reason: string) => void;
   isRejecting?: boolean;
-  isRejected: boolean|undefined;
+  isRejected: boolean | undefined;
   submissionData?: ISubmissionHistory;
   questionId: string;
   reviews: any[];
   firstTrueIndex?: number;
   firstFalseOrMissingIndex?: number;
   lastAnswerApprovalCount?: number;
+  paeReview?: boolean;
 }
 
 export const AnswerActions = ({
@@ -93,23 +94,24 @@ export const AnswerActions = ({
   firstTrueIndex,
   firstFalseOrMissingIndex,
   lastAnswerApprovalCount,
+  paeReview,
 }: AnswerActionsProps) => {
   const showActions =
     userRole !== "expert" &&
-    (questionStatus === "in-review" || questionStatus === "re-routed") &&
+    (questionStatus === "in-review" || questionStatus === "re-routed" || questionStatus === "pae_submitted") &&
     lastAnswerId === answer?._id;
   const showAprroveButton = userRole !== "expert" &&
-    (questionStatus === "in-review" || questionStatus === "re-routed") &&
-    (lastAnswerApprovalCount??0) >= 3
+    ((questionStatus === "in-review" || questionStatus === "re-routed") &&
+      (lastAnswerApprovalCount ?? 0) >= 3) || questionStatus === "pae_submitted"
 
   return (
     <div className="flex items-center justify-center gap-2">
       <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-background text-foreground font-medium text-xs sm:text-sm whitespace-nowrap border-l-2 border-primary pl-2.5">
-          Iteration {answer.answerIteration}
-        </span>
+        Iteration {answer.answerIteration}
+      </span>
       {
-        showAprroveButton &&(
-           <ApproveAnswerDialog
+        showAprroveButton && (
+          <ApproveAnswerDialog
             editOpen={editOpen}
             setEditOpen={setEditOpen}
             editableAnswer={editableAnswer}
@@ -120,12 +122,14 @@ export const AnswerActions = ({
             handleUpdateAnswer={handleUpdateAnswer}
             lastReroutedTo={lastReroutedTo}
             approvalCount={answer.approvalCount}
+            questionStatus={questionStatus}
+            paeReview={paeReview}
           />
         )
       }
       {showActions && (
         <>
-         
+
           <ReRouteDialog
             isModalOpen={isModalOpen}
             setIsModalOpen={setIsModalOpen}

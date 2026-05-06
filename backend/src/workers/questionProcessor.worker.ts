@@ -211,6 +211,8 @@ const { checkDuplicateQuestionHelper } = await import(
         embedding: textEmbedding,
         metrics: null,
         text: `Question: ${questionText}`,
+        saved_to_draft: allocationMode === 'draft',
+        pae_review: allocationMode === 'pae_expert',
         createdAt: new Date(),
         updatedAt: new Date(),
       };

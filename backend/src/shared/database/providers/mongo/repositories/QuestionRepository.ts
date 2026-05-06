@@ -1357,6 +1357,8 @@ export class QuestionRepository implements IQuestionRepository {
           'details.state': 1,
           source: 1,
           status: 1,
+          pae_review: 1,
+          saved_to_draft: 1,
           _id: 0,
         },
       });
