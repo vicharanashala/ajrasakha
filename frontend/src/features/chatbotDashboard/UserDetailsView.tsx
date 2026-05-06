@@ -447,24 +447,6 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
 
         {/* Bar graph — col 1 row 2 on sm+, after all 3 cards on mobile */}
         {!isLoading && !error && users.length > 0 && !filters.inactiveOnly && (
-<<<<<<< HEAD
-          <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">
-                Questions per User
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BarGraph
-                data={users.map((u) => ({
-                  label: u.name,
-                  value: u.totalQuestions,
-                }))}
-                height={120}
-              />
-            </CardContent>
-          </Card>
-=======
           <>
             <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2 relative">
               <button
@@ -527,7 +509,6 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               document.body
             )}
           </>
->>>>>>> main
         )}
       </div>
 
