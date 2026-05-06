@@ -1958,7 +1958,7 @@ answer: ${updates.answer}`;
         );
       }
 
-      const text = `Question: ${question.question}\n\nanswer: ${updates.answer}`;
+      // const text = `Question: ${question.question}\n\nanswer: ${updates.answer}`;
 
       // let questionEmbedding = [];
       // const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
@@ -1973,11 +1973,12 @@ answer: ${updates.answer}`;
       await this.questionRepo.updateQuestion(
         updates.questionId,
         {
-          text,
+          // text,
           // embedding: questionEmbedding,
           aiApprovedSources: updates.sources ?? [],
           aiInitialAnswer: updates.answer ?? '',
           // totalAnswersCount: 1,
+          isAutoAllocate: true,
         },
         session,
         isAddTextRequired,
