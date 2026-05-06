@@ -20,6 +20,7 @@ export interface ICropResponse {
   updatedBy?: string;
   createdAt?: string;
   updatedAt?: string;
+  crops?: string[];
 }
 
 export interface ICreateCropPayload {
@@ -27,6 +28,7 @@ export interface ICreateCropPayload {
   type?: string;
   status?: "Restricted" | "Banned";
   aliases?: ICropAlias[];
+  crops?: string[];
 }
 
 export interface ICreateCropResponse {
@@ -44,6 +46,8 @@ export interface IGetAllCropsResponse {
 export interface IUpdateCropPayload {
   name?: string;
   aliases?: (ICropAlias | string)[];
+  status?: "Restricted" | "Banned";
+  crops?: string[];
 }
 
 export class CropService {

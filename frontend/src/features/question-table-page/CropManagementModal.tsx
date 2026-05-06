@@ -21,6 +21,7 @@ import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
+import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
 
 type EntryType = "crop" | "chemical" | "other";
 
@@ -78,6 +79,7 @@ const AliasEntryForm = ({
   accentColor?: "amber" | "blue";
 }) => {
   const [entry, setEntry] = useState<ICropAliasObject>(emptyAliasEntry());
+  const [regionInput, setRegionInput] = useState("");
   const isAmber = accentColor === "amber";
 
   const addBtnClass = isAmber
@@ -94,6 +96,7 @@ const AliasEntryForm = ({
     if (!canAdd) return;
     onAdd({ ...entry });
     setEntry(emptyAliasEntry());
+    setRegionInput("");
   };
 
   return (
@@ -131,12 +134,49 @@ const AliasEntryForm = ({
           <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
             Region
           </span>
-          <Input
-            placeholder="Enter region"
-            value={entry.region}
-            onChange={(e) => setEntry((f) => ({ ...f, region: e.target.value }))}
-            className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
-          />
+          <div className="flex flex-col gap-1.5">
+            <Input
+              placeholder="Type region & press Enter"
+              value={regionInput}
+              onChange={(e) => setRegionInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const val = regionInput.trim();
+                  if (val) {
+                    const currentRegions = entry.region ? entry.region.split(',').map(r => r.trim()).filter(Boolean) : [];
+                    if (!currentRegions.includes(val)) {
+                      setEntry(f => ({ ...f, region: [...currentRegions, val].join(', ') }));
+                    }
+                    setRegionInput("");
+                  }
+                }
+              }}
+              className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
+            />
+            {entry.region && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {entry.region.split(',').map(r => r.trim()).filter(Boolean).map(region => (
+                  <span
+                    key={region}
+                    className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-[10px] font-medium border bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+                  >
+                    {region}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newRegions = entry.region.split(',').map(r=>r.trim()).filter(r => r && r !== region);
+                        setEntry(f => ({ ...f, region: newRegions.join(', ') }));
+                      }}
+                      className="p-0.5 rounded-sm hover:bg-gray-200 dark:hover:bg-white/10 transition-colors text-gray-400 hover:text-rose-500"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-1">
@@ -485,6 +525,7 @@ export const CropManagementModal = ({
   const [newCropName, setNewCropName] = useState("");
   const [newAliases, setNewAliases] = useState<ICropAliasObject[]>([]);
   const [chemicalStatus, setChemicalStatus] = useState<"Restricted" | "Banned">("Restricted");
+  const [newChemicalCrops, setNewChemicalCrops] = useState<string[]>([]);
   const [otherType, setOtherType] = useState("");
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
 
@@ -519,6 +560,7 @@ export const CropManagementModal = ({
     setNewCropName("");
     setNewAliases([]);
     setChemicalStatus("Restricted");
+    setNewChemicalCrops([]);
     setOtherType("");
     setEntryType("crop");
     setIsAddFormOpen(false);
@@ -538,7 +580,7 @@ export const CropManagementModal = ({
       const res = await createCrop({
         name,
         type: entryType === "other" && otherType.trim() ? otherType.trim() : entryType,
-        ...(entryType === "chemical" ? { status: chemicalStatus } : {}),
+        ...(entryType === "chemical" ? { status: chemicalStatus, crops: newChemicalCrops } : {}),
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
@@ -673,21 +715,35 @@ export const CropManagementModal = ({
                   />
                 </div>
 
-                {/* Chemical-only: status */}
+                {/* Chemical-only: status, crops, regions */}
                 {entryType === "chemical" && (
-                  <div>
-                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                      Status
-                    </label>
-                    <Select value={chemicalStatus} onValueChange={(v) => setChemicalStatus(v as "Restricted" | "Banned")}>
-                      <SelectTrigger className="h-9 text-sm bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Restricted">Restricted</SelectItem>
-                        <SelectItem value="Banned">Banned</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                        Status
+                      </label>
+                      <Select value={chemicalStatus} onValueChange={(v) => setChemicalStatus(v as "Restricted" | "Banned")}>
+                        <SelectTrigger className="h-9 text-sm bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Restricted">Restricted</SelectItem>
+                          <SelectItem value="Banned">Banned</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
+                        Crops
+                      </label>
+                      <CropMultiSelect
+                        dbCrops={items.filter((item) => (item.type ?? 'crop') === 'crop')}
+                        crops={newChemicalCrops}
+                        selected={newChemicalCrops}
+                        onChange={setNewChemicalCrops}
+                      />
+                    </div>
                   </div>
                 )}
 

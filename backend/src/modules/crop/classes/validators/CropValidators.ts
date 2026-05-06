@@ -91,6 +91,12 @@ class CreateCropDto {
   @ValidateNested({ each: true })
   @Type(() => CropAliasDto)
   aliases?: CropAliasDto[];
+
+  @JSONSchema({ description: 'Associated crops for chemicals', type: 'array', items: { type: 'string' } })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  crops?: string[];
 }
 
 class UpdateCropDto {
@@ -108,6 +114,12 @@ class UpdateCropDto {
   @IsOptional()
   @IsIn(['Restricted', 'Banned'])
   status?: 'Restricted' | 'Banned';
+
+  @JSONSchema({ description: 'Updated associated crops', type: 'array', items: { type: 'string' } })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  crops?: string[];
 }
 
 // ── Query DTOs ──
