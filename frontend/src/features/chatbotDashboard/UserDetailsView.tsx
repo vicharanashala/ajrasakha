@@ -548,7 +548,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               Failed to load user details. Please try again.
             </div>
           )}
-
+          
           {!isLoading && !error && (
             <div className="rounded-lg border bg-card overflow-x-auto">
               <Table className="min-w-[1600px]">
@@ -602,19 +602,27 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                     <TableHead className="text-center">Exp. (Yrs)</TableHead>
                     <TableHead className="text-center">Crops</TableHead>
                     <TableHead className="text-center">Primary Crop</TableHead>
-                    <TableHead className="text-center">Secondary Crop</TableHead>
+                    <TableHead className="text-center">
+                      Secondary Crop
+                    </TableHead>
                     <TableHead className="text-center">KCC Aware</TableHead>
                     <TableHead className="text-center">Agri Apps</TableHead>
                     <TableHead className="text-center">Education</TableHead>
                     <TableHead className="text-center">Smartphones</TableHead>
+                    <TableHead className="text-center">Platform</TableHead>
                     <TableHead className="text-center">Location</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={22} className="text-center py-10 text-muted-foreground">
-                        {isFiltered ? "No users match your filters." : "No users found."}
+                      <TableCell
+                        colSpan={23}
+                        className="text-center py-10 text-muted-foreground"
+                      >
+                        {isFiltered
+                          ? "No users match your filters."
+                          : "No users found."}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -642,28 +650,98 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                           <TableCell className="align-middle whitespace-nowrap">
                             {user.email}
                           </TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.farmerName ?? "—"}</TableCell>
-                          <TableCell className="align-middle">{fp?.age ?? "—"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.gender ?? "—"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.villageName ?? "—"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.blockName ?? "—"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.district ?? "—"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.state ?? "—"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.phoneNo ?? "—"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.languagePreference ?? "—"}</TableCell>
-                          <TableCell className="align-middle">{fp?.yearsOfExperience ?? "—"}</TableCell>
-                          <TableCell className="align-middle"><CropsCell crops={fp?.cropsCultivated} /></TableCell>
-                          <TableCell className="align-middle"><CropsCell crops={fp?.primaryCrop} /></TableCell>
-                          <TableCell className="align-middle"><CropsCell crops={fp?.secondaryCrop} /></TableCell>
-                          <TableCell className="align-middle">{fp?.awarenessOfKCC == null ? "—" : fp.awarenessOfKCC ? "Yes" : "No"}</TableCell>
-                          <TableCell className="align-middle">{fp?.usesAgriApps == null ? "—" : fp.usesAgriApps ? "Yes" : "No"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.highestEducatedPerson ?? "—"}</TableCell>
-                          <TableCell className="align-middle">{fp?.numberOfSmartphones ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {fp?.farmerName ?? "—"}
+                          </TableCell>
                           <TableCell className="align-middle">
-                            {fp?.location?.latitude && fp?.location?.longitude ? (
-                              <a 
-                                href={`https://maps.google.com/?q=${fp.location.latitude},${fp.location.longitude}`} 
-                                target="_blank" 
+                            {fp?.age ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {fp?.gender ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {fp?.villageName ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {fp?.blockName ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {fp?.district ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {fp?.state ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {fp?.phoneNo ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {fp?.languagePreference ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            {fp?.yearsOfExperience ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            <CropsCell crops={fp?.cropsCultivated} />
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            <CropsCell crops={fp?.primaryCrop} />
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            <CropsCell crops={fp?.secondaryCrop} />
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            {fp?.awarenessOfKCC == null
+                              ? "—"
+                              : fp.awarenessOfKCC
+                                ? "Yes"
+                                : "No"}
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            {fp?.usesAgriApps == null
+                              ? "—"
+                              : fp.usesAgriApps
+                                ? "Yes"
+                                : "No"}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {fp?.highestEducatedPerson ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            {fp?.numberOfSmartphones ?? "—"}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {fp?.platformHistory &&
+                            fp.platformHistory.length > 0 ? (
+                              <div className="flex flex-col items-center">
+                                <span>
+                                  {
+                                    fp.platformHistory[
+                                      fp.platformHistory.length - 1
+                                    ].os
+                                  }
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                  {new Date(
+                                    fp.platformHistory[
+                                      fp.platformHistory.length - 1
+                                    ].timestamp,
+                                  ).toLocaleDateString("en-GB", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+                            ) : (
+                              (fp?.platform ?? "—")
+                            )}
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            {fp?.location?.latitude &&
+                            fp?.location?.longitude ? (
+                              <a
+                                href={`https://maps.google.com/?q=${fp.location.latitude},${fp.location.longitude}`}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 title="View on Maps"
                                 className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
@@ -686,7 +764,10 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                 <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
                     <span className="text-xs text-(--muted-foreground)">
-                      Showing {users.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}–{(currentPage - 1) * PAGE_SIZE + users.length} of {totalUsers} users
+                      Showing{" "}
+                      {users.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}
+                      –{(currentPage - 1) * PAGE_SIZE + users.length} of{" "}
+                      {totalUsers} users
                     </span>
                     <Pagination
                       currentPage={currentPage}
