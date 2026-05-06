@@ -1,4 +1,5 @@
 import type { Column } from "../baseTable";
+import { Badge } from "@/components/atoms/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -16,6 +17,7 @@ export type ReviewRow = {
   _id: string;
   question: string;
   status: string;
+  isDuplicate: boolean;
   levels: (
     | "NA"
     | {
@@ -98,13 +100,18 @@ export function useReviewLevelColumns(
       label: "Question",
       width: "28%",
       render: (row) => (
-        <div className="text-left">
+        <div className="text-left space-y-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <span
                 className="block cursor-pointer hover:underline"
                 onClick={() => onViewMore(row._id)}
-              >
+              > 
+                {
+                  row.isDuplicate &&
+                  (<span className='text-xs text-red-600 mr-1'>(DUPLICATE)</span>
+                  )
+                }
                 {truncate(row.question, 50)}
               </span>
             </TooltipTrigger>
@@ -169,7 +176,15 @@ export const reviewLevelColumns = (
       label: "Question",
       width: "28%",
       render: (row) => (
-        <div className="text-left">
+        <div className="text-left space-y-1">
+          {row.isDuplicate && (
+            <Badge
+              variant="outline"
+              className="bg-red-500/10 text-red-600 border-red-500/30"
+            >
+              Duplicate
+            </Badge>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <span
