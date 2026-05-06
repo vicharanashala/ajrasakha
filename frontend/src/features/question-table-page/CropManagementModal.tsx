@@ -580,8 +580,15 @@ export const CropManagementModal = ({
     page,
     limit: PAGE_SIZE,
   });
+  const { data: allCropOptionsData } = useGetAllCrops({
+    type: "crop",
+    page: 1,
+    limit: 500,
+  });
 
   const items: ICropResponse[] = cropsData?.crops || [];
+  const allCropOptions: ICropResponse[] =
+    allCropOptionsData?.crops || items.filter((item) => (item.type ?? "crop") === "crop");
   const totalPages = cropsData?.totalPages ?? 1;
 
   const resetForm = () => {
@@ -796,7 +803,7 @@ export const CropManagementModal = ({
                         Crops
                       </label>
                       <CropMultiSelect
-                        dbCrops={items.filter((item) => (item.type ?? 'crop') === 'crop')}
+                        dbCrops={allCropOptions}
                         crops={newChemicalCrops}
                         selected={newChemicalCrops}
                         onChange={setNewChemicalCrops}
