@@ -334,7 +334,7 @@ export class QuestionRepository implements IQuestionRepository {
     };
 
     // --- Hidden question filter ---
-    if(hiddenQuestions === 'true'){
+    if(hiddenQuestions === 'true' || status === 'pass'){
         filter.isHidden = { $eq: true }; // filter by hidden questions
     }
 
