@@ -550,9 +550,8 @@ export const CropManagementModal = ({
   const [entryType, setEntryType] = useState<EntryType>("crop");
   const [newCropName, setNewCropName] = useState("");
   const [newAliases, setNewAliases] = useState<ICropAliasObject[]>([]);
-  const [chemicalStatus, setChemicalStatus] = useState<"Restricted" | "Banned">("Restricted");
-  const [newChemicalCrops, setNewChemicalCrops] = useState<string[]>([]);
   const [chemicalStatus, setChemicalStatus] = useState("");
+  const [newChemicalCrops, setNewChemicalCrops] = useState<string[]>([]);
   const [otherType, setOtherType] = useState("");
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
 
@@ -588,7 +587,7 @@ export const CropManagementModal = ({
   const resetForm = () => {
     setNewCropName("");
     setNewAliases([]);
-    setChemicalStatus("Restricted");
+    setChemicalStatus("");
     setNewChemicalCrops([]);
     setChemicalStatus("");
     setOtherType("");
@@ -777,22 +776,19 @@ export const CropManagementModal = ({
                   />
                 </div>
 
-                {/* Chemical-only: status, crops, regions */}
+                {/* Chemical-only: status, crops */}
                 {entryType === "chemical" && (
                   <div className="space-y-3">
                     <div>
                       <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
                         Status
                       </label>
-                      <Select value={chemicalStatus} onValueChange={(v) => setChemicalStatus(v as "Restricted" | "Banned")}>
-                        <SelectTrigger className="h-9 text-sm bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Restricted">Restricted</SelectItem>
-                          <SelectItem value="Banned">Banned</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        placeholder="e.g. Restricted, Banned, Under Review..."
+                        value={chemicalStatus}
+                        onChange={(e) => setChemicalStatus(e.target.value)}
+                        className="h-9 text-sm bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700"
+                      />
                     </div>
 
                     <div>
@@ -806,16 +802,6 @@ export const CropManagementModal = ({
                         onChange={setNewChemicalCrops}
                       />
                     </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
-                      Status
-                    </label>
-                    <Input
-                      placeholder="e.g. Restricted, Banned, Under Review..."
-                      value={chemicalStatus}
-                      onChange={(e) => setChemicalStatus(e.target.value)}
-                      className="h-9 text-sm bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700"
-                    />
                   </div>
                 )}
 
