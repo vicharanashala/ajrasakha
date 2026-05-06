@@ -1617,6 +1617,14 @@ export class AnswerService extends BaseService implements IAnswerService {
       // ✅ AJRASAKHA flow
       //     if (isAjrasakha ) {
 
+      // const users = await this.userRepo.getExpertsWithFallback(
+      //   question.details,
+      //   session,
+      // );
+
+
+      // let queue: ObjectId[] = [];
+      // let initialUsersToAllocate: typeof users = [];
       //       if (!updates.questionId) {
       //         throw new BadRequestError('questionId is required for AJRASAKHA source');
       //       }
@@ -1988,7 +1996,7 @@ export class AnswerService extends BaseService implements IAnswerService {
 
       if (isAjrasakha) {
         // Special Task Force allocation for Ajrasakha (4 experts)
-        const taskForceExperts = await this.userRepo.getSpecialTaskForceExperts(session);
+        const taskForceExperts = await this.userRepo.getExpertsWithFallback(question.details,session);
         const expertsToAllocate = taskForceExperts.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
         queue = expertsToAllocate.map(u => new ObjectId(u._id.toString()));
         initialExpert = expertsToAllocate[0];

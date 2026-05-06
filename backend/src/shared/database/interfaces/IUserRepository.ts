@@ -78,7 +78,11 @@ export interface IUserRepository {
     session?: ClientSession,
   ): Promise<IUser[]>;
   getSpecialTaskForceExperts(
-
+    details: PreferenceDto,
+    session?: ClientSession,
+  ): Promise<IUser[]>;
+  getExpertsWithFallback(
+    details: PreferenceDto,
     session?: ClientSession,
   ): Promise<IUser[]>;
 
