@@ -178,10 +178,10 @@ export const QuestionsFilters = ({
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
 
-  const handleReAllocateLessWorkload = async () => {
+  const handleReAllocateLessWorkload = async (type?: string) => {
     try {
       setIsReAllocateDisabled(true);
-      const res = await reAllocateLessWorkload();
+      const res = await reAllocateLessWorkload(type);
 
       if (!res) {
         toast.error("No response from server");
@@ -1101,11 +1101,16 @@ export const QuestionsFilters = ({
         description="Are you sure you want to ReAllocate work load?"
         confirmText="ReAllocate"
         cancelText="Cancel"
-        isLoading={reAllocateQuestion}
+        secondaryConfirmText="Inactive to Active"
+        isLoading={reAllocateQuestion && !isReAllocateDisabled}
+        secondaryIsLoading={reAllocateQuestion && isReAllocateDisabled}
         type="default"
         open={isReAllocateOpen}
         onOpenChange={setIsReAllocateOpen}
-        onConfirm={handleReAllocateLessWorkload}
+        onConfirm={() => handleReAllocateLessWorkload()}
+        onSecondaryConfirm={() => handleReAllocateLessWorkload("inactive")}
+        confirmTooltip="Reallocate delayed questions (exceeding 2 hours)"
+        secondaryConfirmTooltip="Reallocate questions from inactive or blocked experts to active experts"
       />
       <CropManagementModal
         open={isCropModalOpen}

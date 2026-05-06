@@ -131,6 +131,7 @@ export interface IQuestionService {
 
   balanceWorkload(
     session?: ClientSession,
+    type?: string,
   ): Promise<{
     message: string;
     expertsInvolved: number;

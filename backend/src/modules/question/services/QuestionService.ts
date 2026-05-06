@@ -3137,31 +3137,65 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-  async balanceWorkload() {
+  async balanceWorkload(
+    session?: ClientSession,
+    type?: string,
+  ): Promise<{
+    message: string;
+    expertsInvolved: number;
+    submissionsProcessed: number;
+  }> {
+    console.log(`[QuestionService] balanceWorkload called with type: ${type}`);
+
     const lessWorkloadExperts =
-      await this.userRepo.findActiveLowReputationExpertsToday();
+      await this.userRepo.findActiveLowReputationExpertsToday(session);
 
     const MAX_PER_EXPERT = 5;
-    const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
 
     if (!lessWorkloadExperts.length) {
       return {
-        message: 'No Expert Present To Reallocate Questions .No action needed.',
+        message: 'No active experts with low workload available for balancing',
         expertsInvolved: 0,
         submissionsProcessed: 0,
       };
     }
 
-    const delayedSubmissions =
-      await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
-        maxAssignments,
-      );
+    let targetSubmissions: IQuestionSubmission[] = [];
 
-    if (!delayedSubmissions.length) {
+    if (type === 'inactive') {
+      const inactiveExperts =
+        await this.userRepo.findInactiveOrBlockedExperts(session);
+      const inactiveExpertIds = inactiveExperts.map(u => u._id.toString());
+
+      if (inactiveExpertIds.length === 0) {
+        return {
+          message: 'No inactive or blocked experts found',
+          expertsInvolved: lessWorkloadExperts.length,
+          submissionsProcessed: 0,
+        };
+      }
+
+      targetSubmissions =
+        await this.questionSubmissionRepo.findSubmissionsByActiveReviewers(
+          inactiveExpertIds,
+          session,
+        );
+    } else {
+      const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
+      targetSubmissions =
+        await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
+          maxAssignments,
+          session,
+        );
+    }
+
+    if (!targetSubmissions.length) {
       return {
         message:
-          'No questions are pending allocation for more than one hour. No action needed.',
-        expertsInvolved: 0,
+          type === 'inactive'
+            ? 'No questions are currently assigned to inactive or blocked experts.'
+            : 'No questions need escalation at this time.',
+        expertsInvolved: lessWorkloadExperts.length,
         submissionsProcessed: 0,
       };
     }
@@ -3177,15 +3211,16 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     let expertIndex = 0;
 
-    for (const submission of delayedSubmissions) {
+    for (const submission of targetSubmissions) {
       let attempts = 0;
       let assigned = false;
 
       const historyExpertIds = new Set(
         (submission.history || []).map(h => h.updatedBy?.toString()),
       );
-      const firstExpertId = submission.queue?.[0]?.toString();
-      const queueExpertIds = new Set(firstExpertId ? [firstExpertId] : []);
+      const currentQueueIds = new Set(
+        (submission.queue || []).map(id => id.toString()),
+      );
 
       while (attempts < lessWorkloadExperts.length && !assigned) {
         const expert = lessWorkloadExperts[expertIndex];
@@ -3193,7 +3228,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         if (
           !historyExpertIds.has(expertId) &&
-          !queueExpertIds.has(expertId) &&
+          !currentQueueIds.has(expertId) &&
           expertLoad[expertId] < MAX_PER_EXPERT
         ) {
           assignments[expertId].push(submission);
@@ -3208,8 +3243,6 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const flatAssignments: { submissionId: string; expertId: string }[] = [];
 
-    // console.log("the assignments=======",assignments)
-
     for (const expertId in assignments) {
       for (const submission of assignments[expertId]) {
         flatAssignments.push({
@@ -3218,6 +3251,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         });
       }
     }
+
     const jobId = startBalanceWorkloadWorkers(flatAssignments);
 
     return {

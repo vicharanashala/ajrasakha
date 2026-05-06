@@ -3455,4 +3455,32 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   }
 }
   
+  async findSubmissionsByActiveReviewers(
+    expertIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
+    await this.init();
+    const expertObjectIds = expertIds.map(id => new ObjectId(id));
+
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>(
+      [
+        {
+          $addFields: {
+            historyLength: {$size: {$ifNull: ['$history', []]}},
+          },
+        },
+        {
+          $addFields: {
+            currentReviewerId: {$arrayElemAt: ['$queue', '$historyLength']},
+          },
+        },
+        {
+          $match: {
+            currentReviewerId: {$in: expertObjectIds},
+          },
+        },
+      ],
+      {session},
+    ).toArray();
+  }
 }

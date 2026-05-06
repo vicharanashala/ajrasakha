@@ -165,4 +165,8 @@ export interface IQuestionSubmissionRepository {
     },
     session?: ClientSession,
   ): Promise<void>;
+  findSubmissionsByActiveReviewers(
+    expertIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
 }

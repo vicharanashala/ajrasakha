@@ -394,9 +394,12 @@ export class QuestionService {
       params.append("dateRange", filter.dateRange);
     return apiFetch(`${this._baseUrl}?${params.toString()}`);
   }
-  async reAllocateLessWorkload(): Promise<WorkloadBalanceResponse | null> {
+  async reAllocateLessWorkload(type?: string): Promise<WorkloadBalanceResponse | null> {
+    const params = new URLSearchParams();
+    if (type) params.append("type", type);
+    const queryString = params.toString();
     return apiFetch<WorkloadBalanceResponse | null>(
-      `${this._baseUrl}/reAllocateLessWorkload`,
+      `${this._baseUrl}/reAllocateLessWorkload${queryString ? `?${queryString}` : ""}`,
       { method: "POST" },
     );
   }

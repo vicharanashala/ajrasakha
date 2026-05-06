@@ -12,6 +12,7 @@ import {
   CurrentUser,
   Post,
   Param,
+  QueryParam,
   NotFoundError,
   Patch,
   UploadedFile,
@@ -351,6 +352,7 @@ export class QuestionController {
   @OpenAPI({ summary: 'ReAllocating questions which are delayed to those who has less workload' })
   async reAllocateLessWorkload(
      @CurrentUser() user: IUser,
+     @QueryParam('type') type?: string,
   ) {
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
@@ -365,7 +367,7 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const result = await this.questionService.balanceWorkload();
+      const result = await this.questionService.balanceWorkload(undefined, type);
       auditPayload = {
         ...auditPayload,
         changes: {
