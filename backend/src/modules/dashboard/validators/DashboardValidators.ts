@@ -226,6 +226,9 @@ export class GoldenDataset {
 
   @JSONSchema({ description: 'Moderator breakdown with names and approval counts' })
   moderatorBreakdown?: { moderatorName: string, count: number }[];
+
+  @JSONSchema({ description: 'Question source breakdown showing counts from WhatsApp and Ajrasakha' })
+  questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
 }
 
 export class QuestionContributionTrend {

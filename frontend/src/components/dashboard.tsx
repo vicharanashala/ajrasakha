@@ -12,6 +12,7 @@ import {
   type DateRange,
 } from "./dashboard/questions-analytics";
 import { SourcesChart } from "./dashboard/sources-chart";
+import { QuestionSourceCharts } from "./dashboard/question-source-charts";
 import HeatMap from "./HeatMap";
 import { Card, CardHeader, CardTitle } from "./atoms/card";
 import {
@@ -196,6 +197,16 @@ export const Dashboard = () => {
             viewType={viewType}
           />
         </div>
+
+        {/* Question Source Charts Row */}
+        {goldenData?.questionSourceBreakdown && (
+          <div className="mb-6">
+            <QuestionSourceCharts
+              whatsappCount={goldenData.questionSourceBreakdown.whatsapp}
+              ajrasakhaCount={goldenData.questionSourceBreakdown.ajrasakha}
+            />
+          </div>
+        )}
 
         {/* Sources Chart Row */}
         <div className="mb-6">
