@@ -22,6 +22,13 @@ interface QuestionHeaderProps {
 export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocatedToExpert }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
+
+  const isDuplicate = Boolean(
+    question?.similarityScore &&
+    question?.referenceQuestionId &&
+    question?.referenceQuestion &&
+    question?.referenceSource
+  );
   
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
@@ -105,6 +112,15 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
 
         {/* Status + Priority + Total answers */}
         <div className="flex flex-wrap items-center gap-2">
+          {
+            isDuplicate && (
+              <Badge
+                className="bg-red-400/10 text-red-500 border-red-400/30"
+              >
+                DUPLICATE
+              </Badge>
+            )
+          }
           <Badge
             className={
               question.status === "in-review"
