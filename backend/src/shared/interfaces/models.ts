@@ -394,6 +394,7 @@ export interface ICrop {
   type?: CropType;                    // 'crop' (default) | 'chemical' | any custom string
   status?: string;                    // only relevant when type === 'chemical', any custom string
   aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
+  crops?: string[];                  // associated crops (only for type === 'chemical')
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
   createdAt?: Date;
