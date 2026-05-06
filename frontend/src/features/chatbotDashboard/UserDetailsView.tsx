@@ -434,7 +434,31 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                             {fp?.numberOfSmartphones ?? "—"}
                           </TableCell>
                           <TableCell className="align-middle whitespace-nowrap">
-                            {fp?.platform ?? "—"}
+                            {fp?.platformHistory &&
+                            fp.platformHistory.length > 0 ? (
+                              <div className="flex flex-col items-center">
+                                <span>
+                                  {
+                                    fp.platformHistory[
+                                      fp.platformHistory.length - 1
+                                    ].os
+                                  }
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                  {new Date(
+                                    fp.platformHistory[
+                                      fp.platformHistory.length - 1
+                                    ].timestamp,
+                                  ).toLocaleDateString("en-GB", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+                            ) : (
+                              (fp?.platform ?? "—")
+                            )}
                           </TableCell>
                           <TableCell className="align-middle">
                             {fp?.location?.latitude &&
