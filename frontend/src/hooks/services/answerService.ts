@@ -106,6 +106,31 @@ export class AnswerService {
     }
   }
 
+  async approveLLMAnswer(
+    questionId: string,
+    updatedAnswer: string,
+    sources: SourceItem[],
+    source: string,
+  ) {
+    try {
+      return await apiFetch<SubmitAnswerResponse>(
+        `${this._baseUrl}/moderator/approve`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            questionId,
+            answer: updatedAnswer,
+            sources,
+            source,
+          }),
+        }
+      );
+    } catch (error) {
+      console.error(`Error in approveLLMAnswer(${questionId}):`, error);
+      throw error;
+    }
+  }
+
   async getSubmissions(
     pageParam: number,
     limit: number,

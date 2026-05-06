@@ -228,6 +228,82 @@ export class AnswerController {
     return result;
   }
 
+  @OpenAPI({ summary: 'Moderator approve answer (Ajrasakha and WhatsApp)' })
+  @Post('/moderator/approve')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async approveLLMAnswer(
+    @Body() body: UpdateAnswerBody,
+    @CurrentUser() user: IUser,
+  ) {
+    const {_id: userId} = user;
+    let result;
+    let questionData;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.APPROVE_ANSWER,
+      actor: {
+        id: userId,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        questionId: body.questionId,
+      },
+      changes: {},
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    try {
+      questionData = await this.questionService.getQuestionDataById(body.questionId!);
+      result = await this.answerService.approveLLMAnswer(
+        userId.toString(),
+        body,
+      );
+      auditPayload = {
+        ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          question: questionData?.question,
+        },
+        changes: {
+          before: {
+            answer: '', // 1
+          },
+          after: {
+            answer: body.answer,
+          },
+        },
+      };
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          question: questionData?.question,
+        },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to approve answer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to approve answer');
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return result;
+  }
+
 
   @OpenAPI({summary: 'Delete an answer and update the related question state'})
   @Delete('/:questionId/:answerId')
