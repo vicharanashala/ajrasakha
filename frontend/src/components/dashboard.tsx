@@ -15,6 +15,7 @@ import { SourcesChart } from "./dashboard/sources-chart";
 import { QuestionSourceCharts } from "./dashboard/question-source-charts";
 import { QuestionsAnswered120Min } from "./dashboard/questions-answered-120min";
 import { ResponseAdherence } from "./dashboard/response-adherence";
+import { AverageResponseTime } from "./dashboard/average-response-time";
 import HeatMap from "./HeatMap";
 import { Card, CardHeader, CardTitle } from "./atoms/card";
 import {
@@ -218,13 +219,19 @@ export const Dashboard = () => {
 
         {/* Response Adherence Row */}
         {goldenData?.questionSourceBreakdown && goldenData?.questionsAnsweredWithin120Min && (
-          <div className="mb-6">
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <ResponseAdherence
               totalWhatsapp={goldenData.questionSourceBreakdown.whatsapp}
               totalAjrasakha={goldenData.questionSourceBreakdown.ajrasakha}
               answeredWithin120WhatsApp={goldenData.questionsAnsweredWithin120Min.whatsapp}
               answeredWithin120Ajrasakha={goldenData.questionsAnsweredWithin120Min.ajrasakha}
             />
+            {goldenData?.averageResponseTime && (
+              <AverageResponseTime
+                whatsappAvgTime={goldenData.averageResponseTime.whatsapp}
+                ajrasakhaAvgTime={goldenData.averageResponseTime.ajrasakha}
+              />
+            )}
           </div>
         )}
 

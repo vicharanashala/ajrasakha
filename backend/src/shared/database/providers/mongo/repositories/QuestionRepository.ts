@@ -2129,7 +2129,7 @@ export class QuestionRepository implements IQuestionRepository {
   async getYearAnalytics(
     goldenDataSelectedYear: string,
     session?: ClientSession,
-  ): Promise<{ yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number } }> {
+  ): Promise<{ yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }> {
     await this.init();
     const selectedYearNum = Number(goldenDataSelectedYear);
 
@@ -2210,8 +2210,9 @@ export class QuestionRepository implements IQuestionRepository {
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
     const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate);
     const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate);
+    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate);
     
-    return { yearData: formattedData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min };
+    return { yearData: formattedData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
   }
 
   /**
@@ -2369,11 +2370,56 @@ export class QuestionRepository implements IQuestionRepository {
     return { whatsapp, ajrasakha };
   }
 
+  async getAverageResponseTime(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<{ whatsapp: number; ajrasakha: number }> {
+    await this.init();
+
+    const matchCondition: any = {
+      status: 'closed',
+      closedAt: { $exists: true },
+      createdAt: { $exists: true }
+    };
+
+    if (startDate && endDate) {
+      matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+    }
+
+    const result = await this.QuestionCollection.aggregate(
+      [
+        { $match: matchCondition },
+        {
+          $addFields: {
+            timeTakenHours: {
+              $divide: [
+                { $subtract: ['$closedAt', '$createdAt'] },
+                3600000  // Convert milliseconds to hours (1000 * 60 * 60)
+              ]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: '$source',
+            avgTime: { $avg: '$timeTakenHours' }
+          }
+        }
+      ],
+      { session }
+    ).toArray() as { _id: string; avgTime: number }[];
+
+    const whatsapp = result.find(s => s._id?.toLowerCase() === 'whatsapp')?.avgTime ?? 0;
+    const ajrasakha = result.find(s => s._id?.toLowerCase() === 'ajrasakha')?.avgTime ?? 0;
+
+    return { 
+      whatsapp: Math.round(whatsapp * 10) / 10,  // Round to 1 decimal
+      ajrasakha: Math.round(ajrasakha * 10) / 10 
+    };
+  }
+
   async getMonthAnalytics(
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
     session?: ClientSession,
-  ): Promise<{ weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number } }> {
+  ): Promise<{ weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }> {
     await this.init();
 
     const monthNames = [
@@ -2470,8 +2516,9 @@ export class QuestionRepository implements IQuestionRepository {
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
     const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate);
     const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate);
+    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate);
 
-    return { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min };
+    return { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
   }
 
   async getWeekAnalytics(
@@ -2479,7 +2526,7 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
     session?: ClientSession,
-  ): Promise<{ dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number } }> {
+  ): Promise<{ dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }> {
     await this.init();
     const monthNames = [
       'January',
@@ -2580,8 +2627,9 @@ export class QuestionRepository implements IQuestionRepository {
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
     const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate);
     const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate);
+    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate);
     
-    return { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min };
+    return { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
   }
 
   async getDailyAnalytics(
@@ -2597,6 +2645,7 @@ export class QuestionRepository implements IQuestionRepository {
     moderatorBreakdown?: { moderatorName: string, count: number }[];
     questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
     questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+    averageResponseTime?: { whatsapp: number; ajrasakha: number };
   }> {
     await this.init();
     const monthNames = [
@@ -2793,6 +2842,7 @@ export class QuestionRepository implements IQuestionRepository {
     let moderatorBreakdown: { moderatorName: string, count: number }[] = [];
     let questionSourceBreakdown: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
     let questionsAnsweredWithin120Min: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
+    let averageResponseTime: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
 
     if (specificDayStart) {
       const specificDayEnd = new Date(specificDayStart);
@@ -2801,6 +2851,7 @@ export class QuestionRepository implements IQuestionRepository {
       moderatorBreakdown = result.moderatorBreakdown || [];
       questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, specificDayStart, specificDayEnd);
       questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, specificDayStart, specificDayEnd);
+      averageResponseTime = await this.getAverageResponseTime(session, specificDayStart, specificDayEnd);
     }
 
     return {
@@ -2809,7 +2860,8 @@ export class QuestionRepository implements IQuestionRepository {
       totalVerifiedByType,
       moderatorBreakdown,
       questionSourceBreakdown,
-      questionsAnsweredWithin120Min
+      questionsAnsweredWithin120Min,
+      averageResponseTime
     };
   }
 

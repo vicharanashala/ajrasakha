@@ -232,6 +232,9 @@ export class GoldenDataset {
 
   @JSONSchema({ description: 'Questions answered within 120 minutes by source' })
   questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Average response time in minutes by source' })
+  averageResponseTime?: { whatsapp: number; ajrasakha: number };
 }
 
 export class QuestionContributionTrend {
