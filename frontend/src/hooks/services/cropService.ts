@@ -44,6 +44,7 @@ export interface IGetAllCropsResponse {
 export interface IUpdateCropPayload {
   name?: string;
   aliases?: (ICropAlias | string)[];
+  status?: string;
 }
 
 export interface IBulkUploadCropResponse {

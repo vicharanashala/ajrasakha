@@ -72,8 +72,8 @@ for (const row of rows) {
 
   const group = chemicalMap.get(key)!;
 
-  // Skip rows with no alias value
-  if (!alias) continue;
+  // Skip rows with no alias value, or if it duplicates the chemical name itself
+  if (!alias || alias.toLowerCase() === name.toLowerCase()) continue;
 
   const aliasEntry: ICropAlias = {
     language: '',

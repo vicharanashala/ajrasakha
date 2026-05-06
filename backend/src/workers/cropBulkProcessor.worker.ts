@@ -64,8 +64,8 @@ for (const row of rows) {
   const englishRepr = getField(row, 'english name', 'english_name', 'englishname').toLowerCase();
   const nativeRepr = getField(row, 'native name', 'native_name', 'nativename');
 
-  // Skip rows with no english representation
-  if (!englishRepr) continue;
+  // Skip rows with no english representation, or if it duplicates the crop name itself
+  if (!englishRepr || englishRepr === name.toLowerCase()) continue;
 
   const alias: ICropAlias = {
     language,

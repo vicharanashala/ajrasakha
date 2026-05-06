@@ -273,12 +273,14 @@ const AliasManagerModal = ({
   onClose: () => void;
 }) => {
   const all = crop.aliases || [];
+  const isChemicalEntry = crop.type === "chemical";
   const [legacyAliases, setLegacyAliases] = useState<string[]>(
     all.filter((a): a is string => typeof a === "string")
   );
   const [structuredAliases, setStructuredAliases] = useState<ICropAliasObject[]>(
     all.filter((a): a is ICropAliasObject => typeof a !== "string")
   );
+  const [chemicalStatus, setChemicalStatus] = useState(crop.status ?? "");
 
   const { mutateAsync: updateCrop, isPending: isUpdating } = useUpdateCrop();
 
@@ -298,18 +300,19 @@ const AliasManagerModal = ({
 
   const handleSave = async () => {
     if (!crop._id) return;
-    if (!window.confirm(`Update aliases for "${crop.name}"?`)) return;
+    if (!window.confirm(`Update "${crop.name}"?`)) return;
     try {
-      const res = await updateCrop({
-        cropId: crop._id,
-        payload: { aliases: [...legacyAliases, ...structuredAliases] },
-      });
+      const payload: { aliases: (ICropAliasObject | string)[]; status?: string } = {
+        aliases: [...legacyAliases, ...structuredAliases],
+      };
+      if (isChemicalEntry) payload.status = chemicalStatus;
+      const res = await updateCrop({ cropId: crop._id, payload });
       if (res?.success) {
-        toast.success(`Aliases for "${crop.name}" updated successfully!`);
+        toast.success(`"${crop.name}" updated successfully!`);
         onClose();
       }
     } catch (error: any) {
-      toast.error(error?.message || "Failed to update aliases");
+      toast.error(error?.message || "Failed to update");
     }
   };
 
@@ -356,6 +359,21 @@ const AliasManagerModal = ({
 
         {/* ── Body ───────────────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+
+          {/* ── Chemical Status ───────────────────────────────────────── */}
+          {isChemicalEntry && (
+            <div>
+              <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Status
+              </p>
+              <Input
+                placeholder={crop.status || "e.g. Restricted, Banned, Under Review…"}
+                value={chemicalStatus}
+                onChange={(e) => setChemicalStatus(e.target.value)}
+                className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
+              />
+            </div>
+          )}
 
           {/* ── Structured Aliases Table ──────────────────────────────── */}
           <div>
@@ -407,7 +425,7 @@ const AliasManagerModal = ({
           )}
 
           {/* ── Add Alias Form ────────────────────────────────────────── */}
-          <AliasEntryForm onAdd={handleAdd} accentColor="amber" />
+          <AliasEntryForm onAdd={handleAdd} accentColor="amber" isChemical={isChemicalEntry} />
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
