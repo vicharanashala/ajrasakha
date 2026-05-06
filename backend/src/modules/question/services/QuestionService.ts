@@ -1332,7 +1332,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     let allExpertIds: string[] = [];
     const isAjrasakha = question.source == "AJRASAKHA" ? true : false
     if (isAjrasakha) {
-      const users = await this.userRepo.getSpecialTaskForceExperts(session);
+      const users = await this.userRepo.getExpertsWithFallback(details, session);
 
       allExpertIds = users.map(user => user._id.toString());
     } else {

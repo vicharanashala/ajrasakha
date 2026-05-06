@@ -1671,7 +1671,8 @@ answer: ${updates.answer}`;
           true,
         );
 
-        const users = await this.userRepo.getSpecialTaskForceExperts(
+        const users = await this.userRepo.getExpertsWithFallback(
+          question.details,
           session,
         );
   
