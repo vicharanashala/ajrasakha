@@ -1376,7 +1376,7 @@ export class UserRepository implements IUserRepository {
     try {
       await this.init();
       await this.usersCollection.updateMany(
-        { role: 'expert', isBlocked: true },
+        { inactive: { $ne: true } },
         { $set: { isBlocked: false } },
       );
     } catch (error) {
