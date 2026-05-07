@@ -199,6 +199,22 @@ export class GoldenDatasetEntry {
   verified!: number;
 }
 
+export class QuestionStateBreakdownItem {
+  @JSONSchema({ description: 'Question state/status', example: 'open' })
+  status!: string;
+
+  @JSONSchema({ description: 'Count for the status', example: 12 })
+  count!: number;
+}
+
+export class QuestionStateBreakdownBySource {
+  @JSONSchema({ description: 'Question state breakdown for WhatsApp source' })
+  whatsapp!: QuestionStateBreakdownItem[];
+
+  @JSONSchema({ description: 'Question state breakdown for Ajrasakha source' })
+  ajrasakha!: QuestionStateBreakdownItem[];
+}
+
 export class GoldenDataset {
   @JSONSchema({description: 'Total count of verified answers'})
   verifiedEntries: number;
@@ -239,8 +255,8 @@ export class GoldenDataset {
   @JSONSchema({ description: 'Questions answered after 120 minutes by source' })
   questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number };
 
-  @JSONSchema({ description: 'Breakdown of question states with status and count' })
-  questionStateBreakdown?: { status: string; count: number }[];
+  @JSONSchema({ description: 'Breakdown of question states separated by source' })
+  questionStateBreakdown?: QuestionStateBreakdownBySource;
 }
 
 export class QuestionContributionTrend {

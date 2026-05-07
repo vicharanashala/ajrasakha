@@ -10,13 +10,17 @@ import CountUp from "react-countup";
 interface QuestionsAnsweredAfter120MinProps {
   whatsappCount: number;
   ajrasakhaCount: number;
+  questionsStateBreakdown?: {
+    whatsapp: { status: string; count: number }[];
+    ajrasakha: { status: string; count: number }[];
+  };
 }
 
 export const QuestionsAnsweredAfter120MinProps = ({
   whatsappCount,
   ajrasakhaCount,
   questionsStateBreakdown,
-}: QuestionsAnsweredAfter120MinProps & { questionsStateBreakdown?: { status: string; count: number }[] }) => {
+}: QuestionsAnsweredAfter120MinProps) => {
   return (
     <Card>
       <CardHeader>
@@ -27,7 +31,6 @@ export const QuestionsAnsweredAfter120MinProps = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {/* WhatsApp */}
           <div className="flex items-center justify-between p-4 rounded-lg bg-muted">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-[var(--color-chart-1)]" />
@@ -37,8 +40,8 @@ export const QuestionsAnsweredAfter120MinProps = ({
               <CountUp end={whatsappCount} duration={2} preserveValue />
             </span>      
           </div>
-        <div className={`mt-6 grid grid-cols-3 gap-3`}>
-          {questionsStateBreakdown?.map((item) => (
+          <div className="mt-6 grid grid-cols-3 gap-3">
+          {questionsStateBreakdown?.whatsapp?.map((item) => (
             <div
               key={item.status}
               className="p-3 rounded-lg bg-muted text-center"
@@ -49,8 +52,7 @@ export const QuestionsAnsweredAfter120MinProps = ({
               </p>
             </div>
           ))}
-        </div>
-          {/* Ajrasakha */}
+          </div>
           <div className="flex items-center justify-between p-4 rounded-lg bg-muted">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-[var(--color-chart-2)]" />
@@ -60,9 +62,8 @@ export const QuestionsAnsweredAfter120MinProps = ({
               <CountUp end={ajrasakhaCount} duration={2} preserveValue />
             </span>
           </div>
-        </div>
-        <div className={`mt-6 grid grid-cols-3 gap-3`}>
-          {questionsStateBreakdown?.map((item) => (
+          <div className="mt-6 grid grid-cols-3 gap-3">
+          {questionsStateBreakdown?.ajrasakha?.map((item) => (
             <div
               key={item.status}
               className="p-3 rounded-lg bg-muted text-center"
@@ -73,6 +74,7 @@ export const QuestionsAnsweredAfter120MinProps = ({
               </p>
             </div>
           ))}
+          </div>
         </div>
       </CardContent>
     </Card>
