@@ -16,6 +16,7 @@ import {
 } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
+import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
 import { toast } from "sonner";
 import Spinner from "./atoms/spinner";
 import { ReviewLevelsTable } from "@/features/questions/components/review-level/ReviewLevelsTable";
@@ -120,6 +121,8 @@ export const QuestionsPage = ({
 
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
+  const { mutateAsync: allocateExpert } = useAllocateExpert();
+  const [isBulkAllocatingPae, setIsBulkAllocatingPae] = useState(false);
 
   const LIMIT = 12;
 
@@ -405,6 +408,53 @@ export const QuestionsPage = ({
     }
   };
 
+  const handleBulkAllocateToPae = async (paeExpertId: string) => {
+    if (!selectedQuestionIds || selectedQuestionIds.length === 0) {
+      toast.error("No questions selected.");
+      return;
+    }
+
+    const allQuestions = questionData?.questions || [];
+    const selectedQuestions = allQuestions.filter(
+      (q) => q._id && selectedQuestionIds.includes(q._id),
+    );
+    const draftQuestions = selectedQuestions.filter((q) => q.status === "draft");
+    const skippedCount = selectedQuestions.length - draftQuestions.length;
+
+    if (draftQuestions.length === 0) {
+      toast.warning(
+        "No draft questions found among the selected. Only draft questions can be allocated to PAE.",
+      );
+      return;
+    }
+
+    setIsBulkAllocatingPae(true);
+    try {
+      await Promise.all(
+        draftQuestions.map((q) =>
+          allocateExpert({ questionId: q._id!, experts: [paeExpertId] }),
+        ),
+      );
+      setSelectedQuestionIds([]);
+      setIsSelectionModeOn(false);
+      refetch();
+      if (skippedCount > 0) {
+        toast.success(
+          `${draftQuestions.length} question(s) allocated to PAE. ${skippedCount} question(s) skipped (not draft).`,
+        );
+      } else {
+        toast.success(
+          `${draftQuestions.length} question(s) allocated to PAE successfully.`,
+        );
+      }
+    } catch (error) {
+      console.error("Bulk PAE allocate error:", error);
+      toast.error("Failed to allocate some questions. Please try again.");
+    } finally {
+      setIsBulkAllocatingPae(false);
+    }
+  };
+
   return (
     <main className={"mx-auto w-full p-4 md:p-6 space-y-6"}>
       {selectedQuestionId ? (
@@ -462,6 +512,8 @@ export const QuestionsPage = ({
             setIsSelectionModeOn={setIsSelectionModeOn}
             setSelectedQuestionIds={setSelectedQuestionIds}
             bulkDeletingQuestions={bulkDeletingQuestions}
+            handleBulkAllocateToPae={handleBulkAllocateToPae}
+            isBulkAllocatingPae={isBulkAllocatingPae}
             viewMode={viewMode}
             setViewMode={setViewMode}
             onSort={toggleSort}

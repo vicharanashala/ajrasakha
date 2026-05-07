@@ -544,6 +544,7 @@ export interface IDetailedQuestion {
     history: ISubmissionHistory[];
     queue: IUserRef[];
   };
+  pae_review?: boolean;
   similarityScore?: number;        // percentage (0–100)
   referenceQuestionId?: string;
   referenceQuestion?:string

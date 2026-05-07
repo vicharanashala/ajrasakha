@@ -1614,11 +1614,17 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
         if(question.status=="draft")
         {
+          // Check if any of the experts being allocated is a PAE expert
+          const expertUsers = await Promise.all(
+            experts.map(id => this.userRepo.findById(id, session))
+          );
+          const isPaeAllocation = expertUsers.some(u => u?.role === 'pae_expert');
+
           await this.questionRepo.updateQuestion(
             questionId,
             {
-              status:"open",
-             
+              status: "open",
+              ...(isPaeAllocation && { pae_review: true }),
             },
             session,
           );

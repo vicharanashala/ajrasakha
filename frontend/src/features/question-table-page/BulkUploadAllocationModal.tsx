@@ -19,6 +19,8 @@ interface Props {
   onClose: () => void;
   onConfirm: (mode: AllocationMode, paeExpertId?: string) => void;
   isLoading?: boolean;
+  /** When true, skip mode selection and show only the PAE expert picker */
+  paeOnly?: boolean;
 }
 
 export function BulkUploadAllocationModal({
@@ -26,8 +28,9 @@ export function BulkUploadAllocationModal({
   onClose,
   onConfirm,
   isLoading,
+  paeOnly = false,
 }: Props) {
-  const [selectedMode, setSelectedMode] = useState<AllocationMode>("expert");
+  const [selectedMode, setSelectedMode] = useState<AllocationMode>(paeOnly ? "pae_expert" : "expert");
   const [selectedPaeExpertId, setSelectedPaeExpertId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -37,11 +40,11 @@ export function BulkUploadAllocationModal({
 
   useEffect(() => {
     if (open) {
-      setSelectedMode("expert");
+      setSelectedMode(paeOnly ? "pae_expert" : "expert");
       setSelectedPaeExpertId(null);
       setSearchTerm("");
     }
-  }, [open]);
+  }, [open, paeOnly]);
 
   const paeExperts =
     usersData?.users.filter((u) => u.role === "pae_expert") ?? [];
@@ -93,47 +96,51 @@ export function BulkUploadAllocationModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Choose Allocation Method</DialogTitle>
+          <DialogTitle>
+            {paeOnly ? "Allocate to PAE Expert" : "Choose Allocation Method"}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3 py-2">
-          {options.map((opt) => (
-            <button
-              key={opt.mode}
-              type="button"
-              onClick={() => {
-                setSelectedMode(opt.mode);
-                setSelectedPaeExpertId(null);
-                setSearchTerm("");
-              }}
-              className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors w-full ${
-                selectedMode === opt.mode
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/40"
-              }`}
-            >
-              <span
-                className={`mt-0.5 flex-shrink-0 ${
+        {!paeOnly && (
+          <div className="flex flex-col gap-3 py-2">
+            {options.map((opt) => (
+              <button
+                key={opt.mode}
+                type="button"
+                onClick={() => {
+                  setSelectedMode(opt.mode);
+                  setSelectedPaeExpertId(null);
+                  setSearchTerm("");
+                }}
+                className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors w-full ${
                   selectedMode === opt.mode
-                    ? "text-primary"
-                    : "text-muted-foreground"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
                 }`}
               >
-                {opt.icon}
-              </span>
-              <div>
-                <p className="text-sm font-medium leading-none mb-1">
-                  {opt.label}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {opt.description}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
+                <span
+                  className={`mt-0.5 flex-shrink-0 ${
+                    selectedMode === opt.mode
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {opt.icon}
+                </span>
+                <div>
+                  <p className="text-sm font-medium leading-none mb-1">
+                    {opt.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {opt.description}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
 
-        {selectedMode === "pae_expert" && (
+        {(selectedMode === "pae_expert") && (
           <div className="flex flex-col gap-2 mt-1">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -207,10 +214,10 @@ export function BulkUploadAllocationModal({
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Uploading...
+                {paeOnly ? "Allocating..." : "Uploading..."}
               </>
             ) : (
-              "Confirm & Upload"
+              paeOnly ? "Allocate to PAE" : "Confirm & Upload"
             )}
           </Button>
         </DialogFooter>

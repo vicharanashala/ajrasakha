@@ -226,11 +226,14 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
             #{(currentPage - 1) * limit + idx + 1}
           </span>
             )}
-            {visibleColumns.status && (
-              <div className={!visibleColumns.sl_No ? "ml-auto" : ""}>
-          {statusBadge}
-        </div>
-            )}
+            <div className={`flex items-center gap-1.5 ${!visibleColumns.sl_No ? "ml-auto" : ""}`}>
+              {q.pae_review && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-purple-500/10 text-purple-600 border-purple-500/30 dark:text-purple-400 dark:border-purple-500/30 whitespace-nowrap">
+                  PAE
+                </span>
+              )}
+              {visibleColumns.status && statusBadge}
+            </div>
           </div>
         )}
 

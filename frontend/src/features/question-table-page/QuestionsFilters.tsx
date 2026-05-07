@@ -68,6 +68,8 @@ import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
+import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
+import { UserCheck } from "lucide-react";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -95,6 +97,8 @@ type QuestionsFiltersProps = {
   showClosedAt?: boolean;
   view: "grid" | "table";
   setView: (v: "grid" | "table") => void;
+  handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
+  isBulkAllocatingPae: boolean;
 };
 
 type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach";
@@ -143,6 +147,8 @@ export const QuestionsFilters = ({
   showClosedAt,
   view,
   setView,
+  handleBulkAllocateToPae,
+  isBulkAllocatingPae,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -177,6 +183,7 @@ export const QuestionsFilters = ({
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
+  const [isPaeAllocateModalOpen, setIsPaeAllocateModalOpen] = useState(false);
 
   const handleReAllocateLessWorkload = async () => {
     try {
@@ -622,6 +629,22 @@ export const QuestionsFilters = ({
 
         {isSelectionModeOn && (
           <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
+            {/* Allocate to PAE */}
+            {userRole !== "expert" && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectedQuestionIds.length === 0 || isBulkAllocatingPae}
+                onClick={() => setIsPaeAllocateModalOpen(true)}
+                className="flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10"
+              >
+                <UserCheck className="h-4 w-4" />
+                {isBulkAllocatingPae
+                  ? `Allocating (${selectedQuestionIds.length})...`
+                  : `Allocate to PAE (${selectedQuestionIds.length})`}
+              </Button>
+            )}
+
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
@@ -1114,6 +1137,17 @@ export const QuestionsFilters = ({
       <ChemicalManagementModal
         open={isChemicalModalOpen}
         onOpenChange={setIsChemicalModalOpen}
+      />
+      <BulkUploadAllocationModal
+        open={isPaeAllocateModalOpen}
+        onClose={() => setIsPaeAllocateModalOpen(false)}
+        isLoading={isBulkAllocatingPae}
+        paeOnly
+        onConfirm={async (_mode, paeExpertId) => {
+          if (!paeExpertId) return;
+          await handleBulkAllocateToPae(paeExpertId);
+          setIsPaeAllocateModalOpen(false);
+        }}
       />
     </div>
   );

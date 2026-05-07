@@ -311,6 +311,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           <TableCell className="text-start ps-0">
             <div className="flex items-center gap-2">
               {visibleColumns.priority && <PriorityBadge priority={q.priority} />}
+              {q.pae_review && (
+                <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-purple-500/10 text-purple-600 border-purple-500/30 whitespace-nowrap">
+                  PAE
+                </span>
+              )}
 
               <div className="flex flex-col gap-1 py-1">
                 <TooltipProvider>
