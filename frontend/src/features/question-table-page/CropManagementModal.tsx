@@ -307,9 +307,11 @@ const StructuredAliasesTable = ({
 // Dedicated modal for viewing, adding, and deleting aliases for a single crop.
 const AliasManagerModal = ({
   crop,
+  allCropOptions,
   onClose,
 }: {
   crop: ICropResponse;
+  allCropOptions: ICropResponse[];
   onClose: () => void;
 }) => {
   const all = crop.aliases || [];
@@ -321,6 +323,7 @@ const AliasManagerModal = ({
     all.filter((a): a is ICropAliasObject => typeof a !== "string")
   );
   const [chemicalStatus, setChemicalStatus] = useState(crop.status ?? "");
+  const [chemicalCrops, setChemicalCrops] = useState<string[]>(crop.crops ?? []);
 
   const { mutateAsync: updateCrop, isPending: isUpdating } = useUpdateCrop();
 
@@ -342,10 +345,13 @@ const AliasManagerModal = ({
     if (!crop._id) return;
     if (!window.confirm(`Update "${crop.name}"?`)) return;
     try {
-      const payload: { aliases: (ICropAliasObject | string)[]; status?: string } = {
+      const payload: { aliases: (ICropAliasObject | string)[]; status?: string; crops?: string[] } = {
         aliases: [...legacyAliases, ...structuredAliases],
       };
-      if (isChemicalEntry) payload.status = chemicalStatus;
+      if (isChemicalEntry) {
+        payload.status = chemicalStatus;
+        payload.crops = chemicalCrops;
+      }
       const res = await updateCrop({ cropId: crop._id, payload });
       if (res?.success) {
         toast.success(`"${crop.name}" updated successfully!`);
@@ -402,16 +408,54 @@ const AliasManagerModal = ({
 
           {/* ── Chemical Status ───────────────────────────────────────── */}
           {isChemicalEntry && (
-            <div>
-              <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                Status
-              </p>
-              <Input
-                placeholder={crop.status || "e.g. Restricted, Banned, Under Review…"}
-                value={chemicalStatus}
-                onChange={(e) => setChemicalStatus(e.target.value)}
-                className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
-              />
+            <div className="space-y-3">
+              <div>
+                <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  Status
+                </p>
+                <Input
+                  placeholder={crop.status || "e.g. Restricted, Banned, Under Review…"}
+                  value={chemicalStatus}
+                  onChange={(e) => setChemicalStatus(e.target.value)}
+                  className="h-8 text-xs bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
+                />
+              </div>
+
+              <div>
+                <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  Associated Crops
+                </p>
+                <CropMultiSelect
+                  dbCrops={allCropOptions}
+                  crops={chemicalCrops}
+                  selected={chemicalCrops}
+                  onChange={setChemicalCrops}
+                />
+                {chemicalCrops.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {chemicalCrops.map((cropName) => (
+                      <span
+                        key={cropName}
+                        className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg text-xs font-medium border bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+                      >
+                        <span className="capitalize">{cropName}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setChemicalCrops((prev) =>
+                              prev.filter((name) => name !== cropName),
+                            )
+                          }
+                          className="p-0.5 rounded-sm hover:bg-gray-200 dark:hover:bg-white/10 transition-colors text-gray-400 hover:text-rose-500"
+                          aria-label={`Remove ${cropName}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -997,6 +1041,7 @@ export const CropManagementModal = ({
       {aliasManagerCrop && (
         <AliasManagerModal
           crop={aliasManagerCrop}
+          allCropOptions={allCropOptions}
           onClose={() => setAliasManagerCrop(null)}
         />
       )}
