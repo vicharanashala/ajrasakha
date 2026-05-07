@@ -129,7 +129,7 @@ export const useAuthForm = (
         if (!isDevelopment) {
           setIsEmailSent(true);
         }
-        handleModeChange("login")
+        // handleModeChange("login")
 
         return;
       } else {

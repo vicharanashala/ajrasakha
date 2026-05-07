@@ -1298,12 +1298,23 @@ export class QuestionService extends BaseService implements IQuestionService {
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
-    if (question.status !== 'open' && question.status !== 'delayed') {
+    if (question.status !== 'open' && question.status !== 'delayed' && question.status!=='draft') {
       console.log(
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
       return { data: [], status: false };
     }
+    if(question.status=="draft")
+        {
+          await this.questionRepo.updateQuestion(
+            questionId,
+            {
+              status:"open",
+             
+            },
+            session,
+          );
+       }
 
     const details = question.details as PreferenceDto;
 
@@ -1507,6 +1518,17 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
+        if(question.status=="draft")
+        {
+          await this.questionRepo.updateQuestion(
+            questionId,
+            {
+              status:"open",
+             
+            },
+            session,
+          );
+       }
 
         const updated = await this.questionRepo.updateAutoAllocate(
           questionId,
@@ -1584,13 +1606,29 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-
-        if (question.status !== 'open' && question.status !== 'delayed') {
+        if (question.status !== 'open' && question.status !== 'delayed'&& question.status!=='draft') {
           console.log(
             'This question is currently being in reviewe or has been closed. Please check back later!',
           );
           return;
         }
+        if(question.status=="draft")
+        {
+          // Check if any of the experts being allocated is a PAE expert
+          const expertUsers = await Promise.all(
+            experts.map(id => this.userRepo.findById(id, session))
+          );
+          const isPaeAllocation = expertUsers.some(u => u?.role === 'pae_expert');
+
+          await this.questionRepo.updateQuestion(
+            questionId,
+            {
+              status: "open",
+              ...(isPaeAllocation && { pae_review: true }),
+            },
+            session,
+          );
+       }
 
         //2. Validate question submission existence
         let questionSubmission =
@@ -1600,7 +1638,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         // let submission
         if (!questionSubmission) {
-          if (question.source == "WHATSAPP") {
+          if (question.source == "WHATSAPP" || question.status === 'draft') {
             const newSubmission: IQuestionSubmission = {
               questionId: new ObjectId(questionId),
               lastRespondedBy: null,
@@ -1610,13 +1648,9 @@ export class QuestionService extends BaseService implements IQuestionService {
               updatedAt: new Date(),
             };
             questionSubmission = await this.questionSubmissionRepo.addSubmission(newSubmission, session);
-
-          }
-          else {
+          } else {
             throw new NotFoundError('Question submission not found');
           }
-
-
         }
 
 
