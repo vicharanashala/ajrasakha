@@ -1,7 +1,6 @@
 import { WebSocketServer } from 'ws';
 import { IncomingMessage, Server } from 'http';
-import fs from 'fs';
-import path from 'path';
+import { PlivoService } from '../modules/plivo/services/PlivoService.js';
 
 export const initWebSocket = (server: Server) => {
   const wss = new WebSocketServer({
@@ -9,41 +8,128 @@ export const initWebSocket = (server: Server) => {
     path: '/plivo-stream',
   });
 
-  wss.on('connection', (ws, req: IncomingMessage) => {
+  const plivoService = new PlivoService();
+
+  wss.on('connection', async (ws, req: IncomingMessage) => {
     console.log('🔌 Plivo stream connected');
 
-    // Create a unique filename for this call
-    const callId = Date.now();
-    const filePath = path.join(process.cwd(), `call_${callId}.mp3`);
-    const fileStream = fs.createWriteStream(filePath);
+    // Skip authentication for now
+    const user = null;
 
-    ws.on('message', (data: Buffer) => {
+    // Create a unique call ID for this connection
+    const callId = Date.now().toString();
+
+    // Store connection info
+    const connectionInfo = { callId, user, ws };
+    (ws as any).connectionInfo = connectionInfo;
+
+    ws.on('message', async (data: Buffer) => {
       try {
         const msg = JSON.parse(data.toString());
 
         if (msg.event === 'start') {
           console.log('📞 Call started:', msg.start);
+          // Broadcast call start to frontend
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: 'call_start',
+                callId,
+                data: msg.start
+              }));
+            }
+          });
         }
 
         if (msg.event === 'media') {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
           console.log('🎧 Audio chunk received, size:', audioBuffer.length);
-          fileStream.write(audioBuffer);
-      //     // Calculate volume level (RMS - Root Mean Square)
-      //     let sum = 0;
-      //     for (let i = 0; i < audioBuffer.length; i++) {
-      //       // 128 is the 'zero' point for mu-law bytes
-      //       sum += Math.pow(audioBuffer[i] - 128, 2);
-      //     }
-      //     const rms = Math.sqrt(sum / audioBuffer.length);
-      //     const visualBar = '█'.repeat(Math.min(Math.floor(rms / 2), 30));
 
-      //     console.log(`🎤 [${new Date().toISOString()}] Volume: ${visualBar}`);
-      //   // Process audio chunk here
-      }
+          try {
+            // Transcribe audio chunk continuously
+            const transcript = await plivoService.transcribeAudio(audioBuffer, callId);
+            
+            if (transcript.trim()) {
+              console.log(`📤 [BACKEND] Sending transcript for call ${callId}:`, transcript);
+              
+              const transcriptMessage = {
+                type: 'transcript',
+                callId,
+                text: transcript,
+                timestamp: new Date().toISOString()
+              };
+              
+              console.log(`📤 [BACKEND] Full message being sent:`, JSON.stringify(transcriptMessage, null, 2));
+              
+              // Broadcast transcript to frontend clients
+              let clientCount = 0;
+              wss.clients.forEach((client) => {
+                if (client.readyState === 1) {
+                  clientCount++;
+                  client.send(JSON.stringify(transcriptMessage));
+                }
+              });
+              
+              console.log(`📤 [BACKEND] Transcript sent to ${clientCount} frontend clients`);
+            }
+          } catch (transcribeError) {
+            console.error('❌ [BACKEND] Transcription failed:', transcribeError);
+            // Broadcast error to frontend
+            wss.clients.forEach((client) => {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify({
+                  type: 'transcription_error',
+                  callId,
+                  error: transcribeError.message
+                }));
+              }
+            });
+          }
+        }
 
         if (msg.event === 'stop') {
           console.log('📴 Call ended');
+          
+          // Process any remaining audio chunks first
+          try {
+            const finalChunkTranscript = await plivoService.processRemainingAudio(callId);
+            if (finalChunkTranscript.trim()) {
+              // Broadcast final chunk transcript
+              wss.clients.forEach((client) => {
+                if (client.readyState === 1) {
+                  client.send(JSON.stringify({
+                    type: 'transcript',
+                    callId,
+                    text: finalChunkTranscript,
+                    timestamp: new Date().toISOString()
+                  }));
+                }
+              });
+            }
+          } catch (finalChunkError) {
+            console.error('Final chunk processing failed:', finalChunkError);
+          }
+          
+          // Get final English transcript
+          try {
+            const finalTranscript = await plivoService.getFinalEnglishTranscript(callId);
+            
+            // Broadcast final transcript
+            wss.clients.forEach((client) => {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify({
+                  type: 'call_end',
+                  callId,
+                  finalTranscript,
+                  timestamp: new Date().toISOString()
+                }));
+              }
+            });
+          } catch (finalError) {
+            console.error('Final transcript failed:', finalError);
+          }
+
+          plivoService.clearTranscript(callId);
         }
       } catch (err) {
         console.log('⚠️ Non-JSON message received or parsing error');
@@ -52,6 +138,18 @@ export const initWebSocket = (server: Server) => {
 
     ws.on('close', () => {
       console.log('❌ Stream disconnected');
+      plivoService.clearTranscript(callId);
+      
+      // Notify frontend of disconnection
+      wss.clients.forEach((client) => {
+        if (client.readyState === 1) {
+          client.send(JSON.stringify({
+            type: 'call_disconnected',
+            callId,
+            timestamp: new Date().toISOString()
+          }));
+        }
+      });
     });
 
     ws.on('error', (err) => {

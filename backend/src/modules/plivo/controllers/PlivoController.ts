@@ -14,7 +14,7 @@ export class PlivoController {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Speak>Hello, Annam agri specialist here.</Speak>
-  <Stream bidirectional="true">${streamUrl}</Stream>
+  <Stream bidirectional="true"  contentType="audio/x-l16;rate=16000">${streamUrl}</Stream>
   <Wait length="100" />
 </Response>`;
 
