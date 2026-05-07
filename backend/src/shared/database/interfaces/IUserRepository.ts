@@ -78,17 +78,21 @@ export interface IUserRepository {
     session?: ClientSession,
   ): Promise<IUser[]>;
   getSpecialTaskForceExperts(
-
+    details: PreferenceDto,
+    session?: ClientSession,
+  ): Promise<IUser[]>;
+  getExpertsWithFallback(
+    details: PreferenceDto,
     session?: ClientSession,
   ): Promise<IUser[]>;
 
   getSpecialTaskForceModerators(
-
     session?: ClientSession,
   ): Promise<IUser[]>;
 
   findActiveLowReputationExpertsToday(
     session?: ClientSession,
+    scoreLimit?: number,
   ): Promise<IUser[]>;
 
   /**

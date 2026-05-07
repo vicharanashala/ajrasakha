@@ -3,6 +3,7 @@ import {
   IUser,
   NotificationRetentionType,
   IAnswer,
+  ICropRef,
 } from '#shared/interfaces/models.js';
 import { instanceToPlain } from 'class-transformer';
 import { injectable, inject } from 'inversify';
@@ -564,14 +565,20 @@ export class UserRepository implements IUserRepository {
     const scoredUsers = allUsers
       .map(user => {
         const pref: PreferenceDto = user.preference || {};
-
+        const normalize = (value: string | ICropRef | undefined): string => {
+          if (typeof value === 'string') {
+            return value.toLowerCase().trim();
+          }
+          return '';
+        };
         const prefState = (pref.state || '').toLowerCase().trim();
         const prefDomain = (pref.domain || '').toLowerCase().trim();
-        const prefCrop = (pref.crop || '').toLowerCase().trim();
+        const prefCrop = normalize(pref.crop);
+
 
         const detState = (details.state || '').toLowerCase().trim();
         const detDomain = (details.domain || '').toLowerCase().trim();
-        const detCrop = (details.crop || '').toLowerCase().trim();
+        const detCrop = normalize(details.crop);
 
         const isAllSelected =
           prefCrop === 'all' && prefState === 'all' && prefDomain === 'all';
@@ -629,14 +636,15 @@ export class UserRepository implements IUserRepository {
     let result = [...matched, ...unmatched].map(s => s.user);
     return result;
   }
-  async getSpecialTaskForceExperts(session: ClientSession): Promise<IUser[]> {
+  async getSpecialTaskForceExperts(details: PreferenceDto,
+    session: ClientSession): Promise<IUser[]> {
     await this.init();
     const allUsersRaw = await this.usersCollection
       .find(
         {
           role: 'expert',
           isBlocked: false,
-          special_task_force: true, // 👈 added condition
+          special_task_force: true,
         },
         { session },
       )
@@ -644,6 +652,20 @@ export class UserRepository implements IUserRepository {
 
     return allUsersRaw;
   }
+
+  async getExpertsWithFallback(
+    details: PreferenceDto,
+    session: ClientSession,
+  ): Promise<IUser[]> {
+    // 1. STF users
+    const stfUsers = await this.getSpecialTaskForceExperts(details, session);
+
+    // 2. Preference users
+    const prefUsers = await this.findExpertsByPreference(details, session);
+
+    return [...stfUsers, ...prefUsers];
+  }
+
   async getSpecialTaskForceModerators(session: ClientSession): Promise<IUser[]> {
     await this.init();
     const allUsersRaw = await this.usersCollection
@@ -685,6 +707,7 @@ export class UserRepository implements IUserRepository {
   }
   async findActiveLowReputationExpertsToday(
     session?: ClientSession,
+    scoreLimit: number = 5,
   ): Promise<IUser[]> {
     await this.init();
 
@@ -700,7 +723,7 @@ export class UserRepository implements IUserRepository {
         {
           role: 'expert',
           isBlocked: false,
-          reputation_score: { $lte: 5 },
+          reputation_score: { $lte: scoreLimit },
           lastCheckInAt: { $gte: startOfDay, $lt: startOfTomorrow },
         },
         { session },
