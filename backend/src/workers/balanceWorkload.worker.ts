@@ -65,7 +65,15 @@ const notificationService = new NotificationService(notificationRepo, database);
       const newExpertId = job.expertId;
 
       // Identify who is CURRENTLY working
-      const currentExpertIndex = history.length;
+      // If history ends in 'in-review', the stuck person is at index (history.length - 1)
+      // Otherwise, the next person to work is at index history.length
+      let currentExpertIndex;
+      if (history.length > 0 && history[history.length - 1].status === 'in-review') {
+        currentExpertIndex = history.length - 1;
+      } else {
+        currentExpertIndex = history.length;
+      }
+      
       const currentExpertId = queue[currentExpertIndex]?.toString();
 
       // Deep Replacement: replace EVERY occurrence of target experts in the queue
@@ -91,16 +99,16 @@ const notificationService = new NotificationService(notificationRepo, database);
       if (modified) {
         const updatedHistory = [...history];
         
-        // If the current ACTIVE expert was replaced and had started working, update history
-        if (currentExpertId && targetExperts.has(currentExpertId)) {
-          const lastHistory = history[history.length - 1];
-          if (lastHistory?.status === 'in-review' && lastHistory.updatedBy?.toString() === currentExpertId) {
-            updatedHistory[updatedHistory.length - 1] = {
-              ...lastHistory,
-              updatedBy: new ObjectId(newExpertId),
-              updatedAt: now,
-            };
-          }
+        // If the current ACTIVE expert (in-review) was replaced, update history to point to the new expert
+        if (currentExpertIndex === history.length - 1 && history.length > 0) {
+            const lastHistory = history[history.length - 1];
+            if (lastHistory?.status === 'in-review') {
+              updatedHistory[updatedHistory.length - 1] = {
+                ...lastHistory,
+                updatedBy: new ObjectId(newExpertId),
+                updatedAt: now,
+              };
+            }
         }
 
         await submissionRepo.updateById(job.submissionId, {

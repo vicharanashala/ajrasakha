@@ -543,12 +543,33 @@ export class UserRepository implements IUserRepository {
     await this.init();
     const submissionCollection = await this.db.getCollection<any>('question_submissions');
     
-    // Count how many times this user appears in the queue of any submission
     const userObjectId = new ObjectId(userId);
+    const userIdStr = userId.toString();
+
+    // Count active assignments:
+    // 1. History is empty AND user is at index 0 of queue
+    // 2. History is NOT empty AND user is the updatedBy of the last history entry AND status is 'in-review'
     const count = await submissionCollection.countDocuments({
       $or: [
-        { queue: userObjectId },
-        { queue: userId }
+        {
+          $and: [
+            { history: { $size: 0 } },
+            { $or: [{ 'queue.0': userObjectId }, { 'queue.0': userIdStr }] }
+          ]
+        },
+        {
+          $and: [
+            { history: { $not: { $size: 0 } } },
+            { 
+              $expr: {
+                $and: [
+                  { $eq: [{ $arrayElemAt: ['$history.status', -1] }, 'in-review'] },
+                  { $in: [{ $arrayElemAt: ['$history.updatedBy', -1] }, [userObjectId, userIdStr]] }
+                ]
+              }
+            }
+          ]
+        }
       ]
     }, { session });
 
@@ -745,6 +766,7 @@ export class UserRepository implements IUserRepository {
         {
           role: 'expert',
           isBlocked: false,
+          status: 'active',
           lastCheckInAt: { $gte: startOfDay, $lt: startOfTomorrow },
         },
         { session },

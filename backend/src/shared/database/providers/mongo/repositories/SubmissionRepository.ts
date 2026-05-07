@@ -502,16 +502,16 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   async heatMapResultsForReviewer(
     query: GetHeatMapQuery,
-  ): Promise<IReviewerHeatmapResponse| null> {
+  ): Promise<IReviewerHeatmapResponse | null> {
     try {
       await this.init();
 
-      let {startTime, endTime, page=1, limit=10} = query;
-      
-      page=Number(page)||1;
-      limit=Number(limit)||10;
-      
-      const skip=(page-1)*limit;
+      let {startTime, endTime, page = 1, limit = 10} = query;
+
+      page = Number(page) || 1;
+      limit = Number(limit) || 10;
+
+      const skip = (page - 1) * limit;
 
       /* const matchConditions: any = {
         'history.status': {$in: ['reviewed', 'rejected']},
@@ -593,20 +593,24 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                 // ✅ Index 0: from ROOT createdAt to history.updatedAt
                 then: {
                   $divide: [
-                    {$subtract: [
-                      { $toDate: '$history.updatedAt' },
-                      { $toDate: '$createdAt' }
-                    ]},
+                    {
+                      $subtract: [
+                        {$toDate: '$history.updatedAt'},
+                        {$toDate: '$createdAt'},
+                      ],
+                    },
                     1000 * 60 * 60,
                   ],
                 },
                 // ✅ Index >= 1: from history.createdAt to history.updatedAt
                 else: {
                   $divide: [
-                    {$subtract: [
-                      { $toDate: '$history.updatedAt' },
-                      { $toDate: '$createdAt' }
-                    ]},
+                    {
+                      $subtract: [
+                        {$toDate: '$history.updatedAt'},
+                        {$toDate: '$createdAt'},
+                      ],
+                    },
                     1000 * 60 * 60,
                   ],
                 },
@@ -668,22 +672,22 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },*/
         {
           $lookup: {
-            from: "users",
-            let: { reviewerId: "$reviewerId" },
+            from: 'users',
+            let: {reviewerId: '$reviewerId'},
             pipeline: [
               {
                 $match: {
-                  $expr: { $eq: ["$_id", "$$reviewerId"] }
-                }
+                  $expr: {$eq: ['$_id', '$$reviewerId']},
+                },
               },
               {
-                $match: { status: { $ne: "in-active" } }
-              }
+                $match: {status: {$ne: 'in-active'}},
+              },
             ],
-            as: "reviewer"
-          }
+            as: 'reviewer',
+          },
         },
-        
+
         {$unwind: '$reviewer'},
         {
           $project: {
@@ -715,26 +719,21 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
         {
           $facet: {
-            data: [
-              { $skip: skip },
-              { $limit: limit }
-            ],
-            totalCount: [
-              { $count: "count" }
-            ]
-          }
-        }
+            data: [{$skip: skip}, {$limit: limit}],
+            totalCount: [{$count: 'count'}],
+          },
+        },
       ];
 
-    const result = await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
+      const result =
+        await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
 
-    if (!result.length) return null;
+      if (!result.length) return null;
 
-    return {
-      data: result[0].data as IReviewerHeatmapRow[],
-      total: result[0].totalCount[0]?.count || 0,
-    };
-
+      return {
+        data: result[0].data as IReviewerHeatmapRow[],
+        total: result[0].totalCount[0]?.count || 0,
+      };
     } catch (err) {
       console.error('Error generating reviewer heatmap:', err);
       return null;
@@ -2268,7 +2267,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         modifiedCount: 0,
       },
     ];
-    if (crop || normalised_crop || season || state || district || status || domain) {
+    if (
+      crop ||
+      normalised_crop ||
+      season ||
+      state ||
+      district ||
+      status ||
+      domain
+    ) {
       const questionFilter: any = {};
       if (crop) questionFilter['details.crop'] = crop;
       if (normalised_crop) {
@@ -2279,7 +2286,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             {'details.normalised_crop': ''},
           ];
         } else {
-          questionFilter['details.normalised_crop'] = {$regex: `^${normalised_crop}$`, $options: 'i'};
+          questionFilter['details.normalised_crop'] = {
+            $regex: `^${normalised_crop}$`,
+            $options: 'i',
+          };
         }
       }
       if (season) questionFilter['details.season'] = season;
@@ -3138,10 +3148,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       throw new InternalServerError('Failed to get absent submissions');
     }
   }
-  async findQuestionsNeedingEscalation(limit?:number,session?: ClientSession): Promise<IQuestionSubmission[]>  {
+  async findQuestionsNeedingEscalation(
+    limit?: number,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
     await this.init();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  
+
     return this.QuestionSubmissionCollection.find(
       {
         $or: [
@@ -3151,19 +3164,19 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             lastRespondedBy: null,
             createdAt: { $lte: oneHourAgo },
           },
-  
+
           // Type B — Last update stuck in-review
           {
-            "history.1": { $exists: true },
+            history: { $not: { $size: 0 } },
             $expr: {
               $let: {
                 vars: {
-                  lastHistory: { $arrayElemAt: ["$history", -1] },
+                  lastHistory: { $arrayElemAt: ['$history', -1] },
                 },
                 in: {
                   $and: [
-                    { $eq: ["$$lastHistory.status", "in-review"] },
-                    { $lte: ["$$lastHistory.createdAt", oneHourAgo] },
+                    { $eq: ['$$lastHistory.status', 'in-review'] },
+                    { $lte: ['$$lastHistory.createdAt', oneHourAgo] },
                   ],
                 },
               },
@@ -3171,10 +3184,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
         ],
       },
-      { session }
+      { session },
     )
-    .limit(limit || 0)
-    .toArray();
+      .limit(limit || 0)
+      .toArray();
   }
   async findById(id: string): Promise<IQuestionSubmission | null> {
     if (!id) return null;
@@ -3189,21 +3202,25 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   ): Promise<IQuestionSubmission | null> {
     await this.init();
     const result = await this.QuestionSubmissionCollection.findOneAndUpdate(
-      { _id: new ObjectId(id) }, // filter
-      update,                    // update operators
+      {_id: new ObjectId(id)}, // filter
+      update, // update operators
       {
         returnDocument: 'after', // return updated doc
         session,
       },
     );
-  
+
     return result; // contains the updated document
   }
 
   //get level wise answer submission percentage report
-  async getLevelWiseReport(startDate:string, endDate:string, session?: ClientSession): Promise<LevelReportStat[]> {
+  async getLevelWiseReport(
+    startDate: string,
+    endDate: string,
+    session?: ClientSession,
+  ): Promise<LevelReportStat[]> {
     await this.init();
-    
+
     const convertedStartDate = new Date(startDate);
     const convertedEndDate = new Date(endDate);
     const pipeline: any[] = [
@@ -3406,55 +3423,59 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $sort: {month: 1},
       },
     ];
-    const result = await this.QuestionSubmissionCollection.aggregate<LevelReportStat>(pipeline, {
-      session,
-    }).toArray();
+    const result =
+      await this.QuestionSubmissionCollection.aggregate<LevelReportStat>(
+        pipeline,
+        {
+          session,
+        },
+      ).toArray();
     return result;
   }
 
   async updateSubmissionState(
-  questionId: string,
-  update: {
-    queue?: ObjectId[];
-    popHistory?: boolean;
-  },
-  session?: ClientSession
-): Promise<void> {
-  try {
-    await this.init();
+    questionId: string,
+    update: {
+      queue?: ObjectId[];
+      popHistory?: boolean;
+    },
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      await this.init();
 
-    const updateDoc: any = {
-      $set: {
-        updatedAt: new Date(),
-      },
-    };
+      const updateDoc: any = {
+        $set: {
+          updatedAt: new Date(),
+        },
+      };
 
-    if (update.queue) {
-      updateDoc.$set.queue = update.queue;
-    }
+      if (update.queue) {
+        updateDoc.$set.queue = update.queue;
+      }
 
-    if (update.popHistory) {
-      updateDoc.$pop = { history: 1 }; 
-    }
+      if (update.popHistory) {
+        updateDoc.$pop = {history: 1};
+      }
 
-    const result = await this.QuestionSubmissionCollection.updateOne(
-      { questionId: new ObjectId(questionId) },
-      updateDoc,
-      { session }
-    );
+      const result = await this.QuestionSubmissionCollection.updateOne(
+        {questionId: new ObjectId(questionId)},
+        updateDoc,
+        {session},
+      );
 
-    if (result.matchedCount === 0) {
+      if (result.matchedCount === 0) {
+        throw new InternalServerError(
+          `No submission found for questionId: ${questionId}`,
+        );
+      }
+    } catch (error) {
       throw new InternalServerError(
-        `No submission found for questionId: ${questionId}`
+        `Failed to update submission state: ${error}`,
       );
     }
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to update submission state: ${error}`
-    );
   }
-}
-  
+
   async findSubmissionsByActiveReviewers(
     expertIds: string[],
     session?: ClientSession,
@@ -3487,18 +3508,100 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     ).toArray();
   }
 
+  // async findSubmissionsWithExpertsInQueue(
+  //   expertIds: string[],
+  //   session?: ClientSession,
+  // ): Promise<IQuestionSubmission[]> {
+  //   await this.init();
+  //   const expertObjectIds = expertIds.map(id => new ObjectId(id));
+
+  //   return this.QuestionSubmissionCollection.find(
+  //     {
+  //       $or: [
+  //         {queue: {$in: expertObjectIds}},
+  //         {queue: {$in: expertIds}}, // Handle string IDs
+  //       ],
+  //     },
+  //     {session},
+  //   ).toArray();
+  // }
+
   async findSubmissionsWithExpertsInQueue(
     expertIds: string[],
     session?: ClientSession,
   ): Promise<IQuestionSubmission[]> {
     await this.init();
+
     const expertObjectIds = expertIds.map(id => new ObjectId(id));
+
+    const allExpertIds = [...expertIds, ...expertObjectIds];
 
     return this.QuestionSubmissionCollection.find(
       {
         $or: [
-          {queue: {$in: expertObjectIds}},
-          {queue: {$in: expertIds}}, // Handle string IDs
+          /*
+          Case 1:
+         * history is empty
+         * AND first queue expert matches
+          */
+          {
+            $expr: {
+              $and: [
+                {
+                  $eq: [
+                    {
+                      $size: {
+                        $ifNull: ['$history', []],
+                      },
+                    },
+                    0,
+                  ],
+                },
+                {
+                  $in: [
+                    {
+                      $arrayElemAt: ['$queue', 0],
+                    },
+                    allExpertIds,
+                  ],
+                },
+              ],
+            },
+          },
+          /*
+          Case 2:
+         * history exists
+         * AND latest history.updatedBy matches
+         */
+          {
+            $expr: {
+              $and: [
+                {
+                  $gt: [
+                    {
+                      $size: {
+                        $ifNull: ['$history', []],
+                      },
+                    },
+                    0,
+                  ],
+                },
+                {
+                  $in: [
+                    {
+                      $getField: {
+                        field: 'updatedBy',
+                        input: {
+                          $arrayElemAt: ['$history', -1],
+                        },
+                      },
+                    },
+                    allExpertIds,
+                  ],
+                },
+              ],
+            },
+          },
         ],
       },
       {session},
