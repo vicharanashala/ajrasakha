@@ -808,7 +808,7 @@ export class QuestionController {
     };
     try{
       expertDetails = await Promise.all(experts.map((id) => this.userService.getUserById(id)));
-      questionDetails = await this.questionService.getQuestionById(questionId);
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
       result = await this.questionService.allocateExperts(
         userId.toString(),
         questionId,
@@ -842,7 +842,7 @@ export class QuestionController {
       ...auditPayload,
       context: {
         ...auditPayload.context,
-        question: questionDetails.text,
+        question: questionDetails.question,
       },
       changes: {
         ...auditPayload.changes,

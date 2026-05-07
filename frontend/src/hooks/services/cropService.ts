@@ -20,6 +20,7 @@ export interface ICropResponse {
   updatedBy?: string;
   createdAt?: string;
   updatedAt?: string;
+  crops?: string[];
 }
 
 export interface ICreateCropPayload {
@@ -27,6 +28,7 @@ export interface ICreateCropPayload {
   status?: string;
   type?: string;
   aliases?: ICropAlias[];
+  crops?: string[];
 }
 
 export interface ICreateCropResponse {
@@ -44,6 +46,7 @@ export interface IGetAllCropsResponse {
 export interface IUpdateCropPayload {
   name?: string;
   aliases?: (ICropAlias | string)[];
+  crops?: string[];
   status?: string;
 }
 

@@ -3,9 +3,9 @@ import {
   ModeratorApprovalRate,
   UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
-import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
-import {IUser, NotificationRetentionType} from '#shared/interfaces/models.js';
-import {MongoClient, ClientSession, ObjectId} from 'mongodb';
+import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
+import { IUser, NotificationRetentionType } from '#shared/interfaces/models.js';
+import { MongoClient, ClientSession, ObjectId } from 'mongodb';
 
 /**
  * Interface representing a repository for user-related operations.
@@ -78,18 +78,22 @@ export interface IUserRepository {
     session?: ClientSession,
   ): Promise<IUser[]>;
   getSpecialTaskForceExperts(
-   
+    details: PreferenceDto,
+    session?: ClientSession,
+  ): Promise<IUser[]>;
+  getExpertsWithFallback(
+    details: PreferenceDto,
     session?: ClientSession,
   ): Promise<IUser[]>;
 
   getSpecialTaskForceModerators(
-   
+
     session?: ClientSession,
   ): Promise<IUser[]>;
-  
+
   findActiveLowReputationExpertsToday(
     session?: ClientSession,
-    ): Promise<IUser[]>;
+  ): Promise<IUser[]>;
 
   /**
    * Creates a User Anomaly Document to the database.
@@ -125,20 +129,20 @@ export interface IUserRepository {
    * @returns A promise that resolves to an array of users.
    */
 
-findAllUsers(
-  page: number,
-  limit: number,
-  search: string,
-  sortOption: string,
-  filter: string,
-  role?: string,
-  isBlocked?: boolean,
-  session?: ClientSession,
-): Promise<{
-  users: IUser[];
-  totalUsers: number;
-  totalPages: number;
-}>;
+  findAllUsers(
+    page: number,
+    limit: number,
+    search: string,
+    sortOption: string,
+    filter: string,
+    role?: string,
+    isBlocked?: boolean,
+    session?: ClientSession,
+  ): Promise<{
+    users: IUser[];
+    totalUsers: number;
+    totalPages: number;
+  }>;
 
   /**
  * Finds all users with pagination, search, sorting and filtering (Admin).
@@ -151,7 +155,7 @@ findAllUsers(
  * @returns paginated users list
  */
 
-   
+
   updateReputationScore(
     userId: string,
     isIncrement: boolean,
@@ -202,7 +206,7 @@ findAllUsers(
     sortOption: string,
     filter: string,
     session?: ClientSession,
-  ): Promise<{experts: IUser[]; totalExperts: number; totalPages: number}>;
+  ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }>;
   /**
    * Finds all users.
    * @param userId - userid of expert to block.
@@ -215,12 +219,12 @@ findAllUsers(
     session?: ClientSession,
   ): Promise<void>;
 
-   /**
-   * Updates user activity status
-   * @param userId - userid of expert to update
-   * @param status - either active or in-active
-   * @returns void
-   */
+  /**
+  * Updates user activity status
+  * @param userId - userid of expert to update
+  * @param status - either active or in-active
+  * @returns void
+  */
   updateActivityStatus(
     userId: string,
     status: 'active' | 'in-active',
@@ -242,15 +246,15 @@ findAllUsers(
  * @param userId - The ID of the user.
  * @param time - The new check-in time.
  */
-updateCheckInTime(userId: string, time: Date, session?: ClientSession): Promise<void>;
+  updateCheckInTime(userId: string, time: Date, session?: ClientSession): Promise<void>;
 
-findUnblockedUsers(session?:ClientSession):Promise<IUser[]>
+  findUnblockedUsers(session?: ClientSession): Promise<IUser[]>
 
-blockExperts(expertIds:string[],session:ClientSession):Promise<void>
+  blockExperts(expertIds: string[], session: ClientSession): Promise<void>
 
-unBlockExperts():Promise<void>
+  unBlockExperts(): Promise<void>
 
-countActiveExperts(session?: ClientSession): Promise<number>
+  countActiveExperts(session?: ClientSession): Promise<number>
 
-countNonBlockedExperts(session?:ClientSession): Promise<number>
+  countNonBlockedExperts(session?: ClientSession): Promise<number>
 }

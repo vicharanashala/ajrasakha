@@ -50,6 +50,7 @@ export class CropRepository implements ICropRepository {
     aliases?: ICropAlias[],
     type?: CropType,
     status?: string,
+    crops?: string[],
   ): Promise<ICrop> {
     try {
       if (!this.CropCollection) await this.init();
@@ -104,8 +105,9 @@ export class CropRepository implements ICropRepository {
       };
 
       // Store status only for chemicals
-      if (resolvedType === 'chemical' && status) {
-        payload.status = status;
+      if (resolvedType === 'chemical') {
+        if (status) payload.status = status;
+        if (crops) payload.crops = crops;
       }
 
       const {insertedId} = await this.CropCollection.insertOne(payload);
@@ -215,7 +217,7 @@ export class CropRepository implements ICropRepository {
 
   async updateCrop(
     id: string,
-    updates: {name?: string; aliases?: (ICropAlias | string)[]; status?: string; type?: string},
+    updates: {name?: string; aliases?: (ICropAlias | string)[]; status?: string; crops?: string[]; type?: CropType},
     updatedBy: string,
   ): Promise<ICrop | null> {
     try {
@@ -233,6 +235,10 @@ export class CropRepository implements ICropRepository {
 
       if (updates.status !== undefined) {
         $set.status = updates.status;
+      }
+
+      if (updates.crops !== undefined) {
+        $set.crops = updates.crops;
       }
 
       // ── Alias conflict check ──────────────────────────────────────────────
