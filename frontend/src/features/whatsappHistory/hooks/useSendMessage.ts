@@ -9,12 +9,12 @@ export function useSendMessage(threadId: string | undefined, phoneNumber: string
 
   return useMutation({
     mutationFn: async (messageText: string) => {
-      if (!phoneNumber) throw new Error('No phone number available');
+      if (!threadId) throw new Error('No thread ID available');
 
       const response = await apiFetch(`${env.apiBaseUrl()}/whatsapp/send-message`, {
         method: 'POST',
         body: JSON.stringify({
-          phoneNumber,
+          threadId,
           messageText,
         }),
       });

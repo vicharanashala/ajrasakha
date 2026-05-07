@@ -56,9 +56,9 @@ export class WhatsAppController {
   @Post('/send-message')
   @HttpCode(200)
   @Authorized()
-  async sendMessage(@Body() body: { phoneNumber: string; messageText: string }, @CurrentUser() user: IUser) {
+  async sendMessage(@Body() body: { threadId: string; messageText: string }, @CurrentUser() user: IUser) {
     const userId = user._id.toString();
-    await this.whatsappService.sendMessage(userId, body.phoneNumber, body.messageText);
+    await this.whatsappService.sendMessage(userId, body.threadId, body.messageText);
     return { success: true, message: 'Message sent successfully' };
   }
 }

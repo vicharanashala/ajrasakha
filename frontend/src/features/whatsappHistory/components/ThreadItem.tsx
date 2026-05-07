@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Thread } from '../types';
 import { cn } from '@/lib/utils';
@@ -10,6 +11,17 @@ interface ThreadItemProps {
 }
 
 export function ThreadItem({ thread, isActive, onClick }: ThreadItemProps) {
+  const cleanPhoneNumber = formatPhoneNumber(thread.phoneNumber);
+  
+  // Extract date from thread ID: phoneNumber-YYYY-MM-DD
+  const dateFromId = useMemo(() => {
+    const parts = thread.id.split('-');
+    if (parts.length >= 4) {
+      return `${parts[1]}-${parts[2]}-${parts[3]}`;
+    }
+    return null;
+  }, [thread.id]);
+
   return (
     <div
       onClick={onClick}
@@ -18,11 +30,18 @@ export function ThreadItem({ thread, isActive, onClick }: ThreadItemProps) {
         isActive && "bg-accent border-l-4 border-l-primary"
       )}
     >
-      <div className="flex justify-between items-center gap-2 mb-1 w-full">
-        <span className="font-medium text-sm truncate min-w-0 flex-1">
-          {formatPhoneNumber(thread.phoneNumber)}
-        </span>
-        <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
+      <div className="flex justify-between items-start gap-2 mb-1 w-full">
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="font-medium text-sm truncate">
+            {cleanPhoneNumber}
+          </span>
+          {dateFromId && (
+            <span className="text-[10px] text-primary/70 font-medium">
+              {dateFromId}
+            </span>
+          )}
+        </div>
+        <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap mt-1">
           {formatDistanceToNow(thread.lastMessageTimestamp, { addSuffix: true })}
         </span>
       </div>

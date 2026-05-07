@@ -47,7 +47,7 @@ export class WhatsAppService implements IWhatsAppService {
           const phoneNumber = t.thread_id.split('-')[0];
 
           return {
-            id: phoneNumber,
+            id: t.thread_id,
             phoneNumber,
             lastMessage: t.metadata.thread_name || 'No message available',
             lastMessageTimestamp: new Date(t.updated_at),
@@ -132,9 +132,11 @@ export class WhatsAppService implements IWhatsAppService {
     }
   }
 
-  async sendMessage(userId: string, phoneNumber: string, messageText: string): Promise<void> {
-    try {
+  async sendMessage(userId: string, threadId: string, messageText: string): Promise<void> {
+    // Extract phone number from threadId (could be full ID or just phone number for backward compatibility)
+    const phoneNumber = threadId.split('-')[0];
 
+    try {
       const user = await this.userRepo.findById(userId);
 
       if (!user || user.role == 'expert')

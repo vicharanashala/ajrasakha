@@ -8,6 +8,8 @@ export function WhatsAppHistoryPage() {
     setSelectedThreadId,
     searchQuery,
     setSearchQuery,
+    selectedDate,
+    setSelectedDate,
     threads,
     messages,
     isLoadingThreads,
@@ -26,6 +28,8 @@ export function WhatsAppHistoryPage() {
         onThreadSelect={setSelectedThreadId}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
         isLoading={isLoadingThreads}
       />
       <ChatWindow
