@@ -10,6 +10,7 @@ interface BarGraphProps {
     height?: number;
     getBarColor?: (value: number, index: number, total: number) => string;
     xAxisLabels?: string[];
+    showMaximize?: boolean;
 }
 
 function defaultBarColor(value: number, _index: number, _total: number): string {
@@ -19,28 +20,28 @@ function defaultBarColor(value: number, _index: number, _total: number): string 
     return "#16a34a";
 }
 
-export function BarGraph({ data, height = 120, getBarColor = defaultBarColor, xAxisLabels }: BarGraphProps) {
+export function BarGraph({ data, height = 120, getBarColor = defaultBarColor, xAxisLabels, showMaximize = true }: BarGraphProps) {
     const maxValue = Math.max(...data.map(d => d.value));
 
     return (
         <div className="overflow-x-auto">
             <div className="w-full">
-                <div className="flex items-end gap-[3px]" style={{ height }}>
-                    <TooltipProvider>
+                <TooltipProvider delayDuration={0}>
+                    <div className="flex items-end gap-[3px]" style={{ height }}>
                         {data.map((item, index) => {
                             const heightPercent = (item.value / maxValue) * 100;
                             return (
                                 <Tooltip key={index}>
                                     <TooltipTrigger asChild>
                                         <div
-                                            className="flex-1 rounded-t-sm min-h-[2px] cursor-pointer"
+                                            className="flex-1 rounded-t-sm min-h-[2px] cursor-pointer transition-opacity hover:opacity-80"
                                             style={{
                                                 height: `${heightPercent}%`,
                                                 background: getBarColor(item.value, index, data.length),
                                             }}
                                         />
                                     </TooltipTrigger>
-                                    <TooltipContent side="top">
+                                    <TooltipContent side="top" className="z-[10000]">
                                         <div className="text-center">
                                             <div className="font-bold text-sm">{item.value.toLocaleString()}</div>
                                             <div className="h-px bg-white/40 my-1.5" />
@@ -50,8 +51,8 @@ export function BarGraph({ data, height = 120, getBarColor = defaultBarColor, xA
                                 </Tooltip>
                             );
                         })}
-                    </TooltipProvider>
-                </div>
+                    </div>
+                </TooltipProvider>
 
                 {xAxisLabels && (
                     <div className="flex justify-between text-[10px] text-[#aaa] mt-1">

@@ -1,5 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import type { UserDemographics } from "../types";
+import { useState } from "react";
+import { createPortal } from "react-dom";
+import { Maximize2, X } from "lucide-react";
 
 const AGE_COLORS = ["#3AAA5A", "#378ADD", "#A0845C", "#EF9F27", "#6B7280"];
 const GENDER_COLORS: Record<string, string> = { Male: "#378ADD", Female: "#E879A0", Other: "#A0845C" };
@@ -39,6 +42,39 @@ function DonutSegments({ segments }: { segments: { label: string; count: number;
   );
 }
 
+function EnlargedDonutSegments({ segments }: { segments: { label: string; count: number; pct: number; color: string }[] }) {
+  const totalCount = segments.reduce((s, x) => s + x.count, 0) || 1;
+  const r = 80, cx = 100, cy = 100, circ = 2 * Math.PI * r;
+  let offset = 0;
+  return (
+    <div className="flex flex-col lg:flex-row items-center justify-center gap-8 w-full">
+      <svg width={200} height={200} viewBox="0 0 200 200" className="flex-shrink-0">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={28} strokeLinecap="butt" />
+        {segments.map((seg) => {
+          const dash = (seg.count / totalCount) * circ;
+          const el = (
+            <circle key={seg.label} cx={cx} cy={cy} r={r} fill="none" stroke={seg.color}
+              strokeWidth={28} strokeLinecap="butt"
+              strokeDasharray={`${dash} ${circ * 10}`}
+              strokeDashoffset={-offset} transform={`rotate(-90 ${cx} ${cy})`} />
+          );
+          offset += dash;
+          return el;
+        })}
+      </svg>
+      <div className="flex flex-col gap-3 w-full max-w-md">
+        {segments.map((s) => (
+          <div key={s.label} className="flex items-center gap-3 text-base text-gray-600 dark:text-gray-300">
+            <span className="w-4 h-4 rounded-sm flex-shrink-0" style={{ background: s.color }} />
+            <span className="flex-1">{s.label}</span>
+            <span className="font-semibold text-gray-800 dark:text-gray-100 text-lg">{s.pct}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 
 function HorizontalBars({ segments }: { segments: { label: string; pct: number; color: string }[] }) {
   return (
@@ -59,8 +95,104 @@ function HorizontalBars({ segments }: { segments: { label: string; pct: number; 
   );
 }
 
+function EnlargedHorizontalBars({ segments }: { segments: { label: string; pct: number; color: string }[] }) {
+  return (
+    <div className="flex flex-col gap-5 w-full max-w-2xl mx-auto">
+      {segments.map((s) => (
+        <div key={s.label} className="flex items-center gap-4">
+          <span className="text-base text-gray-600 dark:text-gray-300 w-32 flex-shrink-0">{s.label}</span>
+          <div className="flex-1 h-6 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${s.pct}%`, background: s.color }} />
+          </div>
+          <span className="text-base font-semibold text-gray-800 dark:text-gray-100 w-14 text-right flex-shrink-0">
+            {s.pct}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface Props {
   data: UserDemographics;
+}
+
+function DemographicCard({ 
+  title, 
+  segments, 
+  type 
+}: { 
+  title: string; 
+  segments: { label: string; count: number; pct: number; color: string }[]; 
+  type: 'donut' | 'bar';
+}) {
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  return (
+    <>
+      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative">
+        {/* Maximize Button */}
+        {segments.length > 0 && (
+          <button
+            onClick={() => setIsMaximized(true)}
+            className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
+            title="Maximize chart"
+          >
+            <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+          </button>
+        )}
+
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {segments.length > 0 ? (
+            type === 'donut' ? <DonutSegments segments={segments} /> : <HorizontalBars segments={segments} />
+          ) : (
+            <p className="text-xs text-gray-400 italic">No data</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Maximized Modal */}
+      {isMaximized && segments.length > 0 && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+          onClick={() => setIsMaximized(false)}
+        >
+          <div 
+            className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setIsMaximized(false)}
+              className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              title="Close"
+            >
+              <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+            </button>
+
+            {/* Header */}
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+                {title}
+              </h3>
+            </div>
+
+            {/* Enlarged Chart */}
+            {type === 'donut' ? (
+              <EnlargedDonutSegments segments={segments} />
+            ) : (
+              <EnlargedHorizontalBars segments={segments} />
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
 }
 
 export function UserDemographicsSection({ data }: Props) {
@@ -71,49 +203,10 @@ export function UserDemographicsSection({ data }: Props) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Age Group</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {ageSegments.length > 0
-            ? <DonutSegments segments={ageSegments} />
-            : <p className="text-xs text-gray-400 italic">No data</p>}
-        </CardContent>
-      </Card>
-
-      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Gender Split</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {genderSegments.length > 0
-            ? <DonutSegments segments={genderSegments} />
-            : <p className="text-xs text-gray-400 italic">No data</p>}
-        </CardContent>
-      </Card>
-
-      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Farming Experience</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {expSegments.length > 0
-            ? <HorizontalBars segments={expSegments} />
-            : <p className="text-xs text-gray-400 italic">No data</p>}
-        </CardContent>
-      </Card>
-
-      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Land Holding</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {landSegments.length > 0
-            ? <DonutSegments segments={landSegments} />
-            : <p className="text-xs text-gray-400 italic">No data</p>}
-        </CardContent>
-      </Card>
+      <DemographicCard title="Age Group" segments={ageSegments} type="donut" />
+      <DemographicCard title="Gender Split" segments={genderSegments} type="donut" />
+      <DemographicCard title="Farming Experience" segments={expSegments} type="bar" />
+      <DemographicCard title="Land Holding" segments={landSegments} type="donut" />
     </div>
   );
 }

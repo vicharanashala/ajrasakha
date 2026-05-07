@@ -5,7 +5,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {InternalServerError} from 'routing-controllers';
 import {
  
-  ISimilarQuestion
+  ISimilarQuestion,IQuestion
 } from '#root/shared/interfaces/models.js';
 import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 
@@ -15,6 +15,7 @@ import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDu
 @injectable()
 export class DuplicateQuestionRepository  implements IDuplicateQuestionRepository{
   private DuplicateQuestionCollection: Collection<ISimilarQuestion>;
+  private QuestionCollection: Collection<IQuestion>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -24,6 +25,8 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
   private async init() {
     this.DuplicateQuestionCollection =
       await this.db.getCollection<ISimilarQuestion>('duplicate_questions');
+      this.QuestionCollection =
+      await this.db.getCollection<IQuestion>('questions');
   }
 
   async addDuplicate(
@@ -80,19 +83,40 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
       // Ensure endDate includes the full day
       const endOfDay = new Date(endDate);
       endOfDay.setHours(23, 59, 59, 999);
+      const dateFilter = {
+        createdAt: {
+          $gte: startDate,
+          $lte: endOfDay,
+        },
+      };
 
       const duplicates = await this.DuplicateQuestionCollection.find(
         {
           // source: sources,
-          createdAt: {
-            $gte: startDate,
-            $lte: endOfDay
-          },
+          dateFilter,
         },
         { session },
       ).toArray();
+      // Stage 2: docs from questions collection that have a similarityScore
+        const questionsWithScore = await this.QuestionCollection.find(
+          {
+            ...dateFilter,
+            similarityScore: {$exists: true, $gt: 0},
+          },
+          {session},
+        )
+        .sort({createdAt: -1})
+        .toArray();
 
-      return duplicates.map(d => ({
+      // Merge and sort combined results by createdAt descending
+      const combined = [
+        ...duplicates,
+        ...questionsWithScore as unknown as ISimilarQuestion[],
+      ].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      return combined.map(d => ({
         ...d,
         _id: d._id?.toString(),
       })) as ISimilarQuestion[];

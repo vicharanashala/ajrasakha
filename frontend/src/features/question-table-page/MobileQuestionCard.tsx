@@ -159,6 +159,12 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
     visibleColumns.answers ||
     showCreatedColumn ||
     showClosedColumn;
+  const isDuplicate = Boolean(
+    q?.similarityScore &&
+    q?.referenceQuestionId &&
+    q?.referenceQuestion &&
+    q?.referenceSource
+  );
 
   return (
     <div className="rounded-lg border p-4 bg-card shadow-sm text-sm leading-snug">
@@ -179,8 +185,18 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
 
       {visibleColumns.question && (
         <>
+      <div className="mt-1 h-6 flex items-start">
+        {isDuplicate && (
+          <Badge
+            variant="outline"
+            className="bg-red-500/10 text-red-600 border-red-500/30"
+          >
+            Duplicate
+          </Badge>
+        )}
+      </div>
       <p
-        className={`mt-1 font-medium break-words ${isClickable ? "hover:underline cursor-pointer" : "opacity-50"}`}
+        className={`font-medium break-words ${isClickable ? "hover:underline cursor-pointer" : "opacity-50"}`}
         onClick={() => isClickable && onViewMore(q._id!)}
       >
         {truncate(q.question, 80)}

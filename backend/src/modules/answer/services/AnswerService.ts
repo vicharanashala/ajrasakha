@@ -35,6 +35,7 @@ import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../class
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
+import { DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT } from '#root/shared/constants/general.js';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService {
@@ -1625,169 +1626,177 @@ export class AnswerService extends BaseService implements IAnswerService {
 
 
       // ✅ AJRASAKHA flow
-      if (isAjrasakha) {
+      //     if (isAjrasakha ) {
 
-        if (!updates.questionId) {
-          throw new BadRequestError('questionId is required for AJRASAKHA source');
-        }
-
-        const user = await this.userRepo.findById(userId, session);
-
-        if (!user || user.role == 'expert')
-          throw new UnauthorizedError(
-            "You don't have permission to approve an answer!",
-          );
-
-        const question = await this.questionRepo.getById(updates.questionId);
-
-        if (!question) {
-          throw new BadRequestError(`Question with ID ${updates.questionId} not found`);
-        }
-
-        /* if (question.isAutoAllocate ==true) {
-           throw new BadRequestError(
-             `Can't approve this answer, currently question is auto allocated!`,
-           );
-         }*/
-        if (question.status == 'closed') {
-          throw new BadRequestError(
-            `Can't approve this answer, currently question is closed!`,
-          );
-        }
-
-        const text = `Question: ${question.question}
-  
-  answer: ${updates.answer}`;
-
-        let questionEmbedding = [];
-
-        const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
-
-        if (ENABLE_AI_SERVER) {
-          const { embedding } = await this.aiService.getEmbedding(text);
-          questionEmbedding = embedding;
-        }
-
-        await this.questionRepo.updateQuestion(
-          updates.questionId,
-          {
-            text,
-            embedding: questionEmbedding,
-            aiApprovedSources: updates.sources ?? [],
-            aiInitialAnswer: updates.answer ?? '',
-            // aiApprovedAnswer: updates.answer ?? '',
-            // question stays 'open' so experts can call reviewAnswer()
-          },
-          session,
-          true,
-        );
-
-        const users = await this.userRepo.getSpecialTaskForceExperts(
-          session,
-        );
+      // const users = await this.userRepo.getExpertsWithFallback(
+      //   question.details,
+      //   session,
+      // );
 
 
-        let queue: ObjectId[] = [];
-        let initialUsersToAllocate: typeof users = [];
+      // let queue: ObjectId[] = [];
+      // let initialUsersToAllocate: typeof users = [];
+      //       if (!updates.questionId) {
+      //         throw new BadRequestError('questionId is required for AJRASAKHA source');
+      //       }
+
+      //       const user = await this.userRepo.findById(userId, session);
+
+      //       if (!user || user.role == 'expert')
+      //         throw new UnauthorizedError(
+      //           "You don't have permission to approve an answer!",
+      //         );
+
+      //       const question = await this.questionRepo.getById(updates.questionId);
+
+      //       if (!question) {
+      //         throw new BadRequestError(`Question with ID ${updates.questionId} not found`);
+      //       }
+
+      //      /* if (question.isAutoAllocate ==true) {
+      //         throw new BadRequestError(
+      //           `Can't approve this answer, currently question is auto allocated!`,
+      //         );
+      //       }*/
+      //       if (question.status=='closed') {
+      //         throw new BadRequestError(
+      //           `Can't approve this answer, currently question is closed!`,
+      //         );
+      //       }
+
+      //       const text = `Question: ${question.question}
+
+      // answer: ${updates.answer}`;
+
+      //       let questionEmbedding = [];
+
+      //       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+
+      //       if (ENABLE_AI_SERVER) {
+      //         const {embedding} = await this.aiService.getEmbedding(text);
+      //         questionEmbedding = embedding;
+      //       }
+
+      //       await this.questionRepo.updateQuestion(
+      //         updates.questionId,
+      //         {
+      //           text,
+      //           embedding: questionEmbedding,
+      //           aiApprovedSources: updates.sources ?? [],
+      //           aiInitialAnswer: updates.answer ?? '',
+      //           // aiApprovedAnswer: updates.answer ?? '',
+      //           // question stays 'open' so experts can call reviewAnswer()
+      //         },
+      //         session,
+      //         true,
+      //       );
+
+      //       const users = await this.userRepo.getSpecialTaskForceExperts(
+      //         session,
+      //       );
 
 
-        initialUsersToAllocate = users.slice(0, 4);
-
-        queue = initialUsersToAllocate.map(
-          (user) => new ObjectId(user._id.toString()),
-        );
+      //       let queue: ObjectId[] = [];
+      //       let initialUsersToAllocate: typeof users = [];
 
 
-        //  const initialUsersToAllocate = users.slice(0, 3);
+      //         initialUsersToAllocate = users.slice(0, 4);
 
-        /* const queue = initialUsersToAllocate.map(
-           (user) => new ObjectId(user._id.toString()),
-         );*/
-
-        if (initialUsersToAllocate[0]) {
-          await this.userRepo.updateReputationScore(
-            initialUsersToAllocate[0]._id.toString(),
-            true,
-            session,
-          );
-        }
-
-        // Create an answer document so the expert can see the moderator-approved
-        // answer text from the answers collection (not the raw AI blob)
-        // const firstExpertId = initialUsersToAllocate[0]
-        //   ? initialUsersToAllocate[0]._id.toString()
-        //   : userId;
-
-        // let answerEmbedding: number[] = [];
-        // if (ENABLE_AI_SERVER) {
-        //   try {
-        //     const { embedding } = await this.aiService.getEmbedding(updates.answer);
-        //     answerEmbedding = embedding;
-        //   } catch {
-        //     answerEmbedding = [];
-        //   }
-        // }
-
-        // const { insertedId: answerId } = await this.answerRepo.addAnswer(
-        //   updates.questionId,
-        //   firstExpertId,
-        //   updates.answer,
-        //   updates.sources ?? [],
-        //   answerEmbedding,
-        //   false,       // isFinalAnswer
-        //   1,           // updatedAnswerCount
-        //   session,
-        //   'pending',   // status
-        //   'AI Generated Answer', // remarks
-        // );
-
-        // Update question totalAnswersCount
-        await this.questionRepo.updateQuestion(
-          updates.questionId,
-          { totalAnswersCount: 1 },
-          session,
-        );
-
-        let submission = await this.questionSubmissionRepo.getByQuestionId(
-          updates.questionId,
-          session,
-        );
-
-        if (!submission) {
-          // Create submission with empty history — expert is the author
-          // and will see the pre-filled answer from the answers collection
-          const submissionData: IQuestionSubmission = {
-            questionId: new ObjectId(updates?.questionId?.toString()),
-            lastRespondedBy: new ObjectId(userId),
-            history: [],
-            queue,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-
-          await this.questionSubmissionRepo.addSubmission(submissionData, session);
-        } else {
-          await this.questionSubmissionRepo.updateQueue(
-            updates.questionId.toString(),
-            queue,
-            session,
-          );
-        }
+      //         queue = initialUsersToAllocate.map(
+      //           (user) => new ObjectId(user._id.toString()),
+      //         );
 
 
+      //     //  const initialUsersToAllocate = users.slice(0, 3);
 
-        if (initialUsersToAllocate[0]) {
-          await this.notificationService.saveTheNotifications(
-            `A Question has been assigned for answering`,
-            'Answer Creation Assigned',
-            updates.questionId.toString(),
-            initialUsersToAllocate[0]._id.toString(),
-            'answer_creation',
-          );
-        }
+      //      /* const queue = initialUsersToAllocate.map(
+      //         (user) => new ObjectId(user._id.toString()),
+      //       );*/
 
-        return { modifiedCount: 1 };
-      }
+      //       if (initialUsersToAllocate[0]) {
+      //         await this.userRepo.updateReputationScore(
+      //           initialUsersToAllocate[0]._id.toString(),
+      //           true,
+      //           session,
+      //         );
+      //       }
+
+      //       // Create an answer document so the expert can see the moderator-approved
+      //       // answer text from the answers collection (not the raw AI blob)
+      //       // const firstExpertId = initialUsersToAllocate[0]
+      //       //   ? initialUsersToAllocate[0]._id.toString()
+      //       //   : userId;
+
+      //       // let answerEmbedding: number[] = [];
+      //       // if (ENABLE_AI_SERVER) {
+      //       //   try {
+      //       //     const { embedding } = await this.aiService.getEmbedding(updates.answer);
+      //       //     answerEmbedding = embedding;
+      //       //   } catch {
+      //       //     answerEmbedding = [];
+      //       //   }
+      //       // }
+
+      //       // const { insertedId: answerId } = await this.answerRepo.addAnswer(
+      //       //   updates.questionId,
+      //       //   firstExpertId,
+      //       //   updates.answer,
+      //       //   updates.sources ?? [],
+      //       //   answerEmbedding,
+      //       //   false,       // isFinalAnswer
+      //       //   1,           // updatedAnswerCount
+      //       //   session,
+      //       //   'pending',   // status
+      //       //   'AI Generated Answer', // remarks
+      //       // );
+
+      //       // Update question totalAnswersCount
+      //       await this.questionRepo.updateQuestion(
+      //         updates.questionId,
+      //         { totalAnswersCount: 1 },
+      //         session,
+      //       );
+
+      //       let submission = await this.questionSubmissionRepo.getByQuestionId(
+      //           updates.questionId,
+      //           session,
+      //         );
+
+      //       if (!submission) {
+      //         // Create submission with empty history — expert is the author
+      //         // and will see the pre-filled answer from the answers collection
+      //         const submissionData: IQuestionSubmission = {
+      //           questionId: new ObjectId(updates?.questionId?.toString()),
+      //           lastRespondedBy: new ObjectId(userId),
+      //           history: [],
+      //           queue,
+      //           createdAt: new Date(),
+      //           updatedAt: new Date(),
+      //         };
+
+      //         await this.questionSubmissionRepo.addSubmission(submissionData, session);
+      //       } else {
+      //         await this.questionSubmissionRepo.updateQueue(
+      //           updates.questionId.toString(),
+      //           queue,
+      //           session,
+      //         );
+      //       }
+
+
+
+      //       if (initialUsersToAllocate[0]) {
+      //         await this.notificationService.saveTheNotifications(
+      //           `A Question has been assigned for answering`,
+      //           'Answer Creation Assigned',
+      //           updates.questionId.toString(),
+      //           initialUsersToAllocate[0]._id.toString(),
+      //           'answer_creation',
+      //         );
+      //       }
+
+      //       return { modifiedCount: 1 };
+      //     }
 
       // ✅ Original default flow (unchanged)
       const answerId = updates.answerId;
@@ -1814,7 +1823,7 @@ export class AnswerService extends BaseService implements IAnswerService {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
 
-      if (question.status !== 'in-review' && question.status !== 'pae_submitted') {
+      if (question.status !== 'in-review' && question.status!=="pae_submitted") {
         throw new BadRequestError(
           `Can't approve this answer:${answerId}, currently question is not in review or pae submitted!`,
         );
@@ -1929,6 +1938,131 @@ export class AnswerService extends BaseService implements IAnswerService {
       }
 
       return result
+    });
+  }
+
+  async approveLLMAnswer(
+    userId: string,
+    updates: UpdateAnswerBody,
+  ): Promise<{ modifiedCount: number }> {
+    return this._withTransaction(async (session: ClientSession) => {
+      const isAjrasakha = updates.source === 'AJRASAKHA';
+      const isWhatsApp = updates.source === 'WHATSAPP';
+
+      if (!isAjrasakha && !isWhatsApp) {
+        throw new BadRequestError('Only AJRASAKHA or WHATSAPP sources are supported for this action');
+      }
+
+      if (!updates.questionId) {
+        throw new BadRequestError('questionId is required');
+      }
+
+      const user = await this.userRepo.findById(userId, session);
+
+      if (!user || user.role === 'expert') {
+        throw new UnauthorizedError("You don't have permission to approve an answer!");
+      }
+
+      const question = await this.questionRepo.getById(updates.questionId, session);
+
+      if (!question) {
+        throw new BadRequestError(`Question with ID ${updates.questionId} not found`);
+      }
+
+      //open and delay:only allow
+      if (question.status !== 'open' && question.status !== 'delayed') {
+        throw new BadRequestError(
+          `Can't approve this answer. Current question status is '${question.status}'.`
+        );
+      }
+
+      // const text = `Question: ${question.question}\n\nanswer: ${updates.answer}`;
+
+      // let questionEmbedding = [];
+      // const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+
+      // if (ENABLE_AI_SERVER) {
+      //   const {embedding} = await this.aiService.getEmbedding(text);
+      //   questionEmbedding = embedding;
+      // }
+
+      const isAddTextRequired = true
+      // Update question with approved AI answer details
+      await this.questionRepo.updateQuestion(
+        updates.questionId,
+        {
+          // text,
+          // embedding: questionEmbedding,
+          aiApprovedSources: updates.sources ?? [],
+          aiInitialAnswer: updates.answer ?? '',
+          // totalAnswersCount: 1,
+          isAutoAllocate: true,
+        },
+        session,
+        isAddTextRequired,
+      );
+
+      let queue: ObjectId[] = [];
+      let initialExpert: any = null;
+
+      if (isAjrasakha) {
+        // Special Task Force allocation for Ajrasakha (4 experts)
+        const taskForceExperts = await this.userRepo.getExpertsWithFallback(question.details,session);
+        const expertsToAllocate = taskForceExperts.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
+        queue = expertsToAllocate.map(u => new ObjectId(u._id.toString()));
+        initialExpert = expertsToAllocate[0];
+      } else if (isWhatsApp) {
+        // Normal expert allocation for WhatsApp (3 experts based on preference)
+        const experts = await this.userRepo.findExpertsByPreference(question.details as PreferenceDto, session);
+        const expertsToAllocate = experts.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
+        queue = expertsToAllocate.map(u => new ObjectId(u._id.toString()));
+        initialExpert = expertsToAllocate[0];
+      }
+
+
+      let submission = await this.questionSubmissionRepo.getByQuestionId(
+        updates.questionId,
+        session,
+      );
+
+      if (!submission) {
+        const submissionData: IQuestionSubmission = {
+          questionId: new ObjectId(updates.questionId.toString()),
+          lastRespondedBy: new ObjectId(userId),
+          history: [],
+          queue,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        await this.questionSubmissionRepo.addSubmission(submissionData, session);
+      } else {
+        if (submission.history.length > 0) {
+          throw new BadRequestError('Cannot approve AI answer after expert reviews have started');
+        }
+        await this.questionSubmissionRepo.updateQueue(
+          updates.questionId.toString(),
+          queue,
+          session,
+        );
+      }
+
+      if (initialExpert) {
+        await this.userRepo.updateReputationScore(
+          initialExpert._id.toString(),
+          true,
+          session,
+        );
+        await this.notificationService.saveTheNotifications(
+          `A Question has been assigned for answering`,
+          'Answer Creation Assigned',
+          updates.questionId.toString(),
+          initialExpert._id.toString(),
+          'answer_creation',
+          session
+        );
+      }
+
+      return { modifiedCount: 1 };
     });
   }
 

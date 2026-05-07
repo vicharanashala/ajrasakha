@@ -1,5 +1,6 @@
-import { Globe } from "lucide-react";
+import { Globe, Maximize2, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface PlatformData {
   count: number;
@@ -75,6 +76,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
 
 export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ rawData }) => {
   const [active, setActive] = useState<null | { label: string; count: number }>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
   const PLATFORM_COLORS: Record<string, string> = {
     Android: "#22c55e",
     Windows: "#3b82f6",
@@ -109,13 +111,23 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ ra
   let offset = 0;
 
   return (
-    <div className="w-full p-4 bg-white rounded-xl border  border-gray-200 
-      dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-      {/* <div className="mb-3"> */}
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
-        Installations by Platform
-      </h3>
-      {/* </div> */}
+    <>
+      <div className="w-full p-4 bg-white rounded-xl border border-gray-200 
+        dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative">
+        {/* Maximize Button */}
+        {!isEmpty && (
+          <button
+            onClick={() => setIsMaximized(true)}
+            className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
+            title="Maximize chart"
+          >
+            <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+          </button>
+        )}
+
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+          Installations by Platform
+        </h3>
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center gap-3 py-6">
           <svg width={120} height={120}>
@@ -227,5 +239,131 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ ra
         </div>
       )}
     </div>
+
+    {/* Maximized Modal */}
+    {isMaximized && !isEmpty && createPortal(
+      <div 
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+        onClick={() => setIsMaximized(false)}
+      >
+        <div 
+          className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Close Button */}
+          <button
+            onClick={() => setIsMaximized(false)}
+            className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            title="Close"
+          >
+            <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          </button>
+
+          {/* Header */}
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+              Installations by Platform
+            </h3>
+          </div>
+
+          {/* Enlarged Chart */}
+          <div className="flex flex-col lg:flex-row items-center justify-center gap-12 w-full">
+            <div className="relative flex items-center justify-center">
+              <svg
+                width={240}
+                height={240}
+                viewBox="0 0 240 240"
+                className="flex-shrink-0"
+              >
+                <circle
+                  cx={120}
+                  cy={120}
+                  r={90}
+                  fill="none"
+                  stroke="#e5e7eb"
+                  strokeWidth={28}
+                />
+
+                {(() => {
+                  let enlargedOffset = 0;
+                  const enlargedCirc = 2 * Math.PI * 90;
+                  return segmentsLayout.map((seg) => {
+                    const dash = (seg.count / totalCount) * enlargedCirc;
+                    const el = (
+                      <circle
+                        key={seg.label}
+                        cx={120}
+                        cy={120}
+                        r={90}
+                        fill="none"
+                        stroke={seg.color}
+                        strokeWidth={28}
+                        strokeDasharray={`${dash} ${enlargedCirc * 10}`}
+                        strokeDashoffset={-enlargedOffset}
+                        transform="rotate(-90 120 120)"
+                        onMouseEnter={() => setActive({ label: seg.label, count: seg.count })}
+                        onMouseLeave={() => setActive(null)}
+                        className="cursor-pointer transition-all duration-300 hover:stroke-[32px]"
+                      />
+                    );
+                    enlargedOffset += dash;
+                    return el;
+                  });
+                })()}
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center pointer-events-none">
+                {active ? (
+                  <>
+                    <span className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+                      {active.label}
+                    </span>
+                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                      {active.count}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                      {totalCount}
+                    </span>
+                    <span className="text-sm text-gray-400 uppercase">
+                      Total
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 w-full max-w-md">
+              {segmentsLayout.map((s) => (
+                <div
+                  key={s.label}
+                  className="flex items-center gap-3 text-base text-gray-600 dark:text-gray-300"
+                >
+                  <span
+                    className="w-4 h-4 rounded-sm flex-shrink-0"
+                    style={{ background: s.color }}
+                  />
+
+                  <PlatformIcon
+                    platform={s.label}
+                    color={s.color}
+                    className="h-5 w-5 flex-shrink-0"
+                  />
+
+                  <span className="flex-1">{s.label}</span>
+
+                  <span className="font-semibold text-gray-800 dark:text-white text-lg">
+                    {s.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+  </>
   );
 };
