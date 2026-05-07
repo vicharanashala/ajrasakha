@@ -15,6 +15,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.store.base import BaseStore
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
@@ -107,42 +108,113 @@ _LLM_FALLBACK_MSG = (
 logger = logging.getLogger(__name__)
 
 
-async def ajrasakha_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
+def _coerce_store_text(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        for k in ("summary", "text", "content", "value"):
+            if k in value and isinstance(value[k], str):
+                return value[k].strip()
+    return ""
+
+
+async def _load_long_term_summary(store: BaseStore | None, config: RunnableConfig) -> str:
+    if store is None:
+        return ""
+
+    configurable = config.get("configurable") or {}
+    thread_id = configurable.get("thread_id") or configurable.get("thread")
+    user_id = configurable.get("user_id") or configurable.get("phone_number")
+
+    namespace = ("ajrasakha", "daily_summaries", str(user_id or "unknown_user"))
+
+    summary_parts: list[str] = []
+
+    # Try key-based lookup first when thread_id is available.
+    if thread_id:
+        maybe_get = getattr(store, "aget", None)
+        if callable(maybe_get):
+            item = await maybe_get(namespace, str(thread_id))
+            text = _coerce_store_text(getattr(item, "value", item))
+            if text:
+                summary_parts.append(text)
+        else:
+            maybe_sync_get = getattr(store, "get", None)
+            if callable(maybe_sync_get):
+                item = maybe_sync_get(namespace, str(thread_id))
+                text = _coerce_store_text(getattr(item, "value", item))
+                if text:
+                    summary_parts.append(text)
+
+    # Fall back to recent stored memories.
+    if not summary_parts:
+        maybe_search = getattr(store, "asearch", None)
+        if callable(maybe_search):
+            results = await maybe_search(namespace, limit=5)
+        else:
+            maybe_sync_search = getattr(store, "search", None)
+            results = maybe_sync_search(namespace, limit=5) if callable(maybe_sync_search) else []
+        for item in results or []:
+            text = _coerce_store_text(getattr(item, "value", item))
+            if text:
+                summary_parts.append(text)
+
+    return "\n".join(summary_parts[:3]).strip()
+
+
+async def ajrasakha_node(state: AjraSakhaState, config: RunnableConfig, store: BaseStore) -> dict:
     location = await _get_location_tool()
     reviewer = await _get_reviewer_tool()
-    enriched_config = patch_config(config, configurable={"location": state.get("location")})
+    merged_configurable = dict((config.get("configurable") or {}))
+    merged_configurable["location"] = state.get("location")
+    enriched_config = patch_config(config, configurable=merged_configurable)
     llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer])
-    messages = [SystemMessage(content=WHATSAPP_SYSTEM_PROMPT)] + list(state["messages"])
+    long_term_summary = await _load_long_term_summary(store, config)
+    summary_context = (
+        f"Long-term memory from previous daily threads:\n{long_term_summary}"
+        if long_term_summary
+        else "Long-term memory from previous daily threads:\nNo previous summary available."
+    )
+    messages = [
+        SystemMessage(content=WHATSAPP_SYSTEM_PROMPT),
+        SystemMessage(content=summary_context),
+    ] + list(state["messages"])
 
     try:
-        response = await llm.ainvoke(messages)
+        response = await llm.ainvoke(messages, config=enriched_config)
     except (asyncio.CancelledError, TimeoutError, APITimeoutError,
             APIConnectionError) as exc:
         logger.warning(
             "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
             type(exc).__name__, exc,
         )
-        return {"messages": [AIMessage(content=_LLM_FALLBACK_MSG)]}
+        return {"messages": [AIMessage(content=_LLM_FALLBACK_MSG)], "location": state.get("location")}
     except APIStatusError as exc:
         if exc.status_code >= 500:
             logger.warning(
                 "Anthropic server error (%s) — returning safe fallback",
                 exc.status_code,
             )
-            return {"messages": [AIMessage(content=_LLM_FALLBACK_MSG)]}
+            return {"messages": [AIMessage(content=_LLM_FALLBACK_MSG)], "location": state.get("location")}
         raise  # 4xx errors (auth, rate-limit) should still propagate
 
-    return {"messages": [response]}
+    return {"messages": [response], "location": state.get("location")}
 
 
 async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
     location = await _get_location_tool()
     reviewer = await _get_reviewer_tool()
 
-    enriched_config = patch_config(config, configurable={"location": state.get("location")})
+    merged_configurable = dict((config.get("configurable") or {}))
+    merged_configurable["location"] = state.get("location")
+    enriched_config = patch_config(config, configurable=merged_configurable)
 
     try:
-        return await ToolNode([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer]).ainvoke(state)
+        result = await ToolNode([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer]).ainvoke(state, config=enriched_config)
+        result["location"] = state.get("location")
+        return result
     except Exception as exc:
         logger.error(
             "ToolNode execution failed (%s: %s) — injecting error tool messages "
@@ -169,7 +241,7 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
                 content=f"Tool execution failed: {type(exc).__name__}",
                 tool_call_id="unknown",
             ))
-        return {"messages": error_messages}
+        return {"messages": error_messages, "location": state.get("location")}
 
 
 _mongo_client = None
