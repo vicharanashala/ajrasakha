@@ -24,6 +24,7 @@ dependencies = [
     #    "sentence-transformers>=2.6.0",
     "langchain-mcp-adapters",
     "langchain-anthropic>=1.4.1",
+    "motor>=3.7.1",
 ]
 
 [build-system]
