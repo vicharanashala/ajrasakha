@@ -169,4 +169,8 @@ export interface IQuestionSubmissionRepository {
     expertIds: string[],
     session?: ClientSession,
   ): Promise<IQuestionSubmission[]>;
+  findSubmissionsWithExpertsInQueue(
+    expertIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
 }

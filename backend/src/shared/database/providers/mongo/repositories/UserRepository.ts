@@ -536,6 +536,29 @@ export class UserRepository implements IUserRepository {
     );
   }
 
+  async recalculateReputationScore(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const submissionCollection = await this.db.getCollection<any>('question_submissions');
+    
+    // Count how many times this user appears in the queue of any submission
+    const userObjectId = new ObjectId(userId);
+    const count = await submissionCollection.countDocuments({
+      $or: [
+        { queue: userObjectId },
+        { queue: userId }
+      ]
+    }, { session });
+
+    await this.usersCollection.updateOne(
+      { _id: userObjectId },
+      { $set: { reputation_score: count, updatedAt: new Date() } },
+      { session }
+    );
+  }
+
   async findExpertsByPreference(
     details: PreferenceDto,
     session?: ClientSession,

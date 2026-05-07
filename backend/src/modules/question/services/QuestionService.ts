@@ -3163,7 +3163,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       targetSubmissions =
-        await this.questionSubmissionRepo.findSubmissionsByActiveReviewers(
+        await this.questionSubmissionRepo.findSubmissionsWithExpertsInQueue(
           inactiveExpertIds,
           session,
         );
@@ -3239,7 +3239,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
     }
 
-    const jobId = startBalanceWorkloadWorkers(flatAssignments);
+    const inactiveExpertIds: string[] = [];
+    if (type === 'inactive') {
+      const inactiveExperts = await this.userRepo.findInactiveOrBlockedExperts(session);
+      inactiveExpertIds.push(...inactiveExperts.map(u => u._id.toString()));
+    }
+
+    const jobId = startBalanceWorkloadWorkers(flatAssignments, inactiveExpertIds);
 
     return {
       message: 'Workload balancing started in background',

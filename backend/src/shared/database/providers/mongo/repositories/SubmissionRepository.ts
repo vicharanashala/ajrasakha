@@ -3486,4 +3486,22 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {session},
     ).toArray();
   }
+
+  async findSubmissionsWithExpertsInQueue(
+    expertIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
+    await this.init();
+    const expertObjectIds = expertIds.map(id => new ObjectId(id));
+
+    return this.QuestionSubmissionCollection.find(
+      {
+        $or: [
+          {queue: {$in: expertObjectIds}},
+          {queue: {$in: expertIds}}, // Handle string IDs
+        ],
+      },
+      {session},
+    ).toArray();
+  }
 }

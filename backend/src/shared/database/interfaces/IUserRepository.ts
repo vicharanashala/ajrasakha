@@ -160,6 +160,10 @@ export interface IUserRepository {
     isIncrement: boolean,
     session?: ClientSession,
   ): Promise<void>;
+  recalculateReputationScore(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<void>;
 
   /**
    * Finds all moderators.
