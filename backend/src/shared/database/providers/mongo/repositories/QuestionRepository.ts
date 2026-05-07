@@ -326,11 +326,14 @@ export class QuestionRepository implements IQuestionRepository {
         hiddenQuestions,
         duplicateQuestions,
         isOnHold,
+        pae_review,
       } = query;
     //  const filter: any = {};
     const filter: any = {
-      isHidden: { $ne: true }, // default to exclude hidden questions
-      isOnHold: { $ne: true }, // default to exclude on hold questions
+      isHidden: { $ne: true },   // default to exclude hidden questions
+      isOnHold: { $ne: true },   // default to exclude on hold questions
+      status: { $ne: 'draft' },  // default to exclude draft questions (shown only in Draft tab)
+      pae_review: { $ne: true }, // default to exclude PAE questions (shown only in PAE tab)
     };
 
     // --- Hidden question filter ---
@@ -340,6 +343,9 @@ export class QuestionRepository implements IQuestionRepository {
 
     // --- on Hold question filter ---
     if(isOnHold === 'true')filter.isOnHold = { $eq: true }; // filter by on hold questions
+
+    // --- PAE review filter ---
+    if (pae_review === 'true') filter.pae_review = true;
 
     //for duplicate questions.
     // duplicateQuestions === 'true'
@@ -1357,6 +1363,8 @@ export class QuestionRepository implements IQuestionRepository {
           'details.state': 1,
           source: 1,
           status: 1,
+          pae_review: 1,
+          saved_to_draft: 1,
           _id: 0,
         },
       });

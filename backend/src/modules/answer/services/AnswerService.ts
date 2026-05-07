@@ -174,7 +174,7 @@ export class AnswerService extends BaseService implements IAnswerService {
           );
         }
 
-        if (user.role !== 'expert') {
+        if (user.role !== 'expert' && user.role !== 'pae_expert') {
           throw new UnauthorizedError(
             `You are not authorized to perform reviews.`,
           );
@@ -369,6 +369,7 @@ export class AnswerService extends BaseService implements IAnswerService {
         // -----------------------------------------------------------
         if (!status) {
           // -------------------- FIRST SUBMISSION --------------------------------
+          const isPaeExpert = user.role === 'pae_expert';
           const intialStatus = 'in-review' as IAnswer['status'];
           const { insertedId: answerId } = await this.addAnswer(
             questionId,
@@ -392,6 +393,16 @@ export class AnswerService extends BaseService implements IAnswerService {
             history as ISubmissionHistory,
             session,
           );
+
+          // PAE experts skip the peer-review cycle — mark as pae_submitted for moderator action
+          if (isPaeExpert) {
+            await this.questionRepo.updateQuestion(
+              questionId,
+              {status: 'pae_submitted'},
+              session,
+            );
+            return;
+          }
         }
 
         // ======================================================================
@@ -736,7 +747,7 @@ export class AnswerService extends BaseService implements IAnswerService {
           );
         }
 
-        if (user.role !== 'expert') {
+        if (user.role !== 'expert' && user.role !== 'pae_expert') {
           throw new UnauthorizedError(
             `You are not authorized to perform reviews.`,
           );
@@ -1812,9 +1823,9 @@ export class AnswerService extends BaseService implements IAnswerService {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
 
-      if (question.status !== 'in-review') {
+      if (question.status !== 'in-review' && question.status!=="pae_submitted") {
         throw new BadRequestError(
-          `Can't approve this answer:${answerId}, currently question is not in review!`,
+          `Can't approve this answer:${answerId}, currently question is not in review or pae submitted!`,
         );
       }
 

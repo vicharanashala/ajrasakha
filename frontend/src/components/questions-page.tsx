@@ -16,6 +16,7 @@ import {
 } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
+import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
 import { toast } from "sonner";
 import Spinner from "./atoms/spinner";
 import { ReviewLevelsTable } from "@/features/questions/components/review-level/ReviewLevelsTable";
@@ -70,6 +71,7 @@ export const QuestionsPage = ({
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
+  const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
@@ -120,6 +122,8 @@ export const QuestionsPage = ({
 
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
+  const { mutateAsync: allocateExpert } = useAllocateExpert();
+  const [isBulkAllocatingPae, setIsBulkAllocatingPae] = useState(false);
 
   const LIMIT = 12;
 
@@ -160,6 +164,7 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      pae_review: paeReview,
     }),
     [
       status,
@@ -185,6 +190,7 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      paeReview,
     ],
   );
 
@@ -307,6 +313,7 @@ export const QuestionsPage = ({
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     isOnHold?: boolean;
+    pae_review?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -337,6 +344,8 @@ export const QuestionsPage = ({
       setDuplicateQuestions(next.duplicateQuestions);
     if (next.isOnHold !== undefined)
       setIsOnHold(next.isOnHold);
+    if ("pae_review" in next)
+      setPaeReview(next.pae_review);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -374,6 +383,7 @@ export const QuestionsPage = ({
     setHiddenQuestions(false);
     setDuplicateQuestions(false);
     setIsOnHold(false);
+    setPaeReview(undefined);
   };
 
   const handleViewMore = (questoinId: string) => {
@@ -402,6 +412,53 @@ export const QuestionsPage = ({
       setIsSelectionModeOn(false);
     } catch (error) {
       console.error("Bulk delete error:", error);
+    }
+  };
+
+  const handleBulkAllocateToPae = async (paeExpertId: string) => {
+    if (!selectedQuestionIds || selectedQuestionIds.length === 0) {
+      toast.error("No questions selected.");
+      return;
+    }
+
+    const allQuestions = questionData?.questions || [];
+    const selectedQuestions = allQuestions.filter(
+      (q) => q._id && selectedQuestionIds.includes(q._id),
+    );
+    const draftQuestions = selectedQuestions.filter((q) => q.status === "draft");
+    const skippedCount = selectedQuestions.length - draftQuestions.length;
+
+    if (draftQuestions.length === 0) {
+      toast.warning(
+        "No draft questions found among the selected. Only draft questions can be allocated to PAE.",
+      );
+      return;
+    }
+
+    setIsBulkAllocatingPae(true);
+    try {
+      await Promise.all(
+        draftQuestions.map((q) =>
+          allocateExpert({ questionId: q._id!, experts: [paeExpertId] }),
+        ),
+      );
+      setSelectedQuestionIds([]);
+      setIsSelectionModeOn(false);
+      refetch();
+      if (skippedCount > 0) {
+        toast.success(
+          `${draftQuestions.length} question(s) allocated to PAE. ${skippedCount} question(s) skipped (not draft).`,
+        );
+      } else {
+        toast.success(
+          `${draftQuestions.length} question(s) allocated to PAE successfully.`,
+        );
+      }
+    } catch (error) {
+      console.error("Bulk PAE allocate error:", error);
+      toast.error("Failed to allocate some questions. Please try again.");
+    } finally {
+      setIsBulkAllocatingPae(false);
     }
   };
 
@@ -462,6 +519,8 @@ export const QuestionsPage = ({
             setIsSelectionModeOn={setIsSelectionModeOn}
             setSelectedQuestionIds={setSelectedQuestionIds}
             bulkDeletingQuestions={bulkDeletingQuestions}
+            handleBulkAllocateToPae={handleBulkAllocateToPae}
+            isBulkAllocatingPae={isBulkAllocatingPae}
             viewMode={viewMode}
             setViewMode={setViewMode}
             onSort={toggleSort}

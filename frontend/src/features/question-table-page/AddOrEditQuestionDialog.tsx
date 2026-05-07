@@ -55,6 +55,7 @@ import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
 import { toast } from "sonner";
 import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
+import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 
 
 
@@ -187,6 +188,7 @@ export const AddOrEditQuestionDialog = ({
 
   const [isRequiredAiInitialAnswer, setIsRequiredAiInitialAnswer] = useState(false);
   const [isOutreachQuestion, setIsOutreachQuestion] = useState(false);
+  const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
 
   const invalidFieldClass =
     "border-red-500 dark:border-red-400 focus-visible:ring-red-500/60";
@@ -1095,19 +1097,10 @@ export const AddOrEditQuestionDialog = ({
                 <Button
                   variant="default"
                   disabled={!file}
-                  onClick={() => {
-                    if (file) {
-                      const formData = new FormData();
-                      formData.append("file", file);
-                      formData.append("isRequiredAiInitialAnswer", String(isRequiredAiInitialAnswer));
-                      formData.append("isOutreachQuestion", String(isOutreachQuestion));
-                      onSave?.("add", undefined, undefined, undefined, formData);
-                      setFile(null);
-                    }
-                  }}
+                  onClick={() => setIsAllocationModalOpen(true)}
                 >
                   <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {isLoadingAction ? "Uploading..." : "Upload Questions"}
+                  Upload Questions
                 </Button>
               ) : (
                 <Button
@@ -1145,6 +1138,25 @@ export const AddOrEditQuestionDialog = ({
           )}
         </DialogFooter>
       </DialogContent>
+
+      <BulkUploadAllocationModal
+        open={isAllocationModalOpen}
+        onClose={() => setIsAllocationModalOpen(false)}
+        isLoading={isLoadingAction}
+        onConfirm={(mode, paeExpertId) => {
+          if (file) {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("isRequiredAiInitialAnswer", String(isRequiredAiInitialAnswer));
+            formData.append("isOutreachQuestion", String(isOutreachQuestion));
+            formData.append("allocationMode", mode);
+            if (paeExpertId) formData.append("paeExpertId", paeExpertId);
+            onSave?.("add", undefined, undefined, undefined, formData);
+            setFile(null);
+            setIsAllocationModalOpen(false);
+          }
+        }}
+      />
     </Dialog>
   );
 };

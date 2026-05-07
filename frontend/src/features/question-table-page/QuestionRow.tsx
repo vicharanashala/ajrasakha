@@ -173,6 +173,10 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       icon: AlertTriangle,
       className: "bg-orange-500/10 text-orange-600 border-orange-500/30",
     },
+    pae_submitted: {
+      icon: Clock,
+      className: "bg-amber-600/10 text-amber-700 border-amber-600/30",
+    },
   } as const;
   const statusBadge = useMemo(() => {
     // const status = q.status || "NIL";
@@ -194,7 +198,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
             ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
             : effectiveStatus === "delayed"
               ? "bg-orange-500/10 text-orange-600 border-orange-500/30"
-              : "bg-muted text-foreground";
+              : effectiveStatus === "pae_submitted"
+                ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+                : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={`gap-1.5 ${colorClass}`}>
@@ -305,6 +311,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           <TableCell className="text-start ps-0">
             <div className="flex items-center gap-2">
               {visibleColumns.priority && <PriorityBadge priority={q.priority} />}
+              {q.pae_review && (
+                <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-purple-500/10 text-purple-600 border-purple-500/30 whitespace-nowrap">
+                  PAE
+                </span>
+              )}
 
               <div className="flex flex-col gap-1 py-1">
                 <TooltipProvider>
