@@ -103,17 +103,20 @@ export const PAEExpertPage = () => {
     setIsLoaded(true);
   }, []);
 
-  // Select first question on initial load
+  // Select first question on initial load, or if saved question is no longer in the list
   useEffect(() => {
-    if (!isLoaded || !questionPages?.pages) return;
-    if (selectedQuestion) return;
+    if (!isLoaded || !questionPages?.pages || questions.length === 0) return;
+    if (selectedQuestion && questions.some((q) => q.id === selectedQuestion)) return;
     const firstId = questions[0]?.id ?? null;
     setSelectedQuestion(firstId);
   }, [isLoaded, questions, questionPages]);
 
   // Restore draft when question changes
   useEffect(() => {
-    if (!selectedQuestion) return;
+    if (!selectedQuestion) {
+      localStorage.removeItem("pae_selectedQuestion");
+      return;
+    }
     localStorage.setItem("pae_selectedQuestion", selectedQuestion);
     const draft = drafts[selectedQuestion];
     if (draft) {
@@ -471,6 +474,7 @@ export const PAEExpertPage = () => {
               questionItemRefs={questionItemRefs}
               setQuestionRef={setQuestionRef}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              hideControls={true}
             />
           </div>
 

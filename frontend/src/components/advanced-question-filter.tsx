@@ -67,7 +67,7 @@ import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 
-export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -120,6 +120,7 @@ export type AdvanceFilterValues = {
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
   isOnHold?: boolean;
+  pae_review?: boolean;
 };
 
 

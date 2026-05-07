@@ -71,6 +71,7 @@ export const QuestionsPage = ({
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
+  const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
@@ -163,6 +164,7 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      pae_review: paeReview,
     }),
     [
       status,
@@ -188,6 +190,7 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      paeReview,
     ],
   );
 
@@ -310,6 +313,7 @@ export const QuestionsPage = ({
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     isOnHold?: boolean;
+    pae_review?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -340,6 +344,8 @@ export const QuestionsPage = ({
       setDuplicateQuestions(next.duplicateQuestions);
     if (next.isOnHold !== undefined)
       setIsOnHold(next.isOnHold);
+    if ("pae_review" in next)
+      setPaeReview(next.pae_review);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -377,6 +383,7 @@ export const QuestionsPage = ({
     setHiddenQuestions(false);
     setDuplicateQuestions(false);
     setIsOnHold(false);
+    setPaeReview(undefined);
   };
 
   const handleViewMore = (questoinId: string) => {

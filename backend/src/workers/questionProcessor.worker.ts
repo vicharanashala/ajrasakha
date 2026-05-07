@@ -280,8 +280,8 @@ const { checkDuplicateQuestionHelper } = await import(
           } else {
             queue = [new ObjectId(paeUser._id!.toString())];
             notificationRecipient = paeUser._id!.toString();
-            notificationMessage = 'A batch of questions has been assigned to you';
-            notificationTitle = 'PAE Expert Assignment';
+            notificationMessage = 'A Question has been assigned for answering';
+            notificationTitle = 'Answer Creation Assigned';
             console.log(`👤 PAE Expert mode — assigned question ${qId} to ${paeUser.email}`);
           }
         } catch (paeErr: any) {

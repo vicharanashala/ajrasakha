@@ -101,14 +101,14 @@ type QuestionsFiltersProps = {
   isBulkAllocatingPae: boolean;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae";
 
-const sourceToAnswerMode = (
-  source: AdvanceFilterValues["source"],
-): AnswerMode => {
-  if (source === "AGRI_EXPERT") return "manual";
-  if (source === "WHATSAPP") return "whatsapp";
-  if (source === "OUTREACH") return "outreach";
+const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
+  if (filter.pae_review === true) return "pae";
+  if (filter.status === "draft") return "draft";
+  if (filter.source === "AGRI_EXPERT") return "manual";
+  if (filter.source === "WHATSAPP") return "whatsapp";
+  if (filter.source === "OUTREACH") return "outreach";
   return "ajraskha";
 };
 
@@ -118,6 +118,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
+  if (answerMode === "draft" || answerMode === "pae") return "all";
   return "AJRASAKHA";
 };
 
@@ -168,7 +169,7 @@ export const QuestionsFilters = ({
     null,
   );
   const [answerMode, setAnswerMode] = useState<AnswerMode>(() =>
-    sourceToAnswerMode(appliedFilters.source),
+    filterToAnswerMode(appliedFilters),
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
@@ -323,9 +324,16 @@ export const QuestionsFilters = ({
   };
 
   const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
-    const source = answerModeToSource(nextAnswerMode);
+    let nextFilters: AdvanceFilterValues;
 
-    const nextFilters = { ...advanceFilter, source };
+    if (nextAnswerMode === "draft") {
+      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined };
+    } else if (nextAnswerMode === "pae") {
+      nextFilters = { ...advanceFilter, source: "all", status: "all", pae_review: true };
+    } else {
+      const source = answerModeToSource(nextAnswerMode);
+      nextFilters = { ...advanceFilter, source, status: "all", pae_review: undefined };
+    }
 
     setAnswerMode(nextAnswerMode);
     setAdvanceFilterValues(nextFilters);
@@ -348,7 +356,7 @@ export const QuestionsFilters = ({
 
   useEffect(() => {
     setAdvanceFilterValues(appliedFilters);
-    setAnswerMode(sourceToAnswerMode(appliedFilters.source));
+    setAnswerMode(filterToAnswerMode(appliedFilters));
   }, [appliedFilters]);
 
   const handleApplyFilters = (myPreference?: IMyPreference) => {

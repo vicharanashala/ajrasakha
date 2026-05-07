@@ -756,6 +756,14 @@ class GetDetailedQuestionsQuery {
 
   @IsOptional()
   isOnHold?: string;
+
+  @JSONSchema({
+    description: 'filter questions assigned to PAE experts',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  pae_review?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

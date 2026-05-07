@@ -45,6 +45,7 @@ type QaHeaderProps={
   questionItemRefs: React.MutableRefObject<Record<string, HTMLDivElement>>;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
   onToggleCollapse: () => void;
+  hideControls?: boolean;
 }
 const QaPreferencesDialog = ({
   reviewLevel,
@@ -398,6 +399,7 @@ export const QaHeader=({ questions,
   scrollRef,
   setQuestionRef,
   onToggleCollapse,
+  hideControls = false,
 }:QaHeaderProps)=>{
   return(
     <div>
@@ -423,25 +425,29 @@ export const QaHeader=({ questions,
                 </div>
               </TooltipProvider>
 
-              <Select value={actionType} onValueChange={onActionTypeChange}>
-                <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 min-w-fit shrink-0">
-                  <SelectValue placeholder="Select action" />
-                </SelectTrigger>
+              {!hideControls && (
+                <Select value={actionType} onValueChange={onActionTypeChange}>
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 min-w-fit shrink-0">
+                    <SelectValue placeholder="Select action" />
+                  </SelectTrigger>
 
-                <SelectContent>
-                  <SelectItem value="allocated">Allocated Questions</SelectItem>
-                  <SelectItem value="reroute">ReRouted Questions</SelectItem>
-                </SelectContent>
-              </Select>
-             
+                  <SelectContent>
+                    <SelectItem value="allocated">Allocated Questions</SelectItem>
+                    <SelectItem value="reroute">ReRouted Questions</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <QaPreferencesDialog
-                  reviewLevel={reviewLevel}
-                  source={source}
-                  states={states}
-                  crops={crops}
-                  onFilterChange={onFilterChange}
-                />
+                {!hideControls && (
+                  <QaPreferencesDialog
+                    reviewLevel={reviewLevel}
+                    source={source}
+                    states={states}
+                    crops={crops}
+                    onFilterChange={onFilterChange}
+                  />
+                )}
 
                 <Button 
                   variant="outline"
