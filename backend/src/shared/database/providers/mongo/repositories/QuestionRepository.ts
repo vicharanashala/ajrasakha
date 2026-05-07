@@ -1892,6 +1892,7 @@ export class QuestionRepository implements IQuestionRepository {
         'createdAt',
         'updatedAt',
         'review_level_number',
+        'phoneNumber'
       ];
 
       if (!addText) {
