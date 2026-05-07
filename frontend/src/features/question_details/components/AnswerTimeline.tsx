@@ -128,6 +128,7 @@ export const AnswerTimeline = ({
               queue={queue}
               rerouteQuestion={rerouteQuestion}
               lastAnswerApprovalCount={answers[0].approvalCount}
+              paeReview={question.pae_review}
             />
           </div>
         )}

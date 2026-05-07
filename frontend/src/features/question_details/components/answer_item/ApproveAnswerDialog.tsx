@@ -22,6 +22,8 @@ interface ApproveAnswerDialogProps {
   handleUpdateAnswer: () => void;
   lastReroutedTo: any;
   approvalCount: number;
+  questionStatus?: string;
+  paeReview?: boolean;
 }
 
 export const ApproveAnswerDialog = ({
@@ -35,12 +37,16 @@ export const ApproveAnswerDialog = ({
   handleUpdateAnswer,
   lastReroutedTo,
   approvalCount,
+  questionStatus,
+  paeReview,
 }: ApproveAnswerDialogProps) => {
+  const isPaeSubmitted = questionStatus === "pae_submitted";
+  const isDisabled = lastReroutedTo?.status === "pending" || (!isPaeSubmitted && approvalCount < 3);
   return (
     <Dialog open={editOpen} onOpenChange={setEditOpen}>
       <DialogTrigger asChild>
         <button
-          disabled={lastReroutedTo?.status === "pending" || approvalCount < 3}
+          disabled={isDisabled}
           className={`
              bg-primary text-primary-foreground 
                       flex items-center gap-2 
@@ -49,10 +55,9 @@ export const ApproveAnswerDialog = ({
                       text-sm
                       whitespace-nowrap
                       transition-all duration-200
-            ${
-              lastReroutedTo?.status === "pending" || approvalCount < 3
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-primary/90 hover:shadow-md active:scale-95"
+            ${isDisabled
+              ? "opacity-50 cursor-not-allowed"
+              : "hover:bg-primary/90 hover:shadow-md active:scale-95"
             }
           `}
         >
@@ -66,8 +71,13 @@ export const ApproveAnswerDialog = ({
         style={{ maxWidth: "70vw" }}
       >
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="text-lg font-semibold">
+          <DialogTitle className="text-lg font-semibold flex items-center gap-2">
             Approve Answer
+            {paeReview && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                PAE Submitted
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 

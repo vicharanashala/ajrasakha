@@ -102,9 +102,6 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
   async signup(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string } } | null> {
     let userRecord: any;
     try {
-      if (!/^[^\s@]+@annam\.ai$/.test(body.email) && !appConfig.isDevelopment) {
-        throw new Error("Please enter a valid email")
-      }
       if (!body.firstName.trim()) {
         throw new Error("Name cannot be blank or empty spaces");
       }
@@ -144,7 +141,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       email: body.email,
       firstName: body.firstName,
       lastName: body.lastName || '',
-      role: 'expert',
+      role: 'pae_expert',
     };
 
     // create the user in the database will happen on the first successful login after email verification.
@@ -169,7 +166,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       email: body.email,
       firstName: body.firstName,
       lastName: body.lastName,
-      role: 'expert',
+      role: 'pae_expert',
     };
 
     let createdUserId: string;
@@ -231,7 +228,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         email: email,
         firstName: names[0] || email.split('@')[0],
         lastName: names.slice(1).join(' ') || '',
-        role: 'expert',
+        role: 'pae_expert',
       };
 
       await this._withTransaction(async (session) => {
