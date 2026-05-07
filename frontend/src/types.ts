@@ -1,6 +1,6 @@
 import type { UserCredential } from "firebase/auth";
 
-export type UserRole = "admin" | "moderator" | "expert";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -158,6 +158,7 @@ export interface IQuestion {
   priority: QuestionPriority;
   status: QuestionStatus;
   source: QuestionSource;
+  pae_review?: boolean;
   history: HistoryItem[];
   details: {
     state: string;
@@ -257,7 +258,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted"|"draft";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -543,6 +544,7 @@ export interface IDetailedQuestion {
     history: ISubmissionHistory[];
     queue: IUserRef[];
   };
+  pae_review?: boolean;
   similarityScore?: number;        // percentage (0–100)
   referenceQuestionId?: string;
   referenceQuestion?:string
@@ -694,6 +696,7 @@ export interface ReroutedQuestionItem {
   reroute: Reroute;
   details: QuestionDetailsReRoute;
   source: QuestionSource
+  pae_review?: boolean;
 }
 
 interface Moderator {

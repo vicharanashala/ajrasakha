@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
-import { MessageCircle, Pencil, Radio, Sparkles, UserRound } from "lucide-react";
+import { FileText, MessageCircle, Radio, Sparkles, UserCheck, UserRound } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export const MODES = [
@@ -8,6 +8,8 @@ export const MODES = [
     { id: "manual", label: "Manual", icon: UserRound },
     { id: "outreach", label: "Outreach", icon: Radio },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+    { id: "draft", label: "Draft", icon: FileText },
+    { id: "pae", label: "PAE", icon: UserCheck },
 ] as const
 
 const MODE_DESCRIPTIONS: Record<string, string> = {
@@ -19,6 +21,10 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
         "Questions coming from WhatsApp chatbot (Source: WHATSAPP)",
     outreach:
         "Questions collected via outreach programs (Source: OUTREACH)",
+    draft:
+        "Questions saved as draft (Status: Draft)",
+    pae:
+        "Questions assigned to PAE experts (pae_review: true)",
 };
 
 type Mode = typeof MODES[number]["id"];

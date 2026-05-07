@@ -68,6 +68,8 @@ import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
+import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
+import { UserCheck } from "lucide-react";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -95,16 +97,18 @@ type QuestionsFiltersProps = {
   showClosedAt?: boolean;
   view: "grid" | "table";
   setView: (v: "grid" | "table") => void;
+  handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
+  isBulkAllocatingPae: boolean;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae";
 
-const sourceToAnswerMode = (
-  source: AdvanceFilterValues["source"],
-): AnswerMode => {
-  if (source === "AGRI_EXPERT") return "manual";
-  if (source === "WHATSAPP") return "whatsapp";
-  if (source === "OUTREACH") return "outreach";
+const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
+  if (filter.pae_review === true) return "pae";
+  if (filter.status === "draft") return "draft";
+  if (filter.source === "AGRI_EXPERT") return "manual";
+  if (filter.source === "WHATSAPP") return "whatsapp";
+  if (filter.source === "OUTREACH") return "outreach";
   return "ajraskha";
 };
 
@@ -114,6 +118,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
+  if (answerMode === "draft" || answerMode === "pae") return "all";
   return "AJRASAKHA";
 };
 
@@ -143,6 +148,8 @@ export const QuestionsFilters = ({
   showClosedAt,
   view,
   setView,
+  handleBulkAllocateToPae,
+  isBulkAllocatingPae,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -162,7 +169,7 @@ export const QuestionsFilters = ({
     null,
   );
   const [answerMode, setAnswerMode] = useState<AnswerMode>(() =>
-    sourceToAnswerMode(appliedFilters.source),
+    filterToAnswerMode(appliedFilters),
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
@@ -177,6 +184,7 @@ export const QuestionsFilters = ({
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
+  const [isPaeAllocateModalOpen, setIsPaeAllocateModalOpen] = useState(false);
 
   const handleReAllocateLessWorkload = async (type?: string) => {
     try {
@@ -316,9 +324,16 @@ export const QuestionsFilters = ({
   };
 
   const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
-    const source = answerModeToSource(nextAnswerMode);
+    let nextFilters: AdvanceFilterValues;
 
-    const nextFilters = { ...advanceFilter, source };
+    if (nextAnswerMode === "draft") {
+      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined };
+    } else if (nextAnswerMode === "pae") {
+      nextFilters = { ...advanceFilter, source: "all", status: "all", pae_review: true };
+    } else {
+      const source = answerModeToSource(nextAnswerMode);
+      nextFilters = { ...advanceFilter, source, status: "all", pae_review: undefined };
+    }
 
     setAnswerMode(nextAnswerMode);
     setAdvanceFilterValues(nextFilters);
@@ -341,7 +356,7 @@ export const QuestionsFilters = ({
 
   useEffect(() => {
     setAdvanceFilterValues(appliedFilters);
-    setAnswerMode(sourceToAnswerMode(appliedFilters.source));
+    setAnswerMode(filterToAnswerMode(appliedFilters));
   }, [appliedFilters]);
 
   const handleApplyFilters = (myPreference?: IMyPreference) => {
@@ -622,6 +637,22 @@ export const QuestionsFilters = ({
 
         {isSelectionModeOn && (
           <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
+            {/* Allocate to PAE */}
+            {userRole !== "expert" && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectedQuestionIds.length === 0 || isBulkAllocatingPae}
+                onClick={() => setIsPaeAllocateModalOpen(true)}
+                className="flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10"
+              >
+                <UserCheck className="h-4 w-4" />
+                {isBulkAllocatingPae
+                  ? `Allocating (${selectedQuestionIds.length})...`
+                  : `Allocate to PAE (${selectedQuestionIds.length})`}
+              </Button>
+            )}
+
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
@@ -1119,6 +1150,17 @@ export const QuestionsFilters = ({
       <ChemicalManagementModal
         open={isChemicalModalOpen}
         onOpenChange={setIsChemicalModalOpen}
+      />
+      <BulkUploadAllocationModal
+        open={isPaeAllocateModalOpen}
+        onClose={() => setIsPaeAllocateModalOpen(false)}
+        isLoading={isBulkAllocatingPae}
+        paeOnly
+        onConfirm={async (_mode, paeExpertId) => {
+          if (!paeExpertId) return;
+          await handleBulkAllocateToPae(paeExpertId);
+          setIsPaeAllocateModalOpen(false);
+        }}
       />
     </div>
   );

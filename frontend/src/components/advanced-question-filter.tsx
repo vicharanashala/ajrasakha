@@ -67,7 +67,7 @@ import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 
-export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -120,6 +120,7 @@ export type AdvanceFilterValues = {
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
   isOnHold?: boolean;
+  pae_review?: boolean;
 };
 
 
@@ -265,6 +266,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         <div className="flex items-center gap-2">
                           <Send className="w-4 h-4 text-green-500" />
                           <span>Re Routed</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="pae_submitted">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <span>PAE Submitted</span>
                         </div>
                       </SelectItem>
 

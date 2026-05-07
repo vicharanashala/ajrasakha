@@ -65,6 +65,12 @@ class Question implements IQuestion {
   isAutoAllocate: boolean;
 
   @Expose()
+  saved_to_draft?: boolean;
+
+  @Expose()
+  pae_review?: boolean;
+
+  @Expose()
   createdAt?: Date;
 
   @Expose()
