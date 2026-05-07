@@ -3926,9 +3926,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
     const questionSource = questionData.source;
     if (questionSource == "WHATSAPP") {
-      if (!questionData.phoneNumber)
+      if (!questionData.threadId)
         throw new Error('Phone number not found for WhatsApp question');
-      const response = await this.aiService.fetchWhatsAppMessage(questionData.phoneNumber, questionData._id.toString());
+      const response = await this.aiService.fetchWhatsAppMessage(questionData.threadId, questionData._id.toString());
 
       if (response) {
         return {
