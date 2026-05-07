@@ -260,7 +260,7 @@ async def exact_search_node(state: AjraSakhaState, config: RunnableConfig) -> di
                         content = f"{answer}\n\n"
                         
                         if author_name:
-                            content += f"**Expert:** {author_name}\n"
+                            content += f"**Expert:** {author_name.title()}\n"
                             
                         if sources:
                             content += "**Sources:**\n"
@@ -274,15 +274,15 @@ async def exact_search_node(state: AjraSakhaState, config: RunnableConfig) -> di
                         
                         warning_text = """\n⚠️ *Important Notice (Testing)* ⚠️
 
-                            This AjraSakha application is under development and intended only for testing and validation. 
-                            Advisories are experimental and currently cover major crops in selected states. 
-                            Weather data is sourced from IMD.
-                            Market data from eNAM, Agmarknet, and State APMCs.
-                            Soil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.
-                            Government schemes from https://www.myscheme.gov.in/. 
-                            Other agricultural information and advisories are expert-verified by Annam.ai. 
+This AjraSakha application is under development and intended only for testing and validation. 
+Advisories are experimental and currently cover major crops in selected states. 
+Weather data is sourced from IMD.
+Market data from eNAM, Agmarknet, and State APMCs.
+Soil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.
+Government schemes from https://www.myscheme.gov.in/. 
+Other agricultural information and advisories are expert-verified by Annam.ai. 
 
-                            Users should independently validate recommendations before acting."""
+Users should independently validate recommendations before acting."""
 
                         content += warning_text
                         
