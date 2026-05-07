@@ -1,6 +1,9 @@
 import asyncio
 import logging
+import os
 from typing import Annotated, Optional
+
+from motor.motor_asyncio import AsyncIOMotorClient
 
 from anthropic import APITimeoutError, APIConnectionError, APIStatusError
 from dotenv import load_dotenv
@@ -169,11 +172,101 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
         return {"messages": error_messages}
 
 
+_mongo_client = None
+
+def get_async_mongo_collection():
+    global _mongo_client
+    if _mongo_client is None:
+        _mongo_client = AsyncIOMotorClient(os.environ.get("GOLDEN_MONGODB_URI", ""))
+    db = _mongo_client["agriai"]
+    return db["questions"]
+
+async def exact_search_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
+    messages = state.get("messages", [])
+    if not messages:
+        return {"messages": []}
+        
+    last_message = messages[-1]
+    if isinstance(last_message, HumanMessage):
+        content = last_message.content
+        if isinstance(content, list):
+            query = " ".join([
+                b.get("text", "") if isinstance(b, dict) and b.get("type") == "text"
+                else str(b) if isinstance(b, str) else ""
+                for b in content
+            ]).strip()
+        else:
+            query = str(content).strip()
+        
+        collection = get_async_mongo_collection()
+        index_name = "review_questions_search_index"
+        
+        pipeline = [
+            {
+                "$search": {
+                    "index": index_name,
+                    "text": {
+                        "query": query,
+                        "path": ["question", "text"]
+                    }
+                }
+            },
+            {"$limit": 5},
+            {
+                "$lookup": {
+                    "from": "answers",
+                    "localField": "_id",
+                    "foreignField": "questionId",
+                    "as": "answer_docs"
+                }
+            },
+            {"$project": {"score": {"$meta": "searchScore"}, "question": 1, "answer": {"$arrayElemAt": ["$answer_docs.answer", 0]}}}
+        ]
+        
+        try:
+            cursor = collection.aggregate(pipeline)
+            results = await cursor.to_list(length=5)
+            
+            import string
+            import re
+            def normalize(t: str) -> str:
+                return re.sub(r'\s+', ' ', t.translate(str.maketrans('', '', string.punctuation)).lower()).strip()
+            
+            norm_query = normalize(query)
+            
+            for top_doc in results:
+                if normalize(top_doc.get("question", "")) == norm_query:
+                    answer = top_doc.get("answer", "")
+                    if answer:
+                        content = f"**Question:** {top_doc['question']}\n\n**Answer:** {answer}"
+                        return {"messages": [AIMessage(content=content)]}
+        except Exception as e:
+            logger.error("Error in exact_search_node: %s", e)
+            pass
+
+    return {"messages": []}
+
+def route_after_exact_search(state: AjraSakhaState) -> str:
+    messages = state.get("messages", [])
+    if not messages:
+        return "ajrasakha"
+    last_message = messages[-1]
+    if isinstance(last_message, AIMessage):
+        return END
+    return "ajrasakha"
+
+
 builder = StateGraph(AjraSakhaState)
+builder.add_node("exact_search", exact_search_node)
 builder.add_node("ajrasakha", ajrasakha_node)
 builder.add_node("tools", tools_node)
 
-builder.add_edge(START, "ajrasakha")
+builder.add_edge(START, "exact_search")
+builder.add_conditional_edges(
+    "exact_search", 
+    route_after_exact_search,
+    {END: END, "ajrasakha": "ajrasakha"}
+)
 builder.add_conditional_edges("ajrasakha", tools_condition)
 builder.add_edge("tools", "ajrasakha")
 
