@@ -293,6 +293,7 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
           totalAnswersCount: currentQuestion.totalAnswersCount,
           history: result,
+          pae_review: currentQuestion.pae_review,
           // currentAnswers: currentAnswers.map(currentAnswer => ({
           //   id: currentAnswer._id.toString(),
           //   answer: currentAnswer.answer,

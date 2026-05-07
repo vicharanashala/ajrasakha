@@ -44,6 +44,7 @@ export interface IReRouteService {
     updatedAt: string;
     totalAnswersCount: number;
     history: any;
+    pae_review: boolean;
   }>;
 
   /**
