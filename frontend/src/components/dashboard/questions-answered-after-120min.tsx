@@ -35,9 +35,21 @@ export const QuestionsAnsweredAfter120MinProps = ({
             </div>
             <span className="text-2xl font-bold">
               <CountUp end={whatsappCount} duration={2} preserveValue />
-            </span>
+            </span>      
           </div>
-
+        <div className={`mt-6 grid grid-cols-3 gap-3`}>
+          {questionsStateBreakdown?.map((item) => (
+            <div
+              key={item.status}
+              className="p-3 rounded-lg bg-muted text-center"
+            >
+              <p className="text-xs text-muted-foreground">{item.status}</p>
+              <p className="text-lg font-semibold text-foreground">
+                <CountUp end={item.count} duration={2} preserveValue />
+              </p>
+            </div>
+          ))}
+        </div>
           {/* Ajrasakha */}
           <div className="flex items-center justify-between p-4 rounded-lg bg-muted">
             <div className="flex items-center gap-3">
