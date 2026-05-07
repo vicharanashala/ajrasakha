@@ -45,7 +45,7 @@ def _render_message(message: Any) -> str:
 
 
 async def summarize_history(state: SummaryState) -> dict:
-    llm = ChatAnthropic(model="claude-3-haiku-20240307")
+    llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
     thread_messages = list(state.get("messages", []))
     rendered_messages: list[str] = []
 
