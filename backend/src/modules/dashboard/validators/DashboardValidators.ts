@@ -238,6 +238,9 @@ export class GoldenDataset {
 
   @JSONSchema({ description: 'Questions answered after 120 minutes by source' })
   questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Breakdown of question states with status and count' })
+  questionStateBreakdown?: { status: string; count: number }[];
 }
 
 export class QuestionContributionTrend {
