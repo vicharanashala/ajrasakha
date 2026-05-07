@@ -220,6 +220,7 @@ export const Dashboard = () => {
               <QuestionsAnsweredAfter120MinProps
                 whatsappCount={goldenData?.questionsAnsweredAfter120Min?.whatsapp??0}
                 ajrasakhaCount={goldenData?.questionsAnsweredAfter120Min?.ajrasakha??0}
+                questionsStateBreakdown={goldenData?.questionStateBreakdown}
               />
             
             </div>

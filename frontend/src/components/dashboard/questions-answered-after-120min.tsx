@@ -15,12 +15,8 @@ interface QuestionsAnsweredAfter120MinProps {
 export const QuestionsAnsweredAfter120MinProps = ({
   whatsappCount,
   ajrasakhaCount,
-}: QuestionsAnsweredAfter120MinProps) => {
-  let check = [
-    { status: "passed", value: whatsappCount },
-    { status: "delayed", value: ajrasakhaCount },
-    { status: "open", value: ajrasakhaCount }
-  ];
+  questionsStateBreakdown,
+}: QuestionsAnsweredAfter120MinProps & { questionsStateBreakdown?: { status: string; count: number }[] }) => {
   return (
     <Card>
       <CardHeader>
@@ -54,14 +50,14 @@ export const QuestionsAnsweredAfter120MinProps = ({
           </div>
         </div>
         <div className={`mt-6 grid grid-cols-3 gap-3`}>
-          {check.map((item) => (
+          {questionsStateBreakdown?.map((item) => (
             <div
               key={item.status}
               className="p-3 rounded-lg bg-muted text-center"
             >
               <p className="text-xs text-muted-foreground">{item.status}</p>
               <p className="text-lg font-semibold text-foreground">
-                <CountUp end={item.value} duration={2} preserveValue />
+                <CountUp end={item.count} duration={2} preserveValue />
               </p>
             </div>
           ))}
