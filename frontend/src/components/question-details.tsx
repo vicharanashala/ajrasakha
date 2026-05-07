@@ -72,6 +72,7 @@ export const QuestionDetails = ({
     () => flattenAnswers(question?.submission),
     [question.submission],
   );
+  console.log("Answers", answers);
   const [answerVisibleCount, setAnswerVisibleCount] =
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -149,6 +150,10 @@ export const QuestionDetails = ({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [hasNext, hasPrev, onNext, onPrev]);
+
+  useEffect(() => {
+    console.log("Open is set to", open);
+  }, [open]);
 
   return (
     <div className="relative w-full">
@@ -314,9 +319,15 @@ export const QuestionDetails = ({
                 )}
               </Button>
 
-              {currentUser.role !== "expert" && <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-                Manage History
-              </Button>}
+              {currentUser.role !== "expert" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setOpen(true)}
+                >
+                  Manage History
+                </Button>
+              )}
             </div>
           </div>
           <p
@@ -335,6 +346,15 @@ export const QuestionDetails = ({
 
             <span className="opacity-80">(or switch to desktop view)</span>
           </p>
+          <SubmissionHistoryModal
+            open={open}
+            onClose={() => setOpen(false)}
+            answers={answers}
+            question={question}
+            rerouteQuestion={reroutequestionDetails ?? undefined}
+            currentUser={currentUserId || currentUser._id?.toString()}
+            userRole={currentUser.role}
+          />
 
           {answers.length === 0 ? (
             <p className="text-sm text-muted-foreground  hidden md:block">
@@ -342,15 +362,6 @@ export const QuestionDetails = ({
             </p>
           ) : (
             <div className="hidden md:block">
-              <SubmissionHistoryModal
-                open={open}
-                onClose={() => setOpen(false)}
-                answers={answers}
-                question={question}
-                rerouteQuestion = {reroutequestionDetails ?? undefined}
-                currentUser={currentUserId || currentUser._id?.toString()}
-                 userRole={currentUser.role}
-              />
               {/* <SubmissionTimeline /> */}
               <AnswerTimeline
                 answerVisibleCount={answerVisibleCount}
