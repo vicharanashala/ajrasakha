@@ -2218,9 +2218,9 @@ export class QuestionRepository implements IQuestionRepository {
     const totalVerifiedByType = formattedData.reduce((sum, m) => sum + m.verified, 0);
 
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate);
-    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate);
-    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate);
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
+    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
+    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
     
     return { yearData: formattedData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
   }
@@ -2306,12 +2306,35 @@ export class QuestionRepository implements IQuestionRepository {
     };
   }
 
-  async getQuestionSourceBreakdown(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<{ whatsapp: number; ajrasakha: number }> {
+  async getQuestionSourceBreakdown(session?: ClientSession, startDate?: Date, endDate?: Date, customStartTime?: string, customEndTime?: string): Promise<{ whatsapp: number; ajrasakha: number }> {
     await this.init();
 
     const matchCondition: any = {};
     if (startDate && endDate) {
       matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+    }
+
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+      
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
     }
 
     const sourceBreakdown = await this.QuestionCollection.aggregate(
@@ -2333,7 +2356,7 @@ export class QuestionRepository implements IQuestionRepository {
     return { whatsapp, ajrasakha };
   }
 
-  async getQuestionsAnsweredWithin120Minutes(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<{ whatsapp: number; ajrasakha: number }> {
+  async getQuestionsAnsweredWithin120Minutes(session?: ClientSession, startDate?: Date, endDate?: Date, customStartTime?: string, customEndTime?: string): Promise<{ whatsapp: number; ajrasakha: number }> {
     await this.init();
 
     const matchCondition: any = {
@@ -2344,6 +2367,29 @@ export class QuestionRepository implements IQuestionRepository {
 
     if (startDate && endDate) {
       matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+    }
+
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+      
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
     }
 
     const result = await this.QuestionCollection.aggregate(
@@ -2380,7 +2426,7 @@ export class QuestionRepository implements IQuestionRepository {
     return { whatsapp, ajrasakha };
   }
 
-  async getAverageResponseTime(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<{ whatsapp: number; ajrasakha: number }> {
+  async getAverageResponseTime(session?: ClientSession, startDate?: Date, endDate?: Date, customStartTime?: string, customEndTime?: string): Promise<{ whatsapp: number; ajrasakha: number }> {
     await this.init();
 
     const matchCondition: any = {
@@ -2391,6 +2437,30 @@ export class QuestionRepository implements IQuestionRepository {
 
     if (startDate && endDate) {
       matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+    }
+
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+      
+      matchCondition.$expr = {
+        $and: [
+          ...(matchCondition.$expr?.$and || []),
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
     }
 
     const result = await this.QuestionCollection.aggregate(
@@ -2524,9 +2594,9 @@ export class QuestionRepository implements IQuestionRepository {
     const totalVerifiedByType = weeksDataRaw.reduce((acc, curr) => acc + (curr.totalVerified || 0), 0);
 
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate);
-    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate);
-    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate);
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
+    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
+    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
 
     return { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
   }
@@ -2637,9 +2707,9 @@ export class QuestionRepository implements IQuestionRepository {
     const totalVerifiedByType = dailyDataRaw.reduce((acc, curr) => acc + curr.totalVerified, 0);
 
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate);
-    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate);
-    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate);
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
+    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
+    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
     
     return { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
   }
@@ -2845,9 +2915,9 @@ export class QuestionRepository implements IQuestionRepository {
       specificDayEnd.setDate(specificDayEnd.getDate() + 1);
       const result = await this.getTodayApproved(session, specificDayStart, specificDayEnd);
       moderatorBreakdown = result.moderatorBreakdown || [];
-      questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, specificDayStart, specificDayEnd);
-      questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, specificDayStart, specificDayEnd);
-      averageResponseTime = await this.getAverageResponseTime(session, specificDayStart, specificDayEnd);
+      questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, specificDayStart, specificDayEnd, customStartTime, customEndTime);
+      questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, specificDayStart, specificDayEnd, customStartTime, customEndTime);
+      averageResponseTime = await this.getAverageResponseTime(session, specificDayStart, specificDayEnd, customStartTime, customEndTime);
     }
 
     return {
