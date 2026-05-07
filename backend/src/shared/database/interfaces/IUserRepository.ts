@@ -92,7 +92,6 @@ export interface IUserRepository {
 
   findActiveLowReputationExpertsToday(
     session?: ClientSession,
-    scoreLimit?: number,
   ): Promise<IUser[]>;
 
   /**

@@ -707,7 +707,6 @@ export class UserRepository implements IUserRepository {
   }
   async findActiveLowReputationExpertsToday(
     session?: ClientSession,
-    scoreLimit: number = 5,
   ): Promise<IUser[]> {
     await this.init();
 
@@ -723,7 +722,6 @@ export class UserRepository implements IUserRepository {
         {
           role: 'expert',
           isBlocked: false,
-          reputation_score: { $lte: scoreLimit },
           lastCheckInAt: { $gte: startOfDay, $lt: startOfTomorrow },
         },
         { session },
