@@ -62,13 +62,17 @@ const notificationService = new NotificationService(notificationRepo, database);
       const now = new Date();
       const expertId = job.expertId;
 
-      // 🟢 TYPE A
+      // The current expert index is equal to the number of completed history entries
+      const currentExpertIndex = history.length;
+      const currentExpertInQueue = queue[currentExpertIndex]?.toString();
+
+      // 🟢 CASE: Initial Authoring (No history yet)
       if (history.length === 0) {
         const firstExpert = queue[0]?.toString();
         if (firstExpert) await userRepo.updateReputationScore(firstExpert, false);
 
         await submissionRepo.updateById(job.submissionId, {
-          $set: { queue: [new ObjectId(expertId)], updatedAt: now ,createdAt: now},
+          $set: { queue: [new ObjectId(expertId)], updatedAt: now, createdAt: now },
         });
 
         await userRepo.updateReputationScore(expertId, true);
@@ -80,33 +84,37 @@ const notificationService = new NotificationService(notificationRepo, database);
           expertId,
           'answer_creation'
         );
+        console.log(`✅ Worker: Successfully reallocated Authoring for ${job.submissionId}`);
       }
-
-      // 🔵 TYPE B
+      // 🔵 CASE: Subsequent Reviewing (Has history)
       else {
         const lastHistory = history[history.length - 1];
+        const stuckExpertId = currentExpertInQueue;
 
-        if (lastHistory?.status === 'in-review') {
-          const stuckExpertId = lastHistory.updatedBy?.toString();
+        // If the current expert in queue is the one being replaced
+        if (stuckExpertId) {
+          const stuckIndex = currentExpertIndex;
+          const newQueue = [...queue];
+          newQueue[stuckIndex] = new ObjectId(expertId);
 
-          const stuckIndex = queue.findIndex(q => q.toString() === stuckExpertId);
-          const newQueue = stuckIndex > -1 ? queue.slice(0, stuckIndex) : [];
-
-          newQueue.push(new ObjectId(expertId));
-
-          const updatedHistory = history.slice(0, -1);
-          updatedHistory.push({
-            updatedBy: new ObjectId(expertId),
-            status: 'in-review',
-            createdAt: now,
-            updatedAt: now,
-          });
+          const updatedHistory = [...history];
+          
+          // If the last history entry was 'in-review' for the stuck expert, replace it
+          if (lastHistory?.status === 'in-review' && lastHistory.updatedBy?.toString() === stuckExpertId) {
+            updatedHistory[updatedHistory.length - 1] = {
+              ...lastHistory,
+              updatedBy: new ObjectId(expertId),
+              updatedAt: now,
+            };
+          } else {
+            // Otherwise, just update the queue; the new expert will create their own 'in-review' entry
+          }
 
           await submissionRepo.updateById(job.submissionId, {
             $set: { queue: newQueue, history: updatedHistory, updatedAt: now },
           });
 
-          if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
+          await userRepo.updateReputationScore(stuckExpertId, false);
           await userRepo.updateReputationScore(expertId, true);
 
           await notificationService.saveTheNotifications(
@@ -116,6 +124,7 @@ const notificationService = new NotificationService(notificationRepo, database);
             expertId,
             'peer_review'
           );
+          console.log(`✅ Worker: Successfully reallocated Review for ${job.submissionId}`);
         }
       }
 

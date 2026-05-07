@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,62 +75,75 @@ export const ConfirmationModal = ({
         <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
       ) : null}
       <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="text-pretty">{title}</AlertDialogTitle>
-          {description ? (
-            <AlertDialogDescription className="text-pretty">
-              {description}
-            </AlertDialogDescription>
-          ) : null}
-        </AlertDialogHeader>
-        <AlertDialogFooter className="flex flex-wrap gap-2 sm:gap-0">
+        <div className="relative w-full">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{cancelText}</AlertDialogCancel>
+                <AlertDialogCancel
+                  className="absolute -right-2 -top-2 p-2 rounded-full hover:bg-muted border-none bg-transparent transition-colors z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenChange) onOpenChange(false);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </AlertDialogCancel>
               </TooltipTrigger>
-              {cancelTooltip && <TooltipContent>{cancelTooltip}</TooltipContent>}
+              <TooltipContent side="left">
+                {cancelTooltip || cancelText}
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
-          {secondaryConfirmText && onSecondaryConfirm && (
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-pretty">{title}</AlertDialogTitle>
+            {description ? (
+              <AlertDialogDescription className="text-pretty">
+                {description}
+              </AlertDialogDescription>
+            ) : null}
+          </AlertDialogHeader>
+          
+          <AlertDialogFooter className="flex flex-row items-center justify-end gap-3 mt-4">
+            {secondaryConfirmText && onSecondaryConfirm && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogAction
+                      className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2.5 rounded-lg text-sm font-semibold transition-all ${secondaryConfirmButtonClass}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSecondaryConfirm();
+                      }}
+                      disabled={secondaryIsLoading || isLoading}
+                    >
+                      {secondaryIsLoading ? `${secondaryConfirmText}...` : secondaryConfirmText}
+                    </AlertDialogAction>
+                  </TooltipTrigger>
+                  {secondaryConfirmTooltip && <TooltipContent>{secondaryConfirmTooltip}</TooltipContent>}
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertDialogAction
-                    className={`flex items-center justify-center px-4 py-2 rounded ${secondaryConfirmButtonClass}`}
+                    className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2.5 rounded-lg text-sm font-semibold transition-all ${confirmButtonClass}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onSecondaryConfirm();
+                      onConfirm()
                     }}
-                    disabled={secondaryIsLoading || isLoading}
+                    disabled={isLoading || secondaryIsLoading}
                   >
-                    {secondaryIsLoading ? `${secondaryConfirmText}...` : secondaryConfirmText}
+                    {isLoading ? `${confirmText}...` : confirmText}
                   </AlertDialogAction>
                 </TooltipTrigger>
-                {secondaryConfirmTooltip && <TooltipContent>{secondaryConfirmTooltip}</TooltipContent>}
+                {confirmTooltip && <TooltipContent>{confirmTooltip}</TooltipContent>}
               </Tooltip>
             </TooltipProvider>
-          )}
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <AlertDialogAction
-                  className={`flex items-center justify-center px-4 py-2 rounded  ${confirmButtonClass}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onConfirm()
-                  }}
-                  disabled={isLoading || secondaryIsLoading}
-                >
-                  {isLoading ? `${confirmText}...` : confirmText}
-                </AlertDialogAction>
-              </TooltipTrigger>
-              {confirmTooltip && <TooltipContent>{confirmTooltip}</TooltipContent>}
-            </Tooltip>
-          </TooltipProvider>
-        </AlertDialogFooter>
+          </AlertDialogFooter>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );
