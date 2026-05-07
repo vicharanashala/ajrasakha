@@ -38,6 +38,7 @@ import {
 import CountUp from "react-countup";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import { Spinner } from "@/components/atoms/spinner";
+import { TimePicker } from "./time-picker";
 
 
 const monthNames = [
@@ -313,48 +314,48 @@ export const GoldenDatasetOverview = ({
               <CardDescription>{getChartLabel()}</CardDescription>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setViewType("year")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewType === "year"
-                    ? "bg-primary text-white"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Year
-              </button>
-              <button
-                onClick={() => setViewType("month")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewType === "month"
-                    ? "bg-primary text-white"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Month
-              </button>
-              <button
-                onClick={() => setViewType("week")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewType === "week"
-                    ? "bg-primary text-white"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setViewType("day")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewType === "day"
-                    ? "bg-primary text-white"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Day
-              </button>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setViewType("year")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewType === "year"
+                  ? "bg-primary text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+            >
+              Year
+            </button>
+            <button
+              onClick={() => setViewType("month")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewType === "month"
+                  ? "bg-primary text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+            >
+              Month
+            </button>
+            <button
+              onClick={() => setViewType("week")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewType === "week"
+                  ? "bg-primary text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setViewType("day")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewType === "day"
+                  ? "bg-primary text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+            >
+              Day
+            </button>
+          </div>
           </div>
 
           <div className="flex flex-wrap gap-3 mt-4">
@@ -421,26 +422,18 @@ export const GoldenDatasetOverview = ({
               </Select>
             )}
 
-            {/* Time Range Buttons */}
-            <div className="flex gap-3 items-center ml-auto border-l pl-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-foreground">Start Time</label>
-                <input
-                  type="time"
-                  value={customStartDateTime || ""}
-                  onChange={(e) => setCustomStartDateTime(e.target.value)}
-                  className="px-4 py-2.5 rounded-md border-2 border-input bg-background text-sm font-medium hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer min-w-[140px]"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-foreground">End Time</label>
-                <input
-                  type="time"
-                  value={customEndDateTime || ""}
-                  onChange={(e) => setCustomEndDateTime(e.target.value)}
-                  className="px-4 py-2.5 rounded-md border-2 border-input bg-background text-sm font-medium hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer min-w-[140px]"
-                />
-              </div>
+            {/* Time Range Filters */}
+            <div className="flex gap-3 items-center ml-auto">
+              <TimePicker
+                value={customStartDateTime || ""}
+                onChange={setCustomStartDateTime}
+                label="Start Time"
+              />
+              <TimePicker
+                value={customEndDateTime || ""}
+                onChange={setCustomEndDateTime}
+                label="End Time"
+              />
             </div>
           </div>
         </CardHeader>
