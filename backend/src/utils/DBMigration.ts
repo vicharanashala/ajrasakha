@@ -184,3 +184,17 @@ export const restoreBackupBson = async ({
     fs.rmSync(tempDir, {recursive: true, force: true});
   }
 };
+
+  // cotroller method for restore from zip (calls restoreCollectionBSON internally)
+  // @Post('/restore-json-from-zip')
+  // @HttpCode(200)
+  // @OpenAPI({ summary: 'Restore collection using existing JSON restore logic' })
+  // async restoreJsonFromZip(
+  //   @Body()
+  //   body: {
+  //     fileName: string;        // agriai__06-05-2026.zip
+  //     collectionName: string;  // users / questions
+  //   },
+  // ) {
+  // //  return await restoreBackupBson(body);
+  // }

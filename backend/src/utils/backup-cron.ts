@@ -81,9 +81,7 @@ export const createClusterBackup = async (mongoUri: string) => {
     for (const dbName of ALL_DBS) {
       try {
         console.log(`\n➡️ Processing DB: ${dbName}`);
-        // if(dbName === 'prod_copy_db') {
-        //   throw new Error(`Skipping DB ${dbName} for validating failure email`);
-        // }
+
         const zipFileName = `${dbName}__${timestamp}.zip`;
 
         // Skip if already exists
@@ -126,10 +124,7 @@ export const createClusterBackup = async (mongoUri: string) => {
           console.log(`Exporting ${col}.json ...`);
           await new Promise((resolve, reject) => {
             exec(
-              `mongoexport --uri="${mongoUri}" --db="${dbName}" --collection="${col}" --out="${path.join(
-                jsonFolder,
-                col + '.json',
-              )}" --jsonArray`,
+              `mongoexport --uri="${mongoUri}" --db="${dbName}" --collection="${col}" --out="${path.join(jsonFolder, col + '.json',)}" --jsonArray`,
               err => {
                 if (err) return reject(err);
                 resolve(true);
@@ -217,9 +212,9 @@ export const createClusterBackup = async (mongoUri: string) => {
     }
     console.log('📧 Sending daily stats email...');
     await sendStatsEmail();
-   // throw new Error('Simulated error after email');
   } catch (err) {
     await sendBackupFailureEmail('Cluster Backup', err);
     console.error('Unexpected error in backup process:', err);
+    throw err;
   }
 };

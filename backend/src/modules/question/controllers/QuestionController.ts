@@ -1469,18 +1469,4 @@ export class QuestionController {
     return result;
   }
 
-
-  // @Post('/restore-json-from-zip')
-  // @HttpCode(200)
-  // @OpenAPI({ summary: 'Restore collection using existing JSON restore logic' })
-  // async restoreJsonFromZip(
-  //   @Body()
-  //   body: {
-  //     fileName: string;        // agriai__06-05-2026.zip
-  //     collectionName: string;  // users / questions
-  //   },
-  // ) {
-  // //  return await restoreBackupBson(body);
-  // }
-
 }
