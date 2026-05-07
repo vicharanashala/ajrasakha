@@ -1,6 +1,6 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert';
 export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted'|'draft'| 'pass' | 'duplicate';
 export interface IPreference {
   state: string;
