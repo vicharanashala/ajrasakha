@@ -1298,12 +1298,23 @@ export class QuestionService extends BaseService implements IQuestionService {
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
-    if (question.status !== 'open' && question.status !== 'delayed') {
+    if (question.status !== 'open' && question.status !== 'delayed' && question.status!=='draft') {
       console.log(
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
       return { data: [], status: false };
     }
+    if(question.status=="draft")
+        {
+          await this.questionRepo.updateQuestion(
+            questionId,
+            {
+              status:"open",
+             
+            },
+            session,
+          );
+       }
 
     const details = question.details as PreferenceDto;
 
@@ -1507,6 +1518,17 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
+        if(question.status=="draft")
+        {
+          await this.questionRepo.updateQuestion(
+            questionId,
+            {
+              status:"open",
+             
+            },
+            session,
+          );
+       }
 
         const updated = await this.questionRepo.updateAutoAllocate(
           questionId,
@@ -1584,13 +1606,23 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-
-        if (question.status !== 'open' && question.status !== 'delayed') {
+        if (question.status !== 'open' && question.status !== 'delayed'&& question.status!=='draft') {
           console.log(
             'This question is currently being in reviewe or has been closed. Please check back later!',
           );
           return;
         }
+        if(question.status=="draft")
+        {
+          await this.questionRepo.updateQuestion(
+            questionId,
+            {
+              status:"open",
+             
+            },
+            session,
+          );
+       }
 
         //2. Validate question submission existence
         let questionSubmission =
