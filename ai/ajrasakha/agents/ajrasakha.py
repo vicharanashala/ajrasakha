@@ -1,8 +1,11 @@
+import asyncio
+import logging
 from typing import Annotated, Optional
 
+from anthropic import APITimeoutError, APIConnectionError, APIStatusError
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -91,13 +94,41 @@ async def _get_reviewer_tool():
         _reviewer_tool = tools[0]  # only one tool
     return _reviewer_tool
 
+# Fallback message returned when the LLM call fails — keeps the checkpoint
+# clean so the thread history is never corrupted.
+_LLM_FALLBACK_MSG = (
+    "माफ़ कीजिये, अभी मेरा connection ठीक नहीं है। "
+    "कृपया थोड़ी देर में फिर से पूछें। 🙏"
+)
+
+logger = logging.getLogger(__name__)
+
+
 async def ajrasakha_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
     location = await _get_location_tool()
     reviewer = await _get_reviewer_tool()
     enriched_config = patch_config(config, configurable={"location": state.get("location")})
     llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer])
     messages = [SystemMessage(content=WHATSAPP_SYSTEM_PROMPT)] + list(state["messages"])
-    response = await llm.ainvoke(messages)
+
+    try:
+        response = await llm.ainvoke(messages)
+    except (asyncio.CancelledError, TimeoutError, APITimeoutError,
+            APIConnectionError) as exc:
+        logger.warning(
+            "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
+            type(exc).__name__, exc,
+        )
+        return {"messages": [AIMessage(content=_LLM_FALLBACK_MSG)]}
+    except APIStatusError as exc:
+        if exc.status_code >= 500:
+            logger.warning(
+                "Anthropic server error (%s) — returning safe fallback",
+                exc.status_code,
+            )
+            return {"messages": [AIMessage(content=_LLM_FALLBACK_MSG)]}
+        raise  # 4xx errors (auth, rate-limit) should still propagate
+
     return {"messages": [response]}
 
 
@@ -107,39 +138,35 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
 
     enriched_config = patch_config(config, configurable={"location": state.get("location")})
 
-    import asyncio
-    from langchain_core.messages import ToolMessage
-    
-    tool_node = ToolNode([gdb,weather,soil,market, location, schemes, chemical_checker, reviewer])
-    
     try:
-        coro = tool_node.ainvoke(state, config=enriched_config)
-        return await asyncio.wait_for(asyncio.shield(coro), timeout=60.0)
-    except (asyncio.CancelledError, Exception) as e:
-        is_cancel = isinstance(e, asyncio.CancelledError)
-        if is_cancel:
-            task = asyncio.current_task()
-            if task and hasattr(task, "uncancel"):
-                task.uncancel()
-        
-        err_msg = "⚠️ The request was cancelled or timed out." if is_cancel else f"⚠️ Tool execution failed: {type(e).__name__}"
-        
-        last_message = state["messages"][-1]
-        tool_messages = []
-        if hasattr(last_message, "tool_calls"):
-            for tc in last_message.tool_calls:
-                tool_messages.append(
-                    ToolMessage(
-                        tool_call_id=tc["id"],
-                        name=tc["name"],
-                        content=err_msg
-                    )
-                )
-        if tool_messages:
-            return {"messages": tool_messages}
-        if is_cancel:
-            raise e
-        return {"messages": []}
+        return await ToolNode([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer]).ainvoke(state)
+    except Exception as exc:
+        logger.error(
+            "ToolNode execution failed (%s: %s) — injecting error tool messages "
+            "to keep history valid",
+            type(exc).__name__, exc,
+        )
+        # Build synthetic ToolMessage responses for each pending tool_call
+        # so the message history stays valid (every tool_use gets a tool response).
+        last_ai = state["messages"][-1]
+        error_messages = []
+        if hasattr(last_ai, "tool_calls") and last_ai.tool_calls:
+            for tc in last_ai.tool_calls:
+                error_messages.append(ToolMessage(
+                    content=(
+                        f"Tool execution failed: {type(exc).__name__}. "
+                        "Please inform the user that the service is temporarily unavailable."
+                    ),
+                    tool_call_id=tc["id"],
+                    name=tc["name"],
+                ))
+        if not error_messages:
+            # Shouldn't happen, but guard against edge cases
+            error_messages.append(ToolMessage(
+                content=f"Tool execution failed: {type(exc).__name__}",
+                tool_call_id="unknown",
+            ))
+        return {"messages": error_messages}
 
 
 builder = StateGraph(AjraSakhaState)

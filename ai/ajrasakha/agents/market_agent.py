@@ -45,46 +45,35 @@ async def _get_market_agent():
 
 class MarketInput(BaseModel):
     query: str        # e.g., "What is the current price of rice in Rangareddy?"
-    state: Optional[str] = None        # e.g., "Telangana"
-    district: Optional[str] = None     # e.g., "Rangareddy"
-    crop: Optional[str] = None         # e.g., "Rice"
+    state: str        # e.g., "Telangana"
+    district: str     # e.g., "Rangareddy"
+    crop: str         # e.g., "Rice"
     date: str | None = None  # Optional: "YYYY-MM-DD", defaults to today if omitted
 
 
 @tool(args_schema=MarketInput)
-async def market(query: str, state: Optional[str], district: Optional[str], crop: Optional[str], date: str | None, config: RunnableConfig) -> str:
-    injected: dict = (config.get("configurable") or {}).get("location") or {}
-    state = state or injected.get("state") or "unknown"
-    district = district or injected.get("district") or injected.get("city") or "unknown"
-    crop = crop or "unknown"
+async def market(query: str, state: str, district: str, crop: str, date: str | None, config: RunnableConfig) -> str:
     """
     Query the market price agent.
     Use when the user asks for mandi prices, APMC rates, or commodity arrivals.
     Always pass the user's state, district, crop of interest, and a focused query.
     """
-    context = f"""
+    try:
+        context = f"""
     State   : {state}
     District: {district}
     Crop    : {crop}
     Date    : {date or "today"}
 
     Query: {query}
-    """.strip()
+        """.strip()
 
-    import asyncio
-    agent = await _get_market_agent()
-    try:
-        coro = agent.ainvoke(
+        agent = await _get_market_agent()
+        result = await agent.ainvoke(
             {"messages": [HumanMessage(content=context)]},
             config=config
         )
-        result = await asyncio.wait_for(asyncio.shield(coro), timeout=45.0)
         return result["messages"][-1].content
-    except asyncio.CancelledError:
-        task = asyncio.current_task()
-        if task and hasattr(task, "uncancel"):
-            task.uncancel()
-        return "⚠️ The request was cancelled."
     except Exception as exc:
         import logging
         logging.getLogger(__name__).error("market sub-agent failed: %s", exc)
