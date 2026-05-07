@@ -100,8 +100,8 @@ async def _get_reviewer_tool():
 # Fallback message returned when the LLM call fails — keeps the checkpoint
 # clean so the thread history is never corrupted.
 _LLM_FALLBACK_MSG = (
-    "माफ़ कीजिये, अभी मेरा connection ठीक नहीं है। "
-    "कृपया थोड़ी देर में फिर से पूछें। 🙏"
+    "I'm sorry, my connection is not working properly right now. "
+    "Please try asking again after some time. 🙏"
 )
 
 logger = logging.getLogger(__name__)
@@ -220,7 +220,23 @@ async def exact_search_node(state: AjraSakhaState, config: RunnableConfig) -> di
                     "as": "answer_docs"
                 }
             },
-            {"$project": {"score": {"$meta": "searchScore"}, "question": 1, "answer": {"$arrayElemAt": ["$answer_docs.answer", 0]}}}
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "answer_docs.authorId",
+                    "foreignField": "_id",
+                    "as": "author_docs"
+                }
+            },
+            {
+                "$project": {
+                    "score": {"$meta": "searchScore"},
+                    "question": 1,
+                    "answer": {"$arrayElemAt": ["$answer_docs.answer", 0]},
+                    "sources": {"$arrayElemAt": ["$answer_docs.sources", 0]},
+                    "author_name": {"$arrayElemAt": ["$author_docs.firstName", 0]}
+                }
+            }
         ]
         
         try:
@@ -237,8 +253,39 @@ async def exact_search_node(state: AjraSakhaState, config: RunnableConfig) -> di
             for top_doc in results:
                 if normalize(top_doc.get("question", "")) == norm_query:
                     answer = top_doc.get("answer", "")
+                    sources = top_doc.get("sources", [])
+                    author_name = top_doc.get("author_name", "")
+                    
                     if answer:
-                        content = f"**Question:** {top_doc['question']}\n\n**Answer:** {answer}"
+                        content = f"{answer}\n\n"
+                        
+                        if author_name:
+                            content += f"**Expert:** {author_name}\n"
+                            
+                        if sources:
+                            content += "**Sources:**\n"
+                            for s in sources:
+                                src_name = s.get("source_name", "Link")
+                                src_link = s.get("source", "")
+                                if src_link:
+                                    content += f"- [{src_name}]({src_link})\n"
+                                else:
+                                    content += f"- {src_name}\n"
+                        
+                        warning_text = """\n⚠️ *Important Notice (Testing)* ⚠️
+
+                            This AjraSakha application is under development and intended only for testing and validation. 
+                            Advisories are experimental and currently cover major crops in selected states. 
+                            Weather data is sourced from IMD.
+                            Market data from eNAM, Agmarknet, and State APMCs.
+                            Soil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.
+                            Government schemes from https://www.myscheme.gov.in/. 
+                            Other agricultural information and advisories are expert-verified by Annam.ai. 
+
+                            Users should independently validate recommendations before acting."""
+
+                        content += warning_text
+                        
                         return {"messages": [AIMessage(content=content)]}
         except Exception as e:
             logger.error("Error in exact_search_node: %s", e)
