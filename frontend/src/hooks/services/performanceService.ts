@@ -91,6 +91,8 @@ export class PerformaneService {
     selectedMonth?: string;
     selectedWeek?: string;
     selectedDay?: string;
+    customStartDateTime?: string;
+    customEndDateTime?: string;
   }): Promise<GoldenDataset | null> {
     const params = new URLSearchParams();
     params.append("viewType", query.viewType);
@@ -99,6 +101,10 @@ export class PerformaneService {
       params.append("selectedMonth", query.selectedMonth);
     if (query.selectedWeek) params.append("selectedWeek", query.selectedWeek);
     if (query.selectedDay) params.append("selectedDay", query.selectedDay);
+    if (query.customStartDateTime)
+      params.append("customStartDateTime", query.customStartDateTime);
+    if (query.customEndDateTime)
+      params.append("customEndDateTime", query.customEndDateTime);
 
     return apiFetch<GoldenDataset>(
       `${this._baseUrl}/golden-dataset?${params.toString()}`

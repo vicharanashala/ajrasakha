@@ -87,6 +87,10 @@ export interface GoldenDatasetOverviewProps {
   setSelectedWeek: (w: string) => void;
   selectedDay: string;
   setSelectedDay: (d: string) => void;
+  customStartDateTime?: string;
+  setCustomStartDateTime: (d: string) => void;
+  customEndDateTime?: string;
+  setCustomEndDateTime: (d: string) => void;
 }
 
 export const GoldenDatasetOverview = ({
@@ -102,6 +106,10 @@ export const GoldenDatasetOverview = ({
   setSelectedWeek,
   selectedDay,
   setSelectedDay,
+  customStartDateTime,
+  setCustomStartDateTime,
+  customEndDateTime,
+  setCustomEndDateTime,
 }: GoldenDatasetOverviewProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -155,11 +163,16 @@ export const GoldenDatasetOverview = ({
   };
 
   const getChartLabel = () => {
-    if (viewType === "year") return "Monthly Overview - All 12 Months";
-    if (viewType === "month") return `${selectedMonth} - Weekly Breakdown`;
-    if (viewType === "week")
-      return `${selectedMonth} ${selectedWeek} - Daily Breakdown`;
-    return `${selectedMonth} ${selectedWeek} ${selectedDay} - Hourly Breakdown`;
+    let baseLabel = "";
+    if (viewType === "year") baseLabel = "Monthly Overview - All 12 Months";
+    else if (viewType === "month") baseLabel = `${selectedMonth} - Weekly Breakdown`;
+    else if (viewType === "week") baseLabel = `${selectedMonth} ${selectedWeek} - Daily Breakdown`;
+    else if (viewType === "day") baseLabel = `${selectedMonth} ${selectedWeek} ${selectedDay} - Hourly Breakdown`;
+    
+    if (customStartDateTime && customEndDateTime) {
+      return `${baseLabel} (${customStartDateTime} - ${customEndDateTime})`;
+    }
+    return baseLabel;
   };
 
   const chartData = getChartData();
@@ -344,9 +357,6 @@ export const GoldenDatasetOverview = ({
             </div>
           </div>
 
-          {/* {(viewType === "month" ||
-            viewType === "week" ||
-            viewType === "day") && ( */}
           <div className="flex flex-wrap gap-3 mt-4">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
               <SelectTrigger className="w-[120px]">
@@ -410,8 +420,29 @@ export const GoldenDatasetOverview = ({
                 </SelectContent>
               </Select>
             )}
+
+            {/* Time Range Buttons */}
+            <div className="flex gap-3 items-center ml-auto border-l pl-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-foreground">Start Time</label>
+                <input
+                  type="time"
+                  value={customStartDateTime || ""}
+                  onChange={(e) => setCustomStartDateTime(e.target.value)}
+                  className="px-4 py-2.5 rounded-md border-2 border-input bg-background text-sm font-medium hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer min-w-[140px]"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-foreground">End Time</label>
+                <input
+                  type="time"
+                  value={customEndDateTime || ""}
+                  onChange={(e) => setCustomEndDateTime(e.target.value)}
+                  className="px-4 py-2.5 rounded-md border-2 border-input bg-background text-sm font-medium hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer min-w-[140px]"
+                />
+              </div>
+            </div>
           </div>
-          {/* )} */}
         </CardHeader>
 
                 <CardContent className="relative min-h-[350px]">

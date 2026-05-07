@@ -95,6 +95,8 @@ export const useGetGoldenDataset = (query: {
   selectedMonth?: string;
   selectedWeek?: string;
   selectedDay?: string;
+  customStartDateTime?: string;
+  customEndDateTime?: string;
 }) => {
   return useQuery({
     queryKey: ["dashboard", "golden-dataset", query],
