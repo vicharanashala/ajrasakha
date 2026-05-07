@@ -1638,7 +1638,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         // let submission
         if (!questionSubmission) {
-          if (question.source == "WHATSAPP") {
+          if (question.source == "WHATSAPP" || question.status === 'draft') {
             const newSubmission: IQuestionSubmission = {
               questionId: new ObjectId(questionId),
               lastRespondedBy: null,
@@ -1648,13 +1648,9 @@ export class QuestionService extends BaseService implements IQuestionService {
               updatedAt: new Date(),
             };
             questionSubmission = await this.questionSubmissionRepo.addSubmission(newSubmission, session);
-
-          }
-          else {
+          } else {
             throw new NotFoundError('Question submission not found');
           }
-
-
         }
 
 

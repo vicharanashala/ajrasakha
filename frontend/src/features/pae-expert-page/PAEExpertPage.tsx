@@ -225,12 +225,6 @@ export const PAEExpertPage = () => {
 
     const answerToSubmit = overrideAnswer ?? newAnswer;
 
-    const requiresSources = !status || status === "rejected" || status === "modified";
-    if (requiresSources && !overrideAnswer && sources.length === 0) {
-      toast.error("At least one source is required!");
-      return;
-    }
-
     if (!status) {
       payload.answer = answerToSubmit;
       payload.sources = overrideAnswer ? [] : sources;
