@@ -466,6 +466,7 @@ export interface IQuestionFullData {
   referenceQuestion?:string
   referenceSource?: string;
   originalQuestion?: string;
+  closedAt?: string;
 }
 
 export interface QuestionFullDataResponse {

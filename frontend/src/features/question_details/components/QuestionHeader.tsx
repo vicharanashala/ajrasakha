@@ -70,6 +70,38 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
   const isQuestionOnHold = question.isOnHold;
   const originalQuestion = question.originalQuestion?.trim();
 
+  const sortedHistory = [...(question?.submission?.history || [])].sort(
+    (a, b) =>
+      new Date(a.updatedAt).getTime() -
+      new Date(b.updatedAt).getTime()
+  );
+
+  const latestHistory =
+    sortedHistory.length > 0
+      ? sortedHistory[sortedHistory.length - 1]
+      : null;
+
+  const diffMs =
+    latestHistory && question?.closedAt
+      ? new Date(question.closedAt).getTime() -
+        new Date(latestHistory.updatedAt).getTime()
+      : null;
+
+  const formattedTime = (() => {
+    if (diffMs === null || diffMs <= 0) {
+      return "N/A";
+    }
+
+    const totalMinutes = Math.round(diffMs / (1000 * 60));
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    return hours > 0
+      ? `${hours} hour${hours > 1 ? "s" : ""} ${minutes} minute${minutes !== 1 ? "s" : ""}`
+      : `${minutes} minute${minutes !== 1 ? "s" : ""}`;
+  })();
+
   return (
     <>
       <header className="grid gap-3 w-full">
@@ -129,6 +161,7 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
         </div>
 
         {/* Status + Priority + Total answers */}
+        <div className="flex flex-wrap items-center gap-4 justify-between">
         <div className="flex flex-wrap items-center gap-2">
           {
             isDuplicate && (
@@ -171,12 +204,45 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
             Total answers: {question.totalAnswersCount}
           </span>
         </div>
+        {(question?.status === "closed" &&
+          (currentUser.role === "moderator" ||
+            currentUser.role === "admin")) && (
+          <div>
+            <div className="text-sm">
+              {question?.closedAt && (
+                <span>
+                  The Question was closed at:{" "}
+                  {new Date(question.closedAt).toLocaleString()}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+        </div>
 
         {/* Created / Updated */}
+        <div className="flex flex-wrap items-center gap-4 justify-between">
         <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
           <span>Created: {formatDate(new Date(question.createdAt))}</span>
           <span>•</span>
           <span>Updated: {formatDate(new Date(question.updatedAt))}</span>
+        </div>
+        <div>
+        {(question?.status === "closed" &&
+          (currentUser.role === "moderator" ||
+            currentUser.role === "admin")) && (
+          <div className="text-sm">
+            {question?.closedAt && (
+              <div >
+                Moderator TAT:{" "}
+                {(latestHistory && diffMs) && diffMs > 0
+                  ? formattedTime
+                  : "N/A"}
+              </div>
+            )}
+          </div>
+        )}
+        </div>
         </div>
       </header>
       <AlertDialog
