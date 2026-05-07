@@ -3476,7 +3476,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
         {
           $match: {
-            currentReviewerId: {$in: expertObjectIds},
+            $or: [
+              {currentReviewerId: {$in: expertObjectIds}},
+              {currentReviewerId: {$in: expertIds}}, // Handle cases where IDs are stored as strings
+            ],
           },
         },
       ],
