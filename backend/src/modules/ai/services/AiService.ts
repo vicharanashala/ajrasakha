@@ -267,7 +267,7 @@ export class AiService {
   }
 
   async fetchWhatsAppMessage(
-    phoneNumber: string,
+    threadId: string,
     questionId: string
   ): Promise<{
     messageId: string;
@@ -314,7 +314,7 @@ export class AiService {
         checkpoint_id: string;
       }
 
-      const fullUrl = `${this._whatsAppServerUrl}/threads/${phoneNumber}/state`;
+      const fullUrl = `${this._whatsAppServerUrl}/threads/${threadId}/state`;
       console.log("Fetching WhatsApp state from:", fullUrl);
 
       const response = await fetch(fullUrl);

@@ -49,6 +49,8 @@ export const Dashboard = () => {
   const [selectedMonth, setSelectedMonth] = useState("January");
   const [selectedWeek, setSelectedWeek] = useState("Week 1");
   const [selectedDay, setSelectedDay] = useState("Mon");
+  const [customStartDateTime, setCustomStartDateTime] = useState<string>("");
+  const [customEndDateTime, setCustomEndDateTime] = useState<string>("");
 
   // ---- SourcesChart state filters ----- //
   const [timeRange, setTimeRange] = useState("90d");
@@ -78,6 +80,8 @@ export const Dashboard = () => {
     selectedMonth,
     selectedWeek,
     selectedDay,
+    customStartDateTime,
+    customEndDateTime,
   });
   const { data: contributionData, isLoading: isContributionLoading } = useGetContributionTrend(timeRange);
   const { data: statusData, isLoading: isStatusLoading } = useGetStatusOverview();
@@ -198,6 +202,10 @@ export const Dashboard = () => {
             setSelectedWeek={setSelectedWeek}
             setViewType={setViewType}
             viewType={viewType}
+            customStartDateTime={customStartDateTime}
+            setCustomStartDateTime={setCustomStartDateTime}
+            customEndDateTime={customEndDateTime}
+            setCustomEndDateTime={setCustomEndDateTime}
           />
         </div>
 
