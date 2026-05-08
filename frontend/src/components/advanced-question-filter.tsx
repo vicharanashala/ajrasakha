@@ -296,6 +296,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                           <span>Duplicate</span>
                         </div>
                       </SelectItem>
+
+                      <SelectItem value="draft">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-gray-400" />
+                          <span>Draft</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
