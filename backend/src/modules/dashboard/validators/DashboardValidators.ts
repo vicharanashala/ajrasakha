@@ -273,6 +273,13 @@ export class GoldenDataset {
 
   @JSONSchema({ description: 'Breakdown of question states separated by source' })
   questionStateBreakdown?: QuestionStateBreakdownBySource;
+
+  @JSONSchema({ description: 'PAE (Principal Agri Experts) metrics totals' })
+  paeMetrics?: {
+    assigned: number;
+    submitted: number;
+    closed: number;
+  };
 }
 
 export class QuestionContributionTrend {
