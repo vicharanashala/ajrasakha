@@ -308,7 +308,9 @@ export class QuestionController {
             errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
         };
-        this.auditTrailsService.createAuditTrail(auditPayload);
+        if(actorPayload !== null){
+          this.auditTrailsService.createAuditTrail(auditPayload);
+        }
         if(err instanceof InternalServerError){
           throw new InternalServerError(err.message);
         }
