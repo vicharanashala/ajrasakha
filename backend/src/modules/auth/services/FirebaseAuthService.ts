@@ -185,7 +185,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       const admins = await this.userRepository.findAdmins(session);
       const notificationMessage = `A new user ${body.firstName} ${body.lastName || ''} (${body.email}) created and needs to be verified`;
       const notificationTitle = 'New User Created';
-      
+
       for (const admin of admins) {
         await this.notificationService.saveTheNotifications(
           notificationMessage,
@@ -288,8 +288,26 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       await sendEmailNotification(
         email,
         'Verify your email',
-        `Please verify your email by clicking on the link below: ${link}`,
-        `<p>Please verify your email by clicking on the link below:</p><a href="${link}">${link}</a>`,
+        `Please verify your email by clicking on the link below: ${link}
+
+Once your email is verified, your account will require admin approval before you can access and log in to the platform.
+
+If you face any issues, please contact the admin.`,
+        `
+    <p>Please verify your email by clicking on the link below:</p>
+    <p>
+      <a href="${link}">${link}</a>
+    </p>
+
+    <p>
+      Once your email is verified, your account will require admin approval
+      before you can access and log in to the platform.
+    </p>
+
+    <p>
+      If you face any issues, please contact the admin.
+    </p>
+  `,
       );
       console.log(`Verification email sent successfully to ${email}`);
     } catch (err: any) {
