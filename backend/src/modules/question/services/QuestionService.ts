@@ -1298,23 +1298,22 @@ export class QuestionService extends BaseService implements IQuestionService {
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
-    if (question.status !== 'open' && question.status !== 'delayed' && question.status!=='draft') {
+    if (question.status === 'in-review' || question.status === "closed" || question.status == "pae_submitted") {
       console.log(
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
       return { data: [], status: false };
     }
-    if(question.status=="draft")
+    if (question.status == "draft") {
+      await this.questionRepo.updateQuestion(
+        questionId,
         {
-          await this.questionRepo.updateQuestion(
-            questionId,
-            {
-              status:"open",
-             
-            },
-            session,
-          );
-       }
+          status: "open",
+
+        },
+        session,
+      );
+    }
 
     const details = question.details as PreferenceDto;
 
@@ -1518,17 +1517,16 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-        if(question.status=="draft")
-        {
+        if (question.status == "draft") {
           await this.questionRepo.updateQuestion(
             questionId,
             {
-              status:"open",
-             
+              status: "open",
+
             },
             session,
           );
-       }
+        }
 
         const updated = await this.questionRepo.updateAutoAllocate(
           questionId,
@@ -1606,14 +1604,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-        if (question.status !== 'open' && question.status !== 'delayed'&& question.status!=='draft') {
+        if (question.status === 'in-review' || question.status === "closed" || question.status == "pae_submitted") {
           console.log(
-            'This question is currently being in reviewe or has been closed. Please check back later!',
+            'This question is currently being in reviewed or has been closed. Please check back later!',
           );
           return;
         }
-        if(question.status=="draft")
-        {
+        if (question.status == "draft") {
           // Check if any of the experts being allocated is a PAE expert
           const expertUsers = await Promise.all(
             experts.map(id => this.userRepo.findById(id, session))
@@ -1628,7 +1625,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             },
             session,
           );
-       }
+        }
 
         //2. Validate question submission existence
         let questionSubmission =
@@ -3797,7 +3794,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     const questionSource = questionData.source;
     if (questionSource == "WHATSAPP") {
       if (!questionData.threadId)
-        throw new Error('Phone number not found for WhatsApp question');
+        throw new Error('Thread id not found for WhatsApp question');
       const response = await this.aiService.fetchWhatsAppMessage(questionData.threadId, questionData._id.toString());
 
       if (response) {

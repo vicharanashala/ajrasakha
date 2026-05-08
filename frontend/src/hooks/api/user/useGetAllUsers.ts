@@ -13,6 +13,10 @@ interface BasicUser {
   preference: IMyPreference;
   isBlocked:boolean,
   special_task_force?:boolean
+  state?:string | null;
+  domain?:string | null;
+  mobile?: string;
+  university?: string;
 }
 export interface IUsersNameResponse {
   myPreference: IMyPreference;
