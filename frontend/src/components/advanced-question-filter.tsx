@@ -54,6 +54,8 @@ import {
   Users,
   Settings,
   Radio,
+  CircleSlash,
+  Copy,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
@@ -280,6 +282,18 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-red-500" />
                           <span>Closed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="pass">
+                        <div className="flex items-center gap-2">
+                          <CircleSlash className="w-4 h-4 text-gray-500" />
+                          <span>Passed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="duplicate">
+                        <div className="flex items-center gap-2">
+                          <Copy className="w-4 h-4 text-orange-500" />
+                          <span>Duplicate</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
