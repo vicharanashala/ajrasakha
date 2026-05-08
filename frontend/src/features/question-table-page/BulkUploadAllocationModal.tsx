@@ -9,7 +9,16 @@ import {
 import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
 import { ScrollArea } from "../../components/atoms/scroll-area";
-import { Loader2, Search, UserCheck, Users, FileText, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Search,
+  UserCheck,
+  Users,
+  FileText,
+  X,
+} from "lucide-react";
 import { useGetAllUsers } from "../../hooks/api/user/useGetAllUsers";
 
 type AllocationMode = "expert" | "draft" | "pae_expert";
@@ -33,6 +42,7 @@ export function BulkUploadAllocationModal({
   const [selectedMode, setSelectedMode] = useState<AllocationMode>(paeOnly ? "pae_expert" : "expert");
   const [selectedPaeExpertId, setSelectedPaeExpertId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedExpertId, setExpandedExpertId] = useState<string | null>(null);
 
   const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers({
     enabled: open && selectedMode === "pae_expert",
@@ -43,6 +53,7 @@ export function BulkUploadAllocationModal({
       setSelectedMode(paeOnly ? "pae_expert" : "expert");
       setSelectedPaeExpertId(null);
       setSearchTerm("");
+      setExpandedExpertId(null);
     }
   }, [open, paeOnly]);
 
@@ -94,15 +105,15 @@ export function BulkUploadAllocationModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-xl p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-3">
           <DialogTitle>
             {paeOnly ? "Allocate to PAE Expert" : "Choose Allocation Method"}
           </DialogTitle>
         </DialogHeader>
 
         {!paeOnly && (
-          <div className="flex flex-col gap-3 py-2">
+          <div className="flex flex-col gap-3 px-6 py-3">
             {options.map((opt) => (
               <button
                 key={opt.mode}
@@ -141,7 +152,7 @@ export function BulkUploadAllocationModal({
         )}
 
         {(selectedMode === "pae_expert") && (
-          <div className="flex flex-col gap-2 mt-1">
+          <div className="mt-1 flex flex-col gap-3 px-6 py-3">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -163,45 +174,148 @@ export function BulkUploadAllocationModal({
                   : "No results match your search."}
               </p>
             ) : (
-              <ScrollArea className="h-40 rounded-md border">
+              <ScrollArea className="h-60 rounded-lg border p-1">
                 <div className="flex flex-col p-1">
-                  {filteredPaeExperts.map((expert) => (
-                    <button
+                  {filteredPaeExperts.map((expert) => {
+                    const isSelected = selectedPaeExpertId === expert._id;
+                    const isExpanded = expandedExpertId === expert._id;
+
+                    return (
+                    <div
                       key={expert._id}
-                      type="button"
-                      onClick={() => setSelectedPaeExpertId(expert._id)}
-                      className={`flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                        selectedPaeExpertId === expert._id
-                          ? "bg-primary text-primary-foreground"
-                          : "hover:bg-muted"
+                      className={`w-full rounded-xl border text-sm transition-all mb-1 ${
+                        isSelected
+                          ? "border-primary bg-primary/8 shadow-sm"
+                          : "border-transparent hover:border-border hover:bg-muted/40"
                       }`}
                     >
-                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                        {expert.userName[0]?.toUpperCase() ?? "?"}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">
-                          {expert.userName}
-                        </p>
-                        <p
-                          className={`truncate text-xs ${
-                            selectedPaeExpertId === expert._id
-                              ? "text-primary-foreground/80"
-                              : "text-muted-foreground"
+                      <div className="flex items-start gap-3 px-5 py-4">
+                        <div
+                          className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                            isSelected
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-primary/10 text-primary"
                           }`}
                         >
-                          {expert.email}
-                        </p>
+                          {expert.userName[0]?.toUpperCase() ?? "?"}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-start justify-between gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPaeExpertId(expert._id)}
+                              className="min-w-0 flex-1 text-left"
+                            >
+                              <div className="flex min-w-0 items-center gap-2">
+                              <p className="min-w-0 truncate text-sm font-semibold">
+                                {expert.userName}
+                              </p>
+                              {isSelected && (
+                                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
+                                  Selected
+                                </span>
+                              )}
+                              </div>
+                              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                {expert.email}
+                              </p>
+                            </button>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-muted-foreground"
+                              onClick={() =>
+                                setExpandedExpertId((prev) =>
+                                  prev === expert._id ? null : expert._id,
+                                )
+                              }
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="h-4 w-4" />
+                                  <span className="sr-only">Collapse details</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="h-4 w-4" />
+                                  <span className="sr-only">Expand details</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    </button>
-                  ))}
+
+                      {isExpanded && (
+                        <div className="grid gap-x-6 gap-y-4 border-t px-5 pb-5 pt-4 md:grid-cols-2">
+                          <div className="min-w-0">
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                Mobile
+                              </p>
+                              <p className="truncate text-xs font-medium">
+                                {typeof expert.mobile === "string" &&
+                                expert.mobile.trim()
+                                  ? expert.mobile
+                                  : "N/A"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                University
+                              </p>
+                              <p className="truncate text-xs font-medium">
+                                {typeof expert.university === "string" &&
+                                expert.university.trim()
+                                  ? expert.university
+                                  : "N/A"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                State
+                              </p>
+                              <p className="truncate text-xs font-medium">
+                                {typeof expert.state === "string" &&
+                                expert.state.trim()
+                                  ? expert.state
+                                  : "N/A"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                Domain
+                              </p>
+                              <p className="truncate text-xs font-medium">
+                                {typeof expert.domain === "string" &&
+                                expert.domain.trim()
+                                  ? expert.domain
+                                  : "N/A"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )})}
                 </div>
               </ScrollArea>
             )}
           </div>
         )}
 
-        <DialogFooter className="flex justify-end gap-2 mt-2">
+        <DialogFooter className="mt-2 flex justify-end gap-2 border-t px-6 py-4">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             <X className="mr-2 h-4 w-4" />
             Cancel
