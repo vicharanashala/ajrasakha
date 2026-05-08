@@ -136,6 +136,22 @@ export class GetGoldenDatasetQuery {
   @IsOptional()
   @IsString()
   selectedDay?: string;
+
+  @JSONSchema({
+    example: '10:30',
+    description: 'Custom start time in HH:mm format (24-hour)',
+  })
+  @IsOptional()
+  @IsString()
+  customStartDateTime?: string;
+
+  @JSONSchema({
+    example: '17:45',
+    description: 'Custom end time in HH:mm format (24-hour)',
+  })
+  @IsOptional()
+  @IsString()
+  customEndDateTime?: string;
 }
 
 export class GetContributionTrendQuery {

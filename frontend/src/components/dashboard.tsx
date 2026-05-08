@@ -34,7 +34,6 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
 import { TopRightBadge } from "./NewBadge";
-import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -50,6 +49,8 @@ export const Dashboard = () => {
   const [selectedMonth, setSelectedMonth] = useState("January");
   const [selectedWeek, setSelectedWeek] = useState("Week 1");
   const [selectedDay, setSelectedDay] = useState("Mon");
+  const [customStartDateTime, setCustomStartDateTime] = useState<string>("");
+  const [customEndDateTime, setCustomEndDateTime] = useState<string>("");
 
   // ---- SourcesChart state filters ----- //
   const [timeRange, setTimeRange] = useState("90d");
@@ -79,6 +80,8 @@ export const Dashboard = () => {
     selectedMonth,
     selectedWeek,
     selectedDay,
+    customStartDateTime,
+    customEndDateTime,
   });
   const { data: contributionData, isLoading: isContributionLoading } = useGetContributionTrend(timeRange);
   const { data: statusData, isLoading: isStatusLoading } = useGetStatusOverview();
@@ -199,6 +202,10 @@ export const Dashboard = () => {
             setSelectedWeek={setSelectedWeek}
             setViewType={setViewType}
             viewType={viewType}
+            customStartDateTime={customStartDateTime}
+            setCustomStartDateTime={setCustomStartDateTime}
+            customEndDateTime={customEndDateTime}
+            setCustomEndDateTime={setCustomEndDateTime}
           />
         </div>
 
@@ -209,21 +216,12 @@ export const Dashboard = () => {
               whatsappCount={goldenData.questionSourceBreakdown.whatsapp}
               ajrasakhaCount={goldenData.questionSourceBreakdown.ajrasakha}
             />
-            <div className="flex flex-col gap-3">
-              {goldenData?.questionsAnsweredWithin120Min && (
+            {goldenData?.questionsAnsweredWithin120Min && (
               <QuestionsAnswered120Min
                 whatsappCount={goldenData.questionsAnsweredWithin120Min.whatsapp}
                 ajrasakhaCount={goldenData.questionsAnsweredWithin120Min.ajrasakha}
               />
             )}
-            
-              <QuestionsAnsweredAfter120MinProps
-                whatsappCount={goldenData?.questionsAnsweredAfter120Min?.whatsapp??0}
-                ajrasakhaCount={goldenData?.questionsAnsweredAfter120Min?.ajrasakha??0}
-                questionsStateBreakdown={goldenData?.questionStateBreakdown}
-              />
-            
-            </div>
           </div>
         )}
 
