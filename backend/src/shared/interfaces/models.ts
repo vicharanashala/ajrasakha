@@ -30,6 +30,8 @@ export interface IUser {
   special_task_force?:boolean
   special_task_force_moderator?: boolean
   avatar?: string
+  mobile?: string;
+  university?: string;
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
