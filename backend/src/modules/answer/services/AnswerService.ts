@@ -1748,6 +1748,7 @@ answer: ${updates.answer}`;
       );
 
       // UPDATE AUTHOR INCENTIVE
+      // If the question status id duplicate then this incentive update will be done for moderator since the answer will be directly added from LLM answer and approved as final answer by moderator. In other cases the incentive update will be done for expert who created the answer.
       await this.userRepo.updatePenaltyAndIncentive(
         authorId,
         'incentive',
