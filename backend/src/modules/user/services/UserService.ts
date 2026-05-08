@@ -296,4 +296,21 @@ async getAllUsersforManualSelect(
       return await this.userRepo.findByEmail(email, session);
     });
   }
+
+  async verifyUser(userId: string, isVerified: boolean): Promise<IUser> {
+    try {
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const updatedUser = await this.userRepo.edit(userId, {isVerified}, session);
+        if (!updatedUser)
+          throw new NotFoundError(`User with ID ${userId} not found`);
+        return updatedUser;
+      });
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to verify user with ID ${userId}: ${error}`,
+      );
+    }
+  }
 }

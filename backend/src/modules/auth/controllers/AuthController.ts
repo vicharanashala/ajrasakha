@@ -250,11 +250,18 @@ export class AuthController {
        }
 
       // Ensure the user exists in database
-       await this.authService.syncUserWithDb(
+       const user = await this.authService.syncUserWithDb(
          userInfo.localId,
          userInfo.email,
          userInfo.displayName || ''
        );
+       
+       if (!user.isVerified) {
+         throw new HttpError(
+           401,
+           'Your account is pending admin verification. Please contact an administrator.'
+         );
+       }
 
       return result;
     } catch (error) {
@@ -301,6 +308,13 @@ export class AuthController {
         decodedEmail.email || '',
         decodedEmail.name || ''
       );
+
+      if (!user.isVerified) {
+        throw new HttpError(
+          401,
+          'Your account is pending admin verification. Please contact an administrator.'
+        );
+      }
 
       return { success: true, user };
     } catch (error) {

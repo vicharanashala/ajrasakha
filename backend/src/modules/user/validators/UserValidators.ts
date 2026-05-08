@@ -128,7 +128,12 @@ class ExpertReviewLevelDto {
   role: string
 }
 
-export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody];
+class VerifyUserBody {
+  @IsBoolean()
+  isVerified: boolean;
+}
+
+export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, VerifyUserBody];
 
 class UpdateUserDto {
   @IsOptional()
@@ -151,4 +156,5 @@ class UpdateUserDto {
   avatar?: string;
 }
 
-export { PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, ExpertReviewLevelDto, UpdateUserDto };
+
+export { PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, ExpertReviewLevelDto, UpdateUserDto, VerifyUserBody };

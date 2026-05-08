@@ -30,6 +30,7 @@ export interface IUser {
   special_task_force?:boolean
   special_task_force_moderator?: boolean
   avatar?: string
+  isVerified?: boolean
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
