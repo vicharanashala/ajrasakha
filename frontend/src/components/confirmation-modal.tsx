@@ -1,3 +1,4 @@
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,6 +10,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "./atoms/alert-dialog";
+// import { DropdownMenu } from "@radix-ui/react-dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "./atoms/dropdown-menu";
+import { Button } from "./atoms/button";
+import { ArrowBigDownDashIcon } from "lucide-react";
 
 type ButtonType = "default" | "delete" | "edit";
 
@@ -23,6 +34,11 @@ type ConfirmationModalProps = {
   isLoading?: boolean;
   onOpenChange?: (open: boolean) => void;
   type?: ButtonType;
+
+  currentRole?: string;
+  selectedRole?: string;
+  onRoleChange?: (role: string) => void;
+  confirmAction?: string
 };
 
 export const ConfirmationModal = ({
@@ -36,6 +52,10 @@ export const ConfirmationModal = ({
   onOpenChange,
   isLoading,
   type = "default",
+  currentRole,
+  selectedRole,
+  onRoleChange,
+  confirmAction
 }: ConfirmationModalProps) => {
   const confirmButtonClass = (() => {
     switch (type) {
@@ -47,6 +67,13 @@ export const ConfirmationModal = ({
         return "bg-green-600 hover:bg-green-700 text-white dark:bg-primary-dark dark:hover:bg-primary-dark/90";
     }
   })();
+
+  const roles = [
+    { value: "admin", label: "Admin" },
+    { value: "expert", label: "Expert" },
+    { value: "moderator", label: "Moderator" },
+    { value: "pae_expert", label: "PAE Expert" },
+  ];
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -62,13 +89,54 @@ export const ConfirmationModal = ({
             </AlertDialogDescription>
           ) : null}
         </AlertDialogHeader>
+        {confirmAction === "switch-role" && <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="text-sm w-[25%] flex items-center justify-evenly">
+              <ArrowBigDownDashIcon size={14}/>
+              {selectedRole
+                ? roles.find((r) => r.value === selectedRole)?.label
+                : "Select Role"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup
+              value={selectedRole || currentRole}
+              onValueChange={onRoleChange}
+            >
+              {roles.map((role) => (
+                <DropdownMenuRadioItem
+                  key={role.value}
+                  value={role.value}
+                  disabled={role.value === currentRole}
+                  className={
+                    role.value === currentRole
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }
+                >
+                  <div className="flex items-center justify-between w-full gap-2">
+                    <span>{role.label}</span>
+
+                    {role.value === currentRole && (
+                      <span className="text-xs text-muted-foreground">
+                        Current
+                      </span>
+                    )}
+                  </div>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>}
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={(e)=>e.stopPropagation()}>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+            {cancelText}
+          </AlertDialogCancel>
           <AlertDialogAction
             className={`flex items-center justify-center px-4 py-2 rounded  ${confirmButtonClass}`}
-            onClick={(e)=>{
-              e.stopPropagation(); 
-              onConfirm()
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfirm();
             }}
           >
             {isLoading ? `${confirmText}...` : confirmText}

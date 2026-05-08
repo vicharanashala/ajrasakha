@@ -1,4 +1,4 @@
-import React, { useState, type FormEvent } from "react";
+import React, { useEffect, useState, type FormEvent } from "react";
 import { cn } from "@/lib/utils";
 
 import { useAuthStore } from "@/stores/auth-store";
@@ -57,6 +57,7 @@ export const AuthForm = ({
   const { setUser } = useAuthStore();
 
 
+
   const { mutateAsync: signupMutation } = useSignup();
 
   const navigate = useNavigate();
@@ -70,6 +71,7 @@ export const AuthForm = ({
     setFormData({ email: "", password: "", confirmPassword: "", name: "" });
     onModeChange?.(newMode);
   };
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
