@@ -20,6 +20,7 @@ import {
   Zap,
   ShieldCheck,
   UserCheck,
+  BadgeCheck,
 } from "lucide-react";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -289,6 +290,14 @@ const UserRow: React.FC<UserRowProps> = ({
             >
               {truncate(u.firstName + " " + u.lastName, 60)}
             </span>
+            {u.isVerified && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-50 flex-shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent>Verified User</TooltipContent>
+              </Tooltip>
+            )}
 
             <div className="flex items-center gap-1 flex-shrink-0">
               {u?.special_task_force && (
