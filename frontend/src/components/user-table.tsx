@@ -81,10 +81,12 @@ export const UsersTable = ({
     const action = isCurrentlyBlocked ? "unblock" : "block";
     blockExpert({ userId: userIdToBlock, action: action });
   };
-  const handleToggleRole = (userId: string, userRole: string) => {
-    toggleUserRole({ userId, currentUserRole: userRole! });
+  const handleToggleRole = (userId: string, userRole: string, selectedRole?: string) => {
+    console.log("Users data is", {userId, userRole, selectedRole})
+    toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole  });
   };
   const isAdmin = userRole === "admin";
+
 
   return (
     <div>
@@ -226,7 +228,7 @@ interface UserRowProps {
   setUserIdToBlock: (id: string) => void;
   setIsCurrentlyBlocked: (value: boolean) => void;
   handleBlock: () => Promise<void>;
-  handleToggleRole: (userId: string, userRole: string) => void;
+  handleToggleRole: (userId: string, userRole: string, selectedRole?: string) => void;
   onViewMore: (id: string) => void;
   setSelectExpertId?: (id: string) => void;
   setRankPosition?: (rank: number) => void;
@@ -253,6 +255,7 @@ const UserRow: React.FC<UserRowProps> = ({
   const [actionRole, setActionRole] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
   const isAdmin = userRole === "admin";
+  const [selectRole, setSelectRole] = useState("")
   const handleExpertClick = async (userdetails: any) => {
     if (userdetails) {
       setSelectExpertId?.(userdetails._id);
@@ -266,6 +269,14 @@ const UserRow: React.FC<UserRowProps> = ({
     setIsOpen(false);
     updateActivity({ userId: u._id!, status: nextStatus });
   };
+
+      const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  moderator: "Moderator",
+  expert: "Expert",
+  pae_expert: "PAE Expert",
+};
+
   return (
     <TableRow key={String(u._id)} className="text-center">
 
@@ -332,7 +343,7 @@ const UserRow: React.FC<UserRowProps> = ({
       {/* Role */}
       {isAdmin && (
         <TableCell className="align-middle w-32">
-          <Badge variant="outline">{u.role}</Badge>
+          <Badge variant="outline"> {ROLE_LABELS[u.role] || u.role}</Badge>
         </TableCell>
       )}
 
@@ -458,7 +469,7 @@ const UserRow: React.FC<UserRowProps> = ({
             onOpenChange={() => setConfirmAction(null)}
             title={
               confirmAction === "switch-role"
-                ? "Switch User Role?"
+                ? "Switch User Role To"
                 : confirmAction === "block"
                   ? "Block the User?"
                   : "Unblock the User?"
@@ -466,15 +477,15 @@ const UserRow: React.FC<UserRowProps> = ({
             description={
               confirmAction === "switch-role"
                 ? actionRole === "expert"
-                  ? "This will promote the expert to a moderator. Are you sure you want to continue?"
-                  : "This will demote the moderator to an expert. Are you sure you want to continue?"
+                  ? "Please select the new user role"
+                  : "Please select the new user role"
                 : confirmAction === "block"
                   ? actionRole === "expert"
                     ? "Blocking this expert will restrict their access to the review system until they are unblocked. Once blocked, they will no longer be able to review, submit answers, or perform any actions within the platform. They will also be excluded from all current and future allocations. Are you sure you want to proceed?"
-                    : "Blocking this moderator will restrict their access to the platform until they are unblocked. They will not be able to manage reviews, moderate content, or perform any administrative actions. Are you sure you want to proceed?"
+                    : `Blocking this ${actionRole} will restrict their access to the platform until they are unblocked. They will not be able to manage reviews, moderate content, or perform any administrative actions. Are you sure you want to proceed?`
                   : actionRole === "expert"
                     ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
-                    : "This will restore the moderator’s access and administrative permissions on the platform. Are you sure you want to unblock this user?"
+                    : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
             }
             confirmText={
               confirmAction === "switch-role"
@@ -487,12 +498,17 @@ const UserRow: React.FC<UserRowProps> = ({
             type={confirmAction === "block" ? "delete" : "default"}
             onConfirm={() => {
               if (confirmAction === "switch-role") {
-                handleToggleRole(actionUserId, actionRole);
+                handleToggleRole(actionUserId, actionRole, selectRole);
+                setSelectRole("");
               } else {
                 handleBlock();
               }
               setConfirmAction(null);
             }}
+            currentRole={actionRole}
+            selectedRole={selectRole}
+            onRoleChange={setSelectRole}
+            confirmAction={confirmAction || undefined}
           />
 
         </div>

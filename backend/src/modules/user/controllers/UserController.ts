@@ -21,6 +21,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {
   IUser,
   NotificationRetentionType,
+  UserRole,
 } from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {UserService} from '#root/modules/user/services/UserService.js';
@@ -30,7 +31,8 @@ import {
   UpdatePenaltyAndIncentive,
   UsersNameResponseDto,
   ExpertReviewLevelDto,
-  UpdateUserDto
+  UpdateUserDto,
+  ToggleUserRoleDto
 } from '#root/modules/user/validators/UserValidators.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -534,7 +536,9 @@ export class UserController {
   async toggleUserRole(
     @CurrentUser() currentUser: IUser,
     @Param('id') userId: string,
+    @Body() body: ToggleUserRoleDto
   ) {
+    console.log("New Role", body.role)
     let prevUserDetails = await this.userService.getUserById(userId);
     let updatedUser;
     let auditPayload : ModeratorAuditTrail = {
@@ -564,9 +568,10 @@ export class UserController {
     };
 
     try{
-      updatedUser = await this.userService.toggleUserRole(
+      updatedUser = await this.userService.updateUserRole(
         currentUser,
         userId,
+        body.role
       );
     } catch(err: any){
       auditPayload = {
@@ -592,13 +597,13 @@ export class UserController {
       changes:{
         ...auditPayload.changes,
         after:{
-          role: prevUserDetails.role === 'expert' ? 'moderator' : 'expert',
+          role: body.role,
         }
       }
     }
     this.auditTrailsService.createAuditTrail(auditPayload);
-    return {message: `User promoted to moderator`, user: updatedUser};
-  }
+    return {message: `User role has been changed successfully!!`, user: updatedUser};
+   }
 
   @OpenAPI({
     summary: 'Get user details by email',

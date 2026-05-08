@@ -151,4 +151,8 @@ class UpdateUserDto {
   avatar?: string;
 }
 
-export { PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, ExpertReviewLevelDto, UpdateUserDto };
+export class ToggleUserRoleDto {
+  role!: UserRole;
+}
+
+export { PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, ExpertReviewLevelDto, UpdateUserDto, };
