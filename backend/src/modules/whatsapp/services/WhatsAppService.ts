@@ -22,20 +22,38 @@ export class WhatsAppService implements IWhatsAppService {
       const response = await axios.get(`${this.baseUrl}/threads`);
       const data = response.data;
 
+      // const threads: Thread[] = (data.threads as any[])
+      //   .filter((t: any) =>
+      //     /^\d{12}$/.test(t.thread_id) &&
+      //     t.metadata &&
+      //     Object.keys(t.metadata).length > 0 &&
+      //     t.updated_at !== null
+      //   )
+      //   .map((t: any) => ({
+      //     id: t.thread_id,
+      //     phoneNumber: t.thread_id,
+      //     lastMessage: t.metadata.thread_name || 'No message available',
+      //     lastMessageTimestamp: new Date(t.updated_at),
+      //     unreadCount: 0,
+      //   }));
       const threads: Thread[] = (data.threads as any[])
         .filter((t: any) =>
-          /^\d{12}$/.test(t.thread_id) &&
+          /^\d{12}(-\d{4}-\d{2}-\d{2})?$/.test(t.thread_id) &&
           t.metadata &&
           Object.keys(t.metadata).length > 0 &&
           t.updated_at !== null
         )
-        .map((t: any) => ({
-          id: t.thread_id,
-          phoneNumber: t.thread_id,
-          lastMessage: t.metadata.thread_name || 'No message available',
-          lastMessageTimestamp: new Date(t.updated_at),
-          unreadCount: 0,
-        }));
+        .map((t: any) => {
+          const phoneNumber = t.thread_id.split('-')[0];
+
+          return {
+            id: phoneNumber,
+            phoneNumber,
+            lastMessage: t.metadata.thread_name || 'No message available',
+            lastMessageTimestamp: new Date(t.updated_at),
+            unreadCount: 0,
+          };
+        });
 
       return threads;
     } catch (error) {

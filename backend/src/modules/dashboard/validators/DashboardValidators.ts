@@ -136,6 +136,22 @@ export class GetGoldenDatasetQuery {
   @IsOptional()
   @IsString()
   selectedDay?: string;
+
+  @JSONSchema({
+    example: '10:30',
+    description: 'Custom start time in HH:mm format (24-hour)',
+  })
+  @IsOptional()
+  @IsString()
+  customStartDateTime?: string;
+
+  @JSONSchema({
+    example: '17:45',
+    description: 'Custom end time in HH:mm format (24-hour)',
+  })
+  @IsOptional()
+  @IsString()
+  customEndDateTime?: string;
 }
 
 export class GetContributionTrendQuery {
@@ -199,6 +215,22 @@ export class GoldenDatasetEntry {
   verified!: number;
 }
 
+export class QuestionStateBreakdownItem {
+  @JSONSchema({ description: 'Question state/status', example: 'open' })
+  status!: string;
+
+  @JSONSchema({ description: 'Count for the status', example: 12 })
+  count!: number;
+}
+
+export class QuestionStateBreakdownBySource {
+  @JSONSchema({ description: 'Question state breakdown for WhatsApp source' })
+  whatsapp!: QuestionStateBreakdownItem[];
+
+  @JSONSchema({ description: 'Question state breakdown for Ajrasakha source' })
+  ajrasakha!: QuestionStateBreakdownItem[];
+}
+
 export class GoldenDataset {
   @JSONSchema({description: 'Total count of verified answers'})
   verifiedEntries: number;
@@ -235,6 +267,12 @@ export class GoldenDataset {
 
   @JSONSchema({ description: 'Average response time in minutes by source' })
   averageResponseTime?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Questions answered after 120 minutes by source' })
+  questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Breakdown of question states separated by source' })
+  questionStateBreakdown?: QuestionStateBreakdownBySource;
 }
 
 export class QuestionContributionTrend {
