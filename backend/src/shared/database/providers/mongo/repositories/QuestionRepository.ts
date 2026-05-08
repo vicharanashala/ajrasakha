@@ -2321,8 +2321,17 @@ export class QuestionRepository implements IQuestionRepository {
     await this.init();
 
     const matchCondition: any = {};
-    if (startDate && endDate) {
+   /* if (startDate && endDate) {
       matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+    }*/
+    const parsedStartDate = startDate ? new Date(startDate) : undefined;
+    const parsedEndDate = endDate ? new Date(endDate) : undefined;
+    
+    if (parsedStartDate && parsedEndDate) {
+      matchCondition.createdAt = {
+        $gte: parsedStartDate,
+        $lt: parsedEndDate,
+      };
     }
 
     // Add time filtering if provided
