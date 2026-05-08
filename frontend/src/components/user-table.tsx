@@ -19,6 +19,7 @@ import {
   Gavel,
   Zap,
   ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -37,6 +38,7 @@ import { useState } from "react";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import { useToggleRole } from "@/hooks/api/user/useToggleRole";
 import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
+import { useVerifyUser } from "@/hooks/api/user/useVerifyUser";
 import AvatarComponent from "./avatar-component";
 
 const truncate = (s: string, n = 80) => {
@@ -244,6 +246,7 @@ const UserRow: React.FC<UserRowProps> = ({
 }) => {
   const isBlocked = u.isBlocked || false;
   const { mutate: updateActivity } = useUpdateActivity();
+  const { mutate: verifyUser } = useVerifyUser();
 
   //expert block/unblock modal state
   type ConfirmAction = "block" | "unblock" | "switch-role" | null;
@@ -448,6 +451,20 @@ const UserRow: React.FC<UserRowProps> = ({
                   <div className="flex items-center gap-2">
                     <Gavel className="w-4 h-4 text-blue-500" />
                     Switch Role
+                  </div>
+                </DropdownMenuItem>
+              )}
+              {isAdmin && u.isVerified === false && (
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setIsOpen(false);
+                    verifyUser({ userId: u._id!, isVerified: true });
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-green-600" />
+                    Verify User
                   </div>
                 </DropdownMenuItem>
               )}
