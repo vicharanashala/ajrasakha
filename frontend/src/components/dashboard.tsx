@@ -34,6 +34,7 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
 import { TopRightBadge } from "./NewBadge";
+import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -83,6 +84,7 @@ export const Dashboard = () => {
     customStartDateTime,
     customEndDateTime,
   });
+  console.log("goldenData: ", goldenData);
   const { data: contributionData, isLoading: isContributionLoading } = useGetContributionTrend(timeRange);
   const { data: statusData, isLoading: isStatusLoading } = useGetStatusOverview();
   const { data: expertData, isLoading: isExpertLoading } = useGetExpertPerformance();
@@ -216,12 +218,19 @@ export const Dashboard = () => {
               whatsappCount={goldenData.questionSourceBreakdown.whatsapp}
               ajrasakhaCount={goldenData.questionSourceBreakdown.ajrasakha}
             />
+            <div className="flex flex-col gap-3">
             {goldenData?.questionsAnsweredWithin120Min && (
               <QuestionsAnswered120Min
                 whatsappCount={goldenData.questionsAnsweredWithin120Min.whatsapp}
                 ajrasakhaCount={goldenData.questionsAnsweredWithin120Min.ajrasakha}
               />
             )}
+             <QuestionsAnsweredAfter120MinProps
+                whatsappCount={goldenData?.questionsAnsweredAfter120Min?.whatsapp??0}
+                ajrasakhaCount={goldenData?.questionsAnsweredAfter120Min?.ajrasakha??0}
+                questionsStateBreakdown={goldenData?.questionStateBreakdown}
+              />
+            </div>
           </div>
         )}
 
