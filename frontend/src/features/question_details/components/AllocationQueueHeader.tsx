@@ -102,7 +102,7 @@ export const AllocationQueueHeader = ({
 
   const handleSubmit = async () => {
     try {
-      if (question.status !== "open" && question.status !== "delayed"&&question.status!=='draft') {
+      if (question.status === "in-review" || question.status == "closed") {
         toast.error(
           "This question is currently being reviewed or has been closed. Please check back later!"
         );
@@ -189,19 +189,19 @@ export const AllocationQueueHeader = ({
             {!autoAllocate && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 {/* <DialogTrigger asChild> */}
-                  <Button variant="default" className="gap-2 w-full sm:w-auto"
-                    onClick={() => {
-                      if (question.isOnHold) {
-                        toast.error(
-                          "This question is on hold. Release Hold to add experts."
-                        );
-                        return;
-                      }
-                      setIsModalOpen(true);
-                    }} >
-                    <UserPlus className="w-4 h-4" />
-                    Select Experts
-                  </Button>
+                <Button variant="default" className="gap-2 w-full sm:w-auto"
+                  onClick={() => {
+                    if (question.isOnHold) {
+                      toast.error(
+                        "This question is on hold. Release Hold to add experts."
+                      );
+                      return;
+                    }
+                    setIsModalOpen(true);
+                  }} >
+                  <UserPlus className="w-4 h-4" />
+                  Select Experts
+                </Button>
                 {/* </DialogTrigger> */}
 
                 <DialogContent
