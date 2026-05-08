@@ -165,6 +165,42 @@ const validateCustomDomain = (value: string) => {
   return "";
 };
 
+const validateMobile = (value: string) => {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return "Mobile number is required.";
+  }
+
+  if (!/^\+\d{1,4}[\s-]?\d{6,14}$/.test(trimmedValue)) {
+    return "Enter a valid mobile number with country code, for example +91 9876543210.";
+  }
+
+  return "";
+};
+
+const validateUniversity = (value: string) => {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return "University is required.";
+  }
+
+  if (trimmedValue.length < 2) {
+    return "University must be at least 2 characters.";
+  }
+
+  if (trimmedValue.length > 120) {
+    return "University must be 120 characters or less.";
+  }
+
+  if (!/^[A-Za-z0-9\s&(),./'-]+$/.test(trimmedValue)) {
+    return "University contains invalid characters.";
+  }
+
+  return "";
+};
+
 const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   const [formData, setFormData] = useState<IUser>({
     ...user,
@@ -203,6 +239,10 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     isPresetDomain(user?.preference?.domain) ? "" : (user?.preference?.domain ?? ""),
   );
   const [domainError, setDomainError] = useState("");
+  const [profileErrors, setProfileErrors] = useState({
+    mobile: "",
+    university: "",
+  });
 
   const [isEditMode, setIsEditMode] = useState(false);
   const { user: userFromStore } = useAuthStore();
@@ -279,6 +319,19 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
 
   const handleSave = async () => {
     try {
+      const mobileError = validateMobile(formData.mobile ?? "");
+      const universityError = validateUniversity(formData.university ?? "");
+
+      if (mobileError || universityError) {
+        setProfileErrors({
+          mobile: mobileError,
+          university: universityError,
+        });
+
+        toast.error(mobileError || universityError);
+        return;
+      }
+
       const isOtherDomainSelected = domainSelection === OTHER_DOMAIN_VALUE;
 
       if (isOtherDomainSelected) {
@@ -300,6 +353,8 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
 
       const payload: IUser = {
         ...formData,
+        mobile: formData.mobile?.trim(),
+        university: formData.university?.trim(),
         preference: {
           state: formData.preference?.state ?? "",
           crop: formData.preference?.crop ?? "",
@@ -574,6 +629,69 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               onChange={(e) => handleChange("lastName", e.target.value)}
               placeholder="Enter last name"
             />
+          </div>
+        </div>
+
+        {/* Mobile Number + University Name */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="mobile">Mobile</Label>
+            <Input
+              id="mobile"
+              disabled={!isEditMode}
+              value={formData.mobile}
+              onChange={(e) => {
+                const value = e.target.value;
+                handleChange("mobile", value);
+
+                if (profileErrors.mobile) {
+                  setProfileErrors((prev) => ({
+                    ...prev,
+                    mobile: validateMobile(value),
+                  }));
+                }
+              }}
+              onBlur={() =>
+                setProfileErrors((prev) => ({
+                  ...prev,
+                  mobile: validateMobile(formData.mobile ?? ""),
+                }))
+              }
+              placeholder="mobile number "
+            />
+            {profileErrors.mobile && (
+              <p className="text-sm text-red-500">{profileErrors.mobile}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="university">University</Label>
+            <Input
+              id="university"
+              disabled={!isEditMode}
+              value={formData.university}
+              onChange={(e) => {
+                const value = e.target.value;
+                handleChange("university", value);
+
+                if (profileErrors.university) {
+                  setProfileErrors((prev) => ({
+                    ...prev,
+                    university: validateUniversity(value),
+                  }));
+                }
+              }}
+              onBlur={() =>
+                setProfileErrors((prev) => ({
+                  ...prev,
+                  university: validateUniversity(formData.university ?? ""),
+                }))
+              }
+              placeholder="university"
+            />
+            {profileErrors.university && (
+              <p className="text-sm text-red-500">{profileErrors.university}</p>
+            )}
           </div>
         </div>
 
@@ -1005,6 +1123,21 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                     if (!formData.firstName.trim()) {
                       e.preventDefault();
                       toast.error("First name cannot be blank space");
+                      return;
+                    }
+
+                    const mobileError = validateMobile(formData.mobile ?? "");
+                    const universityError = validateUniversity(
+                      formData.university ?? "",
+                    );
+
+                    if (mobileError || universityError) {
+                      e.preventDefault();
+                      setProfileErrors({
+                        mobile: mobileError,
+                        university: universityError,
+                      });
+                      toast.error(mobileError || universityError);
                       return;
                     }
 
