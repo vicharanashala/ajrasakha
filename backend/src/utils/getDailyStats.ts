@@ -106,53 +106,46 @@ export const getDailyStats = async (): Promise<DailyStats> => {
       CORE_TYPES.QuestionSubmissionRepository,
     );
 
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
   /* -------------------------------------------------------
-     Run independent queries in parallel
+     PARALLEL LIGHTWEIGHT QUERIES
   ------------------------------------------------------- */
+  const totalQuestions = await questionRepository.count();
   const [
-    allQuestions,
     {
       approvalRate: moderatorApprovalRate,
       approved: totalClosedQuestions,
       pending: totalInReviewQuestions,
     },
     reviewWiseCount,
+    todayAdded,
+    todayGolden,
+    chatbotCount,
+    manual,
   ] = await Promise.all([
-    questionRepository.getAll(),
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
+    questionRepository.count({
+      createdAt: { $gte: todayStart },
+    }),
+    questionRepository.count({
+      closedAt: { $gte: todayStart },
+    }),
+    questionRepository.count({
+      createdAt: { $gte: todayStart },
+      source: 'AJRASAKHA',
+    }),
+    questionRepository.count({
+      createdAt: { $gte: todayStart },
+      source: { $ne: ['AJRASAKHA' , 'WHATSAPP']},
+    }),
   ]);
 
-  /* -------------------------------------------------------
-     TOTAL QUESTIONS STATS
-  ------------------------------------------------------- */
-  const totalQuestions = allQuestions.length || 0;
-
   const totalQuestionsUnderExpertReview =
-    totalQuestions -
-    ((totalClosedQuestions || 0) + (totalInReviewQuestions || 0));
+    totalQuestions - (totalClosedQuestions + totalInReviewQuestions);
 
-  /* -------------------------------------------------------
-     TODAY STATS
-  ------------------------------------------------------- */
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
-  const todayQuestions = allQuestions.filter(
-    q => new Date(q.createdAt) >= todayStart,
-  );
-
-  const todayGolden = allQuestions.filter(
-    q => q.closedAt && new Date(q.closedAt) >= todayStart,
-  ).length;
-
-  const chatbot = todayQuestions.filter(q => q.source === 'AJRASAKHA').length;
-
-  const manual = todayQuestions.length - chatbot;
-
-  /* -------------------------------------------------------
-     FINAL RESPONSE
-  ------------------------------------------------------- */
   return {
     totalQuestions,
     totalInReviewQuestions,
@@ -162,9 +155,9 @@ export const getDailyStats = async (): Promise<DailyStats> => {
 
     reviewWiseCount,
 
-    todayAdded: todayQuestions.length,
+    todayAdded,
     todayGolden,
-    chatbot,
+    chatbot: chatbotCount,
     manual,
   };
 };

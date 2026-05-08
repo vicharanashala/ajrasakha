@@ -42,11 +42,17 @@ export class WhatsAppController {
     summary: 'Get WhatsApp thread details',
     description: 'Retrieves message history for a specific WhatsApp thread from LangGraph.',
   })
-  @Get('/threads/:threadId')
+  @Get('/threads/:threadId/:date')
   @HttpCode(200)
   @Authorized()
-  async getThreadDetails(@Param('threadId') threadId: string) {
-    return this.whatsappService.getThreadDetails(threadId);
+  async getThreadDetails(
+    @Param('threadId') threadId: string,
+    @Param('date') date: string,
+  ) {
+    return this.whatsappService.getThreadDetails(
+      threadId,
+      date,
+    );
   }
 
   @OpenAPI({
