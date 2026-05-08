@@ -1,5 +1,5 @@
 import { ObjectId, ClientSession } from 'mongodb';
-import { IQuestion } from '#root/shared/interfaces/models.js';
+import { IQuestion,QuestionStatus } from '#root/shared/interfaces/models.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
 import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
@@ -121,7 +121,8 @@ export async function checkDuplicateQuestionHelper(
         similarityScore: Number(matchedScore.toFixed(2)),
         referenceQuestionId: matchedQuestionId,
         referenceQuestion: matchedQuestion,
-        referenceSource: referenceSourcefrom
+        referenceSource: referenceSourcefrom,
+        status: 'duplicate' as QuestionStatus,
       }
 
       if(fromOutReach){
@@ -147,6 +148,7 @@ export async function checkDuplicateQuestionHelper(
       referenceQuestionId: matchedQuestionId,
       referenceQuestion: matchedQuestion,
       referenceSource: referenceSourcefrom,
+      status: 'duplicate' as QuestionStatus,
     };
 
    if(fromOutReach){

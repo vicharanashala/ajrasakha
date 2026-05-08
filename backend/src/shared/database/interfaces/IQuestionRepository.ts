@@ -8,6 +8,7 @@ import {
   GoldenDatasetEntry,
   GoldenDataViewType,
   ModeratorApprovalRate,
+   QuestionStateBreakdownBySource,
   QuestionStatusOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { AllocatedQuestionsBodyDto, DetailedQuestionsBodyDto, GetDetailedQuestionsQuery, QuestionResponse } from '#root/modules/question/classes/validators/QuestionVaidators.js';
@@ -220,14 +221,19 @@ export interface IQuestionRepository {
   ): Promise<number>;
   /**
    * get yearly analytics.
-   * @param goldenDataSelectedYear - question status.
+   * @param goldenDataSelectedYear - selected year.
+   * @param customStartTime - optional start time filter (HH:mm format)
+   * @param customEndTime - optional end time filter (HH:mm format)
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to question document
    */
   getYearAnalytics(
     goldenDataSelectedYear: string,
+    customStartTime?: string,
+    customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }>;
+ ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+
 
   /**
   * get yearly analytics.
@@ -240,20 +246,27 @@ export interface IQuestionRepository {
    * get monthly analytics.
    * @param goldenDataSelectedYear - selected year.
    * @param goldenDataSelectedMonth - selected month
+   * @param customStartTime - optional start time filter (HH:mm format)
+   * @param customEndTime - optional end time filter (HH:mm format)
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to question document
    */
   getMonthAnalytics(
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
+    customStartTime?: string,
+    customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }>;
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+
 
   /**
    * get weekly analytics.
    * @param goldenDataSelectedYear - selected year.
    * @param goldenDataSelectedMonth - selected month
    * @param goldenDataSelectedWeek - selected week
+   * @param customStartTime - optional start time filter (HH:mm format)
+   * @param customEndTime - optional end time filter (HH:mm format)
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to question document
    */
@@ -261,8 +274,11 @@ export interface IQuestionRepository {
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
+    customStartTime?: string,
+    customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }>;
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+
 
   /**
    * get daily analytics.
@@ -278,6 +294,8 @@ export interface IQuestionRepository {
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
     goldenDataSelectedDay: string,
+    customStartTime?: string,
+    customEndTime?: string,
     session?: ClientSession,
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
@@ -287,6 +305,32 @@ export interface IQuestionRepository {
     questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
     questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
     averageResponseTime?: { whatsapp: number; ajrasakha: number };
+    questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; 
+    questionStateBreakdown?: QuestionStateBreakdownBySource;
+    paeMetrics?: { assigned: number; submitted: number; closed: number }
+
+  }>;
+
+  /**
+   * get custom date range analytics.
+   * @param customStartDateTime - Start date and time in ISO format.
+   * @param customEndDateTime - End date and time in ISO format.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to custom range analytics data
+   */
+  getCustomRangeAnalytics(
+    customStartDateTime: string,
+    customEndDateTime: string,
+    session?: ClientSession,
+  ): Promise<{
+    customData: GoldenDatasetEntry[];
+    totalEntriesByType: number;
+    totalVerifiedByType: number;
+    moderatorBreakdown?: { moderatorName: string, count: number }[];
+    questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
+    questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+    averageResponseTime?: { whatsapp: number; ajrasakha: number };
+    questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; 
   }>;
 
   /**
@@ -392,4 +436,25 @@ export interface IQuestionRepository {
     body: DetailedQuestionsBodyDto,
     session?: ClientSession,
   ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>
+
+  /**
+   * Get PAE (Principal Agri Experts) metrics totals across all sources.
+   * @param session - Optional MongoDB client session for transactions.
+   * @param startDate - Optional start date filter
+   * @param endDate - Optional end date filter
+   * @param customStartTime - optional start time filter (HH:mm format)
+   * @param customEndTime - optional end time filter (HH:mm format)
+   * @returns PAE metrics totals
+   */
+  getPAEMetrics(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string,
+  ): Promise<{
+    assigned: number;
+    submitted: number;
+    closed: number;
+  }>;
 }

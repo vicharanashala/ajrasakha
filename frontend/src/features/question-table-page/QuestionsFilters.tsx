@@ -329,10 +329,12 @@ export const QuestionsFilters = ({
     if (nextAnswerMode === "draft") {
       nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined };
     } else if (nextAnswerMode === "pae") {
-      nextFilters = { ...advanceFilter, source: "all", status: "all", pae_review: true };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: true };
+      if (answerMode === "draft") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
-      nextFilters = { ...advanceFilter, source, status: "all", pae_review: undefined };
+      nextFilters = { ...advanceFilter, source, pae_review: undefined };
+      if (answerMode === "draft") nextFilters.status = "all";
     }
 
     setAnswerMode(nextAnswerMode);

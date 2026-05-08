@@ -66,6 +66,7 @@ import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { UserService } from '#root/modules/user/index.js';
 import { IContextService } from '#root/modules/context/interfaces/index.js';
+import { restoreBackupBson } from '#root/utils/DBMigration.js';
 
 @OpenAPI({
   tags: ['questions'],

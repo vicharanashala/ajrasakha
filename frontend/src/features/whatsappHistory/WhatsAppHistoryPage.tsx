@@ -6,6 +6,8 @@ export function WhatsAppHistoryPage() {
   const {
     selectedThreadId,
     setSelectedThreadId,
+    selectedDate,
+    setSelectedDate,
     searchQuery,
     setSearchQuery,
     threads,
@@ -30,6 +32,8 @@ export function WhatsAppHistoryPage() {
       />
       <ChatWindow
         selectedThread={selectedThread}
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
         messages={messages}
         isLoading={isLoadingMessages}
         onSendMessage={sendMessage}
