@@ -472,6 +472,19 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         setConfirmDialog({ open: true, type: "accept" });
     };
 
+    const handlePushToGDB = () => {
+        if (!question?._id) {
+            toast.error("Question data is missing."); return;
+        }
+        if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") {
+            toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return;
+        }
+        if (question.status !== "duplicate") {
+            toast.error("Only duplicate questions can be pushed to GDB."); return;
+        }
+        setConfirmDialog({ open: true, type: "push-to-gdb" });
+    };
+
     const doApprove = async () => {
         try {
             const sources: SourceItem[] = [];
@@ -658,7 +671,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                     type="button"
                                     variant="destructive"
                                     size="sm"
-                                    // onClick={}
+                                    onClick={handlePushToGDB}
                                     disabled={isUpdating || !editedAnswerBody.trim()}
                                     className="gap-2 rounded-xl px-4"
                                 >

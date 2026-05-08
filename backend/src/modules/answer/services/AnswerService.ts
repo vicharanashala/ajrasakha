@@ -36,6 +36,8 @@ import { QuestionService } from '#root/modules/question/services/QuestionService
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT } from '#root/shared/constants/general.js';
+import { th } from '@faker-js/faker';
+import { triggerWebhook } from '../utils/triggerWebhook.js';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService {
@@ -1616,67 +1618,145 @@ export class AnswerService extends BaseService implements IAnswerService {
        return this.answerRepo.updateAnswer(answerId, payload, session);
      });
    }*/
+
+
   async approveAnswer(
     userId: string,
     updates: UpdateAnswerBody,
   ): Promise<{ modifiedCount: number } | { insertedId: string }> {
     return this._withTransaction(async (session: ClientSession) => {
+      const questionId = updates.questionId;
 
-      
-
-      console.log("Updates: ", updates);
-
-      const answerId = updates.answerId;
-
-      if (!answerId) throw new BadRequestError('AnswerId not found');
-      const answer = await this.answerRepo.getById(answerId, session);
-
-      if (!answer) {
-        throw new BadRequestError(`Answer with ID ${answerId} not found`);
+      if (!questionId) {
+        throw new BadRequestError('Question ID not found');
       }
-
-      const user = await this.userRepo.findById(userId, session);
-
-      if (!user || user.role == 'expert')
-        throw new UnauthorizedError(
-          "You don't have permission to approve an answer!",
-        );
-
-      const questionId = answer.questionId.toString();
 
       const question = await this.questionRepo.getById(questionId);
 
       if (!question) {
-        throw new BadRequestError(`Question with ID ${questionId} not found`);
-      }
-
-      if (question.status !== 'in-review' && question.status !== "pae_submitted") {
         throw new BadRequestError(
-          `Can't approve this answer:${answerId}, currently question is not in review or pae submitted!`,
+          `Question with ID ${questionId} not found`,
         );
       }
 
-      await this.answerRepo.getByQuestionId(questionId, session);
+      const submission =
+        await this.questionSubmissionRepo.getByQuestionId(
+          questionId,
+          session,
+        );
 
-      const text = `Question: ${question.question}
-  
-  answer: ${updates.answer}`;
+      const user = await this.userRepo.findById(userId, session);
 
-      let questionEmbedding = [];
+      if (!user || user.role === 'expert') {
+        throw new UnauthorizedError(
+          "You don't have permission to approve an answer!",
+        );
+      }
 
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
 
-      if (ENABLE_AI_SERVER) {
-        const { embedding } = await this.aiService.getEmbedding(text);
-        questionEmbedding = embedding;
+      const text = `Question: ${question.question}
+  
+answer: ${updates.answer}`;
+
+      const generateEmbedding = async (value: string) => {
+        if (!ENABLE_AI_SERVER) throw new InternalServerError('AI server is not enabled');
+
+        const { embedding } =
+          await this.aiService.getEmbedding(value);
+
+        return embedding;
+      };
+
+      let answerId = updates.answerId;
+
+      // DUPLICATE QUESTION FLOW
+      // Create final approved answer directly from LLM answer
+      if (question.status === 'duplicate' && !answerId) {
+        const [answerEmbedding, questionEmbedding] =
+          await Promise.all([
+            generateEmbedding(text),
+            generateEmbedding(text),
+          ]);
+
+        const answer = await this.answerRepo.addAnswer(
+          questionId,
+          userId,
+          updates.answer,
+          updates.sources,
+          answerEmbedding,
+          true, // isFinalAnswer
+          1, // answerIteration
+          session,
+          'approved',
+          'LLM generated answer approved as final answer by moderator since the question is marked as duplicate',
+          undefined,
+        );
+
+        answerId = answer.insertedId.toString();
+
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {
+            text,
+            embedding: questionEmbedding,
+            status: 'closed',
+            closedAt: new Date(),
+          },
+          session,
+          true,
+        );
+      } else {
+
+        // NORMAL APPROVAL FLOW
+        if (!submission) {
+          throw new NotFoundError(
+            `Submission details for question ID ${questionId} not found`,
+          );
+        }
+
+        if (
+          question.status !== 'in-review' &&
+          question.status !== 'pae_submitted'
+        ) {
+          throw new BadRequestError(
+            `Can't approve this answer: ${answerId}, currently question is not in review or pae submitted!`,
+          );
+        }
+      }
+
+      if (!answerId) {
+        throw new BadRequestError('Answer ID not found');
+      }
+
+      const answer = await this.answerRepo.getById(
+        answerId,
+        session,
+      );
+
+      if (!answer) {
+        throw new BadRequestError(
+          `Answer with ID ${answerId} not found`,
+        );
       }
 
       const authorId = answer.authorId.toString();
+
+      const author = await this.userRepo.findById(
+        authorId,
+        session,
+      );
+
+      // UPDATE AUTHOR INCENTIVE
       await this.userRepo.updatePenaltyAndIncentive(
         authorId,
         'incentive',
         session,
       );
+
+      // CLOSE QUESTION
+      const questionEmbedding =
+        await generateEmbedding(text);
 
       await this.questionRepo.updateQuestion(
         questionId,
@@ -1690,77 +1770,61 @@ export class AnswerService extends BaseService implements IAnswerService {
         true,
       );
 
-      let textEmbedding = [];
-
-      if (ENABLE_AI_SERVER) {
-        const { embedding } = await this.aiService.getEmbedding(text);
-        textEmbedding = embedding;
-      }
+      // UPDATE ANSWER
+      const answerEmbedding =
+        await generateEmbedding(text);
 
       const payload: Partial<IAnswer> = {
         answer: updates.answer,
         sources: updates.sources,
         approvedBy: new ObjectId(userId),
-        embedding: textEmbedding,
+        embedding: answerEmbedding,
         isFinalAnswer: true,
         status: 'approved',
       };
 
-      let result = this.answerRepo.updateAnswer(answerId, payload, session);
-      const author = await this.userRepo.findById(authorId, session);
+      const result =
+        await this.answerRepo.updateAnswer(
+          answerId,
+          payload,
+          session,
+        );
 
-      if (question.source === "WHATSAPP") {
-        try {
-          const webhookResponse = await fetch(appConfig.WA_WEBHOOK_API_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-internal-api-key': appConfig.WA_WEBHOOK_API_KEY,
-            },
-            body: JSON.stringify({
-              question_id: questionId,
-              status: 'closed',
-              answer: updates.answer ?? '',
-              author: `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() || 'Expert',  // ✅ author name from userRepo
-              sources: updates.sources ?? [],
-            }),
-          });
-          const webhookData = await webhookResponse.text();
-          console.log('[WhatsApp webhook] Response status:', webhookResponse.status);
-          console.log('[WhatsApp webhook] Response body:', webhookData);
-        } catch (err) {
-          console.error('[WhatsApp webhook] Failed to notify:', err);
-        }
-      }
-      if (question.source == "AJRASAKHA") {
-        try {
-          const webhookResponse = await fetch(appConfig.WEB_WEBHOOK_API_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-internal-api-key': appConfig.WEB_WEBHOOK_API_KEY,
-            },
-            body: JSON.stringify({
-              question_id: questionId,
-              status: 'closed',
-              answer: updates.answer ?? '',
-              author: `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() || 'Expert',  // ✅ author name from userRepo
-              sources: updates.sources ?? [],
-              question: question.question,
-              // originalQuestion:question.originalQuestion?? "",
-              messageId: question.messageId
+      //  WEBHOOK HANDLERS
+      const webhookPayload = {
+        question_id: questionId,
+        status: 'closed',
+        answer: updates.answer ?? '',
+        author:
+          `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
+          'Expert',
+        sources: updates.sources ?? [],
+      };
 
-            }),
-          });
-          const webhookData = await webhookResponse.text();
-          console.log('[Broswer webhook] Response status:', webhookResponse.status);
-          console.log('[Browserwebhook] Response body:', webhookData);
-        } catch (err) {
-          console.error('[Browser webhook] Failed to notify:', err);
-        }
+
+      if (question.source === 'WHATSAPP') {
+        await triggerWebhook(
+          appConfig.WA_WEBHOOK_API_URL,
+          appConfig.WA_WEBHOOK_API_KEY,
+          webhookPayload,
+          'WhatsApp',
+        );
       }
 
-      return result
+      if (question.source === 'AJRASAKHA') {
+        await triggerWebhook(
+          appConfig.WEB_WEBHOOK_API_URL,
+          appConfig.WEB_WEBHOOK_API_KEY,
+          {
+            ...webhookPayload,
+            question: question.question,
+            messageId: question.messageId,
+          },
+          'Browser',
+        );
+      }
+
+      return result;
     });
   }
 
