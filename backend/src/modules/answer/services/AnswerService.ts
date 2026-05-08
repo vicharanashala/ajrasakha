@@ -1633,8 +1633,7 @@ export class AnswerService extends BaseService implements IAnswerService {
         if (!answer) throw new BadRequestError(`Answer with ID ${updates.answerId} not found`);
         questionId = answer.questionId.toString();
       }
-      console.log('updates: ', updates)
-      console.log('question id in approve answer service ', questionId);
+      
       if (!questionId) {
         throw new BadRequestError('Question ID not found');
       }
