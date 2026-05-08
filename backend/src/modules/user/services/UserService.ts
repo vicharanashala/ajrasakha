@@ -91,7 +91,6 @@ export class UserService extends BaseService {
       if(data.firstName !== undefined && !data.firstName.trim()) throw new BadRequestError("Firstname cannot be empty or blank space");
       if(data.mobile !== undefined && !data.mobile.trim()) throw new BadRequestError("Mobile number cannot be empty or blank space");
       if(data.university !== undefined && !data.university.trim()) throw new BadRequestError("University name cannot be empty or blank space");
-      console.log('data: ', data);
       const authService = getFromContainer(FirebaseAuthService);
 
       return this._withTransaction(async (session: ClientSession) => {
