@@ -16,6 +16,7 @@ import { QuestionSourceCharts } from "./dashboard/question-source-charts";
 import { QuestionsAnswered120Min } from "./dashboard/questions-answered-120min";
 import { ResponseAdherence } from "./dashboard/response-adherence";
 import { AverageResponseTime } from "./dashboard/average-response-time";
+import { PAEMetrics } from "./dashboard/pae-metrics";
 import HeatMap from "./HeatMap";
 import { Card, CardHeader, CardTitle } from "./atoms/card";
 import {
@@ -240,6 +241,17 @@ export const Dashboard = () => {
                 ajrasakhaAvgTime={goldenData.averageResponseTime.ajrasakha}
               />
             )}
+          </div>
+        )}
+
+        {/* PAE Metrics Row */}
+        {goldenData?.paeMetrics && (
+          <div className="mb-6">
+            <PAEMetrics
+              assigned={goldenData.paeMetrics.assigned}
+              submitted={goldenData.paeMetrics.submitted}
+              closed={goldenData.paeMetrics.closed}
+            />
           </div>
         )}
 

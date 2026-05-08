@@ -2143,7 +2143,7 @@ export class QuestionRepository implements IQuestionRepository {
     customStartTime?: string,
     customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{ yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }> {
+  ): Promise<{ yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; paeMetrics?: { assigned: number; submitted: number; closed: number } }> {
     await this.init();
     const selectedYearNum = Number(goldenDataSelectedYear);
 
@@ -2232,8 +2232,9 @@ export class QuestionRepository implements IQuestionRepository {
     const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
     const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
     const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
+    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
     
-    return { yearData: formattedData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
+    return { yearData: formattedData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, paeMetrics };
   }
 
   /**
@@ -2512,7 +2513,7 @@ export class QuestionRepository implements IQuestionRepository {
     customStartTime?: string,
     customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{ weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }> {
+  ): Promise<{ weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; paeMetrics?: { assigned: number; submitted: number; closed: number } }> {
     await this.init();
 
     const monthNames = [
@@ -2608,8 +2609,9 @@ export class QuestionRepository implements IQuestionRepository {
     const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
     const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
     const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
+    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
 
-    return { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
+    return { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, paeMetrics };
   }
 
   async getWeekAnalytics(
@@ -2619,7 +2621,7 @@ export class QuestionRepository implements IQuestionRepository {
     customStartTime?: string,
     customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{ dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }> {
+  ): Promise<{ dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; paeMetrics?: { assigned: number; submitted: number; closed: number } }> {
     await this.init();
     const monthNames = [
       'January',
@@ -2721,8 +2723,9 @@ export class QuestionRepository implements IQuestionRepository {
     const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
     const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
     const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
+    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
     
-    return { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime };
+    return { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, paeMetrics };
   }
 
   async getDailyAnalytics(
@@ -2741,6 +2744,7 @@ export class QuestionRepository implements IQuestionRepository {
     questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
     questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
     averageResponseTime?: { whatsapp: number; ajrasakha: number };
+    paeMetrics?: { assigned: number; submitted: number; closed: number };
   }> {
     await this.init();
     const monthNames = [
@@ -2931,6 +2935,8 @@ export class QuestionRepository implements IQuestionRepository {
       averageResponseTime = await this.getAverageResponseTime(session, specificDayStart, specificDayEnd, customStartTime, customEndTime);
     }
 
+    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
+
     return {
       dayHourlyData: { [goldenDataSelectedDay]: hourlyData },
       totalEntriesByType,
@@ -2938,7 +2944,8 @@ export class QuestionRepository implements IQuestionRepository {
       moderatorBreakdown,
       questionSourceBreakdown,
       questionsAnsweredWithin120Min,
-      averageResponseTime
+      averageResponseTime,
+      paeMetrics
     };
   }
 
@@ -4313,5 +4320,99 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
 
     return { totalQuestions, statuses };
   }
+
+  async getPAEMetrics(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string,
+  ): Promise<{
+    assigned: number;
+    submitted: number;
+    closed: number;
+  }> {
+    await this.init();
+
+    const matchCondition: any = {};
+    if (startDate && endDate) {
+      matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+    }
+
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
+    }
+
+    const paeMetrics = await this.QuestionCollection.aggregate(
+      [
+        ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
+        {
+          $facet: {
+            assigned: [
+              {
+                $match: {
+                  pae_review: true,
+                  $or: [{ status: 'open' }, { status: 'delayed' }]
+                }
+              },
+              {
+                $count: 'total'
+              }
+            ],
+            submitted: [
+              {
+                $match: {
+                  status: 'pae_submitted'
+                }
+              },
+              {
+                $count: 'total'
+              }
+            ],
+            closed: [
+              {
+                $match: {
+                  pae_review: true,
+                  status: 'closed'
+                }
+              },
+              {
+                $count: 'total'
+              }
+            ]
+          }
+        }
+      ],
+      { session }
+    ).toArray();
+
+    const result = paeMetrics[0];
+
+    return {
+      assigned: result.assigned[0]?.total ?? 0,
+      submitted: result.submitted[0]?.total ?? 0,
+      closed: result.closed[0]?.total ?? 0
+    };
+  }
+
 }
 
