@@ -2323,7 +2323,11 @@ export class QuestionRepository implements IQuestionRepository {
 
     const matchCondition: any = {};
     if (startDate && endDate) {
-      matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+      // Filter by createdAt in IST format
+      matchCondition.createdAt = { 
+        $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), 
+        $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) 
+      };
     }
 
     // Add time filtering if provided
@@ -2378,7 +2382,11 @@ export class QuestionRepository implements IQuestionRepository {
     };
 
     if (startDate && endDate) {
-      matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+      // Filter by both createdAt and closedAt in IST format
+      matchCondition.$and = [
+        { createdAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } },
+        { closedAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } }
+      ];
     }
 
     // Add time filtering if provided
@@ -2448,7 +2456,11 @@ export class QuestionRepository implements IQuestionRepository {
     };
 
     if (startDate && endDate) {
-      matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+      // Filter by both createdAt and closedAt in IST format
+      matchCondition.$and = [
+        { createdAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } },
+        { closedAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } }
+      ];
     }
 
     // Add time filtering if provided
@@ -4335,8 +4347,20 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
     await this.init();
 
     const matchCondition: any = {};
+    const closedMatchCondition: any = {};
+    
     if (startDate && endDate) {
-      matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+      // Filter by createdAt in IST format for assigned and submitted
+      matchCondition.createdAt = { 
+        $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), 
+        $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) 
+      };
+      
+      // Filter by both createdAt and closedAt in IST format for closed
+      closedMatchCondition.$and = [
+        { createdAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } },
+        { closedAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } }
+      ];
     }
 
     // Add time filtering if provided
@@ -4364,10 +4388,10 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
 
     const paeMetrics = await this.QuestionCollection.aggregate(
       [
-        ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
         {
           $facet: {
             assigned: [
+              ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
               {
                 $match: {
                   pae_review: true,
@@ -4379,6 +4403,7 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
               }
             ],
             submitted: [
+              ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
               {
                 $match: {
                   status: 'pae_submitted'
@@ -4389,6 +4414,7 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
               }
             ],
             closed: [
+              ...(Object.keys(closedMatchCondition).length > 0 ? [{ $match: closedMatchCondition }] : []),
               {
                 $match: {
                   pae_review: true,
