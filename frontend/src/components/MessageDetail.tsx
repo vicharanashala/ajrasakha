@@ -487,8 +487,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             await updateAnswer({
                 updatedAnswer: editedAnswerBody.trim(),
                 sources: sources.length > 0 ? sources : [{ sourceType: "MODERATOR_REVIEW", source: "Answer reviewed and approved by moderator" }],
-                answerId: undefined, 
-                questionId: question._id, 
+                answerId: undefined,
+                questionId: question._id,
                 source: question.source,
                 isModeratorApproval: true
             });
@@ -507,7 +507,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const handleSkip = () => { setPassRemarkError(""); setConfirmDialog({ open: true, type: "pass", remark: "" }); };
 
     const doSkip = async (remark?: string) => {
-        await updateQuestion({ isHidden: true,status:'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
+        await updateQuestion({ isHidden: true, status: 'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
         toast.success("Question has been hidden");
         navigateToQuestionPage();
     };
@@ -622,13 +622,45 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 </div>
                 {approved === null && question && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
-                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">On approval, this answer will be finalized, the question will be marked as closed, and the result will be pushed to the Golden dataset. Please review carefully before approving.</p>
+                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Accept, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
                             <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-2 rounded-xl px-4"><Pencil className="h-4 w-4" /> Edit Answer</Button>
                             {
                                 question?.isHidden !== true && <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
                             }
-                            <Button type="button" onClick={handleApprove} size="sm" disabled={isUpdating || !editedAnswerBody.trim()} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">{isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}{isUpdating ? "Approving..." : "Approve"}</Button>
+
+                            <Button
+                                type="button"
+                                onClick={handleApprove}
+                                size="sm"
+                                disabled={isUpdating || !editedAnswerBody.trim()}
+                                className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90"
+                            >
+                                {isUpdating ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <CheckCircle className="h-4 w-4" />
+                                )}
+                                {isUpdating ? "Submitting AI Answer..." : "Accept"}
+                            </Button>
+
+                            {question.status == "duplicate" &&
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    // onClick={}
+                                    disabled={isUpdating || !editedAnswerBody.trim()}
+                                    className="gap-2 rounded-xl px-4"
+                                >
+                                    {isUpdating ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <CheckCircle className="h-4 w-4" />
+                                    )}
+                                    {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
+                                </Button>
+                            }
                         </div>
                     </div>
                 )}
@@ -698,7 +730,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                             </Button>
                         ) : (
                             <AlertDialogAction onClick={handleConfirm}>
-                                Yes, approve
+                                Yes, continue
                             </AlertDialogAction>
                         )}
                     </AlertDialogFooter>
