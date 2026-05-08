@@ -1,4 +1,4 @@
-import { CROPS, STATES } from "@/components/advanced-question-filter";
+import { CROPS, STATES, DOMAINS } from "@/components/advanced-question-filter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
@@ -803,7 +803,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               </Select>
             </div>
 
-            <div className="space-y-2 w-full">
+            {/* <div className="space-y-2 w-full">
               <Label htmlFor="crop">Crop Type</Label>
               <Select
                 value={formData.preference?.crop}
@@ -822,11 +822,10 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
+            </div> */}
 
           <div className="space-y-2">
-            <Label htmlFor="domain">Domain</Label>
+            {/* <Label htmlFor="domain">Domain</Label>
             <div className="flex items-center gap-2">
               <Network className="h-4 w-4 text-muted-foreground" />
               <Input
@@ -842,8 +841,28 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 }
                 placeholder="Enter domain (e.g., Nutrient Management)"
               />
-            </div>
+            </div> */}
+            <Label htmlFor="domain">Domain</Label>
+              <Select
+                value={formData.preference?.domain}
+                disabled={!isEditMode || user.role == "admin"}
+                onValueChange={(val) => handleChange("preference.domain", val)}
+              >
+                <SelectTrigger id="domain" className="w-full">
+                  <SelectValue placeholder="Select domain" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Domain</SelectItem>
+                  {DOMAINS.map((domain) => (
+                    <SelectItem key={domain} value={domain}>
+                      <MapPin className="h-4 w-4 mr-2 inline" /> {domain}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
           </div>
+          </div>
+
         </div>
       )}
 
