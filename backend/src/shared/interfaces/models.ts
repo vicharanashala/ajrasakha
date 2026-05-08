@@ -259,6 +259,7 @@ export type INotificationType =
   | 'question_from_whatsapp'
   | 'question_from_ajrasakha'
   | 'expert_replacement'
+  | 'user_verification'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
