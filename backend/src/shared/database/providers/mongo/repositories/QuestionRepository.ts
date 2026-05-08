@@ -1311,7 +1311,7 @@ export class QuestionRepository implements IQuestionRepository {
       const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
       const filter: any = {
-        status: { $in: ['open', 'delayed'] },
+        status: { $in: ['open', 'delayed', 'duplicate'] },
         _id: { $in: questionIdsToAttempt },
       };
 
