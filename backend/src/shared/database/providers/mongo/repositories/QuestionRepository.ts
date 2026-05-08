@@ -4435,5 +4435,10 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
 
     return { totalQuestions, statuses };
   }
+
+  async count(filter = {}) {
+    await this.init();
+    return await this.QuestionCollection.countDocuments(filter);
+  }
 }
 
