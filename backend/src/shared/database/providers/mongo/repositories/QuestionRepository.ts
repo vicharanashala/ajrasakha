@@ -1895,6 +1895,8 @@ export class QuestionRepository implements IQuestionRepository {
         'createdAt',
         'updatedAt',
         'review_level_number',
+        'submission',
+        'statusOrder'
       ];
 
       if (!addText) {
