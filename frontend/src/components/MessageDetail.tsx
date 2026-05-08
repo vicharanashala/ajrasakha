@@ -452,7 +452,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editModalKey, setEditModalKey] = useState(0);
     const [translatedText, setTranslatedText] = useState<string>("");
-    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "approve" | "save" | "cancel"; remark?: string }>({ open: false, type: "pass" });
+    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "accept" | "save" | "cancel" | "push-to-gdb"; remark?: string }>({ open: false, type: "pass" });
     const [passRemarkError, setPassRemarkError] = useState("");
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
@@ -466,10 +466,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         setTranslatedText("");
     }, [text]);
 
-    const handleApprove = () => {
+    const handleAccept = () => {
         if (!question?._id) { toast.error("Question data is missing."); return; }
         if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") { toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return; }
-        setConfirmDialog({ open: true, type: "approve" });
+        setConfirmDialog({ open: true, type: "accept" });
     };
 
     const doApprove = async () => {
@@ -484,16 +484,23 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     sources.push({ sourceType: (pdf.sourceType || "other") as any, sourceName: pdf.name || "chatbot", source: pdf.link, page: isNaN(firstPage) ? undefined : firstPage });
                 }
             }
+            const isAcceptFlow = confirmDialog.type === "accept";
+
             await updateAnswer({
                 updatedAnswer: editedAnswerBody.trim(),
                 sources: sources.length > 0 ? sources : [{ sourceType: "MODERATOR_REVIEW", source: "Answer reviewed and approved by moderator" }],
                 answerId: undefined,
                 questionId: question._id,
                 source: question.source,
-                isModeratorApproval: true
+                isModeratorApproval: isAcceptFlow,
             });
             setApproved(true);
-            toast.success("Answer approved successfully");
+
+            toast.success(
+                isAcceptFlow
+                    ? "LLM answer submitted successfully for author review"
+                    : "Answer pushed to GDB successfully"
+            );
             navigateToQuestionPage();
         } catch (error) {
             console.error("Failed to approve answer:", error);
@@ -523,7 +530,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         setPassRemarkError("");
         setConfirmDialog({ open: false, type: "pass", remark: "" });
         if (type === "pass") { doSkip(remark); }
-        else if (type === "approve") { doApprove(); }
+        else if (type === "accept" || type === "push-to-gdb") {
+            doApprove(); // use another to access the latest edited answer and sources
+        }
     };
 
     const renderAnswerBody = (raw: string) => (
@@ -631,7 +640,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
 
                             <Button
                                 type="button"
-                                onClick={handleApprove}
+                                onClick={handleAccept}
                                 size="sm"
                                 disabled={isUpdating || !editedAnswerBody.trim()}
                                 className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90"
@@ -693,13 +702,15 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <AlertDialogHeader>
                         <AlertDialogTitle>
                             {confirmDialog.type === "pass" && "Pass this question?"}
-                            {confirmDialog.type === "approve" && "Approve this answer?"}
+                            {confirmDialog.type === "accept" && "Accept this answer?"}
+                            {confirmDialog.type === "push-to-gdb" && "Push this question to GDB?"}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             {confirmDialog.type === "save" && "Are you sure you want to save these changes to the answer?"}
                             {confirmDialog.type === "cancel" && "Are you sure you want to cancel? Any unsaved changes will be lost."}
                             {confirmDialog.type === "pass" && "Are you sure you want to pass this question? It will be hidden from the Question list."}
-                            {confirmDialog.type === "approve" && "Are you sure you want to approve this answer? The question will  allocate to task_force team."}
+                            {confirmDialog.type === "accept" && "Are you sure you want to accept this answer? The question will  allocate to task_force team."}
+                            {confirmDialog.type === "push-to-gdb" && "Are you sure you want to push this question to the GDB? The question will be marked as closed and will not allocate to experts."}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     {confirmDialog.type === "pass" && (
