@@ -298,7 +298,7 @@ export class QuestionRepository implements IQuestionRepository {
         }
       };
 
-      const {
+      let {
         search,
         searchEmbedding,
         status,
@@ -326,12 +326,23 @@ export class QuestionRepository implements IQuestionRepository {
         hiddenQuestions,
         duplicateQuestions,
         isOnHold,
+        pae_review
       } = query;
     //  const filter: any = {};
     const filter: any = {
       isHidden: { $ne: true }, // default to exclude hidden questions
       isOnHold: { $ne: true }, // default to exclude on hold questions
     };
+    if(pae_review)
+    {
+    filter.pae_review = { $eq: true };
+    }
+    if (!pae_review) {
+      filter.$or = [
+        { pae_review: { $eq: false } },
+        { pae_review: { $exists: false } }
+      ];
+    }
 
     // --- Hidden question filter ---
     if(hiddenQuestions === 'true'){
