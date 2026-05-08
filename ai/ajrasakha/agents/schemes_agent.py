@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
+from ajrasakha.agents.location_context import thread_location_system_message
 from ajrasakha.agents.prompts import SCHEMES_SYSTEM_PROMPT
 from langchain.agents import create_agent
 
@@ -91,7 +92,12 @@ async def schemes(
 
         agent = await _get_schemes_agent()
         result = await agent.ainvoke(
-            {"messages": [HumanMessage(content=context)]},
+            {
+                "messages": [
+                    thread_location_system_message(config),
+                    HumanMessage(content=context),
+                ]
+            },
             config=config,
         )
         return result["messages"][-1].content

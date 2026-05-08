@@ -8,6 +8,7 @@ from typing import List
 from langchain.agents import create_agent
 
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
+from ajrasakha.agents.location_context import thread_location_system_message
 from ajrasakha.agents.prompts import CHEMICAL_SYSTEM_PROMPT
 
 chemical_mcp = MultiServerMCPClient(
@@ -70,7 +71,12 @@ async def chemical_checker(
 
         agent = await _get_chemical_agent()
         result = await agent.ainvoke(
-            {"messages": [HumanMessage(content=context)]},
+            {
+                "messages": [
+                    thread_location_system_message(config),
+                    HumanMessage(content=context),
+                ]
+            },
             config=config,
         )
         return result["messages"][-1].content

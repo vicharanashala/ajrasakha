@@ -1,6 +1,8 @@
+from typing import Optional
+
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -9,6 +11,7 @@ from langgraph.graph import StateGraph
 from pydantic import BaseModel
 
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
+from ajrasakha.agents.location_context import thread_location_system_message
 from ajrasakha.agents.prompts import GDB_SYSTEM_PROMPT, WEATHER_SYSTEM_PROMPT
 
 weather_mcp = MultiServerMCPClient(
@@ -40,32 +43,47 @@ async def _get_weather_agent():
 
 class WeatherInput(BaseModel):
     query: str
-    latitude: float
-    longitude: float
-    address: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    address: Optional[str] = None
 
 @tool(args_schema=WeatherInput)
-async def weather(query: str, latitude: float, longitude: float, address: str, config: RunnableConfig) -> str:
+async def weather(
+    query: str,
+    latitude: Optional[float],
+    longitude: Optional[float],
+    address: Optional[str],
+    config: RunnableConfig,
+) -> str:
     """
     Query the weather agent.
     Use when the user asks for weather forecasts, rainfall predictions, or IMD alerts.
-    Always pass the user's latitude, longitude, address, and a focused query about the weather.
+    Prefer thread GPS from runtime context when latitude/longitude are omitted.
+    Always pass a focused query about the weather.
     """
     try:
+        injected: dict = (config.get("configurable") or {}).get("location") or {}
+        lat = latitude if latitude is not None else injected.get("latitude")
+        lon = longitude if longitude is not None else injected.get("longitude")
+        addr = address if address is not None else injected.get("address")
+
         context = f"""
 Location Context:
-- Address  : {address}
-- Latitude : {latitude}
-- Longitude: {longitude}
+- Address  : {addr or "unknown"}
+- Latitude : {lat if lat is not None else "unknown"}
+- Longitude: {lon if lon is not None else "unknown"}
 
 Query: {query}
         """.strip()
 
         agent = await _get_weather_agent()
         result = await agent.ainvoke(
-            {"messages": [
-                HumanMessage(content=context)
-            ]},
+            {
+                "messages": [
+                    thread_location_system_message(config),
+                    HumanMessage(content=context),
+                ]
+            },
             config=config
         )
         return result["messages"][-1].content

@@ -22,6 +22,12 @@ from typing_extensions import TypedDict
 from ajrasakha.agents.chemical_checker_agent import chemical_checker
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
 from ajrasakha.agents.gdb_agent import gdb
+from ajrasakha.agents.location_context import (
+    extract_location_updates_from_new_tool_messages,
+    main_agent_location_context_message,
+    merge_location_dict,
+    merge_location_from_ai_tool_calls,
+)
 from ajrasakha.agents.market_agent import market
 from ajrasakha.agents.prompts import AJRASAKHA_SYSTEM_PROMPT, GDB_SYSTEM_PROMPT, WHATSAPP_SYSTEM_PROMPT
 from ajrasakha.agents.schemes_agent import schemes
@@ -41,7 +47,7 @@ class Location(TypedDict):
 
 class AjraSakhaState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
-    location: Optional[Location]
+    location: Annotated[Optional[Location], merge_location_dict]
 
 
 MCP_SERVERS = {
@@ -164,7 +170,12 @@ async def _load_long_term_summary(store: BaseStore | None, config: RunnableConfi
     return "\n".join(summary_parts[:3]).strip()
 
 
-async def ajrasakha_node(state: AjraSakhaState, config: RunnableConfig, store: BaseStore) -> dict:
+async def ajrasakha_node(
+    state: AjraSakhaState,
+    config: RunnableConfig,
+    *,
+    store: BaseStore | None = None,
+) -> dict:
     location = await _get_location_tool()
     reviewer = await _get_reviewer_tool()
     merged_configurable = dict((config.get("configurable") or {}))
@@ -180,7 +191,11 @@ async def ajrasakha_node(state: AjraSakhaState, config: RunnableConfig, store: B
     messages = [
         SystemMessage(content=WHATSAPP_SYSTEM_PROMPT),
         SystemMessage(content=summary_context),
-    ] + list(state["messages"])
+    ]
+    loc_ctx = main_agent_location_context_message(state.get("location"))
+    if loc_ctx:
+        messages.append(loc_ctx)
+    messages.extend(list(state["messages"]))
 
     try:
         response = await llm.ainvoke(messages, config=enriched_config)
@@ -208,12 +223,24 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
     reviewer = await _get_reviewer_tool()
 
     merged_configurable = dict((config.get("configurable") or {}))
-    merged_configurable["location"] = state.get("location")
+    msgs = state.get("messages") or []
+    last_ai = msgs[-1] if msgs else None
+    loc_after_args = (
+        merge_location_from_ai_tool_calls(last_ai, state.get("location"))
+        if last_ai is not None
+        else None
+    )
+    effective_location = loc_after_args if loc_after_args is not None else state.get("location")
+    merged_configurable["location"] = effective_location
     enriched_config = patch_config(config, configurable=merged_configurable)
 
     try:
         result = await ToolNode([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer]).ainvoke(state, config=enriched_config)
-        result["location"] = state.get("location")
+        new_msgs = result.get("messages") or []
+        base_loc = effective_location
+        loc_updates = extract_location_updates_from_new_tool_messages(new_msgs, base_loc)
+        merged_loc = merge_location_dict(base_loc, loc_updates) if loc_updates is not None else base_loc
+        result["location"] = merged_loc
         return result
     except Exception as exc:
         logger.error(
@@ -241,7 +268,7 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
                 content=f"Tool execution failed: {type(exc).__name__}",
                 tool_call_id="unknown",
             ))
-        return {"messages": error_messages, "location": state.get("location")}
+        return {"messages": error_messages, "location": effective_location}
 
 
 _mongo_client = None

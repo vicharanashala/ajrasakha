@@ -17,3 +17,5 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: Optional[int] = None
     stream: Optional[bool] = False
     thinking: Optional[Dict[str, Any]] = None  # Extended thinking support
+    # Thread GPS / resolved place fields merged into graph state `location` (e.g. latitude, longitude, city, state).
+    location: Optional[Dict[str, Any]] = None

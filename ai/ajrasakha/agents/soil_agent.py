@@ -2,7 +2,7 @@
 
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -11,6 +11,7 @@ from langgraph.graph import StateGraph
 from pydantic import BaseModel
 
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
+from ajrasakha.agents.location_context import thread_location_system_message
 from ajrasakha.agents.prompts import GDB_SYSTEM_PROMPT, WEATHER_SYSTEM_PROMPT, SOIL_SYSTEM_PROMPT
 
 soil_mcp = MultiServerMCPClient(
@@ -77,9 +78,12 @@ async def soil(query: str, address: str, state: str, district: str, crop: str, n
 
         agent = await _get_soil_agent()
         result = await agent.ainvoke(
-            {"messages": [
-                HumanMessage(content=context)
-            ]},
+            {
+                "messages": [
+                    thread_location_system_message(config),
+                    HumanMessage(content=context),
+                ]
+            },
             config=config
         )
         return result["messages"][-1].content
