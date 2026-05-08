@@ -1625,8 +1625,16 @@ export class AnswerService extends BaseService implements IAnswerService {
     updates: UpdateAnswerBody,
   ): Promise<{ modifiedCount: number } | { insertedId: string }> {
     return this._withTransaction(async (session: ClientSession) => {
-      const questionId = updates.questionId;
 
+
+      let questionId = updates.questionId;
+      if (!questionId && updates.answerId) {
+        const answer = await this.answerRepo.getById(updates.answerId, session);
+        if (!answer) throw new BadRequestError(`Answer with ID ${updates.answerId} not found`);
+        questionId = answer.questionId.toString();
+      }
+      console.log('updates: ', updates)
+      console.log('question id in approve answer service ', questionId);
       if (!questionId) {
         throw new BadRequestError('Question ID not found');
       }
