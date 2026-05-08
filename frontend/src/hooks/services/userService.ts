@@ -113,4 +113,11 @@ export class UserService {
     }
     return apiFetch<ReviewLevelCount[]>(`${this._baseUrl}/review-level?${params.toString()}`);
   }
+
+  async verifyUser(userId: string, isVerified: boolean): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/${userId}/verify`, {
+      method: "PATCH",
+      body: JSON.stringify({ isVerified }),
+    });
+  }
 }

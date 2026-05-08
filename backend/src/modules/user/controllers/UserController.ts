@@ -14,6 +14,7 @@ import {
   QueryParams,
   BadRequestError,
   InternalServerError,
+  ForbiddenError
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -32,7 +33,8 @@ import {
   UsersNameResponseDto,
   ExpertReviewLevelDto,
   UpdateUserDto,
-  ToggleUserRoleDto
+  ToggleUserRoleDto,
+  VerifyUserBody
 } from '#root/modules/user/validators/UserValidators.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -624,5 +626,40 @@ export class UserController {
   ): Promise<IUser | null> {
     const {email} = params;
     return await this.userService.getUserByEmail(email);
+  }
+
+  @OpenAPI({
+    summary: 'Verify or unverify a user (Admin)',
+    description: 'Allows an admin to verify or unverify a user account.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'User verification status updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @Authorized(['admin'])
+  @Patch('/:id/verify')
+  @HttpCode(200)
+  async verifyUser(
+    @Param('id') userId: string,
+    @Body() body: VerifyUserBody,
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    // manual admin check
+  if (currentUser.role !== 'admin') {
+    throw new ForbiddenError(
+      'Only admins can verify users',
+    );
+  }
+    const {isVerified} = body;
+    const updatedUser = await this.userService.verifyUser(userId, isVerified);
+    return updatedUser;
   }
 }

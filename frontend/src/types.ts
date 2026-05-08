@@ -49,6 +49,7 @@ export interface IUser {
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
+  isVerified?: boolean;
 }
 export interface ReviewLevelCount {
   Review_level: 'Author' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5' | 'Level 6' | 'Level 7' | 'Level 8' | 'Level 9';
