@@ -853,7 +853,8 @@ export class QuestionRepository implements IQuestionRepository {
       const totalPages = Math.ceil(totalCount / limit);
 
       // Determine sort order
-      let sortStage: any = { statusOrder: 1, createdAt: -1, _id: -1 };
+     // let sortStage: any = { statusOrder: 1, createdAt: -1, _id: -1 };
+     let sortStage: any = {  createdAt: -1, _id: -1 }
       let needsPriorityMapping = false;
       let needsReviewLevelSort = false;
 
