@@ -15,8 +15,8 @@ import {
   IAuthService,
   AuthenticatedRequest,
 } from '#auth/interfaces/IAuthService.js';
-import {ChangePasswordError} from '#auth/services/FirebaseAuthService.js';
-import {injectable, inject} from 'inversify';
+import { ChangePasswordError } from '#auth/services/FirebaseAuthService.js';
+import { injectable, inject } from 'inversify';
 import admin from 'firebase-admin';
 import {
   JsonController,
@@ -30,13 +30,13 @@ import {
   HttpError,
   OnUndefined,
 } from 'routing-controllers';
-import {AUTH_TYPES} from '#auth/types.js';
-import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
-import {appConfig} from '#root/config/app.js';
+import { AUTH_TYPES } from '#auth/types.js';
+import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+import { appConfig } from '#root/config/app.js';
 
 @OpenAPI({
   tags: ['Authentication'],
-  description:'Authentication and authorization operations'
+  description: 'Authentication and authorization operations'
 })
 @JsonController('/auth')
 @injectable()
@@ -44,7 +44,7 @@ export class AuthController {
   constructor(
     @inject(AUTH_TYPES.AuthService)
     private readonly authService: IAuthService,
-  ) {}
+  ) { }
 
   @OpenAPI({
     summary: 'Register a new user account',
@@ -68,12 +68,13 @@ export class AuthController {
   @OnUndefined(201)
   async signup(@Body() body: SignUpBody) {
     const result = await this.authService.signup(body);
-    return { success: true, message:' Please check your email to verify your account.', ...result };
+    const isDevelopment = appConfig.isDevelopment
+    return { success: true, message: `${isDevelopment ? "Registration completed!" : "Please check your email to verify your account."}`, ...result };
   }
 
   @OpenAPI({
     summary: 'Register a new user account',
-    description:'Registers a new user using Firebase Authentication and stores additional user details in the application database. This is typically the first step for any new user to access the system.',
+    description: 'Registers a new user using Firebase Authentication and stores additional user details in the application database. This is typically the first step for any new user to access the system.',
   })
   @ResponseSchema(ChangePasswordResponse, {
     statusCode: 201,
@@ -94,7 +95,7 @@ export class AuthController {
       body,
       req.headers.authorization?.split(' ')[1],
     );
-    return {success: true, message: 'User registered successfully'};
+    return { success: true, message: 'User registered successfully' };
   }
 
   @OpenAPI({
@@ -126,7 +127,7 @@ export class AuthController {
   ) {
     try {
       const result = await this.authService.changePassword(body, request.user);
-      return {success: true, message: result.message};
+      return { success: true, message: result.message };
     } catch (error) {
       if (error instanceof ChangePasswordError) {
         throw new HttpError(400, error.message);
@@ -201,12 +202,12 @@ export class AuthController {
   @Post('/login')
   async login(@Body() body: LoginBody) {
     try {
-      const {email, password} = body;
+      const { email, password } = body;
       const data = await fetch(
         `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${appConfig.firebase.apiKey}`,
         {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email,
             password,
@@ -215,7 +216,7 @@ export class AuthController {
         },
       );
 
-      const result:any = await data.json();
+      const result: any = await data.json();
       if (!result.idToken) {
         const errorMessage = result.error?.message || 'Invalid email or password';
         throw new HttpError(401, errorMessage);
@@ -238,30 +239,30 @@ export class AuthController {
         }
       );
 
-      const lookupData:any = await lookup.json();
+      const lookupData: any = await lookup.json();
       const userInfo = lookupData.users?.[0];
 
-       if (!userInfo?.emailVerified && !appConfig.isDevelopment) {
+      if (!userInfo?.emailVerified && !appConfig.isDevelopment) {
         await this.authService.sendVerificationEmail(userInfo.email);
-         throw new HttpError(
-           401,
-           'Please verify your email before logging in. A new verification link has been sent to your email.'
-         );
-       }
+        throw new HttpError(
+          401,
+          'Please verify your email before logging in. A new verification link has been sent to your email.'
+        );
+      }
 
       // Ensure the user exists in database
-       const user = await this.authService.syncUserWithDb(
-         userInfo.localId,
-         userInfo.email,
-         userInfo.displayName || ''
-       );
-       
-       if (!user.isVerified) {
-         throw new HttpError(
-           401,
-           'Your account is pending admin verification. Please contact an administrator.'
-         );
-       }
+      const user = await this.authService.syncUserWithDb(
+        userInfo.localId,
+        userInfo.email,
+        userInfo.displayName || ''
+      );
+
+      if (!user.isVerified) {
+        throw new HttpError(
+          401,
+          'Your account is pending admin verification. Please contact an administrator.'
+        );
+      }
 
       return result;
     } catch (error) {
