@@ -43,6 +43,7 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import { buildReviewTimeline } from '#root/utils/buildReviewTat.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -1663,10 +1664,11 @@ export class QuestionRepository implements IQuestionRepository {
       });
 
       const rerouteHistory = Array.from(rerouteHistoryMap.values());
-
+      const reviewTimeline = buildReviewTimeline(submission?.history || [], submission?.queue || [], question?.createdAt);
+      
       // 7 Populate submissions manually
       const submissionHistory =
-        submission?.history?.map(h => ({
+        submission?.history?.map((h, index) => ({
           updatedBy: h.updatedBy
             ? {
               _id: h.updatedBy?.toString(),
@@ -1707,6 +1709,11 @@ export class QuestionRepository implements IQuestionRepository {
             }
             : null,
           status: h.status,
+          //tat
+          assignedAt: reviewTimeline[index + 1 ]?.assignedAt || null,
+          completedAt: reviewTimeline[index + 1 ]?.completedAt || null,
+          timeTakenMs: reviewTimeline[index + 1 ]?.timeTakenMs || null,
+          isCompleted: reviewTimeline[index + 1 ]?.isCompleted || false,
           reasonForRejection: h.reasonForRejection,
           approvedAnswer: h.approvedAnswer?.toString(),
           rejectedAnswer: h.rejectedAnswer?.toString(),
@@ -1758,6 +1765,7 @@ export class QuestionRepository implements IQuestionRepository {
             : usersMap.get(q.toString())?.firstName,
           email: !isExpert && usersMap.get(q.toString())?.email,
         })),
+        authorTimeline: reviewTimeline[0],
         history: combinedHistory,
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,

@@ -22,6 +22,7 @@ import {
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { Button } from "@/components/atoms/button";
 import { getStatusStyles } from "../constants/allocationStatusStyleConfig";
+import { formatDuration } from "../utils/formatDate";
 
 interface AllocationTimelineProps {
   queue: ISubmission["queue"];
@@ -77,7 +78,7 @@ export const AllocationTimeline = ({
   const getUserActivityText = (userId: string): string => {
     const submission = getUserSubmission(userId);
     if (!submission) {
-      if(currentUser.role !== "expert"){
+      if (currentUser.role !== "expert") {
         return `${queue[0].name} is reviewing the question!!`
       }
       return "Author is reviewing the question"
@@ -230,6 +231,7 @@ export const AllocationTimeline = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6   transition-all duration-500 ease-in-out">
           {displayedQueue?.map((user, index) => {
             const status = getStatus(index);
+            const userSubmission = getUserSubmission(user._id);
             const styles = getStatusStyles(status);
             const isLast = index === displayedQueue?.length - 1;
             const isCurrentUserWaiting =
@@ -243,9 +245,8 @@ export const AllocationTimeline = ({
                 {!isLast && (
                   <div className="absolute top-50 right-36 md:top-1/2 md:right-0 flex items-center transform translate-x-full -translate-y-1/2">
                     <svg
-                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 hidden md:block ${
-                        isCurrentUserWaiting ? "animate-bounce" : ""
-                      }`}
+                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 hidden md:block ${isCurrentUserWaiting ? "animate-bounce" : ""
+                        }`}
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       stroke="currentColor"
@@ -260,9 +261,8 @@ export const AllocationTimeline = ({
                     </svg>
 
                     <svg
-                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 block md:hidden ${
-                        isCurrentUserWaiting ? "animate-bounce" : ""
-                      }`}
+                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 block md:hidden ${isCurrentUserWaiting ? "animate-bounce" : ""
+                        }`}
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       stroke="currentColor"
@@ -290,17 +290,14 @@ export const AllocationTimeline = ({
                       <div className="absolute -top-1 right-3 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
                         <ConfirmationModal
                           title="Remove Expert Allocation?"
-                          description={`${
-                            question.isAutoAllocate
+                          description={`${question.isAutoAllocate
                               ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
                               : ""
-                          }${
-                            submittedUserIds.has(user._id)
+                            }${submittedUserIds.has(user._id)
                               ? "The selected expert has already submitted an answer. "
                               : ""
-                          }Are you sure you want to remove ${
-                            user?.name
-                          }'s allocation? This action cannot be undone. `}
+                            }Are you sure you want to remove ${user?.name
+                            }'s allocation? This action cannot be undone. `}
                           confirmText="Remove"
                           cancelText="Cancel"
                           type="delete"
@@ -323,27 +320,24 @@ export const AllocationTimeline = ({
                   onMouseLeave={handleMouseLeave}
                 >
                   <div
-                    className={`relative w-full h-full transition-transform duration-700 ${
-                      isFlipped && flippedId == user._id
+                    className={`relative w-full h-full transition-transform duration-700 ${isFlipped && flippedId == user._id
                         ? "[transform:rotateY(180deg)]"
                         : ""
-                    }`}
+                      }`}
                     style={{ transformStyle: "preserve-3d" }}
                   >
                     <div
                       className={`absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 
             rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 
             ${styles.container} 
-            ${
-              isExpanded && index >= INITIAL_DISPLAY_COUNT
-                ? "animate-fade-in"
-                : ""
-            } 
-            ${
-              isCurrentUserWaiting
-                ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
-                : ""
-            }`}
+            ${isExpanded && index >= INITIAL_DISPLAY_COUNT
+                          ? "animate-fade-in"
+                          : ""
+                        } 
+            ${isCurrentUserWaiting
+                          ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
+                          : ""
+                        }`}
                       style={{ backfaceVisibility: "hidden" }}
                     >
                       {removingAllocation &&
@@ -363,11 +357,10 @@ export const AllocationTimeline = ({
                           <RefreshCcw className={`w-6 h-6 ${styles.icon}`} />
                         ) : status === "waiting" ? (
                           <Clock
-                            className={`w-6 h-6 ${styles.icon} ${
-                              isCurrentUserWaiting
+                            className={`w-6 h-6 ${styles.icon} ${isCurrentUserWaiting
                                 ? "animate-bounce-subtle"
                                 : ""
-                            }`}
+                              }`}
                           />
                         ) : (
                           <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
@@ -427,6 +420,49 @@ export const AllocationTimeline = ({
                         >
                           {getUserActivityText(user._id)}
                         </p>
+                        {/* ========================= NEW TIMELINE SECTION ========================= */}
+                        {userSubmission?.assignedAt && (
+                          <div className="w-full mt-2 space-y-1 rounded-lg bg-muted/40 px-3 py-2 border border-border/40">
+
+                            {/* Assigned At */}
+                            <div className="flex items-center justify-between gap-2 text-[10px]">
+                              <span className="text-muted-foreground font-medium">
+                                Assigned
+                              </span>
+
+                              <span className="text-foreground font-semibold text-right">
+                                {new Date(userSubmission.assignedAt).toLocaleString()}
+                              </span>
+                            </div>
+
+                            {/* Completed At */}
+                            <div className="flex items-center justify-between gap-2 text-[10px]">
+                              <span className="text-muted-foreground font-medium">
+                                Completed
+                              </span>
+
+                              <span className="text-foreground font-semibold text-right">
+                                {userSubmission.completedAt
+                                  ? new Date(
+                                    userSubmission.completedAt
+                                  ).toLocaleString()
+                                  : "In Progress"}
+                              </span>
+                            </div>
+
+                            {/* Duration */}
+                            <div className="flex items-center justify-between gap-2 text-[10px] border-t border-border/40 pt-1 mt-1">
+                              <span className="text-muted-foreground font-medium">
+                                Duration
+                              </span>
+
+                              <span className="text-primary font-bold">
+                                {formatDuration(userSubmission.timeTakenMs)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {/* ====================================================================== */}
                         <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-primary/20 to-primary/60" />
 
                         {/* Previous Allocations Section */}
