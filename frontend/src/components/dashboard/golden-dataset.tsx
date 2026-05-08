@@ -65,6 +65,10 @@ export interface GoldenDataset {
   questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
   questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
   averageResponseTime?: { whatsapp: number; ajrasakha: number };
+  questionStateBreakdown?: {
+    whatsapp: { status: string; count: number }[];
+    ajrasakha: { status: string; count: number }[];
+  };
   yearData: { month: string; entries: number; verified: number }[];
   weeksData: { week: string; entries: number; verified: number }[];
   dailyData: { day: string; entries: number; verified: number }[];
