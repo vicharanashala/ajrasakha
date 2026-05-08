@@ -5,13 +5,16 @@ import { useSendMessage } from './useSendMessage';
 
 export function useWhatsAppHistory() {
   const [selectedThreadId, setSelectedThreadId] = useState<string | undefined>("");
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Kolkata',
+  }));
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Local cache for latest messages to override the initial 'thread_name' from API
   const [lastMessageOverrides, setLastMessageOverrides] = useState<Record<string, string>>({});
 
   const { data: threads = [], isLoading: isLoadingThreads } = useThreads();
-  const { data: messages = [], isLoading: isLoadingMessages } = useThreadDetails(selectedThreadId);
+  const { data: messages = [], isLoading: isLoadingMessages } = useThreadDetails(selectedThreadId, selectedDate);
 
   // Sync the latest message to our local overrides whenever a thread is loaded
   useEffect(() => {
@@ -59,6 +62,8 @@ export function useWhatsAppHistory() {
   return {
     selectedThreadId,
     setSelectedThreadId,
+    selectedDate,
+    setSelectedDate,
     searchQuery,
     setSearchQuery,
     threads: filteredThreads,
