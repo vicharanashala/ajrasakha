@@ -1897,6 +1897,8 @@ export class QuestionRepository implements IQuestionRepository {
         'createdAt',
         'updatedAt',
         'review_level_number',
+        'submission',
+        'statusOrder'
       ];
 
       if (!addText) {
@@ -4446,6 +4448,7 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
     return { totalQuestions, statuses };
   }
 
+
   async getPAEMetrics(
     session?: ClientSession,
     startDate?: Date,
@@ -4551,6 +4554,12 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
       submitted: result.submitted[0]?.total ?? 0,
       closed: result.closed[0]?.total ?? 0
     };
+  }
+
+
+  async count(filter = {}) {
+    await this.init();
+    return await this.QuestionCollection.countDocuments(filter);
   }
 
 }
