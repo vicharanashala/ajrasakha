@@ -26,9 +26,14 @@ export const ReviewTimeline = ({
     <div className="mt-6">
       <div className="space-y-4">
         {reviews.map((review, index) => {
-          const modification = review?.answer?.modifications?.find(
+         /* const modification = review?.answer?.modifications?.find(
             (mod: any) => mod.modifiedBy === review.reviewerId
-          );
+          );*/
+          const modifications =
+          review?.answer?.modifications?.filter(
+            (mod: any) =>
+              mod.modifiedBy?.toString() === review.reviewerId?.toString()
+          ) || [];
 
           return (
             <div key={review._id}>
@@ -89,7 +94,7 @@ export const ReviewTimeline = ({
                         </>
                       )}
 
-                      {review.action === "modified" && (
+                      {review.action === "modified"&& modifications.length > 0  && (
                         <>
                           <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
                           <span>Modified</span>
@@ -141,7 +146,7 @@ export const ReviewTimeline = ({
                 )}
 
                 {/* Modification Accordion */}
-                {review.action === "modified" && modification && (
+                {/*review.action === "modified" && modification && (
                   <div className="mt-3">
                     <Accordion type="single" collapsible className="w-full">
                       <AccordionItem value={`mod-details-${review._id}`}>
@@ -154,7 +159,25 @@ export const ReviewTimeline = ({
                       </AccordionItem>
                     </Accordion>
                   </div>
-                )}
+                )*/}
+                <div className="mt-3">
+                <Accordion type="single" collapsible className="w-full">
+                  {modifications.map((modification: any, idx: number) => (
+                    <AccordionItem
+                      key={idx}
+                      value={`mod-details-${review._id}-${idx}`}
+                    >
+                      <AccordionTrigger className="text-sm font-medium">
+                        View Modification Details  
+                      </AccordionTrigger>
+
+                      <AccordionContent>
+                        {renderModificationDiff(modification)}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
               </div>
             </div>
           );
