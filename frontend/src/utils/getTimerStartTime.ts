@@ -28,33 +28,35 @@ interface IQuestionWithSubmission {
 export function getTimerStartTime(
   question: IQuestionWithSubmission,
 ): string {
-  const { submission, authors_history, createdAt } = question;
+  // const { submission, authors_history, createdAt } = question;
+
+  const {createdAt} = question
 
   // Check if user is Author: queue[0] AND history.length === 0
-  const isAuthor =
-    submission?.queue &&
-    submission.queue.length > 0 &&
-    submission.history?.length === 0;
+  // const isAuthor =
+  //   submission?.queue &&
+  //   submission.queue.length > 0 &&
+  //   submission.history?.length === 0;
 
 
 
-  if (isAuthor) {
-    // Author: Use authors_history last entry's createdAt if available
-    if (authors_history && authors_history.length > 0) {
-      const lastEntry = authors_history[authors_history.length - 1];
-      return lastEntry.createdAt;
-    }
+  // if (isAuthor) {
+  //   // Author: Use authors_history last entry's createdAt if available
+  //   if (authors_history && authors_history.length > 0) {
+  //     const lastEntry = authors_history[authors_history.length - 1];
+  //     return lastEntry.createdAt;
+  //   }
 
-    return submission?.createdAt || createdAt || "";
-  }
+  //   return submission?.createdAt || createdAt || "";
+  // }
 
-  // Level Expert: Use submission.history last entry's createdAt
-  if (submission?.history && submission.history.length > 0) {
-    const lastHistoryEntry = submission.history[submission.history.length - 1];
-    return lastHistoryEntry.createdAt || createdAt || "";
-  }
+  // // Level Expert: Use submission.history last entry's createdAt
+  // if (submission?.history && submission.history.length > 0) {
+  //   const lastHistoryEntry = submission.history[submission.history.length - 1];
+  //   return lastHistoryEntry.createdAt || createdAt || "";
+  // }
 
-
+  // just use this...
   // Default fallback
   return createdAt || "";
 }
