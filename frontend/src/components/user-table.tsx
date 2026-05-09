@@ -149,7 +149,7 @@ export const UsersTable = ({
                   )}
                 </button>
               </TableHead>
-              <TableHead className="text-center w-24">Total Answered</TableHead>
+              {/* <TableHead className="text-center w-24">Total Answered</TableHead> */}
               <TableHead className="text-center w-24">
                 <button
                   onClick={() => onSort("joined")}
@@ -454,9 +454,9 @@ const UserRow: React.FC<UserRowProps> = ({
       </TableCell>
 
       {/* total_answers_creted */}
-      <TableCell className="align-middle w-32">
+      {/* <TableCell className="align-middle w-32">
         <Badge variant="outline">{u.totalAnswers_Created || 0}</Badge>
-      </TableCell>
+      </TableCell> */}
 
       {/* Created At */}
       <TableCell className="align-middle w-32">
