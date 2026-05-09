@@ -125,10 +125,11 @@ export const useAuthForm = (
         return;
       } else if (mode === "signup") {
         // Call signup API
-        await signupMutation({ email, password, firstName, lastName });
+        const response = await signupMutation({ email, password, firstName, lastName });
         if (!isDevelopment) {
           setIsEmailSent(true);
         }
+        toast.success(response?.message || "Registration successful!");
         handleModeChange("login")
 
         return;
