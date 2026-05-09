@@ -195,6 +195,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="moderator">Moderator</SelectItem>
                       <SelectItem value="expert">Expert</SelectItem>
+                      <SelectItem value="pae_expert">PAE</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
