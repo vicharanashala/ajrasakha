@@ -15,7 +15,7 @@ import type {
   SourceItem,
   UserRole,
 } from "@/types";
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AnswerItemHeader } from "./answer_item/AnswerItemHeader";
 import { AnswerContent } from "./answer_item/AnswerContent";
@@ -62,6 +62,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const isFinalizeRequestInFlight = useRef(false);
 
   const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
     useUpdateAnswer();
@@ -76,6 +77,12 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   });
 
   const handleUpdateAnswer = async () => {
+    if (isFinalizeRequestInFlight.current) {
+      return;
+    }
+
+    isFinalizeRequestInFlight.current = true;
+
     try {
       if (!editableAnswer || editableAnswer.trim().length <= 3) {
         toast.error("Updated answer should be at least more than 3 characters");
@@ -110,6 +117,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       errorMessage = errorMessage.replace(/this answer:.+?,/, "this answer,");
       toast.error(`Failed to Approve answer. ${errorMessage}`);
       setEditOpen(false);
+    } finally {
+      isFinalizeRequestInFlight.current = false;
     }
   };
 
