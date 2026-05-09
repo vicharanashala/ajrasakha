@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { Input } from "./atoms/input";
+import { Badge } from "./atoms/badge";
 import { UsersTable } from "./user-table";
 import {
   useGetAllExperts,
@@ -223,7 +224,8 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
 
               {/* Verification Filter */}
               {isAdmin && (
-                <div className="flex items-center gap-3 w-[180px]">
+                <div className="flex items-center gap-3 w-[180px] relative">
+                  <Badge className="absolute -top-2 -right-1 h-4 text-[9px] px-1.5 py-0 bg-red-500 hover:bg-red-600 border-0 z-10 text-white">New</Badge>
                   <Select value={verifiedFilter} onValueChange={(val) => { setVerifiedFilter(val); setPage(1); }}>
                     <SelectTrigger className="bg-background px-3 py-2 w-full">
                       <SelectValue placeholder="Verification" />

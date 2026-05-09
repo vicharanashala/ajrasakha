@@ -468,9 +468,15 @@ const UserRow: React.FC<UserRowProps> = ({
                     setConfirmAction("switch-role");
                   }}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full">
                     <Gavel className="w-4 h-4 text-blue-500" />
-                    Switch Role
+                    <span>Switch Role</span>
+                    <Badge
+                      variant="default"
+                      className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
+                    >
+                      New
+                    </Badge>
                   </div>
                 </DropdownMenuItem>
               )}
