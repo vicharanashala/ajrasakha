@@ -13,6 +13,7 @@ import {
   Leaf,
   Link2,
   MapPin,
+  MessageSquare,
   Sprout,
 } from "lucide-react";
 import { useState } from "react";
@@ -91,12 +92,27 @@ export const QuestionDetailsCard = ({
 
       <Separator />
 
-      <div className="flex items-start gap-2 text-sm">
-        <Link2 className="w-4 h-4 text-primary shrink-0" />
-        <div className="flex flex-col">
-          <span className="text-muted-foreground">Source</span>
-          <span className="truncate">{question.source || "-"}</span>
+      <div className="flex items-start justify-between gap-4 text-sm">
+        <div className="flex items-start gap-2">
+          <Link2 className="w-4 h-4 text-primary shrink-0" />
+
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Source</span>
+            <span className="truncate">{question.source || "-"}</span>
+          </div>
         </div>
+
+        {question.source === "WHATSAPP" && question.threadId && (
+          <div className="flex flex-col items-end min-w-0">
+            <span className="text-muted-foreground">
+              WhatsApp Thread ID
+            </span>
+
+            <code className="max-w-[220px] truncate rounded-md border bg-muted px-2 py-1 text-xs font-medium text-foreground">
+              {question.threadId}
+            </code>
+          </div>
+        )}
       </div>
 
       {showMoreDetails && (
