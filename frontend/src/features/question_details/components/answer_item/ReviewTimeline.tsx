@@ -103,7 +103,7 @@ export const ReviewTimeline = ({
                         </>
                       )}
 
-                      {review.action === "modified"&& modification.length > 0  && (
+                      {review.action === "modified"&& modification && (
                         <>
                           <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
                           <span>Modified</span>
