@@ -143,18 +143,23 @@ class UpdateUserDto {
   firstName?: string;
 
   @IsOptional()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value?.trim()
+  )
   @IsString()
-  @IsNotEmpty({ message: 'Last name cannot be empty or spaces' })
+  // @IsNotEmpty({ message: 'Last name cannot be empty or spaces' })
   lastName?: string;
 
   @IsOptional()
-  @IsEnum(['expert', 'moderator', 'admin'])
+  @IsEnum(['expert', 'moderator', 'admin', 'pae_expert'],)
   role?: UserRole;
   @IsOptional()
   @IsString()
   avatar?: string;
 }
 
+export class ToggleUserRoleDto {
+  role!: UserRole;
+}
 
 export { PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, ExpertReviewLevelDto, UpdateUserDto, VerifyUserBody };

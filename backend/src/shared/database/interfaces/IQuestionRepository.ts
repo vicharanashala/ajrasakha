@@ -8,6 +8,7 @@ import {
   GoldenDatasetEntry,
   GoldenDataViewType,
   ModeratorApprovalRate,
+   QuestionStateBreakdownBySource,
   QuestionStatusOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { AllocatedQuestionsBodyDto, DetailedQuestionsBodyDto, GetDetailedQuestionsQuery, QuestionResponse } from '#root/modules/question/classes/validators/QuestionVaidators.js';
@@ -231,7 +232,8 @@ export interface IQuestionRepository {
     customStartTime?: string,
     customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }>;
+ ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+
 
   /**
   * get yearly analytics.
@@ -255,7 +257,8 @@ export interface IQuestionRepository {
     customStartTime?: string,
     customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }>;
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+
 
   /**
    * get weekly analytics.
@@ -274,7 +277,8 @@ export interface IQuestionRepository {
     customStartTime?: string,
     customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number } }>;
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+
 
   /**
    * get daily analytics.
@@ -301,6 +305,10 @@ export interface IQuestionRepository {
     questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
     questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
     averageResponseTime?: { whatsapp: number; ajrasakha: number };
+    questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; 
+    questionStateBreakdown?: QuestionStateBreakdownBySource;
+    paeMetrics?: { assigned: number; submitted: number; closed: number }
+
   }>;
 
   /**
@@ -322,6 +330,7 @@ export interface IQuestionRepository {
     questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
     questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
     averageResponseTime?: { whatsapp: number; ajrasakha: number };
+    questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; 
   }>;
 
   /**
@@ -427,4 +436,25 @@ export interface IQuestionRepository {
     body: DetailedQuestionsBodyDto,
     session?: ClientSession,
   ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>
+
+  /**
+   * Get PAE (Principal Agri Experts) metrics totals across all sources.
+   * @param session - Optional MongoDB client session for transactions.
+   * @param startDate - Optional start date filter
+   * @param endDate - Optional end date filter
+   * @param customStartTime - optional start time filter (HH:mm format)
+   * @param customEndTime - optional end time filter (HH:mm format)
+   * @returns PAE metrics totals
+   */
+  getPAEMetrics(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string,
+  ): Promise<{
+    assigned: number;
+    submitted: number;
+    closed: number;
+  }>;
 }

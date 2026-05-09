@@ -113,6 +113,8 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
 
   const totalPages = isAdmin ? 1 : expertDetails?.totalPages || 0;
 
+
+
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
       {selectExpertId ? (
@@ -197,7 +199,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="moderator">Moderator</SelectItem>
                       <SelectItem value="expert">Expert</SelectItem>
-                      <SelectItem value="pae_expert">PAE</SelectItem>
+                      <SelectItem value="pae_expert">PAE Expert</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

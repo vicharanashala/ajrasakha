@@ -49,6 +49,12 @@ class User implements IUser {
   notificationRetention?: NotificationRetentionType;
 
   @Expose()
+  mobile?: string;
+
+  @Expose()
+  university?: string;
+
+  
   isVerified: boolean;
 
   constructor(data: Partial<IUser>) {
@@ -70,6 +76,8 @@ class User implements IUser {
     this.notificationRetention=data.notificationRetention;
     this.createdAt = data?.createdAt || new Date();
     this.updatedAt = data?.updatedAt || new Date();
+    this.mobile = data?.mobile || ''; 
+    this.university = data?.university || '';
   }
 }
 
