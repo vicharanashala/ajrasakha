@@ -17,7 +17,12 @@ type EnvKey =
   | "VITE_SARVAM_API_KEY"
 
   // Notification
-  | "VITE_VAPID_PUBLIC_KEY";
+  | "VITE_VAPID_PUBLIC_KEY"
+
+  // Plivo
+  | "VITE_PLIVO_ENDPOINT_USERNAME"
+  | "VITE_PLIVO_ENDPOINT_PASSWORD"
+  | "VITE_PLIVO_STREAM_URL";
 
 /**
  * Internal getter (single source of truth)
@@ -52,4 +57,10 @@ export const env = {
   sarvamApiKey: () => getEnv("VITE_SARVAM_API_KEY"),
 
   vapidPublicKey: () => getEnv("VITE_VAPID_PUBLIC_KEY"),
+
+  plivo: {
+    endpointUsername: () => getEnv("VITE_PLIVO_ENDPOINT_USERNAME", false),
+    endpointPassword: () => getEnv("VITE_PLIVO_ENDPOINT_PASSWORD", false),
+    streamUrl: () => getEnv("VITE_PLIVO_STREAM_URL"),
+  },
 };

@@ -27,6 +27,7 @@ import { AnnamDashboard_dev as AnnamDashboard } from '../features/chatbotDashboa
 import { cn } from "@/lib/utils";
 import AuditPage from "./AuditPage";
 import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
+import { IncomingCallBox } from "./IncomingCallBox";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -47,6 +48,10 @@ export const PlaygroundPage = () => {
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
   const [chatbotSource, setChatbotSource] = useState<'vicharanashala' | 'annam'>('vicharanashala');
+  
+  // Call state management for voice recorder
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [callTranscript, setCallTranscript] = useState("");
   const getStorageKey = (user?: { email?: string }) => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
@@ -410,11 +415,19 @@ export const PlaygroundPage = () => {
               )}>
                 <div className=" overflow-hidden bg-background p-4 ps-0">
                   <div className=" mx-auto py-8 pt-0">
-                    <VoiceRecorderCard />
+                    {/* Incoming Call Box - appears only when there's an incoming/active call */}
+                    <IncomingCallBox 
+                      onTranscriptUpdate={(transcript) => setCallTranscript(transcript)}
+                      onCallStateChange={(isActive) => setIsCallActive(isActive)}
+                    />
+                    <VoiceRecorderCard 
+                      callTranscript={callTranscript}
+                      isCallActive={isCallActive}
+                    />
                   </div>
                 </div>
               </TabsContent>
-              {user && (
+                            {user && (
                 <TabsContent
                   value="history"
                   className={cn(

@@ -1,5 +1,8 @@
 import { env } from "@/config/env";
 
+// Module-level flag to prevent duplicate connection alerts
+let hasConnectionAlertShown = false;
+
 export interface PlivoTranscriptMessage {
   type: 'transcript' | 'call_start' | 'call_end' | 'call_disconnected' | 'transcription_error';
   callId: string;
@@ -24,36 +27,59 @@ export class PlivoWebSocketService {
   private setupEventHandlers() {
     // Setup default message handlers
     this.messageHandlers.set('transcript', [(message: PlivoTranscriptMessage) => {
-      console.log('📝 Live transcript:', message.text);
+      // console.log('📝 Live transcript:', message.text);
     }]);
     
     this.messageHandlers.set('call_start', [(message: PlivoTranscriptMessage) => {
-      console.log('📞 Call started:', message.data);
+      // console.log('📞 Call started:', message.data);
     }]);
     
     this.messageHandlers.set('call_end', [(message: PlivoTranscriptMessage) => {
-      console.log('📴 Call ended. Final transcript:', message.finalTranscript);
+      // console.log('📴 Call ended. Final transcript:', message.finalTranscript);
     }]);
     
     this.messageHandlers.set('transcription_error', [(message: PlivoTranscriptMessage) => {
-      console.error('❌ Transcription error:', message.error);
+      // console.error('❌ Transcription error:', message.error);
     }]);
   }
 
   connect(token?: string): Promise<void> {
+    // Reset reconnect attempts for fresh connection
+    this.reconnectAttempts = 0;
+    
     return new Promise((resolve, reject) => {
       try {
-        // Use ngrok URL for testing with Plivo
-        const ngrokUrl = 'wss://localhost:4000';
-        const wsUrl = token 
-          ? `${ngrokUrl}/plivo-stream?token=${token}`
-          : `${ngrokUrl}/plivo-stream`;
+        // Use stream URL from env config (includes /plivo-stream path)
+        const wsUrl = env.plivo.streamUrl();
 
-        console.log(`🔌 [FRONTEND] Connecting to WebSocket URL: ${wsUrl}`);
+        // EXPLICIT CONSOLE OUTPUT - Can't be missed!
+        // console.log('🚀🚀🚀 [FRONTEND] WebSocket connect() function called!');
+        // console.log(`🔌 [FRONTEND] Connecting to WebSocket URL: ${wsUrl}`);
+        // console.log(`🔌 [FRONTEND] Token present: ${token ? 'YES' : 'NO'}`);
+        // console.log(`🔌 [FRONTEND] Browser WebSocket support: ${typeof WebSocket !== 'undefined' ? 'YES' : 'NO'}`);
+        
+        // Also log to window for visibility
+        if (typeof window !== 'undefined') {
+          (window as any).frontendWsLog = '🔌 [FRONTEND] WebSocket connection initiated';
+        }
+
+        // IMMEDIATE ALERT - Can't be missed! (only show once)
+        if (!hasConnectionAlertShown) {
+          // alert('🔌 [FRONTEND] WebSocket connection initiated to: ' + wsUrl);
+          hasConnectionAlertShown = true;
+        }
+        // console.log('🚨 IMMEDIATE ALERT: Check browser console for WebSocket logs!');
+        
         this.ws = new WebSocket(wsUrl);
+        // console.log(`🔌 [FRONTEND] WebSocket created, readyState: ${this.ws?.readyState}`);
 
         this.ws.onopen = () => {
-          console.log('🔌 Connected to Plivo WebSocket');
+          // console.log('✅ [WEBSOCKET] CONNECTION SUCCESSFUL!');
+          // console.log('🔌 Connected to Plivo WebSocket');
+          // console.log('🔌 [WebSocket] Ready state:', this.ws?.readyState);
+          // console.log('🔌 [WebSocket] URL:', this.ws?.url);
+          // console.log('🔌 [WebSocket] Protocol:', this.ws?.protocol);
+          // console.log('🔌 [WebSocket] Connected at:', new Date().toISOString());
           this.reconnectAttempts = 0;
           resolve();
         };
@@ -61,7 +87,7 @@ export class PlivoWebSocketService {
         this.ws.onmessage = (event) => {
           try {
             const message: PlivoTranscriptMessage = JSON.parse(event.data);
-            console.log(`📥 [FRONTEND] Received WebSocket message:`, JSON.stringify(message, null, 2));
+            // console.log(`📥 [FRONTEND] Received WebSocket message:`, JSON.stringify(message, null, 2));
             this.handleMessage(message);
           } catch (error) {
             console.error('❌ [FRONTEND] Failed to parse WebSocket message:', error);
@@ -70,7 +96,7 @@ export class PlivoWebSocketService {
         };
 
         this.ws.onclose = () => {
-          console.log('❌ Disconnected from Plivo WebSocket');
+          // console.log('❌ Disconnected from Plivo WebSocket');
           this.handleReconnect();
         };
 
@@ -86,16 +112,16 @@ export class PlivoWebSocketService {
   }
 
   private handleMessage(message: PlivoTranscriptMessage) {
-    console.log(`📥 [FRONTEND] Handling message type: ${message.type}`);
+    // console.log(`📥 [FRONTEND] Handling message type: ${message.type}`);
     const handlers = this.messageHandlers.get(message.type);
     if (handlers) {
-      console.log(`📥 [FRONTEND] Found ${handlers.length} handlers for type: ${message.type}`);
+      // console.log(`📥 [FRONTEND] Found ${handlers.length} handlers for type: ${message.type}`);
       handlers.forEach((handler, index) => {
-        console.log(`📥 [FRONTEND] Calling handler ${index} for type: ${message.type}`);
+        // console.log(`📥 [FRONTEND] Calling handler ${index} for type: ${message.type}`);
         handler(message);
       });
     } else {
-      console.log(`⚠️ [FRONTEND] No handlers found for message type: ${message.type}`);
+      // console.log(`⚠️ [FRONTEND] No handlers found for message type: ${message.type}`);
     }
   }
 
@@ -104,7 +130,7 @@ export class PlivoWebSocketService {
       this.reconnectAttempts++;
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
       
-      console.log(`🔄 Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      // console.log(`🔄 Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
       
       setTimeout(() => {
         this.connect();

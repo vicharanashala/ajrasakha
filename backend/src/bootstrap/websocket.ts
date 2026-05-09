@@ -1,4 +1,4 @@
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage, Server } from 'http';
 import { PlivoService } from '../modules/plivo/services/PlivoService.js';
 
@@ -10,8 +10,10 @@ export const initWebSocket = (server: Server) => {
 
   const plivoService = new PlivoService();
 
-  wss.on('connection', async (ws, req: IncomingMessage) => {
+  wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
     console.log('🔌 Plivo stream connected');
+    console.log('📊 [WEBSOCKET] Total clients before connection:', wss.clients.size);
+    console.log('📊 [WEBSOCKET] New client readyState:', ws.readyState);
 
     // Skip authentication for now
     const user = null;
@@ -23,6 +25,8 @@ export const initWebSocket = (server: Server) => {
     const connectionInfo = { callId, user, ws };
     (ws as any).connectionInfo = connectionInfo;
 
+    console.log('📊 [WEBSOCKET] Total clients after connection:', wss.clients.size);
+
     ws.on('message', async (data: Buffer) => {
       try {
         const msg = JSON.parse(data.toString());
@@ -30,7 +34,7 @@ export const initWebSocket = (server: Server) => {
         if (msg.event === 'start') {
           console.log('📞 Call started:', msg.start);
           // Broadcast call start to frontend
-          wss.clients.forEach((client) => {
+          Array.from(wss.clients).forEach((client: any) => {
             if (client !== ws && client.readyState === 1) {
               client.send(JSON.stringify({
                 type: 'call_start',
@@ -43,14 +47,14 @@ export const initWebSocket = (server: Server) => {
 
         if (msg.event === 'media') {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
-          console.log('🎧 Audio chunk received, size:', audioBuffer.length);
+          // console.log('🎧 Audio chunk received, size:', audioBuffer.length);
 
           try {
             // Transcribe audio chunk continuously
             const transcript = await plivoService.transcribeAudio(audioBuffer, callId);
             
             if (transcript.trim()) {
-              console.log(`📤 [BACKEND] Sending transcript for call ${callId}:`, transcript);
+              // console.log(`📤 [BACKEND] Sending transcript for call ${callId}:`, transcript);
               
               const transcriptMessage = {
                 type: 'transcript',
@@ -63,7 +67,7 @@ export const initWebSocket = (server: Server) => {
               
               // Broadcast transcript to frontend clients
               let clientCount = 0;
-              wss.clients.forEach((client) => {
+              Array.from(wss.clients).forEach((client: any) => {
                 if (client.readyState === 1) {
                   clientCount++;
                   client.send(JSON.stringify(transcriptMessage));
@@ -75,7 +79,7 @@ export const initWebSocket = (server: Server) => {
           } catch (transcribeError) {
             console.error('❌ [BACKEND] Transcription failed:', transcribeError);
             // Broadcast error to frontend
-            wss.clients.forEach((client) => {
+            Array.from(wss.clients).forEach((client: any) => {
               if (client.readyState === 1) {
                 client.send(JSON.stringify({
                   type: 'transcription_error',
@@ -95,7 +99,7 @@ export const initWebSocket = (server: Server) => {
             const finalChunkTranscript = await plivoService.processRemainingAudio(callId);
             if (finalChunkTranscript.trim()) {
               // Broadcast final chunk transcript
-              wss.clients.forEach((client) => {
+              Array.from(wss.clients).forEach((client: any) => {
                 if (client.readyState === 1) {
                   client.send(JSON.stringify({
                     type: 'transcript',
@@ -115,7 +119,7 @@ export const initWebSocket = (server: Server) => {
             const finalTranscript = await plivoService.getFinalEnglishTranscript(callId);
             
             // Broadcast final transcript
-            wss.clients.forEach((client) => {
+            Array.from(wss.clients).forEach((client: any) => {
               if (client.readyState === 1) {
                 client.send(JSON.stringify({
                   type: 'call_end',
@@ -141,7 +145,7 @@ export const initWebSocket = (server: Server) => {
       plivoService.clearTranscript(callId);
       
       // Notify frontend of disconnection
-      wss.clients.forEach((client) => {
+      Array.from(wss.clients).forEach((client: any) => {
         if (client.readyState === 1) {
           client.send(JSON.stringify({
             type: 'call_disconnected',

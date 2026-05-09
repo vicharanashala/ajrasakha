@@ -1,7 +1,7 @@
 import { injectable } from 'inversify';
 import { appConfig } from '../../../config/app.js';
-import * as fs from 'fs';
-import * as path from 'path';
+// import * as fs from 'fs';
+// import * as path from 'path';
 
 interface SarvamTranscribeResponse {
   transcript: string;
@@ -26,7 +26,7 @@ export class PlivoService {
    * Convert 16kHz Linear PCM buffer to WAV format
    */
   private convertLinearPcmToWav(pcmBuffer: Buffer): Buffer {
-    console.log(`🔄 [PLIVO-SERVICE] Converting ${pcmBuffer.length} bytes of 16kHz PCM to WAV`);
+    // console.log(`🔄 [PLIVO-SERVICE] Converting ${pcmBuffer.length} bytes of 16kHz PCM to WAV`);
     
     // PCM buffer is already 16kHz, 16-bit, mono - just add WAV header
     const sampleCount = pcmBuffer.length / 2; // 16-bit samples
@@ -53,7 +53,7 @@ export class PlivoService {
     // Copy PCM data directly (no conversion needed)
     pcmBuffer.copy(wavBuffer, 44);
     
-    console.log(`🔄 [PLIVO-SERVICE] Created 16kHz WAV: ${wavBuffer.length} bytes (${sampleCount} samples)`);
+    // console.log(`🔄 [PLIVO-SERVICE] Created 16kHz WAV: ${wavBuffer.length} bytes (${sampleCount} samples)`);
     
     return wavBuffer;
   }
@@ -63,7 +63,7 @@ export class PlivoService {
    */
   addAudioChunk(audioBuffer: Buffer, callId: string): Promise<string> {
     return new Promise((resolve) => {
-      console.log(`� [PLIVO-SERVICE] Adding audio chunk for call ${callId}, size: ${audioBuffer.length} bytes`);
+      // console.log(`� [PLIVO-SERVICE] Adding audio chunk for call ${callId}, size: ${audioBuffer.length} bytes`);
       
       // Get or create buffer array for this call
       let buffers = this.audioBuffers.get(callId);
@@ -77,7 +77,7 @@ export class PlivoService {
       
       // Calculate total accumulated size
       const totalSize = buffers.reduce((sum, buf) => sum + buf.length, 0);
-      console.log(`📊 [PLIVO-SERVICE] Accumulated audio size: ${totalSize} bytes (target: ${this.CHUNK_SIZE} bytes)`);
+      // console.log(`📊 [PLIVO-SERVICE] Accumulated audio size: ${totalSize} bytes (target: ${this.CHUNK_SIZE} bytes)`);
       
       // Check if we have enough for 3 seconds
       if (totalSize >= this.CHUNK_SIZE) {
@@ -93,13 +93,13 @@ export class PlivoService {
         // Reset buffer with remaining data
         this.audioBuffers.set(callId, remainingBuffer.length > 0 ? [remainingBuffer] : []);
         
-        console.log(`🎙️ [PLIVO-SERVICE] Processing 3-second chunk (${chunkBuffer.length} bytes)`);
+        // console.log(`🎙️ [PLIVO-SERVICE] Processing 3-second chunk (${chunkBuffer.length} bytes)`);
         
         // Process the 3-second chunk
         this.transcribeChunk(chunkBuffer, callId)
           .then(transcript => resolve(transcript))
           .catch(error => {
-            console.error('❌ [PLIVO-SERVICE] Chunk transcription failed:', error);
+            // console.error('❌ [PLIVO-SERVICE] Chunk transcription failed:', error);
             resolve(''); // Return empty on error
           });
       } else {
@@ -114,30 +114,30 @@ export class PlivoService {
    */
   private async transcribeChunk(audioBuffer: Buffer, callId: string): Promise<string> {
     try {
-      console.log(`🎙️ [PLIVO-SERVICE] Transcribing 3-second chunk for call ${callId}, size: ${audioBuffer.length} bytes`);
+      // console.log(`🎙️ [PLIVO-SERVICE] Transcribing 3-second chunk for call ${callId}, size: ${audioBuffer.length} bytes`);
       
       // Convert 16kHz Linear PCM to WAV format (accepted by Sarvam)
-      console.log(`🔄 [PLIVO-SERVICE] Converting 16kHz PCM to WAV format, size: ${audioBuffer.length} bytes`);
+      // console.log(`🔄 [PLIVO-SERVICE] Converting 16kHz PCM to WAV format, size: ${audioBuffer.length} bytes`);
       
       // Direct PCM to WAV conversion (no mu-law conversion needed)
       const wavBuffer = this.convertLinearPcmToWav(audioBuffer);
-      console.log(`🔄 [PLIVO-SERVICE] Converted to WAV, size: ${wavBuffer.length} bytes`);
+      // console.log(`🔄 [PLIVO-SERVICE] Converted to WAV, size: ${wavBuffer.length} bytes`);
       
       // Debug: Show first few PCM samples (already 16-bit)
       const pcmSamples = [];
       for (let i = 0; i < Math.min(10, audioBuffer.length - 1); i += 2) {
         pcmSamples.push(audioBuffer.readInt16LE(i));
       }
-      console.log(`🔍 [PLIVO-SERVICE] First 5 PCM samples:`, pcmSamples);
+      // console.log(`🔍 [PLIVO-SERVICE] First 5 PCM samples:`, pcmSamples);
       
-      // Save WAV file for debugging
-      const debugDir = path.join(process.cwd(), 'debug_audio');
-      if (!fs.existsSync(debugDir)) {
-        fs.mkdirSync(debugDir);
-      }
-      const debugFilePath = path.join(debugDir, `debug_${callId}_${Date.now()}.wav`);
-      fs.writeFileSync(debugFilePath, wavBuffer);
-      console.log(`💾 [PLIVO-SERVICE] Saved debug WAV file: ${debugFilePath}`);
+      // // Save WAV file for debugging
+      // const debugDir = path.join(process.cwd(), 'debug_audio');
+      // if (!fs.existsSync(debugDir)) {
+      //   fs.mkdirSync(debugDir);
+      // }
+      // const debugFilePath = path.join(debugDir, `debug_${callId}_${Date.now()}.wav`);
+      // fs.writeFileSync(debugFilePath, wavBuffer);
+      // console.log(`💾 [PLIVO-SERVICE] Saved debug WAV file: ${debugFilePath}`);
       
       const formData = new FormData();
       const audioFile = new File([wavBuffer], `audio_${Date.now()}.wav`, {
@@ -151,11 +151,11 @@ export class PlivoService {
       };
       
       // Log FormData contents (without file data)
-      console.log(`📤 [PLIVO-SERVICE] FormData language:`, formData.get('language'));
-      const fileEntry = formData.get('file');
-      console.log(`📤 [PLIVO-SERVICE] FormData file type:`, fileEntry instanceof File ? fileEntry.type : 'Not a File');
-      console.log(`📤 [PLIVO-SERVICE] FormData file size:`, fileEntry instanceof File ? fileEntry.size : 'Unknown');
-      console.log(`📤 [PLIVO-SERVICE] FormData file name:`, fileEntry instanceof File ? fileEntry.name : 'Unknown');
+      // console.log(`📤 [PLIVO-SERVICE] FormData language:`, formData.get('language'));
+      // const fileEntry = formData.get('file');
+      // console.log(`📤 [PLIVO-SERVICE] FormData file type:`, fileEntry instanceof File ? fileEntry.type : 'Not a File');
+      // console.log(`📤 [PLIVO-SERVICE] FormData file size:`, fileEntry instanceof File ? fileEntry.size : 'Unknown');
+      // console.log(`📤 [PLIVO-SERVICE] FormData file name:`, fileEntry instanceof File ? fileEntry.name : 'Unknown');
       
       const response = await fetch('https://api.sarvam.ai/speech-to-text-translate', {
         method: 'POST',
@@ -163,7 +163,7 @@ export class PlivoService {
         body: formData,
       });
 
-      console.log(`📥 [PLIVO-SERVICE] Sarvam API response status: ${response.status}`);
+      // console.log(`📥 [PLIVO-SERVICE] Sarvam API response status: ${response.status}`);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -172,15 +172,15 @@ export class PlivoService {
       }
 
       const result = await response.json() as SarvamTranscribeResponse;
-      console.log(`📝 [PLIVO-SERVICE] Sarvam API response:`, result);
+      // console.log(`📝 [PLIVO-SERVICE] Sarvam API response:`, result);
       
       const transcript = result.transcript || '';
-      console.log(`📝 [PLIVO-SERVICE] Extracted transcript: "${transcript}"`);
+      // console.log(`📝 [PLIVO-SERVICE] Extracted transcript: "${transcript}"`);
 
       // Accumulate transcript for this call
       const currentTranscript = this.activeTranscriptions.get(callId) || '';
       this.activeTranscriptions.set(callId, currentTranscript + ' ' + transcript);
-      console.log(`📚 [PLIVO-SERVICE] Accumulated transcript for call ${callId}:`, this.activeTranscriptions.get(callId));
+      // console.log(`📚 [PLIVO-SERVICE] Accumulated transcript for call ${callId}:`, this.activeTranscriptions.get(callId));
 
       return transcript;
     } catch (error) {
@@ -218,7 +218,7 @@ export class PlivoService {
   async processRemainingAudio(callId: string): Promise<string> {
     const buffers = this.audioBuffers.get(callId);
     if (buffers && buffers.length > 0) {
-      console.log(`🔄 [PLIVO-SERVICE] Processing final audio chunk for call ${callId}`);
+      // console.log(`🔄 [PLIVO-SERVICE] Processing final audio chunk for call ${callId}`);
       const combinedBuffer = Buffer.concat(buffers);
       this.audioBuffers.delete(callId);
       
