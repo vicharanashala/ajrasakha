@@ -3163,6 +3163,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     message: string;
     expertsInvolved: number;
     submissionsProcessed: number;
+    inactiveExpertsFound?: number;
   }> {
     console.log(`[QuestionService] balanceWorkload called with type: ${type}`);
 
@@ -3172,7 +3173,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (type === 'inactive') {
       const lessWorkloadExperts =
         await this.userRepo.findActiveLowReputationExpertsToday(session);
-      
       console.log(`[QuestionService] [Path 1] Found ${lessWorkloadExperts.length} active experts for replacement`);
 
       if (!lessWorkloadExperts.length) {
@@ -3202,7 +3202,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           inactiveExpertIds,
           session,
         );
-      
       console.log(`[QuestionService] [Path 1] Found ${targetSubmissions.length} active tasks owned by inactive experts`);
 
       if (!targetSubmissions.length) {
@@ -3269,6 +3268,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       return {
         message: 'Inactive-to-Active reallocation started in background',
+        inactiveExpertsFound: inactiveExpertIds.length,
         expertsInvolved: lessWorkloadExperts.length,
         submissionsProcessed: flatAssignments.length,
       };
@@ -3369,7 +3369,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (flatAssignments.length > 0) {
         startBalanceWorkloadWorkers(flatAssignments);
       }
-
       return {
         message: 'Workload balancing started in background',
         expertsInvolved: lessWorkloadExperts.length,

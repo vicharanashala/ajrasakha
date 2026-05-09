@@ -76,14 +76,22 @@ const notificationService = new NotificationService(notificationRepo, database);
       
       const currentExpertId = queue[currentExpertIndex]?.toString();
 
-      // Deep Replacement: replace EVERY occurrence of target experts in the queue
+      // Deep Replacement (Purge Inactive): replace inactive experts in the queue
+      // ENSURE UNIQUENESS: Only replace the FIRST occurrence encountered at or after currentExpertIndex
       let modified = false;
+      let replacementUsed = false;
       const newQueue = queue.map((q, idx) => {
         const qStr = q.toString();
+        
+        // Check if this expert is in the target list (inactive/blocked)
         if (targetExperts.has(qStr)) {
-          modified = true;
-          affectedExpertIds.add(qStr);
-          return new ObjectId(newExpertId);
+            // Only replace if it's the current/future turn and we haven't used our replacement expert yet
+            if (idx >= currentExpertIndex && !replacementUsed) {
+                modified = true;
+                replacementUsed = true; // Prevents duplication
+                affectedExpertIds.add(qStr);
+                return new ObjectId(newExpertId);
+            }
         }
         return q;
       });

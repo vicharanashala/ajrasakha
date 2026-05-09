@@ -3571,6 +3571,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           /*
           Case 2:
          * history exists
+         * AND latest history is 'in-review' (stuck)
          * AND latest history.updatedBy matches
          */
           {
@@ -3587,6 +3588,19 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                   ],
                 },
                 {
+                  $eq: [
+                    {
+                      $getField: {
+                        field: 'status',
+                        input: {
+                          $arrayElemAt: ['$history', -1],
+                        },
+                      },
+                    },
+                    'in-review',
+                  ],
+                },
+                {
                   $in: [
                     {
                       $getField: {
@@ -3595,6 +3609,56 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                           $arrayElemAt: ['$history', -1],
                         },
                       },
+                    },
+                    allExpertIds,
+                  ],
+                },
+              ],
+            },
+          },
+          /*
+          Case 3: Proactive - Next person in queue is inactive
+          * history exists
+          * AND latest history is NOT 'in-review' (meaning turn has passed)
+          * AND queue[history.length] is inactive
+          */
+          {
+            $expr: {
+              $and: [
+                {
+                  $gt: [
+                    {
+                      $size: {
+                        $ifNull: ['$history', []],
+                      },
+                    },
+                    0,
+                  ],
+                },
+                {
+                  $ne: [
+                    {
+                      $getField: {
+                        field: 'status',
+                        input: {
+                          $arrayElemAt: ['$history', -1],
+                        },
+                      },
+                    },
+                    'in-review',
+                  ],
+                },
+                {
+                  $in: [
+                    {
+                      $arrayElemAt: [
+                        '$queue',
+                        {
+                          $size: {
+                            $ifNull: ['$history', []],
+                          },
+                        },
+                      ],
                     },
                     allExpertIds,
                   ],

@@ -890,6 +890,7 @@ export interface WorkloadBalanceResponse {
   message: string;
   expertsInvolved: number;
   submissionsProcessed: number;
+  inactiveExpertsFound?: number;
 }
 
 export type GrowthResponse = {

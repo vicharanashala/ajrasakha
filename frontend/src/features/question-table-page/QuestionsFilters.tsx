@@ -196,11 +196,20 @@ export const QuestionsFilters = ({
         setIsReAllocateDisabled(false);
         return;
       }
-      if (res.message === "Workload balancing started in background") {
+      if (res.message === "Workload balancing started in background" || res.message === "Inactive-to-Active reallocation started in background") {
         toast.success(
           "Workload balancing has started in the background. Please wait 50 seconds before reallocating again.",
         );
-        // Re-enable button after 30 seconds
+        
+        // Show detailed toast if it was an inactive-to-active reallocation
+        if (type === "inactive") {
+          toast.info(
+            `Found ${res.inactiveExpertsFound || 0} inactive experts. Reallocating ${res.submissionsProcessed || 0} tasks to ${res.expertsInvolved || 0} active experts.`,
+            { duration: 6000 }
+          );
+        }
+
+        // Re-enable button after 50 seconds
         setTimeout(() => {
           setIsReAllocateDisabled(false);
         }, 50000);
