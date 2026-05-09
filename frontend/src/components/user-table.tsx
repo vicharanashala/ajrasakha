@@ -282,9 +282,12 @@ const UserRow: React.FC<UserRowProps> = ({
   };
 
   return (
-    <TableRow key={String(u._id)} className="text-center">
+    <TableRow
+      key={String(u._id)}
+      className="text-center"
+    >
 
-      <TableCell className="align-middle w-36" title={u.firstName}>
+      <TableCell className={`align-middle w-36 border-l-1 ${u.isVerified ? 'border-l-blue-500' : 'border-l-red-500'}`} title={u.firstName}>
         <div className="flex items-center gap-2">
           <AvatarComponent
             u={u}
@@ -301,14 +304,7 @@ const UserRow: React.FC<UserRowProps> = ({
             >
               {truncate(u.firstName + " " + u.lastName, 60)}
             </span>
-            {u.isVerified && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-50 flex-shrink-0" />
-                </TooltipTrigger>
-                <TooltipContent>Verified User</TooltipContent>
-              </Tooltip>
-            )}
+
 
             <div className="flex items-center gap-1 flex-shrink-0">
               {u?.special_task_force && (
