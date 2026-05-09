@@ -3791,6 +3791,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (!questionData) {
       throw new Error('Question not found');
     }
+
+
     const questionSource = questionData.source;
     if (questionSource == "WHATSAPP") {
       if (!questionData.threadId)
