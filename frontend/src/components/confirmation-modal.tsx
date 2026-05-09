@@ -87,7 +87,6 @@ export const ConfirmationModal = ({
     "bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-500 dark:hover:bg-amber-600";
 
   const roles = [
-    { value: "admin", label: "Admin" },
     { value: "expert", label: "Expert" },
     { value: "moderator", label: "Moderator" },
     { value: "pae_expert", label: "PAE Expert" },

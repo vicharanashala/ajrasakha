@@ -242,6 +242,7 @@ export class UserRepository implements IUserRepository {
     filter: string,
     role?: string,
     isBlockedFilter?: boolean,
+    isVerifiedFilter?: boolean,
     session?: ClientSession,
   ): Promise<{
     users: IUser[];
@@ -274,6 +275,10 @@ export class UserRepository implements IUserRepository {
 
       if (isBlockedFilter !== undefined) {
         matchQuery.isBlocked = isBlockedFilter;
+      }
+
+      if (isVerifiedFilter !== undefined) {
+        matchQuery.isVerified = isVerifiedFilter;
       }
 
       const sortMap: any = {

@@ -136,6 +136,7 @@ export interface IUserRepository {
     filter: string,
     role?: string,
     isBlocked?: boolean,
+    isVerified?: boolean,
     session?: ClientSession,
   ): Promise<{
     users: IUser[];

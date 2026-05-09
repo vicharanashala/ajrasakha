@@ -14,10 +14,11 @@ export class AdminUserService {
     sort: string,
     filter: string,
     role: string,
-    isBlocked: string
+    isBlocked: string,
+    isVerified: string
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number } | null> {
     return apiFetch(
-      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}&role=${role}&isBlocked=${isBlocked}`
+      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}&role=${role}&isBlocked=${isBlocked}&isVerified=${isVerified}`
     );
   }
 }

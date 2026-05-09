@@ -85,8 +85,8 @@ export const UsersTable = ({
     blockExpert({ userId: userIdToBlock, action: action });
   };
   const handleToggleRole = (userId: string, userRole: string, selectedRole?: string) => {
-    console.log("Users data is", {userId, userRole, selectedRole})
-    toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole  });
+    console.log("Users data is", { userId, userRole, selectedRole })
+    toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole });
   };
   const isAdmin = userRole === "admin";
 
@@ -252,7 +252,7 @@ const UserRow: React.FC<UserRowProps> = ({
   const { mutate: verifyUser } = useVerifyUser();
 
   //expert block/unblock modal state
-  type ConfirmAction = "block" | "unblock" | "switch-role" | null;
+  type ConfirmAction = "block" | "unblock" | "switch-role" | "verify" | null;
 
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [actionUserId, setActionUserId] = useState<string>("");
@@ -274,17 +274,20 @@ const UserRow: React.FC<UserRowProps> = ({
     updateActivity({ userId: u._id!, status: nextStatus });
   };
 
-      const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
-  moderator: "Moderator",
-  expert: "Expert",
-  pae_expert: "PAE Expert",
-};
+  const ROLE_LABELS: Record<string, string> = {
+    admin: "Admin",
+    moderator: "Moderator",
+    expert: "Expert",
+    pae_expert: "PAE Expert",
+  };
 
   return (
-    <TableRow key={String(u._id)} className="text-center">
+    <TableRow
+      key={String(u._id)}
+      className="text-center"
+    >
 
-      <TableCell className="align-middle w-36" title={u.firstName}>
+      <TableCell className={`align-middle w-36 border-l-1 ${u.isVerified ? 'border-l-blue-500' : 'border-l-red-500'}`} title={u.firstName}>
         <div className="flex items-center gap-2">
           <AvatarComponent
             u={u}
@@ -301,14 +304,7 @@ const UserRow: React.FC<UserRowProps> = ({
             >
               {truncate(u.firstName + " " + u.lastName, 60)}
             </span>
-            {u.isVerified && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-50 flex-shrink-0" />
-                </TooltipTrigger>
-                <TooltipContent>Verified User</TooltipContent>
-              </Tooltip>
-            )}
+
 
             <div className="flex items-center gap-1 flex-shrink-0">
               {u?.special_task_force && (
@@ -468,9 +464,15 @@ const UserRow: React.FC<UserRowProps> = ({
                     setConfirmAction("switch-role");
                   }}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full">
                     <Gavel className="w-4 h-4 text-blue-500" />
-                    Switch Role
+                    <span>Switch Role</span>
+                    <Badge
+                      variant="default"
+                      className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
+                    >
+                      New
+                    </Badge>
                   </div>
                 </DropdownMenuItem>
               )}
@@ -479,7 +481,8 @@ const UserRow: React.FC<UserRowProps> = ({
                   onSelect={(e) => {
                     e.preventDefault();
                     setIsOpen(false);
-                    verifyUser({ userId: u._id!, isVerified: true });
+                    setActionUserId(u._id!);
+                    setConfirmAction("verify");
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -498,7 +501,9 @@ const UserRow: React.FC<UserRowProps> = ({
                 ? "Switch User Role To"
                 : confirmAction === "block"
                   ? "Block the User?"
-                  : "Unblock the User?"
+                  : confirmAction === "verify"
+                    ? "Verify User?"
+                    : "Unblock the User?"
             }
             description={
               confirmAction === "switch-role"
@@ -509,16 +514,20 @@ const UserRow: React.FC<UserRowProps> = ({
                   ? actionRole === "expert"
                     ? "Blocking this expert will restrict their access to the review system until they are unblocked. Once blocked, they will no longer be able to review, submit answers, or perform any actions within the platform. They will also be excluded from all current and future allocations. Are you sure you want to proceed?"
                     : `Blocking this ${actionRole} will restrict their access to the platform until they are unblocked. They will not be able to manage reviews, moderate content, or perform any administrative actions. Are you sure you want to proceed?`
-                  : actionRole === "expert"
-                    ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
-                    : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
+                  : confirmAction === "verify"
+                    ? "This action will verify the user's account, granting them full access to the platform's features. Are you sure you want to proceed?"
+                    : actionRole === "expert"
+                      ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
+                      : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
             }
             confirmText={
               confirmAction === "switch-role"
                 ? "Switch Role"
                 : confirmAction === "block"
                   ? "Block"
-                  : "Unblock"
+                  : confirmAction === "verify"
+                    ? "Verify"
+                    : "Unblock"
             }
             cancelText="Cancel"
             type={confirmAction === "block" ? "delete" : "default"}
@@ -526,6 +535,8 @@ const UserRow: React.FC<UserRowProps> = ({
               if (confirmAction === "switch-role") {
                 handleToggleRole(actionUserId, actionRole, selectRole);
                 setSelectRole("");
+              } else if (confirmAction === "verify") {
+                verifyUser({ userId: actionUserId, isVerified: true });
               } else {
                 handleBlock();
               }
