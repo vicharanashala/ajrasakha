@@ -1304,7 +1304,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       return { data: [], status: false };
     }
-    if (question.status == "draft") {
+    if (question.status == "draft"||question.status=="duplicate"||question.status=="hold"||question.status=="pass") {
       await this.questionRepo.updateQuestion(
         questionId,
         {
@@ -1517,7 +1517,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-        if (question.status == "draft") {
+        if (question.status == "draft"||question.status=="duplicate"||question.status=="hold"||question.status=="pass") {
           await this.questionRepo.updateQuestion(
             questionId,
             {
@@ -1610,22 +1610,32 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
           return;
         }
-        if (question.status == "draft") {
-          // Check if any of the experts being allocated is a PAE expert
-          const expertUsers = await Promise.all(
-            experts.map(id => this.userRepo.findById(id, session))
-          );
-          const isPaeAllocation = expertUsers.some(u => u?.role === 'pae_expert');
+        const reopenStatuses = new Set(["duplicate", "hold", "pass"]);
 
-          await this.questionRepo.updateQuestion(
-            questionId,
-            {
+          if (
+            question.status === "draft" ||
+            reopenStatuses.has(question.status)
+          ) {
+            const updatePayload: any = {
               status: "open",
-              ...(isPaeAllocation && { pae_review: true }),
-            },
-            session,
-          );
-        }
+            };
+
+            if (question.status === "draft") {
+              const expertUsers = await Promise.all(
+                experts.map(id => this.userRepo.findById(id, session))
+              );
+
+              if (expertUsers.some(user => user?.role === "pae_expert")) {
+                updatePayload.pae_review = true;
+              }
+            }
+
+            await this.questionRepo.updateQuestion(
+              questionId,
+              updatePayload,
+              session
+            );
+          }
 
         //2. Validate question submission existence
         let questionSubmission =
