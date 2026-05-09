@@ -22,6 +22,10 @@ mcp_client = MultiServerMCPClient({
     "agmarknet_server": {
         "url": f"http://{REMOTE_IP}:9006/mcp",
         "transport": "http"
+    },
+    "mandi_prices_server": {
+        "url": f"http://{REMOTE_IP}:9007/mcp",
+        "transport": "http"
     }
 })
 
@@ -32,7 +36,7 @@ async def run_market_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     query = state.get("query", "")
     logger.info(f"Received query: '{query}'")
-    logger.info(f"Connecting to remote MCP Servers at {REMOTE_IP} (Ports 9002 & 9006)...")
+    logger.info(f"Connecting to remote MCP Servers at {REMOTE_IP} (Ports 9002, 9006 & 9007)...")
     
     try:
         tools = await mcp_client.get_tools()
@@ -46,8 +50,12 @@ async def run_market_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         "You are an expert agricultural market assistant for AjraSakha. "
         "Your job is to provide accurate commodity prices, arrivals, and mandi data.\n\n"
         "*** CRITICAL DATA FETCHING WORKFLOW ***\n"
-        "1. PRIMARY SOURCE (Agmarknet): You MUST always try to fetch data using the Agmarknet tools FIRST.\n"
-        "2. FALLBACK SOURCE (eNAM): IF AND ONLY IF Agmarknet tools return no data, fail, or lack the specific mandi/commodity, you should fallback to using eNAM tools.\n\n"
+        "1. MANDI PRICES TOOL (get_mandi_price): For queries about market prices in "
+        "Andhra Pradesh (AP), Assam, Tamil Nadu (TN), or Sikkim, use the `get_mandi_price` "
+        "tool FIRST. It directly returns formatted price data for these 4 states.\n"
+        "2. PRIMARY SOURCE (Agmarknet): For ALL OTHER states, use the Agmarknet tools.\n"
+        "3. FALLBACK SOURCE (eNAM): IF AND ONLY IF Agmarknet tools return no data, fail, "
+        "or lack the specific mandi/commodity, you should fallback to using eNAM tools.\n\n"
         "IMPORTANT: Before fetching trade data, use the relevant tools to resolve the State Name to a State ID, and the APMC/Mandi Name "
         "to an APMC ID. Never hallucinate prices or IDs."
     )
