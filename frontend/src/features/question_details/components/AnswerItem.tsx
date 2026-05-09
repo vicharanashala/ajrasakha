@@ -62,7 +62,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
-  const isFinalizeRequestInFlight = useRef(false);
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
+  const isSubmittingAnswerRef = useRef(false);
 
   const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
     useUpdateAnswer();
@@ -77,11 +78,12 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   });
 
   const handleUpdateAnswer = async () => {
-    if (isFinalizeRequestInFlight.current) {
+    if (isSubmittingAnswerRef.current || isSubmittingAnswer || isUpdatingAnswer) {
       return;
     }
 
-    isFinalizeRequestInFlight.current = true;
+    isSubmittingAnswerRef.current = true;
+    setIsSubmittingAnswer(true);
 
     try {
       if (!editableAnswer || editableAnswer.trim().length <= 3) {
@@ -118,7 +120,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       toast.error(`Failed to Approve answer. ${errorMessage}`);
       setEditOpen(false);
     } finally {
-      isFinalizeRequestInFlight.current = false;
+      setTimeout(() => {
+    isSubmittingAnswerRef.current = false;
+    setIsSubmittingAnswer(false);
+  }, 1000); // 1 second delay to prevent rapid submissions
     }
   };
 
@@ -287,7 +292,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         setEditableAnswer={setEditableAnswer}
         sources={sources}
         setSources={setSources}
-        isUpdatingAnswer={isUpdatingAnswer}
+        isUpdatingAnswer={isUpdatingAnswer || isSubmittingAnswer}
         handleUpdateAnswer={handleUpdateAnswer}
         isModalOpen={isModalOpen}
         setIsModalOpen={setIsModalOpen}
