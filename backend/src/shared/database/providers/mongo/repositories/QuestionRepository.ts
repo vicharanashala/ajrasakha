@@ -1311,7 +1311,7 @@ export class QuestionRepository implements IQuestionRepository {
       const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
       const filter: any = {
-        status: { $in: ['open', 'delayed'] },
+        status: { $in: ['open', 'delayed', 'duplicate'] },
         _id: { $in: questionIdsToAttempt },
       };
 
@@ -2551,76 +2551,190 @@ export class QuestionRepository implements IQuestionRepository {
     };
   }
 
-  async getAverageResponseTime(session?: ClientSession, startDate?: Date, endDate?: Date, customStartTime?: string, customEndTime?: string): Promise<{ whatsapp: number; ajrasakha: number }> {
+  async getAverageResponseTime(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string
+  ): Promise<{ whatsapp: number; ajrasakha: number }> {
+  
     await this.init();
-
+  
     const matchCondition: any = {
       status: 'closed',
-      closedAt: { $exists: true },
-      createdAt: { $exists: true }
+      createdAt: { $exists: true },
+      closedAt: { $exists: true }
     };
-
+  
+    /**
+     * Filter by CLOSED DATE
+     * (Recommended for daily average response time)
+     */
     if (startDate && endDate) {
-      // Filter by both createdAt and closedAt in IST format
-      matchCondition.$or = [
-        { createdAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } },
-        { closedAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } }
-      ];
+  
+      const startOfDay = new Date(
+        `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`
+      );
+  
+      const endOfDay = new Date(
+        `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`
+      );
+  
+      matchCondition.closedAt = {
+        $gte: startOfDay,
+        $lte: endOfDay
+      };
     }
-
-    // Add time filtering if provided
+  
+    /**
+     * Optional Time Filter (IST)
+     * Filters based on CLOSED TIME
+     */
     if (customStartTime && customEndTime) {
-      const [startHour, startMinute] = customStartTime.split(':').map(Number);
-      const [endHour, endMinute] = customEndTime.split(':').map(Number);
-      
+  
+      const [startHour, startMinute] =
+        customStartTime.split(':').map(Number);
+  
+      const [endHour, endMinute] =
+        customEndTime.split(':').map(Number);
+  
+      const startTotalMinutes = startHour * 60 + startMinute;
+      const endTotalMinutes = endHour * 60 + endMinute;
+  
       matchCondition.$expr = {
         $and: [
-          ...(matchCondition.$expr?.$and || []),
           {
             $gte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              startHour * 60 + startMinute
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata'
+                        }
+                      },
+                      60
+                    ]
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata'
+                    }
+                  }
+                ]
+              },
+              startTotalMinutes
             ]
           },
           {
             $lte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              endHour * 60 + endMinute
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata'
+                        }
+                      },
+                      60
+                    ]
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata'
+                    }
+                  }
+                ]
+              },
+              endTotalMinutes
             ]
           }
         ]
       };
     }
-
-    const result = await this.QuestionCollection.aggregate(
-      [
-        { $match: matchCondition },
-        {
-          $addFields: {
-            timeTakenHours: {
-              $divide: [
-                { $subtract: ['$closedAt', '$createdAt'] },
-                3600000  // Convert milliseconds to hours (1000 * 60 * 60)
-              ]
-            }
-          }
-        },
-        {
-          $group: {
-            _id: '$source',
-            avgTime: { $avg: '$timeTakenHours' }
+  
+    const pipeline = [
+  
+      /**
+       * STEP 1: Match records
+       */
+      {
+        $match: matchCondition
+      },
+  
+      /**
+       * STEP 2: Calculate response time in hours
+       */
+      {
+        $addFields: {
+          timeTakenHours: {
+            $divide: [
+              {
+                $subtract: ['$closedAt', '$createdAt']
+              },
+              1000 * 60 * 60
+            ]
           }
         }
-      ],
-      { session }
-    ).toArray() as { _id: string; avgTime: number }[];
-
-    const whatsapp = result.find(s => s._id?.toLowerCase() === 'whatsapp')?.avgTime ?? 0;
-    const ajrasakha = result.find(s => s._id?.toLowerCase() === 'ajrasakha')?.avgTime ?? 0;
-
-    return { 
-      whatsapp: Math.round(whatsapp * 10) / 10,  // Round to 1 decimal
-      ajrasakha: Math.round(ajrasakha * 10) / 10 
+      },
+  
+      /**
+       * STEP 3: Group by source
+       */
+      {
+        $group: {
+          _id: {
+            $toLower: '$source'
+          },
+          avgTime: {
+            $avg: '$timeTakenHours'
+          },
+          totalTickets: {
+            $sum: 1
+          }
+        }
+      },
+  
+      /**
+       * STEP 4: Project clean output
+       */
+      {
+        $project: {
+          _id: 0,
+          source: '$_id',
+          avgTime: {
+            $round: ['$avgTime', 1]
+          },
+          totalTickets: 1
+        }
+      }
+  
+    ];
+  
+    const result = await this.QuestionCollection
+      .aggregate(pipeline, { session })
+      .toArray() as {
+        source: string;
+        avgTime: number;
+        totalTickets: number;
+      }[];
+  
+    const whatsapp =
+      result.find(r => r.source === 'whatsapp')?.avgTime ?? 0;
+  
+    const ajrasakha =
+      result.find(r => r.source === 'ajrasakha')?.avgTime ?? 0;
+  
+    return {
+      whatsapp,
+      ajrasakha
     };
   }
 

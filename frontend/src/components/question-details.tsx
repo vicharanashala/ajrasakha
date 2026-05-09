@@ -83,17 +83,17 @@ export const QuestionDetails = ({
     isPending: isApproving,
   } = useApproveAIAnswer();
 
-  const { data: submissionCheck } = useQuery({
-    queryKey: ["question_submission_exists", question?._id],
-    queryFn: () => questionService.checkSubmissionExists(question._id),
-    enabled: !!question?._id && ["AJRASAKHA", "WHATSAPP", "AGRI_EXPERT", "OUTREACH"].includes(question.source),
-  });
+  // const { data: submissionCheck } = useQuery({
+  //   queryKey: ["question_submission_exists", question?._id],
+  //   queryFn: () => questionService.checkSubmissionExists(question._id),
+  //   enabled: !!question?._id && ["AJRASAKHA", "WHATSAPP", "AGRI_EXPERT", "OUTREACH"].includes(question.source),
+  // });
 
   const {
     mutate: generateAIAnswer,
     isPending: isGeneratingAI,
   } = useGenerateInitialAnswer(currentUser._id?.toString());
-  const submissionExists = submissionCheck?.exists ?? false;
+  const submissionExists = question.submission.history.length > 0 || false;
 
 
   const handleGenerateAI = () => {
@@ -101,7 +101,7 @@ export const QuestionDetails = ({
 
     generateAIAnswer(question._id, {
       onSuccess: (data) => {
-        setTempAiAnswer(data.aiInitialAnswer); 
+        setTempAiAnswer(data.aiInitialAnswer);
       },
       onError: (err) => {
         console.error(err);
@@ -230,8 +230,7 @@ export const QuestionDetails = ({
           />
 
           {question && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && currentUser && currentUser.role != "expert" &&
-            <MessageDetail question={question} isQuestionAllocatedToExpert={submissionExists &&
-              (question?.submission?.queue?.length ?? 0) > 0} navigateToQuestionPage={navigateToQuestionPage} />
+            <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.history?.length > 0} navigateToQuestionPage={navigateToQuestionPage} />
           }
 
           {/* {currentUser.role !== "expert" && ( */}

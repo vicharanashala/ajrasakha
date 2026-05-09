@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { X, ArrowBigDownDashIcon } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +16,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./atoms/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "./atoms/dropdown-menu";
+import { Button } from "./atoms/button";
 
 type ButtonType = "default" | "delete" | "edit";
 
@@ -36,6 +44,10 @@ type ConfirmationModalProps = {
   confirmTooltip?: string;
   secondaryConfirmTooltip?: string;
   cancelTooltip?: string;
+  currentRole?: string;
+  selectedRole?: string;
+  onRoleChange?: (role: string) => void;
+  confirmAction?: string;
 };
 
 export const ConfirmationModal = ({
@@ -55,6 +67,10 @@ export const ConfirmationModal = ({
   confirmTooltip,
   secondaryConfirmTooltip,
   cancelTooltip,
+  currentRole,
+  selectedRole,
+  onRoleChange,
+  confirmAction,
 }: ConfirmationModalProps) => {
   const confirmButtonClass = (() => {
     switch (type) {
@@ -67,7 +83,15 @@ export const ConfirmationModal = ({
     }
   })();
 
-  const secondaryConfirmButtonClass = "bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-500 dark:hover:bg-amber-600";
+  const secondaryConfirmButtonClass =
+    "bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-500 dark:hover:bg-amber-600";
+
+  const roles = [
+    { value: "admin", label: "Admin" },
+    { value: "expert", label: "Expert" },
+    { value: "moderator", label: "Moderator" },
+    { value: "pae_expert", label: "PAE Expert" },
+  ];
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -103,8 +127,57 @@ export const ConfirmationModal = ({
               </AlertDialogDescription>
             ) : null}
           </AlertDialogHeader>
-          
-          <AlertDialogFooter className="flex flex-row items-center justify-end gap-3 mt-4">
+
+          {confirmAction === "switch-role" && (
+            <div className="mt-4">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-sm w-full sm:w-[50%] flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <ArrowBigDownDashIcon size={14} />
+                      {selectedRole
+                        ? roles.find((r) => r.value === selectedRole)?.label
+                        : "Select Role"}
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuRadioGroup
+                    value={selectedRole || currentRole}
+                    onValueChange={onRoleChange}
+                  >
+                    {roles.map((role) => (
+                      <DropdownMenuRadioItem
+                        key={role.value}
+                        value={role.value}
+                        disabled={role.value === currentRole}
+                        className={
+                          role.value === currentRole
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }
+                      >
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <span>{role.label}</span>
+                          {role.value === currentRole && (
+                            <span className="text-xs text-muted-foreground italic">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
+          <AlertDialogFooter className="flex flex-row items-center justify-end gap-3 mt-6">
             {secondaryConfirmText && onSecondaryConfirm && (
               <TooltipProvider>
                 <Tooltip>
@@ -117,10 +190,14 @@ export const ConfirmationModal = ({
                       }}
                       disabled={secondaryIsLoading || isLoading}
                     >
-                      {secondaryIsLoading ? `${secondaryConfirmText}...` : secondaryConfirmText}
+                      {secondaryIsLoading
+                        ? `${secondaryConfirmText}...`
+                        : secondaryConfirmText}
                     </AlertDialogAction>
                   </TooltipTrigger>
-                  {secondaryConfirmTooltip && <TooltipContent>{secondaryConfirmTooltip}</TooltipContent>}
+                  {secondaryConfirmTooltip && (
+                    <TooltipContent>{secondaryConfirmTooltip}</TooltipContent>
+                  )}
                 </Tooltip>
               </TooltipProvider>
             )}
@@ -132,14 +209,16 @@ export const ConfirmationModal = ({
                     className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2.5 rounded-lg text-sm font-semibold transition-all ${confirmButtonClass}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onConfirm()
+                      onConfirm();
                     }}
                     disabled={isLoading || secondaryIsLoading}
                   >
                     {isLoading ? `${confirmText}...` : confirmText}
                   </AlertDialogAction>
                 </TooltipTrigger>
-                {confirmTooltip && <TooltipContent>{confirmTooltip}</TooltipContent>}
+                {confirmTooltip && (
+                  <TooltipContent>{confirmTooltip}</TooltipContent>
+                )}
               </Tooltip>
             </TooltipProvider>
           </AlertDialogFooter>
@@ -148,4 +227,3 @@ export const ConfirmationModal = ({
     </AlertDialog>
   );
 };
-

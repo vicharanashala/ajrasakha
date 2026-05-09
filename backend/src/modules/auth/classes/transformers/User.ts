@@ -55,6 +55,7 @@ class User implements IUser {
   university?: string;
 
   
+  isVerified: boolean;
 
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
@@ -65,6 +66,7 @@ class User implements IUser {
     this.role = data?.role || 'expert';
     this.status =  'active';
     this.isBlocked=false;
+    this.isVerified = data?.isVerified ?? false;
     this.preference = {
       crop: data?.preference?.crop || 'all',
       state: data?.preference?.state || 'all',
@@ -74,7 +76,7 @@ class User implements IUser {
     this.notificationRetention=data.notificationRetention;
     this.createdAt = data?.createdAt || new Date();
     this.updatedAt = data?.updatedAt || new Date();
-    this.mobile = data?.mobile || '';
+    this.mobile = data?.mobile || ''; 
     this.university = data?.university || '';
   }
 }

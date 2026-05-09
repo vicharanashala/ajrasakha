@@ -1298,7 +1298,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
-    if (question.status === 'in-review' || question.status === "closed" || question.status === "pae_submitted") {
+    if (question.status === 'in-review' || question.status === "closed" || question.status == "pae_submitted") {
       console.log(
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
@@ -1604,9 +1604,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-        if (question.status === 'in-review' || question.status === "closed" || question.status === "pae_submitted") {
+        if (question.status === 'in-review' || question.status === "closed" || question.status == "pae_submitted") {
           console.log(
-            'This question is currently being in reviewe or has been closed. Please check back later!',
+            'This question is currently being in reviewed or has been closed. Please check back later!',
           );
           return;
         }

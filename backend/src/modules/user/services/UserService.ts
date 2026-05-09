@@ -115,37 +115,70 @@ export class UserService extends BaseService {
     }
   }
 
-  async toggleUserRole(
-    currentUser: IUser,
-    userId: string,
-  ): Promise<IUser> {
-    try {
-      if (!currentUser || currentUser.role !== 'admin') {
-        throw new NotFoundError('Only admin can switch user roles');
-      }
-      if (!userId) throw new NotFoundError('User ID is required');
-
-      return this._withTransaction(async (session: ClientSession) => {
-        const user = await this.userRepo.findById(userId, session);
-        if (!user) {
-          throw new NotFoundError(`User with ID ${userId} not found`);
-        }
-
-        const newRole: UserRole = user.role === 'moderator' ? 'expert' : 'moderator';
-        const updatedUser = await this.userRepo.edit(
-          userId,
-          { role: newRole },
-          session,
-        );
-
-        return updatedUser;
-      });
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to toggle role for user ID ${userId}: ${error}`,
+async updateUserRole(
+  currentUser: IUser,
+  userId: string,
+  changeRoleTo: UserRole
+): Promise<IUser> {
+  try {
+    if (!currentUser || currentUser.role !== 'admin') {
+      throw new ForbiddenError(
+        'Only admin can switch user roles'
       );
     }
+
+    if (!userId) {
+      throw new BadRequestError('User ID is required');
+    }
+
+    return this._withTransaction(async (session: ClientSession) => {
+
+      const user = await this.userRepo.findById(userId, session);
+
+      if (!user) {
+        throw new NotFoundError(
+          `User with ID ${userId} not found`
+        );
+      }
+
+      // Prevent unnecessary update
+      if (user.role === changeRoleTo) {
+        throw new BadRequestError(
+          `User already has role ${changeRoleTo}`
+        );
+      }
+
+      const updatedUser = await this.userRepo.edit(
+        userId,
+        { role: changeRoleTo },
+        session,
+      );
+
+      if (!updatedUser) {
+        throw new InternalServerError(
+          'Failed to update user role'
+        );
+      }
+
+      return updatedUser;
+    });
+
+  } catch (error) {
+
+    // Preserve known errors
+    if (
+      error instanceof BadRequestError ||
+      error instanceof NotFoundError ||
+      error instanceof ForbiddenError
+    ) {
+      throw error;
+    }
+
+    throw new InternalServerError(
+      `Failed to update role for user ID ${userId}`
+    );
   }
+}
 
 async getAllUsers(
   page: number,
@@ -300,5 +333,22 @@ async getAllUsersforManualSelect(
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.userRepo.findByEmail(email, session);
     });
+  }
+
+  async verifyUser(userId: string, isVerified: boolean): Promise<IUser> {
+    try {
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const updatedUser = await this.userRepo.edit(userId, {isVerified}, session);
+        if (!updatedUser)
+          throw new NotFoundError(`User with ID ${userId} not found`);
+        return updatedUser;
+      });
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to verify user with ID ${userId}: ${error}`,
+      );
+    }
   }
 }

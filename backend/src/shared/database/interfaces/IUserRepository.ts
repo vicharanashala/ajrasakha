@@ -261,5 +261,12 @@ export interface IUserRepository {
 
   countNonBlockedExperts(session?: ClientSession): Promise<number>
 
+  /**
+   * Finds all admins.
+   * @param session - The session for transaction.
+   * @returns A promise that resolves to an array of admins.
+   */
+  findAdmins(session?: ClientSession): Promise<IUser[]>;
+
   findInactiveOrBlockedExperts(session?: ClientSession): Promise<IUser[]>;
 }

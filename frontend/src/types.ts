@@ -49,6 +49,7 @@ export interface IUser {
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
+  isVerified?: boolean;
 }
 export interface ReviewLevelCount {
   Review_level: 'Author' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5' | 'Level 6' | 'Level 7' | 'Level 8' | 'Level 9';
@@ -260,7 +261,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted"|"draft";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -466,10 +467,11 @@ export interface IQuestionFullData {
   authors_history?: IAuthorsHistory[];
   similarityScore?: number;        // percentage (0–100)
   referenceQuestionId?: string;
-  referenceQuestion?:string
+  referenceQuestion?: string
   referenceSource?: string;
   originalQuestion?: string;
   closedAt?: string;
+  threadId?: string;
 }
 
 export interface QuestionFullDataResponse {
@@ -549,7 +551,7 @@ export interface IDetailedQuestion {
   pae_review?: boolean;
   similarityScore?: number;        // percentage (0–100)
   referenceQuestionId?: string;
-  referenceQuestion?:string
+  referenceQuestion?: string
   referenceSource?: string;
 }
 
@@ -902,7 +904,7 @@ export type GrowthResponse = {
   };
 };
 
- enum AuditCategory {
+enum AuditCategory {
   QUESTION = 'QUESTION',
   EXPERTS_CATEGORY = 'EXPERTS_CATEGORY',
   EXPERTS_MANAGEMENT = 'EXPERTS_MANAGEMENT',
@@ -910,12 +912,12 @@ export type GrowthResponse = {
   ANALYTICS = 'ANALYTICS',
   CROP_MANAGEMENT = 'CROP_MANAGEMENT',
   OUTREACH_REPORT = 'OUTREACH_REPORT',
-  AGENTS_INTERFACE= 'AGENTS_INTERFACE', // PENDING, not on priority
-  DOWNLOAD_REPORTS= 'DOWNLOAD_REPORTS',
-  ANSWER= 'ANSWER'
+  AGENTS_INTERFACE = 'AGENTS_INTERFACE', // PENDING, not on priority
+  DOWNLOAD_REPORTS = 'DOWNLOAD_REPORTS',
+  ANSWER = 'ANSWER'
 }
 
- enum AuditAction {
+enum AuditAction {
   // Question
   QUESTION_ADD = 'QUESTION_ADD',
   QUESTION_UPDATE = 'QUESTION_UPDATE',
@@ -958,7 +960,7 @@ export type GrowthResponse = {
   REROUTE_REJECTION = 'REROUTE_REJECTION',
 }
 
- enum OutComeStatus {
+enum OutComeStatus {
   SUCCESS = 'SUCCESS',
   FAILED = 'FAILED',
   PARTIAL = 'PARTIAL',
