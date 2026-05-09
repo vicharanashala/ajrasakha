@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { AllocationQueueHeader } from "./AllocationQueueHeader";
 import {
   AlertCircle,
+  CalendarClock,
+  CheckCheck,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -17,6 +19,7 @@ import {
   Loader2,
   PlusCircle,
   RefreshCcw,
+  Timer,
   Trash2,
 } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal";
@@ -291,8 +294,8 @@ export const AllocationTimeline = ({
                         <ConfirmationModal
                           title="Remove Expert Allocation?"
                           description={`${question.isAutoAllocate
-                              ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
-                              : ""
+                            ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
+                            : ""
                             }${submittedUserIds.has(user._id)
                               ? "The selected expert has already submitted an answer. "
                               : ""
@@ -321,8 +324,8 @@ export const AllocationTimeline = ({
                 >
                   <div
                     className={`relative w-full h-full transition-transform duration-700 ${isFlipped && flippedId == user._id
-                        ? "[transform:rotateY(180deg)]"
-                        : ""
+                      ? "[transform:rotateY(180deg)]"
+                      : ""
                       }`}
                     style={{ transformStyle: "preserve-3d" }}
                   >
@@ -358,8 +361,8 @@ export const AllocationTimeline = ({
                         ) : status === "waiting" ? (
                           <Clock
                             className={`w-6 h-6 ${styles.icon} ${isCurrentUserWaiting
-                                ? "animate-bounce-subtle"
-                                : ""
+                              ? "animate-bounce-subtle"
+                              : ""
                               }`}
                           />
                         ) : (
@@ -412,58 +415,108 @@ export const AllocationTimeline = ({
                           "0 20px 25px -5px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
                       }}
                     >
-                      <div className="flex flex-col items-center justify-center gap-2 px-4 text-center w-full max-h-full overflow-y-auto py-2">
-                        <div className="h-1 w-8 rounded-full bg-gradient-to-r from-primary/60 to-primary/20" />
-                        <p
-                          className="text-sm font-semibold leading-relaxed text-foreground"
-                          title={getUserActivityText(user._id)}
-                        >
-                          {getUserActivityText(user._id)}
-                        </p>
-                        {/* ========================= NEW TIMELINE SECTION ========================= */}
-                        {userSubmission?.assignedAt && (
-                          <div className="w-full mt-2 space-y-1 rounded-lg bg-muted/40 px-3 py-2 border border-border/40">
+                      <div className="flex flex-col h-full w-full overflow-y-auto px-4 py-3">
+                        {/* ========================= HEADER ========================= */}
+                        <div className="flex flex-col items-center text-center gap-2">
+                          <div className="h-1 w-8 rounded-full bg-gradient-to-r from-primary/60 to-primary/20" />
 
-                            {/* Assigned At */}
-                            <div className="flex items-center justify-between gap-2 text-[10px]">
-                              <span className="text-muted-foreground font-medium">
-                                Assigned
-                              </span>
+                          <p
+                            className="text-xs sm:text-sm font-semibold leading-relaxed text-foreground break-words max-w-full"
+                            title={getUserActivityText(user._id)}
+                          >
+                            {getUserActivityText(user._id)}
+                          </p>
+                        </div>
+                        {/* timeline*/}
+                        {/* ========================= PREMIUM TIMELINE SECTION ========================= */}
+{userSubmission?.assignedAt && (
+  <div className="w-full mt-3 rounded-2xl border border-border/50 bg-gradient-to-br from-muted/40 to-muted/20 backdrop-blur-sm px-3 py-3 shadow-sm">
 
-                              <span className="text-foreground font-semibold text-right">
-                                {new Date(userSubmission.assignedAt).toLocaleString()}
-                              </span>
-                            </div>
+    {/* <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10">
+        <Timer className="w-3.5 h-3.5 text-primary" />
+      </div>
 
-                            {/* Completed At */}
-                            <div className="flex items-center justify-between gap-2 text-[10px]">
-                              <span className="text-muted-foreground font-medium">
-                                Completed
-                              </span>
+      <p className="text-[11px] font-bold tracking-wide uppercase text-foreground">
+        Review Timeline
+      </p>
+    </div> */}
 
-                              <span className="text-foreground font-semibold text-right">
-                                {userSubmission.completedAt
-                                  ? new Date(
-                                    userSubmission.completedAt
-                                  ).toLocaleString()
-                                  : "In Progress"}
-                              </span>
-                            </div>
+    <div className="space-y-2">
 
-                            {/* Duration */}
-                            <div className="flex items-center justify-between gap-2 text-[10px] border-t border-border/40 pt-1 mt-1">
-                              <span className="text-muted-foreground font-medium">
-                                Duration
-                              </span>
+      {/* Assigned At */}
+      <div className="flex items-start gap-2 rounded-lg bg-background/40 border border-border/30 px-2.5 py-2">
+        <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/10">
+          <CalendarClock className="w-3.5 h-3.5 text-blue-500" />
+        </div>
 
-                              <span className="text-primary font-bold">
-                                {formatDuration(userSubmission.timeTakenMs)}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        {/* ====================================================================== */}
-                        <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-primary/20 to-primary/60" />
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+            Assigned:
+          </span>
+
+          <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
+            {new Date(userSubmission.assignedAt).toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Completed At */}
+      <div className="flex items-start gap-2 rounded-lg bg-background/40 border border-border/30 px-2.5 py-2">
+        <div
+          className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full ${
+            userSubmission.completedAt
+              ? "bg-green-500/10"
+              : "bg-amber-500/10"
+          }`}
+        >
+          <CheckCheck
+            className={`w-3.5 h-3.5 ${
+              userSubmission.completedAt
+                ? "text-green-500"
+                : "text-amber-500"
+            }`}
+          />
+        </div>
+
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+            Completed:
+          </span>
+
+          <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
+            {userSubmission.completedAt
+              ? new Date(
+                  userSubmission.completedAt
+                ).toLocaleString()
+              : "Currently In Progress"}
+          </span>
+        </div>
+      </div>
+
+      {/* Duration */}
+      <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/10 px-2.5 py-2">
+        <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
+          <Clock className="w-3.5 h-3.5 text-primary" />
+        </div>
+
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+            Duration
+          </span>
+
+          <span className="text-xs font-bold text-primary leading-snug">
+            {userSubmission.timeTakenMs
+              ? formatDuration(userSubmission.timeTakenMs)
+              : "Ongoing"}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+{/* ================================================================= */}
+                        <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-primary/20 to-primary/60 mx-auto my-2" />
 
                         {/* Previous Allocations Section */}
                         {(() => {
@@ -471,7 +524,7 @@ export const AllocationTimeline = ({
                           const prevAllocs = userSubmission?.previousAllocations;
                           if (prevAllocs && prevAllocs.length > 0) {
                             return (
-                              <div className="mt-2 w-full">
+                              <div className="mt-auto pt-2 w-full">
                                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
                                   Previous Reviewers ({prevAllocs.length})
                                 </p>
