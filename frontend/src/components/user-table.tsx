@@ -250,7 +250,7 @@ const UserRow: React.FC<UserRowProps> = ({
   const { mutate: verifyUser } = useVerifyUser();
 
   //expert block/unblock modal state
-  type ConfirmAction = "block" | "unblock" | "switch-role" | null;
+  type ConfirmAction = "block" | "unblock" | "switch-role" | "verify" | null;
 
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [actionUserId, setActionUserId] = useState<string>("");
@@ -468,7 +468,8 @@ const UserRow: React.FC<UserRowProps> = ({
                   onSelect={(e) => {
                     e.preventDefault();
                     setIsOpen(false);
-                    verifyUser({ userId: u._id!, isVerified: true });
+                    setActionUserId(u._id!);
+                    setConfirmAction("verify");
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -487,6 +488,8 @@ const UserRow: React.FC<UserRowProps> = ({
                 ? "Switch User Role?"
                 : confirmAction === "block"
                   ? "Block the User?"
+                  : confirmAction === "verify"
+                    ? "Verify User?"
                   : "Unblock the User?"
             }
             description={
@@ -498,6 +501,8 @@ const UserRow: React.FC<UserRowProps> = ({
                   ? actionRole === "expert"
                     ? "Blocking this expert will restrict their access to the review system until they are unblocked. Once blocked, they will no longer be able to review, submit answers, or perform any actions within the platform. They will also be excluded from all current and future allocations. Are you sure you want to proceed?"
                     : "Blocking this moderator will restrict their access to the platform until they are unblocked. They will not be able to manage reviews, moderate content, or perform any administrative actions. Are you sure you want to proceed?"
+                  : confirmAction === "verify"
+                    ? "This action will verify the user's account, granting them full access to the platform's features. Are you sure you want to proceed?"
                   : actionRole === "expert"
                     ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
                     : "This will restore the moderator’s access and administrative permissions on the platform. Are you sure you want to unblock this user?"
@@ -507,6 +512,8 @@ const UserRow: React.FC<UserRowProps> = ({
                 ? "Switch Role"
                 : confirmAction === "block"
                   ? "Block"
+                  : confirmAction === "verify"
+                    ? "Verify"
                   : "Unblock"
             }
             cancelText="Cancel"
@@ -514,6 +521,8 @@ const UserRow: React.FC<UserRowProps> = ({
             onConfirm={() => {
               if (confirmAction === "switch-role") {
                 handleToggleRole(actionUserId, actionRole);
+              } else if (confirmAction === "verify") {
+                verifyUser({ userId: actionUserId, isVerified: true });
               } else {
                 handleBlock();
               }
