@@ -15,7 +15,7 @@ import type {
   SourceItem,
   UserRole,
 } from "@/types";
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AnswerItemHeader } from "./answer_item/AnswerItemHeader";
 import { AnswerContent } from "./answer_item/AnswerContent";
@@ -40,6 +40,7 @@ interface AnswerItemProps {
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
+  const isUpdateAnswerInFlightRef = useRef(false);
   const isMine = props.answer.authorId === props.currentUserId;
 
   const LIMIT = 1;
@@ -76,7 +77,13 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   });
 
   const handleUpdateAnswer = async () => {
+    if (isUpdateAnswerInFlightRef.current || isUpdatingAnswer) {
+      return;
+    }
+
     try {
+      isUpdateAnswerInFlightRef.current = true;
+
       if (!editableAnswer || editableAnswer.trim().length <= 3) {
         toast.error("Updated answer should be at least more than 3 characters");
         return;
@@ -110,6 +117,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       errorMessage = errorMessage.replace(/this answer:.+?,/, "this answer,");
       toast.error(`Failed to Approve answer. ${errorMessage}`);
       setEditOpen(false);
+    } finally {
+      isUpdateAnswerInFlightRef.current = false;
     }
   };
 
