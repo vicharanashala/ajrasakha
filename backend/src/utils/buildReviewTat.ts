@@ -1,104 +1,87 @@
-import { ISubmissionHistory } from "#root/shared/index.js";
+import {ISubmissionHistory} from '#root/shared/index.js';
 export const buildReviewTimeline = (
   history: ISubmissionHistory[] = [],
   queue: any[] = [],
   questionCreatedAt: Date,
+  questionStatus: string,
 ) => {
   const now = new Date();
+  //author reviewing
+  if (!history.length && queue.length > 0) {
+    return [
+      {
+        reviewerId: queue[0]?.toString(),
 
-  return queue.map((reviewer, index) => {
-    // AUTHOR STAGE
-    if (index === 0) {
-      // ------------------------------------------------------------
-      // CASE 1:
-      // No history yet means author still working
-      // ------------------------------------------------------------
-      if (!history.length) {
-        return {
-          reviewerId: reviewer.toString(),
-          assignedAt: questionCreatedAt,
-          completedAt: now,
-          timeTakenMs:
-            now.getTime() - new Date(questionCreatedAt).getTime(),
-          isCompleted: false,
-        };
-      }
-
-      // ------------------------------------------------------------
-      // CASE 2:
-      // Author completed operation
-      // First history entry marks author completion
-      // ------------------------------------------------------------
-      const firstHistory = history[0];
-
-      return {
-        reviewerId: reviewer.toString(),
         assignedAt: questionCreatedAt,
-        completedAt: firstHistory.createdAt,
-        timeTakenMs:
-          new Date(firstHistory.createdAt).getTime() -
-          new Date(questionCreatedAt).getTime(),
-        isCompleted: true,
-      };
-    }
 
-    // ============================================================
-    // REVIEWER STAGES (QUEUE INDEX > 0)
-    // ============================================================
-
-    // Current reviewer corresponds to previous history item
-    const currentHistory = history[index - 1];
-
-    // ------------------------------------------------------------
-    // Reviewer not started yet
-    // ------------------------------------------------------------
-    if (!currentHistory) {
-      return {
-        reviewerId: reviewer.toString(),
-        assignedAt: null,
         completedAt: null,
+
         timeTakenMs: null,
+
         isCompleted: false,
-      };
-    }
+      },
+    ];
+  }
 
-    // ------------------------------------------------------------
-    // Assignment starts when previous reviewer completed
-    // ------------------------------------------------------------
-    const assignedAt = currentHistory.createdAt;
+  const timeline = [];
+  history.forEach((currentHistory, index) => {
+    const nextHistory = history[index + 1];
+    const assignedAt =
+      index === 0 ? questionCreatedAt : currentHistory.createdAt;
 
-    // ------------------------------------------------------------
-    // CASE 3:
-    // Current reviewer still reviewing
-    // ------------------------------------------------------------
-    if (currentHistory.status === 'in-review') {
-      return {
-        reviewerId: reviewer.toString(),
+    if (nextHistory) {
+      const completedAt = nextHistory.createdAt;
+
+      timeline.push({
+        reviewerId: currentHistory.updatedBy?.toString(),
+
         assignedAt,
-        completedAt: now,
+
+        completedAt,
+
         timeTakenMs:
-          now.getTime() - new Date(assignedAt).getTime(),
-        isCompleted: false,
-      };
+          new Date(completedAt).getTime() - new Date(assignedAt).getTime(),
+
+        isCompleted: true,
+      });
+
+      return;
     }
 
-    // ------------------------------------------------------------
-    // CASE 4:
-    // Reviewer completed operation
-    // Completion time = next history item createdAt
-    // ------------------------------------------------------------
-    const nextHistory = history[index];
+    // reviewer still reviewing
 
-    const completedAt = nextHistory?.createdAt || now;
+    if (currentHistory.status === 'in-review') {
+      timeline.push({
+        reviewerId: currentHistory.updatedBy?.toString(),
 
-    return {
-      reviewerId: reviewer.toString(),
+        assignedAt,
+
+        completedAt: null,
+
+        timeTakenMs: null,
+
+        isCompleted: false,
+      });
+
+      return;
+    }
+    // completed reviewer
+
+    const completedAt = currentHistory.updatedAt;
+
+    timeline.push({
+      reviewerId: currentHistory.updatedBy?.toString(),
+
       assignedAt,
+
       completedAt,
+
       timeTakenMs:
-        new Date(completedAt).getTime() -
-        new Date(assignedAt).getTime(),
-      isCompleted: !!nextHistory,
-    };
+        new Date(completedAt).getTime() - new Date(assignedAt).getTime(),
+
+      isCompleted: true,
+    });
   });
+
+  return timeline;
 };

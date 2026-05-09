@@ -1664,7 +1664,7 @@ export class QuestionRepository implements IQuestionRepository {
       });
 
       const rerouteHistory = Array.from(rerouteHistoryMap.values());
-      const reviewTimeline = buildReviewTimeline(submission?.history || [], submission?.queue || [], question?.createdAt);
+      const reviewTimeline = buildReviewTimeline(submission?.history || [], submission?.queue || [], question?.createdAt,question.status);
       
       // 7 Populate submissions manually
       const submissionHistory =
@@ -1710,10 +1710,10 @@ export class QuestionRepository implements IQuestionRepository {
             : null,
           status: h.status,
           //tat
-          assignedAt: reviewTimeline[index + 1 ]?.assignedAt || null,
-          completedAt: reviewTimeline[index + 1 ]?.completedAt || null,
-          timeTakenMs: reviewTimeline[index + 1 ]?.timeTakenMs || null,
-          isCompleted: reviewTimeline[index + 1 ]?.isCompleted || false,
+          assignedAt: reviewTimeline[index]?.assignedAt || null,
+          completedAt: reviewTimeline[index]?.completedAt || null,
+          timeTakenMs: reviewTimeline[index]?.timeTakenMs || null,
+          isCompleted: reviewTimeline[index]?.isCompleted || false,
           reasonForRejection: h.reasonForRejection,
           approvedAnswer: h.approvedAnswer?.toString(),
           rejectedAnswer: h.rejectedAnswer?.toString(),
