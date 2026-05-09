@@ -1667,6 +1667,9 @@ export class AnswerService extends BaseService implements IAnswerService {
 answer: ${updates.answer}`;
 
       const generateEmbedding = async (value: string) => {
+        if(appConfig.isDevelopment){
+          return []
+        }
         if (!ENABLE_AI_SERVER) throw new InternalServerError('AI server is not enabled');
 
         const { embedding } =
