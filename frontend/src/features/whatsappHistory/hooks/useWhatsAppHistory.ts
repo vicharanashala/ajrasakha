@@ -2,24 +2,40 @@ import { useState, useMemo, useEffect } from 'react';
 import { useThreads } from './useThreads';
 import { useThreadDetails } from './useThreadDetails';
 import { useSendMessage } from './useSendMessage';
+import { useSearch, useNavigate } from '@tanstack/react-router';
 
 export function useWhatsAppHistory() {
-  const [selectedThreadId, setSelectedThreadId] = useState<string | undefined>("");
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toLocaleDateString('en-CA', {
-    timeZone: 'Asia/Kolkata',
-  }));
-  const [searchQuery, setSearchQuery] = useState('');
+  const search = useSearch({ from: '/whatsapp-history' });
+  const navigate = useNavigate();
 
-  // Local cache for latest messages to override the initial 'thread_name' from API
+  const todayIST = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Kolkata',
+  });
+
+  const selectedThreadId = search.threadId ?? '';
+  const selectedDate = search.date ?? todayIST;
+
+  const setSelectedThreadId = (threadId: string) => {
+  navigate({
+    to: '/whatsapp-history',
+    search: (prev: Record<string, string>) => ({ ...prev, threadId }),
+  });
+};
+
+const setSelectedDate = (date: string) => {
+  navigate({
+    to: '/whatsapp-history',
+    search: (prev: Record<string, string>) => ({ ...prev, date }),
+  });
+};
+  const [searchQuery, setSearchQuery] = useState('');
   const [lastMessageOverrides, setLastMessageOverrides] = useState<Record<string, string>>({});
 
   const { data: threads = [], isLoading: isLoadingThreads } = useThreads();
   const { data: messages = [], isLoading: isLoadingMessages } = useThreadDetails(selectedThreadId, selectedDate);
 
-  // Sync the latest message to our local overrides whenever a thread is loaded
   useEffect(() => {
     if (messages.length > 0 && selectedThreadId) {
-      // Find the last message that isn't just a tool-only AI response if possible
       const lastMeaningfulMsg = [...messages].reverse().find(m => m.content && m.content.length > 0);
       if (lastMeaningfulMsg) {
         setLastMessageOverrides(prev => ({
