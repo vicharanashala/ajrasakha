@@ -44,9 +44,9 @@ export function AnswerModeSwitcher({
             `[data-mode="${answerMode}"]`
         );
         if (activeBtn && groupRef.current) {
-            setGlider({ 
-                left: activeBtn.offsetLeft, 
-                width: activeBtn.offsetWidth 
+            setGlider({
+                left: activeBtn.offsetLeft,
+                width: activeBtn.offsetWidth
             });
         }
     }, [answerMode]);
@@ -73,7 +73,7 @@ export function AnswerModeSwitcher({
                                 }`}
                         >
                             <Icon className="h-4 w-4" />
-                            {id === "outreach" && (
+                            {(id === "draft" || id == "pae") && (
                                 <TopRightBadge label="new" right={0} />
                             )}
 
