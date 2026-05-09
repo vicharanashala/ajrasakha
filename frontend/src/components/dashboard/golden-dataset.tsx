@@ -39,6 +39,7 @@ import CountUp from "react-countup";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import { Spinner } from "@/components/atoms/spinner";
 import { TimePicker } from "./time-picker";
+import { TopRightBadge } from "../NewBadge";
 
 
 const monthNames = [
@@ -66,6 +67,10 @@ export interface GoldenDataset {
   questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
   questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
   averageResponseTime?: { whatsapp: number; ajrasakha: number };
+   questionStateBreakdown?: {
+    whatsapp: { status: string; count: number }[];
+    ajrasakha: { status: string; count: number }[];
+  };
   yearData: { month: string; entries: number; verified: number }[];
   weeksData: { week: string; entries: number; verified: number }[];
   dailyData: { day: string; entries: number; verified: number }[];
@@ -423,7 +428,8 @@ export const GoldenDatasetOverview = ({
             )}
 
             {/* Time Range Filters */}
-            <div className="flex gap-3 items-center ml-auto">
+            <div className="flex gap-3 items-center ml-auto relative">
+              <TopRightBadge label="new" left={0} />
               <TimePicker
                 value={customStartDateTime || ""}
                 onChange={setCustomStartDateTime}

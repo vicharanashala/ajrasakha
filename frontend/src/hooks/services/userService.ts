@@ -57,15 +57,15 @@ export class UserService {
     });
   }
 
-  async toggleUserRole(userId: string, currentRole: string): Promise<IUser | null> {
+  async toggleUserRole(userId: string, currentRole: string, selectedRole? : string): Promise<IUser | null> {
     if (currentRole === "admin") {
       throw new Error("Admin role cannot be changed");
     }
     
-    const newRole = currentRole === "moderator" ? "expert" : "moderator";
+    const newRole = selectedRole;
     return apiFetch<IUser>(`${this._baseUrl}/${userId}/role`, {
       method: "PATCH",
-      body: JSON.stringify({ userId, role: newRole }),
+      body: JSON.stringify({ role: newRole }),
     });
   }
 
@@ -112,5 +112,12 @@ export class UserService {
       params.append("normalised_crop",normalised_crop)
     }
     return apiFetch<ReviewLevelCount[]>(`${this._baseUrl}/review-level?${params.toString()}`);
+  }
+
+  async verifyUser(userId: string, isVerified: boolean): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/${userId}/verify`, {
+      method: "PATCH",
+      body: JSON.stringify({ isVerified }),
+    });
   }
 }

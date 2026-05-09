@@ -72,6 +72,7 @@ export const QuestionDetails = ({
     () => flattenAnswers(question?.submission),
     [question.submission],
   );
+  console.log("Answers", answers);
   const [answerVisibleCount, setAnswerVisibleCount] =
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -91,19 +92,17 @@ export const QuestionDetails = ({
   const { mutate: approveAIAnswer, isPending: isApproving } =
     useApproveAIAnswer();
 
-  const { data: submissionCheck } = useQuery({
-    queryKey: ["question_submission_exists", question?._id],
-    queryFn: () => questionService.checkSubmissionExists(question._id),
-    enabled:
-      !!question?._id &&
-      ["AJRASAKHA", "WHATSAPP", "AGRI_EXPERT", "OUTREACH"].includes(
-        question.source,
-      ),
-  });
+  // const { data: submissionCheck } = useQuery({
+  //   queryKey: ["question_submission_exists", question?._id],
+  //   queryFn: () => questionService.checkSubmissionExists(question._id),
+  //   enabled: !!question?._id && ["AJRASAKHA", "WHATSAPP", "AGRI_EXPERT", "OUTREACH"].includes(question.source),
+  // });
 
-  const { mutate: generateAIAnswer, isPending: isGeneratingAI } =
-    useGenerateInitialAnswer(currentUser._id?.toString());
-  const submissionExists = submissionCheck?.exists ?? false;
+  const {
+    mutate: generateAIAnswer,
+    isPending: isGeneratingAI,
+  } = useGenerateInitialAnswer(currentUser._id?.toString());
+  const submissionExists = question.submission.history.length > 0 || false;
 
   const handleGenerateAI = () => {
     if (!question?._id) return;
@@ -149,6 +148,10 @@ export const QuestionDetails = ({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [hasNext, hasPrev, onNext, onPrev]);
+
+  useEffect(() => {
+    console.log("Open is set to", open);
+  }, [open]);
 
   return (
     <div className="relative w-full">
@@ -251,19 +254,9 @@ export const QuestionDetails = ({
             isApproving={isApproving}
           />
 
-          {question &&
-            (question.source == "AJRASAKHA" || question.source == "WHATSAPP") &&
-            currentUser &&
-            currentUser.role != "expert" && (
-              <MessageDetail
-                question={question}
-                isQuestionAllocatedToExpert={
-                  submissionExists &&
-                  (question?.submission?.queue?.length ?? 0) > 0
-                }
-                navigateToQuestionPage={navigateToQuestionPage}
-              />
-            )}
+          {question && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && currentUser && currentUser.role != "expert" &&
+            <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.history?.length > 0} navigateToQuestionPage={navigateToQuestionPage} />
+          }
 
           {/* {currentUser.role !== "expert" && ( */}
           <AllocationTimeline
@@ -314,9 +307,15 @@ export const QuestionDetails = ({
                 )}
               </Button>
 
-              {currentUser.role !== "expert" && <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-                Manage History
-              </Button>}
+              {currentUser.role !== "expert" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setOpen(true)}
+                >
+                  Manage History
+                </Button>
+              )}
             </div>
           </div>
           <p
@@ -335,6 +334,15 @@ export const QuestionDetails = ({
 
             <span className="opacity-80">(or switch to desktop view)</span>
           </p>
+          <SubmissionHistoryModal
+            open={open}
+            onClose={() => setOpen(false)}
+            answers={answers}
+            question={question}
+            rerouteQuestion={reroutequestionDetails ?? undefined}
+            currentUser={currentUserId || currentUser._id?.toString()}
+            userRole={currentUser.role}
+          />
 
           {answers.length === 0 ? (
             <p className="text-sm text-muted-foreground  hidden md:block">
@@ -342,15 +350,6 @@ export const QuestionDetails = ({
             </p>
           ) : (
             <div className="hidden md:block">
-              <SubmissionHistoryModal
-                open={open}
-                onClose={() => setOpen(false)}
-                answers={answers}
-                question={question}
-                rerouteQuestion = {reroutequestionDetails ?? undefined}
-                currentUser={currentUserId || currentUser._id?.toString()}
-                 userRole={currentUser.role}
-              />
               {/* <SubmissionTimeline /> */}
               <AnswerTimeline
                 answerVisibleCount={answerVisibleCount}

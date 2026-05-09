@@ -6,6 +6,11 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {MongoDatabase} from '#root/shared/index.js';
 import {dbConfig} from '#root/config/db.js';
 import {EJSON} from 'bson';
+import {exec} from 'child_process';
+import {appConfig} from '#root/config/index.js';
+import { Storage} from '@google-cloud/storage';
+import os from 'os';
+import * as unzipper from 'unzipper';
 
 /**
  * Connect to MongoDB via Inversify
@@ -72,3 +77,124 @@ export const restoreCollection = async ({collectionName, backupFile}) => {
   console.log(`✅ Restored ${restored} documents into ${collectionName}`);
   await mongoDatabase.disconnect();
 };
+
+const restoreCollectionBSON = async ({
+  collectionName,
+  bsonFolderPath,
+  dbName,
+  mongoUri,
+}: {
+  collectionName: string;
+  bsonFolderPath: string;
+  dbName: string;
+  mongoUri: string;
+}) => {
+  const bsonFilePath = path.join(bsonFolderPath, `${collectionName}.bson`);
+
+  console.log(
+    `🔗 Restoring collection "${collectionName}" from ${bsonFilePath}`,
+  );
+
+  const command = `mongorestore --uri="${mongoUri}" --db="${dbName}" --collection="${collectionName}" "${bsonFilePath}"`;
+
+  return new Promise((resolve, reject) => {
+    exec(command, (error, stdout, stderr) => {
+      console.log('STDOUT:', stdout);
+      console.log('STDERR:', stderr);
+
+      if (error) {
+        console.error('❌ mongorestore failed:', error);
+        return reject(error);
+      }
+
+      if (stderr) {
+        console.error('⚠️ mongorestore stderr:', stderr);
+      }
+
+      console.log(`✅ Restored collection: ${collectionName}`);
+      resolve(true);
+    });
+  });
+};
+
+export const restoreBackupBson = async ({
+  fileName,
+  collectionName,
+}: {
+  fileName: string;
+  collectionName: string;
+}) => {
+  const tempDir = path.join(os.tmpdir(), `restore_${Date.now()}`);
+  const zipPath = path.join(tempDir, fileName);
+
+  try {
+    fs.mkdirSync(tempDir, {recursive: true});
+
+    // ---------------------------
+    // 1. Download ZIP from GCS
+    // ---------------------------
+    const storage = new Storage({
+      keyFilename: appConfig.GOOGLE_APPLICATION_CREDENTIALS,
+    });
+
+    const bucket = storage.bucket(appConfig.GCP_BACKUP_BUCKET);
+
+    console.log(`☁️ Downloading ${fileName}...`);
+    await bucket.file(fileName).download({destination: zipPath});
+
+    // ---------------------------
+    // 2. Extract ZIP
+    // ---------------------------
+    console.log('📦 Extracting ZIP...');
+    await fs
+      .createReadStream(zipPath)
+      .pipe(unzipper.Extract({path: tempDir}))
+      .promise();
+
+    // ---------------------------
+    // 3. Locate BSON folder
+    // ---------------------------
+    const bsonFolderPath = path.join(tempDir, 'bson_backup');
+
+    if (!fs.existsSync(bsonFolderPath)) {
+      throw new Error(`❌ BSON folder not found: ${bsonFolderPath}`);
+    }
+
+    console.log(`📁 Found BSON folder: ${bsonFolderPath}`);
+
+    // ---------------------------
+    // 4. Call restore logic
+    // ---------------------------
+    await restoreCollectionBSON({
+      collectionName,
+      bsonFolderPath,
+      dbName: process.env.DB_NAME as string,
+      mongoUri: process.env.DB_URL as string,
+    });
+
+    return {
+      success: true,
+      collection: collectionName,
+    };
+  } catch (err: any) {
+    console.error('❌ Restore failed:', err);
+    throw new Error(err?.message || 'Restore failed');
+  } finally {
+    // cleanup temp files
+    fs.rmSync(tempDir, {recursive: true, force: true});
+  }
+};
+
+  // cotroller method for restore from zip (calls restoreCollectionBSON internally)
+  // @Post('/restore-json-from-zip')
+  // @HttpCode(200)
+  // @OpenAPI({ summary: 'Restore collection using existing JSON restore logic' })
+  // async restoreJsonFromZip(
+  //   @Body()
+  //   body: {
+  //     fileName: string;        // agriai__06-05-2026.zip
+  //     collectionName: string;  // users / questions
+  //   },
+  // ) {
+  // //  return await restoreBackupBson(body);
+  // }

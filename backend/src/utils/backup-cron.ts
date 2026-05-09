@@ -1,30 +1,16 @@
 import {exec} from 'child_process';
 import fs from 'fs';
-import os from 'os'
+import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
 import {MongoClient} from 'mongodb';
 import {Bucket, Storage} from '@google-cloud/storage';
 import {appConfig} from '#root/config/app.js';
-import {sendBackupSuccessEmail, sendStatsEmail} from './backupEmailService.js';
-
-// const folder = 'db_backups';
-
-const getCollectionsFromDB = async (mongoUri: string, dbName: string) => {
-  const client = new MongoClient(mongoUri);
-  await client.connect();
-  const collections = await client.db(dbName).listCollections().toArray();
-  await client.close();
-  return collections.map(c => c.name);
-};
-
-const doesBackupExist = async (
-  bucket: Bucket,
-  dateString: string,
-): Promise<boolean> => {
-  const [files] = await bucket.getFiles();
-  return files.some(f => f.name.includes(dateString));
-};
+import {
+  sendBackupFailureEmail,
+  sendBackupSuccessEmail,
+  sendStatsEmail,
+} from './backupEmailService.js';
 
 const getTimestamp = () => {
   const now = new Date();
@@ -35,116 +21,200 @@ const getTimestamp = () => {
   );
 };
 
-export const createLocalBackup = async (mongoUri: string, dbName: string) => {
-  const timestamp = getTimestamp();
+const getAllDatabases = async (mongoUri: string) => {
+  const client = new MongoClient(mongoUri);
 
-  const storage = new Storage({
-    keyFilename: appConfig.GOOGLE_APPLICATION_CREDENTIALS,
-  });
+  try {
+    await client.connect();
 
-  const bucketName = appConfig.GCP_BACKUP_BUCKET;
-  const bucket = storage.bucket(bucketName);
+    const admin = client.db().admin();
+    const result = await admin.listDatabases();
 
-  if (await doesBackupExist(bucket, timestamp)) {
-    console.log(
-      `⚠️ Backup for today (${timestamp}) already exists. Skipping upload.`,
-    );
-    await sendStatsEmail();
-    return; 
+    await client.close();
+    return result.databases
+      .map(db => db.name)
+      .filter(name => !['admin', 'local', 'config'].includes(name));
+  } finally {
+    await client.close();
   }
-  const baseTempDir = path.join(os.tmpdir(), 'mongo_backups');
-  // const tempDir = path.join(process.cwd(), 'temp_db_backup');
-  const tempDir = path.join(baseTempDir, 'temp_db_backup');
-  const dumpFolder = path.join(tempDir, dbName);
-  const jsonFolder = path.join(tempDir, `${dbName}_json`);
-  const zipFileName = `${timestamp}.zip`;
-  const zipFilePath = path.join(baseTempDir, zipFileName);
+};
 
-  fs.mkdirSync(tempDir, {recursive: true});
-  fs.mkdirSync(jsonFolder, {recursive: true});
+const getCollectionsFromDB = async (mongoUri: string, dbName: string) => {
+  const client = new MongoClient(mongoUri);
 
-  console.log('Running mongodump...');
+  try {
+    await client.connect();
+    const collections = await client.db(dbName).listCollections().toArray();
 
-  // ----------------------------------------------------------
-  // 1. BSON BACKUP
-  // ----------------------------------------------------------
-  await new Promise((resolve, reject) => {
-    exec(
-      `mongodump --uri="${mongoUri}" --db="${dbName}" --out="${tempDir}"`,
-      (err, stdout, stderr) => {
-        if (err) return reject(stderr);
-        resolve(stdout);
-      },
-    );
-  });
+    return collections.map(c => c.name);
+  } finally {
+    await client.close();
+  }
+};
 
-  console.log('Fetching collection list (Node.js)...');
+const doesBackupExist = async (
+  bucket: Bucket,
+  fileName: string,
+): Promise<boolean> => {
+  const file = bucket.file(fileName);
+  const [exists] = await file.exists();
+  return exists;
+};
 
-  // ----------------------------------------------------------
-  // 2. Get collections
-  // ----------------------------------------------------------
-  const collections = await getCollectionsFromDB(mongoUri, dbName);
+export const createClusterBackup = async (mongoUri: string) => {
+  try {
+    const timestamp = getTimestamp();
 
-  // ----------------------------------------------------------
-  // 3. Export JSON for each collection using mongoexport
-  // ----------------------------------------------------------
-  for (const col of collections) {
-    console.log(`Exporting ${col}.json ...`);
-    await new Promise((resolve, reject) => {
-      exec(
-        `mongoexport --uri="${mongoUri}" --db="${dbName}" --collection="${col}" --out="${path.join(
-          jsonFolder,
-          col + '.json',
-        )}" --jsonArray`,
-        err => {
-          if (err) return reject(err);
-          resolve(true);
-        },
-      );
+    const storage = new Storage({
+      keyFilename: appConfig.GOOGLE_APPLICATION_CREDENTIALS,
     });
-  }
 
-  console.log('📦 Compressing database backup...');
+    const bucketName = appConfig.GCP_BACKUP_BUCKET;
+    const bucket = storage.bucket(bucketName);
 
-  // ----------------------------------------------------------
-  // 4. ZIP both BSON & JSON
-  // ----------------------------------------------------------
-  await new Promise<void>((resolve, reject) => {
-    const output = fs.createWriteStream(zipFilePath);
-    const archive = archiver('zip', {zlib: {level: 6}});
+    console.log('🔍 Fetching all databases...');
+    const ALL_DBS = await getAllDatabases(mongoUri);
+    console.log('📦 Databases found:', ALL_DBS);
 
-    output.on('close', async () => {
+    const results: any[] = [];
+
+    for (const dbName of ALL_DBS) {
       try {
-        console.log(`🔄 Uploading ZIP backup to Google Cloud Storage...`);
-        await bucket.upload(zipFilePath, {
-          destination: `${zipFileName}`,
-          gzip: false,
+        console.log(`\n➡️ Processing DB: ${dbName}`);
+
+        const zipFileName = `${dbName}__${timestamp}.zip`;
+
+        // Skip if already exists
+        if (await doesBackupExist(bucket, zipFileName)) {
+          console.log(`⚠️ Backup already exists for ${dbName}, skipping...`);
+          results.push({db: dbName, status: 'Already exists', timestamp});
+          continue;
+        }
+
+        const baseTempDir = path.join(os.tmpdir(), 'mongo_backups');
+        const tempDir = path.join(baseTempDir, `temp_${dbName}`);
+        const dumpFolder = path.join(tempDir, dbName);
+        const jsonFolder = path.join(tempDir, `${dbName}_json`);
+        const zipFilePath = path.join(baseTempDir, zipFileName);
+
+        fs.mkdirSync(tempDir, {recursive: true});
+        fs.mkdirSync(jsonFolder, {recursive: true});
+
+        console.log('Running mongodump...');
+        // ----------------------------------------------------------
+        // 1. BSON BACKUP
+        // ----------------------------------------------------------
+        await new Promise((resolve, reject) => {
+          exec(
+            `mongodump --uri="${mongoUri}" --db="${dbName}" --out="${tempDir}"`,
+            (err, stdout, stderr) => {
+              if (err) return reject(stderr);
+              resolve(stdout);
+            },
+          );
         });
 
-        // Sent mail
-        const publicUrl = `https://console.cloud.google.com/storage/browser/_details/${bucketName}/${zipFileName}`;
-        await sendBackupSuccessEmail(publicUrl);
+        console.log('Fetching collections...');
+        const collections = await getCollectionsFromDB(mongoUri, dbName);
 
-        console.log(`☁️ Backup uploaded to: gs://${bucketName}/${zipFileName}`);
+        // ----------------------------------------------------------
+        // 3. Export JSON for each collection using mongoexport
+        // ----------------------------------------------------------
+        for (const col of collections) {
+          console.log(`Exporting ${col}.json ...`);
+          await new Promise((resolve, reject) => {
+            exec(
+              `mongoexport --uri="${mongoUri}" --db="${dbName}" --collection="${col}" --out="${path.join(jsonFolder, col + '.json',)}" --jsonArray`,
+              err => {
+                if (err) return reject(err);
+                resolve(true);
+              },
+            );
+          });
+        }
+
+        console.log('📦 Compressing...');
+
+        // ----------------------------------------------------------
+        // 4. ZIP both BSON & JSON
+        // ----------------------------------------------------------
+        await new Promise<void>((resolve, reject) => {
+          const output = fs.createWriteStream(zipFilePath);
+          const archive = archiver('zip', {zlib: {level: 6}});
+
+          output.on('close', async () => {
+            try {
+              console.log(`🔄 Uploading ZIP backup to Google Cloud Storage...`);
+              await bucket.upload(zipFilePath, {
+                destination: `${zipFileName}`,
+                gzip: false,
+              });
+
+              const publicUrl = `https://console.cloud.google.com/storage/browser/_details/${bucketName}/${zipFileName}`;
+
+              console.log(
+                `☁️ Backup uploaded to: gs://${bucketName}/${zipFileName}`,
+              );
+              results.push({
+                db: dbName,
+                publicUrl,
+                status: 'success',
+                timestamp,
+              });
+            } catch (err) {
+              console.error('❌ Error uploading ZIP:', err);
+              results.push({
+                db: dbName,
+                publicUrl: null,
+                status: 'failed',
+                timestamp,
+                error: err,
+              });
+            }
+
+            // cleanup
+            fs.rmSync(tempDir, {recursive: true, force: true});
+            fs.unlinkSync(zipFilePath);
+
+            resolve();
+          });
+
+          archive.on('error', reject);
+
+          archive.pipe(output);
+          archive.directory(dumpFolder, `bson_backup`);
+          archive.directory(jsonFolder, `json_backup`);
+
+          archive.finalize();
+        });
       } catch (err) {
-        console.error('❌ Error uploading ZIP:', err);
+        console.error(`❌ Failed DB: ${dbName}`, err);
+        results.push({
+          db: dbName,
+          publicUrl: null,
+          status: 'failed',
+          timestamp,
+          error: err,
+        });
+        continue;
       }
+    }
 
-      // cleanup
-      fs.rmSync(tempDir, {recursive: true, force: true});
-      fs.unlinkSync(zipFilePath);
-
-      resolve();
+    console.log('\n📊 Backup Summary:', results);
+    results.forEach(r => {
+      if (r.status === 'Already exists') {
+        r.publicUrl = `https://console.cloud.google.com/storage/browser/_details/${bucketName}/${r.db}__${timestamp}.zip`;
+      }
     });
-
-    archive.on('error', reject);
-
-    archive.pipe(output);
-    archive.directory(dumpFolder, `bson_backup`);
-    archive.directory(jsonFolder, `json_backup`);
-
-    archive.finalize();
-  });
-
-  console.log('✅ Backup created:', zipFilePath);
+    const hour = new Date().getHours();
+    if(hour > 12) {
+      await sendBackupSuccessEmail(results);
+    }
+    console.log('📧 Sending daily stats email...');
+    await sendStatsEmail();
+  } catch (err) {
+    await sendBackupFailureEmail('Cluster Backup', err);
+    console.error('Unexpected error in backup process:', err);
+    throw err;
+  }
 };

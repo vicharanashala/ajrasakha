@@ -16,6 +16,7 @@ import { QuestionSourceCharts } from "./dashboard/question-source-charts";
 import { QuestionsAnswered120Min } from "./dashboard/questions-answered-120min";
 import { ResponseAdherence } from "./dashboard/response-adherence";
 import { AverageResponseTime } from "./dashboard/average-response-time";
+import { PAEMetrics } from "./dashboard/pae-metrics";
 import HeatMap from "./HeatMap";
 import { Card, CardHeader, CardTitle } from "./atoms/card";
 import {
@@ -34,6 +35,7 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
 import { TopRightBadge } from "./NewBadge";
+import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -216,12 +218,19 @@ export const Dashboard = () => {
               whatsappCount={goldenData.questionSourceBreakdown.whatsapp}
               ajrasakhaCount={goldenData.questionSourceBreakdown.ajrasakha}
             />
+            <div className="flex flex-col gap-3">
             {goldenData?.questionsAnsweredWithin120Min && (
               <QuestionsAnswered120Min
                 whatsappCount={goldenData.questionsAnsweredWithin120Min.whatsapp}
                 ajrasakhaCount={goldenData.questionsAnsweredWithin120Min.ajrasakha}
               />
             )}
+             <QuestionsAnsweredAfter120MinProps
+                whatsappCount={goldenData?.questionsAnsweredAfter120Min?.whatsapp??0}
+                ajrasakhaCount={goldenData?.questionsAnsweredAfter120Min?.ajrasakha??0}
+                questionsStateBreakdown={goldenData?.questionStateBreakdown}
+              />
+            </div>
           </div>
         )}
 
@@ -240,6 +249,17 @@ export const Dashboard = () => {
                 ajrasakhaAvgTime={goldenData.averageResponseTime.ajrasakha}
               />
             )}
+          </div>
+        )}
+
+        {/* PAE Metrics Row */}
+        {goldenData?.paeMetrics && (
+          <div className="mb-6">
+            <PAEMetrics
+              assigned={goldenData.paeMetrics.assigned}
+              submitted={goldenData.paeMetrics.submitted}
+              closed={goldenData.paeMetrics.closed}
+            />
           </div>
         )}
 

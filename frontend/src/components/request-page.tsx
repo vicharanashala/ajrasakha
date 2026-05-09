@@ -14,6 +14,7 @@ import { Sliders, Circle, Layers, Calendar } from "lucide-react";
 import { RequestCard } from "./RequestCard";
 import ViewDropdown from "@/features/questions/components/ViewDropdown";
 import { RequestListItem } from "./RequestListItem";
+import { TopRightBadge } from "./NewBadge";
 
 type SortOrder = "newest" | "oldest";
 
@@ -46,7 +47,7 @@ export const RequestsPage = ({
     null,
   );
   const LIMIT = 10;
-  const [view, setView] = useState<"grid" | "table">("grid");
+  const [view, setView] = useState<"grid" | "table">("table");
   const { data: requestData, isLoading } = useGetAllRequests(
     currentPage,
     LIMIT,
@@ -92,7 +93,7 @@ export const RequestsPage = ({
     <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
         <section className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
             <Sliders className="w-5 h-5 text-primary" />
             <h1 className="text-xl font-semibold text-pretty">Request Queue</h1>
             {selectedRequestId && (
@@ -101,6 +102,7 @@ export const RequestsPage = ({
               </Badge>
             )}
             <ViewDropdown view={view} setView={setView} />
+            <TopRightBadge label="new" left={0} />
           </div>
 
           <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">

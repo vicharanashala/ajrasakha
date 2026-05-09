@@ -6,6 +6,7 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import CountUp from "react-countup";
+import { TopRightBadge } from "../NewBadge";
 
 interface AverageResponseTimeProps {
   whatsappAvgTime: number;
@@ -17,12 +18,13 @@ export const AverageResponseTime = ({
   ajrasakhaAvgTime,
 }: AverageResponseTimeProps) => {
   return (
-    <Card>
+    <Card className="relative">
       <CardHeader>
         <CardTitle className="text-base">Average Response Time (in hours)</CardTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Average time to answer questions
         </p>
+        <TopRightBadge label="new" left={0} />
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

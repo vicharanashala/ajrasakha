@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted'|'draft';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted'|'draft'| 'pass' | 'duplicate';
 export interface IPreference {
   state: string;
   crop: string;
@@ -30,6 +30,9 @@ export interface IUser {
   special_task_force?:boolean
   special_task_force_moderator?: boolean
   avatar?: string
+  mobile?: string;
+  university?: string;
+  isVerified?: boolean
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
@@ -258,6 +261,7 @@ export type INotificationType =
   | 'question_from_whatsapp'
   | 'question_from_ajrasakha'
   | 'expert_replacement'
+  | 'user_verification'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;

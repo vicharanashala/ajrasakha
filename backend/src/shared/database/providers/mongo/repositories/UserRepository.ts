@@ -739,6 +739,11 @@ export class UserRepository implements IUserRepository {
     return await this.usersCollection.find({ role: 'moderator' }).toArray();
   }
 
+  async findAdmins(session?: ClientSession): Promise<IUser[]> {
+    await this.init();
+    return await this.usersCollection.find({ role: 'admin' }, { session }).toArray();
+  }
+
   async updateAutoDeleteNotificationPreference(
     preference: NotificationRetentionType,
     userId: string,
