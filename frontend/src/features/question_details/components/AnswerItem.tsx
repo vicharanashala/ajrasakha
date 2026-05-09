@@ -120,8 +120,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       toast.error(`Failed to Approve answer. ${errorMessage}`);
       setEditOpen(false);
     } finally {
-      isSubmittingAnswerRef.current = false;
-      setIsSubmittingAnswer(false);
+      setTimeout(() => {
+    isSubmittingAnswerRef.current = false;
+    setIsSubmittingAnswer(false);
+  }, 1000); // 1 second delay to prevent rapid submissions
     }
   };
 
