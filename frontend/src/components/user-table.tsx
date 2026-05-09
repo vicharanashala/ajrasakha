@@ -287,7 +287,7 @@ const UserRow: React.FC<UserRowProps> = ({
       className="text-center"
     >
 
-      <TableCell className={`align-middle w-36 border-l-1 ${u.isVerified ? 'border-l-blue-500' : 'border-l-red-500'}`} title={u.firstName}>
+      {/* <TableCell className={`align-middle w-36 border-l-1 ${u.isVerified ? 'border-l-blue-500' : 'border-l-red-500'}`} title={u.firstName}>
         <div className="flex items-center gap-2">
           <AvatarComponent
             u={u}
@@ -333,6 +333,82 @@ const UserRow: React.FC<UserRowProps> = ({
                       <ShieldCheck className="w-2.5 h-2.5 fill-purple-500" />
                     </Badge>
                   </TooltipTrigger>
+                  <TooltipContent>
+                    Special Task Force Moderator
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </div>
+        </div>
+      </TableCell> */}
+
+      <TableCell
+        className="align-middle w-36"
+        title={u.firstName}
+      >
+        <div
+          className={`flex items-center gap-2 rounded-lg px-2 py-2 border-l-4 ${u.isVerified
+              ? "border-l-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/10"
+              : "border-l-rose-500 bg-rose-50/40 dark:bg-rose-950/10"
+            }`}
+        >
+          <AvatarComponent
+            u={u}
+            showRankBadge={u.role === "expert"}
+            rankPosition={u.expertRank}
+          />
+
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <span
+              className="truncate hover:underline hover:cursor-pointer text-sm font-medium"
+              onClick={() => {
+                handleExpertClick(u);
+              }}
+            >
+              {truncate(u.firstName + " " + u.lastName, 60)}
+            </span>
+
+            {/* Minimal Verification Badge */}
+            {/* <Badge
+              variant="secondary"
+              className={`h-5 px-1.5 text-[10px] rounded-md font-medium border ${u.isVerified
+                  ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                  : "bg-rose-100 text-rose-700 border-rose-200"
+                }`}
+            >
+              {u.isVerified ? "Verified" : "Pending"}
+            </Badge> */}
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {u?.special_task_force && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] h-5 px-1.5 rounded-full flex items-center gap-1 transition-colors whitespace-nowrap"
+                    >
+                      <Zap className="w-2.5 h-2.5 fill-indigo-500" />
+                    </Badge>
+                  </TooltipTrigger>
+
+                  <TooltipContent>
+                    Special Task Force
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
+              {u?.special_task_force_moderator && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="bg-purple-50/50 hover:bg-purple-50 text-purple-700 border-purple-200 text-[9px] h-5 px-1.5 rounded-full flex items-center gap-1 transition-colors whitespace-nowrap"
+                    >
+                      <ShieldCheck className="w-2.5 h-2.5 fill-purple-500" />
+                    </Badge>
+                  </TooltipTrigger>
+
                   <TooltipContent>
                     Special Task Force Moderator
                   </TooltipContent>
