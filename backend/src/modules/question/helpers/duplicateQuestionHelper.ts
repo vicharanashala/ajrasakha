@@ -105,8 +105,8 @@ export async function checkDuplicateQuestionHelper(
       baseQuestion.question,
       candidateQuestions,
     );
-    if (matchedQuestionfromllm) {
-      const filtermatchinQuestion = topSimilar.filter(
+    if (matchedQuestionfromllm!==null) {
+    /*  const filtermatchinQuestion = topSimilar.filter(
         ele => ele.question == matchedQuestionfromllm,
       );
 
@@ -114,7 +114,22 @@ export async function checkDuplicateQuestionHelper(
       matchedQuestion = filtermatchinQuestion[0].question;
       matchedQuestionId = filtermatchinQuestion[0].questionId;
       matchedScore = filtermatchinQuestion[0].similarityScore;
-      referenceSourcefrom = filtermatchinQuestion[0].referenceSource;
+      referenceSourcefrom = filtermatchinQuestion[0].referenceSource;*/
+      if (
+        matchedQuestionfromllm < 0 ||
+        matchedQuestionfromllm >= llmCandidates.length
+      ) {
+        console.log("Invalid candidate index returned by LLM");
+        return { isDuplicate: false };
+      }
+      
+      const matchedCandidate = llmCandidates[matchedQuestionfromllm];
+      console.log("Matched Candidate:", matchedCandidate);
+      isDuplicate = true;
+      matchedQuestion = matchedCandidate.question;
+      matchedQuestionId = matchedCandidate.questionId;
+      matchedScore = matchedCandidate.similarityScore;
+      referenceSourcefrom = matchedCandidate.referenceSource;
 
       const duplicateQuestion = {
         ...baseQuestion,
