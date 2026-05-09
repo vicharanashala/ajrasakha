@@ -19,7 +19,6 @@ import {
   Loader2,
   PlusCircle,
   RefreshCcw,
-  Timer,
   Trash2,
 } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal";

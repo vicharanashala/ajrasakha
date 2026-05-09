@@ -417,6 +417,9 @@ export interface ISubmissionHistory {
   reasonForLastModification: string;
   isReroute?: boolean;
   previousAllocations?: IPreviousAllocation[];
+  assignedAt?: string;
+  completedAt?: string;
+  timeTakenMs?: number;
   createdAt?: string;
   updatedAt?: string;
 }
