@@ -22,7 +22,8 @@ type EnvKey =
   // Plivo
   | "VITE_PLIVO_ENDPOINT_USERNAME"
   | "VITE_PLIVO_ENDPOINT_PASSWORD"
-  | "VITE_PLIVO_STREAM_URL";
+  | "VITE_PLIVO_STREAM_URL"
+  | "VITE_TARGET_USER_ID";
 
 /**
  * Internal getter (single source of truth)
@@ -62,5 +63,6 @@ export const env = {
     endpointUsername: () => getEnv("VITE_PLIVO_ENDPOINT_USERNAME", false),
     endpointPassword: () => getEnv("VITE_PLIVO_ENDPOINT_PASSWORD", false),
     streamUrl: () => getEnv("VITE_PLIVO_STREAM_URL"),
+    targetUserId: () => getEnv("VITE_TARGET_USER_ID", false),
   },
 };

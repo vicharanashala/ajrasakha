@@ -43,14 +43,20 @@ export class PlivoWebSocketService {
     }]);
   }
 
-  connect(token?: string): Promise<void> {
+  connect(token?: string, userId?: string): Promise<void> {
     // Reset reconnect attempts for fresh connection
     this.reconnectAttempts = 0;
     
     return new Promise((resolve, reject) => {
       try {
         // Use stream URL from env config (includes /plivo-stream path)
-        const wsUrl = env.plivo.streamUrl();
+        let wsUrl = env.plivo.streamUrl();
+        
+        // Add userId to URL if provided
+        if (userId) {
+          const separator = wsUrl.includes('?') ? '&' : '?';
+          wsUrl = `${wsUrl}${separator}userId=${userId}`;
+        }
 
         // EXPLICIT CONSOLE OUTPUT - Can't be missed!
         // console.log('🚀🚀🚀 [FRONTEND] WebSocket connect() function called!');

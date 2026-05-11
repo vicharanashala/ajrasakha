@@ -50,5 +50,6 @@ export const appConfig = {
     authId: env('PLIVO_AUTH_ID'),
     authToken: env('PLIVO_AUTH_TOKEN'),
     plivo_number: env('PLIVO_NUMBER'),
+    targetUserId: env('TARGET_USER_ID'),
   },
 };

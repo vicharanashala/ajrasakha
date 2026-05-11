@@ -10,6 +10,8 @@ export class PlivoController {
   @Post('/answer')
   answer(@Req() req: Request, @Res() res: Response) {
     try {
+      const targetUserId = appConfig.plivo.targetUserId;
+      if(targetUserId){
 
       const streamUrl = appConfig.plivo.streamUrl;
       const endpointUser = process.env.PLIVO_ENDPOINT_USERNAME;
@@ -27,6 +29,7 @@ export class PlivoController {
                     </Response>`;
       res.set('Content-Type', 'text/xml');
       return res.send(xml);
+    }
     } catch (error) {
       console.error('❌ [PLIVO-CONTROLLER] Error in answer endpoint:', error);
       console.error('❌ [PLIVO-CONTROLLER] Error stack:', error?.stack);

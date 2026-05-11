@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import AuditPage from "./AuditPage";
 import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
 import { IncomingCallBox } from "./IncomingCallBox";
+import { env } from "@/config/env";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -44,6 +45,9 @@ export const PlaygroundPage = () => {
     selectedQuestionType,
     setSelectedQuestionType
   } = useSelectedQuestion();
+
+   // Check if current user is authorized to use incoming call feature
+      const targetUserId = env.plivo.targetUserId();
   // Initialize from localStorage or default
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
@@ -416,10 +420,12 @@ export const PlaygroundPage = () => {
                 <div className=" overflow-hidden bg-background p-4 ps-0">
                   <div className=" mx-auto py-8 pt-0">
                     {/* Incoming Call Box - appears only when there's an incoming/active call */}
-                    <IncomingCallBox 
-                      onTranscriptUpdate={(transcript) => setCallTranscript(transcript)}
-                      onCallStateChange={(isActive) => setIsCallActive(isActive)}
-                    />
+                    {targetUserId && user?._id == targetUserId && (
+                      <IncomingCallBox 
+                        onTranscriptUpdate={(transcript) => setCallTranscript(transcript)}
+                        onCallStateChange={(isActive) => setIsCallActive(isActive)}
+                      />
+                    )}
                     <VoiceRecorderCard 
                       callTranscript={callTranscript}
                       isCallActive={isCallActive}

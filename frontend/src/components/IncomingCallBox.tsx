@@ -75,13 +75,26 @@ export const IncomingCallBox = ({ onTranscriptUpdate, onCallStateChange }: Incom
     };
   }, [callStatus, incomingCall]);
 
-  // Initialize Plivo SDK (NPM package) - Only for admins
+  // Initialize Plivo SDK (NPM package) - Only for target user
   useEffect(() => {
-    // Skip if not admin or still loading
-    // if (isUserLoading || !isAdmin) {
-    //   console.log('🔒 [IncomingCallBox] Skipping Plivo init - not admin or loading');
-    //   return;
-    // }
+    // Check if current user is authorized to use Plivo
+    const targetUserId = env.plivo.targetUserId();
+    const currentUserId = currentUser?._id;
+
+    if (targetUserId && currentUserId !== targetUserId) {
+      // console.log(`🚫 [IncomingCallBox] User ${currentUserId} not authorized. Target user: ${targetUserId}`);
+      return;
+    }
+
+    if (!targetUserId) {
+      // console.log('⚠️ [IncomingCallBox] No TARGET_USER_ID configured, allowing all users');
+    }
+
+    // Skip if still loading
+    if (isUserLoading) {
+      // console.log('🔒 [IncomingCallBox] Skipping Plivo init - user still loading');
+      return;
+    }
 
     // Prevent multiple initializations
     if (plivoClientRef.current) {
@@ -90,6 +103,7 @@ export const IncomingCallBox = ({ onTranscriptUpdate, onCallStateChange }: Incom
     }
 
     console.log('🔧 Initializing Plivo client from NPM package...');
+    // console.log(`👤 [IncomingCallBox] Current user: ${currentUserId}, Target user: ${targetUserId || 'any'}`);
     initializePlivoClient();
 
     return () => {
@@ -290,15 +304,17 @@ export const IncomingCallBox = ({ onTranscriptUpdate, onCallStateChange }: Incom
 
     // Connect to WebSocket
     const token = localStorage.getItem('token');
-    console.log('🔑 [IncomingCallBox] Using token:', token ? '✅' : '❌ None');
+    const currentUserId = currentUser?._id;
+    // console.log('🔑 [IncomingCallBox] Using token:', token ? '✅' : '❌ None');
+    // console.log('👤 [IncomingCallBox] Using userId:', currentUserId || '❌ None');
 
     if (token) {
-      ws.connect(token).catch((error) => {
+      ws.connect(token, currentUserId).catch((error) => {
         console.error('❌ [IncomingCallBox] WebSocket connection failed with token:', error);
         alert('WebSocket connection failed: ' + error);
       });
     } else {
-      ws.connect().catch((error) => {
+      ws.connect(undefined, currentUserId).catch((error) => {
         console.error('❌ [IncomingCallBox] WebSocket connection failed without token:', error);
         alert('WebSocket connection failed: ' + error);
       });

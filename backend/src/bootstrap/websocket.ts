@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage, Server } from 'http';
 import { PlivoService } from '../modules/plivo/services/PlivoService.js';
+import { appConfig } from '../config/app.js';
 
 export const initWebSocket = (server: Server) => {
   const wss = new WebSocketServer({
@@ -15,14 +16,31 @@ export const initWebSocket = (server: Server) => {
     console.log('📊 [WEBSOCKET] Total clients before connection:', wss.clients.size);
     console.log('📊 [WEBSOCKET] New client readyState:', ws.readyState);
 
-    // Skip authentication for now
-    const user = null;
+    // Extract user ID from URL query parameters
+    const url = new URL(req.url!, `http://${req.headers.host}`);
+    const userId = url.searchParams.get('userId');
+    const targetUserId = appConfig.plivo.targetUserId;
+
+    // Validate user if target user is configured
+    if (targetUserId && userId !== targetUserId) {
+      // console.log(`🚫 [WEBSOCKET] User ${userId} not authorized. Target user: ${targetUserId}`);
+      ws.close(1008, 'Unauthorized user');
+      return;
+    }
+
+    if (targetUserId && userId === targetUserId) {
+      // console.log(`✅ [WEBSOCKET] User ${userId} authorized for Plivo streaming`);
+    }
+
+    if (!targetUserId) {
+      // console.log('⚠️ [WEBSOCKET] No TARGET_USER_ID configured, allowing all users');
+    }
 
     // Create a unique call ID for this connection
     const callId = Date.now().toString();
 
-    // Store connection info
-    const connectionInfo = { callId, user, ws };
+    // Store connection info with user ID
+    const connectionInfo = { callId, user: userId, ws };
     (ws as any).connectionInfo = connectionInfo;
 
     console.log('📊 [WEBSOCKET] Total clients after connection:', wss.clients.size);
