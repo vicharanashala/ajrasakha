@@ -204,7 +204,12 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
         delta: queryDelta.text,
         deltaDir: queryDelta.dir,
         sparkPoints: querySparkPoints,
-        sparkLabels: queryLabels,
+        sparkLabels: weeklyQueryData.map(w => fmtWeekLabel(w.week)),
+        dailySparkPoints: queryTrend.map(d => d.count),
+        dailySparkLabels: queryTrend.map(d => {
+          const date = parseDay(d.day);
+          return date.toLocaleString('en-IN', { month: 'short', day: 'numeric' });
+        }),
         dateRange: queryRange,
       };
     }
