@@ -666,7 +666,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 {isUpdating ? "Submitting AI Answer..." : "Accept"}
                             </Button>
 
-                            {question.status == "duplicate" &&
+                            
                                 <Button
                                     type="button"
                                     variant="destructive"
@@ -682,7 +682,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                     )}
                                     {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
                                 </Button>
-                            }
+                            
                         </div>
                     </div>
                 )}
