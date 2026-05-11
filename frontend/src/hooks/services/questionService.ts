@@ -288,6 +288,16 @@ export class QuestionService {
       },
     );
   }
+  async bulkAllocatePaeExperts(
+    questionIds: string[],
+    paeExpertId: string,
+  ): Promise<{ jobId: string; message: string }> {
+    return apiFetch(`${this._baseUrl}/bulk-pae-allocate`, {
+      method: "POST",
+      body: JSON.stringify({ questionIds, paeExpertId }),
+    });
+  }
+
   async allocateReRouteExperts(
     questionId: string,
     expertId: string,
