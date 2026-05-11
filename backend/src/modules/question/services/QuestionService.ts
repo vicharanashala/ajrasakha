@@ -3791,6 +3791,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (!questionData) {
       throw new Error('Question not found');
     }
+
+
     const questionSource = questionData.source;
     if (questionSource == "WHATSAPP") {
       if (!questionData.threadId)
@@ -3846,7 +3848,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     //update userid from the analytics db
-    if (message.userDetails?._id !== userId?.toString()) {
+    if (message.userDetails?._id !== userId?.toString() && !questionData.messageId) {
       await this.questionRepo.updateQuestion(
         questionId.toString(),
         {

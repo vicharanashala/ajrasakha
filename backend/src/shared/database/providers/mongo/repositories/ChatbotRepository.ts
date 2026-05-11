@@ -1,9 +1,9 @@
-import {inject, injectable} from 'inversify';
-import {Collection, ClientSession, ObjectId} from 'mongodb';
-import {InternalServerError} from 'routing-controllers';
-import {AnalyticsMongoDatabase} from '../AnalyticsMongoDatabase.js';
-import {AnnamDatabase} from '../AnnamDatabase.js';
-import {GLOBAL_TYPES} from '#root/types.js';
+import { inject, injectable } from 'inversify';
+import { Collection, ClientSession, ObjectId } from 'mongodb';
+import { InternalServerError } from 'routing-controllers';
+import { AnalyticsMongoDatabase } from '../AnalyticsMongoDatabase.js';
+import { AnnamDatabase } from '../AnnamDatabase.js';
+import { GLOBAL_TYPES } from '#root/types.js';
 import type {
   IChatbotRepository,
   KpiSummary,
@@ -23,8 +23,8 @@ import type {
   KccAndAgriAppStats,
   PlatformInstallEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
-import {IQuestion} from '#root/shared/interfaces/models.js';
-import {MongoDatabase} from '../MongoDatabase.js';
+import { IQuestion } from '#root/shared/interfaces/models.js';
+import { MongoDatabase } from '../MongoDatabase.js';
 
 interface IUser {
   _id?: any;
@@ -85,7 +85,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
-  ) {}
+  ) { }
 
   /*constructor(
     @inject(GLOBAL_TYPES.annamanalyticsDatabase)
@@ -187,7 +187,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls, activeUsersLast3Days] =
         await Promise.all([
-          this.users.countDocuments(userDocFilter, {session}),
+          this.users.countDocuments(userDocFilter, { session }),
 
           // Group users by month in IST timezone using updatedAt
           this.users
@@ -203,11 +203,11 @@ export class ChatbotRepository implements IChatbotRepository {
                         timezone: '+05:30',
                       },
                     },
-                    count: {$sum: 1},
+                    count: { $sum: 1 },
                   },
                 },
               ],
-              {session},
+              { session },
             )
             .toArray(),
 
@@ -217,12 +217,12 @@ export class ChatbotRepository implements IChatbotRepository {
               [
                 {
                   $project: {
-                    durationMs: {$subtract: ['$updatedAt', '$createdAt']},
+                    durationMs: { $subtract: ['$updatedAt', '$createdAt'] },
                   },
                 },
-                {$group: {_id: null, avg: {$avg: '$durationMs'}}},
+                { $group: { _id: null, avg: { $avg: '$durationMs' } } },
               ],
-              {session},
+              { session },
             )
             .toArray(),
 
@@ -263,8 +263,8 @@ export class ChatbotRepository implements IChatbotRepository {
             ? 100
             : 0
           : Math.round(
-              ((thisMonthActive - lastMonthActive) / lastMonthActive) * 100,
-            );
+            ((thisMonthActive - lastMonthActive) / lastMonthActive) * 100,
+          );
 
       const avgMs = sessionStats[0]?.avg ?? 0;
       const activeCount = (activeUsersLast3Days as any[])[0]?.total ?? 0;
@@ -318,10 +318,10 @@ export class ChatbotRepository implements IChatbotRepository {
                 count: { $sum: 1 },
               },
             },
-            {$project: {day: '$_id', count: 1, _id: 0}},
-            {$sort: {day: 1}},
+            { $project: { day: '$_id', count: 1, _id: 0 } },
+            { $sort: { day: 1 } },
           ],
-          {session},
+          { session },
         )
         .toArray();
 
@@ -352,9 +352,9 @@ export class ChatbotRepository implements IChatbotRepository {
   async getTopCrops(session?: ClientSession): Promise<{ totalQuestions: number, topCrops: any[] }> {
     try {
       await this.initReviewSystem();
-      
+
       const matchStage = { source: { $ne: 'AGRI_EXPERT' } };
-      
+
       const cropFieldRaw = { $ifNull: ['$details.normalised_crop', '$details.crop'] };
       const normalizedCropExpr = { $toLower: cropFieldRaw };
 
@@ -379,7 +379,7 @@ export class ChatbotRepository implements IChatbotRepository {
           { $sort: { count: -1 } },
           { $limit: 10 }
         ],
-         { session },
+        { session },
       ).toArray();
       const totalCountRaw = await this.QuestionCollection.aggregate(
         [
@@ -405,8 +405,8 @@ export class ChatbotRepository implements IChatbotRepository {
       const topCrops = cropDataRaw
         .filter((r: any) => r.name)
         .map((r: any) => ({
-           ...r,
-           name: String(r.name).charAt(0).toUpperCase() + String(r.name).slice(1)
+          ...r,
+          name: String(r.name).charAt(0).toUpperCase() + String(r.name).slice(1)
         }));
 
       return { totalQuestions, topCrops };
@@ -426,32 +426,32 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.conversations
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}}},
+            { $match: { createdAt: { $gte: since } } },
             {
               $addFields: {
                 durationMs: {
-                  $max: [0, {$subtract: ['$updatedAt', '$createdAt']}],
+                  $max: [0, { $subtract: ['$updatedAt', '$createdAt'] }],
                 },
               },
             },
             {
               $group: {
-                _id: {$dateToString: {format: '%G-W%V', date: '$createdAt'}},
-                avgDurationMs: {$avg: '$durationMs'},
+                _id: { $dateToString: { format: '%G-W%V', date: '$createdAt' } },
+                avgDurationMs: { $avg: '$durationMs' },
               },
             },
             {
               $project: {
                 week: '$_id',
                 avgSessionDurationMin: {
-                  $round: [{$divide: ['$avgDurationMs', 60000]}, 1],
+                  $round: [{ $divide: ['$avgDurationMs', 60000] }, 1],
                 },
                 _id: 0,
               },
             },
-            {$sort: {week: 1}},
+            { $sort: { week: 1 } },
           ],
-          {session},
+          { session },
         )
         .toArray();
 
@@ -475,18 +475,18 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
             ...userTypeLookupStages,
             {
               $group: {
-                _id: {$dateToString: {format: '%Y-%m-%d', date: '$createdAt'}},
-                count: {$sum: 1},
+                _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                count: { $sum: 1 },
               },
             },
-            {$project: {day: '$_id', count: 1, _id: 0}},
-            {$sort: {day: 1}},
+            { $project: { day: '$_id', count: 1, _id: 0 } },
+            { $sort: { day: 1 } },
           ],
-          {session},
+          { session },
         )
         .toArray();
 
@@ -512,7 +512,7 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate(
           [
             // Filter to last N days, user-sent messages only
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
             ...userTypeLookupStages,
             // Deduplicate: one entry per (day, user) pair
             {
@@ -533,13 +533,13 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $group: {
                 _id: '$_id.day',
-                count: {$sum: 1},
+                count: { $sum: 1 },
               },
             },
-            {$project: {day: '$_id', count: 1, _id: 0}},
-            {$sort: {day: 1}},
+            { $project: { day: '$_id', count: 1, _id: 0 } },
+            { $sort: { day: 1 } },
           ],
-          {session},
+          { session },
         )
         .toArray();
 
@@ -558,7 +558,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {isCreatedByUser: true}},
+            { $match: { isCreatedByUser: true } },
             ...userTypeLookupStages,
             {
               $group: {
@@ -569,13 +569,13 @@ export class ChatbotRepository implements IChatbotRepository {
                     timezone: '+05:30',
                   },
                 },
-                count: {$sum: 1},
+                count: { $sum: 1 },
               },
             },
-            {$project: {week: '$_id', count: 1, _id: 0}},
-            {$sort: {week: 1}},
+            { $project: { week: '$_id', count: 1, _id: 0 } },
+            { $sort: { week: 1 } },
           ],
-          {session},
+          { session },
         )
         .toArray();
 
@@ -599,11 +599,11 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: today}, isCreatedByUser: true}},
+            { $match: { createdAt: { $gte: today }, isCreatedByUser: true } },
             ...userTypeLookupStages,
-            {$count: 'total'},
+            { $count: 'total' },
           ],
-          {session},
+          { session },
         )
         .toArray();
 
@@ -624,22 +624,22 @@ export class ChatbotRepository implements IChatbotRepository {
   }) {
     await this.init();
     await this.initReviewSystem();
-    const {question, details, createdAt, questionId, messageId} = data;
+    const { question, details, createdAt, questionId, messageId } = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
 
     let pipeline = [];
-    
-    if(messageId){
+
+    if (messageId) {
       pipeline.push(
         {
-        $match: {
-          messageId
+          $match: {
+            messageId
+          }
         }
-      }
       )
-    }else{
+    } else {
       pipeline.push(
         {
           $match: {
@@ -652,38 +652,38 @@ export class ChatbotRepository implements IChatbotRepository {
       )
     }
     pipeline.push(
-       {
-          $addFields: {
-            userObjectId: {
-              $cond: [
-                {
-                  $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
-                },
-                {$toObjectId: '$user'},
-                null,
-              ],
-            },
+      {
+        $addFields: {
+          userObjectId: {
+            $cond: [
+              {
+                $and: [{ $ne: ['$user', null] }, { $ne: ['$user', ''] }],
+              },
+              { $toObjectId: '$user' },
+              null,
+            ],
           },
         },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'userObjectId',
-            foreignField: '_id',
-            as: 'userDetails',
-          },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userObjectId',
+          foreignField: '_id',
+          as: 'userDetails',
         },
-        {
-          $unwind: {
-            path: '$userDetails',
-            preserveNullAndEmptyArrays: true,
-          },
-        }
+      },
+      {
+        $unwind: {
+          path: '$userDetails',
+          preserveNullAndEmptyArrays: true,
+        },
+      }
     )
     let result = await this.messagesCollection
       .aggregate(pipeline)
       .toArray();
-    if(messageId)return result;
+    if (messageId) return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
@@ -711,7 +711,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
               const isNotFailed = parsedOutput?.status.toLowerCase() !== 'failed';
 
-              return  isNotFailed;
+              return isNotFailed;
 
             } catch (error) {
               console.error('Failed to parse tool call output in filter:', error);
@@ -739,7 +739,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const isMatch =
           args?.question?.toLowerCase() === question?.toLowerCase() &&
           args?.details?.state?.toLowerCase() ===
-            details?.state?.toLowerCase() &&
+          details?.state?.toLowerCase() &&
           args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase();
 
         if (isMatch) {
@@ -753,17 +753,18 @@ export class ChatbotRepository implements IChatbotRepository {
       }
     });
     if (matchedMessageId && questionId) {
-      const updateFields: Record<string, any> = {messageId: matchedMessageId};
+      const updateFields: Record<string, any> = { messageId: matchedMessageId };
       if (matchedUserId) {
         updateFields.userId = matchedUserId;
       }
-
-      await this.QuestionCollection.updateOne(
-        {_id: new ObjectId(questionId)},
-        {$set: updateFields},
-      );
+      const question = await this.QuestionCollection.findOne({ _id: new ObjectId(questionId) });
+      if (!question.messageId)
+        await this.QuestionCollection.updateOne(
+          { _id: new ObjectId(questionId) },
+          { $set: updateFields },
+        );
     }
-    
+
     return result1;
   }
 
@@ -776,20 +777,20 @@ export class ChatbotRepository implements IChatbotRepository {
   }) {
     await this.initSecondDb();
     await this.initReviewSystem();
-    const {question, details, createdAt, questionId,messageId} = data;
+    const { question, details, createdAt, questionId, messageId } = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
     const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
 
-     let pipeline = []
-    
-    if(messageId){
-      pipeline.push( {
+    let pipeline = []
+
+    if (messageId) {
+      pipeline.push({
         $match: {
           messageId
         }
       })
-    }else{
+    } else {
       pipeline.push(
         {
           $match: {
@@ -804,37 +805,37 @@ export class ChatbotRepository implements IChatbotRepository {
 
     pipeline.push(
       {
-          $addFields: {
-            userObjectId: {
-              $cond: [
-                {
-                  $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
-                },
-                {$toObjectId: '$user'},
-                null,
-              ],
-            },
+        $addFields: {
+          userObjectId: {
+            $cond: [
+              {
+                $and: [{ $ne: ['$user', null] }, { $ne: ['$user', ''] }],
+              },
+              { $toObjectId: '$user' },
+              null,
+            ],
           },
         },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'userObjectId',
-            foreignField: '_id',
-            as: 'userDetails',
-          },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userObjectId',
+          foreignField: '_id',
+          as: 'userDetails',
         },
-        {
-          $unwind: {
-            path: '$userDetails',
-            preserveNullAndEmptyArrays: true,
-          },
-        }
+      },
+      {
+        $unwind: {
+          path: '$userDetails',
+          preserveNullAndEmptyArrays: true,
+        },
+      }
     )
     let result = await this.annamMessagesCollection
       .aggregate(pipeline)
       .toArray();
-    if(messageId)return result;
+    if (messageId) return result;
     const baseTime = new Date('2026-04-10T07:36:36.357Z');
     const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
     let matchedMessageId: string | null = null;
@@ -862,7 +863,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
               const isNotFailed = parsedOutput?.status?.toLowerCase() !== 'failed';
 
-              return  isNotFailed;
+              return isNotFailed;
 
             } catch (error) {
               console.error('Failed to parse tool call output in filter:', error);
@@ -891,7 +892,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const isMatch =
           args?.question?.toLowerCase() === question?.toLowerCase() &&
           args?.details?.state?.toLowerCase() ===
-            details?.state?.toLowerCase() &&
+          details?.state?.toLowerCase() &&
           args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase();
 
         if (isMatch) {
@@ -905,15 +906,16 @@ export class ChatbotRepository implements IChatbotRepository {
       }
     });
     if (matchedMessageId && questionId) {
-      const updateFields: Record<string, any> = {messageId: matchedMessageId};
+      const updateFields: Record<string, any> = { messageId: matchedMessageId };
       if (matchedUserId) {
         updateFields.userId = matchedUserId;
       }
-
-      await this.QuestionCollection.updateOne(
-        {_id: new ObjectId(questionId)},
-        {$set: updateFields},
-      );
+      const question = await this.QuestionCollection.findOne({ _id: new ObjectId(questionId) });
+      if (!question.messageId)
+        await this.QuestionCollection.updateOne(
+          { _id: new ObjectId(questionId) },
+          { $set: updateFields },
+        );
     }
     return result1;
   }
@@ -1101,13 +1103,13 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate(
           [
             ...userTypeLookupStages,
-            {$sort: {conversationId: 1, createdAt: 1}},
+            { $sort: { conversationId: 1, createdAt: 1 } },
             {
               $setWindowFields: {
                 partitionBy: '$conversationId',
-                sortBy: {createdAt: 1},
+                sortBy: { createdAt: 1 },
                 output: {
-                  prevCreatedAt: {$shift: {output: '$createdAt', by: -1}},
+                  prevCreatedAt: { $shift: { output: '$createdAt', by: -1 } },
                 },
               },
             },
@@ -1115,8 +1117,8 @@ export class ChatbotRepository implements IChatbotRepository {
               $addFields: {
                 gapMs: {
                   $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-                    {$subtract: ['$createdAt', '$prevCreatedAt']},
+                    { $ifNull: ['$prevCreatedAt', false] },
+                    { $subtract: ['$createdAt', '$prevCreatedAt'] },
                     0,
                   ],
                 },
@@ -1126,22 +1128,22 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $addFields: {
                 activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
+                  $cond: [{ $lte: ['$gapMs', 1800000] }, '$gapMs', 0],
                 },
               },
             },
             {
               $group: {
                 _id: '$conversationId',
-                activeSessionMs: {$sum: '$activeGapMs'},
-                msgCount: {$sum: 1},
+                activeSessionMs: { $sum: '$activeGapMs' },
+                msgCount: { $sum: 1 },
               },
             },
             // Skip conversations with only 1 message — no gaps, nothing to measure
-            {$match: {msgCount: {$gt: 1}}},
-            {$group: {_id: null, avg: {$avg: '$activeSessionMs'}}},
+            { $match: { msgCount: { $gt: 1 } } },
+            { $group: { _id: null, avg: { $avg: '$activeSessionMs' } } },
           ],
-          {session},
+          { session },
         )
         .toArray();
 
@@ -1168,18 +1170,18 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}}},
+            { $match: { createdAt: { $gte: since } } },
             ...userTypeLookupStages,
-            {$sort: {conversationId: 1, createdAt: 1}},
+            { $sort: { conversationId: 1, createdAt: 1 } },
             {
               $setWindowFields: {
                 partitionBy: '$conversationId',
-                sortBy: {createdAt: 1},
+                sortBy: { createdAt: 1 },
                 output: {
-                  prevCreatedAt: {$shift: {output: '$createdAt', by: -1}},
+                  prevCreatedAt: { $shift: { output: '$createdAt', by: -1 } },
                   firstMsgInConv: {
                     $first: '$createdAt',
-                    window: {documents: ['unbounded', 'current']},
+                    window: { documents: ['unbounded', 'current'] },
                   },
                 },
               },
@@ -1188,8 +1190,8 @@ export class ChatbotRepository implements IChatbotRepository {
               $addFields: {
                 gapMs: {
                   $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-                    {$subtract: ['$createdAt', '$prevCreatedAt']},
+                    { $ifNull: ['$prevCreatedAt', false] },
+                    { $subtract: ['$createdAt', '$prevCreatedAt'] },
                     0,
                   ],
                 },
@@ -1199,19 +1201,19 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $addFields: {
                 activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
+                  $cond: [{ $lte: ['$gapMs', 1800000] }, '$gapMs', 0],
                 },
               },
             },
             {
               $group: {
                 _id: '$conversationId',
-                activeSessionMs: {$sum: '$activeGapMs'},
-                firstMsg: {$min: '$firstMsgInConv'},
-                msgCount: {$sum: 1},
+                activeSessionMs: { $sum: '$activeGapMs' },
+                firstMsg: { $min: '$firstMsgInConv' },
+                msgCount: { $sum: 1 },
               },
             },
-            {$match: {msgCount: {$gt: 1}}},
+            { $match: { msgCount: { $gt: 1 } } },
             {
               $addFields: {
                 week: {
@@ -1226,21 +1228,21 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $group: {
                 _id: '$week',
-                avgDurationMs: {$avg: '$activeSessionMs'},
+                avgDurationMs: { $avg: '$activeSessionMs' },
               },
             },
             {
               $project: {
                 week: '$_id',
                 avgSessionDurationMin: {
-                  $round: [{$divide: ['$avgDurationMs', 60000]}, 1],
+                  $round: [{ $divide: ['$avgDurationMs', 60000] }, 1],
                 },
                 _id: 0,
               },
             },
-            {$sort: {week: 1}},
+            { $sort: { week: 1 } },
           ],
-          {session},
+          { session },
         )
         .toArray();
 
@@ -1258,44 +1260,44 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const [ageRaw, genderRaw, expRaw] = await Promise.all([
         // Age group buckets
-        this.users.aggregate<{_id: string | number; count: number}>(
+        this.users.aggregate<{ _id: string | number; count: number }>(
           [
-            {$match: {'farmerProfile.age': {$exists: true, $ne: null}, ...userDocFilter}},
+            { $match: { 'farmerProfile.age': { $exists: true, $ne: null }, ...userDocFilter } },
             {
               $bucket: {
                 groupBy: '$farmerProfile.age',
                 boundaries: [18, 26, 36, 46, 56],
                 default: '55+',
-                output: {count: {$sum: 1}},
+                output: { count: { $sum: 1 } },
               },
             },
           ],
-          {session},
+          { session },
         ).toArray(),
 
         // Gender split
-        this.users.aggregate<{_id: string; count: number}>(
+        this.users.aggregate<{ _id: string; count: number }>(
           [
-            {$match: {'farmerProfile.gender': {$exists: true, $ne: null}, ...userDocFilter}},
-            {$group: {_id: '$farmerProfile.gender', count: {$sum: 1}}},
+            { $match: { 'farmerProfile.gender': { $exists: true, $ne: null }, ...userDocFilter } },
+            { $group: { _id: '$farmerProfile.gender', count: { $sum: 1 } } },
           ],
-          {session},
+          { session },
         ).toArray(),
 
         // Farming experience buckets
-        this.users.aggregate<{_id: number | string; count: number}>(
+        this.users.aggregate<{ _id: number | string; count: number }>(
           [
-            {$match: {'farmerProfile.yearsOfExperience': {$exists: true, $ne: null}, ...userDocFilter}},
+            { $match: { 'farmerProfile.yearsOfExperience': { $exists: true, $ne: null }, ...userDocFilter } },
             {
               $bucket: {
                 groupBy: '$farmerProfile.yearsOfExperience',
                 boundaries: [0, 2, 5, 10, 20],
                 default: '20+',
-                output: {count: {$sum: 1}},
+                output: { count: { $sum: 1 } },
               },
             },
           ],
-          {session},
+          { session },
         ).toArray(),
       ]);
 
@@ -1313,7 +1315,7 @@ export class ChatbotRepository implements IChatbotRepository {
       }));
 
       const genderTotal = genderRaw.reduce((s, r) => s + r.count, 0);
-      const genderMap: Record<string, string> = {male: 'Male', female: 'Female', other: 'Other'};
+      const genderMap: Record<string, string> = { male: 'Male', female: 'Female', other: 'Other' };
       const genderSplit: DemographicEntry[] = genderRaw.map(r => ({
         label: genderMap[(r._id ?? '').toLowerCase()] ?? r._id,
         count: r.count,
@@ -1330,7 +1332,7 @@ export class ChatbotRepository implements IChatbotRepository {
         pct: toPct(r.count, expTotal),
       }));
 
-      return {ageGroups, genderSplit, farmingExperience};
+      return { ageGroups, genderSplit, farmingExperience };
     } catch (error) {
       throw new InternalServerError(`Failed to get user demographics: ${error}`);
     }
@@ -1344,21 +1346,21 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const [kccRaw, agriRaw] = await Promise.all([
         // KCC awareness split
-        this.users.aggregate<{_id: boolean; count: number}>(
+        this.users.aggregate<{ _id: boolean; count: number }>(
           [
-            {$match: {'farmerProfile.awarenessOfKCC': {$exists: true, $ne: null}, ...userDocFilter}},
-            {$group: {_id: '$farmerProfile.awarenessOfKCC', count: {$sum: 1}}},
+            { $match: { 'farmerProfile.awarenessOfKCC': { $exists: true, $ne: null }, ...userDocFilter } },
+            { $group: { _id: '$farmerProfile.awarenessOfKCC', count: { $sum: 1 } } },
           ],
-          {session},
+          { session },
         ).toArray(),
 
         // Agri apps usage split
-        this.users.aggregate<{_id: boolean; count: number}>(
+        this.users.aggregate<{ _id: boolean; count: number }>(
           [
-            {$match: {'farmerProfile.usesAgriApps': {$exists: true, $ne: null}, ...userDocFilter}},
-            {$group: {_id: '$farmerProfile.usesAgriApps', count: {$sum: 1}}},
+            { $match: { 'farmerProfile.usesAgriApps': { $exists: true, $ne: null }, ...userDocFilter } },
+            { $group: { _id: '$farmerProfile.usesAgriApps', count: { $sum: 1 } } },
           ],
-          {session},
+          { session },
         ).toArray(),
       ]);
 
@@ -1383,7 +1385,7 @@ export class ChatbotRepository implements IChatbotRepository {
           pct: toPct(r.count, agriTotal),
         }));
 
-      return {kccAwareness, agriAppUsage};
+      return { kccAwareness, agriAppUsage };
     } catch (error) {
       throw new InternalServerError(`Failed to get KCC and agri app stats: ${error}`);
     }
@@ -1402,7 +1404,7 @@ export class ChatbotRepository implements IChatbotRepository {
           [
             {
               $match: {
-                createdAt: {$gte: startDate, $lte: endDate},
+                createdAt: { $gte: startDate, $lte: endDate },
               },
             },
             {
@@ -1411,7 +1413,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 farmerQuestions: {
                   $push: {
                     $cond: {
-                      if: {$eq: ['$isCreatedByUser', true]},
+                      if: { $eq: ['$isCreatedByUser', true] },
                       then: '$text',
                       else: null,
                     },
@@ -1420,7 +1422,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 mcpToolCalls: {
                   $push: {
                     $cond: {
-                      if: {$eq: ['$isCreatedByUser', false]},
+                      if: { $eq: ['$isCreatedByUser', false] },
                       then: '$content',
                       else: null,
                     },
@@ -1437,7 +1439,7 @@ export class ChatbotRepository implements IChatbotRepository {
                     input: '$farmerQuestions',
                     as: 'q',
                     cond: {
-                      $and: [{$ne: ['$$q', null]}, {$ne: ['$$q', '']}],
+                      $and: [{ $ne: ['$$q', null] }, { $ne: ['$$q', ''] }],
                     },
                   },
                 },
@@ -1447,17 +1449,17 @@ export class ChatbotRepository implements IChatbotRepository {
                     as: 'c',
                     cond: {
                       $and: [
-                        {$ne: ['$$c', null]},
-                        {$gt: [{$size: {$ifNull: ['$$c', []]}}, 0]},
+                        { $ne: ['$$c', null] },
+                        { $gt: [{ $size: { $ifNull: ['$$c', []] } }, 0] },
                       ],
                     },
                   },
                 },
               },
             },
-            {$match: {'farmerQuestions.0': {$exists: true}}},
+            { $match: { 'farmerQuestions.0': { $exists: true } } },
           ],
-          {maxTimeMS: 60000, allowDiskUse: true, session},
+          { maxTimeMS: 60000, allowDiskUse: true, session },
         )
         .toArray();
     } catch (error) {
@@ -1465,99 +1467,99 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession) {
+  async getIdsCreated(startDate: Date, endDate: Date, session?: ClientSession) {
     try {
       await this.init();
       const result = await this.users.aggregate([
         {
           $match: {
-            createdAt: {$gte: startDate, $lte: endDate},
+            createdAt: { $gte: startDate, $lte: endDate },
           },
         },
         {
           $group: {
-            _id:{
-              $dateToString: { format: '%Y-%m-%d', date: '$createdAt'}
+            _id: {
+              $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
             },
-            count: {$sum: 1}
+            count: { $sum: 1 }
           }
         },
         {
-          $sort: {_id: 1}
+          $sort: { _id: 1 }
         },
       ]).toArray()
       return result
-    }catch (error) {
+    } catch (error) {
       throw new InternalServerError(`Failed to get IDs created: ${error}`);
     }
   }
 
-  async getInstalls(startDate:Date,endDate:Date, session?: ClientSession) {
+  async getInstalls(startDate: Date, endDate: Date, session?: ClientSession) {
     try {
       await this.init();
       const result = await this.users.aggregate([
         {
-          $match:{
-            farmerProfile: {$exists: true, $ne: null},
-            updatedAt:{ $gte: startDate, $lte: endDate}
+          $match: {
+            farmerProfile: { $exists: true, $ne: null },
+            updatedAt: { $gte: startDate, $lte: endDate }
           },
         },
         {
           $group: {
-            _id:{
-              $dateToString: { format: '%Y-%m-%d', date: '$updatedAt'}
+            _id: {
+              $dateToString: { format: '%Y-%m-%d', date: '$updatedAt' }
             },
-            count: {$sum: 1}
+            count: { $sum: 1 }
           },
         },
         {
-          $sort: {_id: 1}
+          $sort: { _id: 1 }
         },
       ]).toArray()
       return result
-    }catch (error) {
-      throw new InternalServerError(`Failed to get installs: ${error}`);  
+    } catch (error) {
+      throw new InternalServerError(`Failed to get installs: ${error}`);
     }
   }
 
-  async getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession) {
+  async getActiveUsers(startDate: Date, endDate: Date, session?: ClientSession) {
     try {
-    await this.init();
-    const result = await this.messagesCollection.aggregate([
-      {
-        $match:{
-          createdAt: { $gte: startDate, $lte: endDate},
-        },
-      },
-      {
-        $group: {
-          _id:{
-            date: {$dateToString: { format: '%Y-%m-%d', date: '$createdAt'}},
-            user:"$user"
+      await this.init();
+      const result = await this.messagesCollection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate },
           },
         },
-      },
-      {
-        $group:{
-          _id:"$_id.date",
-          count: {$sum: 1}
+        {
+          $group: {
+            _id: {
+              date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+              user: "$user"
+            },
+          },
         },
-      },
-      {
-        $sort: {_id: 1}
-      },
-    ]).toArray()
-    return result
-    }catch (error) {
-      throw new InternalServerError(`Failed to get active users: ${error}`);    
+        {
+          $group: {
+            _id: "$_id.date",
+            count: { $sum: 1 }
+          },
+        },
+        {
+          $sort: { _id: 1 }
+        },
+      ]).toArray()
+      return result
+    } catch (error) {
+      throw new InternalServerError(`Failed to get active users: ${error}`);
     }
   }
 
   //get platform installs
-  async getPlatformInstalls(source:'vicharanashala',session?: ClientSession):Promise<PlatformInstallEntry[]> {
+  async getPlatformInstalls(source: 'vicharanashala', session?: ClientSession): Promise<PlatformInstallEntry[]> {
     try {
       await this.init(source);
-      const result =  await this.users.aggregate<PlatformInstallEntry>(
+      const result = await this.users.aggregate<PlatformInstallEntry>(
         [
           {
             $match: {
@@ -1583,7 +1585,7 @@ export class ChatbotRepository implements IChatbotRepository {
     } catch (error) {
       throw new InternalServerError(`Failed to get platform installs: ${error}`);
     }
-}
+  }
 
-  
+
 }
