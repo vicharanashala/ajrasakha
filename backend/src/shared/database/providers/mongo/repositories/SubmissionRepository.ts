@@ -3454,5 +3454,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   }
 }
+
+//find question details by ids
+  async findReallocationQuestionsByIds(questionIds?: string[], session?: ClientSession): Promise<IQuestionSubmission[]> {
+    await this.init();
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  
+    return this.QuestionSubmissionCollection.find(
+      {
+        questionId: { $in: questionIds?.map((id) => new ObjectId(id)) },
+      },
+      { session }
+    ).toArray();
+  }
   
 }
