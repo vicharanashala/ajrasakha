@@ -52,7 +52,7 @@ import {
   AddOrEditQuestionDialog,
   type AddQuestionValidationErrors,
 } from "./AddOrEditQuestionDialog";
-import { useReAllocateLessWorkload } from "@/hooks/api/question/useReAllocateLessWorkload";
+import { useReAllocateLessWorkload,useReAllocateExpertsSelectedQuestions } from "@/hooks/api/question/useReAllocateLessWorkload";
 import { DownloadReportButton } from "./DownloadReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
@@ -179,8 +179,12 @@ export const QuestionsFilters = ({
     });
   const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
+    // Reallocate the selected questions to experts with less workload
+  const { mutateAsync: reAllocateExpertsSelectedQuestions, isPending: reAllocating } =
+    useReAllocateExpertsSelectedQuestions();
 
   const [isReAllocateOpen, setIsReAllocateOpen] = useState(false);
+  const [isReAllocateSelectedQuestionsOpen, setIsReAllocateSelectedQuestionsOpen] = useState(false);
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
@@ -218,6 +222,44 @@ export const QuestionsFilters = ({
         error,
       );
       setIsReAllocateDisabled(false);
+    }
+  };
+
+  //reAllocate selected questions to experts with less workload
+  const handleReAllocateSelectedQuestions = async () => {
+    try {
+      setIsReAllocateDisabled(true);
+      const res = await reAllocateExpertsSelectedQuestions(selectedQuestionIds);
+
+      if (!res) {
+        toast.error("No response from server");
+        return;
+      }
+      if (res.message === "Workload balancing started in background") {
+        toast.success(
+          "Workload balancing has started in the background. Please wait 50 seconds before reallocating again.",
+        );
+        // Re-enable button after 30 seconds
+        setTimeout(() => {
+          setIsReAllocateDisabled(false);
+        }, 50000);
+      } else if (res.message) {
+        // Any other message from backend
+        toast.success(res.message);
+        setIsReAllocateDisabled(false);
+      }
+    } catch (error) {
+      toast.error(
+        "Failed to reAllocate selected question",
+      );
+      console.error(
+        "Error reallocating selected question:",
+        error,
+      );
+      setIsReAllocateDisabled(false);
+    } finally {
+      setIsSelectionModeOn(false);
+      setSelectedQuestionIds([]);
     }
   };
 
@@ -652,6 +694,26 @@ export const QuestionsFilters = ({
                 {isBulkAllocatingPae
                   ? `Allocating (${selectedQuestionIds.length})...`
                   : `Allocate to PAE (${selectedQuestionIds.length})`}
+              </Button>
+            )}
+
+            {/* Allocate to EXPERTS */}
+            {userRole !== "expert" && answerMode.toLowerCase() !== "draft" && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectedQuestionIds.length === 0 || reAllocating || isReAllocateDisabled}
+                onClick={() =>{
+                  setIsReAllocateSelectedQuestionsOpen(true);
+                }}
+                className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled ? "cursor-not-allowed text-green-600" : ""}`}
+              >
+                <UserCheck className="h-4 w-4" />
+                {reAllocating
+                  ? `Allocating (${selectedQuestionIds.length})...`
+                  : isReAllocateDisabled
+                  ? `Will be available in 50s`
+                  : `ReAllocate Experts (${selectedQuestionIds.length})`}
               </Button>
             )}
 
@@ -1139,6 +1201,19 @@ export const QuestionsFilters = ({
         open={isReAllocateOpen}
         onOpenChange={setIsReAllocateOpen}
         onConfirm={handleReAllocateLessWorkload}
+      />
+
+{/* confirmation modal for reallocate selected questions to experts */}
+      <ConfirmationModal
+        title="ReAllocate selected questions?"
+        description="Are you sure you want to ReAllocate selected questions?"
+        confirmText="ReAllocate"
+        cancelText="Cancel"
+        isLoading={reAllocating}
+        type="default"
+        open={isReAllocateSelectedQuestionsOpen}
+        onOpenChange={setIsReAllocateSelectedQuestionsOpen}
+        onConfirm={handleReAllocateSelectedQuestions}
       />
       <CropManagementModal
         open={isCropModalOpen}
