@@ -91,20 +91,20 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(q);
   
-  const { timer } = useQuestionTimer(
-      q.source,
-      timerStartTime,
-      buildHoldCountdownOptions(q)
-    )
+  // const { timer } = useQuestionTimer(
+  //     q.source,
+  //     timerStartTime,
+  //     buildHoldCountdownOptions(q)
+  //   )
 
-  // const { timer, isClickable, delayMinutes } = useQuestionClickability(
-  //   q.source,
-  //   timerStartTime,
-  //   uploadedQuestionsCount,
-  //   userRole,
-  //   isBulkUpload,
-  //   buildHoldCountdownOptions(q)
-  // );
+  const { timer, isClickable, delayMinutes } = useQuestionClickability(
+    q.source,
+    timerStartTime,
+    uploadedQuestionsCount,
+    userRole,
+    isBulkUpload,
+    buildHoldCountdownOptions(q)
+  );
 
   // const priorityBadge = useMemo(() => {
   //   if (!q.priority)
@@ -328,9 +328,20 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
-                        className={`cursor-pointer hover:underline`}
+                        // className={`cursor-pointer hover:underline`}
+                        // onClick={() => {
+                        //   // if (!isClickable || hasSelectedQuestions) return;
+                        //   onViewMore(q._id?.toString() || "");
+                        // }}
+
+                         className={`cursor-pointer ${isClickable
+                          ? hasSelectedQuestions
+                            ? ""
+                            : "hover:underline"
+                          : "opacity-50 cursor-not-allowed"
+                          }`}
                         onClick={() => {
-                          // if (!isClickable || hasSelectedQuestions) return;
+                          if (!isClickable || hasSelectedQuestions) return;
                           onViewMore(q._id?.toString() || "");
                         }}
                       >
