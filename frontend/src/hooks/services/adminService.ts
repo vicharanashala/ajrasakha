@@ -7,6 +7,28 @@ const API_BASE_URL = env.apiBaseUrl();
 export class AdminUserService {
   private _baseUrl = `${API_BASE_URL}/users`;
 
+  async removeExpertAllocations(
+    expertId: string,
+  ): Promise<{
+    message: string;
+    questionsAffected: number;
+    removedQueues: number;
+    workloadBefore: number;
+    workloadAfter: number;
+    questionIds: string[];
+  } | null> {
+    return apiFetch<{
+      message: string;
+      questionsAffected: number;
+      removedQueues: number;
+      workloadBefore: number;
+      workloadAfter: number;
+      questionIds: string[];
+    }>(`${this._baseUrl}/${expertId}/remove-allocations`, {
+      method: "POST",
+    });
+  }
+
   async getAllUsers(
     page: number,
     limit: number,
