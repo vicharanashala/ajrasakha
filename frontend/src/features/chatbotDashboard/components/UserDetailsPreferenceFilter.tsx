@@ -187,7 +187,7 @@ export function UserDetailsPreferenceFilter({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg w-full p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-lg w-full p-0 gap-0 overflow-hidden z-[10001]" overlayClassName="z-[10000]">
         {/* Header */}
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-3">
