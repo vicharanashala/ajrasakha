@@ -441,6 +441,15 @@ class ExpertInput {
 class AllocateExpertsRequest {
   experts!: string[];
 }
+class BulkPaeAllocateRequest {
+  @IsArray()
+  @IsMongoId({ each: true })
+  questionIds!: string[];
+
+  @IsNotEmpty()
+  @IsMongoId()
+  paeExpertId!: string;
+}
 class RemoveAllocateBody {
   @IsNumber()
   index!: number;
@@ -824,6 +833,7 @@ export const QUESTION_VALIDATORS = [
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
@@ -846,6 +856,7 @@ export {
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
