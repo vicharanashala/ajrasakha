@@ -184,6 +184,7 @@ export class UserController {
       filter?: string;
       role?: string;
       isBlocked?: string;
+      isVerified?: string;
     },
     
   ) {
@@ -194,6 +195,7 @@ export class UserController {
     const filter = query.filter || '';
     const role = query.role || 'ALL';
     const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
+    const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
 
     return this.userService.getAllUsers(
       pageNum,
@@ -203,6 +205,7 @@ export class UserController {
       filter,
       role,
       isBlocked,
+      isVerified,
     );
   }
 

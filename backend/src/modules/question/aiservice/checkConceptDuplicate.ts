@@ -40,7 +40,7 @@ Rules:
 - Yield, variety, fertilizer, irrigation, pest, and disease are different concepts.
 
 Output rules:
-- If a candidate question matches the SAME concept, return the FULL candidate question text exactly.
+- If a candidate question matches the SAME concept, return the candidate number.
 - If none match, return: NONE
 `
       },

@@ -23,6 +23,12 @@ export const useVerifyUser = () => {
         queryKey: ["experts"],
         exact: false,
       });
+
+      // Refresh admin table users list
+      queryClient.invalidateQueries({
+        queryKey: ["admin"],
+        exact: false,
+      });
       toast.success("User verified successfully");
     },
     onError: (error: any) => {
