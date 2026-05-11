@@ -2,7 +2,7 @@
 
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -11,7 +11,7 @@ from langgraph.graph import StateGraph
 from pydantic import BaseModel
 
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
-from ajrasakha.agents.location_context import thread_location_system_message
+from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
 from ajrasakha.agents.prompts import GDB_SYSTEM_PROMPT, WEATHER_SYSTEM_PROMPT, SOIL_SYSTEM_PROMPT, MARKET_SYSTEM_PROMPT
 
 market_mcp = MultiServerMCPClient(
@@ -39,8 +39,8 @@ async def _get_market_agent():
             name="market_agent",
             model=llm,
             tools=tools,
-            system_prompt=MARKET_SYSTEM_PROMPT,
-            checkpointer=True,
+            system_prompt=None,
+            checkpointer=False,
         )
     return _market_agent_graph
 
@@ -69,15 +69,16 @@ async def market(query: str, state: str, district: str, crop: str, date: str | N
     Query: {query}
         """.strip()
 
+        system_text = sub_agent_system_prompt_with_thread_location(MARKET_SYSTEM_PROMPT, config)
         agent = await _get_market_agent()
         result = await agent.ainvoke(
             {
                 "messages": [
-                    thread_location_system_message(config),
+                    SystemMessage(content=system_text),
                     HumanMessage(content=context),
                 ]
             },
-            config=config
+            config=config,
         )
         return result["messages"][-1].content
     except Exception as exc:

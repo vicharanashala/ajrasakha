@@ -149,6 +149,24 @@ def thread_location_system_block(config: RunnableConfig) -> str:
     return "\n".join(lines)
 
 
+def sub_agent_system_prompt_with_thread_location(
+    base_system_prompt: str, config: RunnableConfig
+) -> str:
+    """Build one system string for a sub-agent: static prompt + thread location from ``config``.
+
+    Use with ``create_agent(..., system_prompt=None)`` and a single leading
+    ``SystemMessage(content=...)`` per invoke so Anthropic never sees two system blocks
+    (compiled ``system_prompt`` plus a separate location ``SystemMessage``).
+    """
+    base = (base_system_prompt or "").strip()
+    loc = thread_location_system_block(config).strip()
+    if not loc:
+        return base
+    if not base:
+        return loc
+    return f"{base}\n\n{loc}"
+
+
 def thread_location_system_message(config: RunnableConfig) -> SystemMessage:
     return SystemMessage(content=thread_location_system_block(config))
 

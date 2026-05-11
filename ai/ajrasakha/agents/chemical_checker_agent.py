@@ -1,5 +1,5 @@
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -8,7 +8,7 @@ from typing import List
 from langchain.agents import create_agent
 
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
-from ajrasakha.agents.location_context import thread_location_system_message
+from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
 from ajrasakha.agents.prompts import CHEMICAL_SYSTEM_PROMPT
 
 chemical_mcp = MultiServerMCPClient(
@@ -33,8 +33,8 @@ async def _get_chemical_agent():
             name="chemical_agent",
             model=llm,
             tools=tools,
-            system_prompt=CHEMICAL_SYSTEM_PROMPT,
-            checkpointer=True,
+            system_prompt=None,
+            checkpointer=False,
         )
     return _chemical_agent_graph
 
@@ -69,11 +69,12 @@ async def chemical_checker(
     Query: {query}
         """.strip()
 
+        system_text = sub_agent_system_prompt_with_thread_location(CHEMICAL_SYSTEM_PROMPT, config)
         agent = await _get_chemical_agent()
         result = await agent.ainvoke(
             {
                 "messages": [
-                    thread_location_system_message(config),
+                    SystemMessage(content=system_text),
                     HumanMessage(content=context),
                 ]
             },
