@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -38,6 +39,8 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
     timerStartTime,
     buildHoldCountdownOptions(question)
   );
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     type: "hold" | "unhold";
@@ -165,28 +168,33 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
         <div className="flex flex-wrap items-center gap-2">
           {
             isDuplicate && (
-              <Badge
-                className="bg-red-400/10 text-red-500 border-red-400/30"
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setDuplicateModalOpen(true)}
+                className="border-red-400/30 text-red-500 hover:bg-red-400/10 hover:text-red-500"
               >
-                DUPLICATE
-              </Badge>
+                Show Reference
+              </Button>
             )
           }
-          <Badge
-            className={
-              question.status === "in-review"
-                ? "bg-green-500/10 text-green-600 border-green-500/30"
-                : question.status === "open"
-                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : question.status === "closed"
-                    ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-                    : question.status === "pae_submitted"
-                      ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
-                      : "bg-muted text-foreground"
-            }
-          >
-            {question.status.replace("_", " ")}
-          </Badge>
+          {!isDuplicate && (
+            <Badge
+              className={
+                question.status === "in-review"
+                  ? "bg-green-500/10 text-green-600 border-green-500/30"
+                  : question.status === "open"
+                    ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                    : question.status === "closed"
+                      ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                      : question.status === "pae_submitted"
+                        ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+                        : "bg-muted text-foreground"
+              }
+            >
+              {question.status.replace("_", " ")}
+            </Badge>
+          )}
 
           <Badge
             className={
@@ -247,6 +255,78 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
         </div>
         </div>
       </header>
+      <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
+        <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-red-500">Duplicate Reference Question</DialogTitle>
+          </DialogHeader>
+
+          {question.referenceQuestionData ? (
+            <div className="space-y-4">
+              {/* Metadata */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm border rounded-md p-4 bg-muted/30">
+                <div>
+                  <span className="text-muted-foreground font-medium">Status: </span>
+                  <span className="capitalize">{question.referenceQuestionData.status}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">Similarity: </span>
+                  <span>{question.similarityScore?.toFixed(1)}%</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">State: </span>
+                  <span>{question.referenceQuestionData.details?.state}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">District: </span>
+                  <span>{question.referenceQuestionData.details?.district}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">Crop: </span>
+                  <span>{question.referenceQuestionData.details?.crop}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">Season: </span>
+                  <span>{question.referenceQuestionData.details?.season}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">Domain: </span>
+                  <span>{question.referenceQuestionData.details?.domain}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">Source: </span>
+                  <span>{question.referenceSource}</span>
+                </div>
+              </div>
+
+              {/* Question */}
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Question</p>
+                <p className="text-sm border rounded-md p-3 bg-muted/20">{question.referenceQuestionData.question}</p>
+              </div>
+
+              {/* Answer extracted from text field */}
+              {question.referenceQuestionData.text && (() => {
+                const answerMatch = question.referenceQuestionData.text.match(/answer:\s*([\s\S]+)/i);
+                const answerText = answerMatch ? answerMatch[1].trim() : null;
+                return answerText ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Answer</p>
+                    <p className="text-sm border rounded-md p-3 bg-muted/20 whitespace-pre-wrap">{answerText}</p>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Reference question: <span className="font-medium">{question.referenceQuestion}</span>
+              <br />
+              <span className="text-xs mt-1 block">Detailed data not available.</span>
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog
         open={confirmDialog.open}
         onOpenChange={(open) =>
