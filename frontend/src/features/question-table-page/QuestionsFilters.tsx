@@ -640,7 +640,7 @@ export const QuestionsFilters = ({
         {isSelectionModeOn && (
           <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
             {/* Allocate to PAE */}
-            {userRole !== "expert" && (
+            {userRole !== "expert" && answerMode.toLowerCase() === "draft" && (
               <Button
                 variant="outline"
                 size="sm"
