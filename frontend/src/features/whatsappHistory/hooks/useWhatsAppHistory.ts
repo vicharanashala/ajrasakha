@@ -18,7 +18,11 @@ export function useWhatsAppHistory() {
   const setSelectedThreadId = (threadId: string) => {
   navigate({
     to: '/whatsapp-history',
-    search: (prev: Record<string, string>) => ({ ...prev, threadId }),
+    search: (prev: Record<string, string>) => ({ 
+      ...prev, 
+      threadId,
+      date: todayIST,
+    }),
   });
 };
 
@@ -60,10 +64,12 @@ const setSelectedDate = (date: string) => {
     );
   }, [enrichedThreads, searchQuery]);
 
-  const selectedThread = useMemo(() =>
-    threads.find(t => t.id === selectedThreadId),
-    [threads, selectedThreadId]
-  );
+  const selectedThread = useMemo(() => {
+  const phoneNumber = selectedThreadId.includes('-')
+    ? selectedThreadId.split('-')[0]
+    : selectedThreadId;
+  return threads.find(t => t.id === phoneNumber || t.id === selectedThreadId);
+}, [threads, selectedThreadId]);
 
   const sendMessageMutation = useSendMessage(selectedThreadId, selectedThread?.phoneNumber);
 
