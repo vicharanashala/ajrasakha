@@ -26,6 +26,7 @@ import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
+import UserGrowthChart from "./components/UserGrowthChart";
 
 const PAGE_SIZE = 10;
 
@@ -318,13 +319,14 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               </div>
             </div>
 
-            {/* Top Crops - Full Width */}
-            <div className="grid grid-cols-1 gap-4 mb-4">
-              <TopCropsCard 
+            {/* Top Crops + User Growth Trend - Half Width Each */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+              <TopCropsCard
                 topCrops={topCrops}
                 isLoadingTopCrops={isLoadingTopCrops}
                 errorLoadingtopCrops={errorLoadingTopCrops}
               />
+              <UserGrowthChart />
             </div>
 
             {/* Knowledge & Awareness Maximized Modal */}
