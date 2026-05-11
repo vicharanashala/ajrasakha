@@ -114,8 +114,8 @@ function weeklyRange(entries: Array<{ week: string }>): string {
 
 // ── Transform raw API response into dashboard shape ─────────────────────────
 
-function transformApiResponse(result: DashboardApiResponse): DashboardDataType & { inactiveUsersLast3Days: number } {
-  const updatedData = { ...DASHBOARD_DATA } as DashboardDataType & { inactiveUsersLast3Days: number };
+function transformApiResponse(result: DashboardApiResponse): DashboardDataType & { inactiveUsersLast3Days: number; duplicateQuestionsCount: number } {
+  const updatedData = { ...DASHBOARD_DATA } as DashboardDataType & { inactiveUsersLast3Days: number; duplicateQuestionsCount: number };
 
   // Use the real month-over-month % from the backend
   const pct = result.kpi.dauLastMonthPct;
@@ -184,6 +184,7 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
   });
 
   updatedData.inactiveUsersLast3Days = result.kpi.inactiveUsersLast3Days ?? 0;
+  updatedData.duplicateQuestionsCount = result.kpi.duplicateQuestionsCount ?? 0;
 
   updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
     if (card.id === 'dau') {

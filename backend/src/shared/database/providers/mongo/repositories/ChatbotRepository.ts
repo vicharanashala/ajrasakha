@@ -22,6 +22,7 @@ import type {
   DemographicEntry,
   KccAndAgriAppStats,
   PlatformInstallEntry,
+  DuplicateQuestionEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { IQuestion } from '#root/shared/interfaces/models.js';
 import { MongoDatabase } from '../MongoDatabase.js';
@@ -269,6 +270,11 @@ export class ChatbotRepository implements IChatbotRepository {
       const avgMs = sessionStats[0]?.avg ?? 0;
       const activeCount = (activeUsersLast3Days as any[])[0]?.total ?? 0;
 
+      await this.initReviewSystem();
+      const duplicateQuestionsCount = await this.QuestionCollection.countDocuments(
+        { similarityScore: { $exists: true } },
+      );
+
       return {
         dau: totalUsers,
         dauLastMonthPct,
@@ -279,6 +285,7 @@ export class ChatbotRepository implements IChatbotRepository {
         voiceUsageSharePct: 0,
         totalAppInstalls,
         inactiveUsersLast3Days: Math.max(0, totalUsers - activeCount),
+        duplicateQuestionsCount,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get KPI summary: ${error}`);
@@ -1587,5 +1594,103 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getDuplicateQuestions(session?: ClientSession): Promise<DuplicateQuestionEntry[]> {
+    try {
+      await this.initReviewSystem();
+      await this.init('vicharanashala');
 
+      // 1. Fetch duplicate questions from the main review DB
+      const dupeQuestions = await this.QuestionCollection
+        .find({ similarityScore: { $exists: true } }, { session })
+        .project<{
+          _id: any;
+          question: string;
+          referenceQuestion?: string;
+          originalQuestion?: string;
+          similarityScore: number;
+          messageId?: string;
+          createdAt: Date;
+        }>({
+          question: 1,
+          referenceQuestion: 1,
+          originalQuestion: 1,
+          similarityScore: 1,
+          messageId: 1,
+          createdAt: 1,
+        })
+        .sort({ createdAt: -1 })
+        .limit(200)
+        .toArray();
+
+      if (dupeQuestions.length === 0) return [];
+
+      // 2. Collect messageIds and look up in analytics messages collection
+      const messageIds = dupeQuestions.map(q => q.messageId).filter(Boolean) as string[];
+
+      const messages = messageIds.length > 0
+        ? await this.messagesCollection
+            .find({ messageId: { $in: messageIds } }, { session })
+            .project<{ messageId: string; user: string }>({ messageId: 1, user: 1 })
+            .toArray()
+        : [];
+
+      // 3. Build messageId → userId map
+      const messageToUser = new Map(messages.map(m => [m.messageId, m.user]));
+
+      // 4. Collect unique userIds and look up in users collection
+      const userIds = [...new Set(messages.map(m => m.user).filter(Boolean))];
+      const users = userIds.length > 0
+        ? await this.users
+            .find(
+              { _id: { $in: userIds.map(id => { try { return new ObjectId(id); } catch { return null; } }).filter(Boolean) } },
+              { session },
+            )
+            .project<{
+              _id: any;
+              name?: string;
+              email?: string;
+              farmerProfile?: {
+                farmerName?: string;
+                villageName?: string;
+                blockName?: string;
+                district?: string;
+                state?: string;
+              };
+            }>({
+              name: 1,
+              email: 1,
+              'farmerProfile.farmerName': 1,
+              'farmerProfile.villageName': 1,
+              'farmerProfile.blockName': 1,
+              'farmerProfile.district': 1,
+              'farmerProfile.state': 1,
+            })
+            .toArray()
+        : [];
+
+      // 5. Build userId → user map
+      const userMap = new Map(users.map(u => [u._id.toString(), u]));
+
+      // 6. Combine and return
+      return dupeQuestions.map(q => {
+        const userId = q.messageId ? messageToUser.get(q.messageId) : undefined;
+        const user = userId ? userMap.get(userId.toString()) : undefined;
+        return {
+          questionId: q._id.toString(),
+          question: q.question,
+          referenceQuestion: q.referenceQuestion || q.originalQuestion || '',
+          similarityScore: q.similarityScore ?? 0,
+          createdAt: q.createdAt,
+          farmerName: user?.farmerProfile?.farmerName || user?.name || '—',
+          email: user?.email || '—',
+          village: user?.farmerProfile?.villageName || '—',
+          block: user?.farmerProfile?.blockName || '—',
+          district: user?.farmerProfile?.district || '—',
+          state: user?.farmerProfile?.state || '—',
+        };
+      });
+    } catch (error) {
+      throw new InternalServerError(`Failed to get duplicate questions: ${error}`);
+    }
+  }
 }
