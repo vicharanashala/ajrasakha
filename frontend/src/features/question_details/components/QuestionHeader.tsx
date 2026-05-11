@@ -168,16 +168,14 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
         <div className="flex flex-wrap items-center gap-2">
           {
             isDuplicate && (
-              <button
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => setDuplicateModalOpen(true)}
-                className="cursor-pointer"
+                className="border-red-400/30 text-red-500 hover:bg-red-400/10 hover:text-red-500"
               >
-                <Badge
-                  className="bg-red-400/10 text-red-500 border-red-400/30 hover:bg-red-400/20 transition-colors"
-                >
-                  DUPLICATE
-                </Badge>
-              </button>
+                Show Reference
+              </Button>
             )
           }
           {!isDuplicate && (
