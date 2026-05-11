@@ -17,10 +17,50 @@ import {
   Sprout,
 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 
 interface QuestionDetailsCardProps {
   question: IQuestionFullData;
   currentUser: IUser;
+}
+
+function ThreadIdLink({ threadId }: { threadId: string }) {
+  const navigate = useNavigate();
+
+  const extractDate = (id: string): string => {
+    const parts = id.split("-");
+    // Handle format: 919876543210-2025-05-08 (YYYY-MM-DD)
+    if (parts.length === 4) {
+      return `${parts[1]}-${parts[2]}-${parts[3]}`;
+    }
+    // Handle format: 919876543210-20260508 (YYYYMMDD)
+    if (parts.length === 2 && parts[1].length === 8) {
+      const d = parts[1];
+      return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    }
+    // fallback: today
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  };
+
+  const handleClick = () => {
+    navigate({
+      to: "/whatsapp-history",
+      search: {
+        threadId,
+        date: extractDate(threadId),
+      },
+    });
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="max-w-[220px] truncate rounded-md border bg-muted px-2 py-1 text-xs font-medium text-foreground hover:bg-accent hover:text-primary transition-colors cursor-pointer"
+      title="View WhatsApp thread history"
+    >
+      {threadId}
+    </button>
+  );
 }
 
 export const QuestionDetailsCard = ({
@@ -69,7 +109,9 @@ export const QuestionDetailsCard = ({
           <Leaf className="w-4 h-4 text-primary shrink-0" />
           <div className="flex flex-col">
             <span className="text-muted-foreground">Normalized Crop</span>
-            <span className="truncate capitalize">{question.details?.normalised_crop || "-"}</span>
+            <span className="truncate capitalize">
+              {question.details?.normalised_crop || "-"}
+            </span>
           </div>
         </div>
 
@@ -104,13 +146,9 @@ export const QuestionDetailsCard = ({
 
         {question.source === "WHATSAPP" && question.threadId && (
           <div className="flex flex-col items-end min-w-0">
-            <span className="text-muted-foreground">
-              WhatsApp Thread ID
-            </span>
+            <span className="text-muted-foreground">WhatsApp Thread ID</span>
 
-            <code className="max-w-[220px] truncate rounded-md border bg-muted px-2 py-1 text-xs font-medium text-foreground">
-              {question.threadId}
-            </code>
+            <ThreadIdLink threadId={question.threadId} />
           </div>
         )}
       </div>
