@@ -423,16 +423,38 @@ async getAllUsersforManualSelect(
         }
 
         const shouldPopHistory =
-          history.length > 0 && history[history.length - 1]?.status === 'in-review';
+        history.length > 0 &&
+        history[history.length - 1]?.status === 'in-review';
+      const hasReviewed = history.some(
+        item =>
+          item.status === 'reviewed' ||
+          item.status === 'approved' ||
+          item.status === 'rejected',
+      );
 
-        await this.questionSubmissionRepo.updateSubmissionState(
-          submission.questionId.toString(),
-          {
-            queue: [],
-            popHistory: shouldPopHistory,
-          },
-          session,
+      let updatedQueue = [];
+
+      if (!hasReviewed) {
+        updatedQueue = [];
+      } else {
+        const removeIndex = queue.findIndex(
+          queuedExpertId =>
+            queuedExpertId.toString() === expertId,
         );
+
+        if (removeIndex !== -1) {
+          updatedQueue = queue.slice(0, removeIndex);
+        }
+      }
+
+      await this.questionSubmissionRepo.updateSubmissionState(
+        submission.questionId.toString(),
+        {
+          queue: updatedQueue,
+          popHistory: shouldPopHistory,
+        },
+        session,
+      );
 
         questionsAffected += 1;
         questionIds.push(submission.questionId.toString());
