@@ -469,6 +469,19 @@ export interface IQuestionFullData {
   referenceQuestionId?: string;
   referenceQuestion?: string
   referenceSource?: string;
+  referenceQuestionData?: {
+    question: string;
+    status: string;
+    details: {
+      state: string;
+      district: string;
+      crop: string;
+      season: string;
+      domain: string;
+      [key: string]: string;
+    };
+    text: string;
+  };
   originalQuestion?: string;
   closedAt?: string;
   threadId?: string;

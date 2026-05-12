@@ -11,9 +11,11 @@ interface AlertCardProps {
   alerts?: Alert[];
   inactiveUsersLast3Days?: number;
   onInactiveClick?: () => void;
+  duplicateQuestionsCount?: number;
+  onDuplicateClick?: () => void;
 }
 
-export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, onInactiveClick }: AlertCardProps) {
+export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, onInactiveClick, duplicateQuestionsCount = 0, onDuplicateClick }: AlertCardProps) {
   return (
     <div className="h-full flex flex-col bg-card text-card-foreground rounded-xl border shadow-sm dark:bg-[#1a1a1a] dark:border-[#2a2a2a] p-4">
       {/* Header */}
@@ -67,7 +69,46 @@ export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, on
         />
       </div>
 
-      {/* Future alert items can go here */}
+      {/* Duplicate Questions Row */}
+      <div
+        className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/30 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+        onClick={() => onDuplicateClick?.()}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/40">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-amber-600 dark:text-amber-400"
+            >
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+              <line x1="9" y1="12" x2="15" y2="12" />
+              <line x1="9" y1="16" x2="15" y2="16" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-gray-900 dark:text-gray-50">
+              Duplicate Questions
+            </div>
+            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+              Questions with high similarity score
+            </div>
+          </div>
+        </div>
+        <Badge
+          label={duplicateQuestionsCount.toLocaleString()}
+          variant="amber"
+        />
+      </div>
+
       <div className="flex-1" />
     </div>
   );

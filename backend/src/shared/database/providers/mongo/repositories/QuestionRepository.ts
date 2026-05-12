@@ -1774,7 +1774,46 @@ export class QuestionRepository implements IQuestionRepository {
         context = contextData.text || '';
       }
 
-      // 9 Final assembled question
+      // 9 Fetch reference question data if this is a duplicate
+      let referenceQuestionData: {
+        question: string;
+        status: string;
+        details: Record<string, any>;
+        text: string;
+      } | null = null;
+
+      if (question.referenceQuestionId) {
+        try {
+          let refId: ObjectId;
+          const rid = question.referenceQuestionId as any;
+          if (rid instanceof ObjectId) {
+            refId = rid;
+          } else if (rid && rid.buffer) {
+            // stored as BSON Binary — extract the underlying Buffer
+            refId = new ObjectId(rid.buffer);
+          } else {
+            refId = new ObjectId(String(rid));
+          }
+
+          const refQuestion = await this.QuestionCollection.findOne(
+            { _id: refId },
+            { projection: { question: 1, status: 1, details: 1, text: 1 } },
+          ) as any;
+
+          if (refQuestion) {
+            referenceQuestionData = {
+              question: refQuestion.question || '',
+              status: refQuestion.status || '',
+              details: refQuestion.details || {},
+              text: refQuestion.text || '',
+            };
+          }
+        } catch (e) {
+          console.error('Failed to fetch referenceQuestionData:', e);
+        }
+      }
+
+      // 10 Final assembled question
       const { aiApprovedAnswer, aiInitialAnswer, ...rest } = question;
 
       const result = {
@@ -1789,6 +1828,7 @@ export class QuestionRepository implements IQuestionRepository {
         isAlreadySubmitted,
         context,
         submission: populatedSubmission,
+        referenceQuestionData,
       };
 
       return result;

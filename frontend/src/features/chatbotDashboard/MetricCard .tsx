@@ -16,6 +16,8 @@ type KpiCardData = {
   valueColor?: string;
   sparkPoints?: number[];
   sparkLabels?: string[];
+  dailySparkPoints?: number[];
+  dailySparkLabels?: string[];
   dateRange?: string;
   badges?: { label: string; variant: BadgeVariant }[];
   icon?: string;
@@ -214,6 +216,7 @@ function getIcon(icon?: string, color?: string, size: number = 16) {
 }
 function KpiCard({ kpi }: { kpi: KpiCardData }) {
   const [isMaximized, setIsMaximized] = useState(false);
+  const [granularity, setGranularity] = useState<'weekly' | 'daily'>('daily');
   const deltaColor =
     kpi.deltaDir === "up"
       ? "#1E7A3C"
@@ -272,12 +275,44 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 
           {/* Lower: sparkline, badges */}
           <div className="flex flex-col gap-1.5">
+            {kpi.id === 'queries' && kpi.sparkPoints && (
+              <div className="flex items-center gap-0.5 self-start rounded-full bg-gray-100 dark:bg-[#2a2a2a] p-0.5 mt-1">
+                <button
+                  onClick={() => setGranularity('weekly')}
+                  className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium transition-all ${
+                    granularity === 'weekly'
+                      ? 'bg-white dark:bg-[#3a3a3a] text-gray-800 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setGranularity('daily')}
+                  className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium transition-all ${
+                    granularity === 'daily'
+                      ? 'bg-white dark:bg-[#3a3a3a] text-gray-800 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Daily
+                </button>
+              </div>
+            )}
             {kpi.sparkPoints && (
               <div className="mt-1">
                 <Sparkline
-                  points={kpi.sparkPoints}
+                  points={
+                    kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkPoints?.length
+                      ? kpi.dailySparkPoints
+                      : kpi.sparkPoints
+                  }
                   color={kpi.accentColor}
-                  labels={kpi.sparkLabels}
+                  labels={
+                    kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkLabels?.length
+                      ? kpi.dailySparkLabels
+                      : kpi.sparkLabels
+                  }
                 />
               </div>
             )}
@@ -357,9 +392,17 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
               <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700"></div>
               
               <Sparkline
-                points={kpi.sparkPoints}
+                points={
+                  kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkPoints?.length
+                    ? kpi.dailySparkPoints
+                    : kpi.sparkPoints
+                }
                 color={kpi.accentColor}
-                labels={kpi.sparkLabels}
+                labels={
+                  kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkLabels?.length
+                    ? kpi.dailySparkLabels
+                    : kpi.sparkLabels
+                }
               />
             </div>
 

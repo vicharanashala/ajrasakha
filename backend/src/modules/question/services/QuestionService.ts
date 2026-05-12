@@ -4,6 +4,7 @@ import { GLOBAL_TYPES } from '#root/types.js';
 import { inject, injectable } from 'inversify';
 import { ClientSession, ObjectId } from 'mongodb';
 import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
+import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js';
 import {
   IQuestion,
   IQuestionSubmission,
@@ -1767,6 +1768,31 @@ export class QuestionService extends BaseService implements IQuestionService {
     } catch (error) {
       throw new InternalServerError(`Failed to allocate experts: ${error}`);
     }
+  }
+
+  /**
+   * Bulk allocate a PAE expert to multiple existing draft questions via background worker.
+   * Fires and returns immediately — the worker handles DB operations asynchronously.
+   */
+  async bulkAllocatePaeExperts(
+    userId: string,
+    questionIds: string[],
+    paeExpertId: string,
+  ): Promise<{ jobId: string; message: string }> {
+    // Validate actor and PAE expert before handing off to worker
+    const actor = await this.userRepo.findById(userId);
+    if (!actor) throw new UnauthorizedError('Cannot find user, try relogin!');
+    if (actor.role === 'expert')
+      throw new UnauthorizedError("You don't have permission to perform this operation");
+
+    const paeUser = await this.userRepo.findById(paeExpertId);
+    if (!paeUser) throw new BadRequestError('PAE expert not found');
+
+    const jobId = startPaeAllocationWorker(questionIds, paeExpertId, userId);
+    return {
+      jobId,
+      message: `PAE allocation started for ${questionIds.length} question(s). Track progress with job ID: ${jobId}`,
+    };
   }
 
   // async removeExpertFromQueue(
