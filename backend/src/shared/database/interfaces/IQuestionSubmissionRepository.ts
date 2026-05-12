@@ -172,5 +172,6 @@ export interface IQuestionSubmissionRepository {
   findSubmissionsWithExpertsInQueue(
     expertIds: string[],
     session?: ClientSession,
+    limit?: number,
   ): Promise<IQuestionSubmission[]>;
 }

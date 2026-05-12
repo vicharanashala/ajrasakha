@@ -187,4 +187,10 @@ export interface IQuestionService {
   generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer : string}>;
 
   approveAiInitialAnswer(questionId: string, answer: string)
+
+  getReallocationPreview(type: string): Promise<any>;
+  manualReallocate(
+    assignments: { submissionId: string; expertId: string }[],
+    inactiveExpertIds?: string[],
+  ): Promise<{ message: string; submissionsProcessed: number }>;
 }

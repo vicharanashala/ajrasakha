@@ -3377,6 +3377,132 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
+  async getReallocationPreview(type: string): Promise<any> {
+    return this._withTransaction(async (session) => {
+      let questions: any[] = [];
+      let inactiveExpertIds: string[] = [];
+      const activeExperts = await this.userRepo.findActiveLowReputationExpertsToday(session);
+
+      if (type === 'inactive') {
+        const inactiveExperts = await this.userRepo.findInactiveOrBlockedExperts(session);
+        inactiveExpertIds = inactiveExperts.map(e => e._id.toString());
+        
+        if (inactiveExpertIds.length > 0) {
+          const INACTIVE_PREVIEW_LIMIT = 50;
+          questions = await this.questionSubmissionRepo.findSubmissionsWithExpertsInQueue(
+            inactiveExpertIds,
+            session,
+            INACTIVE_PREVIEW_LIMIT,
+          );
+        }
+      } else {
+        // escalation - show questions that are delayed (1+ hour)
+        // We fetch a generous amount for the manual preview
+        const ESCALATION_LIMIT = 50; 
+        questions = await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
+          ESCALATION_LIMIT,
+          session,
+        );
+      }
+
+      // Identify experts name and status for display
+      const expertInfoMap = new Map<string, { name: string, status: string, isBlocked: boolean }>();
+      if (questions.length > 0) {
+        // Collect all expert IDs in queues
+        const allExpertIdsInQueues = new Set<string>();
+        questions.forEach(q => {
+          q.queue?.forEach((id: any) => allExpertIdsInQueues.add(id.toString()));
+        });
+        
+        const experts = await this.userRepo.getUsersByIds(Array.from(allExpertIdsInQueues), session);
+        experts.forEach(e => expertInfoMap.set(e._id.toString(), {
+          name: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
+          status: e.status || 'unknown',
+          isBlocked: !!e.isBlocked
+        }));
+      }
+
+      // Populate question text and identify current "responsible" expert
+      const populatedQuestions = await Promise.all(questions.map(async (submission) => {
+        let questionText = 'N/A';
+        try {
+          const question = await this.questionRepo.getById(submission.questionId.toString(), session);
+          questionText = question?.question || 'N/A';
+        } catch (err) {
+          console.error(`[QuestionService] Failed to fetch question ${submission.questionId}:`, err);
+          // If question is not found, we still want to show the submission in preview 
+          // or we can skip it. For now, let's keep it with a placeholder.
+        }
+        
+        let currentExpertId = null;
+        const targetExpertIdsSet = new Set(inactiveExpertIds);
+
+        if (type === 'inactive') {
+          // Identify which inactive expert is currently assigned
+          const historyLength = (submission.history || []).length;
+          const currentInQueue = submission.queue?.[historyLength];
+          
+          if (currentInQueue && targetExpertIdsSet.has(currentInQueue.toString())) {
+            currentExpertId = currentInQueue.toString();
+          } else {
+            // Fallback: search queue for any inactive/blocked expert
+            const targetInQueue = submission.queue?.find(id => targetExpertIdsSet.has(id.toString()));
+            if (targetInQueue) {
+              currentExpertId = targetInQueue.toString();
+            }
+          }
+        } else {
+          // Escalation - whoever is currently supposed to review
+          const historyLength = (submission.history || []).length;
+          currentExpertId = submission.queue?.[historyLength]?.toString();
+        }
+
+        const info = currentExpertId ? expertInfoMap.get(currentExpertId) : null;
+        const currentExpertName = info?.name || 'Unknown';
+        const currentExpertStatus = info?.status || 'unknown';
+        const isCurrentExpertBlocked = info?.isBlocked || false;
+
+        return {
+          submissionId: submission._id.toString(),
+          questionId: submission.questionId.toString(),
+          questionText: questionText,
+          currentExpertId,
+          currentExpertName,
+          currentExpertStatus,
+          isCurrentExpertBlocked,
+          queue: submission.queue?.map(id => id.toString()) || []
+        };
+      }));
+
+      // Get names for active experts
+      const populatedActiveExperts = activeExperts.map(e => ({
+        id: e._id.toString(),
+        name: `${e.firstName} ${e.lastName || ''}`.trim(),
+        reputation_score: e.reputation_score || 0
+      }));
+
+      return {
+        questions: populatedQuestions,
+        activeExperts: populatedActiveExperts,
+        inactiveExpertIds: type === 'inactive' ? inactiveExpertIds : []
+      };
+    });
+  }
+
+  async manualReallocate(
+    assignments: { submissionId: string; expertId: string }[],
+    inactiveExpertIds?: string[],
+  ): Promise<{ message: string; submissionsProcessed: number }> {
+    if (assignments.length > 0) {
+      startBalanceWorkloadWorkers(assignments, inactiveExpertIds);
+    }
+    
+    return {
+      message: 'Manual reallocation started in background',
+      submissionsProcessed: assignments.length,
+    };
+  }
+
   // async getQuestionsByDateRange(
   //     startDate: string,
   //     endDate: string,

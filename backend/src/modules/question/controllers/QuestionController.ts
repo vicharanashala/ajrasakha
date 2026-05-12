@@ -414,6 +414,27 @@ export class QuestionController {
     }
   }
 
+  @Get('/reallocation-preview')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get preview of questions and experts for reallocation' })
+  async getReallocationPreview(@QueryParam('type') type: string) {
+    return this.questionService.getReallocationPreview(type);
+  }
+
+  @Post('/reallocate-manual')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually reallocate questions to experts' })
+  async reallocateManual(
+    @Body() body: { 
+      assignments: { submissionId: string; expertId: string }[];
+      inactiveExpertIds?: string[];
+    }
+  ) {
+    return this.questionService.manualReallocate(body.assignments, body.inactiveExpertIds);
+  }
+
   @Get("/download-question-report")
   @Authorized()
   @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

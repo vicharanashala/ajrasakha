@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { X, ArrowBigDownDashIcon } from "lucide-react";
 import {
   AlertDialog,
@@ -72,6 +73,21 @@ export const ConfirmationModal = ({
   onRoleChange,
   confirmAction,
 }: ConfirmationModalProps) => {
+  useEffect(() => {
+    if (!open) {
+      const timer = setTimeout(() => {
+        document.body.style.pointerEvents = "auto";
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.pointerEvents = "auto";
+    };
+  }, []);
+
   const confirmButtonClass = (() => {
     switch (type) {
       case "delete":

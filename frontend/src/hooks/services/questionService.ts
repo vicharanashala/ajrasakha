@@ -776,4 +776,18 @@ export class QuestionService {
   return data;
 }
 
+  async getReallocationPreview(type: string): Promise<any> {
+    return apiFetch<any>(`${this._baseUrl}/reallocation-preview?type=${type}`);
+  }
+
+  async manualReallocate(body: { 
+    assignments: { submissionId: string; expertId: string }[];
+    inactiveExpertIds?: string[];
+  }): Promise<any> {
+    return apiFetch<any>(`${this._baseUrl}/reallocate-manual`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+  }
+
 }

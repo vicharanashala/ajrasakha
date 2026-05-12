@@ -3529,6 +3529,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async findSubmissionsWithExpertsInQueue(
     expertIds: string[],
     session?: ClientSession,
+    limit?: number,
   ): Promise<IQuestionSubmission[]> {
     await this.init();
 
@@ -3669,6 +3670,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         ],
       },
       {session},
-    ).toArray();
+    )
+      .limit(limit || 0)
+      .toArray();
   }
 }
