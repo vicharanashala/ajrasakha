@@ -164,6 +164,15 @@ export interface IUserRepository {
   ): Promise<void>;
 
   /**
+   *Setting workload/reputation score for a user.
+   */
+  setReputationScore(
+    userId: string,
+    score: number,
+    session?: ClientSession,
+  ): Promise<void>;
+
+  /**
    * Finds all moderators.
    * @returns A promise that resolves to an array of moderators.
    */

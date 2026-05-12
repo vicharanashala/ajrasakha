@@ -124,6 +124,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
           goBack={goBack}
           rankPosition={rankPostion}
           expertDetailsList={expertDetails}
+          currentUserRole={currentUser?.role}
         />
       ) : (
         <>

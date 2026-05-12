@@ -29,11 +29,14 @@ import {
 import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { TopRightBadge } from "./NewBadge";
+import { ConfirmationModal } from "./confirmation-modal";
+import { useRemoveExpertAllocations } from "@/hooks/api/Admin/useRemoveExpertAllocations";
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
   rankPosition?: number;
   expertDetailsList?: any;
+  currentUserRole?: string;
 }
 interface DateRange {
   startTime?: Date;
@@ -45,6 +48,7 @@ export const ExpertDashboard = ({
   goBack,
   rankPosition,
   expertDetailsList,
+  currentUserRole,
 }: ExpertDashboardProps) => {
 
 
@@ -218,6 +222,10 @@ useEffect(() => {
 
 
   const { checkIn, isPending } = useCheckIn();
+  const {
+    mutateAsync: removeExpertAllocations,
+    isPending: removingAllocations,
+  } = useRemoveExpertAllocations();
 
   const handleDateChange = (key: string, value?: Date) => {
     setExpertDate((prev) => ({
@@ -274,6 +282,29 @@ useEffect(() => {
 
           {/* <DashboardClock /> */}
           <div className="flex flex-col items-center gap-1">
+          {expertId && currentUserRole === "admin" && (
+            <ConfirmationModal
+              title="Remove all allocations for this expert?"
+              description="This will clear all question queues where this expert is allocated. All experts in those queues will be removed, and this expert's pending workload will be reset to zero."
+              confirmText="Remove Allocations"
+              cancelText="Cancel"
+              type="delete"
+              isLoading={removingAllocations}
+              onConfirm={async () => {
+                await removeExpertAllocations(expertId);
+              }}
+              trigger={
+                <Button
+                  size="sm"
+                  disabled
+                  variant="outline"
+                  className="border-red-200 cursor-not-allowed text-red-600 hover:bg-red-50 hover:text-red-700"
+                >
+                  Remove Allocations
+                </Button>
+              }
+            />
+          )}
           {user?.role==='expert' && (
            <div className="flex flex-col items-center gap-1">
              

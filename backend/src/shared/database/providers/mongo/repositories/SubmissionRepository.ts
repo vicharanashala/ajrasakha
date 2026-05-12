@@ -62,6 +62,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
   }
 
+  async findByQueuedExpertId(
+    expertId: string,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
+    try {
+      await this.init();
+      return this.QuestionSubmissionCollection.find(
+        {queue: new ObjectId(expertId)},
+        {session},
+      ).toArray();
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get submissions by queued expert: ${error}`,
+      );
+    }
+  }
+
   async addSubmission(
     submission: IQuestionSubmission,
     session?: ClientSession,
