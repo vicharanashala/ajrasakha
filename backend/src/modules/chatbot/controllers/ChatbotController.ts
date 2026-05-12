@@ -329,6 +329,14 @@ export class ChatbotController {
     statusCode: 500,
     description: 'Internal server error - Failed to fetch user growth trend',
   })
+  @OpenAPI({ summary: 'Get duplicate questions with farmer details' })
+  @Get('/duplicate-questions')
+  @HttpCode(200)
+  @Authorized()
+  async getDuplicateQuestions() {
+    return this.chatbotService.getDuplicateQuestions();
+  }
+
   @Get('/user-growth')
   @HttpCode(200)
   @Authorized()

@@ -614,4 +614,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
       }
     })
   }
+
+  async getDuplicateQuestions() {
+    try {
+      return await this.chatbotRepository.getDuplicateQuestions();
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch duplicate questions: ${error}`);
+    }
+  }
 }
