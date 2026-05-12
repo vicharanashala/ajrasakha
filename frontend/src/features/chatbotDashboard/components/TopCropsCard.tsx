@@ -136,11 +136,11 @@ export const TopCropsCard = ({topCrops,
           <CardDescription>Most frequently asked crops. Total Matching Questions: <span className="font-semibold text-gray-900 dark:text-gray-100">{topCrops.totalQuestions.toLocaleString()}</span></CardDescription>
         </CardHeader>
         <CardContent className="flex-1 pb-4">
-          <div className="w-full h-[250px]">
+          <div className="w-full h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={processedData}
-                margin={{ top: 25, right: 10, left: 0, bottom: 0 }}
+                margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border, #e2e8f0)" />
                 <XAxis

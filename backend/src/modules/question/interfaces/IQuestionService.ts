@@ -84,6 +84,13 @@ export interface IQuestionService {
     experts: string[],
   ): Promise<IQuestionSubmission>;
 
+  /** Bulk allocate a PAE expert to multiple draft questions via background worker */
+  bulkAllocatePaeExperts(
+    userId: string,
+    questionIds: string[],
+    paeExpertId: string,
+  ): Promise<{ jobId: string; message: string }>;
+
   /** Remove expert from allocation queue */
   removeExpertFromQueue(
     userId: string,
@@ -107,8 +114,8 @@ export interface IQuestionService {
     session?: any,
   ): Promise<{ deletedCount: number }>;
 
-  /** Bulk delete (max 50) */
-  bulkDeleteQuestions(questionIds: string[]): Promise<{ deletedCount: number }>;
+  /** Bulk delete (no limit, background worker) */
+  bulkDeleteQuestions(userId: string, questionIds: string[]): Promise<{ jobId: string; message: string }>;
 
   /** Fetch question with answers, history & permissions */
   getQuestionFullData(
@@ -186,4 +193,6 @@ export interface IQuestionService {
   generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer : string}>;
 
   approveAiInitialAnswer(questionId: string, answer: string)
+
+  balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number }>;
 }

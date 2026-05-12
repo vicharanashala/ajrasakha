@@ -11,12 +11,12 @@ export const useBulkDeleteQuestions = () => {
     mutationKey: ["bulkDeleteQuestions"],
     mutationFn: async (
       questionIds: string[]
-    ): Promise<{ deletedCount: number } | null> => {
+    ): Promise<{ message: string; jobId: string } | null> => {
       return questionService.bulkDeleteQuestions(questionIds);
     },
     onSuccess: (data) => {
       if (data)
-        toast.success(`${data.deletedCount} question(s) deleted successfully`);
+        toast.success(data.message || "Deletion started in background");
       queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
     },
     onError: (error: any) => {

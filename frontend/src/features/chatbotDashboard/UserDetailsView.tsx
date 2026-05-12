@@ -26,6 +26,9 @@ import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
+import UserGrowthChart from "./components/UserGrowthChart";
+import { AlertCard } from "./AlertCard";
+import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
 
 const PAGE_SIZE = 10;
 
@@ -88,6 +91,9 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   search: "",
   crop: "",
   village: "",
+  block: "",
+  district: "",
+  state: "",
   startTime: undefined,
   endTime: undefined,
   profileCompleted: "all",
@@ -110,6 +116,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard)
   useEffect(() => {
@@ -203,6 +210,9 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     filters.search ||
     filters.crop ||
     filters.village ||
+    filters.block ||
+    filters.district ||
+    filters.state ||
     filters.startTime ||
     filters.profileCompleted !== "all" ||
     filters.inactiveOnly;
@@ -318,9 +328,30 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               </div>
             </div>
 
+            {/* User Growth Trend + Alerts & Notifications */}
+            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 mb-4">
+              <UserGrowthChart />
+              <AlertCard
+                inactiveUsersLast3Days={(dashboardData as any).inactiveUsersLast3Days ?? 0}
+                onInactiveClick={() => {
+                  const end = new Date();
+                  const start = new Date();
+                  start.setDate(start.getDate() - 3);
+                  setFilters(prev => ({ ...prev, startTime: start, endTime: end, inactiveOnly: true }));
+                  setCurrentPage(1);
+                }}
+                duplicateQuestionsCount={(dashboardData as any).duplicateQuestionsCount ?? 0}
+                onDuplicateClick={() => setIsDuplicateModalOpen(true)}
+              />
+              {isDuplicateModalOpen && (
+                <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} />
+              )}
+
+            </div>
+
             {/* Top Crops - Full Width */}
             <div className="grid grid-cols-1 gap-4 mb-4">
-              <TopCropsCard 
+              <TopCropsCard
                 topCrops={topCrops}
                 isLoadingTopCrops={isLoadingTopCrops}
                 errorLoadingtopCrops={errorLoadingTopCrops}

@@ -261,7 +261,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -469,6 +469,19 @@ export interface IQuestionFullData {
   referenceQuestionId?: string;
   referenceQuestion?: string
   referenceSource?: string;
+  referenceQuestionData?: {
+    question: string;
+    status: string;
+    details: {
+      state: string;
+      district: string;
+      crop: string;
+      season: string;
+      domain: string;
+      [key: string]: string;
+    };
+    text: string;
+  };
   originalQuestion?: string;
   closedAt?: string;
   threadId?: string;
@@ -892,6 +905,13 @@ export interface WorkloadBalanceResponse {
   message: string;
   expertsInvolved: number;
   submissionsProcessed: number;
+}
+export interface ReallocateExpertsSelectedQuestionsResponse {
+  message: string;
+  expertsInvolved: number;
+  submissionsProcessed: number;
+  questionsFiltered?: number;
+  unallocatedQuestions?: number;
 }
 
 export type GrowthResponse = {

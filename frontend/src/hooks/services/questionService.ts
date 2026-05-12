@@ -288,6 +288,16 @@ export class QuestionService {
       },
     );
   }
+  async bulkAllocatePaeExperts(
+    questionIds: string[],
+    paeExpertId: string,
+  ): Promise<{ jobId: string; message: string }> {
+    return apiFetch(`${this._baseUrl}/bulk-pae-allocate`, {
+      method: "POST",
+      body: JSON.stringify({ questionIds, paeExpertId }),
+    });
+  }
+
   async allocateReRouteExperts(
     questionId: string,
     expertId: string,
@@ -334,7 +344,7 @@ export class QuestionService {
   }
 
   async bulkDeleteQuestions(questionIds: string[]) {
-    return apiFetch<{ deletedCount: number }>(`${this._baseUrl}/bulk`, {
+    return apiFetch<{ message: string; jobId: string }>(`${this._baseUrl}/bulk`, {
       method: "DELETE",
       body: JSON.stringify({ questionIds }),
     });
@@ -402,6 +412,15 @@ export class QuestionService {
     return apiFetch<WorkloadBalanceResponse | null>(
       `${this._baseUrl}/reAllocateLessWorkload`,
       { method: "POST" },
+    );
+  }
+  async reAllocateExpertsSelectedQuestions(questionIds: string[]): Promise<WorkloadBalanceResponse | null> {
+    return apiFetch<WorkloadBalanceResponse | null>(
+      `${this._baseUrl}/reAllocateSelectedQuestions`,
+      {
+        method: "POST",
+        body: JSON.stringify({ questionIds }),
+      },
     );
   }
 

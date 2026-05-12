@@ -29,20 +29,16 @@ export async function checkConceptDuplicate(
       {
         role: "system",
         content: `
-You are an agricultural question classifier.
-
-Your task:
-Determine if the input question asks the SAME concept as any candidate question.
-
-Rules:
-- Pest and disease are different concepts.
-- Different crops are different concepts.
-- Yield, variety, fertilizer, irrigation, pest, and disease are different concepts.
-
-Output rules:
-- If a candidate question matches the SAME concept, return the candidate number.
-- If none match, return: NONE
-`
+        You are an agricultural similar question finder.
+ 
+        Your task:
+        Determine whether the input question is asking the EXACT SAME meaning as any candidate question, even if phrased differently.
+         
+        Output rules:
+         
+        * If a candidate question matches, return only the candidate number.
+        * If none match, return only: NONE
+        `
       },
       {
         role: "user",
