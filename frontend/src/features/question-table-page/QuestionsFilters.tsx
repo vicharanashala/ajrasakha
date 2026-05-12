@@ -702,7 +702,8 @@ export const QuestionsFilters = ({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={selectedQuestionIds.length === 0 || reAllocating || isReAllocateDisabled}
+                disabled
+                // disabled={selectedQuestionIds.length === 0 || reAllocating || isReAllocateDisabled}
                 onClick={() =>{
                   setIsReAllocateSelectedQuestionsOpen(true);
                 }}
