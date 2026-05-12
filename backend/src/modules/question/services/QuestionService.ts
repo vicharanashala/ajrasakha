@@ -5,6 +5,7 @@ import { inject, injectable } from 'inversify';
 import { ClientSession, ObjectId } from 'mongodb';
 import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
 import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js';
+import { startBulkDeleteWorker } from '#root/workers/bulkDelete.manager.js';
 import {
   IQuestion,
   IQuestionSubmission,
@@ -2737,24 +2738,16 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
   }
 
-  async bulkDeleteQuestions(questionIds: string[]) {
-    return this._withTransaction(async (session: ClientSession) => {
-      if (!questionIds || questionIds.length === 0) {
-        throw new BadRequestError('No question IDs found to delete!');
-      }
-      if (questionIds.length > 50) {
-        throw new BadRequestError('You can select a maximum of 50 questions');
-      }
+  async bulkDeleteQuestions(userId: string, questionIds: string[]) {
+    if (!questionIds || questionIds.length === 0) {
+      throw new BadRequestError('No question IDs found to delete!');
+    }
 
-      let deletedCount = 0;
-
-      for (const id of questionIds) {
-        const res = await this.deleteQuestion(id, session);
-        deletedCount += res.deletedCount ?? 0;
-      }
-
-      return { deletedCount };
-    });
+    const jobId = startBulkDeleteWorker(questionIds, userId);
+    return {
+      jobId,
+      message: `Your bulk delete request for ${questionIds.length} question(s) is being processed in the background. Estimated time: ~ ${Math.ceil(questionIds.length * 0.6)} sec.`,
+    };
   }
 
   async getQuestionFullData(
