@@ -20,7 +20,7 @@ interface QuestionHeaderProps {
   isQuestionAllocatedToExpert: boolean;
 }
 
-export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocatedToExpert }: QuestionHeaderProps) => {
+export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAllocatedToExpert }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
 
@@ -30,10 +30,10 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
     question?.referenceQuestion &&
     question?.referenceSource
   );
-  
+
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
-  
+
   const { timer } = useQuestionTimer(
     question.source,
     timerStartTime,
@@ -56,9 +56,9 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
   const doHold = async () => {
     try {
       await holdQuestion({
-      questionId: question._id!,
-      action: question.isOnHold ? "unhold" : "hold",
-    });
+        questionId: question._id!,
+        action: question.isOnHold ? "unhold" : "hold",
+      });
       toast.success(`Question ${question.isOnHold ? "released from hold" : "put on hold"} successfully`);
       goBack();
     } catch (error) {
@@ -87,7 +87,7 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
   const diffMs =
     latestHistory && question?.closedAt
       ? new Date(question.closedAt).getTime() -
-        new Date(latestHistory.updatedAt).getTime()
+      new Date(latestHistory.updatedAt).getTime()
       : null;
 
   const formattedTime = (() => {
@@ -123,7 +123,7 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
 
           <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-start sm:justify-end sm:flex-shrink-0">
             <div className="flex flex-wrap justify-end gap-2">
-              {currentUser.role !='expert' && isQuestionAllocatedToExpert && question.status!== 'closed' && (
+              {currentUser.role != 'expert' && isQuestionAllocatedToExpert && question.status !== 'closed' && (
                 <Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">
                   {isQuestionOnHold ? "Release Hold" : "Hold the question"}
                 </Button>
@@ -132,8 +132,10 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
             </div>
 
             <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
-            {/* <TimerDisplay timer={timer} status={question.status} size="lg" /> */}
-              <TimerDisplay timer={timer} status={question.status} source={question.source} size="lg" />
+              {/* <TimerDisplay timer={timer} status={question.status} size="lg" /> */}
+              {question.status !== "pass" && (
+                <TimerDisplay timer={timer} status={question.status} source={question.source} size="lg" />
+              )}
 
               <div className="flex justify-end">
                 <Button
@@ -165,9 +167,8 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
 
         {/* Status + Priority + Total answers */}
         <div className="flex flex-wrap items-center gap-4 justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          {
-            isDuplicate && (
+          <div className="flex flex-wrap items-center gap-2">
+            {isDuplicate && (
               <Button
                 size="sm"
                 variant="outline"
@@ -176,83 +177,84 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
               >
                 Show Reference
               </Button>
-            )
-          }
-          {!isDuplicate && (
-            <Badge
-              className={
-                question.status === "in-review"
-                  ? "bg-green-500/10 text-green-600 border-green-500/30"
-                  : question.status === "open"
-                    ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                    : question.status === "closed"
-                      ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-                      : question.status === "pae_submitted"
-                        ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
-                        : "bg-muted text-foreground"
-              }
-            >
-              {question.status.replace("_", " ")}
-            </Badge>
-          )}
+            )}
+            {!isDuplicate && (
+              <>
+                <Badge
+                  className={
+                    question.status === "in-review"
+                      ? "bg-green-500/10 text-green-600 border-green-500/30"
+                      : question.status === "open"
+                        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                        : question.status === "closed"
+                          ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                          : question.status === "pae_submitted"
+                            ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+                            : "bg-muted text-foreground"
+                  }
+                >
+                  {question.status.replace("_", " ")}
+                </Badge>
 
-          <Badge
-            className={
-              question.priority === "high"
-                ? "bg-red-500/10 text-red-600 border-red-500/30"
-                : question.priority === "medium"
-                  ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                  : question.priority === "low"
-                    ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                    : "bg-muted text-foreground"
-            }
-          >
-            {question.priority ? question.priority.toUpperCase() : "NIL"}
-          </Badge>
+                <Badge
+                  className={
+                    question.priority === "high"
+                      ? "bg-red-500/10 text-red-600 border-red-500/30"
+                      : question.priority === "medium"
+                        ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                        : question.priority === "low"
+                          ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                          : "bg-muted text-foreground"
+                  }
+                >
+                  {question.priority ? question.priority.toUpperCase() : "NIL"}
+                </Badge>
+              </>
+            )}
 
-          <span className="text-sm text-muted-foreground whitespace-nowrap">
-            Total answers: {question.totalAnswersCount}
-          </span>
-        </div>
-        {(question?.status === "closed" &&
-          (currentUser.role === "moderator" ||
-            currentUser.role === "admin")) && (
-          <div>
-            <div className="text-sm">
-              {question?.closedAt && (
-                <span>
-                  The Question was closed at:{" "}
-                  {new Date(question.closedAt).toLocaleString()}
-                </span>
-              )}
-            </div>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              Total answers: {question.totalAnswersCount}
+            </span>
           </div>
-        )}
+          {(question?.status === "closed" &&
+            (currentUser.role === "moderator" ||
+              currentUser.role === "admin")) && (
+              <div>
+                <div className="text-sm">
+                  {question?.closedAt && (
+                    <span>
+                      The Question was closed at:{" "}
+                      {new Date(question.closedAt).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
         </div>
 
         {/* Created / Updated */}
         <div className="flex flex-wrap items-center gap-4 justify-between">
-        <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
-          <span>Created: {formatDate(new Date(question.createdAt))}</span>
-          <span>•</span>
-          <span>Updated: {formatDate(new Date(question.updatedAt))}</span>
-        </div>
-        <div>
-        {(question?.status === "closed" &&
-          (currentUser.role === "moderator" ||
-            currentUser.role === "admin")) && (
-          <div className="text-sm">
-            {question?.closedAt && (
-              <div >
-                Moderator TAT:{" "}
-                {(latestHistory && diffMs) && diffMs > 0
-                  ? formattedTime
-                  : "N/A"}
-              </div>
-            )}
+          <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
+            <span>Created: {formatDate(new Date(question.createdAt))}</span>
+            <span>•</span>
+            <span>Updated: {formatDate(new Date(question.updatedAt))}</span>
           </div>
-        )}
-        </div>
+          <div>
+            {(question?.status === "closed" &&
+              (currentUser.role === "moderator" ||
+                currentUser.role === "admin")) && (
+                <div className="text-sm">
+                  {question?.closedAt && (
+                    <div >
+                      Moderator TAT:{" "}
+                      {(latestHistory && diffMs) && diffMs > 0
+                        ? formattedTime
+                        : "N/A"}
+                    </div>
+                  )}
+                </div>
+              )}
+          </div>
         </div>
       </header>
       <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
@@ -339,9 +341,9 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
               {question.isOnHold ? "Release this question?" : "Hold this question?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-             {question.isOnHold
-    ? "Are you sure you want to release this question from hold?"
-    : "Are you sure you want to put this question on hold?"}
+              {question.isOnHold
+                ? "Are you sure you want to release this question from hold?"
+                : "Are you sure you want to put this question on hold?"}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
