@@ -114,8 +114,8 @@ export interface IQuestionService {
     session?: any,
   ): Promise<{ deletedCount: number }>;
 
-  /** Bulk delete (max 50) */
-  bulkDeleteQuestions(questionIds: string[]): Promise<{ deletedCount: number }>;
+  /** Bulk delete (no limit, background worker) */
+  bulkDeleteQuestions(userId: string, questionIds: string[]): Promise<{ jobId: string; message: string }>;
 
   /** Fetch question with answers, history & permissions */
   getQuestionFullData(

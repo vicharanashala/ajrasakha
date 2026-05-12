@@ -1084,7 +1084,7 @@ export class QuestionController {
   async bulkDeleteQuestions(
     @Body() body: BulkDeleteQuestionDto,
     @CurrentUser() user: IUser,
-  ): Promise<{ deletedCount: number }> {
+  ): Promise<{ message: string; jobId: string }> {
     const { questionIds } = body;
     let prevQuestions;
     let response;
@@ -1107,7 +1107,7 @@ export class QuestionController {
     };
     try{
       prevQuestions = await Promise.all(questionIds.map(id => this.questionService.getQuestionById(id)));
-      response = await this.questionService.bulkDeleteQuestions(questionIds);
+      response = await this.questionService.bulkDeleteQuestions(user._id.toString(), questionIds);
     } catch(err: any){
       auditPayload = {
         ...auditPayload,

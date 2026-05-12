@@ -344,7 +344,7 @@ export class QuestionService {
   }
 
   async bulkDeleteQuestions(questionIds: string[]) {
-    return apiFetch<{ deletedCount: number }>(`${this._baseUrl}/bulk`, {
+    return apiFetch<{ message: string; jobId: string }>(`${this._baseUrl}/bulk`, {
       method: "DELETE",
       body: JSON.stringify({ questionIds }),
     });
