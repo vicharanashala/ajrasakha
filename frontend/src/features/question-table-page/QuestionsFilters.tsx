@@ -249,7 +249,18 @@ export const QuestionsFilters = ({
       }
       if (res.message === "Workload balancing started in background") {
         toast.success(
-          "Workload balancing has started in the background. Please wait 50 seconds before reallocating again.",
+          res.submissionsProcessed === 0
+            ? `No questions were reallocated.${res.questionsFiltered
+              ? ` ${res.questionsFiltered} questions were filtered due to invalid status.`
+              : ""
+            }`
+            : `${res.submissionsProcessed} questions were successfully reallocated out of ${selectedQuestionIds.length} selected questions.${res.questionsFiltered
+              ? ` ${res.questionsFiltered} questions were filtered due to invalid status.`
+              : ""
+            }${res.unallocatedQuestions
+              ? ` ${res.unallocatedQuestions} questions could not be reallocated because no eligible new experts were available.`
+              : ""
+            } Please wait 50 seconds before reallocating again.`
         );
         // Re-enable button after 30 seconds
         setTimeout(() => {
@@ -750,8 +761,7 @@ export const QuestionsFilters = ({
               <Button
                 variant="outline"
                 size="sm"
-                disabled
-                // disabled={selectedQuestionIds.length === 0 || reAllocating || isReAllocateDisabled}
+                disabled={selectedQuestionIds.length === 0 || reAllocating || isReAllocateDisabled}
                 onClick={() =>{
                   setIsReAllocateSelectedQuestionsOpen(true);
                 }}

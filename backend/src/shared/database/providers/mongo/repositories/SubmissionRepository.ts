@@ -3475,14 +3475,47 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 //find question details by ids
   async findReallocationQuestionsByIds(questionIds?: string[], session?: ClientSession): Promise<IQuestionSubmission[]> {
     await this.init();
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  
-    return this.QuestionSubmissionCollection.find(
-      {
-        questionId: { $in: questionIds?.map((id) => new ObjectId(id)) },
-      },
+
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>(
+      [
+        {
+          $match: {
+            questionId: {
+              $in: questionIds?.map((id) => new ObjectId(id)),
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "questions",
+            localField: "questionId",
+            foreignField: "_id",
+            as: "question",
+          },
+        },
+        {
+          $unwind: "$question",
+        },
+        {
+          $match: {
+            "question.status": {
+              $nin: [
+                "closed",
+                "in-review",
+                "pass",
+                "draft",
+                "pae_submitted",
+              ],
+            },
+          },
+        },
+        {
+          $project: {
+            question: 0,
+          },
+        },
+      ],
       { session }
     ).toArray();
   }
-  
 }
