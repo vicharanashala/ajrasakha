@@ -92,8 +92,13 @@ export const QuestionsPage = ({
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"all" | "review-level">("all");
   const [reviewPage, setReviewPage] = useState(1);
-  const [reviewLimit] = useState(12);
+  const [limit, setLimit] = useState(12);
   const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setReviewPage(1);
+  }, [limit]);
 
   //handle sort by turn around time
   const [sort, setSort] = useState("");
@@ -125,7 +130,6 @@ export const QuestionsPage = ({
   const { mutateAsync: bulkAllocatePaeExperts, isPending: isBulkAllocatingPae } =
     useBulkAllocatePaeExperts();
 
-  const LIMIT = 12;
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -200,7 +204,7 @@ export const QuestionsPage = ({
     refetch,
   } = useGetAllDetailedQuestions(
     currentPage,
-    LIMIT,
+    limit,
     filter,
     debouncedSearch,
     viewMode === "all",
@@ -215,7 +219,7 @@ export const QuestionsPage = ({
   const { data: reviewData, isLoading: isReviewLoading, refetch: refetchReviewLevels } =
     useGetQuestionsAndLevel(
       reviewPage,
-      reviewLimit,
+      limit,
       search,
       filter,
       viewMode === "review-level",
@@ -503,6 +507,8 @@ export const QuestionsPage = ({
             showClosedAt={showClosedAt}
             view={view}
             setView={setView}
+            limit={limit}
+            setLimit={setLimit}
           />
 
           {viewMode === "all" ? (
@@ -512,7 +518,7 @@ export const QuestionsPage = ({
               currentPage={currentPage}
               setCurrentPage={setCurrentPage}
               userRole={currentUser?.role!}
-              limit={LIMIT}
+              limit={limit}
               totalPages={questionData?.totalPages || 0}
               isLoading={isLoading || isRefreshing || bulkDeletingQuestions}
               isBulkUpload={isBulkUpload}
@@ -536,7 +542,7 @@ export const QuestionsPage = ({
               onViewMore={handleViewMore}
               toggleSort={toggleSort}
               sort={sort}
-              limit={reviewLimit}
+              limit={limit}
               view={view}
               onRefresh={refetchReviewLevels}
             />
