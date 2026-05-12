@@ -62,6 +62,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
   }
 
+  async findByQueuedExpertId(
+    expertId: string,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
+    try {
+      await this.init();
+      return this.QuestionSubmissionCollection.find(
+        {queue: new ObjectId(expertId)},
+        {session},
+      ).toArray();
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get submissions by queued expert: ${error}`,
+      );
+    }
+  }
+
   async addSubmission(
     submission: IQuestionSubmission,
     session?: ClientSession,
@@ -3454,5 +3471,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   }
 }
+
+//find question details by ids
+  async findReallocationQuestionsByIds(questionIds?: string[], session?: ClientSession): Promise<IQuestionSubmission[]> {
+    await this.init();
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  
+    return this.QuestionSubmissionCollection.find(
+      {
+        questionId: { $in: questionIds?.map((id) => new ObjectId(id)) },
+      },
+      { session }
+    ).toArray();
+  }
   
 }

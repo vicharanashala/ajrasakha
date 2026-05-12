@@ -825,6 +825,13 @@ export class ApproveInitialAnswerBody {
   answer :string;
 }
 
+class ReallocateExpertsSelectedQuestionsRequest {
+  @IsNotEmpty()
+  @IsArray()
+  @IsString({ each: true })
+  questionIds!: string[];
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -845,6 +852,7 @@ export const QUESTION_VALIDATORS = [
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
   ApproveInitialAnswerBody,
+  ReallocateExpertsSelectedQuestionsRequest,
 ];
 
 export {
@@ -864,4 +872,5 @@ export {
   HistoryItem,
   BulkDeleteQuestionDto,
   DateRangeRequest,
+  ReallocateExpertsSelectedQuestionsRequest,
 };

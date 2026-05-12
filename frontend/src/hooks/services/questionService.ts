@@ -414,6 +414,15 @@ export class QuestionService {
       { method: "POST" },
     );
   }
+  async reAllocateExpertsSelectedQuestions(questionIds: string[]): Promise<WorkloadBalanceResponse | null> {
+    return apiFetch<WorkloadBalanceResponse | null>(
+      `${this._baseUrl}/reAllocateSelectedQuestions`,
+      {
+        method: "POST",
+        body: JSON.stringify({ questionIds }),
+      },
+    );
+  }
 
   async downloadQuestionReport(
     consecutiveApprovals?: string,

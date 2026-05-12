@@ -47,7 +47,8 @@ import {
   QuestionResponse,
   RemoveAllocateBody,
   ApproveInitialAnswerBody,
-  ReplaceQueueExpertRequest
+  ReplaceQueueExpertRequest,
+  ReallocateExpertsSelectedQuestionsRequest,
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
 import {
@@ -1499,4 +1500,58 @@ export class QuestionController {
     return result;
   }
 
+  //reallocate selected question to lessworkloads expert
+   @Post('/reAllocateSelectedQuestions')
+  @HttpCode(200)
+  @OpenAPI({ summary: 'ReAllocating selectedquestions to those who has less workload' })
+  async reAllocateSelectedQuestions(
+     @CurrentUser() user: IUser,
+     @Body() body: ReallocateExpertsSelectedQuestionsRequest,
+  ) {
+    const { questionIds } = body;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: AuditAction.REALLOCATE_QUESTIONS,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      createdAt: new Date(),
+    };
+    try {
+      const result = await this.questionService.balanceWorkloadSelectedQuestions(questionIds??[]);
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          after: {
+            expertsInvolved: result.expertsInvolved,
+            submissionsProcessed: result.submissionsProcessed,
+          },
+        },
+        outcome: {
+          status: OutComeStatus.SUCCESS,
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    }
+    catch (err: any) {
+      console.log("Error in reAllocateSelectedQuestions:", err);
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorMessage: err?.message || 'Failed to process uploaded file',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      throw new BadRequestError(
+        err?.message || 'Failed to process uploaded file',
+      );
+
+    }
+  }
 }
