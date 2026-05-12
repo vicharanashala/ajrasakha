@@ -25,7 +25,7 @@ weather_mcp = MultiServerMCPClient(
 
 llm = ChatAnthropic(model=CLAUDE_MODEL)
 
-_soil_agent_graph = None  # lazy init
+_weather_agent_graph = None  # lazy init
 
 async def _get_weather_agent():
     global _weather_agent_graph
