@@ -6,7 +6,12 @@ import {
   UserRole,
 } from '#root/shared/interfaces/models.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import {BadRequestError, ForbiddenError, InternalServerError, NotFoundError} from 'routing-controllers';
+import {
+  BadRequestError,
+  ForbiddenError,
+  InternalServerError,
+  NotFoundError,
+} from 'routing-controllers';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {ClientSession} from 'mongodb';
 import {
@@ -16,8 +21,9 @@ import {
 } from '#root/modules/user/validators/UserValidators.js';
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import { getFromContainer } from 'class-validator';
-import { FirebaseAuthService } from '#root/modules/auth/services/FirebaseAuthService.js';
+import {getFromContainer} from 'class-validator';
+import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthService.js';
+import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -33,6 +39,9 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+
+    @inject(GLOBAL_TYPES.QuestionRepository)
+    private readonly questionRepo: IQuestionRepository,
   ) {
     super(mongoDatabase);
   }
@@ -71,9 +80,8 @@ export class UserService extends BaseService {
             await this.questionSubmissionRepo.getModeratorReviewLevel(query);
           return moderatorResult;
         }
-        const result = await this.questionSubmissionRepo.getUserReviewLevel(
-          query,
-        );
+        const result =
+          await this.questionSubmissionRepo.getUserReviewLevel(query);
 
         return result;
       });
@@ -88,9 +96,16 @@ export class UserService extends BaseService {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
-      if(data.firstName !== undefined && !data.firstName.trim()) throw new BadRequestError("Firstname cannot be empty or blank space");
-      if(data.mobile !== undefined && !data.mobile.trim()) throw new BadRequestError("Mobile number cannot be empty or blank space");
-      if(data.university !== undefined && !data.university.trim()) throw new BadRequestError("University name cannot be empty or blank space");
+      if (data.firstName !== undefined && !data.firstName.trim())
+        throw new BadRequestError('Firstname cannot be empty or blank space');
+      if (data.mobile !== undefined && !data.mobile.trim())
+        throw new BadRequestError(
+          'Mobile number cannot be empty or blank space',
+        );
+      if (data.university !== undefined && !data.university.trim())
+        throw new BadRequestError(
+          'University name cannot be empty or blank space',
+        );
       const authService = getFromContainer(FirebaseAuthService);
 
       return this._withTransaction(async (session: ClientSession) => {
@@ -98,13 +113,10 @@ export class UserService extends BaseService {
         if (!updatedUser)
           throw new NotFoundError(`User with ID ${userId} not found`);
         if (data.firstName || data.lastName) {
-          await authService.updateFirebaseUser(
-            updatedUser.firebaseUID,
-            {
-              firstName: data.firstName ?? updatedUser.firstName,
-              lastName: data.lastName ?? updatedUser.lastName,
-            },
-          );
+          await authService.updateFirebaseUser(updatedUser.firebaseUID, {
+            firstName: data.firstName ?? updatedUser.firstName,
+            lastName: data.lastName ?? updatedUser.lastName,
+          });
         }
         return updatedUser;
       });
@@ -115,84 +127,72 @@ export class UserService extends BaseService {
     }
   }
 
-async updateUserRole(
-  currentUser: IUser,
-  userId: string,
-  changeRoleTo: UserRole
-): Promise<IUser> {
-  try {
-    if (!currentUser || currentUser.role !== 'admin') {
-      throw new ForbiddenError(
-        'Only admin can switch user roles'
+  async updateUserRole(
+    currentUser: IUser,
+    userId: string,
+    changeRoleTo: UserRole,
+  ): Promise<IUser> {
+    try {
+      if (!currentUser || currentUser.role !== 'admin') {
+        throw new ForbiddenError('Only admin can switch user roles');
+      }
+
+      if (!userId) {
+        throw new BadRequestError('User ID is required');
+      }
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const user = await this.userRepo.findById(userId, session);
+
+        if (!user) {
+          throw new NotFoundError(`User with ID ${userId} not found`);
+        }
+
+        // Prevent unnecessary update
+        if (user.role === changeRoleTo) {
+          throw new BadRequestError(`User already has role ${changeRoleTo}`);
+        }
+
+        const updatedUser = await this.userRepo.edit(
+          userId,
+          {role: changeRoleTo},
+          session,
+        );
+
+        if (!updatedUser) {
+          throw new InternalServerError('Failed to update user role');
+        }
+
+        return updatedUser;
+      });
+    } catch (error) {
+      // Preserve known errors
+      if (
+        error instanceof BadRequestError ||
+        error instanceof NotFoundError ||
+        error instanceof ForbiddenError
+      ) {
+        throw error;
+      }
+
+      throw new InternalServerError(
+        `Failed to update role for user ID ${userId}`,
       );
     }
-
-    if (!userId) {
-      throw new BadRequestError('User ID is required');
-    }
-
-    return this._withTransaction(async (session: ClientSession) => {
-
-      const user = await this.userRepo.findById(userId, session);
-
-      if (!user) {
-        throw new NotFoundError(
-          `User with ID ${userId} not found`
-        );
-      }
-
-      // Prevent unnecessary update
-      if (user.role === changeRoleTo) {
-        throw new BadRequestError(
-          `User already has role ${changeRoleTo}`
-        );
-      }
-
-      const updatedUser = await this.userRepo.edit(
-        userId,
-        { role: changeRoleTo },
-        session,
-      );
-
-      if (!updatedUser) {
-        throw new InternalServerError(
-          'Failed to update user role'
-        );
-      }
-
-      return updatedUser;
-    });
-
-  } catch (error) {
-
-    // Preserve known errors
-    if (
-      error instanceof BadRequestError ||
-      error instanceof NotFoundError ||
-      error instanceof ForbiddenError
-    ) {
-      throw error;
-    }
-
-    throw new InternalServerError(
-      `Failed to update role for user ID ${userId}`
-    );
   }
-}
 
-async getAllUsers(
-  page: number,
-  limit: number,
-  search: string,
-  sort: string,
-  filter: string,
-  role?: string,
-  isBlocked?: boolean,
-  isVerified?: boolean,
-): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
-  return await this._withTransaction(async () => {
-    const { users, totalUsers, totalPages } =
-      await this.userRepo.findAllUsers(
+  async getAllUsers(
+    page: number,
+    limit: number,
+    search: string,
+    sort: string,
+    filter: string,
+    role?: string,
+    isBlocked?: boolean,
+    isVerified?: boolean,
+  ): Promise<{users: IUser[]; totalUsers: number; totalPages: number}> {
+    return await this._withTransaction(async () => {
+      const {users, totalUsers, totalPages} = await this.userRepo.findAllUsers(
         page,
         limit,
         search,
@@ -202,64 +202,61 @@ async getAllUsers(
         isBlocked,
         isVerified,
       );
-    return { users, totalUsers, totalPages };
-  });
-}
-async getAllUsersforManualSelect(
-  userId: string,
-  page: number,
-  limit: number,
-  search: string,
-  sort: string,
-  filter: string,
-): Promise<UsersNameResponseDto> {
-  try {
-    return await this._withTransaction(async session => {
-      const me = await this.userRepo.findById(userId, session);
-      const users = await this.userRepo.findAll(session);
-      const usersExceptMe = users.filter(
-        user => user._id.toString() !== userId,
-      );
-
-      const myPreference: PreferenceDto = {
-        state: me?.preference?.state ?? null,
-        crop: me?.preference?.crop ?? null,
-        domain: me?.preference?.domain ?? null,
-      };
-
-      return {
-        myPreference,
-        users: usersExceptMe.map(u => ({
-          _id: u._id.toString(),
-          role: u.role,
-          email: u.email,
-          preference: u.preference,
-          userName: `${u.firstName} ${u.lastName ? u.lastName : ''}`.trim(),
-          firstName: u.firstName ?? "",
-          lastName: u.lastName ?? "",
-          reputation_score: u.reputation_score ?? 0,
-          incentive: u.incentive ?? 0,
-          penaltyPercentage: u.penalty ?? 0,
-          createdAt: u.createdAt ?? null,
-          isBlocked:u.isBlocked,
-          special_task_force: u.special_task_force,
-          special_task_force_moderator: u.special_task_force_moderator,
-          mobile: u.mobile ?? "",
-          university: u.university ?? "",
-          state: u.preference?.state ?? null,
-          domain: u.preference?.domain ?? null,
-        })),
-        totalUsers: users.length,
-        totalPages: 5,
-      };
+      return {users, totalUsers, totalPages};
     });
-  } catch (error) {
-    throw new InternalServerError(`Failed to fetch users: ${error}`);
   }
-}
+  async getAllUsersforManualSelect(
+    userId: string,
+    page: number,
+    limit: number,
+    search: string,
+    sort: string,
+    filter: string,
+  ): Promise<UsersNameResponseDto> {
+    try {
+      return await this._withTransaction(async session => {
+        const me = await this.userRepo.findById(userId, session);
+        const users = await this.userRepo.findAll(session);
+        const usersExceptMe = users.filter(
+          user => user._id.toString() !== userId,
+        );
 
+        const myPreference: PreferenceDto = {
+          state: me?.preference?.state ?? null,
+          crop: me?.preference?.crop ?? null,
+          domain: me?.preference?.domain ?? null,
+        };
 
-
+        return {
+          myPreference,
+          users: usersExceptMe.map(u => ({
+            _id: u._id.toString(),
+            role: u.role,
+            email: u.email,
+            preference: u.preference,
+            userName: `${u.firstName} ${u.lastName ? u.lastName : ''}`.trim(),
+            firstName: u.firstName ?? '',
+            lastName: u.lastName ?? '',
+            reputation_score: u.reputation_score ?? 0,
+            incentive: u.incentive ?? 0,
+            penaltyPercentage: u.penalty ?? 0,
+            createdAt: u.createdAt ?? null,
+            isBlocked: u.isBlocked,
+            special_task_force: u.special_task_force,
+            special_task_force_moderator: u.special_task_force_moderator,
+            mobile: u.mobile ?? '',
+            university: u.university ?? '',
+            state: u.preference?.state ?? null,
+            domain: u.preference?.domain ?? null,
+          })),
+          totalUsers: users.length,
+          totalPages: 5,
+        };
+      });
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch users: ${error}`);
+    }
+  }
 
   async updateAutoDeleteNotificationPreference(
     preference: NotificationRetentionType,
@@ -304,12 +301,13 @@ async getAllUsersforManualSelect(
 
   async blockUnblockExperts(userId: string, action: string) {
     return await this._withTransaction(async (session: ClientSession) => {
-      if (action === "block") {
-        const nonBlockedExpertsCount = await this.userRepo.countNonBlockedExperts(session);
+      if (action === 'block') {
+        const nonBlockedExpertsCount =
+          await this.userRepo.countNonBlockedExperts(session);
 
         if (nonBlockedExpertsCount <= 10) {
           throw new BadRequestError(
-            "Minimum 10 active experts required. Cannot block more experts."
+            'Minimum 10 active experts required. Cannot block more experts.',
           );
         }
       }
@@ -319,11 +317,12 @@ async getAllUsersforManualSelect(
 
   async updateActivityStatus(userId: string, status: 'active' | 'in-active') {
     return await this._withTransaction(async (session: ClientSession) => {
-      if (status === "in-active") {
-        const activeExpertsCount = await this.userRepo.countActiveExperts(session);
+      if (status === 'in-active') {
+        const activeExpertsCount =
+          await this.userRepo.countActiveExperts(session);
         if (activeExpertsCount <= 10) {
           throw new BadRequestError(
-            "Minimum 10 active experts required. Cannot mark more experts inactive."
+            'Minimum 10 active experts required. Cannot mark more experts inactive.',
           );
         }
       }
@@ -342,7 +341,11 @@ async getAllUsersforManualSelect(
       if (!userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
-        const updatedUser = await this.userRepo.edit(userId, {isVerified}, session);
+        const updatedUser = await this.userRepo.edit(
+          userId,
+          {isVerified},
+          session,
+        );
         if (!updatedUser)
           throw new NotFoundError(`User with ID ${userId} not found`);
         return updatedUser;
@@ -385,10 +388,11 @@ async getAllUsersforManualSelect(
           ? expert.reputation_score
           : 0;
 
-      const submissions = await this.questionSubmissionRepo.findByQueuedExpertId(
-        expertId,
-        session,
-      );
+      const submissions =
+        await this.questionSubmissionRepo.findByQueuedExpertId(
+          expertId,
+          session,
+        );
 
       let questionsAffected = 0;
       const questionIds: string[] = [];
@@ -414,6 +418,10 @@ async getAllUsersforManualSelect(
           }
         }
 
+        if (activeExpertId !== expertId) {
+          continue; // skip if the expert to be removed is not the active expert for this submission
+        }
+
         if (activeExpertId) {
           await this.userRepo.updateReputationScore(
             activeExpertId,
@@ -422,39 +430,49 @@ async getAllUsersforManualSelect(
           );
         }
 
-        const shouldPopHistory =
-        history.length > 0 &&
-        history[history.length - 1]?.status === 'in-review';
-      const hasReviewed = history.some(
-        item =>
-          item.status === 'reviewed' ||
-          item.status === 'approved' ||
-          item.status === 'rejected',
-      );
+        // const shouldPopHistory =
+        //   history.length > 0 &&
+        //   history[history.length - 1]?.status === 'in-review';
 
-      let updatedQueue = [];
+        // const hasReviewed = history.some(
+        //   item =>
+        //     item.status === 'reviewed' ||
+        //     item.status === 'approved' ||
+        //     item.status === 'rejected' ||
+        //     item.answer, // consider any history with an answer as reviewed
+        // );
 
-      if (!hasReviewed) {
-        updatedQueue = [];
-      } else {
-        const removeIndex = queue.findIndex(
-          queuedExpertId =>
-            queuedExpertId.toString() === expertId,
+        let updatedQueue = [];
+
+        if (history.length == 0) {
+          // If there's no history, we can simply remove the expert from the queue without worrying about the order of experts in the history.
+          updatedQueue = [];
+        } else {
+          const removeIndex = queue.findIndex(
+            queuedExpertId => queuedExpertId.toString() === expertId,
+          );
+
+          if (removeIndex !== -1) {
+            updatedQueue = queue.slice(0, removeIndex);
+          }
+        }
+
+        const questionId = submission.questionId.toString();
+
+        await this.questionSubmissionRepo.updateSubmissionState(
+          questionId,
+          {
+            queue: updatedQueue,
+            // popHistory: false,
+          },
+          session,
         );
 
-        if (removeIndex !== -1) {
-          updatedQueue = queue.slice(0, removeIndex);
-        }
-      }
-
-      await this.questionSubmissionRepo.updateSubmissionState(
-        submission.questionId.toString(),
-        {
-          queue: updatedQueue,
-          popHistory: shouldPopHistory,
-        },
-        session,
-      );
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {isAutoAllocate: false},
+          session,
+        );
 
         questionsAffected += 1;
         questionIds.push(submission.questionId.toString());
