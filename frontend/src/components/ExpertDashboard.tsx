@@ -291,6 +291,7 @@ export const ExpertDashboard = ({
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled
                     className="border-red-200 cursor-not-allowed text-red-600 hover:bg-red-50 hover:text-red-700"
                   >
                     Remove Allocations
