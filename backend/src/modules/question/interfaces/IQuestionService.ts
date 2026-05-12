@@ -193,4 +193,6 @@ export interface IQuestionService {
   generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer : string}>;
 
   approveAiInitialAnswer(questionId: string, answer: string)
+
+  balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number }>;
 }

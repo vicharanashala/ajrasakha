@@ -175,4 +175,9 @@ export interface IQuestionSubmissionRepository {
     },
     session?: ClientSession,
   ): Promise<void>;
+
+  findReallocationQuestionsByIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
 }
