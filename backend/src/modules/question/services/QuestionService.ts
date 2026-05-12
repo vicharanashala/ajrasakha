@@ -4086,10 +4086,9 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   //balance workload to experts for selected questions
-  async balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number }> {
+  async balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number; questionsFiltered?: number; unallocatedQuestions?: number }> {
     const lessWorkloadExperts =
       await this.userRepo.findActiveLowReputationExpertsToday();
-    console.log('less workload experts found:', lessWorkloadExperts);
     const MAX_PER_EXPERT = 5;
 
     if (!lessWorkloadExperts.length) {
@@ -4102,7 +4101,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     if(questionIds.length > lessWorkloadExperts.length * MAX_PER_EXPERT) {
       return {
-        message: `Too many questions selected. Max allowed is ${lessWorkloadExperts.length * MAX_PER_EXPERT} for current available experts. Please reduce the number of questions or increase the number of experts.`,
+        message: `Too many questions selected. Only ${lessWorkloadExperts.length} experts are currently available for reallocation. The maximum allowed is ${lessWorkloadExperts.length * MAX_PER_EXPERT} questions based on the current expert capacity. Please reduce the number of selected questions or increase the number of available experts.`,
         expertsInvolved: lessWorkloadExperts.length,
         submissionsProcessed: 0,
       }
@@ -4128,6 +4127,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
 
     let expertIndex = 0;
+    let unallocatedQuestionsCount = 0;
 
     for (const submission of questionSubmissionDetails) {
       let attempts = 0;
@@ -4163,6 +4163,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
         attempts++;
       }
+      if(!assigned) unallocatedQuestionsCount++;
     }
 
     const flatAssignments: { submissionId: string; expertId: string }[] = [];
@@ -4181,6 +4182,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       message: 'Workload balancing started in background',
       expertsInvolved: lessWorkloadExperts.length,
       submissionsProcessed: flatAssignments.length,
+      questionsFiltered: questionIds.length - questionSubmissionDetails.length,
+      unallocatedQuestions: unallocatedQuestionsCount,
     };
   }
 
