@@ -77,6 +77,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/atoms/select";
+import { Badge } from "../../components/atoms/badge";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -615,22 +616,39 @@ export const QuestionsFilters = ({
         </div>
 
         {/* Pagination Limit Dropdown */}
-        <div className="hidden md:flex items-center gap-2">
-          <Select
-            value={limit.toString()}
-            onValueChange={(value) => setLimit(Number(value))}
-          >
-            <SelectTrigger className="w-[80px]" size="sm">
-              <SelectValue placeholder="Limit" />
-            </SelectTrigger>
-            <SelectContent>
-              {[12, 25, 50, 100].map((v) => (
-                <SelectItem key={v} value={v.toString()}>
-                  {v}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="hidden md:flex items-center gap-2 relative">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="relative">
+                  <Select
+                    value={limit.toString()}
+                    onValueChange={(value) => setLimit(Number(value))}
+                  >
+                    <SelectTrigger className="w-[85px] relative" size="sm">
+                      <SelectValue placeholder="Limit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[12, 25, 50, 100].map((v) => (
+                        <SelectItem key={v} value={v.toString()}>
+                          {v}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Badge 
+                    variant="default" 
+                    className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
+                  >
+                    New
+                  </Badge>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Items per page</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {/* tools and filters */}

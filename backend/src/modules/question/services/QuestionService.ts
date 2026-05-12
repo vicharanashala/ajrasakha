@@ -2746,7 +2746,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     const jobId = startBulkDeleteWorker(questionIds, userId);
     return {
       jobId,
-      message: `Your bulk delete request for ${questionIds.length} question(s) is being processed in the background. This may take some time.`,
+      message: `Your bulk delete request for ${questionIds.length} question(s) is being processed in the background. Estimated time: ~ ${Math.ceil(questionIds.length * 0.6)} sec.`,
     };
   }
 
