@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  Card,
-  CardContent,
-} from "@/components/atoms/card";
+import { Card, CardContent } from "@/components/atoms/card";
 import {
   ListTodo,
   Award,
@@ -50,8 +47,6 @@ export const ExpertDashboard = ({
   expertDetailsList,
   currentUserRole,
 }: ExpertDashboardProps) => {
-
-
   localStorage.removeItem("animationsEnabled");
 
   const shouldFetch = !expertDetailsList;
@@ -59,7 +54,6 @@ export const ExpertDashboard = ({
     startTime: undefined,
     endTime: undefined,
   });
-
 
   const { data: user, isLoading } = useGetCurrentUser({ enabled: shouldFetch });
   let userId: string | undefined;
@@ -78,26 +72,29 @@ export const ExpertDashboard = ({
       },
     });
   const levels = reviewLevel || [];
-  const totalPending = levels.reduce((sum, item) => sum + (item.pendingcount ?? 0), 0);
+  const totalPending = levels.reduce(
+    (sum, item) => sum + (item.pendingcount ?? 0),
+    0,
+  );
   const totalCompleted = levels.reduce(
-    (sum, item) => sum + (item.completedcount??0),
-    0
+    (sum, item) => sum + (item.completedcount ?? 0),
+    0,
   );
   const totalapproved = levels.reduce(
-    (sum, item) => sum + (item.approvedCount??0),
-    0
+    (sum, item) => sum + (item.approvedCount ?? 0),
+    0,
   );
   const totalrejected = levels.reduce(
-    (sum, item) => sum + (item.rejectedCount??0),
-    0
+    (sum, item) => sum + (item.rejectedCount ?? 0),
+    0,
   );
   const totalmodified = levels.reduce(
-    (sum, item) => sum + (item.modifiedCount??0),
-    0
+    (sum, item) => sum + (item.modifiedCount ?? 0),
+    0,
   );
   const totalDelayedQuestions = levels.reduce(
-    (sum, item) => sum + (item.delayedQuestion??0),
-    0
+    (sum, item) => sum + (item.delayedQuestion ?? 0),
+    0,
   );
   const [search, setSearch] = useState("");
 
@@ -120,7 +117,6 @@ export const ExpertDashboard = ({
   const [checkInTimer, setCheckInTimer] = useState<string>("00:00:00");
   const [lateTimer, setLateTimer] = useState<string | null>(null);
 
-
   const expertArr = expertDetailsList || expertDetails;
   useEffect(() => {
     if (!expertArr || !expertArr.experts) return; // safety check
@@ -131,30 +127,27 @@ export const ExpertDashboard = ({
     setUserDetails(filteredUsers);
   }, [expertArr, user?.email]);
 
-
   const lastCheckIn = userDetails?.[0]?.lastCheckInAt
     ? new Date(userDetails[0].lastCheckInAt)
     : null;
-    useEffect(() => {
-  if (!lastCheckIn) return;
+  useEffect(() => {
+    if (!lastCheckIn) return;
 
-  const interval = setInterval(() => {
-    const now = new Date().getTime();
-    const diff = now - lastCheckIn.getTime();
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const diff = now - lastCheckIn.getTime();
 
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff / (1000 * 60)) % 60);
-    const seconds = Math.floor((diff / 1000) % 60);
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff / (1000 * 60)) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
 
-    const format = (n: number) => n.toString().padStart(2, "0");
+      const format = (n: number) => n.toString().padStart(2, "0");
 
-    setCheckInTimer(
-      `${format(hours)}:${format(minutes)}:${format(seconds)}`
-    );
-  }, 1000);
+      setCheckInTimer(`${format(hours)}:${format(minutes)}:${format(seconds)}`);
+    }, 1000);
 
-  return () => clearInterval(interval);
-}, [lastCheckIn]);
+    return () => clearInterval(interval);
+  }, [lastCheckIn]);
 
   const isCheckInDisabled = (lastCheckIn: Date | null) => {
     if (!lastCheckIn) return false;
@@ -165,61 +158,65 @@ export const ExpertDashboard = ({
       now.getFullYear(),
       now.getMonth(),
       now.getDate(),
-      0, 0, 0, 0
+      0,
+      0,
+      0,
+      0,
     );
 
     const endOfToday = new Date(
       now.getFullYear(),
       now.getMonth(),
       now.getDate(),
-      23, 59, 59, 999
+      23,
+      59,
+      59,
+      999,
     );
 
     return lastCheckIn >= startOfToday && lastCheckIn <= endOfToday;
   };
   const isCheckedInToday = isCheckInDisabled(lastCheckIn);
   const isLateCheckIn = (() => {
-  if (!lastCheckIn) return false;
-  const checkInTime = new Date(lastCheckIn);
+    if (!lastCheckIn) return false;
+    const checkInTime = new Date(lastCheckIn);
 
-  const nineAM = new Date(checkInTime);
-  nineAM.setHours(9, 0, 0, 0);
-
-  return checkInTime > nineAM;
-})();
-
-useEffect(() => {
-  if (isCheckedInToday) {
-    setLateTimer(null);
-    return;
-  }
-
-  const interval = setInterval(() => {
-    const now = new Date();
-    const nineAM = new Date();
+    const nineAM = new Date(checkInTime);
     nineAM.setHours(9, 0, 0, 0);
 
-    if (now > nineAM) {
-      const diff = now.getTime() - nineAM.getTime();
+    return checkInTime > nineAM;
+  })();
 
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff / (1000 * 60)) % 60);
-      const seconds = Math.floor((diff / 1000) % 60);
-
-
-      setLateTimer(
-        `${hours.toString().padStart(2, "0")}hr ` +
-        `${minutes.toString().padStart(2, "0")}min ` +
-        `${seconds.toString().padStart(2, "0")}sec`
-      );
-    } else {
+  useEffect(() => {
+    if (isCheckedInToday) {
       setLateTimer(null);
+      return;
     }
-  }, 1000);
 
-  return () => clearInterval(interval);
-}, [isCheckedInToday]);
+    const interval = setInterval(() => {
+      const now = new Date();
+      const nineAM = new Date();
+      nineAM.setHours(9, 0, 0, 0);
 
+      if (now > nineAM) {
+        const diff = now.getTime() - nineAM.getTime();
+
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff / (1000 * 60)) % 60);
+        const seconds = Math.floor((diff / 1000) % 60);
+
+        setLateTimer(
+          `${hours.toString().padStart(2, "0")}hr ` +
+            `${minutes.toString().padStart(2, "0")}min ` +
+            `${seconds.toString().padStart(2, "0")}sec`,
+        );
+      } else {
+        setLateTimer(null);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isCheckedInToday]);
 
   const { checkIn, isPending } = useCheckIn();
   const {
@@ -233,15 +230,11 @@ useEffect(() => {
       [key]: value,
     }));
   };
- 
-
-
 
   return (
     <main
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
     >
-
       {expertId ? (
         <div className="flex justify-end">
           <Button
@@ -276,54 +269,51 @@ useEffect(() => {
               Expert {expertId ? "Performance" : "Dashboard"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Monitor {expertId?"expert":"your"} performance: {userDetails?.[0]?.firstName}
+              Monitor {expertId ? "expert" : "your"} performance:{" "}
+              {userDetails?.[0]?.firstName}
             </p>
           </div>
 
           {/* <DashboardClock /> */}
           <div className="flex flex-col items-center gap-1">
-          {expertId && currentUserRole === "admin" && (
-            <ConfirmationModal
-              title="Remove all allocations for this expert?"
-              description="This will clear all question queues where this expert is allocated. All experts in those queues will be removed, and this expert's pending workload will be reset to zero."
-              confirmText="Remove Allocations"
-              cancelText="Cancel"
-              type="delete"
-              isLoading={removingAllocations}
-              onConfirm={async () => {
-                await removeExpertAllocations(expertId);
-              }}
-              trigger={
-                <Button
-                  size="sm"
-                  disabled
-                  variant="outline"
-                  className="border-red-200 cursor-not-allowed text-red-600 hover:bg-red-50 hover:text-red-700"
-                >
-                  Remove Allocations
-                </Button>
-              }
-            />
-          )}
-          {user?.role==='expert' && (
-           <div className="flex flex-col items-center gap-1">
-             
-                  <div className="flex flex-col items-center gap-0.5">
-                   {isCheckedInToday &&(
-                    <span className="text-lg px-1 font-semibold tracking-widest w-full text-right">
-                     {checkInTimer}
-                    </span>
-
-                      )}
-
-                      <div className="relative group">
-
-                  <button
-                disabled={isCheckedInToday || isPending}
-                onClick={() => {
-                  if (!isCheckedInToday) checkIn();
+            {expertId && currentUserRole === "admin" && (
+              <ConfirmationModal
+                title="Remove all allocations for this expert?"
+                description="This will clear all question queues where this expert is allocated. All experts in those queues will be removed, and this expert's pending workload will be reset to zero."
+                confirmText="Remove Allocations"
+                cancelText="Cancel"
+                type="delete"
+                isLoading={removingAllocations}
+                onConfirm={async () => {
+                  await removeExpertAllocations(expertId);
                 }}
-                className={`
+                trigger={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-200 cursor-not-allowed text-red-600 hover:bg-red-50 hover:text-red-700"
+                  >
+                    Remove Allocations
+                  </Button>
+                }
+              />
+            )}
+            {user?.role === "expert" && (
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-0.5">
+                  {isCheckedInToday && (
+                    <span className="text-lg px-1 font-semibold tracking-widest w-full text-right">
+                      {checkInTimer}
+                    </span>
+                  )}
+
+                  <div className="relative group">
+                    <button
+                      disabled={isCheckedInToday || isPending}
+                      onClick={() => {
+                        if (!isCheckedInToday) checkIn();
+                      }}
+                      className={`
                   flex items-center gap-2 px-2 py-2 rounded-xl border
                   transition-all duration-200 
                   ${
@@ -333,52 +323,52 @@ useEffect(() => {
                   }
                   ${isPending ? "opacity-60" : ""}
                 `}
-              >
-                {isCheckedInToday ? (
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                ) : (
-                  <Clock className="w-5 h-5 text-green-500 " />
-                )}
+                    >
+                      {isCheckedInToday ? (
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Clock className="w-5 h-5 text-green-500 " />
+                      )}
 
-                <span className="text-sm font-medium">
-                  {isCheckedInToday ? "Checked In" : "Check In"}
-                </span>
-              </button>
-              <div
-                  className="
+                      <span className="text-sm font-medium">
+                        {isCheckedInToday ? "Checked In" : "Check In"}
+                      </span>
+                    </button>
+                    <div
+                      className="
                     absolute top-full mt-2 left-1/2 -translate-x-[70%]
                     hidden group-hover:block
                     w-74 text-xs text-white bg-green-500 rounded-lg px-3 py-2
                     shadow-lg z-50
                   "
-                >
-                  <p className="font-medium">⏰<b> Check-in Policy </b></p>
-                  <p className="mt-1">
-                   • Check in before <b>9:00 AM</b>. Late check-ins will be marked <b>absent</b> and no questions will be allocated.
+                    >
+                      <p className="font-medium">
+                        ⏰<b> Check-in Policy </b>
+                      </p>
+                      <p className="mt-1">
+                        • Check in before <b>9:00 AM</b>. Late check-ins will be
+                        marked <b>absent</b> and no questions will be allocated.
+                      </p>
+                      <p className="mt-1">
+                        • No checkout is required. The system resets
+                        automatically at the end of the day.
+                      </p>
+                    </div>
+                  </div>
+                  {lateTimer && !isCheckedInToday && (
+                    <span className="text-xs font-semibold text-red-500 tracking-wide">
+                      ⏱ You are <b>{lateTimer}</b> late
+                    </span>
+                  )}
 
-                  </p>
-                  <p className="mt-1">
-                    • No checkout is required. The system resets automatically at the end of the day.
-                  </p>
-                </div>
-              </div>
-              {lateTimer && !isCheckedInToday && (
-                <span className="text-xs font-semibold text-red-500 tracking-wide">
-                  ⏱ You are <b>{lateTimer}</b> late
-                </span>
-              )}
-
-
-              {(isLateCheckIn  && isCheckedInToday) && (
+                  {isLateCheckIn && isCheckedInToday && (
                     <span className="text-xs text-red-500 px-2 font-medium w-full text-right">
                       Late Check-in
                     </span>
                   )}
-               
                 </div>
-            </div>
-          )}
-
+              </div>
+            )}
           </div>
         </div>
         {/* Summary Cards */}
