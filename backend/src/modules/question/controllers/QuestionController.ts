@@ -37,6 +37,7 @@ import {
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   BulkDeleteQuestionDto,
   DateRangeRequest,
   GeneratedQuestionResponse,
@@ -783,6 +784,23 @@ export class QuestionController {
     };
     this.auditTrailsService.createAuditTrail(auditPayload);
     return result.message;
+  }
+
+  @Post('/bulk-pae-allocate')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Bulk allocate PAE experts to multiple draft questions' })
+  async bulkAllocatePaeExperts(
+    @Body() body: BulkPaeAllocateRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    const { _id: userId } = user;
+    const { questionIds, paeExpertId } = body;
+    return this.questionService.bulkAllocatePaeExperts(
+      userId.toString(),
+      questionIds,
+      paeExpertId,
+    );
   }
 
   @Post('/:questionId/allocate-experts')

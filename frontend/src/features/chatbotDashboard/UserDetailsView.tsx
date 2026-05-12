@@ -346,6 +346,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               {isDuplicateModalOpen && (
                 <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} />
               )}
+
             </div>
 
             {/* Top Crops - Full Width */}
