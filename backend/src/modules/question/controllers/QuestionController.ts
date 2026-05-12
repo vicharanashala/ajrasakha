@@ -324,6 +324,7 @@ export class QuestionController {
           success: true,
           message: 'Your question is similar to an existing question.',
           question_id: data._id,
+          isAnswered: data.isAnswered,
         };
       }
 
@@ -356,7 +357,8 @@ export class QuestionController {
       return {
         success: true,
         message: 'Question submitted successfully.',
-        question_id: data._id
+        question_id: data._id,
+        isAnswered: data.isAnswered,
       };
     }
   }

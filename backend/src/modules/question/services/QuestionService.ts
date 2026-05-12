@@ -884,7 +884,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         source = 'AGRI_EXPERT',
         details,
         context,
-        originalquestion = ''
+        originalquestion = '',
+        isAnswered = false,
       } = body;
       console.log("the body coming=====", body)
 
@@ -970,7 +971,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       let topMatches: { questionId: ObjectId, question: string, similarityScore: number }[] = []
 
       // ✅ Everything that needs atomicity goes inside the transaction
-      return this._withTransaction(async (session: ClientSession) => {
+      const result = await this._withTransaction(async (session: ClientSession) => {
         // 🔹 Create Context
         let contextId: ObjectId | null = null;
 
@@ -996,6 +997,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
+          isAnswered,
           ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
         };
         // const enableDuplicateFeature = false
@@ -1116,6 +1118,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         console.log("the response onject coming===", responseobj)
         return responseobj
       });
+
+      // Fire-and-forget: for AJRASAKHA questions, query chatbot DB and set isAnswered
+      if (source === 'AJRASAKHA' && result?.data?._id) {
+        this._setIsAnsweredFromChatbot(
+          result.data._id,
+          question,
+          details,
+          result.data.createdAt as Date,
+        ).catch(err => console.error('isAnswered update failed:', err));
+      }
+
+      return result;
     } catch (error) {
       console.error(error);
 
@@ -3811,6 +3825,34 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
+  private async _setIsAnsweredFromChatbot(
+    questionId: string,
+    question: string,
+    details: any,
+    createdAt: Date,
+  ) {
+    const [analyticsMessages, annamMessages] = await Promise.all([
+      this.chatbotRepository.findMatchingMessages({
+        question, details, createdAt, questionId, messageId: undefined,
+      }),
+      this.chatbotRepository.findFromSecondDb({
+        question, details, createdAt, questionId, messageId: undefined,
+      }),
+    ]);
+
+    const message = [...analyticsMessages, ...annamMessages]?.[0];
+    if (!message) return;
+
+    const content: any[] = message.content || [];
+    const lastTextItem = [...content].reverse().find((c: any) => c.type === 'text');
+    if (lastTextItem?.text) {
+      const hasInsufficientInfo = lastTextItem.text
+        .toLowerCase()
+        .includes('we do not have sufficient information');
+      await this.questionRepo.updateQuestion(questionId, { isAnswered: !hasInsufficientInfo });
+    }
+  }
+
   async getMatchedQuestion(questionId: string) {
     const questionData = await this.questionRepo.getById(questionId);
 
@@ -3862,11 +3904,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       }),
     ]);
 
-
-
     // Take first matched message (assuming 1 expected)
     const allMessages = [...analyticsMessages, ...annamMessages];
-
     const message = allMessages?.[0];
 
     if (!message) {
@@ -3880,6 +3919,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         {
           userId: new ObjectId(message.userDetails._id),
         },
+      );
+    }
+
+    // Determine isAnswered based on chatbot's final text response
+    const content: any[] = message.content || [];
+    const lastTextItem = [...content].reverse().find((c: any) => c.type === 'text');
+    if (lastTextItem?.text) {
+      const hasInsufficientInfo = lastTextItem.text
+        .toLowerCase()
+        .includes('we do not have sufficient information');
+      await this.questionRepo.updateQuestion(
+        questionId.toString(),
+        { isAnswered: !hasInsufficientInfo },
       );
     }
 

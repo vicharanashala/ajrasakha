@@ -422,7 +422,11 @@ class AddQuestionBodyDto {
   @IsOptional()
   originalquestion?: string;
 
-  
+  @IsOptional()
+  @IsBoolean()
+  isAnswered?: boolean;
+
+
 }
 
 class GenerateQuestionsBody {
