@@ -4100,6 +4100,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
 
+    if(questionIds.length > lessWorkloadExperts.length * MAX_PER_EXPERT) {
+      return {
+        message: `Too many questions selected. Max allowed is ${lessWorkloadExperts.length * MAX_PER_EXPERT} for current available experts. Please reduce the number of questions or increase the number of experts.`,
+        expertsInvolved: lessWorkloadExperts.length,
+        submissionsProcessed: 0,
+      }
+    }
+
     const questionSubmissionDetails = await this.questionSubmissionRepo.findReallocationQuestionsByIds(questionIds);
 
     if (!questionSubmissionDetails.length) throw new NotFoundError(
