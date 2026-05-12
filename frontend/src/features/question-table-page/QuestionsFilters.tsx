@@ -70,6 +70,13 @@ import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/atoms/select";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -99,6 +106,8 @@ type QuestionsFiltersProps = {
   setView: (v: "grid" | "table") => void;
   handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
   isBulkAllocatingPae: boolean;
+  limit: number;
+  setLimit: (limit: number) => void;
 };
 
 type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae";
@@ -150,6 +159,8 @@ export const QuestionsFilters = ({
   setView,
   handleBulkAllocateToPae,
   isBulkAllocatingPae,
+  limit,
+  setLimit,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -601,6 +612,25 @@ export const QuestionsFilters = ({
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="relative hidden md:flex items-center gap-2">
           <ViewDropdown view={view} setView={setView} />
+        </div>
+
+        {/* Pagination Limit Dropdown */}
+        <div className="hidden md:flex items-center gap-2">
+          <Select
+            value={limit.toString()}
+            onValueChange={(value) => setLimit(Number(value))}
+          >
+            <SelectTrigger className="w-[80px]" size="sm">
+              <SelectValue placeholder="Limit" />
+            </SelectTrigger>
+            <SelectContent>
+              {[12, 25, 50, 100].map((v) => (
+                <SelectItem key={v} value={v.toString()}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* tools and filters */}
