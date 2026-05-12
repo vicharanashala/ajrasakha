@@ -353,4 +353,122 @@ async getAllUsersforManualSelect(
       );
     }
   }
+
+  async removeExpertAllocations(
+    currentUser: IUser,
+    expertId: string,
+  ): Promise<{
+    questionsAffected: number;
+    removedQueues: number;
+    workloadBefore: number;
+    workloadAfter: number;
+    questionIds: string[];
+  }> {
+    if (!currentUser || currentUser.role !== 'admin') {
+      throw new ForbiddenError('Only admins can remove expert allocations');
+    }
+
+    return this._withTransaction(async (session: ClientSession) => {
+      const expert = await this.userRepo.findById(expertId, session);
+      if (!expert) {
+        throw new NotFoundError(`User with ID ${expertId} not found`);
+      }
+
+      if (expert.role !== 'expert' && expert.role !== 'pae_expert') {
+        throw new BadRequestError(
+          'Allocations can only be removed for expert users',
+        );
+      }
+
+      const workloadBefore =
+        typeof expert.reputation_score === 'number'
+          ? expert.reputation_score
+          : 0;
+
+      const submissions = await this.questionSubmissionRepo.findByQueuedExpertId(
+        expertId,
+        session,
+      );
+
+      let questionsAffected = 0;
+      const questionIds: string[] = [];
+
+      for (const submission of submissions) {
+        const queue = submission.queue || [];
+        if (queue.length === 0) continue;
+
+        const hasTargetExpert = queue.some(
+          queuedExpertId => queuedExpertId.toString() === expertId,
+        );
+        if (!hasTargetExpert) continue;
+
+        const history = submission.history || [];
+        let activeExpertId: string | null = null;
+
+        if (history.length === 0) {
+          activeExpertId = queue[0] ? queue[0].toString() : null;
+        } else {
+          const lastHistory = history[history.length - 1];
+          if (lastHistory?.status === 'in-review' && lastHistory.updatedBy) {
+            activeExpertId = lastHistory.updatedBy.toString();
+          }
+        }
+
+        if (activeExpertId) {
+          await this.userRepo.updateReputationScore(
+            activeExpertId,
+            false,
+            session,
+          );
+        }
+
+        const shouldPopHistory =
+        history.length > 0 &&
+        history[history.length - 1]?.status === 'in-review';
+      const hasReviewed = history.some(
+        item =>
+          item.status === 'reviewed' ||
+          item.status === 'approved' ||
+          item.status === 'rejected',
+      );
+
+      let updatedQueue = [];
+
+      if (!hasReviewed) {
+        updatedQueue = [];
+      } else {
+        const removeIndex = queue.findIndex(
+          queuedExpertId =>
+            queuedExpertId.toString() === expertId,
+        );
+
+        if (removeIndex !== -1) {
+          updatedQueue = queue.slice(0, removeIndex);
+        }
+      }
+
+      await this.questionSubmissionRepo.updateSubmissionState(
+        submission.questionId.toString(),
+        {
+          queue: updatedQueue,
+          popHistory: shouldPopHistory,
+        },
+        session,
+      );
+
+        questionsAffected += 1;
+        questionIds.push(submission.questionId.toString());
+      }
+
+      await this.userRepo.setReputationScore(expertId, 0, session);
+
+      return {
+        questionsAffected,
+        removedQueues: questionsAffected,
+        workloadBefore,
+        workloadAfter: 0,
+        questionIds,
+      };
+    });
+  }
 }

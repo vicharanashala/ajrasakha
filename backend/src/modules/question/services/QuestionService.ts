@@ -4,6 +4,7 @@ import { GLOBAL_TYPES } from '#root/types.js';
 import { inject, injectable } from 'inversify';
 import { ClientSession, ObjectId } from 'mongodb';
 import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
+import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js';
 import {
   IQuestion,
   IQuestionSubmission,
@@ -1767,6 +1768,31 @@ export class QuestionService extends BaseService implements IQuestionService {
     } catch (error) {
       throw new InternalServerError(`Failed to allocate experts: ${error}`);
     }
+  }
+
+  /**
+   * Bulk allocate a PAE expert to multiple existing draft questions via background worker.
+   * Fires and returns immediately — the worker handles DB operations asynchronously.
+   */
+  async bulkAllocatePaeExperts(
+    userId: string,
+    questionIds: string[],
+    paeExpertId: string,
+  ): Promise<{ jobId: string; message: string }> {
+    // Validate actor and PAE expert before handing off to worker
+    const actor = await this.userRepo.findById(userId);
+    if (!actor) throw new UnauthorizedError('Cannot find user, try relogin!');
+    if (actor.role === 'expert')
+      throw new UnauthorizedError("You don't have permission to perform this operation");
+
+    const paeUser = await this.userRepo.findById(paeExpertId);
+    if (!paeUser) throw new BadRequestError('PAE expert not found');
+
+    const jobId = startPaeAllocationWorker(questionIds, paeExpertId, userId);
+    return {
+      jobId,
+      message: `PAE allocation started for ${questionIds.length} question(s). Track progress with job ID: ${jobId}`,
+    };
   }
 
   // async removeExpertFromQueue(
@@ -4316,5 +4342,93 @@ export class QuestionService extends BaseService implements IQuestionService {
       return { success: true };
     });
   }
+
+  //balance workload to experts for selected questions
+  async balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number }> {
+    const lessWorkloadExperts =
+      await this.userRepo.findActiveLowReputationExpertsToday();
+    console.log('less workload experts found:', lessWorkloadExperts);
+    const MAX_PER_EXPERT = 5;
+
+    if (!lessWorkloadExperts.length) {
+      return {
+        message: 'No Expert Present To Reallocate Questions .No action needed.',
+        expertsInvolved: 0,
+        submissionsProcessed: 0,
+      };
+    }
+
+    const questionSubmissionDetails = await this.questionSubmissionRepo.findReallocationQuestionsByIds(questionIds);
+
+    if (!questionSubmissionDetails.length) throw new NotFoundError(
+      `Failed to find Questions`,
+    );
+    const assignments: Record<string, any[]> = {};
+    const expertLoad: Record<string, number> = {};
+
+
+    lessWorkloadExperts.forEach(e => {
+      const id = e._id.toString();
+      assignments[id] = [];
+      expertLoad[id] = 0;
+    });
+
+    let expertIndex = 0;
+
+    for (const submission of questionSubmissionDetails) {
+      let attempts = 0;
+      let assigned = false;
+
+      // Get all experts who already reviewed the question
+      const historyExpertIds = new Set(
+        (submission.history || []).map(h => h.updatedBy?.toString()),
+      );
+
+      // Get all experts already present in queue
+      const queueExpertIds = new Set(
+        (submission.queue || []).map(id =>
+          id.toString(),
+        ),
+      );
+
+      while (attempts < lessWorkloadExperts.length && !assigned) {
+        const expert = lessWorkloadExperts[expertIndex];
+        const expertId = expert._id.toString();
+
+        if (
+          !historyExpertIds.has(expertId) &&
+          !queueExpertIds.has(expertId) &&
+          expertLoad[expertId] < MAX_PER_EXPERT
+        ) {
+          assignments[expertId].push(submission);
+          expertLoad[expertId]++;
+          assigned = true;
+        }
+
+        // Round robin balancing
+        expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
+        attempts++;
+      }
+    }
+
+    const flatAssignments: { submissionId: string; expertId: string }[] = [];
+
+    for (const expertId in assignments) {
+      for (const submission of assignments[expertId]) {
+        flatAssignments.push({
+          submissionId: submission._id.toString(),
+          expertId,
+        });
+      }
+    }
+    startBalanceWorkloadWorkers(flatAssignments);
+
+    return {
+      message: 'Workload balancing started in background',
+      expertsInvolved: lessWorkloadExperts.length,
+      submissionsProcessed: flatAssignments.length,
+    };
+  }
+
 
 }

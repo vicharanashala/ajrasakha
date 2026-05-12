@@ -283,22 +283,24 @@ export const QuestionDetails = ({
               </Button>
             </div>
           </div>
-          <p
-            className="
+          {question.status !== "pass" && (
+            <p
+              className="
     text-sm md:hidden p-3 rounded w-full 
     flex items-center justify-center gap-3 text-center flex-wrap
     bg-yellow-50 border border-yellow-300 text-yellow-700
     dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-300
   "
-          >
-            <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+            >
+              <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
 
-            <span className="font-medium">
-              Allocation timeline is only accessible on laptop/desktop
-            </span>
+              <span className="font-medium">
+                Allocation timeline is only accessible on laptop/desktop
+              </span>
 
-            <span className="opacity-80">(or switch to desktop view)</span>
-          </p>
+              <span className="opacity-80">(or switch to desktop view)</span>
+            </p>
+          )}
 
           {answers.length === 0 ? (
             <p className="text-sm text-muted-foreground  hidden md:block">

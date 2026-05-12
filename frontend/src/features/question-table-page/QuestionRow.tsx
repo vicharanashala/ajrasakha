@@ -25,6 +25,7 @@ import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edi
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useQuestionTableStore } from "@/stores/all-questions";
+import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 
 interface QuestionRowProps {
   q: IDetailedQuestion;
@@ -89,7 +90,12 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
 
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(q);
-
+  
+  // const { timer } = useQuestionTimer(
+  //     q.source,
+  //     timerStartTime,
+  //     buildHoldCountdownOptions(q)
+  //   )
 
   const { timer, isClickable, delayMinutes } = useQuestionClickability(
     q.source,
@@ -322,7 +328,13 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
-                        className={`cursor-pointer ${isClickable
+                        // className={`cursor-pointer hover:underline`}
+                        // onClick={() => {
+                        //   // if (!isClickable || hasSelectedQuestions) return;
+                        //   onViewMore(q._id?.toString() || "");
+                        // }}
+
+                         className={`cursor-pointer ${isClickable
                           ? hasSelectedQuestions
                             ? ""
                             : "hover:underline"
@@ -348,7 +360,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                   </Tooltip>
                 </TooltipProvider>
 
-                {q.status !== "delayed" && (
+                {q.status !== "delayed" && q.status !== "pass" && (
                   <TimerDisplay timer={timer} status={q.status} source={q.source} showDays={true} />
                 )}
               </div>

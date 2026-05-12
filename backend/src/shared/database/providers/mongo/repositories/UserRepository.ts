@@ -585,6 +585,24 @@ export class UserRepository implements IUserRepository {
     );
   }
 
+  async setReputationScore(
+    userId: string,
+    score: number,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          reputation_score: Math.max(0, score),
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+  }
+
   async findExpertsByPreference(
     details: PreferenceDto,
     session?: ClientSession,

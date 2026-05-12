@@ -441,6 +441,15 @@ class ExpertInput {
 class AllocateExpertsRequest {
   experts!: string[];
 }
+class BulkPaeAllocateRequest {
+  @IsArray()
+  @IsMongoId({ each: true })
+  questionIds!: string[];
+
+  @IsNotEmpty()
+  @IsMongoId()
+  paeExpertId!: string;
+}
 class RemoveAllocateBody {
   @IsNumber()
   index!: number;
@@ -816,6 +825,13 @@ export class ApproveInitialAnswerBody {
   answer :string;
 }
 
+class ReallocateExpertsSelectedQuestionsRequest {
+  @IsNotEmpty()
+  @IsArray()
+  @IsString({ each: true })
+  questionIds!: string[];
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -824,6 +840,7 @@ export const QUESTION_VALIDATORS = [
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
@@ -835,6 +852,7 @@ export const QUESTION_VALIDATORS = [
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
   ApproveInitialAnswerBody,
+  ReallocateExpertsSelectedQuestionsRequest,
 ];
 
 export {
@@ -846,6 +864,7 @@ export {
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
@@ -853,4 +872,5 @@ export {
   HistoryItem,
   BulkDeleteQuestionDto,
   DateRangeRequest,
+  ReallocateExpertsSelectedQuestionsRequest,
 };

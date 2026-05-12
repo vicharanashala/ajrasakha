@@ -24,3 +24,22 @@ export const useReAllocateLessWorkload = () => {
     },
   });
 };
+export const useReAllocateExpertsSelectedQuestions = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["reallocateExpertsSelectedQuestions"],
+    mutationFn: async (questionIds: string[]): Promise<WorkloadBalanceResponse|null> => {
+     return await questionService.reAllocateExpertsSelectedQuestions(questionIds);
+    },
+    onSuccess: () => {
+      //toast.success("Question ReAllocated Successfully");
+      queryClient.invalidateQueries({ queryKey: ["question"] });
+      queryClient.invalidateQueries({ queryKey: ["questions"] });
+    },
+    onError: (error: any) => {
+      //toast.error("Failed to reAllocate question for those who has less workload");
+      console.error("ReAllocate to experts selected questions error:", error);
+    },
+  });
+};

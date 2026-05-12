@@ -84,6 +84,13 @@ export interface IQuestionService {
     experts: string[],
   ): Promise<IQuestionSubmission>;
 
+  /** Bulk allocate a PAE expert to multiple draft questions via background worker */
+  bulkAllocatePaeExperts(
+    userId: string,
+    questionIds: string[],
+    paeExpertId: string,
+  ): Promise<{ jobId: string; message: string }>;
+
   /** Remove expert from allocation queue */
   removeExpertFromQueue(
     userId: string,
@@ -193,4 +200,6 @@ export interface IQuestionService {
     assignments: { submissionId: string; expertId: string }[],
     inactiveExpertIds?: string[],
   ): Promise<{ message: string; submissionsProcessed: number }>;
+
+  balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number }>;
 }

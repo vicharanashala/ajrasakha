@@ -13,6 +13,7 @@ import { ChannelSplitCard } from "./components/ChannelSplitCard";
 import { DashboardQueryCategories } from "./DashboardQueryCategories";
 import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
 import { AlertCard } from "./AlertCard";
+import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
 import { Spinner } from "@/components/atoms/spinner";
 import { GeoCard } from "./GeoCard";
 import { HealthScoreCard } from "./HealthScoreCard";
@@ -66,6 +67,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   }, [activeSegment]);
 
   const clearSegment = () => setActiveSegment(null);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   // Navigate to User Details with inactive-only filter pre-applied
   const handleInactiveUsersClick = useCallback(() => {
@@ -202,7 +204,16 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                       sectionRefs.current["bugs-ux"] = el;
                     }}
                   >
-                    <AlertCard alerts={data.alerts} inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0} onInactiveClick={handleInactiveUsersClick} />
+                    <AlertCard
+                      alerts={data.alerts}
+                      inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0}
+                      onInactiveClick={handleInactiveUsersClick}
+                      duplicateQuestionsCount={(data as any).duplicateQuestionsCount ?? 0}
+                      onDuplicateClick={() => setIsDuplicateModalOpen(true)}
+                    />
+                    {isDuplicateModalOpen && (
+                      <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} />
+                    )}
                   </div>
                 </div>
 

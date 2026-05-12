@@ -1670,7 +1670,7 @@ answer: ${updates.answer}`;
         if(appConfig.isDevelopment){
           return []
         }
-        if (!ENABLE_AI_SERVER) throw new InternalServerError('AI server is not enabled');
+      //  if (!ENABLE_AI_SERVER) throw new InternalServerError('AI server is not enabled');
 
         const { embedding } =
           await this.aiService.getEmbedding(value);
