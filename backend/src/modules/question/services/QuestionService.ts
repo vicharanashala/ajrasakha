@@ -4110,9 +4110,13 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const questionSubmissionDetails = await this.questionSubmissionRepo.findReallocationQuestionsByIds(questionIds);
 
-    if (!questionSubmissionDetails.length) throw new NotFoundError(
-      `Failed to find Questions`,
-    );
+    if (!questionSubmissionDetails.length) {
+    return {
+        message: `No valid questions found. Selected questions are either closed, in review, passed, draft, or already submitted.`,
+        expertsInvolved: lessWorkloadExperts.length,
+        submissionsProcessed: 0,
+      }
+    }
     const assignments: Record<string, any[]> = {};
     const expertLoad: Record<string, number> = {};
 
