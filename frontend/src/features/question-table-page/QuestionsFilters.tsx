@@ -7,6 +7,10 @@ import {
 } from "@/components/atoms/tooltip";
 import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
+
+import { Badge } from "../../components/atoms/badge";
+import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "../../components/atoms/select";
+
 import {
   ArrowDownNarrowWide,
   ArrowUpNarrowWide,
@@ -70,14 +74,7 @@ import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/atoms/select";
-import { Badge } from "../../components/atoms/badge";
+import { TopRightBadge } from "@/components/NewBadge";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -216,11 +213,11 @@ export const QuestionsFilters = ({
         setTimeout(() => {
           setIsReAllocateDisabled(false);
         }, 50000);
-      } else if (res.message) {
         // Any other message from backend
         toast.success(res.message);
         setIsReAllocateDisabled(false);
       }
+      refetch();
     } catch (error) {
       toast.error(
         "Failed to reAllocate question for those who has less workload",
@@ -262,11 +259,11 @@ export const QuestionsFilters = ({
         setTimeout(() => {
           setIsReAllocateDisabled(false);
         }, 50000);
-      } else if (res.message) {
         // Any other message from backend
         toast.success(res.message);
         setIsReAllocateDisabled(false);
       }
+      refetch();
     } catch (error) {
       toast.error(
         "Failed to reAllocate selected question",
@@ -657,7 +654,10 @@ export const QuestionsFilters = ({
         </div>
       </div> */}
 
-      <AnswerModeSwitcher answerMode={answerMode} handleAnswerModeChange={handleAnswerModeChange} />
+      <AnswerModeSwitcher
+        answerMode={answerMode}
+        handleAnswerModeChange={handleAnswerModeChange}
+      />
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="relative hidden md:flex items-center gap-2">
@@ -706,7 +706,9 @@ export const QuestionsFilters = ({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={selectedQuestionIds.length === 0 || isBulkAllocatingPae}
+                disabled={
+                  selectedQuestionIds.length === 0 || isBulkAllocatingPae
+                }
                 onClick={() => setIsPaeAllocateModalOpen(true)}
                 className="flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10"
               >
@@ -732,8 +734,8 @@ export const QuestionsFilters = ({
                     setIsReAllocateSelectedQuestionsOpen(true);
                   }}
                   className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled
-                      ? "cursor-not-allowed text-green-600"
-                      : ""
+                    ? "cursor-not-allowed text-green-600"
+                    : ""
                     }`}
                 >
                   <UserCheck className="h-4 w-4" />
@@ -948,12 +950,13 @@ export const QuestionsFilters = ({
               {/* WhatsApp History */}
               {userRole !== "expert" && (
                 <button
-                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative"
                   onClick={() => {
                     navigate({ to: "/whatsapp-history" });
                     setIsSidebarOpen(false);
                   }}
                 >
+                  <TopRightBadge label="new" left={0} />
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
                       <MessageSquare size={20} />
@@ -1147,8 +1150,8 @@ export const QuestionsFilters = ({
           }
         }}
         className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
-            ? "rounded-[16px] px-4 py-3 min-w-[220px]"
-            : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
+          ? "rounded-[16px] px-4 py-3 min-w-[220px]"
+          : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
           } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
           left: `${safeX}px`,
@@ -1158,8 +1161,12 @@ export const QuestionsFilters = ({
       >
         {/* Header row */}
         <div className="flex items-center gap-3">
-          <Activity size={14} className="text-green-600 dark:text-green-500 shrink-0" />
+          <Activity
+            size={14}
+            className="text-green-600 dark:text-green-500 shrink-0"
+          />
           <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
+            <TopRightBadge label="new" right={0} />
             Total:{" "}
             <span className="text-gray-900 dark:text-white transition-opacity duration-300">
               {statusSummary?.totalQuestions ?? totalQuestions}
@@ -1193,14 +1200,20 @@ export const QuestionsFilters = ({
                       key={s.status}
                       onClick={() => {
                         // If clicking the same status, revert to previous filter
-                        if (advanceFilter.status === s.status && previousFilter) {
+                        if (
+                          advanceFilter.status === s.status &&
+                          previousFilter
+                        ) {
                           setAdvanceFilterValues(previousFilter);
                           onChange(previousFilter);
                           setPreviousFilter(null);
                         } else {
                           // Save current filter and apply new status filter
                           setPreviousFilter(advanceFilter);
-                          const nextFilters = { ...advanceFilter, status: s.status as any };
+                          const nextFilters = {
+                            ...advanceFilter,
+                            status: s.status as any,
+                          };
                           setAdvanceFilterValues(nextFilters);
                           onChange(nextFilters);
                         }
@@ -1213,7 +1226,9 @@ export const QuestionsFilters = ({
                           {s.status}
                         </span>
                       </div>
-                      <span className={`text-xs font-bold tabular-nums ${color.text}`}>
+                      <span
+                        className={`text-xs font-bold tabular-nums ${color.text}`}
+                      >
                         {s.count}
                       </span>
                     </div>

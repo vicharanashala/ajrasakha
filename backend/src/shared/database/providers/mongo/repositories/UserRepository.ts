@@ -595,23 +595,30 @@ export class UserRepository implements IUserRepository {
           return '';
         };
         const prefState = (pref.state || '').toLowerCase().trim();
-        const prefDomain = (pref.domain || '').toLowerCase().trim();
+        const normalizeDomain = (d: string | string[] | undefined): string[] => {
+          if (!d) return [];
+          if (Array.isArray(d)) return d.map(v => v.toLowerCase().trim());
+          return [d.toLowerCase().trim()];
+        };
+        const prefDomains = normalizeDomain(pref.domain);
         const prefCrop = normalize(pref.crop);
 
 
         const detState = (details.state || '').toLowerCase().trim();
-        const detDomain = (details.domain || '').toLowerCase().trim();
+        const detDomains = normalizeDomain(details.domain);
         const detCrop = normalize(details.crop);
 
+        const prefDomainIsAll = prefDomains.length === 1 && prefDomains[0] === 'all';
         const isAllSelected =
-          prefCrop === 'all' && prefState === 'all' && prefDomain === 'all';
+          prefCrop === 'all' && prefState === 'all' && prefDomainIsAll;
 
         let score = 0;
 
         // Preference Weighting
         if (prefState !== 'all' && prefState === detState) score += 3;
 
-        if (prefDomain !== 'all' && prefDomain === detDomain) score += 2;
+        const hasDomainOverlap = prefDomains.some(d => detDomains.includes(d));
+        if (!prefDomainIsAll && hasDomainOverlap) score += 2;
 
         if (prefCrop !== 'all' && prefCrop === detCrop) score += 1;
 

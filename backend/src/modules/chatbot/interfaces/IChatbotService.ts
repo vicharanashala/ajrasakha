@@ -13,6 +13,7 @@ import type {
   DemographicEntry,
   PlatformInstallEntry,
   DuplicateQuestionEntry,
+  DomainSpikeEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -32,6 +33,7 @@ export interface DashboardResponse {
   kccAwareness: DemographicEntry[];
   agriAppUsage: DemographicEntry[];
   platformInstalls: PlatformInstallEntry[];
+  domainSpikes: DomainSpikeEntry[];
 }
 
 export interface IChatbotService {
@@ -54,5 +56,6 @@ export interface IChatbotService {
   generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
   getGrowth(range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(): Promise<DuplicateQuestionEntry[]>;
+  getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
 }
 

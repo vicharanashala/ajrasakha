@@ -251,9 +251,31 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               kpiRow2={kpiRow2WithOverlay} 
             />
 
-            {/* Additional Charts */}
+            {/* User Growth Trend + Alerts & Notifications - Right after KPI cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch">
+              <UserGrowthChart />
+              <AlertCard
+                alerts={dashboardData.alerts}
+                inactiveUsersLast3Days={(dashboardData as any).inactiveUsersLast3Days ?? 0}
+                onInactiveClick={() => {
+                  const threeDaysAgo = new Date();
+                  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+                  threeDaysAgo.setHours(0, 0, 0, 0);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  setFilters(prev => ({ 
+                    ...prev, 
+                    startTime: threeDaysAgo, 
+                    endTime: today, 
+                    inactiveOnly: true 
+                  }));
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+
+            {/* Demographics */}
             <div className="mb-4">
-              {/* User Demographics - renders its own grid of 4 cards */}
               <UserDemographicsSection 
                 data={{
                   ageGroups: dashboardData.ageGroups || [],

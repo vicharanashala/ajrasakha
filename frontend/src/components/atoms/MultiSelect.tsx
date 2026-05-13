@@ -13,6 +13,7 @@ interface MultiSelectProps {
   placeholder?: string;
   getDisplayLabel?: (selected: string[]) => string;
   headerSlot?: React.ReactNode;
+  direction?: "up" | "down";
 }
 
 export const MultiSelect = ({
@@ -22,6 +23,7 @@ export const MultiSelect = ({
   placeholder = "All",
   getDisplayLabel,
   headerSlot,
+  direction = "down",
 }: MultiSelectProps) => {
   const [open, setOpen] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -73,7 +75,7 @@ export const MultiSelect = ({
       </button>
 
       {open && (
-        <div className="absolute z-50 left-0 right-0 mt-1 rounded-md border border-input bg-popover shadow-md">
+        <div className={`absolute z-50 left-0 right-0 rounded-md border border-input bg-popover shadow-md ${direction === "up" ? "bottom-full mb-1" : "mt-1"}`}>
           <div className="flex items-center justify-between px-3 py-2 border-b">
             <span className="text-xs font-medium text-muted-foreground">
               {selected.length} selected
@@ -97,7 +99,7 @@ export const MultiSelect = ({
             <ChevronUp className="h-3.5 w-3.5" />
           </div>
 
-          <div ref={scrollRef} className="max-h-48 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div ref={scrollRef} className="max-h-64 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {items.map((item) => {
               const isSelected = selected.includes(item.value);
               return (

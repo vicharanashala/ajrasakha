@@ -58,6 +58,7 @@ interface QuestionRowProps {
   ) => Promise<void>;
   onViewMore: (id: string) => void;
   showClosedAt?: boolean;
+  isLoading?: boolean;
 }
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -83,6 +84,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   handleQuestionsSelection,
   selectedQuestionIds,
   showClosedAt,
+  isLoading,
 }) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -227,7 +229,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
 
           className={`text-center transition-all duration-300 ease-out
               ${isSelected ? "bg-primary/10" : "hover:bg-muted/50"}
-              hover:shadow-sm hover:scale-[1.01] hover:brightness-[1.02]
+              ${isLoading ? "opacity-50 pointer-events-none" : "hover:shadow-sm hover:scale-[1.01] hover:brightness-[1.02]"}
             `}
           onClick={() => {
             if (!q._id || !hasSelectedQuestions) return;

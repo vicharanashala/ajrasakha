@@ -75,7 +75,6 @@ export const QuestionsPage = ({
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
@@ -201,6 +200,7 @@ export const QuestionsPage = ({
   const {
     data: questionData,
     isLoading,
+    isFetching,
     refetch,
   } = useGetAllDetailedQuestions(
     currentPage,
@@ -283,7 +283,7 @@ export const QuestionsPage = ({
   };
 
   useEffect(() => {
-    if (pendingNav && !isLoading && !isReviewLoading && currentItems.length > 0) {
+    if (pendingNav && !isLoading && !isFetching && !isReviewLoading && currentItems.length > 0) {
       if (pendingNav === "next") {
         setSelectedQuestionId(currentItems[0]._id);
       } else {
@@ -481,10 +481,6 @@ export const QuestionsPage = ({
             crops={CROPS}
             refetch={() => {
               refetch();
-              setIsRefreshing(true);
-              setTimeout(() => {
-                setIsRefreshing(false);
-              }, 2000);
             }}
             totalQuestions={
               viewMode === "all"
@@ -518,7 +514,7 @@ export const QuestionsPage = ({
               userRole={currentUser?.role!}
               limit={limit}
               totalPages={questionData?.totalPages || 0}
-              isLoading={isLoading || isRefreshing || bulkDeletingQuestions}
+              isLoading={isLoading || isFetching || bulkDeletingQuestions}
               isBulkUpload={isBulkUpload}
               uploadedQuestionsCount={uploadedQuestionsCount}
               selectedQuestionIds={selectedQuestionIds}

@@ -430,9 +430,9 @@ export class UserService extends BaseService {
           );
         }
 
-        // const shouldPopHistory =
-        //   history.length > 0 &&
-        //   history[history.length - 1]?.status === 'in-review';
+        const shouldPopHistory =
+          history.length > 0 &&
+          history[history.length - 1]?.status === 'in-review';
 
         // const hasReviewed = history.some(
         //   item =>
@@ -463,14 +463,19 @@ export class UserService extends BaseService {
           questionId,
           {
             queue: updatedQueue,
-            // popHistory: false,
+            popHistory: shouldPopHistory,
           },
           session,
         );
 
         await this.questionRepo.updateQuestion(
           questionId,
-          {isAutoAllocate: false},
+          {
+            status: 'hold',
+            isOnHold: true,
+            holdAt: new Date(),
+            isAutoAllocate: false,
+          },
           session,
         );
 

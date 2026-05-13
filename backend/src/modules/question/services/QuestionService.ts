@@ -999,30 +999,35 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: new Date(),
           ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
         };
-        // const enableDuplicateFeature = false
-        // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
-        // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-        // if (enableDuplicateFeature)
-        let duplicateResult: { isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
-        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-          duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
-        }
 
-        // =====================================================
-        // 🔥 IF NOT SIMILAR → NORMAL FLOW
-        // =====================================================
-
+        // 🔹 Save question first, then check for duplicates
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-        const savedQuestion = await this.questionRepo.addQuestion(
-          duplicateResult?.isDuplicate ? duplicateResult?.duplicateData : baseQuestion,
-          session,
-        );
-
+        const savedQuestion = await this.questionRepo.addQuestion(baseQuestion, session);
 
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
+
+        // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
+        let duplicateResult: { isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
+        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+          try {
+            duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
+            if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
+              const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
+              await this.questionRepo.updateQuestion(
+                savedQuestion._id.toString(),
+                { status: 'duplicate', similarityScore, referenceQuestionId, referenceQuestion, referenceSource },
+                session,
+              );
+            }
+          } catch (duplicateError: any) {
+            console.error('Duplicate check failed, question saved as open:', duplicateError.message);
+            logData.duplicateCheckError = duplicateError.message;
+          }
+        }
+
 
         const users = await this.userRepo.findExpertsByPreference(
           details as PreferenceDto,
@@ -2227,13 +2232,27 @@ export class QuestionService extends BaseService implements IQuestionService {
         const currentQuestion = await this.questionRepo.getById(questionId, session);
         const existingHistory = currentQuestion.authors_history || [];
 
+        const questionUpdates: Partial<IQuestion> = {
+          userId: new ObjectId(newExpertId),
+          authors_history: [...existingHistory, authorsHistoryEntry],
+        };
+
+        if (question.isOnHold) {
+          const prevAccum = question.accumulatedHoldMs ?? 0;
+          let segmentMs = 0;
+          if (question.holdAt) {
+            segmentMs = Math.max(0, now.getTime() - new Date(question.holdAt).getTime());
+          }
+          questionUpdates.isOnHold = false;
+          questionUpdates.status = 'open';
+          questionUpdates.accumulatedHoldMs = prevAccum + segmentMs;
+          questionUpdates.holdAt = null;
+        }
+
         // Update question's userId (author) and append to authors_history
         await this.questionRepo.updateQuestion(
           questionId,
-          {
-            userId: new ObjectId(newExpertId),
-            authors_history: [...existingHistory, authorsHistoryEntry],
-          },
+          questionUpdates,
           session
         );
 
@@ -2495,6 +2514,24 @@ export class QuestionService extends BaseService implements IQuestionService {
         },
       };
 
+      if (question.isOnHold) {
+        const prevAccum = question.accumulatedHoldMs ?? 0;
+        let segmentMs = 0;
+        if (question.holdAt) {
+          segmentMs = Math.max(0, now.getTime() - new Date(question.holdAt).getTime());
+        }
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {
+            isOnHold: false,
+            status: 'open',
+            accumulatedHoldMs: prevAccum + segmentMs,
+            holdAt: null,
+          },
+          session,
+        );
+      }
+
       const updated = await this.questionSubmissionRepo.updateById(
         questionSubmission._id!.toString(),
         updateData,
@@ -2753,7 +2790,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQuestionFullData(
     questionId: string,
     userId: string,
-  ): Promise<IQuestion | null> {
+  ): Promise<{question: IQuestion | null; approved_moderator: {name: string; email: string}}> {
     try {
       const user = await this.userRepo.findById(userId);
       const isExpert = user.role == 'expert';
@@ -2765,7 +2802,33 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!question) {
         return null;
       }
-      return question;
+
+      let approved_moderator = {
+        name: '',
+        email: '',
+      };
+      if (question.status === 'closed') {
+        const answers = await this.answerRepo.getByQuestionId(questionId);
+        const finalizedAnswer = answers.find(answer => answer.isFinalAnswer);
+        
+        if (finalizedAnswer?.approvedBy) {
+          const moderator = await this.userRepo.findById(
+            finalizedAnswer.approvedBy,
+          );
+
+          if (moderator) {
+            approved_moderator = {
+              name: `${moderator.firstName} ${moderator.lastName}`,
+              email: moderator.email,
+            };
+          }
+        }
+      }
+
+      return {
+        question,
+        approved_moderator,
+      };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
     }
@@ -3202,6 +3265,34 @@ export class QuestionService extends BaseService implements IQuestionService {
         submissionsProcessed: 0,
       };
     }
+
+    await this._withTransaction(async session => {
+      for (const submission of delayedSubmissions as any[]) {
+        const question = submission.question;
+        if (question && question.isOnHold) {
+          const now = new Date();
+          const prevAccum = question.accumulatedHoldMs ?? 0;
+          let segmentMs = 0;
+          if (question.holdAt) {
+            segmentMs = Math.max(
+              0,
+              now.getTime() - new Date(question.holdAt).getTime(),
+            );
+          }
+          await this.questionRepo.updateQuestion(
+            question._id.toString(),
+            {
+              isOnHold: false,
+              status: 'open',
+              accumulatedHoldMs: prevAccum + segmentMs,
+              holdAt: null,
+            },
+            session,
+          );
+        }
+      }
+    });
+
 
     const assignments: Record<string, any[]> = {};
     const expertLoad: Record<string, number> = {};
@@ -4103,12 +4194,40 @@ export class QuestionService extends BaseService implements IQuestionService {
     const questionSubmissionDetails = await this.questionSubmissionRepo.findReallocationQuestionsByIds(questionIds);
 
     if (!questionSubmissionDetails.length) {
-    return {
+      return {
         message: `No valid questions found. Selected questions are either closed, in review, passed, draft, or already submitted.`,
         expertsInvolved: lessWorkloadExperts.length,
         submissionsProcessed: 0,
-      }
+      };
     }
+
+    await this._withTransaction(async session => {
+      for (const submission of questionSubmissionDetails as any[]) {
+        const question = submission.question;
+        if (question && question.isOnHold) {
+          const now = new Date();
+          const prevAccum = question.accumulatedHoldMs ?? 0;
+          let segmentMs = 0;
+          if (question.holdAt) {
+            segmentMs = Math.max(
+              0,
+              now.getTime() - new Date(question.holdAt).getTime(),
+            );
+          }
+          await this.questionRepo.updateQuestion(
+            question._id.toString(),
+            {
+              isOnHold: false,
+              status: 'open',
+              accumulatedHoldMs: prevAccum + segmentMs,
+              holdAt: null,
+            },
+            session,
+          );
+        }
+      }
+    });
+
     const assignments: Record<string, any[]> = {};
     const expertLoad: Record<string, number> = {};
 
