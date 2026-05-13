@@ -999,30 +999,35 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: new Date(),
           ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
         };
-        // const enableDuplicateFeature = false
-        // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
-        // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-        // if (enableDuplicateFeature)
-        let duplicateResult: { isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
-        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-          duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
-        }
 
-        // =====================================================
-        // 🔥 IF NOT SIMILAR → NORMAL FLOW
-        // =====================================================
-
+        // 🔹 Save question first, then check for duplicates
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-        const savedQuestion = await this.questionRepo.addQuestion(
-          duplicateResult?.isDuplicate ? duplicateResult?.duplicateData : baseQuestion,
-          session,
-        );
-
+        const savedQuestion = await this.questionRepo.addQuestion(baseQuestion, session);
 
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
+
+        // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
+        let duplicateResult: { isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
+        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+          try {
+            duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
+            if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
+              const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
+              await this.questionRepo.updateQuestion(
+                savedQuestion._id.toString(),
+                { status: 'duplicate', similarityScore, referenceQuestionId, referenceQuestion, referenceSource },
+                session,
+              );
+            }
+          } catch (duplicateError: any) {
+            console.error('Duplicate check failed, question saved as open:', duplicateError.message);
+            logData.duplicateCheckError = duplicateError.message;
+          }
+        }
+
 
         const users = await this.userRepo.findExpertsByPreference(
           details as PreferenceDto,
