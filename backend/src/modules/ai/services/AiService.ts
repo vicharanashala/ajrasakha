@@ -138,9 +138,10 @@ export class AiService {
       return data;
     } catch (error) {
       console.error('AI embedding request failed:', error);
-      throw new InternalServerError(
+     /* throw new InternalServerError(
         'Failed to generate embedding from the AI server. Please try again later.',
-      );
+      );*/
+      return { embedding: [] };
     }
   }
 

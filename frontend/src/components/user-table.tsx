@@ -85,8 +85,8 @@ export const UsersTable = ({
     blockExpert({ userId: userIdToBlock, action: action });
   };
   const handleToggleRole = (userId: string, userRole: string, selectedRole?: string) => {
-    console.log("Users data is", {userId, userRole, selectedRole})
-    toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole  });
+    console.log("Users data is", { userId, userRole, selectedRole })
+    toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole });
   };
   const isAdmin = userRole === "admin";
 
@@ -149,7 +149,7 @@ export const UsersTable = ({
                   )}
                 </button>
               </TableHead>
-              <TableHead className="text-center w-24">Total Answered</TableHead>
+              {/* <TableHead className="text-center w-24">Total Answered</TableHead> */}
               <TableHead className="text-center w-24">
                 <button
                   onClick={() => onSort("joined")}
@@ -252,7 +252,7 @@ const UserRow: React.FC<UserRowProps> = ({
   const { mutate: verifyUser } = useVerifyUser();
 
   //expert block/unblock modal state
-  type ConfirmAction = "block" | "unblock" | "switch-role" | null;
+  type ConfirmAction = "block" | "unblock" | "switch-role" | "verify" | null;
 
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [actionUserId, setActionUserId] = useState<string>("");
@@ -274,17 +274,20 @@ const UserRow: React.FC<UserRowProps> = ({
     updateActivity({ userId: u._id!, status: nextStatus });
   };
 
-      const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
-  moderator: "Moderator",
-  expert: "Expert",
-  pae_expert: "PAE Expert",
-};
+  const ROLE_LABELS: Record<string, string> = {
+    admin: "Admin",
+    moderator: "Moderator",
+    expert: "Expert",
+    pae_expert: "PAE Expert",
+  };
 
   return (
-    <TableRow key={String(u._id)} className="text-center">
+    <TableRow
+      key={String(u._id)}
+      className="text-center"
+    >
 
-      <TableCell className="align-middle w-36" title={u.firstName}>
+      {/* <TableCell className={`align-middle w-36 border-l-1 ${u.isVerified ? 'border-l-blue-500' : 'border-l-red-500'}`} title={u.firstName}>
         <div className="flex items-center gap-2">
           <AvatarComponent
             u={u}
@@ -301,14 +304,7 @@ const UserRow: React.FC<UserRowProps> = ({
             >
               {truncate(u.firstName + " " + u.lastName, 60)}
             </span>
-            {u.isVerified && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-50 flex-shrink-0" />
-                </TooltipTrigger>
-                <TooltipContent>Verified User</TooltipContent>
-              </Tooltip>
-            )}
+
 
             <div className="flex items-center gap-1 flex-shrink-0">
               {u?.special_task_force && (
@@ -337,6 +333,82 @@ const UserRow: React.FC<UserRowProps> = ({
                       <ShieldCheck className="w-2.5 h-2.5 fill-purple-500" />
                     </Badge>
                   </TooltipTrigger>
+                  <TooltipContent>
+                    Special Task Force Moderator
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </div>
+        </div>
+      </TableCell> */}
+
+      <TableCell
+        className="align-middle w-36"
+        title={u.firstName}
+      >
+        <div
+          className={`flex items-center gap-2 rounded-lg px-2 py-2 border-l-4 ${u.isVerified
+              ? "border-l-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/10"
+              : "border-l-rose-500 bg-rose-50/40 dark:bg-rose-950/10"
+            }`}
+        >
+          <AvatarComponent
+            u={u}
+            showRankBadge={u.role === "expert"}
+            rankPosition={u.expertRank}
+          />
+
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <span
+              className="truncate hover:underline hover:cursor-pointer text-sm font-medium"
+              onClick={() => {
+                handleExpertClick(u);
+              }}
+            >
+              {truncate(u.firstName + " " + u.lastName, 60)}
+            </span>
+
+            {/* Minimal Verification Badge */}
+            {/* <Badge
+              variant="secondary"
+              className={`h-5 px-1.5 text-[10px] rounded-md font-medium border ${u.isVerified
+                  ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                  : "bg-rose-100 text-rose-700 border-rose-200"
+                }`}
+            >
+              {u.isVerified ? "Verified" : "Pending"}
+            </Badge> */}
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {u?.special_task_force && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] h-5 px-1.5 rounded-full flex items-center gap-1 transition-colors whitespace-nowrap"
+                    >
+                      <Zap className="w-2.5 h-2.5 fill-indigo-500" />
+                    </Badge>
+                  </TooltipTrigger>
+
+                  <TooltipContent>
+                    Special Task Force
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
+              {u?.special_task_force_moderator && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="bg-purple-50/50 hover:bg-purple-50 text-purple-700 border-purple-200 text-[9px] h-5 px-1.5 rounded-full flex items-center gap-1 transition-colors whitespace-nowrap"
+                    >
+                      <ShieldCheck className="w-2.5 h-2.5 fill-purple-500" />
+                    </Badge>
+                  </TooltipTrigger>
+
                   <TooltipContent>
                     Special Task Force Moderator
                   </TooltipContent>
@@ -382,9 +454,9 @@ const UserRow: React.FC<UserRowProps> = ({
       </TableCell>
 
       {/* total_answers_creted */}
-      <TableCell className="align-middle w-32">
+      {/* <TableCell className="align-middle w-32">
         <Badge variant="outline">{u.totalAnswers_Created || 0}</Badge>
-      </TableCell>
+      </TableCell> */}
 
       {/* Created At */}
       <TableCell className="align-middle w-32">
@@ -468,9 +540,15 @@ const UserRow: React.FC<UserRowProps> = ({
                     setConfirmAction("switch-role");
                   }}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full">
                     <Gavel className="w-4 h-4 text-blue-500" />
-                    Switch Role
+                    <span>Switch Role</span>
+                    <Badge
+                      variant="default"
+                      className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
+                    >
+                      New
+                    </Badge>
                   </div>
                 </DropdownMenuItem>
               )}
@@ -479,7 +557,8 @@ const UserRow: React.FC<UserRowProps> = ({
                   onSelect={(e) => {
                     e.preventDefault();
                     setIsOpen(false);
-                    verifyUser({ userId: u._id!, isVerified: true });
+                    setActionUserId(u._id!);
+                    setConfirmAction("verify");
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -498,7 +577,9 @@ const UserRow: React.FC<UserRowProps> = ({
                 ? "Switch User Role To"
                 : confirmAction === "block"
                   ? "Block the User?"
-                  : "Unblock the User?"
+                  : confirmAction === "verify"
+                    ? "Verify User?"
+                    : "Unblock the User?"
             }
             description={
               confirmAction === "switch-role"
@@ -509,16 +590,20 @@ const UserRow: React.FC<UserRowProps> = ({
                   ? actionRole === "expert"
                     ? "Blocking this expert will restrict their access to the review system until they are unblocked. Once blocked, they will no longer be able to review, submit answers, or perform any actions within the platform. They will also be excluded from all current and future allocations. Are you sure you want to proceed?"
                     : `Blocking this ${actionRole} will restrict their access to the platform until they are unblocked. They will not be able to manage reviews, moderate content, or perform any administrative actions. Are you sure you want to proceed?`
-                  : actionRole === "expert"
-                    ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
-                    : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
+                  : confirmAction === "verify"
+                    ? "This action will verify the user's account, granting them full access to the platform's features. Are you sure you want to proceed?"
+                    : actionRole === "expert"
+                      ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
+                      : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
             }
             confirmText={
               confirmAction === "switch-role"
                 ? "Switch Role"
                 : confirmAction === "block"
                   ? "Block"
-                  : "Unblock"
+                  : confirmAction === "verify"
+                    ? "Verify"
+                    : "Unblock"
             }
             cancelText="Cancel"
             type={confirmAction === "block" ? "delete" : "default"}
@@ -526,6 +611,8 @@ const UserRow: React.FC<UserRowProps> = ({
               if (confirmAction === "switch-role") {
                 handleToggleRole(actionUserId, actionRole, selectRole);
                 setSelectRole("");
+              } else if (confirmAction === "verify") {
+                verifyUser({ userId: actionUserId, isVerified: true });
               } else {
                 handleBlock();
               }

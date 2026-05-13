@@ -253,7 +253,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
             {truncate(q.question, 80)}
           </h3>
           <div className="mt-1 h-5 flex items-center">
-            <TimerDisplay timer={timer} status={q.status} source={q.source} />
+            {q.status !== "pass" && (
+              <TimerDisplay timer={timer} status={q.status} source={q.source} />
+            )}
             </div>
           </div>
         )}

@@ -69,7 +69,6 @@ export const ConfirmationModal = ({
   })();
 
   const roles = [
-    { value: "admin", label: "Admin" },
     { value: "expert", label: "Expert" },
     { value: "moderator", label: "Moderator" },
     { value: "pae_expert", label: "PAE Expert" },
@@ -92,7 +91,7 @@ export const ConfirmationModal = ({
         {confirmAction === "switch-role" && <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="text-sm w-[25%] flex items-center justify-evenly">
-              <ArrowBigDownDashIcon size={14}/>
+              <ArrowBigDownDashIcon size={14} />
               {selectedRole
                 ? roles.find((r) => r.value === selectedRole)?.label
                 : "Select Role"}

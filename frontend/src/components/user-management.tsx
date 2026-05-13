@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { Input } from "./atoms/input";
+import { Badge } from "./atoms/badge";
 import { UsersTable } from "./user-table";
 import {
   useGetAllExperts,
@@ -34,6 +35,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [sort, setSort] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [verifiedFilter, setVerifiedFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
   const LIMIT = 12;
   const states = STATES;
@@ -48,18 +50,19 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     filter,
     roleFilter,
     statusFilter,
+    verifiedFilter,
     { enabled: isAdmin }
   );
- const toggleSort = (key: string) => {
-  if (key === "rank") {
-    setSort("");
-    return;
-  }
-  setSort((prev) => {
-    if (prev === `${key}_asc`) return `${key}_desc`;
-    return `${key}_asc`;
-  });
-};
+  const toggleSort = (key: string) => {
+    if (key === "rank") {
+      setSort("");
+      return;
+    }
+    setSort((prev) => {
+      if (prev === `${key}_asc`) return `${key}_desc`;
+      return `${key}_asc`;
+    });
+  };
 
   const { data: expertDetails, isLoading: expertLoading } = useGetAllExperts(
     page,
@@ -81,7 +84,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     if (currentUser?.role !== "expert") onReset();
   }, [debouncedSearch]);
 
-  const onReset = () => {};
+  const onReset = () => { };
 
   const handleViewMore = (userId: string) => {
     setSelectedUserId(userId);
@@ -103,9 +106,9 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     : expertDetails?.experts ?? [];
 
 
-    console.log("Admin users ->", adminUsers?.users);
-    console.log("Expert details ->", expertDetails?.experts); 
-    console.log("Table items ->", tableItems);
+  console.log("Admin users ->", adminUsers?.users);
+  console.log("Expert details ->", expertDetails?.experts);
+  console.log("Table items ->", tableItems);
 
   const isLoading = isAdmin ? adminLoading : expertLoading;
 
@@ -121,6 +124,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
           goBack={goBack}
           rankPosition={rankPostion}
           expertDetailsList={expertDetails}
+          currentUserRole={currentUser?.role}
         />
       ) : (
         <>
@@ -214,6 +218,23 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                       <SelectItem value="ALL">All Status</SelectItem>
                       <SelectItem value="false">Unblocked</SelectItem>
                       <SelectItem value="true">Blocked</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Verification Filter */}
+              {isAdmin && (
+                <div className="flex items-center gap-3 w-[180px] relative">
+                  <Badge className="absolute -top-2 -right-1 h-4 text-[9px] px-1.5 py-0 bg-red-500 hover:bg-red-600 border-0 z-10 text-white">New</Badge>
+                  <Select value={verifiedFilter} onValueChange={(val) => { setVerifiedFilter(val); setPage(1); }}>
+                    <SelectTrigger className="bg-background px-3 py-2 w-full">
+                      <SelectValue placeholder="Verification" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Users</SelectItem>
+                      <SelectItem value="true">Verified</SelectItem>
+                      <SelectItem value="false">Not Verified</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

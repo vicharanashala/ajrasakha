@@ -16,7 +16,7 @@ import {
 } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
-import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
+import { useBulkAllocatePaeExperts } from "@/hooks/api/question/useBulkAllocatePaeExperts";
 import { toast } from "sonner";
 import Spinner from "./atoms/spinner";
 import { ReviewLevelsTable } from "@/features/questions/components/review-level/ReviewLevelsTable";
@@ -92,8 +92,13 @@ export const QuestionsPage = ({
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"all" | "review-level">("all");
   const [reviewPage, setReviewPage] = useState(1);
-  const [reviewLimit] = useState(12);
+  const [limit, setLimit] = useState(12);
   const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setReviewPage(1);
+  }, [limit]);
 
   //handle sort by turn around time
   const [sort, setSort] = useState("");
@@ -122,10 +127,9 @@ export const QuestionsPage = ({
 
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
-  const { mutateAsync: allocateExpert } = useAllocateExpert();
-  const [isBulkAllocatingPae, setIsBulkAllocatingPae] = useState(false);
+  const { mutateAsync: bulkAllocatePaeExperts, isPending: isBulkAllocatingPae } =
+    useBulkAllocatePaeExperts();
 
-  const LIMIT = 12;
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -200,7 +204,7 @@ export const QuestionsPage = ({
     refetch,
   } = useGetAllDetailedQuestions(
     currentPage,
-    LIMIT,
+    limit,
     filter,
     debouncedSearch,
     viewMode === "all",
@@ -215,7 +219,7 @@ export const QuestionsPage = ({
   const { data: reviewData, isLoading: isReviewLoading, refetch: refetchReviewLevels } =
     useGetQuestionsAndLevel(
       reviewPage,
-      reviewLimit,
+      limit,
       search,
       filter,
       viewMode === "review-level",
@@ -421,44 +425,19 @@ export const QuestionsPage = ({
       return;
     }
 
-    const allQuestions = questionData?.questions || [];
-    const selectedQuestions = allQuestions.filter(
-      (q) => q._id && selectedQuestionIds.includes(q._id),
-    );
-    const draftQuestions = selectedQuestions.filter((q) => q.status === "draft");
-    const skippedCount = selectedQuestions.length - draftQuestions.length;
-
-    if (draftQuestions.length === 0) {
-      toast.warning(
-        "No draft questions found among the selected. Only draft questions can be allocated to PAE.",
-      );
-      return;
-    }
-
-    setIsBulkAllocatingPae(true);
     try {
-      await Promise.all(
-        draftQuestions.map((q) =>
-          allocateExpert({ questionId: q._id!, experts: [paeExpertId] }),
-        ),
-      );
+      // Send all selected IDs directly — the worker validates draft status per question
+      // and skips non-draft ones. We must NOT filter through questionData (current page only).
+      await bulkAllocatePaeExperts({ questionIds: selectedQuestionIds, paeExpertId });
       setSelectedQuestionIds([]);
       setIsSelectionModeOn(false);
-      refetch();
-      if (skippedCount > 0) {
-        toast.success(
-          `${draftQuestions.length} question(s) allocated to PAE. ${skippedCount} question(s) skipped (not draft).`,
-        );
-      } else {
-        toast.success(
-          `${draftQuestions.length} question(s) allocated to PAE successfully.`,
-        );
-      }
+      setTimeout(() => refetch(), 3000);
+      toast.success(
+        `Allocating ${selectedQuestionIds.length} question(s) to PAE in background.`,
+      );
     } catch (error) {
       console.error("Bulk PAE allocate error:", error);
-      toast.error("Failed to allocate some questions. Please try again.");
-    } finally {
-      setIsBulkAllocatingPae(false);
+      toast.error("Failed to start PAE allocation. Please try again.");
     }
   };
 
@@ -528,6 +507,8 @@ export const QuestionsPage = ({
             showClosedAt={showClosedAt}
             view={view}
             setView={setView}
+            limit={limit}
+            setLimit={setLimit}
           />
 
           {viewMode === "all" ? (
@@ -537,7 +518,7 @@ export const QuestionsPage = ({
               currentPage={currentPage}
               setCurrentPage={setCurrentPage}
               userRole={currentUser?.role!}
-              limit={LIMIT}
+              limit={limit}
               totalPages={questionData?.totalPages || 0}
               isLoading={isLoading || isRefreshing || bulkDeletingQuestions}
               isBulkUpload={isBulkUpload}
@@ -561,7 +542,7 @@ export const QuestionsPage = ({
               onViewMore={handleViewMore}
               toggleSort={toggleSort}
               sort={sort}
-              limit={reviewLimit}
+              limit={limit}
               view={view}
               onRefresh={refetchReviewLevels}
             />

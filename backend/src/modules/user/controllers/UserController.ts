@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import {
   JsonController,
   Get,
+  Post,
   Put,
   Body,
   HttpCode,
@@ -184,6 +185,7 @@ export class UserController {
       filter?: string;
       role?: string;
       isBlocked?: string;
+      isVerified?: string;
     },
     
   ) {
@@ -194,6 +196,7 @@ export class UserController {
     const filter = query.filter || '';
     const role = query.role || 'ALL';
     const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
+    const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
 
     return this.userService.getAllUsers(
       pageNum,
@@ -203,6 +206,7 @@ export class UserController {
       filter,
       role,
       isBlocked,
+      isVerified,
     );
   }
 
@@ -626,6 +630,146 @@ export class UserController {
   ): Promise<IUser | null> {
     const {email} = params;
     return await this.userService.getUserByEmail(email);
+  }
+
+  @OpenAPI({
+    summary: 'Remove all allocations for an expert (Admin)',
+    description:
+      'Clears all queued allocations for questions where the expert appears and resets the expert workload to zero.',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'Expert allocations removed successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @Authorized(['admin'])
+  @Post('/:id/remove-allocations')
+  @HttpCode(200)
+  async removeExpertAllocations(
+    @Param('id') expertId: string,
+    @CurrentUser() currentUser: IUser,
+  ): Promise<{
+    message: string;
+    questionsAffected: number;
+    removedQueues: number;
+    workloadBefore: number;
+    workloadAfter: number;
+    questionIds: string[];
+  }> {
+    let expertDetails: IUser | null = null;
+    let result:
+      | {
+          questionsAffected: number;
+          removedQueues: number;
+          workloadBefore: number;
+          workloadAfter: number;
+          questionIds: string[];
+        }
+      | null = null;
+
+    const auditPayloadBase: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.REALLOCATE_QUESTIONS,
+      actor: {
+        id: currentUser._id.toString(),
+        name: `${currentUser.firstName} ${currentUser.lastName}`,
+        email: currentUser.email,
+        role: currentUser.role,
+        avatar: currentUser?.avatar || '',
+      },
+      context: {
+        targetExpertId: expertId,
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      expertDetails = await this.userService.getUserById(expertId);
+      result = await this.userService.removeExpertAllocations(
+        currentUser,
+        expertId,
+      );
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayloadBase,
+        changes: {
+          before: {
+            targetExpert: expertDetails
+              ? {
+                  id: expertDetails._id?.toString(),
+                  name: `${expertDetails.firstName} ${expertDetails.lastName || ''}`.trim(),
+                  email: expertDetails.email,
+                  role: expertDetails.role,
+                  workload: expertDetails.reputation_score ?? 0,
+                }
+              : null,
+          },
+        },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to remove expert allocations',
+          errorName: err?.name || 'Error',
+          errorStack:
+            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      });
+
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to remove expert allocations',
+      );
+    }
+
+    this.auditTrailsService.createAuditTrail({
+      ...auditPayloadBase,
+      changes: {
+        before: {
+          targetExpert: expertDetails
+            ? {
+                id: expertDetails._id?.toString(),
+                name: `${expertDetails.firstName} ${expertDetails.lastName || ''}`.trim(),
+                email: expertDetails.email,
+                role: expertDetails.role,
+                workload: result?.workloadBefore ?? 0,
+              }
+            : null,
+        },
+        after: {
+          targetExpert: {
+            id: expertId,
+            workload: result?.workloadAfter ?? 0,
+          },
+          questionsAffected: result?.questionsAffected ?? 0,
+          removedQueues: result?.removedQueues ?? 0,
+        },
+      },
+      context: {
+        ...auditPayloadBase.context,
+        questionIds: result?.questionIds || [],
+      },
+    });
+
+    return {
+      message: 'Expert allocations removed successfully',
+      questionsAffected: result?.questionsAffected ?? 0,
+      removedQueues: result?.removedQueues ?? 0,
+      workloadBefore: result?.workloadBefore ?? 0,
+      workloadAfter: result?.workloadAfter ?? 0,
+      questionIds: result?.questionIds || [],
+    };
   }
 
   @OpenAPI({

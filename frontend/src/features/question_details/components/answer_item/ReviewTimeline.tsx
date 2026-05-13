@@ -26,8 +26,22 @@ export const ReviewTimeline = ({
     <div className="mt-6">
       <div className="space-y-4">
         {reviews.map((review, index) => {
-          const modification = review?.answer?.modifications?.find(
+         /* const modification = review?.answer?.modifications?.find(
             (mod: any) => mod.modifiedBy === review.reviewerId
+          );*/
+          const modification = review?.answer?.modifications?.find(
+            (mod: any) => {
+              const sameReviewer =
+                mod.modifiedBy?.toString() === review.reviewerId?.toString();
+          
+              const timeDiff = Math.abs(
+                new Date(mod.modifiedAt).getTime() -
+                  new Date(review.createdAt).getTime()
+              );
+          
+              // allow up to 2 seconds difference
+              return sameReviewer && timeDiff < 2000;
+            }
           );
 
           return (
@@ -89,7 +103,7 @@ export const ReviewTimeline = ({
                         </>
                       )}
 
-                      {review.action === "modified" && (
+                      {review.action === "modified"&& modification && (
                         <>
                           <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
                           <span>Modified</span>
@@ -155,6 +169,7 @@ export const ReviewTimeline = ({
                     </Accordion>
                   </div>
                 )}
+               
               </div>
             </div>
           );

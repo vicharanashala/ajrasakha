@@ -242,6 +242,7 @@ export class UserRepository implements IUserRepository {
     filter: string,
     role?: string,
     isBlockedFilter?: boolean,
+    isVerifiedFilter?: boolean,
     session?: ClientSession,
   ): Promise<{
     users: IUser[];
@@ -274,6 +275,10 @@ export class UserRepository implements IUserRepository {
 
       if (isBlockedFilter !== undefined) {
         matchQuery.isBlocked = isBlockedFilter;
+      }
+
+      if (isVerifiedFilter !== undefined) {
+        matchQuery.isVerified = isVerifiedFilter;
       }
 
       const sortMap: any = {
@@ -532,6 +537,24 @@ export class UserRepository implements IUserRepository {
           },
         },
       ],
+      { session },
+    );
+  }
+
+  async setReputationScore(
+    userId: string,
+    score: number,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          reputation_score: Math.max(0, score),
+          updatedAt: new Date(),
+        },
+      },
       { session },
     );
   }

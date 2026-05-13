@@ -137,6 +137,7 @@ export interface IUserRepository {
     filter: string,
     role?: string,
     isBlocked?: boolean,
+    isVerified?: boolean,
     session?: ClientSession,
   ): Promise<{
     users: IUser[];
@@ -159,6 +160,15 @@ export interface IUserRepository {
   updateReputationScore(
     userId: string,
     isIncrement: boolean,
+    session?: ClientSession,
+  ): Promise<void>;
+
+  /**
+   *Setting workload/reputation score for a user.
+   */
+  setReputationScore(
+    userId: string,
+    score: number,
     session?: ClientSession,
   ): Promise<void>;
 
