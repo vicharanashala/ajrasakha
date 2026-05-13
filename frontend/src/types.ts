@@ -468,9 +468,9 @@ export interface IQuestionFullData {
   aiApprovedAnswer?: string;
   aiApprovedSources?: SourceItem[];
   authors_history?: IAuthorsHistory[];
-  similarityScore?: number;        // percentage (0–100)
+  similarityScore?: number; // percentage (0–100)
   referenceQuestionId?: string;
-  referenceQuestion?: string
+  referenceQuestion?: string;
   referenceSource?: string;
   referenceQuestionData?: {
     question: string;
@@ -488,6 +488,10 @@ export interface IQuestionFullData {
   originalQuestion?: string;
   closedAt?: string;
   threadId?: string;
+  approved_moderator:{
+    name: string;
+    email: string;
+  }
 }
 
 export interface QuestionFullDataResponse {
