@@ -26,6 +26,7 @@ import {
 import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { TopRightBadge } from "./NewBadge";
+import { Badge } from "./atoms/badge";
 import { ConfirmationModal } from "./confirmation-modal";
 import { useRemoveExpertAllocations } from "@/hooks/api/Admin/useRemoveExpertAllocations";
 interface ExpertDashboardProps {
@@ -207,8 +208,8 @@ export const ExpertDashboard = ({
 
         setLateTimer(
           `${hours.toString().padStart(2, "0")}hr ` +
-            `${minutes.toString().padStart(2, "0")}min ` +
-            `${seconds.toString().padStart(2, "0")}sec`,
+          `${minutes.toString().padStart(2, "0")}min ` +
+          `${seconds.toString().padStart(2, "0")}sec`,
         );
       } else {
         setLateTimer(null);
@@ -288,13 +289,23 @@ export const ExpertDashboard = ({
                   await removeExpertAllocations(expertId);
                 }}
                 trigger={
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-red-200 cursor-not-allowed text-red-600 hover:bg-red-50 hover:text-red-700"
-                  >
-                    Remove Allocations
-                  </Button>
+                  <div className="relative inline-block">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled
+                      className="border-red-200 cursor-not-allowed text-red-600 hover:bg-red-50 hover:text-red-700"
+                    >
+                      Remove Allocations
+                    </Button>
+
+                    <Badge
+                      variant="default"
+                      className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
+                    >
+                      New
+                    </Badge>
+                  </div>
                 }
               />
             )}
@@ -316,11 +327,10 @@ export const ExpertDashboard = ({
                       className={`
                   flex items-center gap-2 px-2 py-2 rounded-xl border
                   transition-all duration-200 
-                  ${
-                    isCheckedInToday
-                      ? "bg-green-50 border-green-200 text-green-600 cursor-not-allowed"
-                      : "bg-card border-green-300 text-green-600 hover:bg-green-50 cursor-pointer"
-                  }
+                  ${isCheckedInToday
+                          ? "bg-green-50 border-green-200 text-green-600 cursor-not-allowed"
+                          : "bg-card border-green-300 text-green-600 hover:bg-green-50 cursor-pointer"
+                        }
                   ${isPending ? "opacity-60" : ""}
                 `}
                     >

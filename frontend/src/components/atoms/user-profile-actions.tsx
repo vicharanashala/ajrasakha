@@ -14,6 +14,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { CheckCheck, LogOut, User } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { Badge } from "./badge";
 
 export const UserProfileActions = () => {
   const { user, logout, clearUser } = useAuthStore();
@@ -121,16 +122,23 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           Profile
         </DropdownMenuItem>
 
-        {(userWithRole?.role === "admin" || userWithRole?.role === "moderator")  && (
+        {(userWithRole?.role === "admin" || userWithRole?.role === "moderator") && (
           <DropdownMenuItem
             onClick={handleViewAudit}
-            className="text-foreground focus:text-foreground cursor-pointer mb-2"
+            className="text-foreground focus:text-foreground cursor-pointer mb-2 relative"
           >
-            <CheckCheck  className="mr-2 h-4 w-4" />
-          View Audit
-        </DropdownMenuItem>
+            <CheckCheck className="mr-2 h-4 w-4" />
+            View Audit
+
+            <Badge
+              variant="default"
+              className="absolute -top-1 right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
+            >
+              New
+            </Badge>
+          </DropdownMenuItem>
         )}
-        
+
 
         <DropdownMenuItem
           onClick={handleLogout}

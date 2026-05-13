@@ -56,7 +56,7 @@ import {
   AddOrEditQuestionDialog,
   type AddQuestionValidationErrors,
 } from "./AddOrEditQuestionDialog";
-import { useReAllocateLessWorkload,useReAllocateExpertsSelectedQuestions } from "@/hooks/api/question/useReAllocateLessWorkload";
+import { useReAllocateLessWorkload, useReAllocateExpertsSelectedQuestions } from "@/hooks/api/question/useReAllocateLessWorkload";
 import { DownloadReportButton } from "./DownloadReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
@@ -106,8 +106,6 @@ type QuestionsFiltersProps = {
   setView: (v: "grid" | "table") => void;
   handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
   isBulkAllocatingPae: boolean;
-  limit: number;
-  setLimit: (limit: number) => void;
 };
 
 type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae";
@@ -159,8 +157,6 @@ export const QuestionsFilters = ({
   setView,
   handleBulkAllocateToPae,
   isBulkAllocatingPae,
-  limit,
-  setLimit,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -190,7 +186,7 @@ export const QuestionsFilters = ({
     });
   const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
-    // Reallocate the selected questions to experts with less workload
+  // Reallocate the selected questions to experts with less workload
   const { mutateAsync: reAllocateExpertsSelectedQuestions, isPending: reAllocating } =
     useReAllocateExpertsSelectedQuestions();
 
@@ -690,43 +686,6 @@ export const QuestionsFilters = ({
           <ViewDropdown view={view} setView={setView} />
         </div>
 
-        {/* Pagination Limit Dropdown */}
-        <div className="hidden md:flex items-center gap-2 relative">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="relative">
-                  <Select
-                    value={limit.toString()}
-                    onValueChange={(value) => setLimit(Number(value))}
-                  >
-                    <SelectTrigger className="w-[85px] relative" size="sm">
-                      <SelectValue placeholder="Limit" />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      {[12, 25, 50, 100].map((v) => (
-                        <SelectItem key={v} value={v.toString()}>
-                          {v}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Badge
-                    variant="default"
-                    className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
-                  >
-                    New
-                  </Badge>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Items per page</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
 
         {/* tools and filters */}
         <TooltipProvider>
@@ -784,36 +743,46 @@ export const QuestionsFilters = ({
 
             {/* Allocate to EXPERTS */}
             {userRole !== "expert" && answerMode.toLowerCase() !== "draft" && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={
-                  selectedQuestionIds.length === 0 ||
-                  reAllocating ||
-                  isReAllocateDisabled
-                }
-                onClick={() => {
-                  setIsReAllocateSelectedQuestionsOpen(true);
-                }}
-                className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled ? "cursor-not-allowed text-green-600" : ""}`}
-              >
-                <UserCheck className="h-4 w-4" />
-                {reAllocating
-                  ? `Allocating (${selectedQuestionIds.length})...`
-                  : isReAllocateDisabled
-                    ? `Will be available in 50s`
-                    : `ReAllocate Experts (${selectedQuestionIds.length})`}
-              </Button>
+              <div className="relative inline-block">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    selectedQuestionIds.length === 0 ||
+                    reAllocating ||
+                    isReAllocateDisabled
+                  }
+                  onClick={() => {
+                    setIsReAllocateSelectedQuestionsOpen(true);
+                  }}
+                  className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled
+                    ? "cursor-not-allowed text-green-600"
+                    : ""
+                    }`}
+                >
+                  <UserCheck className="h-4 w-4" />
+                  {reAllocating
+                    ? `Allocating (${selectedQuestionIds.length})...`
+                    : isReAllocateDisabled
+                      ? `Will be available in 50s`
+                      : `ReAllocate Experts (${selectedQuestionIds.length})`}
+                </Button>
+
+                <Badge
+                  variant="default"
+                  className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
+                >
+                  New
+                </Badge>
+              </div>
             )}
 
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${
-                selectedQuestionIds.length
-              } selected question${
-                selectedQuestionIds.length > 1 ? "s" : ""
-              }? This action is irreversible.`}
+              description={`Are you sure you want to delete ${selectedQuestionIds.length
+                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
+                }? This action is irreversible.`}
               confirmText="Delete"
               cancelText="Cancel"
               isLoading={bulkDeletingQuestions}
@@ -924,11 +893,10 @@ export const QuestionsFilters = ({
                       key={key}
                       onClick={() => toggleColumn(key)}
                       className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
-              ${
-                isVisible
-                  ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
-                  : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
-              }
+              ${isVisible
+                          ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                          : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+                        }
             `}
                     >
                       <span className="text-xs font-semibold tracking-wider capitalize">
@@ -1227,9 +1195,8 @@ export const QuestionsFilters = ({
             </span>
           </span>
           <span
-            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-              isBadgeExpanded ? "rotate-180" : "rotate-0"
-            }`}
+            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded ? "rotate-180" : "rotate-0"
+              }`}
           >
             <ChevronDown size={14} />
           </span>
@@ -1237,11 +1204,8 @@ export const QuestionsFilters = ({
 
         {/* Expanded status breakdown */}
         <div
-          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-            isBadgeExpanded
-              ? "grid-rows-[1fr] opacity-100"
-              : "grid-rows-[0fr] opacity-0"
-          }`}
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            }`}
         >
           <div className="overflow-hidden">
             <div className="mt-3 space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
@@ -1279,12 +1243,8 @@ export const QuestionsFilters = ({
                       className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors cursor-pointer hover:opacity-80`}
                     >
                       <div className="flex items-center gap-2">
-                        <span
-                          className={`w-2 h-2 rounded-full ${color.dot} shrink-0`}
-                        />
-                        <span
-                          className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}
-                        >
+                        <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
+                        <span className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}>
                           {s.status}
                         </span>
                       </div>

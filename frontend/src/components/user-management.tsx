@@ -37,14 +37,14 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [verifiedFilter, setVerifiedFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
-  const LIMIT = 12;
+  const [limit, setLimit] = useState(12);
   const states = STATES;
   const isAdmin = currentUser?.role === "admin";
   const isModerator = currentUser?.role === "moderator";
 
   const { data: adminUsers, isLoading: adminLoading } = useAdminGetAllUsers(
     page,
-    LIMIT,
+    limit,
     search,
     sort,
     filter,
@@ -66,7 +66,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
 
   const { data: expertDetails, isLoading: expertLoading } = useGetAllExperts(
     page,
-    LIMIT,
+    limit,
     search,
     sort,
     filter,
@@ -248,7 +248,8 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
             currentPage={page}
             setCurrentPage={setPage}
             userRole={currentUser?.role!}
-            limit={LIMIT}
+            limit={limit}
+            setLimit={setLimit}
             totalPages={
               isAdmin
                 ? adminUsers?.totalPages || 1

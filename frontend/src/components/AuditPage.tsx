@@ -1673,7 +1673,7 @@ const AuditPage = () => {
   const [outComeStatus, setOutComeStatus] = useState<string>("");
   // Mobile filter drawer
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const limit = 10;
+  const [limit, setLimit] = useState(12);
  
   enum AuditCategory {
     QUESTION = "Question",
@@ -2075,7 +2075,13 @@ const AuditPage = () => {
  
       {/* ── Pagination ── */}
       {!isLoading && total > limit && (
-        <Pagination currentPage={page} onPageChange={setPage} totalPages={totalPages} />
+        <Pagination
+          currentPage={page}
+          onPageChange={setPage}
+          totalPages={totalPages}
+          limit={limit}
+          onLimitChange={setLimit}
+        />
       )}
     </div>
   );

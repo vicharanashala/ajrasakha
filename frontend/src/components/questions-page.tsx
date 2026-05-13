@@ -503,8 +503,6 @@ export const QuestionsPage = ({
             showClosedAt={showClosedAt}
             view={view}
             setView={setView}
-            limit={limit}
-            setLimit={setLimit}
           />
 
           {viewMode === "all" ? (
@@ -527,6 +525,7 @@ export const QuestionsPage = ({
               sort={questionSort}
               onSort={toggleQuestionSort}
               view={view}
+              setLimit={setLimit}
             />
           ) : (
             <ReviewLevelsTable
@@ -539,6 +538,7 @@ export const QuestionsPage = ({
               toggleSort={toggleSort}
               sort={sort}
               limit={limit}
+              onLimitChange={setLimit}
               view={view}
               onRefresh={refetchReviewLevels}
             />
