@@ -44,6 +44,7 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import { pipeline } from 'node:stream';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -2613,17 +2614,17 @@ export class QuestionRepository implements IQuestionRepository {
      */
     if (startDate && endDate) {
 
-      const startOfDay = new Date(
-        `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`
-      );
+      // const startOfDay = new Date(
+      //   `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`
+      // );
 
-      const endOfDay = new Date(
-        `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`
-      );
+      // const endOfDay = new Date(
+      //   `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`
+      // );
 
       matchCondition.closedAt = {
-        $gte: startOfDay,
-        $lte: endOfDay
+        $gte: startDate,
+        $lte: endDate
       };
     }
 
@@ -2709,15 +2710,88 @@ export class QuestionRepository implements IQuestionRepository {
         $match: matchCondition
       },
 
+      
+
+        // STEP 2: Lookup question submission
+      
+
+      {
+        $lookup: {
+          from: "question_submissions",
+          localField: "_id",
+          foreignField: "questionId",
+          as: "submission"
+        }
+      },
+
+      // STEP 3: Remove questions without submission
+      {
+        $unwind: {
+          path: "$submission",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // STEP 4: Lookup responder's FIRST answer to the question
+      {
+        $lookup: {
+          from: 'answers',
+          let: {
+            questionId: '$_id',
+            responderId: '$submission.lastRespondedBy'
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $eq: ['$questionId', '$$questionId']
+                    },
+                    {
+                      $eq: ['$authorId', '$$responderId']
+                    }
+                  ]
+                }
+              }
+            },
+
+            /**
+            * Earliest answer by responder
+            */
+            {
+              $sort: {
+                createdAt: 1
+              }
+            },
+
+            /**
+            * Take first response only
+            */
+            {
+              $limit: 1
+            }
+          ],
+          as: 'firstAnswer'
+        }
+      },
+      // STEP 5: Remove unanswered questions
+      {
+        $unwind: {
+          path: '$firstAnswer',
+          preserveNullAndEmptyArrays: false
+        }
+      },
+
       /**
-       * STEP 2: Calculate response time in hours
+       * STEP 6: Calculate response time in hours
        */
       {
         $addFields: {
           timeTakenHours: {
             $divide: [
               {
-                $subtract: ['$closedAt', '$createdAt']
+                $subtract: ['$firstAnswer.createdAt', '$createdAt']
               },
               1000 * 60 * 60
             ]
@@ -2726,7 +2800,7 @@ export class QuestionRepository implements IQuestionRepository {
       },
 
       /**
-       * STEP 3: Group by source
+       * STEP 7: Group by source
        */
       {
         $group: {
@@ -2743,7 +2817,7 @@ export class QuestionRepository implements IQuestionRepository {
       },
 
       /**
-       * STEP 4: Project clean output
+       * STEP 8: Project clean output
        */
       {
         $project: {

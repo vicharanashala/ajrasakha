@@ -88,3 +88,5 @@ gcp-service-account.json
 src/migrations
 
 backups
+
+*txt
