@@ -52,7 +52,7 @@ import {
   AddOrEditQuestionDialog,
   type AddQuestionValidationErrors,
 } from "./AddOrEditQuestionDialog";
-import { useReAllocateLessWorkload,useReAllocateExpertsSelectedQuestions } from "@/hooks/api/question/useReAllocateLessWorkload";
+import { useReAllocateLessWorkload, useReAllocateExpertsSelectedQuestions } from "@/hooks/api/question/useReAllocateLessWorkload";
 import { DownloadReportButton } from "./DownloadReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
@@ -168,7 +168,7 @@ export const QuestionsFilters = ({
   ];
   const [advanceFilter, setAdvanceFilterValues] =
     useState<AdvanceFilterValues>(appliedFilters);
-  const [previousFilter, setPreviousFilter] = 
+  const [previousFilter, setPreviousFilter] =
     useState<AdvanceFilterValues | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [addQuestionErrors, setAddQuestionErrors] =
@@ -187,7 +187,7 @@ export const QuestionsFilters = ({
     });
   const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
-    // Reallocate the selected questions to experts with less workload
+  // Reallocate the selected questions to experts with less workload
   const { mutateAsync: reAllocateExpertsSelectedQuestions, isPending: reAllocating } =
     useReAllocateExpertsSelectedQuestions();
 
@@ -487,7 +487,7 @@ export const QuestionsFilters = ({
     (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
+
   // Track window size for boundaries
   const [windowSize, setWindowSize] = useState({
     width: typeof window !== "undefined" ? window.innerWidth : 1200,
@@ -515,7 +515,7 @@ export const QuestionsFilters = ({
   // Dynamically clamp the badge position based on its estimated sizes to prevent it from ever clipping off the screen
   const estimatedBadgeHeight = isBadgeExpanded ? 240 : 50;
   const estimatedBadgeWidth = isBadgeExpanded ? 220 : 120;
-  
+
   const safeX = Math.max(10, Math.min(position.x, windowSize.width - estimatedBadgeWidth - 20));
   const safeY = Math.max(10, Math.min(position.y, windowSize.height - estimatedBadgeHeight - 20));
 
@@ -719,22 +719,38 @@ export const QuestionsFilters = ({
 
             {/* Allocate to EXPERTS */}
             {userRole !== "expert" && answerMode.toLowerCase() !== "draft" && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={selectedQuestionIds.length === 0 || reAllocating || isReAllocateDisabled}
-                onClick={() =>{
-                  setIsReAllocateSelectedQuestionsOpen(true);
-                }}
-                className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled ? "cursor-not-allowed text-green-600" : ""}`}
-              >
-                <UserCheck className="h-4 w-4" />
-                {reAllocating
-                  ? `Allocating (${selectedQuestionIds.length})...`
-                  : isReAllocateDisabled
-                  ? `Will be available in 50s`
-                  : `ReAllocate Experts (${selectedQuestionIds.length})`}
-              </Button>
+              <div className="relative inline-block">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    selectedQuestionIds.length === 0 ||
+                    reAllocating ||
+                    isReAllocateDisabled
+                  }
+                  onClick={() => {
+                    setIsReAllocateSelectedQuestionsOpen(true);
+                  }}
+                  className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled
+                      ? "cursor-not-allowed text-green-600"
+                      : ""
+                    }`}
+                >
+                  <UserCheck className="h-4 w-4" />
+                  {reAllocating
+                    ? `Allocating (${selectedQuestionIds.length})...`
+                    : isReAllocateDisabled
+                      ? `Will be available in 50s`
+                      : `ReAllocate Experts (${selectedQuestionIds.length})`}
+                </Button>
+
+                <Badge
+                  variant="default"
+                  className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
+                >
+                  New
+                </Badge>
+              </div>
             )}
 
             {/* Bulk delete with count */}
@@ -834,45 +850,45 @@ export const QuestionsFilters = ({
               </button>
             </div>
           </section>
-            <section className="hidden md:block">
-              <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
-                Hide Columns
-              </h3>
+          <section className="hidden md:block">
+            <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+              Hide Columns
+            </h3>
 
-              <div className="grid grid-cols-2 gap-2 p-1 rounded-lg">
-                {activeColumns
-                  .filter((key) => {
-                    if (key === "created" && showClosedAt) return false;
-                    if (key === "closed" && !showClosedAt) return false;
-                    return true;
-                  })
-                  .map((key) => {
-                    const isVisible = visibleColumns[key];
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => toggleColumn(key)}
-                        className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-lg">
+              {activeColumns
+                .filter((key) => {
+                  if (key === "created" && showClosedAt) return false;
+                  if (key === "closed" && !showClosedAt) return false;
+                  return true;
+                })
+                .map((key) => {
+                  const isVisible = visibleColumns[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => toggleColumn(key)}
+                      className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
               ${isVisible
-                            ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
-                            : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
-                          }
+                          ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                          : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+                        }
             `}
-                      >
-                        <span className="text-xs font-semibold tracking-wider capitalize">
-                          {key.replace(/_/g, " ")}
-                        </span>
+                    >
+                      <span className="text-xs font-semibold tracking-wider capitalize">
+                        {key.replace(/_/g, " ")}
+                      </span>
 
-                        {isVisible ? (
-                          <Eye size={16} className="text-emerald-400" />
-                        ) : (
-                          <EyeOff size={16} className="text-emerald-400/40" />
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
-            </section>
+                      {isVisible ? (
+                        <Eye size={16} className="text-emerald-400" />
+                      ) : (
+                        <EyeOff size={16} className="text-emerald-400/40" />
+                      )}
+                    </button>
+                  );
+                })}
+            </div>
+          </section>
 
           {/* Section: Critical Actions */}
           <section>
@@ -1130,11 +1146,10 @@ export const QuestionsFilters = ({
             setIsBadgeExpanded((prev) => !prev);
           }
         }}
-        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-          isBadgeExpanded
+        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
             ? "rounded-[16px] px-4 py-3 min-w-[220px]"
             : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
-        } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
+          } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
           left: `${safeX}px`,
           top: `${safeY}px`,
@@ -1150,10 +1165,9 @@ export const QuestionsFilters = ({
               {statusSummary?.totalQuestions ?? totalQuestions}
             </span>
           </span>
-          <span 
-            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-              isBadgeExpanded ? "rotate-180" : "rotate-0"
-            }`}
+          <span
+            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded ? "rotate-180" : "rotate-0"
+              }`}
           >
             <ChevronDown size={14} />
           </span>
@@ -1161,9 +1175,8 @@ export const QuestionsFilters = ({
 
         {/* Expanded status breakdown */}
         <div
-          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-            isBadgeExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-          }`}
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            }`}
         >
           <div className="overflow-hidden">
             <div className="mt-3 space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
@@ -1195,8 +1208,8 @@ export const QuestionsFilters = ({
                       className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors cursor-pointer hover:opacity-80`}
                     >
                       <div className="flex items-center gap-2">
-                         <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
-                         <span className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}>
+                        <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
+                        <span className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}>
                           {s.status}
                         </span>
                       </div>
@@ -1223,7 +1236,7 @@ export const QuestionsFilters = ({
         onConfirm={handleReAllocateLessWorkload}
       />
 
-{/* confirmation modal for reallocate selected questions to experts */}
+      {/* confirmation modal for reallocate selected questions to experts */}
       <ConfirmationModal
         title="ReAllocate selected questions?"
         description="Are you sure you want to ReAllocate selected questions?"
