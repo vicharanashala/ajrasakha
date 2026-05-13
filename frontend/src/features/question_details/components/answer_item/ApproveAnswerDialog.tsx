@@ -81,7 +81,7 @@ export const ApproveAnswerDialog = ({
       </DialogTrigger>
 
       <DialogContent
-        className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
+        className="z-[200] w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
         style={{ maxWidth: "70vw" }}
       >
         <DialogHeader className="flex-shrink-0">

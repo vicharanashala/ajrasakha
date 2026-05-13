@@ -6,6 +6,7 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import CountUp from "react-countup";
+import { TopRightBadge } from "../NewBadge";
 
 interface PAEMetricsProps {
   assigned: number;
@@ -21,12 +22,13 @@ export const PAEMetrics = ({ assigned, submitted, closed }: PAEMetricsProps) => 
   };
 
   return (
-    <Card>
+    <Card className="relative">
       <CardHeader>
         <CardTitle className="text-base">PAE (Principal Agri Experts)</CardTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Status breakdown of questions under PAE review
         </p>
+        <TopRightBadge label="new" left={0} />
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
