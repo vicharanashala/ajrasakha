@@ -1596,8 +1596,9 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getDuplicateQuestions(session?: ClientSession): Promise<DuplicateQuestionEntry[]> {
     try {
+      // init('annam') sets this.messagesCollection → annam messages, this.users → annam users
       await this.initReviewSystem();
-      await this.init('vicharanashala');
+      await this.init('annam');
 
       // 1. Fetch duplicate questions from the main review DB
       const dupeQuestions = await this.QuestionCollection
@@ -1624,27 +1625,32 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (dupeQuestions.length === 0) return [];
 
-      // 2. Collect messageIds and look up in analytics messages collection
+      // 2. Only process questions that have messageId stored
       const messageIds = dupeQuestions.map(q => q.messageId).filter(Boolean) as string[];
+      if (messageIds.length === 0) return [];
 
-      const messages = messageIds.length > 0
-        ? await this.messagesCollection
-            .find({ messageId: { $in: messageIds } }, { session })
-            .project<{ messageId: string; user: string }>({ messageId: 1, user: 1 })
-            .toArray()
-        : [];
+      // 3. Look up messages in annam analytics DB.
+      // Questions whose messageId has no matching document are excluded entirely.
+      const messages = await this.messagesCollection
+        .find({ messageId: { $in: messageIds } })
+        .project<{ messageId: string; user: string }>({ messageId: 1, user: 1 })
+        .toArray();
 
-      // 3. Build messageId → userId map
-      const messageToUser = new Map(messages.map(m => [m.messageId, m.user]));
+      const messageToUser = new Map<string, string>(
+        messages.filter(m => m.messageId && m.user).map(m => [m.messageId, m.user])
+      );
 
-      // 4. Collect unique userIds and look up in users collection
+      // 4. Look up users from annam analytics DB
       const userIds = [...new Set(messages.map(m => m.user).filter(Boolean))];
       const users = userIds.length > 0
         ? await this.users
-            .find(
-              { _id: { $in: userIds.map(id => { try { return new ObjectId(id); } catch { return null; } }).filter(Boolean) } },
-              { session },
-            )
+            .find({
+              _id: {
+                $in: userIds
+                  .map(id => { try { return new ObjectId(id); } catch { return null; } })
+                  .filter(Boolean),
+              },
+            })
             .project<{
               _id: any;
               name?: string;
@@ -1668,14 +1674,16 @@ export class ChatbotRepository implements IChatbotRepository {
             .toArray()
         : [];
 
-      // 5. Build userId → user map
       const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
-      // 6. Combine and return
-      return dupeQuestions.map(q => {
-        const userId = q.messageId ? messageToUser.get(q.messageId) : undefined;
-        const user = userId ? userMap.get(userId.toString()) : undefined;
-        return {
+      // 5. Build results — skip any question whose messageId has no matching message
+      const results: DuplicateQuestionEntry[] = [];
+      for (const q of dupeQuestions) {
+        if (!q.messageId) continue;
+        const userId = messageToUser.get(q.messageId);
+        if (!userId) continue;
+        const user = userMap.get(userId);
+        results.push({
           questionId: q._id.toString(),
           question: q.question,
           referenceQuestion: q.referenceQuestion || q.originalQuestion || '',
@@ -1687,8 +1695,9 @@ export class ChatbotRepository implements IChatbotRepository {
           block: user?.farmerProfile?.blockName || '—',
           district: user?.farmerProfile?.district || '—',
           state: user?.farmerProfile?.state || '—',
-        };
-      });
+        });
+      }
+      return results;
     } catch (error) {
       throw new InternalServerError(`Failed to get duplicate questions: ${error}`);
     }
