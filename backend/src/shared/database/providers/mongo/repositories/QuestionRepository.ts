@@ -2615,20 +2615,25 @@ export class QuestionRepository implements IQuestionRepository {
       closedAt: { $exists: true }
     };
 
-    /**
-     * Filter by CLOSED DATE
-     * (Recommended for daily average response time)
-     */
     if (startDate && endDate) {
 
-      const startOfDay = new Date(
+     /* const startOfDay = new Date(
         `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`
       );
 
       const endOfDay = new Date(
         `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`
-      );
+      );*/
+    const startOfDay = new Date(startDate);
+    startOfDay.setHours(0, 0, 0, 0);
 
+    const endOfDay = new Date(endDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+      matchCondition.createdAt = {
+        $gte: startOfDay,
+        $lte: endOfDay
+      };
       matchCondition.closedAt = {
         $gte: startOfDay,
         $lte: endOfDay
@@ -2637,7 +2642,7 @@ export class QuestionRepository implements IQuestionRepository {
 
     /**
      * Optional Time Filter (IST)
-     * Filters based on CLOSED TIME
+     * Filters based on CREATED TIME
      */
     if (customStartTime && customEndTime) {
 
@@ -2660,7 +2665,7 @@ export class QuestionRepository implements IQuestionRepository {
                     $multiply: [
                       {
                         $hour: {
-                          date: '$closedAt',
+                          date: '$createdAt',
                           timezone: 'Asia/Kolkata'
                         }
                       },
@@ -2669,7 +2674,7 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                   {
                     $minute: {
-                      date: '$closedAt',
+                      date: '$createdAt',
                       timezone: 'Asia/Kolkata'
                     }
                   }
@@ -2686,7 +2691,7 @@ export class QuestionRepository implements IQuestionRepository {
                     $multiply: [
                       {
                         $hour: {
-                          date: '$closedAt',
+                          date: '$createdAt',
                           timezone: 'Asia/Kolkata'
                         }
                       },
@@ -2695,7 +2700,7 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                   {
                     $minute: {
-                      date: '$closedAt',
+                      date: '$createdAt',
                       timezone: 'Asia/Kolkata'
                     }
                   }
@@ -2773,6 +2778,7 @@ export class QuestionRepository implements IQuestionRepository {
         avgTime: number;
         totalTickets: number;
       }[];
+      
 
     const whatsapp =
       result.find(r => r.source === 'whatsapp')?.avgTime ?? 0;
