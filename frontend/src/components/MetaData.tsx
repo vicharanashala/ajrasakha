@@ -186,11 +186,15 @@ export const Review_Level=[
 
 ]
 export const STATUS=[
+  "draft",
   "open",
   "in-review",
   "delayed",
-  "closed",
-  "re-routed"
+  "re-routed",
+  "pae_submitted",
+  "pae_closed",
+  "pass",
+  "closed"
 ]
 export const Review_Level_QAI=[
   "Author",

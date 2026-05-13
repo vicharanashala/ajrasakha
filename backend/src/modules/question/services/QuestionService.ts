@@ -3971,6 +3971,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     status?: string;
     hiddenQuestions?: string;
     duplicateQuestions?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       // Build filter query
@@ -3999,10 +4001,26 @@ export class QuestionService extends BaseService implements IQuestionService {
         query['details.domain'] = filters.domain;
       }
       if (filters.status && filters.status !== 'all') {
-        query.status = filters.status;
+        if (filters.status === 'pae_closed') {
+          query.status = 'closed';
+          query.pae_review = true;
+        } else {
+          query.status = filters.status;
+        }
       }
       if (filters.hiddenQuestions === 'true') {
         query.isHidden = { $eq: true };
+      }
+      if (filters.startDate || filters.endDate) {
+        query.createdAt = {};
+        if (filters.startDate) {
+          query.createdAt.$gte = new Date(filters.startDate);
+        }
+        if (filters.endDate) {
+          const end = new Date(filters.endDate);
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end;
+        }
       }
 
       // Get questions from repository

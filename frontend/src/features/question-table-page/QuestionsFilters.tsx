@@ -1129,12 +1129,15 @@ export const QuestionsFilters = ({
                     onOpenDialog={() => setIsSidebarOpen(false)}
                   />
                 </div>
-
-                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+              {userRole !== "moderator" && 
+              <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadFilteredReportButton
                     onOpenDialog={() => setIsSidebarOpen(false)}
                   />
-                </div>
+                   </div>
+              }
+                
+               
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-teal-50 dark:hover:bg-teal-500/5 border border-gray-200 dark:border-gray-800 hover:border-teal-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadDuplicateReportButton
