@@ -1,5 +1,6 @@
 import { CROPS, STATES, DOMAINS } from "@/components/advanced-question-filter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
+import { MultiSelect } from "@/components/atoms/MultiSelect";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -138,8 +139,8 @@ type ProfileFormProps = {
 
 const OTHER_DOMAIN_VALUE = "other";
 
-const isPresetDomain = (domain?: string) => {
-  if (!domain) return false;
+const isPresetDomain = (domain?: string | string[]) => {
+  if (!domain || Array.isArray(domain)) return false;
   return domain === "all" || DOMAINS.includes(domain);
 };
 
@@ -207,9 +208,13 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     preference: {
       state: user?.preference?.state ?? "",
       crop: user?.preference?.crop ?? "",
-      domain: user?.preference?.domain ?? "",
+      domain: user?.preference?.domain ?? "all",
     },
   });
+
+  const [selectedDomains, setSelectedDomains] = useState<string[]>(
+    Array.isArray(user?.preference?.domain) ? user.preference.domain : []
+  );
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
@@ -230,13 +235,12 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const stringDomain = typeof user?.preference?.domain === "string" ? user.preference.domain : "";
   const [domainSelection, setDomainSelection] = useState(() =>
-    isPresetDomain(user?.preference?.domain)
-      ? (user?.preference?.domain ?? "")
-      : OTHER_DOMAIN_VALUE,
+    isPresetDomain(stringDomain) ? (stringDomain ?? "") : OTHER_DOMAIN_VALUE,
   );
   const [customDomain, setCustomDomain] = useState(() =>
-    isPresetDomain(user?.preference?.domain) ? "" : (user?.preference?.domain ?? ""),
+    isPresetDomain(stringDomain) ? "" : stringDomain,
   );
   const [domainError, setDomainError] = useState("");
   const [profileErrors, setProfileErrors] = useState({
@@ -358,14 +362,17 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         preference: {
           state: formData.preference?.state ?? "",
           crop: formData.preference?.crop ?? "",
-          domain: normalizedDomain,
+          domain: user.role === "pae_expert"
+            ? (selectedDomains.length > 0 ? selectedDomains : "all")
+            : normalizedDomain,
         },
       };
 
       await onSubmit?.(payload);
       setFormData(payload);
-      setDomainSelection(isPresetDomain(normalizedDomain) ? normalizedDomain : OTHER_DOMAIN_VALUE);
-      setCustomDomain(isPresetDomain(normalizedDomain) ? "" : normalizedDomain);
+      const strDomain = typeof normalizedDomain === "string" ? normalizedDomain : "";
+      setDomainSelection(isPresetDomain(strDomain) ? strDomain : OTHER_DOMAIN_VALUE);
+      setCustomDomain(isPresetDomain(strDomain) ? "" : strDomain);
 
       if (payload.avatar) {
         useAuthStore.getState().updateUser({ avatar: payload.avatar });
@@ -1008,79 +1015,101 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             </div> */}
 
           <div className="space-y-2">
-            {/* <Label htmlFor="domain">Domain</Label>
             <div className="flex items-center gap-2">
-              <Network className="h-4 w-4 text-muted-foreground" />
-              <Input
-                id="domain"
-                disabled // Need to add drop down here
-                value={
-                  formData.preference?.domain == "all"
-                    ? "All"
-                    : formData.preference?.domain
-                }
-                onChange={(e) =>
-                  handleChange("preference.domain", e.target.value)
-                }
-                placeholder="Enter domain (e.g., Nutrient Management)"
-              />
-            </div> */}
-            <Label htmlFor="domain">Domain</Label>
-              <Select
-                value={domainSelection}
-                disabled={!isEditMode || user.role == "admin"}
-                onValueChange={(val) => {
-                  setDomainError("");
-                  setDomainSelection(val);
-
-                  if (val === OTHER_DOMAIN_VALUE) {
-                    handleChange("preference.domain", customDomain);
-                    return;
-                  }
-
-                  handleChange("preference.domain", val);
-                }}
-              >
-                <SelectTrigger id="domain" className="w-full">
-                  <SelectValue placeholder="Select domain" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Domain</SelectItem>
-                  {domainOptions.map((domain) => (
-                    <SelectItem key={domain} value={domain}>
-                      <Network className="h-4 w-4 mr-2 inline" /> {domain}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value={OTHER_DOMAIN_VALUE}>
-                    <Network className="h-4 w-4 mr-2 inline" /> Other
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {domainSelection === OTHER_DOMAIN_VALUE && (
-                <div className="space-y-2">
-                  <Input
-                    id="custom-domain"
-                    disabled={!isEditMode || user.role == "admin"}
-                    value={customDomain}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setCustomDomain(value);
-                      handleChange("preference.domain", value);
-
-                      if (domainError) {
-                        setDomainError(validateCustomDomain(value));
-                      }
-                    }}
-                    onBlur={() => {
-                      setDomainError(validateCustomDomain(customDomain));
-                    }}
-                    placeholder="Enter your domain"
-                  />
-                  {domainError && (
-                    <p className="text-sm text-red-500">{domainError}</p>
-                  )}
-                </div>
+              <Label htmlFor="domain">Domain{user.role === "pae_expert" ? "s" : ""}</Label>
+              {user.role === "pae_expert" && Array.isArray(formData.preference?.domain) && formData.preference.domain.length > 0 && (
+                <span className="text-xs font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full border border-border">
+                  {formData.preference.domain.length}
+                </span>
               )}
+            </div>
+            {user.role === "pae_expert" ? (
+              <div className="space-y-3">
+                {isEditMode ? (
+                  <MultiSelect
+                    items={domainOptions.map((d) => ({ value: d, label: d }))}
+                    selected={selectedDomains}
+                    onChange={setSelectedDomains}
+                    placeholder="Select domains"
+                    direction="up"
+                  />
+                ) : Array.isArray(formData.preference?.domain) && formData.preference.domain.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {(formData.preference.domain as string[]).map((d) => (
+                      <span
+                        key={d}
+                        className="inline-flex items-center gap-1.5 bg-muted text-foreground text-xs font-medium px-3 py-1.5 rounded-md border border-border"
+                      >
+                        <Network className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm text-muted-foreground">
+                    All Domain
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Select
+                  value={domainSelection}
+                  disabled={!isEditMode || user.role == "admin"}
+                  onValueChange={(val) => {
+                    setDomainError("");
+                    setDomainSelection(val);
+
+                    if (val === OTHER_DOMAIN_VALUE) {
+                      handleChange("preference.domain", customDomain);
+                      return;
+                    }
+
+                    handleChange("preference.domain", val);
+                  }}
+                >
+                  <SelectTrigger id="domain" className="w-full">
+                    <SelectValue placeholder="Select domain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Domain</SelectItem>
+                    {domainOptions.map((domain) => (
+                      <SelectItem key={domain} value={domain}>
+                        <Network className="h-4 w-4 mr-2 inline" /> {domain}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={OTHER_DOMAIN_VALUE}>
+                      <Network className="h-4 w-4 mr-2 inline" /> Other
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {domainSelection === OTHER_DOMAIN_VALUE && (
+                  <div className="space-y-2">
+                    <Input
+                      id="custom-domain"
+                      disabled={!isEditMode || user.role == "admin"}
+                      value={customDomain}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setCustomDomain(value);
+                        handleChange("preference.domain", value);
+
+                        if (domainError) {
+                          setDomainError(validateCustomDomain(value));
+                        }
+                      }}
+                      onBlur={() => {
+                        setDomainError(validateCustomDomain(customDomain));
+                      }}
+                      placeholder="Enter your domain"
+                    />
+                    {domainError && (
+                      <p className="text-sm text-red-500">{domainError}</p>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
           </div>
 
