@@ -563,6 +563,8 @@ export class QuestionController {
       status?: string;
       hiddenQuestions?: string;
       duplicateQuestions?: string;
+      startDate?: string;
+      endDate?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -596,6 +598,8 @@ export class QuestionController {
         status: query.status,
         hiddenQuestions: query.hiddenQuestions,
         duplicateQuestions: query.duplicateQuestions,
+        startDate: query.startDate,
+        endDate: query.endDate,
       });
     } catch(err: any){
       auditPayload = {

@@ -3714,6 +3714,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     status?: string;
     hiddenQuestions?: string;
     duplicateQuestions?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       // Build filter query
@@ -3751,6 +3753,17 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
       if (filters.hiddenQuestions === 'true') {
         query.isHidden = { $eq: true };
+      }
+      if (filters.startDate || filters.endDate) {
+        query.createdAt = {};
+        if (filters.startDate) {
+          query.createdAt.$gte = new Date(filters.startDate);
+        }
+        if (filters.endDate) {
+          const end = new Date(filters.endDate);
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end;
+        }
       }
 
       // Get questions from repository
