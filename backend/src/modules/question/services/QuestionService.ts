@@ -2753,7 +2753,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQuestionFullData(
     questionId: string,
     userId: string,
-  ): Promise<IQuestion | null> {
+  ): Promise<{question: IQuestion | null; approved_moderator: {name: string; email: string}}> {
     try {
       const user = await this.userRepo.findById(userId);
       const isExpert = user.role == 'expert';
@@ -2765,7 +2765,33 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!question) {
         return null;
       }
-      return question;
+
+      let approved_moderator = {
+        name: '',
+        email: '',
+      };
+      if (question.status === 'closed') {
+        const answers = await this.answerRepo.getByQuestionId(questionId);
+        const finalizedAnswer = answers.find(answer => answer.isFinalAnswer);
+        
+        if (finalizedAnswer?.approvedBy) {
+          const moderator = await this.userRepo.findById(
+            finalizedAnswer.approvedBy,
+          );
+
+          if (moderator) {
+            approved_moderator = {
+              name: `${moderator.firstName} ${moderator.lastName}`,
+              email: moderator.email,
+            };
+          }
+        }
+      }
+
+      return {
+        question,
+        approved_moderator,
+      };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
     }
