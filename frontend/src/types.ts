@@ -907,6 +907,13 @@ export interface WorkloadBalanceResponse {
   submissionsProcessed: number;
   inactiveExpertsFound?: number;
 }
+export interface ReallocateExpertsSelectedQuestionsResponse {
+  message: string;
+  expertsInvolved: number;
+  submissionsProcessed: number;
+  questionsFiltered?: number;
+  unallocatedQuestions?: number;
+}
 
 export type GrowthResponse = {
   labels: string[];

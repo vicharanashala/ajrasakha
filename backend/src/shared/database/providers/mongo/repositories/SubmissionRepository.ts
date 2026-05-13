@@ -3184,16 +3184,16 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
           // Type B — Last update stuck in-review
           {
-            history: { $not: { $size: 0 } },
+            'history.1': {$exists: true},
             $expr: {
               $let: {
                 vars: {
-                  lastHistory: { $arrayElemAt: ['$history', -1] },
+                  lastHistory: {$arrayElemAt: ['$history', -1]},
                 },
                 in: {
                   $and: [
-                    { $eq: ['$$lastHistory.status', 'in-review'] },
-                    { $lte: ['$$lastHistory.createdAt', oneHourAgo] },
+                    {$eq: ['$$lastHistory.status', 'in-review']},
+                    {$lte: ['$$lastHistory.createdAt', oneHourAgo]},
                   ],
                 },
               },
@@ -3695,11 +3695,40 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async findReallocationQuestionsByIds(questionIds?: string[], session?: ClientSession): Promise<IQuestionSubmission[]> {
     await this.init();
 
-    return this.QuestionSubmissionCollection.find(
-      {
-        questionId: { $in: questionIds?.map((id) => new ObjectId(id)) },
-      },
-      { session }
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>(
+      [
+        {
+          $match: {
+            questionId: {
+              $in: questionIds?.map(id => new ObjectId(id)),
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+        {
+          $unwind: '$question',
+        },
+        {
+          $match: {
+            'question.status': {
+              $nin: ['closed', 'in-review', 'pass', 'draft', 'pae_submitted'],
+            },
+          },
+        },
+        {
+          $project: {
+            question: 0,
+          },
+        },
+      ],
+      {session},
     ).toArray();
   }
 }
