@@ -22,8 +22,7 @@ class PreferenceDto {
   crop?: string | ICropRef;
 
   @IsOptional()
-  @IsString()
-  domain?: string;
+  domain?: string | string[];
 }
 
 // User DTO
