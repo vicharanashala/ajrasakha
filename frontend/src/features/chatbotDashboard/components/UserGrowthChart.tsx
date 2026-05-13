@@ -332,6 +332,7 @@ const UserGrowthChart = () => {
                 </div>
               </div>
 
+              {/* Metric toggles */}
               <div className="flex gap-2 mb-4 flex-wrap">
                 {metricsConfig.map((m) => {
                   const active = activeMetrics.includes(m.key);
@@ -350,10 +351,42 @@ const UserGrowthChart = () => {
                 })}
               </div>
 
-              <div className="w-full relative">
-                <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700 z-10" />
-                <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700 z-10" />
-                {renderChart(500, 13)}
+              {/* Chart (left) + Table (right) */}
+              <div className="flex gap-4 items-start">
+                {/* Chart — 65% */}
+                <div className="flex-[65] min-w-0 relative">
+                  <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700 z-10" />
+                  <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700 z-10" />
+                  {renderChart(460, 13)}
+                </div>
+
+                {/* Table — 35% */}
+                <div className="flex-[35] min-w-0 max-h-[460px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Date</th>
+                        {metricsConfig.filter((m) => activeMetrics.includes(m.key)).map((m) => (
+                          <th key={m.key} className="px-3 py-2 text-right font-semibold whitespace-nowrap" style={{ color: m.color }}>
+                            {m.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {chartData.map((row, idx) => (
+                        <tr key={idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                          <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400 whitespace-nowrap">{row.date}</td>
+                          {metricsConfig.filter((m) => activeMetrics.includes(m.key)).map((m) => (
+                            <td key={m.key} className="px-3 py-1.5 text-right font-medium text-gray-900 dark:text-gray-100">
+                              {(row[m.key as keyof typeof row] as number).toLocaleString()}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>,

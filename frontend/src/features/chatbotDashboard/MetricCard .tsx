@@ -412,67 +412,65 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
               </div>
             </div>
 
-            {/* Data Table */}
-            <div className="mb-6 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Date</th>
-                    <th className="px-4 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkPoints?.length
-                    ? kpi.dailySparkPoints
-                    : kpi.sparkPoints
-                  ).map((value, idx) => {
-                    const label = (kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkLabels?.length
-                      ? kpi.dailySparkLabels
-                      : kpi.sparkLabels
-                    )?.[idx] || `Point ${idx + 1}`;
-                    return (
-                      <tr key={idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{label}</td>
-                        <td className="px-4 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                          {value.toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Enlarged Graph */}
-            <div className="h-48 relative mb-2">
-              {/* Y-axis border */}
-              <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700"></div>
-              {/* X-axis border */}
-              <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700"></div>
-              
-              <Sparkline
-                points={
-                  kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkPoints?.length
-                    ? kpi.dailySparkPoints
-                    : kpi.sparkPoints
-                }
-                color={kpi.accentColor}
-                labels={
-                  kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkLabels?.length
-                    ? kpi.dailySparkLabels
-                    : kpi.sparkLabels
-                }
-              />
-            </div>
-
-            {/* Badges */}
-            {kpi.badges && (
-              <div className="flex gap-2 flex-wrap mt-6">
-                {kpi.badges.map((b) => (
-                  <SmallBadge key={b.label} label={b.label} variant={b.variant} />
-                ))}
+            {/* Chart (left) + Table (right) */}
+            <div className="flex gap-4 items-start">
+              {/* Sparkline — 65% */}
+              <div className="flex-[65] min-w-0">
+                <div className="h-48 relative">
+                  <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700" />
+                  <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700" />
+                  <Sparkline
+                    points={
+                      kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkPoints?.length
+                        ? kpi.dailySparkPoints
+                        : kpi.sparkPoints
+                    }
+                    color={kpi.accentColor}
+                    labels={
+                      kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkLabels?.length
+                        ? kpi.dailySparkLabels
+                        : kpi.sparkLabels
+                    }
+                  />
+                </div>
+                {kpi.badges && (
+                  <div className="flex gap-2 flex-wrap mt-4">
+                    {kpi.badges.map((b) => (
+                      <SmallBadge key={b.label} label={b.label} variant={b.variant} />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Table — 35% */}
+              <div className="flex-[35] min-w-0 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Date</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkPoints?.length
+                      ? kpi.dailySparkPoints
+                      : kpi.sparkPoints
+                    ).map((value, idx) => {
+                      const label = (kpi.id === 'queries' && granularity === 'daily' && kpi.dailySparkLabels?.length
+                        ? kpi.dailySparkLabels
+                        : kpi.sparkLabels
+                      )?.[idx] || `Point ${idx + 1}`;
+                      return (
+                        <tr key={idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">{label}</td>
+                          <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">{value.toLocaleString()}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>,
         document.body
