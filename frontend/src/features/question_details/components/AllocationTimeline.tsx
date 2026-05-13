@@ -432,92 +432,92 @@ export const AllocationTimeline = ({
                         </div>
                         {/* timeline*/}
                         {/* ========================= PREMIUM TIMELINE SECTION ========================= */}
-{userSubmission?.assignedAt && (
-  <div className="w-full mt-3 rounded-2xl border border-border/50 bg-gradient-to-br from-muted/40 to-muted/20 backdrop-blur-sm px-3 py-3 shadow-sm">
+                        {userSubmission?.assignedAt && currentUser.role != "expert" && (
+                          <div className="w-full mt-3 rounded-2xl border border-border/50 bg-gradient-to-br from-muted/40 to-muted/20 backdrop-blur-sm px-3 py-3 shadow-sm">
+                        
+                            {/* <div className="flex items-center gap-2 mb-3">
+                              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10">
+                                <Timer className="w-3.5 h-3.5 text-primary" />
+                              </div>
 
-    {/* <div className="flex items-center gap-2 mb-3">
-      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10">
-        <Timer className="w-3.5 h-3.5 text-primary" />
-      </div>
+                              <p className="text-[11px] font-bold tracking-wide uppercase text-foreground">
+                                Review Timeline
+                              </p>
+                            </div> */}
 
-      <p className="text-[11px] font-bold tracking-wide uppercase text-foreground">
-        Review Timeline
-      </p>
-    </div> */}
+                            <div className="space-y-2">
 
-    <div className="space-y-2">
+                              {/* Assigned At */}
+                              <div className="flex items-start gap-2 rounded-lg bg-background/40 border border-border/30 px-2.5 py-2">
+                                <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/10">
+                                  <CalendarClock className="w-3.5 h-3.5 text-blue-500" />
+                                </div>
 
-      {/* Assigned At */}
-      <div className="flex items-start gap-2 rounded-lg bg-background/40 border border-border/30 px-2.5 py-2">
-        <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/10">
-          <CalendarClock className="w-3.5 h-3.5 text-blue-500" />
-        </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                                    Assigned:
+                                  </span>
 
-        <div className="flex flex-col min-w-0">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
-            Assigned:
-          </span>
+                                  <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
+                                    {new Date(userSubmission.assignedAt).toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
 
-          <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
-            {new Date(userSubmission.assignedAt).toLocaleString()}
-          </span>
-        </div>
-      </div>
+                              {/* Completed At */}
+                              <div className="flex items-start gap-2 rounded-lg bg-background/40 border border-border/30 px-2.5 py-2">
+                                <div
+                                  className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full ${
+                                    userSubmission.completedAt
+                                      ? "bg-green-500/10"
+                                      : "bg-amber-500/10"
+                                  }`}
+                                >
+                                  <CheckCheck
+                                    className={`w-3.5 h-3.5 ${
+                                      userSubmission.completedAt
+                                        ? "text-green-500"
+                                        : "text-amber-500"
+                                    }`}
+                                  />
+                                </div>
 
-      {/* Completed At */}
-      <div className="flex items-start gap-2 rounded-lg bg-background/40 border border-border/30 px-2.5 py-2">
-        <div
-          className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full ${
-            userSubmission.completedAt
-              ? "bg-green-500/10"
-              : "bg-amber-500/10"
-          }`}
-        >
-          <CheckCheck
-            className={`w-3.5 h-3.5 ${
-              userSubmission.completedAt
-                ? "text-green-500"
-                : "text-amber-500"
-            }`}
-          />
-        </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                                    Completed:
+                                  </span>
 
-        <div className="flex flex-col min-w-0">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
-            Completed:
-          </span>
+                                  <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
+                                    {userSubmission.completedAt
+                                      ? new Date(
+                                          userSubmission.completedAt
+                                        ).toLocaleString()
+                                      : "Currently In Progress"}
+                                  </span>
+                                </div>
+                              </div>
 
-          <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
-            {userSubmission.completedAt
-              ? new Date(
-                  userSubmission.completedAt
-                ).toLocaleString()
-              : "Currently In Progress"}
-          </span>
-        </div>
-      </div>
+                              {/* Duration */}
+                              <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/10 px-2.5 py-2">
+                                <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
+                                  <Clock className="w-3.5 h-3.5 text-primary" />
+                                </div>
 
-      {/* Duration */}
-      <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/10 px-2.5 py-2">
-        <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
-          <Clock className="w-3.5 h-3.5 text-primary" />
-        </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                                    Duration
+                                  </span>
 
-        <div className="flex flex-col min-w-0">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
-            Duration
-          </span>
-
-          <span className="text-xs font-bold text-primary leading-snug">
-            {userSubmission.timeTakenMs
-              ? formatDuration(userSubmission.timeTakenMs)
-              : "Ongoing"}
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+                                  <span className="text-xs font-bold text-primary leading-snug">
+                                    {userSubmission.timeTakenMs
+                                      ? formatDuration(userSubmission.timeTakenMs)
+                                      : "Ongoing"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 {/* ================================================================= */}
                         <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-primary/20 to-primary/60 mx-auto my-2" />
 

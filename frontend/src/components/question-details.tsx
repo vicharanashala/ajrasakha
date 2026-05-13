@@ -35,8 +35,6 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubmissionHistoryModal } from "./submission-history-model";
 
-const questionService = new QuestionService();
-
 interface QuestionDetailProps {
   question: IQuestionFullData;
   currentUserId: string;
@@ -98,10 +96,8 @@ export const QuestionDetails = ({
   //   enabled: !!question?._id && ["AJRASAKHA", "WHATSAPP", "AGRI_EXPERT", "OUTREACH"].includes(question.source),
   // });
 
-  const {
-    mutate: generateAIAnswer,
-    isPending: isGeneratingAI,
-  } = useGenerateInitialAnswer(currentUser._id?.toString());
+  const { mutate: generateAIAnswer, isPending: isGeneratingAI } =
+    useGenerateInitialAnswer(currentUser._id?.toString());
   const submissionExists = question.submission.history.length > 0 || false;
 
   const handleGenerateAI = () => {
@@ -254,9 +250,18 @@ export const QuestionDetails = ({
             isApproving={isApproving}
           />
 
-          {question && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && currentUser && currentUser.role != "expert" &&
-            <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.history?.length > 0} navigateToQuestionPage={navigateToQuestionPage} />
-          }
+          {question &&
+            (question.source == "AJRASAKHA" || question.source == "WHATSAPP") &&
+            currentUser &&
+            currentUser.role != "expert" && (
+              <MessageDetail
+                question={question}
+                isQuestionAllocatedToExpert={
+                  question?.submission?.history?.length > 0
+                }
+                navigateToQuestionPage={navigateToQuestionPage}
+              />
+            )}
 
           {/* {currentUser.role !== "expert" && ( */}
           <AllocationTimeline
@@ -311,6 +316,7 @@ export const QuestionDetails = ({
                 <Button
                   size="sm"
                   variant="outline"
+                  disabled // will enable once we have proper view for this 
                   onClick={() => setOpen(true)}
                 >
                   Manage History
@@ -319,31 +325,35 @@ export const QuestionDetails = ({
             </div>
           </div>
           {question.status !== "pass" && (
-            <p
-              className="
-    text-sm md:hidden p-3 rounded w-full 
-    flex items-center justify-center gap-3 text-center flex-wrap
-    bg-yellow-50 border border-yellow-300 text-yellow-700
-    dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-300
-  "
-            >
-              <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+            <>
+              <p
+                className="
+        text-sm md:hidden p-3 rounded w-full 
+        flex items-center justify-center gap-3 text-center flex-wrap
+        bg-yellow-50 border border-yellow-300 text-yellow-700
+        dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-300
+      "
+              >
+                <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
 
-              <span className="font-medium">
-                Allocation timeline is only accessible on laptop/desktop
-              </span>
+                <span className="font-medium">
+                  Allocation timeline is only accessible on laptop/desktop
+                </span>
 
-            <span className="opacity-80">(or switch to desktop view)</span>
-          </p>
-          <SubmissionHistoryModal
-            open={open}
-            onClose={() => setOpen(false)}
-            answers={answers}
-            question={question}
-            rerouteQuestion={reroutequestionDetails ?? undefined}
-            currentUser={currentUserId || currentUser._id?.toString()}
-            userRole={currentUser.role}
-          />
+                <span className="opacity-80">(or switch to desktop view)</span>
+              </p>
+
+              <SubmissionHistoryModal
+                open={open}
+                onClose={() => setOpen(false)}
+                answers={answers}
+                question={question}
+                rerouteQuestion={reroutequestionDetails ?? undefined}
+                currentUser={currentUserId || currentUser._id?.toString()}
+                userRole={currentUser.role}
+              />
+            </>
+          )}
 
           {answers.length === 0 ? (
             <p className="text-sm text-muted-foreground  hidden md:block">
