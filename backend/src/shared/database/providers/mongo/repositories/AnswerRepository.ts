@@ -158,6 +158,7 @@ export class AnswerRepository implements IAnswerRepository {
         _id: a._id?.toString(),
         answer: a.answer,
         isFinalAnswer: a.isFinalAnswer,
+        approvedBy: a.approvedBy?.toString() || null,
         createdAt: a.createdAt,
       }));
     } catch (error) {

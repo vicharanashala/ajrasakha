@@ -39,6 +39,7 @@ import CountUp from "react-countup";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import { Spinner } from "@/components/atoms/spinner";
 import { TimePicker } from "./time-picker";
+import { TopRightBadge } from "../NewBadge";
 
 
 const monthNames = [
@@ -427,7 +428,8 @@ export const GoldenDatasetOverview = ({
             )}
 
             {/* Time Range Filters */}
-            <div className="flex gap-3 items-center ml-auto">
+            <div className="flex gap-3 items-center ml-auto relative">
+              <TopRightBadge label="new" left={0} />
               <TimePicker
                 value={customStartDateTime || ""}
                 onChange={setCustomStartDateTime}

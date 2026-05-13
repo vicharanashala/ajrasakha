@@ -7,6 +7,10 @@ import {
 } from "@/components/atoms/tooltip";
 import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
+
+import { Badge } from "../../components/atoms/badge";
+import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "../../components/atoms/select";
+
 import {
   ArrowDownNarrowWide,
   ArrowUpNarrowWide,
@@ -71,14 +75,8 @@ import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/atoms/select";
-import { Badge } from "../../components/atoms/badge";
+
+import { TopRightBadge } from "@/components/NewBadge";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -682,7 +680,10 @@ export const QuestionsFilters = ({
         </div>
       </div> */}
 
-      <AnswerModeSwitcher answerMode={answerMode} handleAnswerModeChange={handleAnswerModeChange} />
+      <AnswerModeSwitcher
+        answerMode={answerMode}
+        handleAnswerModeChange={handleAnswerModeChange}
+      />
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="relative hidden md:flex items-center gap-2">
@@ -702,6 +703,7 @@ export const QuestionsFilters = ({
                     <SelectTrigger className="w-[85px] relative" size="sm">
                       <SelectValue placeholder="Limit" />
                     </SelectTrigger>
+
                     <SelectContent>
                       {[12, 25, 50, 100].map((v) => (
                         <SelectItem key={v} value={v.toString()}>
@@ -710,8 +712,9 @@ export const QuestionsFilters = ({
                       ))}
                     </SelectContent>
                   </Select>
-                  <Badge 
-                    variant="default" 
+
+                  <Badge
+                    variant="default"
                     className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
                   >
                     New
@@ -766,7 +769,9 @@ export const QuestionsFilters = ({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={selectedQuestionIds.length === 0 || isBulkAllocatingPae}
+                disabled={
+                  selectedQuestionIds.length === 0 || isBulkAllocatingPae
+                }
                 onClick={() => setIsPaeAllocateModalOpen(true)}
                 className="flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10"
               >
@@ -782,8 +787,12 @@ export const QuestionsFilters = ({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={selectedQuestionIds.length === 0 || reAllocating || isReAllocateDisabled}
-                onClick={() =>{
+                disabled={
+                  selectedQuestionIds.length === 0 ||
+                  reAllocating ||
+                  isReAllocateDisabled
+                }
+                onClick={() => {
                   setIsReAllocateSelectedQuestionsOpen(true);
                 }}
                 className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled ? "cursor-not-allowed text-green-600" : ""}`}
@@ -792,17 +801,19 @@ export const QuestionsFilters = ({
                 {reAllocating
                   ? `Allocating (${selectedQuestionIds.length})...`
                   : isReAllocateDisabled
-                  ? `Will be available in 50s`
-                  : `ReAllocate Experts (${selectedQuestionIds.length})`}
+                    ? `Will be available in 50s`
+                    : `ReAllocate Experts (${selectedQuestionIds.length})`}
               </Button>
             )}
 
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${selectedQuestionIds.length
-                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
-                }? This action is irreversible.`}
+              description={`Are you sure you want to delete ${
+                selectedQuestionIds.length
+              } selected question${
+                selectedQuestionIds.length > 1 ? "s" : ""
+              }? This action is irreversible.`}
               confirmText="Delete"
               cancelText="Cancel"
               isLoading={bulkDeletingQuestions}
@@ -913,10 +924,11 @@ export const QuestionsFilters = ({
                       key={key}
                       onClick={() => toggleColumn(key)}
                       className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
-              ${isVisible
-                          ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
-                          : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
-                        }
+              ${
+                isVisible
+                  ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                  : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+              }
             `}
                     >
                       <span className="text-xs font-semibold tracking-wider capitalize">
@@ -992,12 +1004,13 @@ export const QuestionsFilters = ({
               {/* WhatsApp History */}
               {userRole !== "expert" && (
                 <button
-                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative"
                   onClick={() => {
                     navigate({ to: "/whatsapp-history" });
                     setIsSidebarOpen(false);
                   }}
                 >
+                  <TopRightBadge label="new" left={0} />
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
                       <MessageSquare size={20} />
@@ -1202,16 +1215,21 @@ export const QuestionsFilters = ({
       >
         {/* Header row */}
         <div className="flex items-center gap-3">
-          <Activity size={14} className="text-green-600 dark:text-green-500 shrink-0" />
+          <Activity
+            size={14}
+            className="text-green-600 dark:text-green-500 shrink-0"
+          />
           <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
+            <TopRightBadge label="new" right={0} />
             Total:{" "}
             <span className="text-gray-900 dark:text-white transition-opacity duration-300">
               {statusSummary?.totalQuestions ?? totalQuestions}
             </span>
           </span>
           <span
-            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded ? "rotate-180" : "rotate-0"
-              }`}
+            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+              isBadgeExpanded ? "rotate-180" : "rotate-0"
+            }`}
           >
             <ChevronDown size={14} />
           </span>
@@ -1219,8 +1237,11 @@ export const QuestionsFilters = ({
 
         {/* Expanded status breakdown */}
         <div
-          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-            }`}
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+            isBadgeExpanded
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0"
+          }`}
         >
           <div className="overflow-hidden">
             <div className="mt-3 space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
@@ -1237,14 +1258,20 @@ export const QuestionsFilters = ({
                       key={s.status}
                       onClick={() => {
                         // If clicking the same status, revert to previous filter
-                        if (advanceFilter.status === s.status && previousFilter) {
+                        if (
+                          advanceFilter.status === s.status &&
+                          previousFilter
+                        ) {
                           setAdvanceFilterValues(previousFilter);
                           onChange(previousFilter);
                           setPreviousFilter(null);
                         } else {
                           // Save current filter and apply new status filter
                           setPreviousFilter(advanceFilter);
-                          const nextFilters = { ...advanceFilter, status: s.status as any };
+                          const nextFilters = {
+                            ...advanceFilter,
+                            status: s.status as any,
+                          };
                           setAdvanceFilterValues(nextFilters);
                           onChange(nextFilters);
                         }
@@ -1252,12 +1279,18 @@ export const QuestionsFilters = ({
                       className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors cursor-pointer hover:opacity-80`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
-                        <span className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}>
+                        <span
+                          className={`w-2 h-2 rounded-full ${color.dot} shrink-0`}
+                        />
+                        <span
+                          className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}
+                        >
                           {s.status}
                         </span>
                       </div>
-                      <span className={`text-xs font-bold tabular-nums ${color.text}`}>
+                      <span
+                        className={`text-xs font-bold tabular-nums ${color.text}`}
+                      >
                         {s.count}
                       </span>
                     </div>
@@ -1314,7 +1347,7 @@ export const QuestionsFilters = ({
         type={manualReallocateType}
       />
 
-{/* confirmation modal for reallocate selected questions to experts */}
+      {/* confirmation modal for reallocate selected questions to experts */}
       <ConfirmationModal
         title="ReAllocate selected questions?"
         description="Are you sure you want to ReAllocate selected questions?"

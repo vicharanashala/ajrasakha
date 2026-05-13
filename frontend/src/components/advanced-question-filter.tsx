@@ -68,6 +68,7 @@ import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
+import { TopRightBadge } from "./NewBadge";
 
 export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft";
 export type QuestionDateRangeFilter =
@@ -171,12 +172,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
       }}
     >
       <DialogTrigger asChild>
-        <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
-          <div className="flex items-center gap-3">
+        <button className="  w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative">
+          <div className="flex items-center gap-3 w-full ">
+            <TopRightBadge label="new" left={0} />
             <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-500 dark:text-purple-400">
               <Settings size={20} />
             </div>
-            <div className="text-left">
+            <div className="text-left ">
               <div className="flex items-center gap-1">
                 <p className="text-sm font-bold text-gray-900 dark:text-white">
                   Preferences
@@ -222,9 +224,10 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
           <div className="space-y-6 py-4">
             {/* Question Status & Source */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 ">
               {!isForQA && (
                 <div className="space-y-2 min-w-0 ">
+
                   <Label className="flex items-center gap-2 text-sm font-semibold">
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
@@ -233,14 +236,15 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     value={advanceFilter.status}
                     onValueChange={(v) => handleDialogChange("status", v)}
                   >
-                    <SelectTrigger className="bg-background w-full">
+                    <SelectTrigger className="bg-background w-full relative">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 ">
                           <Eye className="w-4 h-4 text-primary" />
                           <span>All Statuses</span>
+                          <TopRightBadge label="new" />
                         </div>
                       </SelectItem>
 
