@@ -248,8 +248,8 @@ export const ReallocationManualModal = ({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Informational Banner */}
-          {!isLoading && !isError && data?.questions?.length > 0 && (
+          {/* Informational Banner - Only show if we hit the 50-task limit */}
+          {!isLoading && !isError && data?.questions?.length === 50 && (
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
               <div className="space-y-1">

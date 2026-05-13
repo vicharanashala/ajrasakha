@@ -3562,7 +3562,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
         const info = currentExpertId ? expertInfoMap.get(currentExpertId) : null;
-        const currentExpertName = info?.name || 'Unknown';
+        const currentExpertName = info?.name || 'No Experts Assigned';
         const currentExpertStatus = info?.status || 'unknown';
         const isCurrentExpertBlocked = info?.isBlocked || false;
 
