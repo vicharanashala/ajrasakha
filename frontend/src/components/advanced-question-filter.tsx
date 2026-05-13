@@ -69,7 +69,7 @@ import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 
-export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -230,8 +230,16 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     Question Status
                   </Label>
                   <Select
-                    value={advanceFilter.status}
-                    onValueChange={(v) => handleDialogChange("status", v)}
+                    value={advanceFilter.isOnHold ? "hold" : advanceFilter.status}
+                    onValueChange={(v) => {
+                      if (v === "hold") {
+                        handleDialogChange("status", "all");
+                        handleDialogChange("isOnHold", true);
+                      } else {
+                        handleDialogChange("status", v);
+                        handleDialogChange("isOnHold", false);
+                      }
+                    }}
                   >
                     <SelectTrigger className="bg-background w-full">
                       <SelectValue />
@@ -301,6 +309,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-gray-400" />
                           <span>Draft</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="hold">
+                        <div className="flex items-center gap-2">
+                          <Hand className="w-4 h-4 text-orange-600" />
+                          <span>Hold</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
