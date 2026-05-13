@@ -369,6 +369,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
 
             </div>
 
+
             {/* Top Crops - Full Width */}
             <div className="grid grid-cols-1 gap-4 mb-4">
               <TopCropsCard
