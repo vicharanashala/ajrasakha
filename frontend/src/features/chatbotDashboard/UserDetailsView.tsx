@@ -30,7 +30,6 @@ import UserGrowthChart from "./components/UserGrowthChart";
 import { AlertCard } from "./AlertCard";
 import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
 
-const PAGE_SIZE = 10;
 
 const VISIBLE_CROPS = 2;
 
@@ -112,6 +111,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     ...initialFilters,
   }));
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const [sortBy, setSortBy] = useState<'totalQuestions' | 'name'>('totalQuestions');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
@@ -130,7 +130,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     filters.startTime,
     filters.endTime,
     currentPage,
-    PAGE_SIZE,
+    pageSize,
     filters.search,
     source,
     filters.crop,
@@ -662,7 +662,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                       return (
                         <TableRow key={user.userId} className="text-center">
                           <TableCell className="align-middle">
-                            {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                            {(currentPage - 1) * pageSize + idx + 1}
                           </TableCell>
                           <TableCell className="align-middle">
                             <span
@@ -796,14 +796,16 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
                     <span className="text-xs text-(--muted-foreground)">
                       Showing{" "}
-                      {users.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}
-                      –{(currentPage - 1) * PAGE_SIZE + users.length} of{" "}
+                      {users.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}
+                      –{(currentPage - 1) * pageSize + users.length} of{" "}
                       {totalUsers} users
                     </span>
                     <Pagination
                       currentPage={currentPage}
                       totalPages={totalPages}
                       onPageChange={(page) => setCurrentPage(page)}
+                      limit={pageSize}
+                      onLimitChange={setPageSize}
                     />
                   </div>
                 </div>

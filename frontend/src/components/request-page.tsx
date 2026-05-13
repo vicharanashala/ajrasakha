@@ -45,11 +45,11 @@ export const RequestsPage = ({
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null,
   );
-  const LIMIT = 10;
+  const [limit, setLimit] = useState(12);
   const [view, setView] = useState<"grid" | "table">("grid");
   const { data: requestData, isLoading } = useGetAllRequests(
     currentPage,
-    LIMIT,
+    limit,
     status,
     reqType,
     sortOrder,
@@ -203,11 +203,13 @@ export const RequestsPage = ({
         )}
       </section>
 
-      {(requestData?.totalCount || 0) > LIMIT && (
+      {(requestData?.totalCount || 0) > limit && (
         <Pagination
           currentPage={currentPage}
           totalPages={requestData?.totalPages || 0}
           onPageChange={(page) => setCurrentPage(page)}
+          limit={limit}
+          onLimitChange={setLimit}
         />
       )}
     </main>
