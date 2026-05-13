@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import AuditPage from "./AuditPage";
 import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
 import { IncomingCallBox } from "./IncomingCallBox";
+import { env } from "@/config/env";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -56,6 +57,7 @@ export const PlaygroundPage = () => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
   };
+    const targetUserId = env.plivo.targetUserId();
   // Set default tab based on user role when user data loads
   useEffect(() => {
     if (!user) return;
@@ -416,10 +418,12 @@ export const PlaygroundPage = () => {
                 <div className=" overflow-hidden bg-background p-4 ps-0">
                   <div className=" mx-auto py-8 pt-0">
                     {/* Incoming Call Box - appears only when there's an incoming/active call */}
+                    {targetUserId && user?._id == targetUserId && (
                     <IncomingCallBox 
                       onTranscriptUpdate={(transcript) => setCallTranscript(transcript)}
                       onCallStateChange={(isActive) => setIsCallActive(isActive)}
                     />
+                    )}
                     <VoiceRecorderCard 
                       callTranscript={callTranscript}
                       isCallActive={isCallActive}

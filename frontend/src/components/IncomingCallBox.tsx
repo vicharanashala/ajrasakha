@@ -77,11 +77,24 @@ export const IncomingCallBox = ({ onTranscriptUpdate, onCallStateChange }: Incom
 
   // Initialize Plivo SDK (NPM package) - Only for admins
   useEffect(() => {
-    // Skip if not admin or still loading
-    // if (isUserLoading || !isAdmin) {
-    //   console.log('🔒 [IncomingCallBox] Skipping Plivo init - not admin or loading');
-    //   return;
-    // }
+    // Check if current user is authorized to use Plivo
+    const targetUserId = env.plivo.targetUserId();
+    const currentUserId = currentUser?._id;
+
+    if (targetUserId && currentUserId !== targetUserId) {
+      // console.log(`🚫 [IncomingCallBox] User ${currentUserId} not authorized. Target user: ${targetUserId}`);
+      return;
+    }
+
+    if (!targetUserId) {
+      // console.log('⚠️ [IncomingCallBox] No TARGET_USER_ID configured, allowing all users');
+    }
+
+    // Skip if still loading
+    if (isUserLoading) {
+      // console.log('🔒 [IncomingCallBox] Skipping Plivo init - user still loading');
+      return;
+    }
 
     // Prevent multiple initializations
     if (plivoClientRef.current) {
