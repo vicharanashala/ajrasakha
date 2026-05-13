@@ -251,7 +251,7 @@ export interface IChatbotRepository {
   getPlatformInstalls(source: string, session?: ClientSession): Promise<PlatformInstallEntry[]>;
 
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
-  getDuplicateQuestions(session?: ClientSession): Promise<DuplicateQuestionEntry[]>;
+  getDuplicateQuestions(source?: string, session?: ClientSession): Promise<DuplicateQuestionEntry[]>;
 }
 
 export interface ChatbotConversationData {

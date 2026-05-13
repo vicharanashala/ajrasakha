@@ -344,7 +344,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                 onDuplicateClick={() => setIsDuplicateModalOpen(true)}
               />
               {isDuplicateModalOpen && (
-                <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} />
+                <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} source={source} />
               )}
 
             </div>
