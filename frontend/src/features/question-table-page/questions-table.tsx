@@ -44,6 +44,7 @@ type QuestionsTableProps = {
   sort?: string;
   onSort?: (key: string) => void;
   view: "table" | "grid";
+  setLimit: (val: number) => void;
 };
 
 export const QuestionsTable = ({
@@ -65,6 +66,7 @@ export const QuestionsTable = ({
   sort,
   onSort,
   view,
+  setLimit,
 }: QuestionsTableProps) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -631,6 +633,8 @@ export const QuestionsTable = ({
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={(page) => setCurrentPage(page)}
+        limit={limit}
+        onLimitChange={setLimit}
       />
     </div>
   );

@@ -311,9 +311,10 @@ export default function UserActivityHistory({
   });
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [limit, setLimit] = useState(12);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
-  const { data, isLoading } = useGetSubmissions(currentPage, 5, dateRange,selectedHistoryId?.toString());
+  const { data, isLoading } = useGetSubmissions(currentPage, limit, dateRange,selectedHistoryId?.toString());
   const {
     data: questionDetails,
     refetch: refechSelectedQuestion,
@@ -536,6 +537,8 @@ export default function UserActivityHistory({
                   currentPage={currentPage}
                   totalPages={totalPages}
                   onPageChange={(p) => setCurrentPage(p)}
+                  limit={limit}
+                  onLimitChange={setLimit}
                 />
               </div>
             )}
