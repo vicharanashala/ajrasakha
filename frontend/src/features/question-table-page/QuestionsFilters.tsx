@@ -1054,7 +1054,7 @@ export const QuestionsFilters = ({
               {/* reallocate */}
               {userRole !== "expert" && (
                 <button
-                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  className="relative w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
                     setIsReAllocateOpen(true);
                     setIsSidebarOpen(false);
@@ -1064,17 +1064,26 @@ export const QuestionsFilters = ({
                     <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
                       <RotateCcw size={20} />
                     </div>
+
                     <div className="text-left">
                       <div className="flex items-center gap-2">
-                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
                           ReAllocate Questions
                         </p>
                       </div>
+
                       <p className="text-[11px] text-gray-500">
                         Assign to different experts
                       </p>
                     </div>
                   </div>
+
+                  <Badge
+                    variant="default"
+                    className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
+                  >
+                    New
+                  </Badge>
                 </button>
               )}
 
