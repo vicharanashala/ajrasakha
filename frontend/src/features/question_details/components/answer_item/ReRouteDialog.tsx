@@ -73,7 +73,7 @@ export const ReRouteDialog = ({
         </button>
       </DialogTrigger>
 
-      <DialogContent className="w-[95vw] sm:max-w-xl md:max-w-4xl lg:max-w-6xl max-h-[85vh] min-h-[60vh] h-[85vh] flex flex-col p-4">
+      <DialogContent className="z-[200] w-[95vw] sm:max-w-xl md:max-w-4xl lg:max-w-6xl max-h-[85vh] min-h-[60vh] h-[85vh] flex flex-col p-4">
         <div className="mt-4 space-y-2">
           <Label htmlFor="reject-comment">
             Comments <span className="text-red-500">*</span>
