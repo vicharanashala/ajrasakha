@@ -1788,6 +1788,7 @@ export class QuestionRepository implements IQuestionRepository {
         status: string;
         details: Record<string, any>;
         text: string;
+        sources: { source: string; page?: number | null; sourceType?: string; sourceName?: string }[];
       } | null = null;
 
       if (question.referenceQuestionId) {
@@ -1803,10 +1804,16 @@ export class QuestionRepository implements IQuestionRepository {
             refId = new ObjectId(String(rid));
           }
 
-          const refQuestion = await this.QuestionCollection.findOne(
-            { _id: refId },
-            { projection: { question: 1, status: 1, details: 1, text: 1 } },
-          ) as any;
+          const [refQuestion, refFinalAnswer] = await Promise.all([
+            this.QuestionCollection.findOne(
+              { _id: refId },
+              { projection: { question: 1, status: 1, details: 1, text: 1 } },
+            ) as any,
+            this.AnswersCollection.findOne(
+              { questionId: refId, isFinalAnswer: true },
+              { projection: { sources: 1 } },
+            ) as any,
+          ]);
 
           if (refQuestion) {
             referenceQuestionData = {
@@ -1814,6 +1821,7 @@ export class QuestionRepository implements IQuestionRepository {
               status: refQuestion.status || '',
               details: refQuestion.details || {},
               text: refQuestion.text || '',
+              sources: refFinalAnswer?.sources || [],
             };
           }
         } catch (e) {

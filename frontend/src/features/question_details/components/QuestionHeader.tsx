@@ -12,7 +12,8 @@ import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
-import { CheckCheck, CircleCheck } from "lucide-react";
+import { CircleCheck, GitCompareArrows } from "lucide-react";
+import { diffWords } from "@/utils/wordDifference";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -41,6 +42,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     buildHoldCountdownOptions(question)
   );
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
 
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -73,6 +75,20 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   };
   const isQuestionOnHold = question.isOnHold;
   const originalQuestion = question.originalQuestion?.trim();
+
+  // For compare mode: reference answer (from the original/reference question)
+  const referenceAnswerText = (() => {
+    const text = question.referenceQuestionData?.text;
+    if (!text) return null;
+    const match = text.match(/answer:\s*([\s\S]+)/i);
+    return match ? match[1].trim() : null;
+  })();
+
+  // For compare mode: last history entry that has an answer (this duplicate question's submitted answer)
+  const lastHistoryWithAnswer = [...(question?.submission?.history || [])]
+    .sort((a, b) => new Date(a.updatedAt ?? 0).getTime() - new Date(b.updatedAt ?? 0).getTime())
+    .reverse()
+    .find((h) => h.answer !== null);
 
   const sortedHistory = [...(question?.submission?.history || [])].sort(
     (a, b) =>
@@ -305,12 +321,25 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </div>
         </div>
       </header>
-      <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
-        <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
+      <Dialog open={duplicateModalOpen} onOpenChange={(open) => { setDuplicateModalOpen(open); if (!open) setCompareMode(false); }}>
+        <DialogContent className="!max-w-[65vw] max-h-[92vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-red-500">
-              Duplicate Reference Question
-            </DialogTitle>
+            <div className="flex items-center justify-between gap-3 pr-8">
+              <DialogTitle className="text-red-500">
+                Duplicate Reference Question
+              </DialogTitle>
+              {question.status === "closed" && (referenceAnswerText || lastHistoryWithAnswer?.answer) && (
+                <Button
+                  size="sm"
+                  variant={compareMode ? "default" : "outline"}
+                  onClick={() => setCompareMode((prev) => !prev)}
+                  className="gap-1.5 shrink-0"
+                >
+                  <GitCompareArrows size={14} />
+                  Compare Answer
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
           {question.referenceQuestionData ? (
@@ -381,25 +410,125 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 </p>
               </div>
 
-              {/* Answer extracted from text field */}
-              {question.referenceQuestionData.text &&
-                (() => {
-                  const answerMatch =
-                    question.referenceQuestionData.text.match(
-                      /answer:\s*([\s\S]+)/i,
-                    );
-                  const answerText = answerMatch ? answerMatch[1].trim() : null;
-                  return answerText ? (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">
-                        Answer
+              {/* Compare Answer: 2-column side-by-side */}
+              {compareMode ? (() => {
+                const currentText = lastHistoryWithAnswer?.answer?.answer ?? "";
+                const previousText = referenceAnswerText ?? "";
+                const diff = diffWords(previousText, currentText);
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+                    {/* Column 1: Current Answer — shows added (green) words */}
+                    <div className="border rounded-lg p-4 bg-muted/30 flex flex-col">
+                      <p className="text-sm font-semibold text-foreground">Current Answer</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Answer submitted for this duplicate question
                       </p>
-                      <p className="text-sm border rounded-md p-3 bg-muted/20 whitespace-pre-wrap">
-                        {answerText}
-                      </p>
+                      {currentText ? (
+                        <>
+                          <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                            {diff.map((part, idx) =>
+                              part.type === "removed" ? null : (
+                                <span
+                                  key={idx}
+                                  className={
+                                    part.type === "added"
+                                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                      : "text-dark dark:text-white"
+                                  }
+                                >
+                                  {part.value}
+                                </span>
+                              )
+                            )}
+                          </div>
+                          <div className="pt-2 border-t mt-auto">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Sources</p>
+                            {lastHistoryWithAnswer?.answer?.sources && lastHistoryWithAnswer.answer.sources.length > 0 ? (
+                              <ul className="space-y-2">
+                                {lastHistoryWithAnswer.answer.sources.map((s, i) => (
+                                  <li key={i} className="text-xs flex flex-col gap-0.5">
+                                    <span className="font-medium text-foreground">
+                                      {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
+                                    </span>
+                                    {s.source && (
+                                      <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No sources</p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">No answer available</p>
+                      )}
                     </div>
-                  ) : null;
-                })()}
+
+                    {/* Column 2: Previous Answer — shows removed (red) words */}
+                    <div className="border rounded-lg p-4 bg-muted/30 flex flex-col">
+                      <p className="text-sm font-semibold text-foreground">Previous Answer</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Answer from the reference question
+                      </p>
+                      {previousText ? (
+                        <>
+                          <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                            {diff.map((part, idx) =>
+                              part.type === "added" ? null : (
+                                <span
+                                  key={idx}
+                                  className={
+                                    part.type === "removed"
+                                      ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                                      : "text-dark dark:text-white"
+                                  }
+                                >
+                                  {part.value}
+                                </span>
+                              )
+                            )}
+                          </div>
+                          <div className="pt-2 border-t mt-auto">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Sources</p>
+                            {question.referenceQuestionData?.sources && question.referenceQuestionData.sources.length > 0 ? (
+                              <ul className="space-y-2">
+                                {question.referenceQuestionData.sources.map((s, i) => (
+                                  <li key={i} className="text-xs flex flex-col gap-0.5">
+                                    <span className="font-medium text-foreground">
+                                      {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
+                                    </span>
+                                    {s.source && (
+                                      <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No sources</p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">No answer available</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })() : null}
+
+              {/* Default single-column answer view when not comparing */}
+              {!compareMode && referenceAnswerText && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Answer
+                  </p>
+                  <p className="text-sm border rounded-md p-3 bg-muted/20 whitespace-pre-wrap">
+                    {referenceAnswerText}
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">

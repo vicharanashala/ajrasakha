@@ -484,6 +484,7 @@ export interface IQuestionFullData {
       [key: string]: string;
     };
     text: string;
+    sources?: SourceItem[];
   };
   originalQuestion?: string;
   closedAt?: string;
