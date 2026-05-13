@@ -336,7 +336,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         return;
       }
 
-      const isOtherDomainSelected = domainSelection === OTHER_DOMAIN_VALUE;
+      const isOtherDomainSelected = user.role !== "pae_expert" && domainSelection === OTHER_DOMAIN_VALUE;
 
       if (isOtherDomainSelected) {
         const customDomainError = validateCustomDomain(customDomain);
@@ -1170,7 +1170,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                       return;
                     }
 
-                    if (domainSelection === OTHER_DOMAIN_VALUE) {
+                    if (user.role !== "pae_expert" && domainSelection === OTHER_DOMAIN_VALUE) {
                       const customDomainError = validateCustomDomain(customDomain);
 
                       if (customDomainError) {
