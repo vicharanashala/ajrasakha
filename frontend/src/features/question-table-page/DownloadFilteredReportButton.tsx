@@ -165,7 +165,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
               </div>
               <div className="text-left">
                 <p className="text-sm font-bold text-gray-900 dark:text-white">
-                  {isDownloading ? "Downloading..." : "Filtered Report"}
+                  {isDownloading ? "Downloading..." : "Custom Question Report"}
                 </p>
                 <p className="text-[11px] text-gray-500">
                   Questions filtered by State, Crop, Season, Domain, and Status
