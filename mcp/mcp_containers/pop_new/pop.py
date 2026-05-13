@@ -12,7 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from rapidfuzz import process
 import numpy as np
 
-from ai.ajrasakha.utils import get_huggingface_embedding_model
+from langchain_huggingface import HuggingFaceEmbeddings
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -66,7 +66,18 @@ MONGODB_URI        = os.getenv("POP_MONGODB_URI")
 MONGODB_DATABASE   = os.getenv("POP_MONGODB_DATABASE")
 MONGODB_COLLECTION = os.getenv("POP_MONGODB_COLLECTION")
 
-embedding_model = get_huggingface_embedding_model(EMBEDDING_MODEL)
+# ---------------------------------------------------------------------------
+# EMBEDDING MODEL
+# ---------------------------------------------------------------------------
+embedding_model = HuggingFaceEmbeddings(
+    model_name=EMBEDDING_MODEL,
+    model_kwargs={
+        "device": "cpu"
+    },
+    encode_kwargs={
+        "normalize_embeddings": True
+    }
+)
 
 mongo_client      = MongoClient(MONGODB_URI)
 database          = mongo_client[MONGODB_DATABASE]
@@ -317,8 +328,8 @@ def _search(
         results.append(POPChunkResult(
             doc_id           = str(document.get("doc_id", "")),
             doc_name         = str(document.get("doc_name", "")),
-            doc_link         = document.get("unique_links"),      # ✅ correct field
-            doc_origin       = str(document.get("state") or ""),  # ✅ correct field
+            doc_link         = document.get("unique_links"),      
+            doc_origin       = str(document.get("state") or ""),  
             chunk_id         = str(best.get("chunk_id", "")),
             chunk_content    = str(best.get("chunk_content", "")),
             page_no          = best.get("page_no"),
@@ -337,10 +348,7 @@ def _search(
 mcp = FastMCP(
     "ajrasakha-pop-mcp",
     port=9003,
-    host="127.0.0.1",
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=False
-    ),
+    host="0.0.0.0",
 )
 
 

@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  pop-mcp:
+    build:
+      context: .
+
+    container_name: pop-mcp-2
+
+    ports:
+      - "9043:9003"
+
+    env_file:
+      - .env
+
+    restart: unless-stopped
+
+    volumes:
+      - ./:/app
