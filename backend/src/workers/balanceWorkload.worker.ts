@@ -33,6 +33,7 @@ await database.init();
 /* ---------------- REPOS ---------------- */
 const { UserRepository } = await import('#root/shared/database/providers/mongo/repositories/UserRepository.js');
 const { QuestionSubmissionRepository } = await import('#root/shared/database/providers/mongo/repositories/SubmissionRepository.js');
+const { QuestionRepository } = await import('#root/shared/database/providers/mongo/repositories/QuestionRepository.js');
 const { NotificationRepository } = await import('#root/shared/database/providers/mongo/repositories/NotificationRepository.js');
 const { NotificationService } = await import('#root/modules/notification/services/NotificationService.js');
 
@@ -41,6 +42,9 @@ await (userRepo as any).init();
 
 const submissionRepo = new QuestionSubmissionRepository(database);
 await (submissionRepo as any).init();
+
+const questionRepo = new QuestionRepository(database);
+await (questionRepo as any).init();
 
 const notificationRepo = new NotificationRepository(database);
 await (notificationRepo as any).init();
@@ -57,10 +61,28 @@ const notificationService = new NotificationService(notificationRepo, database);
       const submission = await (submissionRepo as any).findById(job.submissionId);
       if (!submission) continue;
 
+      const questionId = submission.questionId.toString();
+      const question = await (questionRepo as any).getById(questionId);
+
       const queue = submission.queue || [];
       const history = submission.history || [];
       const now = new Date();
       const expertId = job.expertId;
+
+      // Unhold question if it is on hold
+      if (question && question.isOnHold) {
+        const prevAccum = question.accumulatedHoldMs ?? 0;
+        let segmentMs = 0;
+        if (question.holdAt) {
+          segmentMs = Math.max(0, Date.now() - new Date(question.holdAt).getTime());
+        }
+        await (questionRepo as any).updateQuestion(questionId, {
+          isOnHold: false,
+          status: 'open',
+          accumulatedHoldMs: prevAccum + segmentMs,
+          holdAt: null,
+        });
+      }
 
       // 🟢 TYPE A
       if (history.length === 0) {
@@ -86,21 +108,28 @@ const notificationService = new NotificationService(notificationRepo, database);
       else {
         const lastHistory = history[history.length - 1];
 
-        if (lastHistory?.status === 'in-review') {
+        if (lastHistory?.status === 'in-review' || lastHistory?.status === 'reviewed') {
           const stuckExpertId = lastHistory.updatedBy?.toString();
 
           const stuckIndex = queue.findIndex(q => q.toString() === stuckExpertId);
-          const newQueue = stuckIndex > -1 ? queue.slice(0, stuckIndex) : [];
+          
+          // If the expert to be replaced is in the queue, replace them
+          let newQueue = [...queue];
+          if (stuckIndex > -1) {
+            newQueue[stuckIndex] = new ObjectId(expertId);
+          } else {
+            newQueue.push(new ObjectId(expertId));
+          }
 
-          newQueue.push(new ObjectId(expertId));
-
-          const updatedHistory = history.slice(0, -1);
-          updatedHistory.push({
+          //replace the last entry or add a new one
+          const updatedHistory = [...history];
+          updatedHistory[updatedHistory.length - 1] = {
+            ...lastHistory,
             updatedBy: new ObjectId(expertId),
-            status: 'in-review',
+            status: 'in-review', // Reset to in-review for the new expert
             createdAt: now,
             updatedAt: now,
-          });
+          };
 
           await submissionRepo.updateById(job.submissionId, {
             $set: { queue: newQueue, history: updatedHistory, updatedAt: now },
