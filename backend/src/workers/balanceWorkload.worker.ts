@@ -80,7 +80,7 @@ const notificationService = new NotificationService(notificationRepo, database);
       } else {
         currentExpertIndex = history.length;
       }
-      
+
       const currentExpertId = queue[currentExpertIndex]?.toString();
 
       // Unhold question if it is on hold
@@ -110,16 +110,16 @@ const notificationService = new NotificationService(notificationRepo, database);
       let replacementUsed = false;
       const newQueue = queue.map((q, idx) => {
         const qStr = q.toString();
-        
+
         // Check if this expert is in the target list (inactive/blocked)
         if (targetExperts.has(qStr)) {
-            // Only replace if it's the current/future turn and we haven't used our replacement expert yet
-            if (idx >= currentExpertIndex && !replacementUsed) {
-                modified = true;
-                replacementUsed = true; // Prevents duplication
-                affectedExpertIds.add(qStr);
-                return new ObjectId(newExpertId);
-            }
+          // Only replace if it's the current/future turn and we haven't used our replacement expert yet
+          if (idx >= currentExpertIndex && !replacementUsed) {
+            modified = true;
+            replacementUsed = true; // Prevents duplication
+            affectedExpertIds.add(qStr);
+            return new ObjectId(newExpertId);
+          }
         }
         return q;
       });
@@ -127,9 +127,9 @@ const notificationService = new NotificationService(notificationRepo, database);
       // Special Case: Default reallocation (not type=inactive)
       // If the current expert is active but being replaced due to delay
       if (!modified && currentExpertId) {
-          newQueue[currentExpertIndex] = new ObjectId(newExpertId);
-          affectedExpertIds.add(currentExpertId);
-          modified = true;
+        newQueue[currentExpertIndex] = new ObjectId(newExpertId);
+        affectedExpertIds.add(currentExpertId);
+        modified = true;
       }
 
       /* 
@@ -169,26 +169,27 @@ const notificationService = new NotificationService(notificationRepo, database);
 
       if (modified) {
         const updatedHistory = [...history];
-        
+
         // 1. If the expert currently in-review was replaced, update the history entry to the new expert
         if (currentExpertIndex === history.length - 1 && history.length > 0) {
-            const lastHistory = history[history.length - 1];
-            if (lastHistory?.status === 'in-review') {
-              updatedHistory[updatedHistory.length - 1] = {
-                ...lastHistory,
-                updatedBy: new ObjectId(newExpertId),
-                updatedAt: now,
-              };
-            }
+          const lastHistory = history[history.length - 1];
+          if (lastHistory?.status === 'in-review') {
+            updatedHistory[updatedHistory.length - 1] = {
+              ...lastHistory,
+              updatedBy: new ObjectId(newExpertId),
+              createdAt: now,
+              updatedAt: now,
+            };
+          }
         }
 
         // 2. Penalize the expert who was stuck (TYPE B logic from main)
         if (history.length > 0) {
-            const lastHistory = history[history.length - 1];
-            if (lastHistory?.status === 'in-review' || lastHistory?.status === 'reviewed') {
-              const stuckExpertId = lastHistory.updatedBy?.toString();
-              if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
-            }
+          const lastHistory = history[history.length - 1];
+          if (lastHistory?.status === 'in-review' || lastHistory?.status === 'reviewed') {
+            const stuckExpertId = lastHistory.updatedBy?.toString();
+            if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
+          }
         }
 
         // 3. Save updates to Submission
