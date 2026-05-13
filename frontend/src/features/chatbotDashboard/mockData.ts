@@ -1,4 +1,5 @@
 import type { Segment, KpiCard, DemographicEntry, IPlatformInstallEntry } from "./types";
+import type { DomainSpikeEntry } from "./components/DomainSpikesModal";
 
 export const DASHBOARD_DATA = {
   meta: { season: "Kharif 2025", lastSync: "2 min ago", datasetVersion: "GD-2025-Q3.14", llmVersion: "v2.4.1", p0Bugs: 3 },
@@ -85,4 +86,16 @@ export const DASHBOARD_DATA = {
     { label: 'Large', count: 550, pct: 16.42 },
   ] as DemographicEntry[],
   platformInstalls: [] as IPlatformInstallEntry[],
+  domainSpikes: [
+    { domain: "Insect–Pest Management", date: "2026-05-10", count: 1840, baseline: 420, spikePct: 338, location: "Ropar, Punjab" },
+    { domain: "Disease Management", date: "2026-05-09", count: 1120, baseline: 310, spikePct: 261, location: "Ludhiana, Punjab" },
+    { domain: "Insect–Pest Management", date: "2026-05-08", count: 980, baseline: 420, spikePct: 133, location: "Amritsar, Punjab" },
+    { domain: "Fertilizer Use and Availability", date: "2026-05-07", count: 760, baseline: 380, spikePct: 100, location: "Karnal, Haryana" },
+    { domain: "Weed Management", date: "2026-05-06", count: 640, baseline: 290, spikePct: 121, location: "Hisar, Haryana" },
+    { domain: "Irrigation and Water Management", date: "2026-05-05", count: 590, baseline: 340, spikePct: 74, location: "Agra, Uttar Pradesh" },
+    { domain: "Market Prices, MSP & Marketing", date: "2026-05-04", count: 870, baseline: 450, spikePct: 93, location: "Pune, Maharashtra" },
+    { domain: "Climate, Weather & Stress Management", date: "2026-05-03", count: 1340, baseline: 500, spikePct: 168, location: "Nashik, Maharashtra" },
+    { domain: "Soil Health and Nutrient Management", date: "2026-05-02", count: 520, baseline: 280, spikePct: 86, location: "Guntur, Andhra Pradesh" },
+    { domain: "Seed and Variety Selection", date: "2026-05-01", count: 430, baseline: 210, spikePct: 105, location: "Warangal, Telangana" },
+  ] as DomainSpikeEntry[],
 };
