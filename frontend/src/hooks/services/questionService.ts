@@ -608,8 +608,16 @@ export class QuestionService {
     status?: string;
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
+    startDate?: string;
+    endDate?: string;
   }): Promise<Blob> {
     const params = new URLSearchParams();
+    if (filters.startDate) {
+      params.append("startDate", filters.startDate);
+    }
+    if (filters.endDate) {
+      params.append("endDate", filters.endDate);
+    }
     if (filters.state && filters.state !== "all") {
       params.append("state", filters.state);
     }
