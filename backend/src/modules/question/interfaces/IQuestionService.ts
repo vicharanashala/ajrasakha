@@ -151,7 +151,10 @@ export interface IQuestionService {
     session: ClientSession,
   ): Promise<void>;
 
-  balanceWorkload(session?: ClientSession): Promise<{
+  balanceWorkload(
+    session?: ClientSession,
+    type?: string,
+  ): Promise<{
     message: string;
     expertsInvolved: number;
     submissionsProcessed: number;
@@ -219,11 +222,11 @@ export interface IQuestionService {
 
   approveAiInitialAnswer(questionId: string, answer: string);
 
-  balanceWorkloadSelectedQuestions(
-    questionIds: string[],
-  ): Promise<{
-    message: string;
-    expertsInvolved: number;
-    submissionsProcessed: number;
-  }>;
+  getReallocationPreview(type: string): Promise<any>;
+  manualReallocate(
+    assignments: { submissionId: string; expertId: string }[],
+    inactiveExpertIds?: string[],
+  ): Promise<{ message: string; submissionsProcessed: number }>;
+
+  balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number }>;
 }

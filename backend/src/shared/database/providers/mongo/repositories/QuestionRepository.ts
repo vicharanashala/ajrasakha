@@ -270,7 +270,7 @@ export class QuestionRepository implements IQuestionRepository {
       );
 
       if (!question)
-        throw new NotFoundError(`Faile to find question ${questionId}`);
+        throw new NotFoundError(`Failed to find question ${questionId}`);
 
       const formattedQuestion: IQuestion = {
         ...question,

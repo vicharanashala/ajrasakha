@@ -10,8 +10,8 @@ export const useReAllocateLessWorkload = () => {
 
   return useMutation({
     mutationKey: ["reallocatelassWorkload"],
-    mutationFn: async (): Promise<WorkloadBalanceResponse|null> => {
-     return await questionService.reAllocateLessWorkload();
+    mutationFn: async (type?: string): Promise<WorkloadBalanceResponse|null> => {
+     return await questionService.reAllocateLessWorkload(type);
     },
     onSuccess: () => {
       //toast.success("Question ReAllocated Successfully");

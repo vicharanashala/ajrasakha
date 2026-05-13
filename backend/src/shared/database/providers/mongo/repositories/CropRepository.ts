@@ -217,7 +217,13 @@ export class CropRepository implements ICropRepository {
 
   async updateCrop(
     id: string,
-    updates: {name?: string; aliases?: (ICropAlias | string)[]; status?: string; crops?: string[]; type?: CropType},
+    updates: {
+      name?: string;
+      aliases?: (ICropAlias | string)[];
+      status?: string;
+      type?: CropType;
+      crops?: string[];
+    },
     updatedBy: string,
   ): Promise<ICrop | null> {
     try {

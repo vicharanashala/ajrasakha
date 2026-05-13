@@ -12,6 +12,7 @@ import {
   CurrentUser,
   Post,
   Param,
+  QueryParam,
   NotFoundError,
   Patch,
   UploadedFile,
@@ -311,7 +312,9 @@ export class QuestionController {
             errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
         };
-        this.auditTrailsService.createAuditTrail(auditPayload);
+        if(actorPayload !== null){
+          this.auditTrailsService.createAuditTrail(auditPayload);
+        }
         if(err instanceof InternalServerError){
           throw new InternalServerError(err.message);
         }
@@ -366,6 +369,7 @@ export class QuestionController {
   @OpenAPI({ summary: 'ReAllocating questions which are delayed to those who has less workload' })
   async reAllocateLessWorkload(
      @CurrentUser() user: IUser,
+     @QueryParam('type') type?: string,
   ) {
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
@@ -380,7 +384,7 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const result = await this.questionService.balanceWorkload();
+      const result = await this.questionService.balanceWorkload(undefined, type);
       auditPayload = {
         ...auditPayload,
         changes: {
@@ -410,6 +414,27 @@ export class QuestionController {
       );
 
     }
+  }
+
+  @Get('/reallocation-preview')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get preview of questions and experts for reallocation' })
+  async getReallocationPreview(@QueryParam('type') type: string) {
+    return this.questionService.getReallocationPreview(type);
+  }
+
+  @Post('/reallocate-manual')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually reallocate questions to experts' })
+  async reallocateManual(
+    @Body() body: { 
+      assignments: { submissionId: string; expertId: string }[];
+      inactiveExpertIds?: string[];
+    }
+  ) {
+    return this.questionService.manualReallocate(body.assignments, body.inactiveExpertIds);
   }
 
   @Get("/download-question-report")
