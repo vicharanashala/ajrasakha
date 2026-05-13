@@ -1,4 +1,5 @@
 import { apiFetch } from '@/hooks/api/api-fetch';
+import { isValidPushSubscription } from '@/utils/validatePushSubscription';
 import { urlBase64ToUint8Array } from '@/utils/vapid';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export const initializeNotifications = async () => {
@@ -51,6 +52,10 @@ function arraysEqual(a: Uint8Array, b: Uint8Array) {
 }
 
 async function saveSubscription(subscription: PushSubscription) {
+ if (!isValidPushSubscription(subscription)) {
+    console.error("Invalid subscription payload!");
+    return;
+}
   await apiFetch<void>(`${API_BASE_URL}/notifications/subscriptions`, {
     method: 'POST',
     body: JSON.stringify({ subscription }),
