@@ -28,7 +28,6 @@ import { UserDemographicsSection } from "./components/UserDemographicsSection";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import UserGrowthChart from "./components/UserGrowthChart";
 import { AlertCard } from "./AlertCard";
-import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
 
 
 const VISIBLE_CROPS = 2;
@@ -116,7 +115,6 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
-  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard)
   useEffect(() => {
@@ -350,27 +348,6 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               </div>
             </div>
 
-            {/* User Growth Trend + Alerts & Notifications */}
-            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 mb-4">
-              <UserGrowthChart />
-              <AlertCard
-                inactiveUsersLast3Days={(dashboardData as any).inactiveUsersLast3Days ?? 0}
-                onInactiveClick={() => {
-                  const end = new Date();
-                  const start = new Date();
-                  start.setDate(start.getDate() - 3);
-                  setFilters(prev => ({ ...prev, startTime: start, endTime: end, inactiveOnly: true }));
-                  setCurrentPage(1);
-                }}
-                duplicateQuestionsCount={(dashboardData as any).duplicateQuestionsCount ?? 0}
-                onDuplicateClick={() => setIsDuplicateModalOpen(true)}
-              />
-              {isDuplicateModalOpen && (
-                <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} />
-              )}
-
-            </div>
-
             {/* Top Crops - Full Width */}
             <div className="grid grid-cols-1 gap-4 mb-4">
               <TopCropsCard
@@ -545,17 +522,38 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                     </h3>
                   </div>
 
-                  <div className="w-full relative">
-                    {/* Y-axis border */}
-                    <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700 z-10"></div>
-                    {/* X-axis border */}
-                    <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700 z-10"></div>
-                    
-                    <BarGraph
-                      data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
-                      height={400}
-                      showMaximize={false}
-                    />
+                  {/* Chart (left) + Table (right) */}
+                  <div className="flex gap-4 items-start">
+                    {/* Chart — 65% */}
+                    <div className="flex-[65] min-w-0 relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700 z-10" />
+                      <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700 z-10" />
+                      <BarGraph
+                        data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
+                        height={400}
+                        showMaximize={false}
+                      />
+                    </div>
+
+                    {/* Table — 35% */}
+                    <div className="flex-[35] min-w-0 max-h-[400px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">User</th>
+                            <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Questions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map((u, idx) => (
+                            <tr key={idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                              <td className="px-3 py-2 text-gray-600 dark:text-gray-400 truncate max-w-[140px]">{u.name}</td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">{u.totalQuestions.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>,
