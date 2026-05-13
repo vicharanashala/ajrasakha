@@ -1283,13 +1283,34 @@ export class ChatbotRepository implements IChatbotRepository {
         ).toArray(),
 
         // Gender split
-        this.users.aggregate<{ _id: string; count: number }>(
-          [
-            { $match: { 'farmerProfile.gender': { $exists: true, $ne: null }, ...userDocFilter } },
-            { $group: { _id: '$farmerProfile.gender', count: { $sum: 1 } } },
-          ],
-          { session },
-        ).toArray(),
+       this.users.aggregate<{ _id: string; count: number }>(
+  [
+    {
+      $match: {
+        'farmerProfile.gender': { $exists: true, $ne: null },
+        ...userDocFilter,
+      },
+    },
+    {
+      $addFields: {
+        normalizedGender: {
+          $toLower: {
+            $trim: {
+              input: '$farmerProfile.gender',
+            },
+          },
+        },
+      },
+    },
+    {
+      $group: {
+        _id: '$normalizedGender',
+        count: { $sum: 1 },
+      },
+    },
+  ],
+  { session },
+).toArray(),
 
         // Farming experience buckets
         this.users.aggregate<{ _id: number | string; count: number }>(
