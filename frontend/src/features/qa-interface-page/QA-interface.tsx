@@ -406,8 +406,8 @@ export const QAInterface = ({
 
     const draft = drafts[selectedQuestion]; // previous answer that were stored in localstorage
 
-    // Set AI initial answer only if user hasn't typed anything
-    if (!newAnswer && !draft?.answer) {
+    // Set AI initial answer only if user hasn't typed anything AND it's not a review flow (no history)
+    if (!newAnswer && !draft?.answer && selectedQuestionData.history?.length === 0) {
       let prefillAnswer = '';
 
       if (selectedQuestionData.source === 'AJRASAKHA') {
