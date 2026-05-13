@@ -175,6 +175,16 @@ export interface IQuestionSubmissionRepository {
     },
     session?: ClientSession,
   ): Promise<void>;
+  findSubmissionsByActiveReviewers(
+    expertIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
+
+  findSubmissionsWithExpertsInQueue(
+    expertIds: string[],
+    session?: ClientSession,
+    limit?: number,
+  ): Promise<IQuestionSubmission[]>;
 
   findReallocationQuestionsByIds(
     questionIds: string[],

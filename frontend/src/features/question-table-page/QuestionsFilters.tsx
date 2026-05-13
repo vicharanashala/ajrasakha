@@ -74,6 +74,8 @@ import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck } from "lucide-react";
+import { ReallocationManualModal } from "../../components/ReallocationManualModal";
+
 import { TopRightBadge } from "@/components/NewBadge";
 
 type QuestionsFiltersProps = {
@@ -198,22 +200,42 @@ export const QuestionsFilters = ({
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
   const [isPaeAllocateModalOpen, setIsPaeAllocateModalOpen] = useState(false);
+  const [isManualReallocateOpen, setIsManualReallocateOpen] = useState(false);
+  const [manualReallocateType, setManualReallocateType] = useState<"inactive" | "escalation">("inactive");
+  const [pendingReallocateType, setPendingReallocateType] = useState<"inactive" | "escalation" | null>(null);
 
-  const handleReAllocateLessWorkload = async () => {
+  useEffect(() => {
+    if (!isReAllocateOpen && pendingReallocateType) {
+      setManualReallocateType(pendingReallocateType);
+      setIsManualReallocateOpen(true);
+      setPendingReallocateType(null);
+    }
+  }, [isReAllocateOpen, pendingReallocateType]);
+
+  const handleReAllocateLessWorkload = async (type?: string) => {
     try {
       setIsReAllocateDisabled(true);
-      const res = await reAllocateLessWorkload();
+      const res = await reAllocateLessWorkload(type);
 
       if (!res) {
         toast.error("No response from server");
         setIsReAllocateDisabled(false);
         return;
       }
-      if (res.message === "Workload balancing started in background") {
+      if (res.message === "Workload balancing started in background" || res.message === "Inactive-to-Active reallocation started in background") {
         toast.success(
           "Workload balancing has started in the background. Please wait 50 seconds before reallocating again.",
         );
-        // Re-enable button after 30 seconds
+
+        // Show detailed toast if it was an inactive-to-active reallocation
+        if (type === "inactive") {
+          toast.info(
+            `Found ${res.inactiveExpertsFound || 0} inactive experts. Reallocating ${res.submissionsProcessed || 0} tasks to ${res.expertsInvolved || 0} active experts.`,
+            { duration: 6000 }
+          );
+        }
+
+        // Re-enable button after 50 seconds
         setTimeout(() => {
           setIsReAllocateDisabled(false);
         }, 50000);
@@ -1181,11 +1203,10 @@ export const QuestionsFilters = ({
             setIsBadgeExpanded((prev) => !prev);
           }
         }}
-        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-          isBadgeExpanded
-            ? "rounded-[16px] px-4 py-3 min-w-[220px]"
-            : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
-        } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
+        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
+          ? "rounded-[16px] px-4 py-3 min-w-[220px]"
+          : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
+          } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
           left: `${safeX}px`,
           top: `${safeY}px`,
@@ -1280,16 +1301,50 @@ export const QuestionsFilters = ({
           </div>
         </div>
       </div>
+      {/* Old automated reallocation logic - commented out as per user request */}
+      {/* 
       <ConfirmationModal
         title="ReAllocate work load?"
         description="Are you sure you want to ReAllocate work load?"
         confirmText="ReAllocate"
         cancelText="Cancel"
-        isLoading={reAllocateQuestion}
+        secondaryConfirmText="Inactive to Active"
+        isLoading={reAllocateQuestion && !isReAllocateDisabled}
+        secondaryIsLoading={reAllocateQuestion && isReAllocateDisabled}
         type="default"
         open={isReAllocateOpen}
         onOpenChange={setIsReAllocateOpen}
-        onConfirm={handleReAllocateLessWorkload}
+        onConfirm={() => handleReAllocateLessWorkload()}
+        onSecondaryConfirm={() => handleReAllocateLessWorkload("inactive")}
+        confirmTooltip="Reallocate delayed questions (exceeding 2 hours)"
+        secondaryConfirmTooltip="Reallocate questions from inactive or blocked experts to active experts"
+      />
+      */}
+      <ConfirmationModal
+        title="ReAllocate work load?"
+        description="Choose the type of reallocation you want to perform. You will be able to manually map questions to active experts in the next step."
+        confirmText="Default Escalation"
+        cancelText="Cancel"
+        secondaryConfirmText="Inactive to Active"
+        isLoading={false}
+        type="default"
+        open={isReAllocateOpen}
+        onOpenChange={setIsReAllocateOpen}
+        onConfirm={() => {
+          setPendingReallocateType("escalation");
+          setIsReAllocateOpen(false);
+        }}
+        onSecondaryConfirm={() => {
+          setPendingReallocateType("inactive");
+          setIsReAllocateOpen(false);
+        }}
+        confirmTooltip="Manually reallocate delayed questions (exceeding 2 hours)"
+        secondaryConfirmTooltip="Manually reallocate questions from inactive or blocked experts"
+      />
+      <ReallocationManualModal
+        open={isManualReallocateOpen}
+        onOpenChange={setIsManualReallocateOpen}
+        type={manualReallocateType}
       />
 
       {/* confirmation modal for reallocate selected questions to experts */}

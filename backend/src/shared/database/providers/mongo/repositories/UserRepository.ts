@@ -541,6 +541,50 @@ export class UserRepository implements IUserRepository {
     );
   }
 
+  async recalculateReputationScore(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const submissionCollection = await this.db.getCollection<any>('question_submissions');
+    
+    const userObjectId = new ObjectId(userId);
+    const userIdStr = userId.toString();
+
+    // Count active assignments:
+    // 1. History is empty AND user is at index 0 of queue
+    // 2. History is NOT empty AND user is the updatedBy of the last history entry AND status is 'in-review'
+    const count = await submissionCollection.countDocuments({
+      $or: [
+        {
+          $and: [
+            { history: { $size: 0 } },
+            { $or: [{ 'queue.0': userObjectId }, { 'queue.0': userIdStr }] }
+          ]
+        },
+        {
+          $and: [
+            { history: { $not: { $size: 0 } } },
+            { 
+              $expr: {
+                $and: [
+                  { $eq: [{ $arrayElemAt: ['$history.status', -1] }, 'in-review'] },
+                  { $in: [{ $arrayElemAt: ['$history.updatedBy', -1] }, [userObjectId, userIdStr]] }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }, { session });
+
+    await this.usersCollection.updateOne(
+      { _id: userObjectId },
+      { $set: { reputation_score: count, updatedAt: new Date() } },
+      { session }
+    );
+  }
+
   async setReputationScore(
     userId: string,
     score: number,
@@ -752,7 +796,7 @@ export class UserRepository implements IUserRepository {
         {
           role: 'expert',
           isBlocked: false,
-          reputation_score: { $lte: 5 },
+          status: 'active',
           lastCheckInAt: { $gte: startOfDay, $lt: startOfTomorrow },
         },
         { session },
@@ -1408,16 +1452,34 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError('Failed to block users');
     }
   }
-
   async unBlockExperts(): Promise<void> {
     try {
-      await this.init()
+      await this.init();
       await this.usersCollection.updateMany(
         { inactive: { $ne: true } },
         { $set: { isBlocked: false } },
       );
     } catch (error) {
-      throw new InternalServerError('Failed to block users');
+      throw new InternalServerError('Failed to unblock experts');
+    }
+  }
+
+  async findInactiveOrBlockedExperts(session?: ClientSession): Promise<IUser[]> {
+    try {
+      await this.init();
+      return await this.usersCollection
+        .find(
+          {
+            role: 'expert',
+            $or: [{ status: 'in-active' }, { isBlocked: true }],
+          },
+          { session },
+        )
+        .toArray();
+    } catch (error) {
+      throw new InternalServerError(
+        'Failed to find inactive or blocked experts',
+      );
     }
   }
 }
