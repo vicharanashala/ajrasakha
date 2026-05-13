@@ -3742,7 +3742,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         query['details.domain'] = filters.domain;
       }
       if (filters.status && filters.status !== 'all') {
-        query.status = filters.status;
+        if (filters.status === 'pae_closed') {
+          query.status = 'closed';
+          query.pae_review = true;
+        } else {
+          query.status = filters.status;
+        }
       }
       if (filters.hiddenQuestions === 'true') {
         query.isHidden = { $eq: true };
