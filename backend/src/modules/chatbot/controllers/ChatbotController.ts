@@ -337,6 +337,17 @@ export class ChatbotController {
     return this.chatbotService.getDuplicateQuestions();
   }
 
+  @OpenAPI({
+    summary: 'Get domain query spikes',
+    description: 'Returns domains where daily question count is ≥1.5× the rolling average over the last N days.',
+  })
+  @Get('/domain-spikes')
+  @HttpCode(200)
+  @Authorized()
+  async getDomainSpikes(@QueryParams() query: { days?: number }) {
+    return this.chatbotService.getDomainSpikes(query.days ?? 60);
+  }
+
   @Get('/user-growth')
   @HttpCode(200)
   @Authorized()
