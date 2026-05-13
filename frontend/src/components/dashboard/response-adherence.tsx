@@ -6,6 +6,7 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import CountUp from "react-countup";
+import { TopRightBadge } from "../NewBadge";
 
 interface ResponseAdherenceProps {
   totalWhatsapp: number;
@@ -30,12 +31,13 @@ export const ResponseAdherence = ({
     : 0;
 
   return (
-    <Card>
+    <Card className="relative">
       <CardHeader>
         <CardTitle className="text-base">Response Adherence (%)</CardTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Percentage of questions answered within 2 hours
         </p>
+        <TopRightBadge label="new" left={0} />
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

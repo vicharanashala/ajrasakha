@@ -134,6 +134,15 @@ export interface PlatformInstallEntry {
   count: number;
 }
 
+export interface DomainSpikeEntry {
+  domain: string;
+  date: string;       // 'YYYY-MM-DD'
+  count: number;      // query count on that date
+  baseline: number;   // rolling 30-day average (excluding the spike day)
+  spikePct: number;   // % above baseline, rounded
+  location?: string;  // most common "District, State" for that domain+date
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
@@ -252,6 +261,9 @@ export interface IChatbotRepository {
 
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
   getDuplicateQuestions(session?: ClientSession): Promise<DuplicateQuestionEntry[]>;
+
+  /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
+  getDomainSpikes(days?: number, session?: ClientSession): Promise<DomainSpikeEntry[]>;
 }
 
 export interface ChatbotConversationData {

@@ -22,7 +22,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDashboard(days = 30, source = 'vicharanashala', userType = 'all'): Promise<DashboardResponse> {
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, avgSessionDurationMin, weeklySessionDuration, demographics, kccAndAgri, platformInstalls] =
+      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, avgSessionDurationMin, weeklySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes] =
         await Promise.all([
           this.chatbotRepository.getKpiSummary(source, undefined, userType),
           this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType),
@@ -33,13 +33,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getDailyQueryCounts(days, source, undefined, userType),
           this.chatbotRepository.getTodayQueryCount(source, undefined, userType),
           this.chatbotRepository.getWeeklyQueryCounts(source, undefined, userType),
-          // V2: inactivity-gap based session duration replaces the old value from getKpiSummary
           this.chatbotRepository.getAvgSessionDurationV2(source, undefined, userType),
-          // V2: inactivity-gap based weekly breakdown replaces the old getWeeklyAvgSessionDuration
           this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source, undefined, userType),
           this.chatbotRepository.getUserDemographics(source, undefined, userType),
           this.chatbotRepository.getKccAndAgriAppStats(source, undefined, userType),
           this.chatbotRepository.getPlatformInstalls(source),
+          this.chatbotRepository.getDomainSpikes(60),
         ]);
 
       return {
@@ -59,6 +58,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         kccAwareness: kccAndAgri.kccAwareness,
         agriAppUsage: kccAndAgri.agriAppUsage,
         platformInstalls,
+        domainSpikes,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch dashboard data: ${error}`);
@@ -620,6 +620,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
       return await this.chatbotRepository.getDuplicateQuestions();
     } catch (error) {
       throw new InternalServerError(`Failed to fetch duplicate questions: ${error}`);
+    }
+  }
+
+  async getDomainSpikes(days = 60) {
+    try {
+      return await this.chatbotRepository.getDomainSpikes(days);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch domain spikes: ${error}`);
     }
   }
 }

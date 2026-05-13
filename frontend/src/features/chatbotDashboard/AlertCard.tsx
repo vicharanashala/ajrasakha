@@ -1,4 +1,8 @@
+import { useState } from "react";
+import { TrendingUp } from "lucide-react";
 import { Badge } from "./components/shared/Badge";
+import { DomainSpikesModal } from "./components/DomainSpikesModal";
+import { useDomainSpikes } from "./hooks/useDomainSpikes";
 
 interface Alert {
   id: number;
@@ -15,7 +19,23 @@ interface AlertCardProps {
   onDuplicateClick?: () => void;
 }
 
-export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, onInactiveClick, duplicateQuestionsCount = 0, onDuplicateClick }: AlertCardProps) {
+export function AlertCard({
+  alerts: _alerts = [],
+  inactiveUsersLast3Days = 0,
+  onInactiveClick,
+  duplicateQuestionsCount = 0,
+  onDuplicateClick,
+}: AlertCardProps) {
+  const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
+
+  // Fetch spikes independently — always enabled so the preview row is live
+  const { data: spikes = [] } = useDomainSpikes(true, 60);
+
+  // Show the highest spike as the preview
+  const topSpike = spikes.length > 0
+    ? spikes.reduce((a, b) => (b.spikePct > a.spikePct ? b : a))
+    : null;
+
   return (
     <div className="h-full flex flex-col bg-card text-card-foreground rounded-xl border shadow-sm dark:bg-[#1a1a1a] dark:border-[#2a2a2a] p-4">
       {/* Header */}
@@ -63,10 +83,7 @@ export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, on
             </div>
           </div>
         </div>
-        <Badge
-          label={inactiveUsersLast3Days.toLocaleString()}
-          variant="red"
-        />
+        <Badge label={inactiveUsersLast3Days.toLocaleString()} variant="red" />
       </div>
 
       {/* Duplicate Questions Row */}
@@ -103,13 +120,65 @@ export function AlertCard({ alerts: _alerts = [], inactiveUsersLast3Days = 0, on
             </div>
           </div>
         </div>
-        <Badge
-          label={duplicateQuestionsCount.toLocaleString()}
-          variant="amber"
-        />
+        <Badge label={duplicateQuestionsCount.toLocaleString()} variant="amber" />
+      </div>
+
+      {/* Domain Spikes Row — always rendered, shows top spike or a placeholder */}
+      <div
+        className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 cursor-pointer hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
+        onClick={() => setIsSpikesModalOpen(true)}
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/40 shrink-0">
+            <TrendingUp className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+          </div>
+          <div className="min-w-0">
+            {topSpike ? (
+              <>
+                <div className="text-xs font-medium text-red-700 dark:text-red-400 truncate">
+                  Spike in {topSpike.domain}
+                </div>
+                {topSpike.location && (
+                  <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                    {topSpike.location}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-xs font-medium text-red-700 dark:text-red-400">
+                Domain Query Spikes
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          {topSpike && (
+            <span className="text-xs font-semibold text-red-600 dark:text-red-400">
+              +{topSpike.spikePct}%
+            </span>
+          )}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-gray-400"
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </div>
       </div>
 
       <div className="flex-1" />
+
+      {isSpikesModalOpen && (
+        <DomainSpikesModal onClose={() => setIsSpikesModalOpen(false)} />
+      )}
     </div>
   );
 }
