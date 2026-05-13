@@ -329,14 +329,37 @@ export class ChatbotController {
     statusCode: 500,
     description: 'Internal server error - Failed to fetch user growth trend',
   })
+  @OpenAPI({ summary: 'Get duplicate questions with farmer details' })
+  @Get('/duplicate-questions')
+  @HttpCode(200)
+  @Authorized()
+  async getDuplicateQuestions() {
+    return this.chatbotService.getDuplicateQuestions();
+  }
+
   @Get('/user-growth')
   @HttpCode(200)
   @Authorized()
   async getGrowth(@QueryParams() query: GrowthQuery): Promise<GrowthResponse> {
-    const range = Number(query.range) || 30;
-    if (![30, 60, 90].includes(range)) {
-      throw new Error('Invalid range. Allowed values are 30, 60, or 90.');
+    const hasCustomRange = Boolean(query.startDate && query.endDate);
+
+    if (hasCustomRange) {
+      const startDate = new Date(query.startDate!);
+      const endDate = new Date(query.endDate!);
+
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        throw new Error('Invalid startDate or endDate.');
+      }
+
+      if (startDate > endDate) {
+        throw new Error('startDate cannot be after endDate.');
+      }
+
+      const data = await this.chatbotService.getGrowth(30, startDate, endDate);
+      return data;
     }
+
+    const range = Number(query.range) || 30;
     const data = await this.chatbotService.getGrowth(range);
     return data
   }

@@ -1,5 +1,5 @@
 import { ObjectId, ClientSession } from 'mongodb';
-import { IQuestion } from '#root/shared/interfaces/models.js';
+import { IQuestion,QuestionStatus } from '#root/shared/interfaces/models.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
 import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
@@ -12,6 +12,7 @@ export async function checkDuplicateQuestionHelper(
   aiService: AiService,
   duplicateQuestionRepository: IDuplicateQuestionRepository,
   session?: ClientSession,
+  fromOutReach?: boolean,
 ): Promise<{ isDuplicate: boolean; duplicateData?: any }> {
   const cropName = typeof details.crop === 'string' ? details.crop : details.crop?.name || '';
 
@@ -104,8 +105,8 @@ export async function checkDuplicateQuestionHelper(
       baseQuestion.question,
       candidateQuestions,
     );
-    if (matchedQuestionfromllm) {
-      const filtermatchinQuestion = topSimilar.filter(
+    if (matchedQuestionfromllm!==null) {
+    /*  const filtermatchinQuestion = topSimilar.filter(
         ele => ele.question == matchedQuestionfromllm,
       );
 
@@ -113,20 +114,38 @@ export async function checkDuplicateQuestionHelper(
       matchedQuestion = filtermatchinQuestion[0].question;
       matchedQuestionId = filtermatchinQuestion[0].questionId;
       matchedScore = filtermatchinQuestion[0].similarityScore;
-      referenceSourcefrom = filtermatchinQuestion[0].referenceSource;
+      referenceSourcefrom = filtermatchinQuestion[0].referenceSource;*/
+      if (
+        matchedQuestionfromllm < 0 ||
+        matchedQuestionfromllm >= llmCandidates.length
+      ) {
+        console.log("Invalid candidate index returned by LLM");
+        return { isDuplicate: false };
+      }
+      
+      const matchedCandidate = llmCandidates[matchedQuestionfromllm];
+      console.log("Matched Candidate:", matchedCandidate);
+      isDuplicate = true;
+      matchedQuestion = matchedCandidate.question;
+      matchedQuestionId = matchedCandidate.questionId;
+      matchedScore = matchedCandidate.similarityScore;
+      referenceSourcefrom = matchedCandidate.referenceSource;
 
       const duplicateQuestion = {
         ...baseQuestion,
         similarityScore: Number(matchedScore.toFixed(2)),
         referenceQuestionId: matchedQuestionId,
         referenceQuestion: matchedQuestion,
-        referenceSource: referenceSourcefrom
+        referenceSource: referenceSourcefrom,
+        status: 'duplicate' as QuestionStatus,
       }
 
-      await duplicateQuestionRepository.addDuplicate(
-        duplicateQuestion,
-        session
-      )
+      if(fromOutReach){
+        await duplicateQuestionRepository.addDuplicate(
+          duplicateQuestion,
+          session
+        )
+      }
       logData.outcome = 'DUPLICATE_DETECTED'
       logData.matchedQuestion = matchedQuestion
       logData.similarityScore = matchedScore.toFixed(2)
@@ -144,12 +163,15 @@ export async function checkDuplicateQuestionHelper(
       referenceQuestionId: matchedQuestionId,
       referenceQuestion: matchedQuestion,
       referenceSource: referenceSourcefrom,
+      status: 'duplicate' as QuestionStatus,
     };
 
-    await duplicateQuestionRepository.addDuplicate(
+   if(fromOutReach){
+     await duplicateQuestionRepository.addDuplicate(
       duplicateQuestion,
       session,
     );
+   }
 
     logData.outcome = 'DUPLICATE_DETECTED';
     logData.matchedQuestion = matchedQuestion;

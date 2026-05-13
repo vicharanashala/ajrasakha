@@ -52,7 +52,7 @@ import {
   AddOrEditQuestionDialog,
   type AddQuestionValidationErrors,
 } from "./AddOrEditQuestionDialog";
-import { useReAllocateLessWorkload } from "@/hooks/api/question/useReAllocateLessWorkload";
+import { useReAllocateLessWorkload,useReAllocateExpertsSelectedQuestions } from "@/hooks/api/question/useReAllocateLessWorkload";
 import { DownloadReportButton } from "./DownloadReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
@@ -68,6 +68,16 @@ import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
+import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
+import { UserCheck } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/atoms/select";
+import { Badge } from "../../components/atoms/badge";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -95,16 +105,20 @@ type QuestionsFiltersProps = {
   showClosedAt?: boolean;
   view: "grid" | "table";
   setView: (v: "grid" | "table") => void;
+  handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
+  isBulkAllocatingPae: boolean;
+  limit: number;
+  setLimit: (limit: number) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae";
 
-const sourceToAnswerMode = (
-  source: AdvanceFilterValues["source"],
-): AnswerMode => {
-  if (source === "AGRI_EXPERT") return "manual";
-  if (source === "WHATSAPP") return "whatsapp";
-  if (source === "OUTREACH") return "outreach";
+const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
+  if (filter.pae_review === true) return "pae";
+  if (filter.status === "draft") return "draft";
+  if (filter.source === "AGRI_EXPERT") return "manual";
+  if (filter.source === "WHATSAPP") return "whatsapp";
+  if (filter.source === "OUTREACH") return "outreach";
   return "ajraskha";
 };
 
@@ -114,6 +128,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
+  if (answerMode === "draft" || answerMode === "pae") return "all";
   return "AJRASAKHA";
 };
 
@@ -143,6 +158,10 @@ export const QuestionsFilters = ({
   showClosedAt,
   view,
   setView,
+  handleBulkAllocateToPae,
+  isBulkAllocatingPae,
+  limit,
+  setLimit,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -162,7 +181,7 @@ export const QuestionsFilters = ({
     null,
   );
   const [answerMode, setAnswerMode] = useState<AnswerMode>(() =>
-    sourceToAnswerMode(appliedFilters.source),
+    filterToAnswerMode(appliedFilters),
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
@@ -172,11 +191,16 @@ export const QuestionsFilters = ({
     });
   const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
+    // Reallocate the selected questions to experts with less workload
+  const { mutateAsync: reAllocateExpertsSelectedQuestions, isPending: reAllocating } =
+    useReAllocateExpertsSelectedQuestions();
 
   const [isReAllocateOpen, setIsReAllocateOpen] = useState(false);
+  const [isReAllocateSelectedQuestionsOpen, setIsReAllocateSelectedQuestionsOpen] = useState(false);
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
+  const [isPaeAllocateModalOpen, setIsPaeAllocateModalOpen] = useState(false);
 
   const handleReAllocateLessWorkload = async () => {
     try {
@@ -210,6 +234,55 @@ export const QuestionsFilters = ({
         error,
       );
       setIsReAllocateDisabled(false);
+    }
+  };
+
+  //reAllocate selected questions to experts with less workload
+  const handleReAllocateSelectedQuestions = async () => {
+    try {
+      setIsReAllocateDisabled(true);
+      const res = await reAllocateExpertsSelectedQuestions(selectedQuestionIds);
+
+      if (!res) {
+        toast.error("No response from server");
+        return;
+      }
+      if (res.message === "Workload balancing started in background") {
+        toast.success(
+          res.submissionsProcessed === 0
+            ? `No questions were reallocated.${res.questionsFiltered
+              ? ` ${res.questionsFiltered} questions were filtered due to invalid status.`
+              : ""
+            }`
+            : `${res.submissionsProcessed} questions were successfully reallocated out of ${selectedQuestionIds.length} selected questions.${res.questionsFiltered
+              ? ` ${res.questionsFiltered} questions were filtered due to invalid status.`
+              : ""
+            }${res.unallocatedQuestions
+              ? ` ${res.unallocatedQuestions} questions could not be reallocated because no eligible new experts were available.`
+              : ""
+            } Please wait 50 seconds before reallocating again.`
+        );
+        // Re-enable button after 30 seconds
+        setTimeout(() => {
+          setIsReAllocateDisabled(false);
+        }, 50000);
+      } else if (res.message) {
+        // Any other message from backend
+        toast.success(res.message);
+        setIsReAllocateDisabled(false);
+      }
+    } catch (error) {
+      toast.error(
+        "Failed to reAllocate selected question",
+      );
+      console.error(
+        "Error reallocating selected question:",
+        error,
+      );
+      setIsReAllocateDisabled(false);
+    } finally {
+      setIsSelectionModeOn(false);
+      setSelectedQuestionIds([]);
     }
   };
 
@@ -316,9 +389,18 @@ export const QuestionsFilters = ({
   };
 
   const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
-    const source = answerModeToSource(nextAnswerMode);
+    let nextFilters: AdvanceFilterValues;
 
-    const nextFilters = { ...advanceFilter, source };
+    if (nextAnswerMode === "draft") {
+      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined };
+    } else if (nextAnswerMode === "pae") {
+      nextFilters = { ...advanceFilter, source: "all", pae_review: true };
+      if (answerMode === "draft") nextFilters.status = "all";
+    } else {
+      const source = answerModeToSource(nextAnswerMode);
+      nextFilters = { ...advanceFilter, source, pae_review: undefined };
+      if (answerMode === "draft") nextFilters.status = "all";
+    }
 
     setAnswerMode(nextAnswerMode);
     setAdvanceFilterValues(nextFilters);
@@ -341,7 +423,7 @@ export const QuestionsFilters = ({
 
   useEffect(() => {
     setAdvanceFilterValues(appliedFilters);
-    setAnswerMode(sourceToAnswerMode(appliedFilters.source));
+    setAnswerMode(filterToAnswerMode(appliedFilters));
   }, [appliedFilters]);
 
   const handleApplyFilters = (myPreference?: IMyPreference) => {
@@ -586,6 +668,42 @@ export const QuestionsFilters = ({
           <ViewDropdown view={view} setView={setView} />
         </div>
 
+        {/* Pagination Limit Dropdown */}
+        <div className="hidden md:flex items-center gap-2 relative">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="relative">
+                  <Select
+                    value={limit.toString()}
+                    onValueChange={(value) => setLimit(Number(value))}
+                  >
+                    <SelectTrigger className="w-[85px] relative" size="sm">
+                      <SelectValue placeholder="Limit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[12, 25, 50, 100].map((v) => (
+                        <SelectItem key={v} value={v.toString()}>
+                          {v}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Badge 
+                    variant="default" 
+                    className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
+                  >
+                    New
+                  </Badge>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Items per page</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
         {/* tools and filters */}
         <TooltipProvider>
           <Tooltip>
@@ -622,6 +740,42 @@ export const QuestionsFilters = ({
 
         {isSelectionModeOn && (
           <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
+            {/* Allocate to PAE */}
+            {userRole !== "expert" && answerMode.toLowerCase() === "draft" && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectedQuestionIds.length === 0 || isBulkAllocatingPae}
+                onClick={() => setIsPaeAllocateModalOpen(true)}
+                className="flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10"
+              >
+                <UserCheck className="h-4 w-4" />
+                {isBulkAllocatingPae
+                  ? `Allocating (${selectedQuestionIds.length})...`
+                  : `Allocate to PAE (${selectedQuestionIds.length})`}
+              </Button>
+            )}
+
+            {/* Allocate to EXPERTS */}
+            {userRole !== "expert" && answerMode.toLowerCase() !== "draft" && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectedQuestionIds.length === 0 || reAllocating || isReAllocateDisabled}
+                onClick={() =>{
+                  setIsReAllocateSelectedQuestionsOpen(true);
+                }}
+                className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled ? "cursor-not-allowed text-green-600" : ""}`}
+              >
+                <UserCheck className="h-4 w-4" />
+                {reAllocating
+                  ? `Allocating (${selectedQuestionIds.length})...`
+                  : isReAllocateDisabled
+                  ? `Will be available in 50s`
+                  : `ReAllocate Experts (${selectedQuestionIds.length})`}
+              </Button>
+            )}
+
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
@@ -1107,6 +1261,19 @@ export const QuestionsFilters = ({
         onOpenChange={setIsReAllocateOpen}
         onConfirm={handleReAllocateLessWorkload}
       />
+
+{/* confirmation modal for reallocate selected questions to experts */}
+      <ConfirmationModal
+        title="ReAllocate selected questions?"
+        description="Are you sure you want to ReAllocate selected questions?"
+        confirmText="ReAllocate"
+        cancelText="Cancel"
+        isLoading={reAllocating}
+        type="default"
+        open={isReAllocateSelectedQuestionsOpen}
+        onOpenChange={setIsReAllocateSelectedQuestionsOpen}
+        onConfirm={handleReAllocateSelectedQuestions}
+      />
       <CropManagementModal
         open={isCropModalOpen}
         onOpenChange={setIsCropModalOpen}
@@ -1114,6 +1281,17 @@ export const QuestionsFilters = ({
       <ChemicalManagementModal
         open={isChemicalModalOpen}
         onOpenChange={setIsChemicalModalOpen}
+      />
+      <BulkUploadAllocationModal
+        open={isPaeAllocateModalOpen}
+        onClose={() => setIsPaeAllocateModalOpen(false)}
+        isLoading={isBulkAllocatingPae}
+        paeOnly
+        onConfirm={async (_mode, paeExpertId) => {
+          if (!paeExpertId) return;
+          await handleBulkAllocateToPae(paeExpertId);
+          setIsPaeAllocateModalOpen(false);
+        }}
       />
     </div>
   );

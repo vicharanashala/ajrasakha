@@ -136,6 +136,22 @@ export class GetGoldenDatasetQuery {
   @IsOptional()
   @IsString()
   selectedDay?: string;
+
+  @JSONSchema({
+    example: '10:30',
+    description: 'Custom start time in HH:mm format (24-hour)',
+  })
+  @IsOptional()
+  @IsString()
+  customStartDateTime?: string;
+
+  @JSONSchema({
+    example: '17:45',
+    description: 'Custom end time in HH:mm format (24-hour)',
+  })
+  @IsOptional()
+  @IsString()
+  customEndDateTime?: string;
 }
 
 export class GetContributionTrendQuery {
@@ -199,6 +215,22 @@ export class GoldenDatasetEntry {
   verified!: number;
 }
 
+export class QuestionStateBreakdownItem {
+  @JSONSchema({ description: 'Question state/status', example: 'open' })
+  status!: string;
+
+  @JSONSchema({ description: 'Count for the status', example: 12 })
+  count!: number;
+}
+
+export class QuestionStateBreakdownBySource {
+  @JSONSchema({ description: 'Question state breakdown for WhatsApp source' })
+  whatsapp!: QuestionStateBreakdownItem[];
+
+  @JSONSchema({ description: 'Question state breakdown for Ajrasakha source' })
+  ajrasakha!: QuestionStateBreakdownItem[];
+}
+
 export class GoldenDataset {
   @JSONSchema({description: 'Total count of verified answers'})
   verifiedEntries: number;
@@ -226,6 +258,28 @@ export class GoldenDataset {
 
   @JSONSchema({ description: 'Moderator breakdown with names and approval counts' })
   moderatorBreakdown?: { moderatorName: string, count: number }[];
+
+  @JSONSchema({ description: 'Question source breakdown showing counts from WhatsApp and Ajrasakha' })
+  questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Questions answered within 120 minutes by source' })
+  questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Average response time in minutes by source' })
+  averageResponseTime?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Questions answered after 120 minutes by source' })
+  questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Breakdown of question states separated by source' })
+  questionStateBreakdown?: QuestionStateBreakdownBySource;
+
+  @JSONSchema({ description: 'PAE (Principal Agri Experts) metrics totals' })
+  paeMetrics?: {
+    assigned: number;
+    submitted: number;
+    closed: number;
+  };
 }
 
 export class QuestionContributionTrend {

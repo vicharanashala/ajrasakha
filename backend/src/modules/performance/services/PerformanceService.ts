@@ -93,30 +93,31 @@ export class PerformanceService extends BaseService implements IPerformanceServi
 
   async getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
     return await this._withTransaction(async (session: ClientSession) => {
-      const { viewType, selectedYear, selectedMonth, selectedWeek, selectedDay } = query;
+      const { viewType, selectedYear, selectedMonth, selectedWeek, selectedDay, customStartDateTime, customEndDateTime } = query;
       const verifiedEntries = await this.questionRepo.getClosedQuestionsCount(session);
       const { todayApproved } = await this.questionRepo.getTodayApproved(session);
 
       let goldenDataset = {} as GoldenDataset;
 
       if (viewType === 'year') {
-        const { yearData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
-          await this.questionRepo.getYearAnalytics(selectedYear!, session);
-        goldenDataset = { yearData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
-      } else if (viewType === 'month') {
-        const { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
-          await this.questionRepo.getMonthAnalytics(selectedYear!, selectedMonth!, session);
-        goldenDataset = { weeksData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
-      } else if (viewType === 'week') {
-        const { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
-          await this.questionRepo.getWeekAnalytics(selectedYear!, selectedMonth!, selectedWeek!, session);
-        goldenDataset = { dailyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
-      } else if (viewType === 'day') {
-        const { dayHourlyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
-          await this.questionRepo.getDailyAnalytics(selectedYear!, selectedMonth!, selectedWeek!, selectedDay!, session);
-        goldenDataset = { dayHourlyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
-      }
 
+        const { yearData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics } =
+          await this.questionRepo.getYearAnalytics(selectedYear!, customStartDateTime, customEndDateTime, session);
+        goldenDataset = { yearData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics };
+      } else if (viewType === 'month') {
+        const { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics } =
+          await this.questionRepo.getMonthAnalytics(selectedYear!, selectedMonth!, customStartDateTime, customEndDateTime, session);
+        goldenDataset = { weeksData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics };
+      } else if (viewType === 'week') {
+        const { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics } =
+          await this.questionRepo.getWeekAnalytics(selectedYear!, selectedMonth!, selectedWeek!, customStartDateTime, customEndDateTime, session);
+        goldenDataset = { dailyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown ,paeMetrics};
+      } else if (viewType === 'day') {
+        const { dayHourlyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown ,paeMetrics} =
+          await this.questionRepo.getDailyAnalytics(selectedYear!, selectedMonth!, selectedWeek!, selectedDay!, customStartDateTime, customEndDateTime, session);
+        goldenDataset = { dayHourlyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics };
+
+      }
       return goldenDataset;
     });
   }

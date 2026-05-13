@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -19,18 +20,27 @@ interface QuestionHeaderProps {
   isQuestionAllocatedToExpert: boolean;
 }
 
-export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocatedToExpert }: QuestionHeaderProps) => {
+export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAllocatedToExpert }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
-  
+
+  const isDuplicate = Boolean(
+    question?.similarityScore &&
+    question?.referenceQuestionId &&
+    question?.referenceQuestion &&
+    question?.referenceSource
+  );
+
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
-  
+
   const { timer } = useQuestionTimer(
     question.source,
     timerStartTime,
     buildHoldCountdownOptions(question)
   );
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     type: "hold" | "unhold";
@@ -46,9 +56,9 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
   const doHold = async () => {
     try {
       await holdQuestion({
-      questionId: question._id!,
-      action: question.isOnHold ? "unhold" : "hold",
-    });
+        questionId: question._id!,
+        action: question.isOnHold ? "unhold" : "hold",
+      });
       toast.success(`Question ${question.isOnHold ? "released from hold" : "put on hold"} successfully`);
       goBack();
     } catch (error) {
@@ -61,90 +71,264 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
     doHold();
   };
   const isQuestionOnHold = question.isOnHold;
+  const originalQuestion = question.originalQuestion?.trim();
+
+  const sortedHistory = [...(question?.submission?.history || [])].sort(
+    (a, b) =>
+      new Date(a.updatedAt).getTime() -
+      new Date(b.updatedAt).getTime()
+  );
+
+  const latestHistory =
+    sortedHistory.length > 0
+      ? sortedHistory[sortedHistory.length - 1]
+      : null;
+
+  const diffMs =
+    latestHistory && question?.closedAt
+      ? new Date(question.closedAt).getTime() -
+      new Date(latestHistory.updatedAt).getTime()
+      : null;
+
+  const formattedTime = (() => {
+    if (diffMs === null || diffMs <= 0) {
+      return "N/A";
+    }
+
+    const totalMinutes = Math.round(diffMs / (1000 * 60));
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    return hours > 0
+      ? `${hours} hour${hours > 1 ? "s" : ""} ${minutes} minute${minutes !== 1 ? "s" : ""}`
+      : `${minutes} minute${minutes !== 1 ? "s" : ""}`;
+  })();
+
   return (
     <>
       <header className="grid gap-3 w-full">
         {/* Title + Timer + Exit */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words flex-1">
-            {translatedText || question.question}
-          </h1>
-          {currentUser.role !='expert' && isQuestionAllocatedToExpert && question.status!== 'closed' &&<Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">{isQuestionOnHold ? "Release Hold" : "Hold the question"}</Button>}
-          <SarvamTranslateDropdown query={question.question} onTranslate={(result) => setTranslatedText(result)} />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words">
+              {translatedText || question.question}
+            </h1>
+            {originalQuestion && (
+              <p className="mt-1 text-sm sm:text-base text-muted-foreground break-words">
+                ({originalQuestion})
+              </p>
+            )}
+          </div>
 
-          <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
-            {/* <TimerDisplay timer={timer} status={question.status} size="lg" /> */}
-            <TimerDisplay timer={timer} status={question.status} source={question.source} size="lg" />
+          <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-start sm:justify-end sm:flex-shrink-0">
+            <div className="flex flex-wrap justify-end gap-2">
+              {currentUser.role != 'expert' && isQuestionAllocatedToExpert && question.status !== 'closed' && (
+                <Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">
+                  {isQuestionOnHold ? "Release Hold" : "Hold the question"}
+                </Button>
+              )}
+              <SarvamTranslateDropdown query={question.question} onTranslate={(result) => setTranslatedText(result)} />
+            </div>
 
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                variant="outline"
-                className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
-                onClick={goBack}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-4 h-4"
+            <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
+              {/* <TimerDisplay timer={timer} status={question.status} size="lg" /> */}
+              {question.status !== "pass" && (
+                <TimerDisplay timer={timer} status={question.status} source={question.source} size="lg" />
+              )}
+
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+                  onClick={goBack}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17 8l4 4m0 0l-4 4m4-4H3"
-                  />
-                </svg>
-                <span className="leading-none">Exit</span>
-              </Button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    stroke="currentColor"
+                    className="w-4 h-4"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17 8l4 4m0 0l-4 4m4-4H3"
+                    />
+                  </svg>
+                  <span className="leading-none">Exit</span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Status + Priority + Total answers */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            className={
-              question.status === "in-review"
-                ? "bg-green-500/10 text-green-600 border-green-500/30"
-                : question.status === "open"
-                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : question.status === "closed"
-                    ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-                    : "bg-muted text-foreground"
-            }
-          >
-            {question.status.replace("_", " ")}
-          </Badge>
+        <div className="flex flex-wrap items-center gap-4 justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {isDuplicate && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setDuplicateModalOpen(true)}
+                className="border-red-400/30 text-red-500 hover:bg-red-400/10 hover:text-red-500"
+              >
+                Show Reference
+              </Button>
+            )}
+            {!isDuplicate && (
+              <>
+                <Badge
+                  className={
+                    question.status === "in-review"
+                      ? "bg-green-500/10 text-green-600 border-green-500/30"
+                      : question.status === "open"
+                        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                        : question.status === "closed"
+                          ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                          : question.status === "pae_submitted"
+                            ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+                            : "bg-muted text-foreground"
+                  }
+                >
+                  {question.status.replace("_", " ")}
+                </Badge>
 
-          <Badge
-            className={
-              question.priority === "high"
-                ? "bg-red-500/10 text-red-600 border-red-500/30"
-                : question.priority === "medium"
-                  ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                  : question.priority === "low"
-                    ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                    : "bg-muted text-foreground"
-            }
-          >
-            {question.priority ? question.priority.toUpperCase() : "NIL"}
-          </Badge>
+                <Badge
+                  className={
+                    question.priority === "high"
+                      ? "bg-red-500/10 text-red-600 border-red-500/30"
+                      : question.priority === "medium"
+                        ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                        : question.priority === "low"
+                          ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                          : "bg-muted text-foreground"
+                  }
+                >
+                  {question.priority ? question.priority.toUpperCase() : "NIL"}
+                </Badge>
+              </>
+            )}
 
-          <span className="text-sm text-muted-foreground whitespace-nowrap">
-            Total answers: {question.totalAnswersCount}
-          </span>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              Total answers: {question.totalAnswersCount}
+            </span>
+          </div>
+          {(question?.status === "closed" &&
+            (currentUser.role === "moderator" ||
+              currentUser.role === "admin")) && (
+              <div>
+                <div className="text-sm">
+                  {question?.closedAt && (
+                    <span>
+                      The Question was closed at:{" "}
+                      {new Date(question.closedAt).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
         </div>
 
         {/* Created / Updated */}
-        <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
-          <span>Created: {formatDate(new Date(question.createdAt))}</span>
-          <span>•</span>
-          <span>Updated: {formatDate(new Date(question.updatedAt))}</span>
+        <div className="flex flex-wrap items-center gap-4 justify-between">
+          <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
+            <span>Created: {formatDate(new Date(question.createdAt))}</span>
+            <span>•</span>
+            <span>Updated: {formatDate(new Date(question.updatedAt))}</span>
+          </div>
+          <div>
+            {(question?.status === "closed" &&
+              (currentUser.role === "moderator" ||
+                currentUser.role === "admin")) && (
+                <div className="text-sm">
+                  {question?.closedAt && (
+                    <div >
+                      Moderator TAT:{" "}
+                      {(latestHistory && diffMs) && diffMs > 0
+                        ? formattedTime
+                        : "N/A"}
+                    </div>
+                  )}
+                </div>
+              )}
+          </div>
         </div>
       </header>
+      <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
+        <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-red-500">Duplicate Reference Question</DialogTitle>
+          </DialogHeader>
+
+          {question.referenceQuestionData ? (
+            <div className="space-y-4">
+              {/* Metadata */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm border rounded-md p-4 bg-muted/30">
+                <div>
+                  <span className="text-muted-foreground font-medium">Status: </span>
+                  <span className="capitalize">{question.referenceQuestionData.status}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">Similarity: </span>
+                  <span>{question.similarityScore?.toFixed(1)}%</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">State: </span>
+                  <span>{question.referenceQuestionData.details?.state}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">District: </span>
+                  <span>{question.referenceQuestionData.details?.district}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">Crop: </span>
+                  <span>{question.referenceQuestionData.details?.crop}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">Season: </span>
+                  <span>{question.referenceQuestionData.details?.season}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">Domain: </span>
+                  <span>{question.referenceQuestionData.details?.domain}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-medium">Source: </span>
+                  <span>{question.referenceSource}</span>
+                </div>
+              </div>
+
+              {/* Question */}
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Question</p>
+                <p className="text-sm border rounded-md p-3 bg-muted/20">{question.referenceQuestionData.question}</p>
+              </div>
+
+              {/* Answer extracted from text field */}
+              {question.referenceQuestionData.text && (() => {
+                const answerMatch = question.referenceQuestionData.text.match(/answer:\s*([\s\S]+)/i);
+                const answerText = answerMatch ? answerMatch[1].trim() : null;
+                return answerText ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Answer</p>
+                    <p className="text-sm border rounded-md p-3 bg-muted/20 whitespace-pre-wrap">{answerText}</p>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Reference question: <span className="font-medium">{question.referenceQuestion}</span>
+              <br />
+              <span className="text-xs mt-1 block">Detailed data not available.</span>
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog
         open={confirmDialog.open}
         onOpenChange={(open) =>
@@ -157,9 +341,9 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
               {question.isOnHold ? "Release this question?" : "Hold this question?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-             {question.isOnHold
-    ? "Are you sure you want to release this question from hold?"
-    : "Are you sure you want to put this question on hold?"}
+              {question.isOnHold
+                ? "Are you sure you want to release this question from hold?"
+                : "Are you sure you want to put this question on hold?"}
             </AlertDialogDescription>
           </AlertDialogHeader>
 

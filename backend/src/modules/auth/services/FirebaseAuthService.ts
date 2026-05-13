@@ -19,6 +19,7 @@ import serviceAccount from '../../../../agriai-a2fba-firebase-adminsdk-fbsvc-452
 import { error } from 'console';
 import { sendEmailNotification } from '#root/utils/mailer.js';
 import { appConfig } from '#root/config/app.js';
+import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 
 /**
  * Custom error thrown during password change operations.
@@ -45,6 +46,8 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     private userRepository: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private database: MongoDatabase,
+    @inject(GLOBAL_TYPES.NotificationService)
+    private notificationService: NotificationService,
   ) {
     super(database);
     if (!admin.apps.length) {
@@ -102,9 +105,6 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
   async signup(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string } } | null> {
     let userRecord: any;
     try {
-      if (!/^[^\s@]+@annam\.ai$/.test(body.email) && !appConfig.isDevelopment) {
-        throw new Error("Please enter a valid email")
-      }
       if (!body.firstName.trim()) {
         throw new Error("Name cannot be blank or empty spaces");
       }
@@ -144,7 +144,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       email: body.email,
       firstName: body.firstName,
       lastName: body.lastName || '',
-      role: 'expert',
+      role: 'pae_expert',
     };
 
     // create the user in the database will happen on the first successful login after email verification.
@@ -169,7 +169,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       email: body.email,
       firstName: body.firstName,
       lastName: body.lastName,
-      role: 'expert',
+      role: 'pae_expert',
     };
 
     let createdUserId: string;
@@ -179,6 +179,22 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       createdUserId = await this.userRepository.create(newUser, session);
       if (!createdUserId) {
         throw new InternalServerError('Failed to create the user');
+      }
+
+      // Notify admins
+      const admins = await this.userRepository.findAdmins(session);
+      const notificationMessage = `A new user ${body.firstName} ${body.lastName || ''} (${body.email}) created and needs to be verified`;
+      const notificationTitle = 'New User Created';
+
+      for (const admin of admins) {
+        await this.notificationService.saveTheNotifications(
+          notificationMessage,
+          notificationTitle,
+          createdUserId,
+          admin._id.toString(),
+          'user_verification',
+          session
+        );
       }
     });
   }
@@ -231,13 +247,30 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         email: email,
         firstName: names[0] || email.split('@')[0],
         lastName: names.slice(1).join(' ') || '',
-        role: 'expert',
+        role: 'pae_expert',
+        isVerified: false,
       };
 
       await this._withTransaction(async (session) => {
         const userObj = new User(newUser as IUser); // Assuming User class takes Partial<IUser>
         const createdId = await this.userRepository.create(userObj, session);
         if (!createdId) throw new InternalServerError('Failed to create user in database');
+
+        // Notify admins
+        const admins = await this.userRepository.findAdmins(session);
+        const notificationMessage = `A new user ${newUser.firstName} ${newUser.lastName || ''} (${newUser.email}) created and needs to be verified`;
+        const notificationTitle = 'New User Created';
+
+        for (const adminUser of admins) {
+          await this.notificationService.saveTheNotifications(
+            notificationMessage,
+            notificationTitle,
+            createdId,
+            adminUser._id.toString(),
+            'user_verification',
+            session
+          );
+        }
       });
 
       user = await this.userRepository.findByFirebaseUID(firebaseUID);
@@ -255,8 +288,26 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       await sendEmailNotification(
         email,
         'Verify your email',
-        `Please verify your email by clicking on the link below: ${link}`,
-        `<p>Please verify your email by clicking on the link below:</p><a href="${link}">${link}</a>`,
+        `Please verify your email by clicking on the link below: ${link}
+
+Once your email is verified, your account will require admin approval before you can access and log in to the platform.
+
+If you face any issues, please contact the admin.`,
+        `
+    <p>Please verify your email by clicking on the link below:</p>
+    <p>
+      <a href="${link}">${link}</a>
+    </p>
+
+    <p>
+      Once your email is verified, your account will require admin approval
+      before you can access and log in to the platform.
+    </p>
+
+    <p>
+      If you face any issues, please contact the admin.
+    </p>
+  `,
       );
       console.log(`Verification email sent successfully to ${email}`);
     } catch (err: any) {

@@ -12,6 +12,7 @@ import type {
   PaginatedUserDetails,
   DemographicEntry,
   PlatformInstallEntry,
+  DuplicateQuestionEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -51,6 +52,7 @@ export interface IChatbotService {
   getAvgSessionDurationV2(source?: string, userType?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(weeks?: number, source?: string, userType?: string): Promise<WeeklySessionDurationEntry[]>;
   generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
-  getGrowth(range:number):Promise<GrowthResponse>
+  getGrowth(range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
+  getDuplicateQuestions(): Promise<DuplicateQuestionEntry[]>;
 }
 

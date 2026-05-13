@@ -138,9 +138,10 @@ export class AiService {
       return data;
     } catch (error) {
       console.error('AI embedding request failed:', error);
-      throw new InternalServerError(
+     /* throw new InternalServerError(
         'Failed to generate embedding from the AI server. Please try again later.',
-      );
+      );*/
+      return { embedding: [] };
     }
   }
 
@@ -267,7 +268,7 @@ export class AiService {
   }
 
   async fetchWhatsAppMessage(
-    phoneNumber: string,
+    threadId: string,
     questionId: string
   ): Promise<{
     messageId: string;
@@ -314,7 +315,7 @@ export class AiService {
         checkpoint_id: string;
       }
 
-      const fullUrl = `${this._whatsAppServerUrl}/threads/${phoneNumber}/state`;
+      const fullUrl = `${this._whatsAppServerUrl}/threads/${threadId}/state`;
       console.log("Fetching WhatsApp state from:", fullUrl);
 
       const response = await fetch(fullUrl);

@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted'|'draft'| 'pass' | 'duplicate';
 export interface IPreference {
   state: string;
   crop: string;
@@ -30,6 +30,9 @@ export interface IUser {
   special_task_force?:boolean
   special_task_force_moderator?: boolean
   avatar?: string
+  mobile?: string;
+  university?: string;
+  isVerified?: boolean
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
@@ -73,13 +76,20 @@ export interface IQuestion {
   passingRemark?:string;
   isOnHold?:boolean;
   messageId?:string;
-  phoneNumber?:string;
+  threadId?:string;
   /** Wall-clock moment the current hold segment started (SLA timer freezes until unhold). */
   holdAt?:Date | null;
   /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
   accumulatedHoldMs?: number;
   originalQuestion?:string
   authors_history?: IAuthorsHistory[];
+  /** for duplicate quesitons */
+  similarityScore?: number;        // percentage (0–100)
+  referenceQuestionId?: ObjectId;
+  referenceQuestion?:string
+  referenceSource?: string;
+  saved_to_draft?: boolean;
+  pae_review?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -251,6 +261,7 @@ export type INotificationType =
   | 'question_from_whatsapp'
   | 'question_from_ajrasakha'
   | 'expert_replacement'
+  | 'user_verification'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
@@ -381,14 +392,15 @@ export interface ICropAlias {
   native_representation: string;    // native script e.g. "వరి"
 }
 
-export type CropType = 'crop' | 'chemical' | 'other';
+export type CropType = 'crop' | 'chemical' | (string & {});
 
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  type?: CropType;                    // 'crop' (default) | 'chemical' | 'other'
-  status?: 'Restricted' | 'Banned';  // only relevant when type === 'chemical'
+  type?: CropType;                    // 'crop' (default) | 'chemical' | any custom string
+  status?: string;                    // only relevant when type === 'chemical', any custom string
   aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
+  crops?: string[];                  // associated crops (only for type === 'chemical')
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
   createdAt?: Date;

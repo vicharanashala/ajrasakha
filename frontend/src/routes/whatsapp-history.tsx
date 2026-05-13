@@ -3,8 +3,13 @@ import { WhatsAppHistoryPage } from "@/features/whatsappHistory/WhatsAppHistoryP
 import { useAuthStore } from "@/stores/auth-store";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { z } from "zod";
 
 export const Route = createFileRoute("/whatsapp-history")({
+  validateSearch: z.object({
+    threadId: z.string().optional(),
+    date: z.string().optional(),
+  }),
   component: RouteComponent,
 });
 

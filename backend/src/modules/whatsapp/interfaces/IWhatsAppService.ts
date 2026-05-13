@@ -23,5 +23,6 @@ export interface Thread {
 
 export interface IWhatsAppService {
   getThreads(): Promise<Thread[]>;
-  getThreadDetails(threadId: string): Promise<Message[]>;
+  getThreadDetails(phoneNumber: string, date: string): Promise<Message[]>;
+  sendMessage(userId: string, phoneNumber: string, messageText: string): Promise<void>;
 }

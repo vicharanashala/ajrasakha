@@ -12,6 +12,21 @@ export interface KpiSummary {
   voiceUsageSharePct: number;
   totalAppInstalls: number; // It will the count the user whose profile is completed or not.
   inactiveUsersLast3Days: number; // users with zero messages in the last 3 days
+  duplicateQuestionsCount: number; // questions with a similarityScore field
+}
+
+export interface DuplicateQuestionEntry {
+  questionId: string;
+  question: string;
+  referenceQuestion: string;
+  similarityScore: number;
+  createdAt: Date;
+  farmerName: string;
+  email: string;
+  village: string;
+  block: string;
+  district: string;
+  state: string;
 }
 
 export interface DailyActiveUsersEntry {
@@ -72,6 +87,8 @@ export interface FarmerProfile {
   usesAgriApps?: boolean;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
+  platform?: string;
+  platformHistory?: { os: string; timestamp: string }[];
   location?: {
     latitude: number;
     longitude: number;
@@ -232,6 +249,9 @@ export interface IChatbotRepository {
 
   // get platform wise installs
   getPlatformInstalls(source: string, session?: ClientSession): Promise<PlatformInstallEntry[]>;
+
+  /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
+  getDuplicateQuestions(session?: ClientSession): Promise<DuplicateQuestionEntry[]>;
 }
 
 export interface ChatbotConversationData {

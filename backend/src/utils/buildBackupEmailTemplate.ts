@@ -2,23 +2,39 @@ import {DailyStats, IReviewWiseStats} from './getDailyStats.js';
 
 export const buildBackupEmailTemplate = (
   timestamp: string,
-  publicUrl: string,
+  results: {db: string; publicUrl: string | null; status: 'success' | 'failed' | 'Already exists'; error?: any; timestamp?: string}[],
   stats?: DailyStats,
 ) => {
   return `
     <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; font-family: Arial; line-height: 1.6;">
       
       <h2 style="color:#16a34a; text-align: center; border-bottom: 2px solid #16a34a; padding-bottom: 10px; margin-bottom: 20px;">
-        📊 Daily Question Review System Report
+        📊 Daily Backup And Question Review System Report
       </h2>
 
       <div style="background-color: #f7f7f7; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-        <p><strong>Backup Completed:</strong> ${timestamp}</p>
+        <p><strong>Databases Backup  Status:</strong> ${timestamp}</p>
         <p style="margin-top: 5px;">
-          🔗 <a href="${publicUrl}" target="_blank" style="color: #16a34a; text-decoration: none;">
-            View Backup File
-          </a>
+          ${results.map(result => `
+            <div style="
+              color: ${result.status === 'failed' ? '#dc2626' : '#16a34a'};
+              margin-bottom: 6px;
+            ">
+              <strong>${result.db}</strong> - ${result.status}
+              ${result.timestamp ? `<span style="margin: 5px 0; font-size: 0.9em; color: #666;">Date: ${result.timestamp}</span>` : ''}
+              ${result.publicUrl ? `
+                🔗 <a href="${result.publicUrl}" target="_blank" style="color: #16a34a; text-decoration: none;">
+                  View Backup File
+                </a>
+              ` : ''}
+            </div>
+          `).join('')}
         </p>
+        <div className="mt-5 text-sm text-gray-600">
+          <strong>Excluded Databases:</strong> admin, local, config
+          <br />
+          These are MongoDB internal system databases and are intentionally skipped during backup generation.
+        </div>
       </div>
 
       ${

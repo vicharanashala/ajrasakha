@@ -54,6 +54,8 @@ import {
   Users,
   Settings,
   Radio,
+  CircleSlash,
+  Copy,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
@@ -67,7 +69,7 @@ import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 
-export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -120,6 +122,7 @@ export type AdvanceFilterValues = {
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
   isOnHold?: boolean;
+  pae_review?: boolean;
 };
 
 
@@ -268,10 +271,36 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         </div>
                       </SelectItem>
 
+                      <SelectItem value="pae_submitted">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <span>PAE Submitted</span>
+                        </div>
+                      </SelectItem>
+
                       <SelectItem value="closed">
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-red-500" />
                           <span>Closed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="pass">
+                        <div className="flex items-center gap-2">
+                          <CircleSlash className="w-4 h-4 text-gray-500" />
+                          <span>Passed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="duplicate">
+                        <div className="flex items-center gap-2">
+                          <Copy className="w-4 h-4 text-orange-500" />
+                          <span>Duplicate</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="draft">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-gray-400" />
+                          <span>Draft</span>
                         </div>
                       </SelectItem>
                     </SelectContent>

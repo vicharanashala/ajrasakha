@@ -1,10 +1,7 @@
-import { isDevelopment } from "@/shared/app";
-
-export const validateEmail = (email: string, domain = "annam.ai") => {
-
+export const validateEmail = (email: string) => {
   if (!email) return "Email is required";
-  if (!new RegExp(`^[^\\s@]+@${domain}$`).test(email) && !isDevelopment) 
-    return `Please enter a valid email (${domain})`;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return "Please enter a valid email address";
   return "";
 };
 

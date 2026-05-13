@@ -38,6 +38,8 @@ export const startBackgroundProcessing = (
   isRequiredAiInitialAnswer: boolean,
   isOutreachQuestion: boolean = false,
   payload: any[],
+  allocationMode: string = 'expert',
+  paeExpertId?: string,
 ) => {  if (!payload?.length) return;
 
   const jobId = Date.now().toString();
@@ -83,7 +85,9 @@ export const startBackgroundProcessing = (
         mongoUri: process.env.DB_URL!,
         dbName: process.env.DB_NAME!,
         isRequiredAiInitialAnswer,
-        isOutreachQuestion
+        isOutreachQuestion,
+        allocationMode,
+        paeExpertId,
       },
     });
 

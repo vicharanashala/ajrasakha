@@ -21,7 +21,7 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import { detailsArray,dummyEmbeddings,priorities,questionStatus,sources } from '#root/modules/question/utils/questionGen.js';
+import { detailsArray, dummyEmbeddings, priorities, questionStatus, sources } from '#root/modules/question/utils/questionGen.js';
 import {
   Analytics,
   AnalyticsItem,
@@ -29,6 +29,7 @@ import {
   GoldenDatasetEntry,
   GoldenDataViewType,
   ModeratorApprovalRate,
+  QuestionStateBreakdownBySource,
   QuestionStatusOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { getReviewerQueuePosition } from '#root/utils/getReviewerQueuePosition.js';
@@ -298,7 +299,7 @@ export class QuestionRepository implements IQuestionRepository {
         }
       };
 
-      const {
+      let {
         search,
         searchEmbedding,
         status,
@@ -326,27 +327,37 @@ export class QuestionRepository implements IQuestionRepository {
         hiddenQuestions,
         duplicateQuestions,
         isOnHold,
+        pae_review
       } = query;
-    //  const filter: any = {};
-    const filter: any = {
-      isHidden: { $ne: true }, // default to exclude hidden questions
-      isOnHold: { $ne: true }, // default to exclude on hold questions
-    };
+      //  const filter: any = {};
+      const filter: any = {
+        isHidden: { $ne: true }, // default to exclude hidden questions
+        isOnHold: { $ne: true }, // default to exclude on hold questions
+      };
+      if (pae_review) {
+        filter.pae_review = { $eq: true };
+      }
+      if (!pae_review) {
+        filter.$or = [
+          { pae_review: { $eq: false } },
+          { pae_review: { $exists: false } }
+        ];
+      }
 
-    // --- Hidden question filter ---
-    if(hiddenQuestions === 'true'){
+      // --- Hidden question filter ---
+      if (hiddenQuestions === 'true' || status === 'pass') {
         filter.isHidden = { $eq: true }; // filter by hidden questions
-    }
+      }
 
-    // --- on Hold question filter ---
-    if(isOnHold === 'true')filter.isOnHold = { $eq: true }; // filter by on hold questions
+      // --- on Hold question filter ---
+      if (isOnHold === 'true') filter.isOnHold = { $eq: true }; // filter by on hold questions
 
-    //for duplicate questions.
-    // duplicateQuestions === 'true'
-    //       ? this.DuplicateQuestionCollection
-    //       :
+      //for duplicate questions.
+      // duplicateQuestions === 'true'
+      //       ? this.DuplicateQuestionCollection
+      //       :
 
-    // --- setting the collection with respect to the duplicate questions filter ---
+      // --- setting the collection with respect to the duplicate questions filter ---
       const questionsCollection = this.QuestionCollection as Collection<IQuestion>;
 
       // --- Auto Allocate Filter ---
@@ -538,14 +549,14 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         filter.closedAt = filterDate;
-      } 
+      }
 
       if (closedInTwoHrs) {
         // Filter for questions closed within 2 hours of creation
         filter.status = 'closed';
         filter.$expr = {
           $lte: [
-            {$subtract: ['$closedAt', '$createdAt']},
+            { $subtract: ['$closedAt', '$createdAt'] },
             2 * 60 * 60 * 1000, // 2 hours in milliseconds
           ],
         };
@@ -841,7 +852,8 @@ export class QuestionRepository implements IQuestionRepository {
       const totalPages = Math.ceil(totalCount / limit);
 
       // Determine sort order
-      let sortStage: any = { statusOrder: 1, createdAt: -1, _id: -1 };
+      // let sortStage: any = { statusOrder: 1, createdAt: -1, _id: -1 };
+      let sortStage: any = { createdAt: -1, _id: -1 }
       let needsPriorityMapping = false;
       let needsReviewLevelSort = false;
 
@@ -1298,7 +1310,7 @@ export class QuestionRepository implements IQuestionRepository {
       const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
       const filter: any = {
-        status: { $in: ['open', 'delayed'] },
+        status: { $in: ['open', 'delayed', 'duplicate'] },
         _id: { $in: questionIdsToAttempt },
       };
 
@@ -1703,6 +1715,7 @@ export class QuestionRepository implements IQuestionRepository {
           reasonForLastModification: h.reasonForLastModification?.toString(),
           reviewId: h.reviewId?.toString(),
           isReroute: false,
+          updatedAt: h.updatedAt,
         })) || [];
 
       // 7.1 Merge submission history with reroute history and sort by date
@@ -1761,7 +1774,46 @@ export class QuestionRepository implements IQuestionRepository {
         context = contextData.text || '';
       }
 
-      // 9 Final assembled question
+      // 9 Fetch reference question data if this is a duplicate
+      let referenceQuestionData: {
+        question: string;
+        status: string;
+        details: Record<string, any>;
+        text: string;
+      } | null = null;
+
+      if (question.referenceQuestionId) {
+        try {
+          let refId: ObjectId;
+          const rid = question.referenceQuestionId as any;
+          if (rid instanceof ObjectId) {
+            refId = rid;
+          } else if (rid && rid.buffer) {
+            // stored as BSON Binary — extract the underlying Buffer
+            refId = new ObjectId(rid.buffer);
+          } else {
+            refId = new ObjectId(String(rid));
+          }
+
+          const refQuestion = await this.QuestionCollection.findOne(
+            { _id: refId },
+            { projection: { question: 1, status: 1, details: 1, text: 1 } },
+          ) as any;
+
+          if (refQuestion) {
+            referenceQuestionData = {
+              question: refQuestion.question || '',
+              status: refQuestion.status || '',
+              details: refQuestion.details || {},
+              text: refQuestion.text || '',
+            };
+          }
+        } catch (e) {
+          console.error('Failed to fetch referenceQuestionData:', e);
+        }
+      }
+
+      // 10 Final assembled question
       const { aiApprovedAnswer, aiInitialAnswer, ...rest } = question;
 
       const result = {
@@ -1776,6 +1828,7 @@ export class QuestionRepository implements IQuestionRepository {
         isAlreadySubmitted,
         context,
         submission: populatedSubmission,
+        referenceQuestionData,
       };
 
       return result;
@@ -1799,7 +1852,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       const result = await this.QuestionCollection.updateMany(
         {
-          status: { $nin: ['hold', 'delayed', 'in-review', 'closed', 're-routed'] },
+          status: { $in: ['open'] },
           isOnHold: { $ne: true },
           $expr: {
             $lte: [
@@ -1883,6 +1936,8 @@ export class QuestionRepository implements IQuestionRepository {
         'createdAt',
         'updatedAt',
         'review_level_number',
+        'submission',
+        'statusOrder'
       ];
 
       if (!addText) {
@@ -2128,39 +2183,49 @@ export class QuestionRepository implements IQuestionRepository {
 
   async getYearAnalytics(
     goldenDataSelectedYear: string,
+    customStartTime?: string,
+    customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{ yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
+  ): Promise<{ yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource; paeMetrics?: { assigned: number; submitted: number; closed: number } }> {
     await this.init();
     const selectedYearNum = Number(goldenDataSelectedYear);
 
     const startDate = new Date(selectedYearNum, 0, 1);
     const endDate = new Date(selectedYearNum + 1, 0, 1);
 
-    // const yearData = await this.QuestionCollection.aggregate(
-    //   [
-    //     {
-    //       $match: {
-    //         status: 'closed',
-    //         closedAt: {$gte: startDate, $lt: endDate},
-    //       },
-    //     },
-    //     {
-    //       $group: {
-    //         _id: { month: { $month: '$closedAt' } },
-    //         totalClosed: { $sum: 1 },
-    //       },
-    //     },
-    //     { $sort: { '_id.month': 1 } },
-    //   ],
-    //   {session},
-    // ).toArray();
+    // Build match condition with optional time filtering
+    const matchCondition: any = {
+      createdAt: { $gte: startDate, $lt: endDate },
+      status: { $ne: 'pass' },
+    };
+
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
+    }
 
     const yearData = await this.QuestionCollection.aggregate(
       [
         {
-          $match: {
-            createdAt: { $gte: startDate, $lt: endDate },
-          },
+          $match: matchCondition,
         },
         {
           $group: {
@@ -2208,7 +2273,13 @@ export class QuestionRepository implements IQuestionRepository {
     const totalVerifiedByType = formattedData.reduce((sum, m) => sum + m.verified, 0);
 
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    return { yearData: formattedData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown };
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
+    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
+    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
+    const questionsAnsweredAfter120Min = await this.getQuestionsAnsweredAfter120Minutes(session, startDate, endDate);
+    const questionStateBreakdown = await this.getQuestionStateBreakdown(session, startDate, endDate);
+    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
+    return { yearData: formattedData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min, questionStateBreakdown, paeMetrics };
   }
 
   /**
@@ -2291,11 +2362,429 @@ export class QuestionRepository implements IQuestionRepository {
       moderatorBreakdown: moderatorBreakdown
     };
   }
+
+  async getQuestionSourceBreakdown(session?: ClientSession, startDate?: Date, endDate?: Date, customStartTime?: string, customEndTime?: string): Promise<{ whatsapp: number; ajrasakha: number }> {
+    await this.init();
+
+    const matchCondition: any = { status: { $ne: 'pass' } };
+    /* if (startDate && endDate) {
+       matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+     }*/
+    const parsedStartDate = startDate ? new Date(startDate) : undefined;
+    const parsedEndDate = endDate ? new Date(endDate) : undefined;
+
+    if (parsedStartDate && parsedEndDate) {
+      matchCondition.createdAt = {
+        $gte: parsedStartDate,
+        $lt: parsedEndDate,
+      };
+    }
+
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
+    }
+
+    const sourceBreakdown = await this.QuestionCollection.aggregate(
+      [
+        ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
+        {
+          $group: {
+            _id: '$source',
+            count: { $sum: 1 },
+          },
+        },
+      ],
+      { session }
+    ).toArray() as { _id: string; count: number }[];
+
+    const whatsapp = sourceBreakdown.find(s => s._id?.toLowerCase() === 'whatsapp')?.count ?? 0;
+    const ajrasakha = sourceBreakdown.find(s => s._id?.toLowerCase() === 'ajrasakha')?.count ?? 0;
+
+    return { whatsapp, ajrasakha };
+  }
+
+  async getQuestionsAnsweredWithin120Minutes(session?: ClientSession, startDate?: Date, endDate?: Date, customStartTime?: string, customEndTime?: string): Promise<{ whatsapp: number; ajrasakha: number }> {
+    await this.init();
+
+    const matchCondition: any = {
+      status: 'closed',
+      closedAt: { $exists: true },
+      createdAt: { $exists: true }
+    };
+
+    if (startDate && endDate) {
+      // Filter by both createdAt and closedAt in IST format
+      matchCondition.$or = [
+        { createdAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } },
+        { closedAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } }
+      ];
+    }
+
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
+    }
+
+    const result = await this.QuestionCollection.aggregate(
+      [
+        { $match: matchCondition },
+        {
+          $addFields: {
+            timeTakenMinutes: {
+              $divide: [
+                { $subtract: ['$closedAt', '$createdAt'] },
+                60000
+              ]
+            }
+          }
+        },
+        {
+          $match: {
+            timeTakenMinutes: { $lte: 120 }
+          }
+        },
+        {
+          $group: {
+            _id: '$source',
+            count: { $sum: 1 }
+          }
+        }
+      ],
+      { session }
+    ).toArray() as { _id: string; count: number }[];
+
+    const whatsapp = result.find(s => s._id?.toLowerCase() === 'whatsapp')?.count ?? 0;
+    const ajrasakha = result.find(s => s._id?.toLowerCase() === 'ajrasakha')?.count ?? 0;
+
+    return { whatsapp, ajrasakha };
+  }
+
+  //get questions answered after 120 minutes
+  async getQuestionsAnsweredAfter120Minutes(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<{ whatsapp: number; ajrasakha: number }> {
+    await this.init();
+
+    const matchCondition: any = {
+      status: 'closed',
+      closedAt: { $exists: true },
+      createdAt: { $exists: true }
+    };
+
+    if (startDate && endDate) {
+      matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+    }
+
+    const result = await this.QuestionCollection.aggregate(
+      [
+        { $match: matchCondition },
+        {
+          $addFields: {
+            timeTakenMinutes: {
+              $divide: [
+                { $subtract: ['$closedAt', '$createdAt'] },
+                60000
+              ]
+            }
+          }
+        },
+        {
+          $match: {
+            timeTakenMinutes: { $gt: 120 }
+          }
+        },
+        {
+          $group: {
+            _id: '$source',
+            count: { $sum: 1 }
+          }
+        }
+      ],
+      { session }
+    ).toArray() as { _id: string; count: number }[];
+
+    const whatsapp = result.find(s => s._id?.toLowerCase() === 'whatsapp')?.count ?? 0;
+    const ajrasakha = result.find(s => s._id?.toLowerCase() === 'ajrasakha')?.count ?? 0;
+
+    return { whatsapp, ajrasakha };
+  }
+
+  //get questions state breakedown
+  async getQuestionStateBreakdown(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<QuestionStateBreakdownBySource> {
+    await this.init();
+
+    const matchCondition: any = { status: { $ne: 'pass' } };
+    if (startDate && endDate) {
+      matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+    }
+
+    const stateBreakdown = await this.QuestionCollection.aggregate(
+      [
+        ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
+        {
+          $group: {
+            _id: {
+              source: '$source',
+              status: '$status',
+            },
+            count: { $sum: 1 },
+          },
+        },
+      ],
+      { session }
+    ).toArray() as { _id: { source?: string; status?: string }; count: number }[];
+
+    const buildBreakdown = (sourceName: 'whatsapp' | 'ajrasakha') => {
+      const sourceKey = sourceName.toUpperCase();
+      const getCount = (status: string) =>
+        stateBreakdown.find(
+          (item) =>
+            item._id?.source?.toUpperCase() === sourceKey &&
+            item._id?.status?.toLowerCase() === status,
+        )?.count ?? 0;
+
+      return [
+        { status: 'open', count: getCount('open') },
+        { status: 'passed', count: getCount('pass') },
+        { status: 'delayed', count: getCount('delayed') },
+      ];
+    };
+
+    return {
+      whatsapp: buildBreakdown('whatsapp'),
+      ajrasakha: buildBreakdown('ajrasakha'),
+    };
+  }
+
+  async getAverageResponseTime(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string
+  ): Promise<{ whatsapp: number; ajrasakha: number }> {
+
+    await this.init();
+
+    const matchCondition: any = {
+      status: 'closed',
+      createdAt: { $exists: true },
+      closedAt: { $exists: true }
+    };
+
+    /**
+     * Filter by CLOSED DATE
+     * (Recommended for daily average response time)
+     */
+    if (startDate && endDate) {
+
+      const startOfDay = new Date(
+        `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`
+      );
+
+      const endOfDay = new Date(
+        `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`
+      );
+
+      matchCondition.closedAt = {
+        $gte: startOfDay,
+        $lte: endOfDay
+      };
+    }
+
+    /**
+     * Optional Time Filter (IST)
+     * Filters based on CLOSED TIME
+     */
+    if (customStartTime && customEndTime) {
+
+      const [startHour, startMinute] =
+        customStartTime.split(':').map(Number);
+
+      const [endHour, endMinute] =
+        customEndTime.split(':').map(Number);
+
+      const startTotalMinutes = startHour * 60 + startMinute;
+      const endTotalMinutes = endHour * 60 + endMinute;
+
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata'
+                        }
+                      },
+                      60
+                    ]
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata'
+                    }
+                  }
+                ]
+              },
+              startTotalMinutes
+            ]
+          },
+          {
+            $lte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata'
+                        }
+                      },
+                      60
+                    ]
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata'
+                    }
+                  }
+                ]
+              },
+              endTotalMinutes
+            ]
+          }
+        ]
+      };
+    }
+
+    const pipeline = [
+
+      /**
+       * STEP 1: Match records
+       */
+      {
+        $match: matchCondition
+      },
+
+      /**
+       * STEP 2: Calculate response time in hours
+       */
+      {
+        $addFields: {
+          timeTakenHours: {
+            $divide: [
+              {
+                $subtract: ['$closedAt', '$createdAt']
+              },
+              1000 * 60 * 60
+            ]
+          }
+        }
+      },
+
+      /**
+       * STEP 3: Group by source
+       */
+      {
+        $group: {
+          _id: {
+            $toLower: '$source'
+          },
+          avgTime: {
+            $avg: '$timeTakenHours'
+          },
+          totalTickets: {
+            $sum: 1
+          }
+        }
+      },
+
+      /**
+       * STEP 4: Project clean output
+       */
+      {
+        $project: {
+          _id: 0,
+          source: '$_id',
+          avgTime: {
+            $round: ['$avgTime', 1]
+          },
+          totalTickets: 1
+        }
+      }
+
+    ];
+
+    const result = await this.QuestionCollection
+      .aggregate(pipeline, { session })
+      .toArray() as {
+        source: string;
+        avgTime: number;
+        totalTickets: number;
+      }[];
+
+    const whatsapp =
+      result.find(r => r.source === 'whatsapp')?.avgTime ?? 0;
+
+    const ajrasakha =
+      result.find(r => r.source === 'ajrasakha')?.avgTime ?? 0;
+
+    return {
+      whatsapp,
+      ajrasakha
+    };
+  }
+
   async getMonthAnalytics(
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
+    customStartTime?: string,
+    customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{ weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
+  ): Promise<{ weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource; paeMetrics?: { assigned: number; submitted: number; closed: number } }> {
     await this.init();
 
     const monthNames = [
@@ -2320,40 +2809,39 @@ export class QuestionRepository implements IQuestionRepository {
     const startDate = new Date(yearNum, monthNum, 1);
     const endDate = new Date(yearNum, monthNum + 1, 1);
 
-    // const weeksDataRaw = await this.QuestionCollection.aggregate(
-    //   [
-    //     {
-    //       $match: {
-    //         status: 'closed',
-    //         closedAt: {$gte: startDate, $lt: endDate},
-    //       },
-    //     },
-    //     {
-    //       $addFields: {
-    //         weekOfMonth: {
-    //           $ceil: {
-    //             $divide: [{$dayOfMonth: '$closedAt'}, 7],
-    //           },
-    //         },
-    //       },
-    //     },
-    //     {
-    //       $group: {
-    //         _id: {week: '$weekOfMonth'},
-    //         totalClosed: {$sum: 1},
-    //       },
-    //     },
-    //     {$sort: {'_id.week': 1}},
-    //   ],
-    //   {session},
-    // ).toArray();
+    // Build match condition with optional time filtering
+    const matchCondition: any = {
+      createdAt: { $gte: startDate, $lt: endDate },
+      status: { $ne: 'pass' },
+    };
+
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
+    }
 
     const weeksDataRaw = await this.QuestionCollection.aggregate(
       [
         {
-          $match: {
-            createdAt: { $gte: startDate, $lt: endDate },
-          },
+          $match: matchCondition,
         },
         {
           $addFields: {
@@ -2390,16 +2878,23 @@ export class QuestionRepository implements IQuestionRepository {
     const totalVerifiedByType = weeksDataRaw.reduce((acc, curr) => acc + (curr.totalVerified || 0), 0);
 
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-
-    return { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown };
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
+    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
+    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
+    const questionsAnsweredAfter120Min = await this.getQuestionsAnsweredAfter120Minutes(session, startDate, endDate);
+    const questionStateBreakdown = await this.getQuestionStateBreakdown(session, startDate, endDate);
+    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
+    return { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min, questionStateBreakdown, paeMetrics };
   }
 
   async getWeekAnalytics(
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
+    customStartTime?: string,
+    customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{ dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
+  ): Promise<{ dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource; paeMetrics?: { assigned: number; submitted: number; closed: number } }> {
     await this.init();
     const monthNames = [
       'January',
@@ -2429,37 +2924,38 @@ export class QuestionRepository implements IQuestionRepository {
     const startDate = new Date(yearNum, monthNum, startDay);
     const endDate = new Date(yearNum, monthNum, endDay + 1); // +1 for exclusive range
 
-    // Aggregate closed questions grouped by day of week
-    // const dailyDataRaw = await this.QuestionCollection.aggregate(
-    //   [
-    //     {
-    //       $match: {
-    //         status: 'closed',
-    //         closedAt: {$gte: startDate, $lt: endDate},
-    //       },
-    //     },
-    //     {
-    //       $addFields: {
-    //         dayOfWeek: {$dayOfWeek: '$closedAt'}, // 1 = Sunday, 2 = Monday ...
-    //       },
-    //     },
-    //     {
-    //       $group: {
-    //         _id: {day: '$dayOfWeek'},
-    //         totalClosed: {$sum: 1},
-    //       },
-    //     },
-    //     {$sort: {'_id.day': 1}},
-    //   ],
-    //   {session},
-    // ).toArray();
+    // Build match condition with optional time filtering
+    const matchCondition: any = {
+      createdAt: { $gte: startDate, $lt: endDate },
+      status: { $ne: 'pass' },
+    };
 
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
+    }
     const dailyDataRaw = await this.QuestionCollection.aggregate(
       [
         {
-          $match: {
-            createdAt: { $gte: startDate, $lt: endDate },
-          },
+          $match: matchCondition,
         },
         {
           $addFields: {
@@ -2498,7 +2994,13 @@ export class QuestionRepository implements IQuestionRepository {
     const totalVerifiedByType = dailyDataRaw.reduce((acc, curr) => acc + curr.totalVerified, 0);
 
     const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    return { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown };
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
+    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
+    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
+    const questionsAnsweredAfter120Min = await this.getQuestionsAnsweredAfter120Minutes(session, startDate, endDate);
+    const questionStateBreakdown = await this.getQuestionStateBreakdown(session, startDate, endDate);
+    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
+    return { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min, questionStateBreakdown, paeMetrics };
   }
 
   async getDailyAnalytics(
@@ -2506,12 +3008,20 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
     goldenDataSelectedDay: string,
+    customStartTime?: string,
+    customEndTime?: string,
     session?: ClientSession,
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
     totalVerifiedByType: number;
     moderatorBreakdown?: { moderatorName: string, count: number }[];
+    questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
+    questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+    averageResponseTime?: { whatsapp: number; ajrasakha: number };
+    paeMetrics?: { assigned: number; submitted: number; closed: number };
+    questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number };
+    questionStateBreakdown?: QuestionStateBreakdownBySource
   }> {
     await this.init();
     const monthNames = [
@@ -2555,57 +3065,40 @@ export class QuestionRepository implements IQuestionRepository {
 
     const selectedDayNum = dayMap[goldenDataSelectedDay];
     if (selectedDayNum === undefined) throw new BadRequestError('Invalid day');
-    // const answers = await this.QuestionCollection.aggregate(
-    //   [
-    //     {
-    //       $match: {
-    //         status: 'closed',
-    //         closedAt: {$gte: startDate, $lt: endDate},
-    //       },
-    //     },
-    //     {
-    //       $addFields: {
-    //         dateIST: {
-    //           $dateToParts: {
-    //             date: '$closedAt',
-    //             timezone: 'Asia/Kolkata',
-    //           },
-    //         },
-    //         dayOfWeek: {
-    //           $dayOfWeek: {
-    //             date: '$closedAt',
-    //             timezone: 'Asia/Kolkata',
-    //           },
-    //         },
-    //       },
-    //     },
-    //     {
-    //       $addFields: {
-    //         hourOfDay: '$dateIST.hour',
-    //       },
-    //     },
-    //     {
-    //       $match: {
-    //         dayOfWeek: selectedDayNum + 1,
-    //       },
-    //     },
-    //     {
-    //       $group: {
-    //         _id: '$hourOfDay',
-    //         totalClosed: {$sum: 1},
-    //       },
-    //     },
-    //     {$sort: {_id: 1}},
-    //   ],
-    //   {session},
-    // ).toArray();
+
+    // Build match condition with optional time filtering
+    const matchCondition: any = {
+      createdAt: { $gte: startDate, $lt: endDate },
+      status: { $ne: 'pass' },
+    };
+
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
+    }
 
     const answers = await this.QuestionCollection.aggregate(
       [
         {
-          $match: {
-            createdAt: { $gte: startDate, $lt: endDate },
-          },
+          $match: matchCondition,
         },
         {
           $addFields: {
@@ -2706,19 +3199,112 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     let moderatorBreakdown: { moderatorName: string, count: number }[] = [];
+    let questionSourceBreakdown: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
+    let questionsAnsweredWithin120Min: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
+    let averageResponseTime: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
+    let questionsAnsweredAfter120Min: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
+    let questionStateBreakdown: QuestionStateBreakdownBySource | undefined;
 
     if (specificDayStart) {
       const specificDayEnd = new Date(specificDayStart);
       specificDayEnd.setDate(specificDayEnd.getDate() + 1);
       const result = await this.getTodayApproved(session, specificDayStart, specificDayEnd);
       moderatorBreakdown = result.moderatorBreakdown || [];
+      questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, specificDayStart, specificDayEnd, customStartTime, customEndTime);
+      questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, specificDayStart, specificDayEnd, customStartTime, customEndTime);
+      averageResponseTime = await this.getAverageResponseTime(session, specificDayStart, specificDayEnd, customStartTime, customEndTime);
+      questionsAnsweredAfter120Min = await this.getQuestionsAnsweredAfter120Minutes(session, specificDayStart, specificDayEnd);
+      questionStateBreakdown = await this.getQuestionStateBreakdown(session, specificDayStart, specificDayEnd);
     }
+
+    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
 
     return {
       dayHourlyData: { [goldenDataSelectedDay]: hourlyData },
       totalEntriesByType,
       totalVerifiedByType,
-      moderatorBreakdown
+      moderatorBreakdown,
+      questionSourceBreakdown,
+      questionsAnsweredWithin120Min,
+      averageResponseTime,
+      paeMetrics,
+      questionsAnsweredAfter120Min,
+      questionStateBreakdown
+    };
+  }
+
+  async getCustomRangeAnalytics(
+    customStartDateTime: string,
+    customEndDateTime: string,
+    session?: ClientSession,
+  ): Promise<{
+    customData: GoldenDatasetEntry[];
+    totalEntriesByType: number;
+    totalVerifiedByType: number;
+    moderatorBreakdown?: { moderatorName: string, count: number }[];
+    questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
+    questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+    averageResponseTime?: { whatsapp: number; ajrasakha: number };
+  }> {
+    await this.init();
+
+    const startDate = new Date(customStartDateTime);
+    const endDate = new Date(customEndDateTime);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      throw new BadRequestError('Invalid date format');
+    }
+
+    if (startDate >= endDate) {
+      throw new BadRequestError('Start date must be before end date');
+    }
+
+    // Aggregate data by day for the custom range
+    const customDataRaw = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lt: endDate },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+            },
+            totalEntries: { $sum: 1 },
+            totalVerified: {
+              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] }
+            },
+          },
+        },
+        { $sort: { '_id': 1 } },
+      ],
+      { session },
+    ).toArray();
+
+    const customData: GoldenDatasetEntry[] = customDataRaw.map((item: any) => ({
+      month: item._id, // Using date string as label
+      entries: item.totalEntries,
+      verified: item.totalVerified,
+    }));
+
+    const totalEntriesByType = customData.reduce((sum, d) => sum + d.entries, 0);
+    const totalVerifiedByType = customData.reduce((sum, d) => sum + d.verified, 0);
+
+    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate);
+    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate);
+    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate);
+
+    return {
+      customData,
+      totalEntriesByType,
+      totalVerifiedByType,
+      moderatorBreakdown,
+      questionSourceBreakdown,
+      questionsAnsweredWithin120Min,
+      averageResponseTime
     };
   }
 
@@ -2798,6 +3384,7 @@ export class QuestionRepository implements IQuestionRepository {
 
     const results = await this.QuestionCollection.aggregate(
       [
+        { $match: { status: { $ne: 'pass' } } },
         {
           $group: {
             _id: '$status',
@@ -2838,7 +3425,7 @@ export class QuestionRepository implements IQuestionRepository {
     if (startTime) filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
     if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
 
-    const matchStage: any = {};
+    const matchStage: any = { status: { $ne: 'pass' } };
     if (Object.keys(filterDate).length > 0) {
       matchStage.createdAt = filterDate;
     }
@@ -3080,7 +3667,7 @@ export class QuestionRepository implements IQuestionRepository {
               -1,
             ],
           },
-          
+
           // Author timer start time logic (same as getTimerStartTime)
           authorTimerStartTime: {
             $let: {
@@ -3104,10 +3691,12 @@ export class QuestionRepository implements IQuestionRepository {
                   '$$isAuthor',
                   {
                     $cond: [
-                      { $and: [
-                        { $gt: [{ $size: { $ifNull: ['$authors_history', []] } }, 0] },
-                        { $ne: ['$$lastAuthorEntry', null] }
-                      ]},
+                      {
+                        $and: [
+                          { $gt: [{ $size: { $ifNull: ['$authors_history', []] } }, 0] },
+                          { $ne: ['$$lastAuthorEntry', null] }
+                        ]
+                      },
                       '$$lastAuthorEntry.createdAt',
                       {
                         $cond: [
@@ -3749,109 +4338,109 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   // Backfill normalised_crop (OPTIMIZED)
-async backfillNormalisedCrop(
-  name: string,
-  aliases: string[],
-): Promise<number> {
-  await this.init();
+  async backfillNormalisedCrop(
+    name: string,
+    aliases: string[],
+  ): Promise<number> {
+    await this.init();
 
-  const escapeRegex = (v: string) =>
-    v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapeRegex = (v: string) =>
+      v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  const allValues = [name, ...(aliases || [])].map(v =>
-    v.toLowerCase().trim(),
-  );
+    const allValues = [name, ...(aliases || [])].map(v =>
+      v.toLowerCase().trim(),
+    );
 
-  const conditions = allValues.map(val => ({
-    'details.crop': { $regex: `^\\s*${escapeRegex(val)}\\s*$`, $options: 'i' },
-  }));
+    const conditions = allValues.map(val => ({
+      'details.crop': { $regex: `^\\s*${escapeRegex(val)}\\s*$`, $options: 'i' },
+    }));
 
-  const result = await this.QuestionCollection.updateMany(
-    {
-      $and: [
-        { $or: conditions },
-        {
-          $or: [
-            { 'details.normalised_crop': { $exists: false } },
-            { 'details.normalised_crop': null },
-          ],
+    const result = await this.QuestionCollection.updateMany(
+      {
+        $and: [
+          { $or: conditions },
+          {
+            $or: [
+              { 'details.normalised_crop': { $exists: false } },
+              { 'details.normalised_crop': null },
+            ],
+          },
+        ],
+      },
+      {
+        $set: {
+          'details.normalised_crop': name.trim().toLowerCase(),
         },
-      ],
-    },
-    {
-      $set: {
-        'details.normalised_crop': name.trim().toLowerCase(),
       },
-    },
-  );
+    );
 
-  return result.modifiedCount;
-}
+    return result.modifiedCount;
+  }
 
-async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusResponse[]> {
-  await  this.init()
-  const objectIds = questionIds.map(id => new ObjectId(id));
-  
-  const data =await this.QuestionCollection.aggregate([
-    {
-      $match: {
-        _id: { $in: objectIds },
+  async getQuestionsWithAnswerDetails(questionIds: string[]): Promise<ICheckStatusResponse[]> {
+    await this.init()
+    const objectIds = questionIds.map(id => new ObjectId(id));
+
+    const data = await this.QuestionCollection.aggregate([
+      {
+        $match: {
+          _id: { $in: objectIds },
+        },
       },
-    },
 
-    // Lookup FINAL ANSWERS ONLY
-    {
-      $lookup: {
-        from: 'answers',
-        let: { qId: '$_id' },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $eq: ['$questionId', '$$qId'] },
-                  { $eq: ['$isFinalAnswer', true] },
-                ],
-              },
-            },
-          },
-
-          // Join author
-          {
-            $lookup: {
-              from: 'users',
-              localField: 'authorId',
-              foreignField: '_id',
-              as: 'author',
-            },
-          },
-          {
-            $unwind: {
-              path: '$author',
-              preserveNullAndEmptyArrays: true,
-            },
-          },
-
-          // Shape answer
-          {
-            $project: {
-              _id: 0,
-              answer: 1,
-
-              sources: {
-                $map: {
-                  input: { $ifNull: ['$sources', []] },
-                  as: 's',
-                  in: {
-                    source: '$$s.source',
-                    page: '$$s.page',
-                    sourceType: '$$s.sourceType',
-                    sourceName: '$$s.sourceName',
-                  },
+      // Lookup FINAL ANSWERS ONLY
+      {
+        $lookup: {
+          from: 'answers',
+          let: { qId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$questionId', '$$qId'] },
+                    { $eq: ['$isFinalAnswer', true] },
+                  ],
                 },
               },
+            },
 
-              
+            // Join author
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'authorId',
+                foreignField: '_id',
+                as: 'author',
+              },
+            },
+            {
+              $unwind: {
+                path: '$author',
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+
+            // Shape answer
+            {
+              $project: {
+                _id: 0,
+                answer: 1,
+
+                sources: {
+                  $map: {
+                    input: { $ifNull: ['$sources', []] },
+                    as: 's',
+                    in: {
+                      source: '$$s.source',
+                      page: '$$s.page',
+                      sourceType: '$$s.sourceType',
+                      sourceName: '$$s.sourceName',
+                    },
+                  },
+                },
+
+
                 authorName: {
                   $trim: {
                     input: {
@@ -3865,85 +4454,85 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
                 },
               },
             },
-          
-        ],
-        as: 'finalAnswer',
+
+          ],
+          as: 'finalAnswer',
+        },
       },
-    },
 
-    // Flatten answer (take first if exists)
-    {
-      $addFields: {
-        finalAnswer: { $arrayElemAt: ['$finalAnswer', 0] },
+      // Flatten answer (take first if exists)
+      {
+        $addFields: {
+          finalAnswer: { $arrayElemAt: ['$finalAnswer', 0] },
+        },
       },
-    },
 
-    // Final response shape
-    {
-      $project: {
-        _id: 0,
+      // Final response shape
+      {
+        $project: {
+          _id: 0,
 
-        question_id: { $toString: '$_id' },
+          question_id: { $toString: '$_id' },
 
-        status: {
-          $cond: {
-            if: { $ifNull: ['$finalAnswer', false] },
-            then: 'closed',
-            else: 'pending',
+          status: {
+            $cond: {
+              if: { $ifNull: ['$finalAnswer', false] },
+              then: 'closed',
+              else: 'pending',
+            },
+          },
+
+          // Question fields (include what you need)
+          question: '$text',
+          metadata: "$details",
+          priority: 1,
+          details: 1,
+          createdAt: 1,
+
+          // Answer fields
+          answer: {
+            $ifNull: ['$finalAnswer.answer', null],
+          },
+
+          sources: {
+            $ifNull: ['$finalAnswer.sources', []],
+          },
+
+          author: {
+            $ifNull: ['$finalAnswer.authorName', null],
           },
         },
-
-        // Question fields (include what you need)
-        question: '$text',
-        metadata:"$details",
-        priority: 1,
-        details: 1,
-        createdAt: 1,
-
-        // Answer fields
-        answer: {
-          $ifNull: ['$finalAnswer.answer', null],
-        },
-
-        sources: {
-          $ifNull: ['$finalAnswer.sources', []],
-        },
-
-        author: {
-          $ifNull: ['$finalAnswer.authorName', null],
-        },
       },
-    },
-  ]).toArray()
-  // 🔥 Create map for quick lookup
-  const map = new Map(data.map(item => [item.question_id, item]));
+    ]).toArray()
+    // 🔥 Create map for quick lookup
+    const map = new Map(data.map(item => [item.question_id, item]));
 
-  // 🔥 Final response based on input order
-  return questionIds.map(id => {
-    const found = map.get(id);
+    // 🔥 Final response based on input order
+    return questionIds.map(id => {
+      const found = map.get(id);
 
-    if (!found) {
+      if (!found) {
+        return {
+          question_id: id,
+          status: 'not_found',
+          answer: null,
+          sources: [],
+          author: null,
+          metadata: null,
+          message: 'Question not exist',
+        };
+      }
+
       return {
-        question_id: id,
-        status: 'not_found',
-        answer: null,
-        sources: [],
-        author: null,
-        metadata: null,
-        message: 'Question not exist',
+        question_id: found.question_id,
+        status: found.status,
+        answer: found.status === 'closed' ? found.answer : null,
+        sources: found.status === 'closed' ? found.sources : [],
+        author: found.status === 'closed' ? found.author : null,
+        metadata: found.metadata ?? null,
       };
-    }
-
-    return {
-      question_id: found.question_id,
-      status: found.status,
-      answer: found.status === 'closed' ? found.answer : null,
-      sources: found.status === 'closed' ? found.sources : [],
-      author: found.status === 'closed' ? found.author : null,
-      metadata: found.metadata ?? null,
-    };
-  });
-}
+    });
+  }
 
   async getQuestionStatusSummary(
     query: GetDetailedQuestionsQuery,
@@ -4018,6 +4607,120 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
 
     return { totalQuestions, statuses };
   }
-}
 
+
+  async getPAEMetrics(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string,
+  ): Promise<{
+    assigned: number;
+    submitted: number;
+    closed: number;
+  }> {
+    await this.init();
+
+    const matchCondition: any = { status: { $ne: 'pass' } };
+    const closedMatchCondition: any = {};
+
+    if (startDate && endDate) {
+      // Filter by createdAt in IST format for assigned and submitted
+      matchCondition.createdAt = {
+        $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`),
+        $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`)
+      };
+
+      // Filter by both createdAt and closedAt in IST format for closed
+      closedMatchCondition.$and = [
+        { createdAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } },
+        { closedAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } }
+      ];
+    }
+
+    // Add time filtering if provided
+    if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
+
+      matchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              startHour * 60 + startMinute
+            ]
+          },
+          {
+            $lte: [
+              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
+              endHour * 60 + endMinute
+            ]
+          }
+        ]
+      };
+    }
+
+    const paeMetrics = await this.QuestionCollection.aggregate(
+      [
+        {
+          $facet: {
+            assigned: [
+              ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
+              {
+                $match: {
+                  pae_review: true,
+                  $or: [{ status: 'open' }, { status: 'delayed' }]
+                }
+              },
+              {
+                $count: 'total'
+              }
+            ],
+            submitted: [
+              ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
+              {
+                $match: {
+                  status: 'pae_submitted'
+                }
+              },
+              {
+                $count: 'total'
+              }
+            ],
+            closed: [
+              ...(Object.keys(closedMatchCondition).length > 0 ? [{ $match: closedMatchCondition }] : []),
+              {
+                $match: {
+                  pae_review: true,
+                  status: 'closed'
+                }
+              },
+              {
+                $count: 'total'
+              }
+            ]
+          }
+        }
+      ],
+      { session }
+    ).toArray();
+
+    const result = paeMetrics[0];
+
+    return {
+      assigned: result.assigned[0]?.total ?? 0,
+      submitted: result.submitted[0]?.total ?? 0,
+      closed: result.closed[0]?.total ?? 0
+    };
+  }
+
+
+  async count(filter = {}) {
+    await this.init();
+    return await this.QuestionCollection.countDocuments(filter);
+  }
+
+}
 

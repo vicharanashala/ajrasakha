@@ -113,7 +113,9 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
           ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
           : effectiveStatus === "closed"
             ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-            : "bg-muted text-foreground";
+            : effectiveStatus === "pae_submitted"
+              ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+              : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -157,6 +159,12 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
     visibleColumns.answers ||
     showCreatedColumn ||
     showClosedColumn;
+  const isDuplicate = Boolean(
+    q?.similarityScore &&
+    q?.referenceQuestionId &&
+    q?.referenceQuestion &&
+    q?.referenceSource
+  );
 
   return (
     <div className="rounded-lg border p-4 bg-card shadow-sm text-sm leading-snug">
@@ -177,8 +185,18 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
 
       {visibleColumns.question && (
         <>
+      <div className="mt-1 h-6 flex items-start">
+        {isDuplicate && (
+          <Badge
+            variant="outline"
+            className="bg-red-500/10 text-red-600 border-red-500/30"
+          >
+            Duplicate
+          </Badge>
+        )}
+      </div>
       <p
-        className={`mt-1 font-medium break-words ${isClickable ? "hover:underline cursor-pointer" : "opacity-50"}`}
+        className={`font-medium break-words ${isClickable ? "hover:underline cursor-pointer" : "opacity-50"}`}
         onClick={() => isClickable && onViewMore(q._id!)}
       >
         {truncate(q.question, 80)}
@@ -187,11 +205,13 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
       {/* Timer */}
       <div className="mt-1 text-xs text-muted-foreground">
         {/* <TimerDisplay timer={timer} status={q.status} /> */}
-        <TimerDisplay
-          timer={timer}
-          status={q.status}
-          source={q.source}
-        />
+        {q.status !== "pass" && (
+          <TimerDisplay
+            timer={timer}
+            status={q.status}
+            source={q.source}
+          />
+        )}
       </div>
         </>
       )}

@@ -42,6 +42,10 @@ export const AllocationTimeline = ({
   const [flippedId, setIsFlippedId] = useState("");
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
 
+  if (question.status === "pass") {
+    return null;
+  }
+
   const [selectedAllocationIndex, setSelectedAllocationIndex] = useState<
     number | null
   >(null);

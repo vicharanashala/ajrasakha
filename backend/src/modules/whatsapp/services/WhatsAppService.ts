@@ -1,12 +1,18 @@
-import { injectable } from 'inversify';
 import axios from 'axios';
 import { appConfig } from '#root/config/app.js';
 import type { IWhatsAppService, Thread, Message, ToolCall } from '../interfaces/IWhatsAppService.js';
-import { InternalServerError } from 'routing-controllers';
+import { InternalServerError, NotFoundError, UnauthorizedError } from 'routing-controllers';
 import { aiConfig } from '#root/config/ai.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { inject, injectable } from 'inversify';
 
 @injectable()
 export class WhatsAppService implements IWhatsAppService {
+  constructor(
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
+  ) { }
   // private readonly baseUrl = aiConfig.serverIP;
   private readonly baseUrl =
     'http://' + aiConfig.serverIP + ':' + aiConfig.whatsAppServerPort;
@@ -16,15 +22,50 @@ export class WhatsAppService implements IWhatsAppService {
       const response = await axios.get(`${this.baseUrl}/threads`);
       const data = response.data;
 
-      const threads: Thread[] = (data.threads as any[])
-        .filter((t: any) => /^\d{12}$/.test(t.thread_id))
-        .map((t: any) => ({
-          id: t.thread_id,
-          phoneNumber: t.thread_id,
-          lastMessage: t.metadata.thread_name || 'No message available',
-          lastMessageTimestamp: new Date(t.updated_at),
-          unreadCount: 0,
-        }));
+      // const threads: Thread[] = (data.threads as any[])
+      //   .filter((t: any) =>
+      //     /^\d{12}$/.test(t.thread_id) &&
+      //     t.metadata &&
+      //     Object.keys(t.metadata).length > 0 &&
+      //     t.updated_at !== null
+      //   )
+      //   .map((t: any) => ({
+      //     id: t.thread_id,
+      //     phoneNumber: t.thread_id,
+      //     lastMessage: t.metadata.thread_name || 'No message available',
+      //     lastMessageTimestamp: new Date(t.updated_at),
+      //     unreadCount: 0,
+      //   }));
+      const uniqueThreadsMap = new Map<string, Thread>();
+
+      (data.threads as any[])
+        .filter((t: any) =>
+          /^\d{12}(-\d{4}-\d{2}-\d{2})?$/.test(t.thread_id) &&
+          t.metadata &&
+          Object.keys(t.metadata).length > 0 &&
+          t.updated_at !== null
+        )
+        .forEach((t: any) => {
+          const phoneNumber = t.thread_id.split('-')[0];
+
+          // Keep latest updated thread for each phone number
+          const existing = uniqueThreadsMap.get(phoneNumber);
+
+          if (
+            !existing ||
+            new Date(t.updated_at) > existing.lastMessageTimestamp
+          ) {
+            uniqueThreadsMap.set(phoneNumber, {
+              id: phoneNumber,
+              phoneNumber,
+              lastMessage: t.metadata.thread_name || 'No message available',
+              lastMessageTimestamp: new Date(t.updated_at),
+              unreadCount: 0,
+            });
+          }
+        });
+
+      const threads: Thread[] = Array.from(uniqueThreadsMap.values());
 
       return threads;
     } catch (error) {
@@ -33,12 +74,15 @@ export class WhatsAppService implements IWhatsAppService {
     }
   }
 
-  async getThreadDetails(threadId: string): Promise<Message[]> {
+  async getThreadDetails(phoneNumber: string, date: string): Promise<Message[]> {
     try {
+
+      const threadId = `${phoneNumber}-${date}`;
+
       const response = await axios.get(`${this.baseUrl}/threads/${threadId}/state`);
       const data = response.data;
 
-      const messages = data.values.messages as any[];
+      const messages = (data.values?.messages as any[]) || [];
       const formattedMessages: Message[] = [];
 
       // 1. First, map all tool responses in the entire thread
@@ -97,9 +141,73 @@ export class WhatsAppService implements IWhatsAppService {
       });
 
       return formattedMessages;
-    } catch (error) {
-      console.error(`Error fetching thread details for ${threadId} from LangGraph:`, error);
-      throw new InternalServerError(`Failed to fetch thread details from LangGraph`);
+    } catch (error: any) {
+
+      // Thread not found
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        throw new NotFoundError(
+          `No thread history found for ${phoneNumber} on ${date}`
+        );
+      }
+
+      // LangGraph server errors
+      if (axios.isAxiosError(error) && error.response?.status >= 500) {
+        throw new InternalServerError(
+          `LangGraph service is currently unavailable`
+        );
+      }
+
+      // Network / connection issues
+      if (axios.isAxiosError(error) && !error.response) {
+        throw new InternalServerError(
+          `Unable to connect to LangGraph service`
+        );
+      }
+
+      // Fallback
+      throw new InternalServerError(
+        `Failed to fetch thread details for ${phoneNumber}`
+      );
+    }
+  }
+
+  async sendMessage(userId: string, phoneNumber: string, messageText: string): Promise<void> {
+    try {
+
+      const user = await this.userRepo.findById(userId);
+
+      if (!user || user.role == 'expert')
+        throw new UnauthorizedError(
+          "You don't have permission to send message!",
+        );
+
+      const response = await fetch(appConfig.WA_SEND_MESSAGE_WEBHOOK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-api-key': appConfig.WA_WEBHOOK_API_KEY,
+        },
+        body: JSON.stringify({
+          phoneNumber, messageText
+        }),
+      });
+      const contentType = response.headers.get('content-type');
+
+      let responseData;
+
+      if (contentType && contentType.includes('application/json')) {
+        responseData = await response.json();
+      } else {
+        responseData = await response.text();
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to send message: ${response.status} - ${responseData}`);
+      }
+    } catch (error: any) {
+      console.error(`Error sending WhatsApp message to ${phoneNumber}:`, error.response?.data || error.message);
+      const detail = error.response?.data?.message || error.message;
+      throw new InternalServerError(`WhatsApp API Error: ${detail}`);
     }
   }
 }

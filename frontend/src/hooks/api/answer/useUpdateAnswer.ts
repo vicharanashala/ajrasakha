@@ -10,10 +10,13 @@ export const useUpdateAnswer = () => {
   return useMutation<
     SubmitAnswerResponse | null,
     Error,
-    { answerId?: string; updatedAnswer: string; sources: SourceItem[]; source?: string; questionId?: string;}
+    { answerId?: string; updatedAnswer: string; sources: SourceItem[]; source?: string; questionId?: string; isModeratorApproval?: boolean;}
   >({
-    mutationFn: async ({ answerId, updatedAnswer, sources, source, questionId  }) => {
+    mutationFn: async ({ answerId, updatedAnswer, sources, source, questionId, isModeratorApproval  }) => {
       try {
+        if (isModeratorApproval) {
+          return await answerService.approveLLMAnswer(questionId!, updatedAnswer, sources, source!);
+        }
         return await answerService.updateAnswer(answerId, updatedAnswer, sources, source, questionId );
       } catch (error) {
         throw error instanceof Error ? error : new Error("Unknown error");

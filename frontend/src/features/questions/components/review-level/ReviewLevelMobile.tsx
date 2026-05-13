@@ -27,7 +27,14 @@ export function ReviewLevelMobileCard({
 
         <Badge variant="outline">Review Levels</Badge>
       </div>
-
+       {row.isDuplicate && (
+        <Badge
+          variant="outline"
+          className="mt-2 bg-red-500/10 text-red-600 border-red-500/30"
+        >
+          Duplicate
+        </Badge>
+      )}
       <p
         className="font-medium break-words hover:underline cursor-pointer"
         onClick={() => onViewMore(row._id)}

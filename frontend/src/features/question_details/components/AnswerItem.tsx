@@ -15,7 +15,7 @@ import type {
   SourceItem,
   UserRole,
 } from "@/types";
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AnswerItemHeader } from "./answer_item/AnswerItemHeader";
 import { AnswerContent } from "./answer_item/AnswerContent";
@@ -35,6 +35,7 @@ interface AnswerItemProps {
   queue: ISubmission["queue"];
   rerouteQuestion?: IRerouteHistoryResponse[];
   lastAnswerApprovalCount?: number;
+  paeReview?: boolean;
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
@@ -61,6 +62,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
+  const isSubmittingAnswerRef = useRef(false);
 
   const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
     useUpdateAnswer();
@@ -75,6 +78,13 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   });
 
   const handleUpdateAnswer = async () => {
+    if (isSubmittingAnswerRef.current || isSubmittingAnswer || isUpdatingAnswer) {
+      return;
+    }
+
+    isSubmittingAnswerRef.current = true;
+    setIsSubmittingAnswer(true);
+
     try {
       if (!editableAnswer || editableAnswer.trim().length <= 3) {
         toast.error("Updated answer should be at least more than 3 characters");
@@ -109,6 +119,11 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       errorMessage = errorMessage.replace(/this answer:.+?,/, "this answer,");
       toast.error(`Failed to Approve answer. ${errorMessage}`);
       setEditOpen(false);
+    } finally {
+      setTimeout(() => {
+    isSubmittingAnswerRef.current = false;
+    setIsSubmittingAnswer(false);
+  }, 1000); // 1 second delay to prevent rapid submissions
     }
   };
 
@@ -277,7 +292,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         setEditableAnswer={setEditableAnswer}
         sources={sources}
         setSources={setSources}
-        isUpdatingAnswer={isUpdatingAnswer}
+        isUpdatingAnswer={isUpdatingAnswer || isSubmittingAnswer}
         handleUpdateAnswer={handleUpdateAnswer}
         isModalOpen={isModalOpen}
         setIsModalOpen={setIsModalOpen}
@@ -305,6 +320,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         firstTrueIndex={firstTrueIndex}
         firstFalseOrMissingIndex={firstFalseOrMissingIndex}
         lastAnswerApprovalCount={props.lastAnswerApprovalCount}
+        paeReview={props.paeReview}
       />
 
       <AnswerContent answer={props.answer} />

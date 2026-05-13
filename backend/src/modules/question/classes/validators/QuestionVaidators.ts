@@ -405,6 +405,15 @@ class AddQuestionBodyDto {
   @IsBooleanString()
   isOutreachQuestion?: string;
 
+  @IsOptional()
+  @IsIn(['expert', 'draft', 'pae_expert'])
+  allocationMode?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsMongoId()
+  paeExpertId?: string;
+
   @IsString()
   @IsOptional()
   createdAt?: string;
@@ -431,6 +440,15 @@ class ExpertInput {
 
 class AllocateExpertsRequest {
   experts!: string[];
+}
+class BulkPaeAllocateRequest {
+  @IsArray()
+  @IsMongoId({ each: true })
+  questionIds!: string[];
+
+  @IsNotEmpty()
+  @IsMongoId()
+  paeExpertId!: string;
 }
 class RemoveAllocateBody {
   @IsNumber()
@@ -747,6 +765,14 @@ class GetDetailedQuestionsQuery {
 
   @IsOptional()
   isOnHold?: string;
+
+  @JSONSchema({
+    description: 'filter questions assigned to PAE experts',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  pae_review?: string;
 }
 
 export interface IQuestionWithAnswerTexts {
@@ -799,6 +825,13 @@ export class ApproveInitialAnswerBody {
   answer :string;
 }
 
+class ReallocateExpertsSelectedQuestionsRequest {
+  @IsNotEmpty()
+  @IsArray()
+  @IsString({ each: true })
+  questionIds!: string[];
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -807,6 +840,7 @@ export const QUESTION_VALIDATORS = [
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
@@ -818,6 +852,7 @@ export const QUESTION_VALIDATORS = [
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
   ApproveInitialAnswerBody,
+  ReallocateExpertsSelectedQuestionsRequest,
 ];
 
 export {
@@ -829,6 +864,7 @@ export {
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
@@ -836,4 +872,5 @@ export {
   HistoryItem,
   BulkDeleteQuestionDto,
   DateRangeRequest,
+  ReallocateExpertsSelectedQuestionsRequest,
 };

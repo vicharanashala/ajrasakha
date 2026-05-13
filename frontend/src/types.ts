@@ -1,6 +1,6 @@
 import type { UserCredential } from "firebase/auth";
 
-export type UserRole = "admin" | "moderator" | "expert";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -47,6 +47,9 @@ export interface IUser {
   avatar?: string;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean
+  mobile?: string;
+  university?: string;
+  isVerified?: boolean;
 }
 export interface ReviewLevelCount {
   Review_level: 'Author' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5' | 'Level 6' | 'Level 7' | 'Level 8' | 'Level 9';
@@ -158,6 +161,7 @@ export interface IQuestion {
   priority: QuestionPriority;
   status: QuestionStatus;
   source: QuestionSource;
+  pae_review?: boolean;
   history: HistoryItem[];
   details: {
     state: string;
@@ -257,7 +261,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -461,6 +465,26 @@ export interface IQuestionFullData {
   aiApprovedAnswer?: string;
   aiApprovedSources?: SourceItem[];
   authors_history?: IAuthorsHistory[];
+  similarityScore?: number;        // percentage (0–100)
+  referenceQuestionId?: string;
+  referenceQuestion?: string
+  referenceSource?: string;
+  referenceQuestionData?: {
+    question: string;
+    status: string;
+    details: {
+      state: string;
+      district: string;
+      crop: string;
+      season: string;
+      domain: string;
+      [key: string]: string;
+    };
+    text: string;
+  };
+  originalQuestion?: string;
+  closedAt?: string;
+  threadId?: string;
 }
 
 export interface QuestionFullDataResponse {
@@ -537,6 +561,11 @@ export interface IDetailedQuestion {
     history: ISubmissionHistory[];
     queue: IUserRef[];
   };
+  pae_review?: boolean;
+  similarityScore?: number;        // percentage (0–100)
+  referenceQuestionId?: string;
+  referenceQuestion?: string
+  referenceSource?: string;
 }
 
 export interface IDetailedQuestionResponse {
@@ -684,6 +713,7 @@ export interface ReroutedQuestionItem {
   reroute: Reroute;
   details: QuestionDetailsReRoute;
   source: QuestionSource
+  pae_review?: boolean;
 }
 
 interface Moderator {
@@ -876,6 +906,13 @@ export interface WorkloadBalanceResponse {
   expertsInvolved: number;
   submissionsProcessed: number;
 }
+export interface ReallocateExpertsSelectedQuestionsResponse {
+  message: string;
+  expertsInvolved: number;
+  submissionsProcessed: number;
+  questionsFiltered?: number;
+  unallocatedQuestions?: number;
+}
 
 export type GrowthResponse = {
   labels: string[];
@@ -886,7 +923,7 @@ export type GrowthResponse = {
   };
 };
 
- enum AuditCategory {
+enum AuditCategory {
   QUESTION = 'QUESTION',
   EXPERTS_CATEGORY = 'EXPERTS_CATEGORY',
   EXPERTS_MANAGEMENT = 'EXPERTS_MANAGEMENT',
@@ -894,12 +931,12 @@ export type GrowthResponse = {
   ANALYTICS = 'ANALYTICS',
   CROP_MANAGEMENT = 'CROP_MANAGEMENT',
   OUTREACH_REPORT = 'OUTREACH_REPORT',
-  AGENTS_INTERFACE= 'AGENTS_INTERFACE', // PENDING, not on priority
-  DOWNLOAD_REPORTS= 'DOWNLOAD_REPORTS',
-  ANSWER= 'ANSWER'
+  AGENTS_INTERFACE = 'AGENTS_INTERFACE', // PENDING, not on priority
+  DOWNLOAD_REPORTS = 'DOWNLOAD_REPORTS',
+  ANSWER = 'ANSWER'
 }
 
- enum AuditAction {
+enum AuditAction {
   // Question
   QUESTION_ADD = 'QUESTION_ADD',
   QUESTION_UPDATE = 'QUESTION_UPDATE',
@@ -942,7 +979,7 @@ export type GrowthResponse = {
   REROUTE_REJECTION = 'REROUTE_REJECTION',
 }
 
- enum OutComeStatus {
+enum OutComeStatus {
   SUCCESS = 'SUCCESS',
   FAILED = 'FAILED',
   PARTIAL = 'PARTIAL',

@@ -7,7 +7,7 @@ import ExcelJS from 'exceljs';
 import { GrowthResponse } from '../types/chatbot.type.js';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
 import { GLOBAL_TYPES } from '#root/types.js';
-import { getDateRange, mapToSeries } from '../utils/chatbot.utils.js';
+import { getDateLabelsBetween, getDateRange, mapToSeries } from '../utils/chatbot.utils.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -585,16 +585,24 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getGrowth(range:number):Promise<GrowthResponse> {
+  async getGrowth(range: number, startDate?: Date, endDate?: Date): Promise<GrowthResponse> {
     return await this._withTransaction(async (session) => {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(endDate.getDate() - range);
-      const labels = getDateRange(range)
+      const resolvedEndDate = endDate ? new Date(endDate) : new Date();
+      const resolvedStartDate = startDate ? new Date(startDate) : new Date();
+
+      if (!startDate) {
+        resolvedStartDate.setDate(resolvedEndDate.getDate() - range);
+      }
+
+      const labels =
+        startDate && endDate
+          ? getDateLabelsBetween(resolvedStartDate, resolvedEndDate)
+          : getDateRange(range);
+
       const [idsData, installsData, activeUsersData] = await Promise.all([
-        this.chatbotRepository.getIdsCreated(startDate, endDate, session),
-        this.chatbotRepository.getInstalls(startDate, endDate, session),
-        this.chatbotRepository.getActiveUsers(startDate, endDate, session),
+        this.chatbotRepository.getIdsCreated(resolvedStartDate, resolvedEndDate, session),
+        this.chatbotRepository.getInstalls(resolvedStartDate, resolvedEndDate, session),
+        this.chatbotRepository.getActiveUsers(resolvedStartDate, resolvedEndDate, session),
       ])
       return {
         labels,
@@ -605,5 +613,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
         }
       }
     })
+  }
+
+  async getDuplicateQuestions() {
+    try {
+      return await this.chatbotRepository.getDuplicateQuestions();
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch duplicate questions: ${error}`);
+    }
   }
 }

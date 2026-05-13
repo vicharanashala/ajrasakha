@@ -192,6 +192,8 @@ export class ReRouteRepository implements IReRouteRepository {
                         details: 1,
                         createdAt: 1,
                         priority: 1,
+                        pae_review: 1,
+                        saved_to_draft: 1,
                       },
                     },
                   ],
@@ -241,6 +243,8 @@ export class ReRouteRepository implements IReRouteRepository {
                   createdAt: '$question.createdAt',
                   priority: '$question.priority',
                   id: '$question._id',
+                  pae_review: '$question.pae_review',
+                  saved_to_draft: '$question.saved_to_draft',
                   updatedAt:'$updatedAt',
                   totalAnswersCount:'$answer.answerIteration',
                   answer: {

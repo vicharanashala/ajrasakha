@@ -13,6 +13,7 @@ import { ChannelSplitCard } from "./components/ChannelSplitCard";
 import { DashboardQueryCategories } from "./DashboardQueryCategories";
 import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
 import { AlertCard } from "./AlertCard";
+import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
 import { Spinner } from "@/components/atoms/spinner";
 import { GeoCard } from "./GeoCard";
 import { HealthScoreCard } from "./HealthScoreCard";
@@ -27,6 +28,8 @@ import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
 import { useInView } from "@/hooks/useInView";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
+import { Maximize2, X } from "lucide-react";
+import { createPortal } from "react-dom";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -46,6 +49,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source, filters.userType);
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
   const { data:topCrops, isLoading:isLoadingTopCrops, error:errorLoadingtopCrops } = useTopCrops();
+  const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
   const { ref: growthRef, isVisible: isGrowthVisible } = useInView();
@@ -63,6 +67,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   }, [activeSegment]);
 
   const clearSegment = () => setActiveSegment(null);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   // Navigate to User Details with inactive-only filter pre-applied
   const handleInactiveUsersClick = useCallback(() => {
@@ -199,7 +204,16 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                       sectionRefs.current["bugs-ux"] = el;
                     }}
                   >
-                    <AlertCard alerts={data.alerts} inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0} onInactiveClick={handleInactiveUsersClick} />
+                    <AlertCard
+                      alerts={data.alerts}
+                      inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0}
+                      onInactiveClick={handleInactiveUsersClick}
+                      duplicateQuestionsCount={(data as any).duplicateQuestionsCount ?? 0}
+                      onDuplicateClick={() => setIsDuplicateModalOpen(true)}
+                    />
+                    {isDuplicateModalOpen && (
+                      <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} />
+                    )}
                   </div>
                 </div>
 
@@ -226,7 +240,17 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                     }}
                   >
                     {/* Knowledge & Awareness */}
-                    <div className="rounded-xl border border-gray-200 bg-white dark:border-[#2a2a2a] dark:bg-[#1a1a1a] p-4 h-full">
+                    <>
+                      <div className="rounded-xl border border-gray-200 bg-white dark:border-[#2a2a2a] dark:bg-[#1a1a1a] p-4 h-full relative">
+                        {/* Maximize Button */}
+                        <button
+                          onClick={() => setIsKnowledgeMaximized(true)}
+                          className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
+                          title="Maximize chart"
+                        >
+                          <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                        </button>
+
                       <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
                         Knowledge & Awareness
                       </div>
@@ -333,6 +357,81 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                         })()}
                       </div>
                     </div>
+
+                    {/* Maximized Modal */}
+                    {isKnowledgeMaximized && createPortal(
+                      <div 
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+                        onClick={() => setIsKnowledgeMaximized(false)}
+                      >
+                        <div 
+                          className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => setIsKnowledgeMaximized(false)}
+                            className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            title="Close"
+                          >
+                            <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                          </button>
+
+                          <div className="mb-8">
+                            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+                              Knowledge & Awareness
+                            </h3>
+                          </div>
+
+                          <div className="flex flex-wrap gap-12 justify-center items-center">
+                            {(() => {
+                              const pct = data.kccAwareness?.[0]?.pct ?? 0;
+                              const circ = 2 * Math.PI * 90;
+                              const dash = (pct / 100) * circ;
+                              return (
+                                <div className="flex flex-col items-center gap-4">
+                                  <svg viewBox="0 0 240 240" className="w-[200px] h-[200px]">
+                                    <circle cx={120} cy={120} r={90} fill="none" stroke="#e5e7eb" strokeWidth={20} />
+                                    <circle cx={120} cy={120} r={90} fill="none" stroke="#3AAA5A" strokeWidth={20}
+                                      strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
+                                      transform="rotate(-90 120 120)" />
+                                    <text x={120} y={130} textAnchor="middle" fontSize={32} fontWeight={600} fill="#3AAA5A">
+                                      {pct}%
+                                    </text>
+                                  </svg>
+                                  <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
+                                    KCC Awareness
+                                  </span>
+                                </div>
+                              );
+                            })()}
+
+                            {(() => {
+                              const pct = data.agriAppUsage?.[0]?.pct ?? 0;
+                              const circ = 2 * Math.PI * 90;
+                              const dash = (pct / 100) * circ;
+                              return (
+                                <div className="flex flex-col items-center gap-4">
+                                  <svg viewBox="0 0 240 240" className="w-[200px] h-[200px]">
+                                    <circle cx={120} cy={120} r={90} fill="none" stroke="#e5e7eb" strokeWidth={20} />
+                                    <circle cx={120} cy={120} r={90} fill="none" stroke="#378ADD" strokeWidth={20}
+                                      strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
+                                      transform="rotate(-90 120 120)" />
+                                    <text x={120} y={130} textAnchor="middle" fontSize={32} fontWeight={600} fill="#378ADD">
+                                      {pct}%
+                                    </text>
+                                  </svg>
+                                  <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
+                                    Uses Agri Apps
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>,
+                      document.body
+                    )}
+                  </>
                   </div>
                   <div
                     className="lg:col-span-2"

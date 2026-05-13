@@ -16,6 +16,8 @@ interface WorkerData {
   dbName: string;
   isRequiredAiInitialAnswer?: boolean;
   isOutreachQuestion?: boolean;
+  allocationMode?: 'expert' | 'draft' | 'pae_expert';
+  paeExpertId?: string;
 }
 
 const data = workerData as WorkerData;
@@ -25,6 +27,9 @@ const mongoUri = data.mongoUri;
 const dbName = data.dbName;
 const isRequiredAiInitialAnswer = data.isRequiredAiInitialAnswer ?? false;
 const isOutreachQuestion = data.isOutreachQuestion ?? false;
+const allocationMode = data.allocationMode ?? 'expert';
+const paeExpertId = data.paeExpertId ?? null;
+console.log('[Worker] allocationMode:', allocationMode, '| paeExpertId:', paeExpertId);
 
 if (!parentPort) {
   console.error(
@@ -197,15 +202,17 @@ const { checkDuplicateQuestionHelper } = await import(
         question: questionText,
         priority,
         source: isOutreachQuestion ? "OUTREACH" : (low.source || 'AGRI_EXPERT'),
-        status: 'open',
+        status:allocationMode === 'draft'?"draft" :'open',
         totalAnswersCount: 0,
         contextId: null,
         details,
         aiInitialAnswer,
-        isAutoAllocate: true,
+        isAutoAllocate: allocationMode === 'expert',
         embedding: textEmbedding,
         metrics: null,
         text: `Question: ${questionText}`,
+      //  saved_to_draft: allocationMode === 'draft',
+        pae_review: allocationMode === 'pae_expert',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -225,6 +232,8 @@ const { checkDuplicateQuestionHelper } = await import(
             logData,
             aiService,
             duplicateQuestionRepo,
+            null,
+            true
           );
 
           if (duplicateResult.isDuplicate) {
@@ -252,29 +261,48 @@ const { checkDuplicateQuestionHelper } = await import(
       console.log(`✅ Question saved to database with ID: ${savedQuestion._id}`);
       const qId = savedQuestion._id.toString();
 
-      // 6. Allocation
-      const users = await userRepo.findExpertsByReputationScore(
-        details as any,
-      );
+      // 6. Allocation — branch by allocationMode
+      let queue: ObjectId[] = [];
+      let notificationRecipient: string | null = null;
+      let notificationMessage = 'A Question has been assigned for answering';
+      let notificationTitle = 'Answer Creation Assigned';
 
-      const intialUsersToAllocate = users.slice(0, 3);
+      if (allocationMode === 'draft') {
+        // Draft mode: empty queue, no allocation, no notification
+        console.log(`📝 Draft mode — skipping expert allocation for question ${qId}`);
 
-      const queue = intialUsersToAllocate.map(
-        user => new ObjectId(user._id.toString()),
-      );
+      } else if (allocationMode === 'pae_expert' && paeExpertId) {
+        // PAE Expert mode: assign to the specified PAE expert
+        try {
+          const paeUser = await userRepo.findById(paeExpertId);
+          if (!paeUser) {
+            console.warn(`⚠️ PAE expert ${paeExpertId} not found, falling back to empty queue`);
+          } else {
+            queue = [new ObjectId(paeUser._id!.toString())];
+            notificationRecipient = paeUser._id!.toString();
+            notificationMessage = 'A Question has been assigned for answering';
+            notificationTitle = 'Answer Creation Assigned';
+            console.log(`👤 PAE Expert mode — assigned question ${qId} to ${paeUser.email}`);
+          }
+        } catch (paeErr: any) {
+          console.error(`❌ Error finding PAE expert:`, paeErr.message);
+        }
 
-      // for (const user of intialUsersToAllocate) {
-      //   const IS_INCREMENT = true;
-      //   const userId = user._id.toString();
-      //   await userRepo.updateReputationScore(userId, IS_INCREMENT);
-      // }
-      if (intialUsersToAllocate.length > 0) {
-        const IS_INCREMENT = true;
-        const userId = intialUsersToAllocate[0]._id.toString();
-        await userRepo.updateReputationScore(userId, IS_INCREMENT);
+      } else {
+        // Default 'expert' mode: auto-allocate to experts by reputation score
+        const users = await userRepo.findExpertsByReputationScore(details as any);
+        const intialUsersToAllocate = users.slice(0, 3);
+        queue = intialUsersToAllocate.map(user => new ObjectId(user._id.toString()));
+        if (intialUsersToAllocate.length > 0) {
+          const IS_INCREMENT = true;
+          const firstUserId = intialUsersToAllocate[0]._id.toString();
+          await userRepo.updateReputationScore(firstUserId, IS_INCREMENT);
+          notificationRecipient = firstUserId;
+        }
+        console.log(`✅ Experts allocated for question ${qId}`);
       }
-      console.log(`✅ Experts allocated for question ${qId}`);
-      // 7. Create an empty QuestionSubmission entry for the newly created question
+
+      // 7. Create QuestionSubmission entry (always created; queue may be empty for drafts)
       const submissionData: IQuestionSubmission = {
         questionId: new ObjectId(qId),
         lastRespondedBy: null,
@@ -287,19 +315,14 @@ const { checkDuplicateQuestionHelper } = await import(
       // 8. Save QuestionSubmission to DB
       await submissionRepo.addSubmission(submissionData);
 
-      //9. Send the notifications
-      if (intialUsersToAllocate[0]) {
-        let message = `A Question has been assigned for answering`;
-        let title = 'Answer Creation Assigned';
-        let entityId = qId;
-        const user = intialUsersToAllocate[0]._id.toString();
-        const type = 'answer_creation';
+      // 9. Send notification (skipped for draft mode)
+      if (notificationRecipient) {
         await notificationService.saveTheNotifications(
-          message,
-          title,
-          entityId,
-          user,
-          type,
+          notificationMessage,
+          notificationTitle,
+          qId,
+          notificationRecipient,
+          'answer_creation',
         );
       }
 

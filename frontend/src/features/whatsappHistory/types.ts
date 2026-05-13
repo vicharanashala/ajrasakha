@@ -12,6 +12,7 @@ export interface Message {
   content: string;
   timestamp: Date;
   toolCalls?: ToolCall[];
+  status?: 'sending' | 'sent' | 'error';
 }
 
 export interface Thread {

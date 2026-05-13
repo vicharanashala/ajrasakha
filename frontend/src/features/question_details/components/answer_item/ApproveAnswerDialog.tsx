@@ -10,6 +10,7 @@ import { Textarea } from "@/components/atoms/textarea";
 import { SourceUrlManager } from "@/components/source-url-manager";
 import type { SourceItem } from "@/types";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { useRef } from "react";
 
 interface ApproveAnswerDialogProps {
   editOpen: boolean;
@@ -22,6 +23,8 @@ interface ApproveAnswerDialogProps {
   handleUpdateAnswer: () => void;
   lastReroutedTo: any;
   approvalCount: number;
+  questionStatus?: string;
+  paeReview?: boolean;
 }
 
 export const ApproveAnswerDialog = ({
@@ -35,12 +38,28 @@ export const ApproveAnswerDialog = ({
   handleUpdateAnswer,
   lastReroutedTo,
   approvalCount,
+  questionStatus,
+  paeReview,
 }: ApproveAnswerDialogProps) => {
+  const isPaeSubmitted = questionStatus === "pae_submitted";
+  const isDisabled =
+    lastReroutedTo?.status === "pending" ||
+    (!isPaeSubmitted && approvalCount < 3);
+
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const debouncedHandleUpdateAnswer = () => {
+    if (debounceRef.current) return;
+    handleUpdateAnswer();
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+    }, 300);
+  };
   return (
     <Dialog open={editOpen} onOpenChange={setEditOpen}>
       <DialogTrigger asChild>
         <button
-          disabled={lastReroutedTo?.status === "pending" || approvalCount < 3}
+          disabled={isDisabled}
           className={`
              bg-primary text-primary-foreground 
                       flex items-center gap-2 
@@ -50,7 +69,7 @@ export const ApproveAnswerDialog = ({
                       whitespace-nowrap
                       transition-all duration-200
             ${
-              lastReroutedTo?.status === "pending" || approvalCount < 3
+              isDisabled
                 ? "opacity-50 cursor-not-allowed"
                 : "hover:bg-primary/90 hover:shadow-md active:scale-95"
             }
@@ -66,8 +85,13 @@ export const ApproveAnswerDialog = ({
         style={{ maxWidth: "70vw" }}
       >
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="text-lg font-semibold">
+          <DialogTitle className="text-lg font-semibold flex items-center gap-2">
             Approve Answer
+            {paeReview && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                PAE Submitted
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -96,23 +120,26 @@ export const ApproveAnswerDialog = ({
         </div>
 
         <div className="mt-6 flex justify-end gap-3 flex-shrink-0">
-          <Button variant="outline" onClick={() => setEditOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleUpdateAnswer}
-            className="bg-primary text-primary-foreground flex items-center gap-2"
-            disabled={isUpdatingAnswer}
-          >
-            {isUpdatingAnswer ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save & finalize"
-            )}
-          </Button>
+          {isUpdatingAnswer ? (
+            // Alert div shown while updating
+            <div className="w-full bg-blue-50 text-blue-600 border border-blue-200 px-4 py-2 rounded-md flex items-center justify-center gap-2 text-sm font-medium">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Approving the answer...
+            </div>
+          ) : (
+            // Buttons shown when NOT updating
+            <>
+              <Button variant="outline" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={debouncedHandleUpdateAnswer}
+                className="bg-primary text-primary-foreground flex items-center gap-2"
+              >
+                Save & finalize
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

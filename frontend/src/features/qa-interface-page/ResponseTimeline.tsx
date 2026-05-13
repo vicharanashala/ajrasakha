@@ -38,6 +38,7 @@ interface ResponseTimelineProps {
   setRemarks: (value: string) => void;
   setSelectedQuestion:(value: string|null) => void;
   refetchQuestions?: () => void;
+  modeSwitcher?: React.ReactNode;
 }
 
 export const ResponseTimeline = ({
@@ -53,7 +54,8 @@ export const ResponseTimeline = ({
   remarks,
   setRemarks,
   setSelectedQuestion,
-  refetchQuestions
+  refetchQuestions,
+  modeSwitcher,
 }: // SourceUrlManager,
 ResponseTimelineProps) => {
   const [rejectionReason, setRejectionReason] = useState("");
@@ -182,11 +184,12 @@ ResponseTimelineProps) => {
         <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-primary" />
-
             <h3 className="text-lg font-semibold">Response History</h3>
           </div>
-
-          <QuestionDetailsDialog question={selectedQuestionData} />
+          <div className="flex items-center gap-2">
+            {modeSwitcher}
+            <QuestionDetailsDialog question={selectedQuestionData} />
+          </div>
         </CardHeader>
 
         <CardContent className="p-6 py-4 flex-1 flex flex-col min-h-0 overflow-hidden">

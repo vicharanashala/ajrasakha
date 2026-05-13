@@ -1,4 +1,4 @@
-import { CROPS, STATES } from "@/components/advanced-question-filter";
+import { CROPS, STATES, DOMAINS } from "@/components/advanced-question-filter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
@@ -136,6 +136,71 @@ type ProfileFormProps = {
   isUpdating: boolean;
 };
 
+const OTHER_DOMAIN_VALUE = "other";
+
+const isPresetDomain = (domain?: string) => {
+  if (!domain) return false;
+  return domain === "all" || DOMAINS.includes(domain);
+};
+
+const validateCustomDomain = (value: string) => {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return "Please enter a domain.";
+  }
+
+  if (trimmedValue.length < 2) {
+    return "Domain must be at least 2 characters.";
+  }
+
+  if (trimmedValue.length > 100) {
+    return "Domain must be 100 characters or less.";
+  }
+
+  if (!/^[A-Za-z0-9\s&(),./-]+$/.test(trimmedValue)) {
+    return "Domain contains invalid characters.";
+  }
+
+  return "";
+};
+
+const validateMobile = (value: string) => {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return "Mobile number is required.";
+  }
+
+  if (!/^\+\d{1,4}[\s-]?\d{6,14}$/.test(trimmedValue)) {
+    return "Enter a valid mobile number with country code, for example +91 9876543210.";
+  }
+
+  return "";
+};
+
+const validateUniversity = (value: string) => {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return "University is required.";
+  }
+
+  if (trimmedValue.length < 2) {
+    return "University must be at least 2 characters.";
+  }
+
+  if (trimmedValue.length > 120) {
+    return "University must be 120 characters or less.";
+  }
+
+  if (!/^[A-Za-z0-9\s&(),./'-]+$/.test(trimmedValue)) {
+    return "University contains invalid characters.";
+  }
+
+  return "";
+};
+
 const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   const [formData, setFormData] = useState<IUser>({
     ...user,
@@ -165,6 +230,19 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [domainSelection, setDomainSelection] = useState(() =>
+    isPresetDomain(user?.preference?.domain)
+      ? (user?.preference?.domain ?? "")
+      : OTHER_DOMAIN_VALUE,
+  );
+  const [customDomain, setCustomDomain] = useState(() =>
+    isPresetDomain(user?.preference?.domain) ? "" : (user?.preference?.domain ?? ""),
+  );
+  const [domainError, setDomainError] = useState("");
+  const [profileErrors, setProfileErrors] = useState({
+    mobile: "",
+    university: "",
+  });
 
   const [isEditMode, setIsEditMode] = useState(false);
   const { user: userFromStore } = useAuthStore();
@@ -241,15 +319,56 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
 
   const handleSave = async () => {
     try {
-      if (
-        formData.preference?.domain === "" ||
-        formData.preference?.domain === "All"
-      ) {
-        formData.preference.domain = "all";
+      const mobileError = validateMobile(formData.mobile ?? "");
+      const universityError = validateUniversity(formData.university ?? "");
+
+      if (mobileError || universityError) {
+        setProfileErrors({
+          mobile: mobileError,
+          university: universityError,
+        });
+
+        toast.error(mobileError || universityError);
+        return;
       }
-      await onSubmit?.(formData);
-      if (formData.avatar) {
-        useAuthStore.getState().updateUser({ avatar: formData.avatar });
+
+      const isOtherDomainSelected = domainSelection === OTHER_DOMAIN_VALUE;
+
+      if (isOtherDomainSelected) {
+        const customDomainError = validateCustomDomain(customDomain);
+
+        if (customDomainError) {
+          setDomainError(customDomainError);
+          toast.error(customDomainError);
+          return;
+        }
+      }
+
+      const normalizedDomain =
+        formData.preference?.domain === "" || formData.preference?.domain === "All"
+          ? "all"
+          : isOtherDomainSelected
+            ? customDomain.trim()
+            : (formData.preference?.domain ?? "all");
+
+      const payload: IUser = {
+        ...formData,
+        mobile: formData.mobile?.trim(),
+        university: formData.university?.trim(),
+        preference: {
+          state: formData.preference?.state ?? "",
+          crop: formData.preference?.crop ?? "",
+          domain: normalizedDomain,
+        },
+      };
+
+      await onSubmit?.(payload);
+      setFormData(payload);
+      setDomainSelection(isPresetDomain(normalizedDomain) ? normalizedDomain : OTHER_DOMAIN_VALUE);
+      setCustomDomain(isPresetDomain(normalizedDomain) ? "" : normalizedDomain);
+
+      if (payload.avatar) {
+        useAuthStore.getState().updateUser({ avatar: payload.avatar });
       }
       setIsEditMode(false);
     } catch (error) {
@@ -377,6 +496,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   };
 
   const passwordStrength = calculatePasswordStrength(passwordForm.newPassword);
+  const domainOptions = DOMAINS.filter((domain) => domain !== "Others");
 
   return (
     <div className="space-y-8">
@@ -509,6 +629,69 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               onChange={(e) => handleChange("lastName", e.target.value)}
               placeholder="Enter last name"
             />
+          </div>
+        </div>
+
+        {/* Mobile Number + University Name */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="mobile">Mobile</Label>
+            <Input
+              id="mobile"
+              disabled={!isEditMode}
+              value={formData.mobile}
+              onChange={(e) => {
+                const value = e.target.value;
+                handleChange("mobile", value);
+
+                if (profileErrors.mobile) {
+                  setProfileErrors((prev) => ({
+                    ...prev,
+                    mobile: validateMobile(value),
+                  }));
+                }
+              }}
+              onBlur={() =>
+                setProfileErrors((prev) => ({
+                  ...prev,
+                  mobile: validateMobile(formData.mobile ?? ""),
+                }))
+              }
+              placeholder="mobile number "
+            />
+            {profileErrors.mobile && (
+              <p className="text-sm text-red-500">{profileErrors.mobile}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="university">University</Label>
+            <Input
+              id="university"
+              disabled={!isEditMode}
+              value={formData.university}
+              onChange={(e) => {
+                const value = e.target.value;
+                handleChange("university", value);
+
+                if (profileErrors.university) {
+                  setProfileErrors((prev) => ({
+                    ...prev,
+                    university: validateUniversity(value),
+                  }));
+                }
+              }}
+              onBlur={() =>
+                setProfileErrors((prev) => ({
+                  ...prev,
+                  university: validateUniversity(formData.university ?? ""),
+                }))
+              }
+              placeholder="university"
+            />
+            {profileErrors.university && (
+              <p className="text-sm text-red-500">{profileErrors.university}</p>
+            )}
           </div>
         </div>
 
@@ -803,7 +986,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               </Select>
             </div>
 
-            <div className="space-y-2 w-full">
+            {/* <div className="space-y-2 w-full">
               <Label htmlFor="crop">Crop Type</Label>
               <Select
                 value={formData.preference?.crop}
@@ -822,11 +1005,10 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
+            </div> */}
 
           <div className="space-y-2">
-            <Label htmlFor="domain">Domain</Label>
+            {/* <Label htmlFor="domain">Domain</Label>
             <div className="flex items-center gap-2">
               <Network className="h-4 w-4 text-muted-foreground" />
               <Input
@@ -842,8 +1024,66 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 }
                 placeholder="Enter domain (e.g., Nutrient Management)"
               />
-            </div>
+            </div> */}
+            <Label htmlFor="domain">Domain</Label>
+              <Select
+                value={domainSelection}
+                disabled={!isEditMode || user.role == "admin"}
+                onValueChange={(val) => {
+                  setDomainError("");
+                  setDomainSelection(val);
+
+                  if (val === OTHER_DOMAIN_VALUE) {
+                    handleChange("preference.domain", customDomain);
+                    return;
+                  }
+
+                  handleChange("preference.domain", val);
+                }}
+              >
+                <SelectTrigger id="domain" className="w-full">
+                  <SelectValue placeholder="Select domain" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Domain</SelectItem>
+                  {domainOptions.map((domain) => (
+                    <SelectItem key={domain} value={domain}>
+                      <Network className="h-4 w-4 mr-2 inline" /> {domain}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={OTHER_DOMAIN_VALUE}>
+                    <Network className="h-4 w-4 mr-2 inline" /> Other
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {domainSelection === OTHER_DOMAIN_VALUE && (
+                <div className="space-y-2">
+                  <Input
+                    id="custom-domain"
+                    disabled={!isEditMode || user.role == "admin"}
+                    value={customDomain}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setCustomDomain(value);
+                      handleChange("preference.domain", value);
+
+                      if (domainError) {
+                        setDomainError(validateCustomDomain(value));
+                      }
+                    }}
+                    onBlur={() => {
+                      setDomainError(validateCustomDomain(customDomain));
+                    }}
+                    placeholder="Enter your domain"
+                  />
+                  {domainError && (
+                    <p className="text-sm text-red-500">{domainError}</p>
+                  )}
+                </div>
+              )}
           </div>
+          </div>
+
         </div>
       )}
 
@@ -884,6 +1124,31 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                       e.preventDefault();
                       toast.error("First name cannot be blank space");
                       return;
+                    }
+
+                    const mobileError = validateMobile(formData.mobile ?? "");
+                    const universityError = validateUniversity(
+                      formData.university ?? "",
+                    );
+
+                    if (mobileError || universityError) {
+                      e.preventDefault();
+                      setProfileErrors({
+                        mobile: mobileError,
+                        university: universityError,
+                      });
+                      toast.error(mobileError || universityError);
+                      return;
+                    }
+
+                    if (domainSelection === OTHER_DOMAIN_VALUE) {
+                      const customDomainError = validateCustomDomain(customDomain);
+
+                      if (customDomainError) {
+                        e.preventDefault();
+                        setDomainError(customDomainError);
+                        toast.error(customDomainError);
+                      }
                     }
                   }}
                 >

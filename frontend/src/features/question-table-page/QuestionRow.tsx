@@ -25,6 +25,7 @@ import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edi
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useQuestionTableStore } from "@/stores/all-questions";
+import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 
 interface QuestionRowProps {
   q: IDetailedQuestion;
@@ -89,7 +90,12 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
 
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(q);
-
+  
+  // const { timer } = useQuestionTimer(
+  //     q.source,
+  //     timerStartTime,
+  //     buildHoldCountdownOptions(q)
+  //   )
 
   const { timer, isClickable, delayMinutes } = useQuestionClickability(
     q.source,
@@ -173,6 +179,10 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       icon: AlertTriangle,
       className: "bg-orange-500/10 text-orange-600 border-orange-500/30",
     },
+    pae_submitted: {
+      icon: Clock,
+      className: "bg-amber-600/10 text-amber-700 border-amber-600/30",
+    },
   } as const;
   const statusBadge = useMemo(() => {
     // const status = q.status || "NIL";
@@ -194,7 +204,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
             ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
             : effectiveStatus === "delayed"
               ? "bg-orange-500/10 text-orange-600 border-orange-500/30"
-              : "bg-muted text-foreground";
+              : effectiveStatus === "pae_submitted"
+                ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+                : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={`gap-1.5 ${colorClass}`}>
@@ -305,13 +317,24 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           <TableCell className="text-start ps-0">
             <div className="flex items-center gap-2">
               {visibleColumns.priority && <PriorityBadge priority={q.priority} />}
+              {q.pae_review && (
+                <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-purple-500/10 text-purple-600 border-purple-500/30 whitespace-nowrap">
+                  PAE
+                </span>
+              )}
 
               <div className="flex flex-col gap-1 py-1">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
-                        className={`cursor-pointer ${isClickable
+                        // className={`cursor-pointer hover:underline`}
+                        // onClick={() => {
+                        //   // if (!isClickable || hasSelectedQuestions) return;
+                        //   onViewMore(q._id?.toString() || "");
+                        // }}
+
+                         className={`cursor-pointer ${isClickable
                           ? hasSelectedQuestions
                             ? ""
                             : "hover:underline"
@@ -322,13 +345,22 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           onViewMore(q._id?.toString() || "");
                         }}
                       >
+                        {
+                        q?.similarityScore&&
+                        q?.referenceQuestionId&&
+                        q?.referenceQuestion&&
+                        q?.referenceSource&&
+                        (
+                          <span className='text-xs text-red-600 mr-1'>(DUPLICATE)</span>
+                        )
+                        }
                         {truncate(q.question, 50)}
                       </span>
                     </TooltipTrigger>
                   </Tooltip>
                 </TooltipProvider>
 
-                {q.status !== "delayed" && (
+                {q.status !== "delayed" && q.status !== "pass" && (
                   <TimerDisplay timer={timer} status={q.status} source={q.source} showDays={true} />
                 )}
               </div>

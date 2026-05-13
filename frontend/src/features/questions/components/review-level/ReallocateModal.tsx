@@ -79,7 +79,7 @@ export function ReallocateModal({
         toast.error("Question data not available");
         return;
       }
-      if (question.status !== "open" && question.status !== "delayed") {
+      if (question.status == "in-review" || question.status == "closed") {
         toast.error(
           "This question is currently being reviewed or has been closed. Please check back later!"
         );
