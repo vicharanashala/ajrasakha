@@ -3468,15 +3468,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       // Populate question text and identify current "responsible" expert
-      const populatedQuestions = await Promise.all(questions.map(async (submission) => {
-        let questionText = 'N/A';
+      const populatedQuestions = (await Promise.all(questions.map(async (submission) => {
+        let questionText = '';
         try {
           const question = await this.questionRepo.getById(submission.questionId.toString(), session);
-          questionText = question?.question || 'N/A';
+          if (!question) return null; // Skip if question document is deleted
+          questionText = question.question;
         } catch (err) {
           console.error(`[QuestionService] Failed to fetch question ${submission.questionId}:`, err);
-          // If question is not found, we still want to show the submission in preview 
-          // or we can skip it. For now, let's keep it with a placeholder.
+          return null; // Skip on error to avoid invalid entries
         }
         
         let currentExpertId = null;
@@ -3517,7 +3517,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           isCurrentExpertBlocked,
           queue: submission.queue?.map(id => id.toString()) || []
         };
-      }));
+      }))).filter(q => q !== null);
 
       // Get names for active experts
       const populatedActiveExperts = activeExperts.map(e => ({

@@ -99,7 +99,14 @@ export const ReallocationManualModal = ({
     }
 
     const newAssignments: Record<string, string> = { ...assignments };
-    const experts = [...data.activeExperts];
+    // 1. Sort experts by reputation score (ascending) to prioritize low scores
+    const sortedExperts = [...data.activeExperts].sort((a, b) => 
+      (a.reputation_score || 0) - (b.reputation_score || 0)
+    );
+
+    const numTasks = data.questions.length;
+    const numExperts = sortedExperts.length;
+    const isOversaturated = numTasks > numExperts * 5;
     const MAX_TASKS_PER_EXPERT = 5;
     
     // Track how many tasks we've assigned to each expert in this session
@@ -116,11 +123,24 @@ export const ReallocationManualModal = ({
       // Skip if already assigned manually
       if (newAssignments[q.submissionId]) return;
 
-      // Find an expert who is not in the current queue and has not exceeded max tasks
-      const bestExpert = experts.find(e => 
-        !q.queue?.includes(e.id) && 
-        (expertAssignmentCount[e.id] || 0) < MAX_TASKS_PER_EXPERT
-      );
+      // Ensure expert IDs in queue are strings for comparison
+      const queueIds = (q.queue || []).map((id: any) => id.toString());
+
+      // Find an expert who:
+      // 1. Is NOT in the current queue (prevent duplicates)
+      // 2. Either we are oversaturated OR they have not exceeded the 5-task limit
+      const bestExpert = sortedExperts.find(e => {
+        const isAlreadyInQueue = queueIds.includes(e.id);
+        const currentCount = expertAssignmentCount[e.id] || 0;
+        
+        if (isAlreadyInQueue) return false;
+        
+        if (isOversaturated) {
+          return true; // No limit in oversaturated case, reputation sorting handles priority
+        } else {
+          return currentCount < MAX_TASKS_PER_EXPERT;
+        }
+      });
 
       if (bestExpert) {
         newAssignments[q.submissionId] = bestExpert.id;
@@ -131,9 +151,10 @@ export const ReallocationManualModal = ({
 
     setAssignments(newAssignments);
     if (assignedCount > 0) {
-      toast.success(`Automatically suggested ${assignedCount} reallocations.`);
+      const modeText = isOversaturated ? " (Over-capacity mode: limit lifted)" : "";
+      toast.success(`Automatically suggested ${assignedCount} reallocations${modeText}.`);
     } else {
-      toast.info("No further automated suggestions possible with current expert limits.");
+      toast.info("No further automated suggestions possible with current expert constraints.");
     }
   };
 
@@ -227,6 +248,22 @@ export const ReallocationManualModal = ({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6">
+          {/* Informational Banner */}
+          {!isLoading && !isError && data?.questions?.length > 0 && (
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">
+                  Manual Reallocation Limit
+                </p>
+                <p className="text-xs text-blue-800/70 dark:text-blue-400/70 leading-relaxed">
+                  To ensure system stability and fair workload distribution, a maximum of <strong>50 tasks</strong> are fetched per run. 
+                  If more tasks require reallocation, they will appear in the next session after you process the current batch.
+                </p>
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -312,7 +349,7 @@ export const ReallocationManualModal = ({
                                 <div className="flex items-center justify-between w-full gap-4">
                                   <span>{e.name}</span>
                                   <Badge variant="secondary" className="text-[10px]">
-                                    Score: {e.reputation_score}
+                                    Pending Workload: {e.reputation_score}
                                   </Badge>
                                 </div>
                               </SelectItem>
