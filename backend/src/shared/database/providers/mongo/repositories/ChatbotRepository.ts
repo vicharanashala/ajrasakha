@@ -1714,4 +1714,107 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(`Failed to get duplicate questions: ${error}`);
     }
   }
+
+  async getDomainSpikes(days = 60, session?: ClientSession) {
+      try {
+        await this.initReviewSystem();
+
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+        since.setHours(0, 0, 0, 0);
+
+        const domainMatch = { createdAt: { $gte: since }, 'details.domain': { $exists: true, $nin: [null, ''] } };
+
+        const locationPush = {
+          $push: {
+            $cond: [
+              { $and: [{ $ne: ['$details.district', null] }, { $ne: ['$details.state', null] }, { $ne: ['$details.district', ''] }, { $ne: ['$details.state', ''] }] },
+              { $concat: ['$details.district', ', ', '$details.state'] },
+              '$$REMOVE',
+            ],
+          },
+        };
+
+        const groupStage = {
+          $group: {
+            _id: {
+              domain: '$details.domain',
+              date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+            },
+            count: { $sum: 1 },
+            locations: locationPush,
+          },
+        };
+
+        const pipeline: any[] = [
+          { $match: domainMatch },
+          groupStage,
+          {
+            $unionWith: {
+              coll: 'duplicate_questions',
+              pipeline: [
+                { $match: domainMatch },
+                groupStage,
+              ],
+            },
+          },
+          {
+            $group: {
+              _id: '$_id',
+              count: { $sum: '$count' },
+              locations: { $push: '$locations' },
+            },
+          },
+          { $sort: { '_id.domain': 1, '_id.date': 1 } },
+        ];
+
+        const raw = await this.QuestionCollection.aggregate(pipeline, { session, allowDiskUse: true }).toArray();
+
+        // Group by domain, compute average baseline, detect spikes
+        const byDomain = new Map<string, Array<{ date: string; count: number; locations: string[][] }>>();
+        for (const row of raw) {
+          const domain = row._id.domain as string;
+          if (!byDomain.has(domain)) byDomain.set(domain, []);
+          byDomain.get(domain)!.push({ date: row._id.date, count: row.count, locations: row.locations });
+        }
+
+        const SPIKE_THRESHOLD = 1.5; // 50% above average = spike
+        const MIN_BASELINE = 3;
+        const spikes: any[] = [];
+
+        for (const [domain, entries] of byDomain) {
+          if (entries.length < 3) continue;
+
+          const totalCount = entries.reduce((s, e) => s + e.count, 0);
+          const avgBaseline = totalCount / entries.length;
+          if (avgBaseline < MIN_BASELINE) continue;
+
+          for (const entry of entries) {
+            if (entry.count >= avgBaseline * SPIKE_THRESHOLD) {
+              const allLocs = entry.locations.flat();
+              const locFreq = new Map<string, number>();
+              for (const loc of allLocs) {
+                if (loc) locFreq.set(loc, (locFreq.get(loc) ?? 0) + 1);
+              }
+              const topLoc = [...locFreq.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
+              spikes.push({
+                domain,
+                date: entry.date,
+                count: entry.count,
+                baseline: Math.round(avgBaseline),
+                spikePct: Math.round(((entry.count - avgBaseline) / avgBaseline) * 100),
+                location: topLoc ?? undefined,
+              });
+            }
+          }
+        }
+
+        spikes.sort((a, b) => b.spikePct - a.spikePct);
+        return spikes.slice(0, 50);
+      } catch (error) {
+        throw new InternalServerError(`Failed to get domain spikes: ${error}`);
+      }
+    }
+
 }

@@ -34,6 +34,7 @@ await database.init();
 /* ---------------- REPOS ---------------- */
 const { UserRepository } = await import('#root/shared/database/providers/mongo/repositories/UserRepository.js');
 const { QuestionSubmissionRepository } = await import('#root/shared/database/providers/mongo/repositories/SubmissionRepository.js');
+const { QuestionRepository } = await import('#root/shared/database/providers/mongo/repositories/QuestionRepository.js');
 const { NotificationRepository } = await import('#root/shared/database/providers/mongo/repositories/NotificationRepository.js');
 const { NotificationService } = await import('#root/modules/notification/services/NotificationService.js');
 
@@ -42,6 +43,9 @@ await (userRepo as any).init();
 
 const submissionRepo = new QuestionSubmissionRepository(database);
 await (submissionRepo as any).init();
+
+const questionRepo = new QuestionRepository(database);
+await (questionRepo as any).init();
 
 const notificationRepo = new NotificationRepository(database);
 await (notificationRepo as any).init();
@@ -59,6 +63,9 @@ const notificationService = new NotificationService(notificationRepo, database);
       const submission = await (submissionRepo as any).findById(job.submissionId);
       if (!submission) continue;
 
+      const questionId = submission.questionId.toString();
+      const question = await (questionRepo as any).getById(questionId);
+
       const queue = submission.queue || [];
       const history = submission.history || [];
       const now = new Date();
@@ -75,6 +82,27 @@ const notificationService = new NotificationService(notificationRepo, database);
       }
       
       const currentExpertId = queue[currentExpertIndex]?.toString();
+
+      // Unhold question if it is on hold
+      if (question && question.isOnHold) {
+        const prevAccum = question.accumulatedHoldMs ?? 0;
+        let segmentMs = 0;
+        if (question.holdAt) {
+          segmentMs = Math.max(0, Date.now() - new Date(question.holdAt).getTime());
+        }
+        await (questionRepo as any).updateQuestion(questionId, {
+          isOnHold: false,
+          status: 'open',
+          accumulatedHoldMs: prevAccum + segmentMs,
+          holdAt: null,
+        });
+      }
+
+      // 🟢 TYPE A: Penalize first expert if no history exists (initial delay)
+      if (history.length === 0) {
+        const firstExpert = queue[0]?.toString();
+        if (firstExpert) await userRepo.updateReputationScore(firstExpert, false);
+      }
 
       // Deep Replacement (Purge Inactive): replace inactive experts in the queue
       // ENSURE UNIQUENESS: Only replace the FIRST occurrence encountered at or after currentExpertIndex
@@ -104,10 +132,45 @@ const notificationService = new NotificationService(notificationRepo, database);
           modified = true;
       }
 
+      /* 
+      // 🔵 ORIGINAL LOGIC FROM MAIN (Commented out in favor of Shift-Aware Deep Replacement)
+      // REASONS FOR REPLACEMENT:
+      // 1. Multiple Replacements: Main logic only replaces the single stuck expert. 
+      //    New logic can replace multiple inactive/blocked experts in the queue at once.
+      // 2. Shift Awareness: Main uses findIndex(), which is less precise. 
+      //    New logic uses currentExpertIndex to ensure the correct sequence position is reallocated.
+      // 3. Absorbed Features: Reputation penalization and Unhold logic from main 
+      //    have been fully integrated into the active Shift-Aware block below.
+      else {
+        const lastHistory = history[history.length - 1];
+        if (lastHistory?.status === 'in-review' || lastHistory?.status === 'reviewed') {
+          const stuckExpertId = lastHistory.updatedBy?.toString();
+          const stuckIndex = queue.findIndex(q => q.toString() === stuckExpertId);
+          
+          let tempQueue = [...queue];
+          if (stuckIndex > -1) {
+            tempQueue[stuckIndex] = new ObjectId(newExpertId);
+          } else {
+            tempQueue.push(new ObjectId(newExpertId));
+          }
+
+          const tempHistory = [...history];
+          tempHistory[tempHistory.length - 1] = {
+            ...lastHistory,
+            updatedBy: new ObjectId(newExpertId),
+            status: 'in-review',
+            createdAt: now,
+            updatedAt: now,
+          };
+          // ... (main branch update logic)
+        }
+      }
+      */
+
       if (modified) {
         const updatedHistory = [...history];
         
-        // If the current ACTIVE expert (in-review) was replaced, update history to point to the new expert
+        // 1. If the expert currently in-review was replaced, update the history entry to the new expert
         if (currentExpertIndex === history.length - 1 && history.length > 0) {
             const lastHistory = history[history.length - 1];
             if (lastHistory?.status === 'in-review') {
@@ -119,12 +182,22 @@ const notificationService = new NotificationService(notificationRepo, database);
             }
         }
 
+        // 2. Penalize the expert who was stuck (TYPE B logic from main)
+        if (history.length > 0) {
+            const lastHistory = history[history.length - 1];
+            if (lastHistory?.status === 'in-review' || lastHistory?.status === 'reviewed') {
+              const stuckExpertId = lastHistory.updatedBy?.toString();
+              if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
+            }
+        }
+
+        // 3. Save updates to Submission
         await submissionRepo.updateById(job.submissionId, {
           $set: { queue: newQueue, history: updatedHistory, updatedAt: now },
         });
 
+        // 4. Notify new expert
         affectedExpertIds.add(newExpertId);
-
         await notificationService.saveTheNotifications(
           'Tasks have been reallocated to your queue',
           'Workload Reassigned',

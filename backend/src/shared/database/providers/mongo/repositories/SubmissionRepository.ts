@@ -3172,8 +3172,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     await this.init();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-    return this.QuestionSubmissionCollection.find(
-      {
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>(
+      [
+        {
+          $match: {
         $or: [
           // Type A — Never answered
           {
@@ -3201,10 +3203,22 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
         ],
       },
-      { session },
-    )
-      .limit(limit || 0)
-      .toArray();
+        },
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+        {
+          $unwind: '$question',
+        },
+        ...(limit ? [{$limit: limit}] : []),
+      ],
+      {session},
+    ).toArray();
   }
   async findById(id: string): Promise<IQuestionSubmission | null> {
     if (!id) return null;
@@ -3720,11 +3734,6 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             'question.status': {
               $nin: ['closed', 'in-review', 'pass', 'draft', 'pae_submitted'],
             },
-          },
-        },
-        {
-          $project: {
-            question: 0,
           },
         },
       ],

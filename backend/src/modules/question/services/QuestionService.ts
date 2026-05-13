@@ -2227,13 +2227,27 @@ export class QuestionService extends BaseService implements IQuestionService {
         const currentQuestion = await this.questionRepo.getById(questionId, session);
         const existingHistory = currentQuestion.authors_history || [];
 
+        const questionUpdates: Partial<IQuestion> = {
+          userId: new ObjectId(newExpertId),
+          authors_history: [...existingHistory, authorsHistoryEntry],
+        };
+
+        if (question.isOnHold) {
+          const prevAccum = question.accumulatedHoldMs ?? 0;
+          let segmentMs = 0;
+          if (question.holdAt) {
+            segmentMs = Math.max(0, now.getTime() - new Date(question.holdAt).getTime());
+          }
+          questionUpdates.isOnHold = false;
+          questionUpdates.status = 'open';
+          questionUpdates.accumulatedHoldMs = prevAccum + segmentMs;
+          questionUpdates.holdAt = null;
+        }
+
         // Update question's userId (author) and append to authors_history
         await this.questionRepo.updateQuestion(
           questionId,
-          {
-            userId: new ObjectId(newExpertId),
-            authors_history: [...existingHistory, authorsHistoryEntry],
-          },
+          questionUpdates,
           session
         );
 
@@ -2494,6 +2508,24 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: now,
         },
       };
+
+      if (question.isOnHold) {
+        const prevAccum = question.accumulatedHoldMs ?? 0;
+        let segmentMs = 0;
+        if (question.holdAt) {
+          segmentMs = Math.max(0, now.getTime() - new Date(question.holdAt).getTime());
+        }
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {
+            isOnHold: false,
+            status: 'open',
+            accumulatedHoldMs: prevAccum + segmentMs,
+            holdAt: null,
+          },
+          session,
+        );
+      }
 
       const updated = await this.questionSubmissionRepo.updateById(
         questionSubmission._id!.toString(),
@@ -3355,6 +3387,33 @@ export class QuestionService extends BaseService implements IQuestionService {
           submissionsProcessed: 0,
         };
       }
+
+      await this._withTransaction(async session => {
+        for (const submission of delayedSubmissions as any[]) {
+          const question = submission.question;
+          if (question && question.isOnHold) {
+            const now = new Date();
+            const prevAccum = question.accumulatedHoldMs ?? 0;
+            let segmentMs = 0;
+            if (question.holdAt) {
+              segmentMs = Math.max(
+                0,
+                now.getTime() - new Date(question.holdAt).getTime(),
+              );
+            }
+            await this.questionRepo.updateQuestion(
+              question._id.toString(),
+              {
+                isOnHold: false,
+                status: 'open',
+                accumulatedHoldMs: prevAccum + segmentMs,
+                holdAt: null,
+              },
+              session,
+            );
+          }
+        }
+      });
 
       const assignments: Record<string, any[]> = {};
       const expertLoad: Record<string, number> = {};
@@ -4387,12 +4446,40 @@ export class QuestionService extends BaseService implements IQuestionService {
     const questionSubmissionDetails = await this.questionSubmissionRepo.findReallocationQuestionsByIds(questionIds);
 
     if (!questionSubmissionDetails.length) {
-    return {
+      return {
         message: `No valid questions found. Selected questions are either closed, in review, passed, draft, or already submitted.`,
         expertsInvolved: lessWorkloadExperts.length,
         submissionsProcessed: 0,
-      }
+      };
     }
+
+    await this._withTransaction(async session => {
+      for (const submission of questionSubmissionDetails as any[]) {
+        const question = submission.question;
+        if (question && question.isOnHold) {
+          const now = new Date();
+          const prevAccum = question.accumulatedHoldMs ?? 0;
+          let segmentMs = 0;
+          if (question.holdAt) {
+            segmentMs = Math.max(
+              0,
+              now.getTime() - new Date(question.holdAt).getTime(),
+            );
+          }
+          await this.questionRepo.updateQuestion(
+            question._id.toString(),
+            {
+              isOnHold: false,
+              status: 'open',
+              accumulatedHoldMs: prevAccum + segmentMs,
+              holdAt: null,
+            },
+            session,
+          );
+        }
+      }
+    });
+
     const assignments: Record<string, any[]> = {};
     const expertLoad: Record<string, number> = {};
 

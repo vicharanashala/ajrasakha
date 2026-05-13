@@ -470,7 +470,12 @@ export class UserService extends BaseService {
 
         await this.questionRepo.updateQuestion(
           questionId,
-          {isAutoAllocate: false},
+          {
+            status: 'hold',
+            isOnHold: true,
+            holdAt: new Date(),
+            isAutoAllocate: false,
+          },
           session,
         );
 

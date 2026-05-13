@@ -239,11 +239,11 @@ export const QuestionsFilters = ({
         setTimeout(() => {
           setIsReAllocateDisabled(false);
         }, 50000);
-      } else if (res.message) {
         // Any other message from backend
         toast.success(res.message);
         setIsReAllocateDisabled(false);
       }
+      refetch();
     } catch (error) {
       toast.error(
         "Failed to reAllocate question for those who has less workload",
@@ -285,11 +285,11 @@ export const QuestionsFilters = ({
         setTimeout(() => {
           setIsReAllocateDisabled(false);
         }, 50000);
-      } else if (res.message) {
         // Any other message from backend
         toast.success(res.message);
         setIsReAllocateDisabled(false);
       }
+      refetch();
     } catch (error) {
       toast.error(
         "Failed to reAllocate selected question",
