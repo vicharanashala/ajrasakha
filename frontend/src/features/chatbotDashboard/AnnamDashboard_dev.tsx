@@ -212,7 +212,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                       onDuplicateClick={() => setIsDuplicateModalOpen(true)}
                     />
                     {isDuplicateModalOpen && (
-                      <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} />
+                      <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} source={source} />
                     )}
                   </div>
                 </div>

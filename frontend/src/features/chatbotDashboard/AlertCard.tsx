@@ -15,7 +15,7 @@ interface AlertCardProps {
   alerts?: Alert[];
   inactiveUsersLast3Days?: number;
   onInactiveClick?: () => void;
-  duplicateQuestionsCount?: number;
+  duplicateQuestionsCount?: number | null;
   onDuplicateClick?: () => void;
 }
 
@@ -23,7 +23,7 @@ export function AlertCard({
   alerts: _alerts = [],
   inactiveUsersLast3Days = 0,
   onInactiveClick,
-  duplicateQuestionsCount = 0,
+  duplicateQuestionsCount,
   onDuplicateClick,
 }: AlertCardProps) {
   const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
@@ -120,7 +120,7 @@ export function AlertCard({
             </div>
           </div>
         </div>
-        <Badge label={duplicateQuestionsCount.toLocaleString()} variant="amber" />
+        <Badge label={duplicateQuestionsCount != null ? duplicateQuestionsCount.toLocaleString() : '—'} variant="amber" />
       </div>
 
       {/* Domain Spikes Row — always rendered, shows top spike or a placeholder */}

@@ -333,8 +333,8 @@ export class ChatbotController {
   @Get('/duplicate-questions')
   @HttpCode(200)
   @Authorized()
-  async getDuplicateQuestions() {
-    return this.chatbotService.getDuplicateQuestions();
+  async getDuplicateQuestions(@QueryParams() query: SourceQueryDto) {
+    return this.chatbotService.getDuplicateQuestions(query.source);
   }
 
   @OpenAPI({

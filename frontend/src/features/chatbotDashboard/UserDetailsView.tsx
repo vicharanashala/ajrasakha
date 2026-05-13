@@ -28,7 +28,7 @@ import { UserDemographicsSection } from "./components/UserDemographicsSection";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import UserGrowthChart from "./components/UserGrowthChart";
 import { AlertCard } from "./AlertCard";
-
+import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
 
 const VISIBLE_CROPS = 2;
 
@@ -115,6 +115,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard)
   useEffect(() => {
@@ -249,7 +250,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               kpiRow2={kpiRow2WithOverlay} 
             />
 
-            {/* User Growth Trend + Alerts & Notifications - Right after KPI cards */}
+            {/* User Growth Trend + Alerts & Notifications */}
             <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch">
               <UserGrowthChart />
               <AlertCard
@@ -261,15 +262,20 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                   threeDaysAgo.setHours(0, 0, 0, 0);
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
-                  setFilters(prev => ({ 
-                    ...prev, 
-                    startTime: threeDaysAgo, 
-                    endTime: today, 
-                    inactiveOnly: true 
+                  setFilters(prev => ({
+                    ...prev,
+                    startTime: threeDaysAgo,
+                    endTime: today,
+                    inactiveOnly: true,
                   }));
                   setCurrentPage(1);
                 }}
+                duplicateQuestionsCount={isDashboardLoading ? undefined : (dashboardData as any).duplicateQuestionsCount ?? 0}
+                onDuplicateClick={() => setIsDuplicateModalOpen(true)}
               />
+              {isDuplicateModalOpen && (
+                <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} source={source} />
+              )}
             </div>
 
             {/* Demographics */}

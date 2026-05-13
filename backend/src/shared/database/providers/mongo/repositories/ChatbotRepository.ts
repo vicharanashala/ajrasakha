@@ -271,9 +271,23 @@ export class ChatbotRepository implements IChatbotRepository {
       const activeCount = (activeUsersLast3Days as any[])[0]?.total ?? 0;
 
       await this.initReviewSystem();
-      const duplicateQuestionsCount = await this.QuestionCollection.countDocuments(
-        { similarityScore: { $exists: true } },
-      );
+      // Count only duplicates that have a matching message in the selected source DB —
+      // this matches exactly what getDuplicateQuestions returns in the modal.
+      const dupeWithMsgId = await this.QuestionCollection
+        .find(
+          { similarityScore: { $exists: true }, messageId: { $exists: true, $ne: null } },
+        )
+        .project<{ messageId: string }>({ messageId: 1 })
+        .toArray();
+
+      const dupeMsgIds = dupeWithMsgId.map(q => q.messageId).filter(Boolean) as string[];
+      let duplicateQuestionsCount = 0;
+      if (dupeMsgIds.length > 0) {
+        // this.messagesCollection is already set to the correct source DB by init(source) above
+        duplicateQuestionsCount = await this.messagesCollection.countDocuments(
+          { messageId: { $in: dupeMsgIds } },
+        );
+      }
 
       return {
         dau: totalUsers,
@@ -1615,11 +1629,11 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDuplicateQuestions(session?: ClientSession): Promise<DuplicateQuestionEntry[]> {
+  async getDuplicateQuestions(source = 'annam', session?: ClientSession): Promise<DuplicateQuestionEntry[]> {
     try {
-      // init('annam') sets this.messagesCollection → annam messages, this.users → annam users
+      // init(source) sets this.messagesCollection and this.users to the selected DB
       await this.initReviewSystem();
-      await this.init('annam');
+      await this.init(source);
 
       // 1. Fetch duplicate questions from the main review DB
       const dupeQuestions = await this.QuestionCollection
@@ -1708,7 +1722,7 @@ export class ChatbotRepository implements IChatbotRepository {
           questionId: q._id.toString(),
           question: q.question,
           referenceQuestion: q.referenceQuestion || q.originalQuestion || '',
-          similarityScore: q.similarityScore ?? 0,
+          similarityScore: Number(q.similarityScore) || 0,
           createdAt: q.createdAt,
           farmerName: user?.farmerProfile?.farmerName || user?.name || '—',
           email: user?.email || '—',
