@@ -190,6 +190,8 @@ export interface IQuestionService {
     hiddenQuestions?: string;
     duplicateQuestions?: string;
     isOnHold?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,
