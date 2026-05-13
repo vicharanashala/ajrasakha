@@ -55,7 +55,7 @@ export interface IChatbotService {
   getWeeklyAvgSessionDurationV2(weeks?: number, source?: string, userType?: string): Promise<WeeklySessionDurationEntry[]>;
   generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
   getGrowth(range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
-  getDuplicateQuestions(): Promise<DuplicateQuestionEntry[]>;
+  getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
 }
 

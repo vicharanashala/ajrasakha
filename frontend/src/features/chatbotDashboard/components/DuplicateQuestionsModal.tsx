@@ -10,6 +10,7 @@ import {
 
 interface DuplicateQuestionsModalProps {
   onClose: () => void;
+  source?: 'vicharanashala' | 'annam';
 }
 
 const DEFAULT_FILTERS: UserDetailsFilters = {
@@ -25,8 +26,8 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   inactiveOnly: false,
 };
 
-export function DuplicateQuestionsModal({ onClose }: DuplicateQuestionsModalProps) {
-  const { data, isLoading, isError } = useDuplicateQuestions(true);
+export function DuplicateQuestionsModal({ onClose, source = 'annam' }: DuplicateQuestionsModalProps) {
+  const { data, isLoading, isError } = useDuplicateQuestions(true, source);
   const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
 
   const filtered = useMemo(() => {
