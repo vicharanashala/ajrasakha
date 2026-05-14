@@ -47,7 +47,7 @@ export const RequestsPage = ({
     null,
   );
   const [limit, setLimit] = useState(12);
-  const [view, setView] = useState<"grid" | "table">("grid");
+  const [view, setView] = useState<"grid" | "table">("table");
   const { data: requestData, isLoading } = useGetAllRequests(
     currentPage,
     limit,
@@ -89,16 +89,16 @@ export const RequestsPage = ({
     }
   }, [status, reqType, sortOrder, currentPage]);
 
-    const handleBack = () => window.history.back();
+  const handleBack = () => window.history.back();
 
   return (
-    <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
+    <main className="mx-auto w-full px-6 py-6 md:px-10 md:py-8">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
         <section className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2 relative">
-              <button onClick={handleBack} className="shrink-0 text-muted-foreground hover:-translate-x-1 transition-transform duration-200">
-                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                </button>
+            <button onClick={handleBack} className="shrink-0 text-muted-foreground hover:-translate-x-1 transition-transform duration-200">
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
             <Sliders className="w-5 h-5 text-primary" />
             <h1 className="text-xl font-semibold text-pretty">Flags Reported</h1>
             {selectedRequestId && (
@@ -106,11 +106,14 @@ export const RequestsPage = ({
                 Highlighted
               </Badge>
             )}
-            <ViewDropdown view={view} setView={setView} />
-            <TopRightBadge label="new" left={0} />
+
           </div>
 
-          <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
+          <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto items-end">
+            <div className="relative">
+              <ViewDropdown view={view} setView={setView} />
+              <TopRightBadge label="new" left={0} />
+            </div>
             <div className="flex-1 min-w-[180px]">
               <label className="text-sm font-medium mb-1 flex items-center gap-1">
                 <Circle className="w-4 h-4 text-primary" />
