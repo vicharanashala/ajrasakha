@@ -14,6 +14,7 @@ import {
   User,
   Send,
   Loader2,
+  ArrowLeft,
 } from "lucide-react";
 import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
 import { DateRangeFilter } from "./DateRangeFilter";
@@ -30,6 +31,7 @@ import {
   DialogTitle,
 } from "./atoms/dialog";
 import { ScrollArea } from "./atoms/scroll-area";
+import type { IUser } from "@/types";
 
 const getStatusColor = (status: string) => {
   switch (status?.toLowerCase()) {
@@ -301,7 +303,7 @@ const ViewContextModal = ({
 export default function UserActivityHistory({
   selectedHistoryId,
 }: {
-  selectedHistoryId: string | null;
+  selectedHistoryId?: string | null;
 }) {
   const [dateRange, setDateRange] = useState({
     // start: new Date(),
@@ -333,8 +335,16 @@ export default function UserActivityHistory({
     setCurrentPage(1);
   };
 
+    const handleBack = () => window.history.back();
+
   return (
     <main className="min-h-screen   sm:p-8 ">
+      <div className="flex gap-2">
+       <button onClick={handleBack} className="shrink-0 text-muted-foreground hover:-translate-x-1 transition-transform duration-200">
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+      <h1 className="text-xl">History</h1>
+      </div>
       {selectedQuestionId && questionDetails ? (
         <>
           <QuestionDetails

@@ -205,14 +205,14 @@ export const PlaygroundPage = () => {
                   </TabsTrigger>
                 )}
 
-                {user && user.role !== "expert" && (
+                {/* {user && user.role !== "expert" && (
                   <TabsTrigger
                     value="request_queue"
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
                     <span>Request Queue</span>
                   </TabsTrigger>
-                )}
+                )} */}
                 <TabsTrigger
                   value="upload"
                   className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -257,7 +257,7 @@ export const PlaygroundPage = () => {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-
+{/* 
                 {user && (
                   <TabsTrigger
                     value="history"
@@ -267,7 +267,7 @@ export const PlaygroundPage = () => {
                       <span>History</span>
                     </HoverCard>
                   </TabsTrigger>
-                )}
+                )} */}
               </TabsList>
             </div>
 
@@ -386,7 +386,7 @@ export const PlaygroundPage = () => {
                   <UserManagement currentUser={user} />
                 </TabsContent>
               )}
-              {user && user.role !== "expert" && (
+              {/* {user && user.role !== "expert" && (
                 <TabsContent
                   value="request_queue"
                   className={cn(
@@ -399,7 +399,7 @@ export const PlaygroundPage = () => {
                   )}                >
                   <RequestsPage autoSelectId={selectedRequestId} />
                 </TabsContent>
-              )}
+              )} */}
               <TabsContent value="upload" className={cn(
                 "mt-0 border-0 md:px-8 outline-none",
                 "data-[state=active]:animate-in",
@@ -414,7 +414,7 @@ export const PlaygroundPage = () => {
                   </div>
                 </div>
               </TabsContent>
-              {user && (
+              {/* {user && (
                 <TabsContent
                   value="history"
                   className={cn(
@@ -430,7 +430,7 @@ export const PlaygroundPage = () => {
                     selectedHistoryId={selectedHistoryId}
                   />
                 </TabsContent>
-              )}
+              )} */}
             </div>
           </div>
         </div>

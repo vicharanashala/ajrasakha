@@ -2,7 +2,7 @@ import { useSearch, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 export const useSelectedQuestion = () => {
-  const { question, request, comment,history,expertId,questionType } = useSearch({ from: "/home/" });
+  const { question, request, comment,history,expertId,questionType } = useSearch({ strict: false });
   const navigate = useNavigate({ from: "/home" });
 
   const setSelectedQuestionId = useCallback(
