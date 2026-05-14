@@ -10,7 +10,7 @@ import {
 import type { RequestStatus } from "@/types";
 import { useGetAllRequests } from "@/hooks/api/request/useGetAllRequest";
 import { Pagination } from "./pagination";
-import { Sliders, Circle, Layers, Calendar } from "lucide-react";
+import { Sliders, Circle, Layers, Calendar, ArrowLeft } from "lucide-react";
 import { RequestCard } from "./RequestCard";
 import ViewDropdown from "@/features/questions/components/ViewDropdown";
 import { RequestListItem } from "./RequestListItem";
@@ -89,11 +89,16 @@ export const RequestsPage = ({
     }
   }, [status, reqType, sortOrder, currentPage]);
 
+    const handleBack = () => window.history.back();
+
   return (
     <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
         <section className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2 relative">
+              <button onClick={handleBack} className="shrink-0 text-muted-foreground hover:-translate-x-1 transition-transform duration-200">
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
             <Sliders className="w-5 h-5 text-primary" />
             <h1 className="text-xl font-semibold text-pretty">Request Queue</h1>
             {selectedRequestId && (

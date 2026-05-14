@@ -11,10 +11,22 @@ import {
 import { Button } from "./button";
 import { Avatar, AvatarImage, AvatarFallback } from "./avatar";
 import { useAuthStore } from "@/stores/auth-store";
-import { CheckCheck, LogOut, User } from "lucide-react";
+import { CheckCheck, LogOut, NotepadText, User } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Badge } from "./badge";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./alert-dialog";
 
 export const UserProfileActions = () => {
   const { user, logout, clearUser } = useAuthStore();
@@ -52,7 +64,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
         }
       });
     };
-    clearPlaygroundTabs()
+    clearPlaygroundTabs();
     onLogout();
   };
   if (!user) return;
@@ -71,6 +83,10 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
 
   const handleViewAudit = () => {
     navigate({ to: "/audit" });
+  };
+
+  const handleViewHistory = () => {
+    navigate({ to: "/history" });
   };
 
   return (
@@ -122,14 +138,14 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           Profile
         </DropdownMenuItem>
 
-        {(userWithRole?.role === "admin" || userWithRole?.role === "moderator") && (
+        {(userWithRole?.role === "admin" ||
+          userWithRole?.role === "moderator") && (
           <DropdownMenuItem
             onClick={handleViewAudit}
             className="text-foreground focus:text-foreground cursor-pointer mb-2 relative"
           >
             <CheckCheck className="mr-2 h-4 w-4" />
             View Audit
-
             <Badge
               variant="default"
               className="absolute -top-1 right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
@@ -139,14 +155,62 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           </DropdownMenuItem>
         )}
 
-
         <DropdownMenuItem
+          onClick={handleViewHistory}
+          className="text-foreground focus:text-foreground cursor-pointer mb-2 relative"
+        >
+          <NotepadText className="mr-2 h-4 w-4" />
+          History
+          <Badge
+            variant="default"
+            className="absolute -top-1 right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
+          >
+            New
+          </Badge>
+        </DropdownMenuItem>
+
+        {/* <DropdownMenuItem
           onClick={handleLogout}
           className="text-red-600 focus:text-red-600 cursor-pointer"
         >
           <LogOut className="mr-2 h-4 w-4" />
           Logout
-        </DropdownMenuItem>
+        </DropdownMenuItem> */}
+
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <DropdownMenuItem
+              onSelect={(e) => e.preventDefault()}
+              className="text-red-600 focus:text-red-600 cursor-pointer"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </DropdownMenuItem>
+          </AlertDialogTrigger>
+
+          <AlertDialogContent className="sm:max-w-md rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Are you sure you want to log out?
+              </AlertDialogTitle>
+
+              <AlertDialogDescription>
+                You will need to log in again to access your account.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+
+              <AlertDialogAction
+                onClick={handleLogout}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Logout
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DropdownMenuContent>
     </DropdownMenu>
   );
