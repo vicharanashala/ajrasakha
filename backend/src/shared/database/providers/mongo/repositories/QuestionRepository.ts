@@ -1774,6 +1774,24 @@ export class QuestionRepository implements IQuestionRepository {
         updatedAt: submission?.updatedAt,
       };
 
+      // 7.2 If question is closed with no submission queue, fetch the final answer directly
+      let closedFinalAnswer: any = null;
+      if (question.status === 'closed' && (submission?.queue?.length ?? 0) === 0) {
+        const fa = await this.AnswersCollection.findOne({
+          questionId: questionObjectId,
+          isFinalAnswer: true,
+        });
+        if (fa) {
+          closedFinalAnswer = {
+            ...fa,
+            _id: fa._id?.toString(),
+            questionId: fa.questionId?.toString(),
+            authorId: fa.authorId?.toString(),
+            approvedBy: fa.approvedBy?.toString() ?? null,
+          };
+        }
+      }
+
       // 8 Attach context
       const contextId = question.contextId || '';
       let context = '';
@@ -1847,6 +1865,7 @@ export class QuestionRepository implements IQuestionRepository {
         context,
         submission: populatedSubmission,
         referenceQuestionData,
+        closedFinalAnswer,
       };
 
       return result;
