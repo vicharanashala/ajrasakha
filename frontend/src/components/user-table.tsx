@@ -40,6 +40,7 @@ import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import { useToggleRole } from "@/hooks/api/user/useToggleRole";
 import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
 import { useVerifyUser } from "@/hooks/api/user/useVerifyUser";
+import { useToggleSTF } from "@/hooks/api/user/useToggleSTF";
 import AvatarComponent from "./avatar-component";
 
 const truncate = (s: string, n = 80) => {
@@ -250,6 +251,7 @@ const UserRow: React.FC<UserRowProps> = ({
   const isBlocked = u.isBlocked || false;
   const { mutate: updateActivity } = useUpdateActivity();
   const { mutate: verifyUser } = useVerifyUser();
+  const { mutate: toggleSTF } = useToggleSTF();
 
   //expert block/unblock modal state
   type ConfirmAction = "block" | "unblock" | "switch-role" | "verify" | null;
@@ -564,6 +566,21 @@ const UserRow: React.FC<UserRowProps> = ({
                   <div className="flex items-center gap-2">
                     <UserCheck className="w-4 h-4 text-green-600" />
                     Verify User
+                  </div>
+                </DropdownMenuItem>
+              )}
+              {isAdmin && (
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setIsOpen(false);
+                    const action = u.special_task_force ? 'remove' : 'assign';
+                    toggleSTF({ userId: u._id!, action });
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-indigo-500" />
+                    {u.special_task_force ? 'Remove STF' : 'Make STF'}
                   </div>
                 </DropdownMenuItem>
               )}

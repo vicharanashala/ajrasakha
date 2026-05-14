@@ -43,6 +43,13 @@ export class UserService {
     })
   }
 
+  async toggleSTF(userId: string, action: string): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/stf`, {
+      body: JSON.stringify({ userId, action }),
+      method: "PATCH",
+    });
+  }
+
   async updateUserStatus(userId: string, status: string) {
     return apiFetch<{message: string}>(`${this._baseUrl}/status`, {
       method: "PATCH",

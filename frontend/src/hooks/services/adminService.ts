@@ -37,10 +37,11 @@ export class AdminUserService {
     filter: string,
     role: string,
     isBlocked: string,
-    isVerified: string
+    isVerified: string,
+    isSTF: string
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number } | null> {
     return apiFetch(
-      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}&role=${role}&isBlocked=${isBlocked}&isVerified=${isVerified}`
+      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}&role=${role}&isBlocked=${isBlocked}&isVerified=${isVerified}&isSTF=${isSTF}`
     );
   }
 }
