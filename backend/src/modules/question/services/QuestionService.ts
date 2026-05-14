@@ -1072,6 +1072,11 @@ export class QuestionService extends BaseService implements IQuestionService {
               'answer_creation',
             );
           }
+          await this.questionRepo.updateQuestion(
+            savedQuestion._id.toString(),
+            { firstAllocationAt: new Date() },
+            session,
+          );
         } else {
 
           const submissionData: IQuestionSubmission = {
@@ -1717,6 +1722,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             entityId,
             user,
             type,
+          );
+          await this.questionRepo.updateQuestion(
+            questionId,
+            { firstAllocationAt: new Date() },
+            session,
           );
         }
 
