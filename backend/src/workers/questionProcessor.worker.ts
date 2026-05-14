@@ -313,6 +313,10 @@ const {checkDuplicateQuestionHelper} =
         console.log(`✅ Experts allocated for question ${qId}`);
       }
 
+      if (queue.length > 0) {
+        await questionRepo.updateQuestion(qId, { firstAllocationAt: new Date() });
+      }
+
       // 7. Create QuestionSubmission entry (always created; queue may be empty for drafts)
       const submissionData: IQuestionSubmission = {
         questionId: new ObjectId(qId),

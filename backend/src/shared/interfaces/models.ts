@@ -90,6 +90,7 @@ export interface IQuestion {
   referenceSource?: string;
   saved_to_draft?: boolean;
   pae_review?: boolean;
+  firstAllocationAt?: Date;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
