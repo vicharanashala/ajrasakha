@@ -586,7 +586,7 @@ export const QuestionsFilters = ({
   }, [isDragging]);
 
   const handleClick = ()=>{
-    navigate({ to: "/request-queue" });
+    navigate({ to: "/flags-reported" });
   }
 
   return (
