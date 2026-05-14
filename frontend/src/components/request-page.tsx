@@ -92,7 +92,7 @@ export const RequestsPage = ({
     const handleBack = () => window.history.back();
 
   return (
-    <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
+    <main className="mx-auto w-full px-6 py-6 md:px-10 md:py-8">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
         <section className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2 relative">
