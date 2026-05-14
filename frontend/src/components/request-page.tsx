@@ -47,7 +47,7 @@ export const RequestsPage = ({
     null,
   );
   const [limit, setLimit] = useState(12);
-  const [view, setView] = useState<"grid" | "table">("grid");
+  const [view, setView] = useState<"grid" | "table">("table");
   const { data: requestData, isLoading } = useGetAllRequests(
     currentPage,
     limit,
