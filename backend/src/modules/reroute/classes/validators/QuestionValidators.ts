@@ -159,7 +159,7 @@ class QuestionResponse {
   text!: string;
 
   @IsOptional()
-  @IsEnum(['low', 'medium', 'high'])
+  @IsEnum(['low', 'medium', 'high', 'critical'])
   priority?: IQuestionPriority;
 
   @IsString()

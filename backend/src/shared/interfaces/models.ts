@@ -35,7 +35,7 @@ export interface IUser {
   isVerified?: boolean
 }
 
-export type IQuestionPriority = 'low' | 'medium' | 'high';
+export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface IQuestionMetrics {
   mean_similarity: number;
@@ -90,6 +90,7 @@ export interface IQuestion {
   referenceSource?: string;
   saved_to_draft?: boolean;
   pae_review?: boolean;
+  firstAllocationAt?: Date;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

@@ -23,6 +23,7 @@ interface DashboardApiResponse {
     totalAppInstalls: number;
     inactiveUsersLast3Days: number;
     duplicateQuestionsCount: number;
+    lowFeedbackUsersCount: number;
   };
   dau: DailyEntry[];
   weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
@@ -116,8 +117,8 @@ function weeklyRange(entries: Array<{ week: string }>): string {
 
 // ── Transform raw API response into dashboard shape ─────────────────────────
 
-function transformApiResponse(result: DashboardApiResponse): DashboardDataType & { inactiveUsersLast3Days: number; duplicateQuestionsCount: number } {
-  const updatedData = { ...DASHBOARD_DATA } as DashboardDataType & { inactiveUsersLast3Days: number; duplicateQuestionsCount: number };
+function transformApiResponse(result: DashboardApiResponse): DashboardDataType & { inactiveUsersLast3Days: number; duplicateQuestionsCount: number; lowFeedbackUsersCount: number } {
+  const updatedData = { ...DASHBOARD_DATA } as DashboardDataType & { inactiveUsersLast3Days: number; duplicateQuestionsCount: number; lowFeedbackUsersCount: number };
   // Use the real month-over-month % from the backend
   const pct = result.kpi.dauLastMonthPct;
   const delta = pct > 0
@@ -188,6 +189,7 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
 
   updatedData.inactiveUsersLast3Days = result.kpi.inactiveUsersLast3Days ?? 0;
   updatedData.duplicateQuestionsCount = result.kpi.duplicateQuestionsCount ?? 0;
+  updatedData.lowFeedbackUsersCount = result.kpi.lowFeedbackUsersCount ?? 0;
 
   updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
     if (card.id === 'dau') {

@@ -179,7 +179,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       details.normalised_crop = normalised_crop;
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
-      const priorities = ['low', 'high', 'medium'];
+      const priorities = ['low', 'high', 'medium', 'critical'];
       const priority = priorities.includes(priorityRaw)
         ? (priorityRaw as IQuestionPriority)
         : 'medium';
@@ -900,10 +900,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         };
       }
 
-      const validPriorities = ['low', 'medium', 'high'];
+      const validPriorities = ['low', 'medium', 'high', 'critical'];
       priority = priority?.toLowerCase() as IQuestion['priority'];
       if (!validPriorities.includes(priority)) {
         priority = 'medium';
+      }
+      if(source === "AJRASAKHA" || source === "WHATSAPP"){
+        priority = 'high';
       }
 
       if (!question?.trim()) {
@@ -1072,6 +1075,11 @@ export class QuestionService extends BaseService implements IQuestionService {
               'answer_creation',
             );
           }
+          await this.questionRepo.updateQuestion(
+            savedQuestion._id.toString(),
+            { firstAllocationAt: new Date() },
+            session,
+          );
         } else {
 
           const submissionData: IQuestionSubmission = {
@@ -1460,6 +1468,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             user,
             type,
           );
+          await this.questionRepo.updateQuestion(
+            questionId,
+            { firstAllocationAt: new Date() },
+            session,
+          );
         }
       }
       if (
@@ -1717,6 +1730,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             entityId,
             user,
             type,
+          );
+          await this.questionRepo.updateQuestion(
+            questionId,
+            { firstAllocationAt: new Date() },
+            session,
           );
         }
 

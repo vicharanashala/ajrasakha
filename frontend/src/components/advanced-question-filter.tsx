@@ -56,6 +56,7 @@ import {
   Radio,
   CircleSlash,
   Copy,
+  AlertCircle,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
@@ -81,7 +82,7 @@ export type QuestionDateRangeFilter =
 
 export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 // New Type
-export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
+export type QuestionPriorityFilter = "all" | "high" | "low" | "medium" | "critical";
 export type QuestionTimeRange = {
   startDate: Date | undefined;
   endDate: Date | undefined;
@@ -559,8 +560,15 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
                     <SelectItem value="high">
                       <div className="flex items-center gap-2">
-                        <ArrowUp className="w-4 h-4 text-red-500" />
+                        <ArrowUp className="w-4 h-4 text-orange-500" />
                         <span>High</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="critical">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        <span>Critical</span>
                       </div>
                     </SelectItem>
                   </SelectContent>

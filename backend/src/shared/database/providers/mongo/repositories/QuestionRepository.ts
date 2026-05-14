@@ -927,11 +927,12 @@ export class QuestionRepository implements IQuestionRepository {
             priorityOrder: {
               $switch: {
                 branches: [
-                  { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                  { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                  { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                  { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                  { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                  { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                  { case: { $eq: ['$priority', 'low'] }, then: 4 },
                 ],
-                default: 4,
+                default: 5,
               },
             },
           },
@@ -1343,11 +1344,12 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                { case: { $eq: ['$priority', 'low'] }, then: 4 },
               ],
-              default: 4,
+              default: 5,
             },
           },
         },
@@ -1855,31 +1857,69 @@ export class QuestionRepository implements IQuestionRepository {
 
       const now = new Date();
       const twoHoursMs = 2 * 60 * 60 * 1000;
+      const oneAndHalfHoursMs = 1.5 * 60 * 60 * 1000;
 
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
       const result = await this.QuestionCollection.updateMany(
-        {
-          status: { $in: ['open'] },
-          isOnHold: { $ne: true },
-          $expr: {
-            $lte: [
+            {
+              status: { $in: ['open'] },
+              isOnHold: { $ne: true },
+            },
+            [
               {
-                $add: [
-                  '$createdAt',
-                  twoHoursMs,
-                  { $ifNull: ['$accumulatedHoldMs', 0] },
-                ],
+                $set: {
+                  priority: {
+                    $cond: [
+                      {
+                        $and: [
+                          {
+                            $lte: [
+                              {
+                                $add: [
+                                  '$createdAt',
+                                  oneAndHalfHoursMs,
+                                  { $ifNull: ['$accumulatedHoldMs', 0] },
+                                ],
+                              },
+                              now,
+                            ],
+                          },
+                          {
+                            $ne: ['$priority', 'critical'],
+                          },
+                        ],
+                      },
+                      'critical',
+                      '$priority',
+                    ],
+                  },
+
+                  status: {
+                    $cond: [
+                      {
+                        $lte: [
+                          {
+                            $add: [
+                              '$createdAt',
+                              twoHoursMs,
+                              { $ifNull: ['$accumulatedHoldMs', 0] },
+                            ],
+                          },
+                          now,
+                        ],
+                      },
+                      'delayed',
+                      '$status',
+                    ],
+                  },
+                },
               },
-              now,
             ],
-          },
-        },
-        { $set: { status: 'delayed' } },
-      );
+          );
 
       console.log(
-        ` Updated ${result.modifiedCount} questions to "delayed" status`,
+        ` Updated ${result.modifiedCount} questions to "delayed" status/ 'critical' priority.`,
       );
     } catch (error) {
       console.error('Error updating expired questions', error);
@@ -2115,11 +2155,12 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                { case: { $eq: ['$priority', 'low'] }, then: 4 },
               ],
-              default: 4,
+              default: 5,
             },
           },
         },
@@ -2615,20 +2656,25 @@ export class QuestionRepository implements IQuestionRepository {
       closedAt: { $exists: true }
     };
 
-    /**
-     * Filter by CLOSED DATE
-     * (Recommended for daily average response time)
-     */
     if (startDate && endDate) {
 
-      const startOfDay = new Date(
+     /* const startOfDay = new Date(
         `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`
       );
 
       const endOfDay = new Date(
         `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`
-      );
+      );*/
+    const startOfDay = new Date(startDate);
+    startOfDay.setHours(0, 0, 0, 0);
 
+    const endOfDay = new Date(endDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+      matchCondition.createdAt = {
+        $gte: startOfDay,
+        $lte: endOfDay
+      };
       matchCondition.closedAt = {
         $gte: startOfDay,
         $lte: endOfDay
@@ -2637,7 +2683,7 @@ export class QuestionRepository implements IQuestionRepository {
 
     /**
      * Optional Time Filter (IST)
-     * Filters based on CLOSED TIME
+     * Filters based on CREATED TIME
      */
     if (customStartTime && customEndTime) {
 
@@ -2660,7 +2706,7 @@ export class QuestionRepository implements IQuestionRepository {
                     $multiply: [
                       {
                         $hour: {
-                          date: '$closedAt',
+                          date: '$createdAt',
                           timezone: 'Asia/Kolkata'
                         }
                       },
@@ -2669,7 +2715,7 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                   {
                     $minute: {
-                      date: '$closedAt',
+                      date: '$createdAt',
                       timezone: 'Asia/Kolkata'
                     }
                   }
@@ -2686,7 +2732,7 @@ export class QuestionRepository implements IQuestionRepository {
                     $multiply: [
                       {
                         $hour: {
-                          date: '$closedAt',
+                          date: '$createdAt',
                           timezone: 'Asia/Kolkata'
                         }
                       },
@@ -2695,7 +2741,7 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                   {
                     $minute: {
-                      date: '$closedAt',
+                      date: '$createdAt',
                       timezone: 'Asia/Kolkata'
                     }
                   }
@@ -2773,6 +2819,7 @@ export class QuestionRepository implements IQuestionRepository {
         avgTime: number;
         totalTickets: number;
       }[];
+      
 
     const whatsapp =
       result.find(r => r.source === 'whatsapp')?.avgTime ?? 0;

@@ -278,6 +278,7 @@ export class ChatbotController {
   @Authorized()
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
     const inactiveOnly = query.inactiveOnly === 'true';
+    const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
       query.endDate,
@@ -289,6 +290,7 @@ export class ChatbotController {
       query.village,
       query.profileCompleted,
       inactiveOnly,
+      lowFeedbackOnly,
       query.userType,
       query.sortBy,
       query.sortOrder,

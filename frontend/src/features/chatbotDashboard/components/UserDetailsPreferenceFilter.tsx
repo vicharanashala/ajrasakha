@@ -32,6 +32,7 @@ import {
   UserCheck,
   RefreshCcw,
   UserX,
+  MessageSquareOff,
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ export interface UserDetailsFilters {
   endTime: Date | undefined;
   profileCompleted: "all" | "yes" | "no";
   inactiveOnly: boolean;
+  lowFeedbackOnly: boolean;
   userType: "all" | "internal" | "external";
 }
 
@@ -54,7 +56,7 @@ interface UserDetailsPreferenceFilterProps {
   filters: UserDetailsFilters;
   onApply: (filters: UserDetailsFilters) => void;
   /** Fields to hide from the filter dialog */
-  hideFields?: Array<'crop' | 'inactive' | 'profile' | 'userType'>;
+  hideFields?: Array<'crop' | 'inactive' | 'profile' | 'userType' | 'lowFeedback'>;
 }
 
 function toDateInputValue(d: Date | undefined): string {
@@ -156,6 +158,7 @@ export function UserDetailsPreferenceFilter({
       endTime: undefined,
       profileCompleted: "all",
       inactiveOnly: false,
+      lowFeedbackOnly: false,
       userType: "all",
     });
   };
@@ -170,6 +173,7 @@ export function UserDetailsPreferenceFilter({
     (filters.startTime ? 1 : 0) +
     (filters.profileCompleted !== "all" ? 1 : 0) +
     (filters.inactiveOnly ? 1 : 0) +
+    (filters.lowFeedbackOnly ? 1 : 0) +
     (filters.userType !== "all" ? 1 : 0);
 
   return (
@@ -371,6 +375,53 @@ export function UserDetailsPreferenceFilter({
                     className={cn(
                       "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
                       draft.inactiveOnly ? "translate-x-[20px]" : "translate-x-[2px]"
+                    )}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Low Feedback Users */}
+          {!hideFields.includes('lowFeedback') && (
+            <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-md bg-orange-500/10 text-orange-500">
+                    <MessageSquareOff className="h-3.5 w-3.5" />
+                  </span>
+                  Low Feedback Users
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px] text-xs">
+                      Shows users who have never given any feedback (no thumbs up/down on any response)
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+                <label
+                  htmlFor="low-feedback-only"
+                  className={cn(
+                    "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+                    draft.lowFeedbackOnly
+                      ? "bg-orange-500"
+                      : "bg-gray-300 dark:bg-gray-600"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    id="low-feedback-only"
+                    className="sr-only"
+                    checked={draft.lowFeedbackOnly}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, lowFeedbackOnly: e.target.checked }))
+                    }
+                  />
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
+                      draft.lowFeedbackOnly ? "translate-x-[20px]" : "translate-x-[2px]"
                     )}
                   />
                 </label>
