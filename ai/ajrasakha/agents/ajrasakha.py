@@ -14,7 +14,7 @@ from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.prebuilt import ToolNode
 from langgraph.store.base import BaseStore
 from pydantic import BaseModel
 from typing_extensions import TypedDict
@@ -110,6 +110,65 @@ _LLM_FALLBACK_MSG = (
     "I'm sorry, my connection is not working properly right now. "
     "Please try asking again after some time. 🙏"
 )
+
+# Mandatory testing-version disclaimer appended to every canned reply we emit
+# deterministically (i.e. without going through the LLM).
+WARNING_TEXT = """⚠️ *Important Notice (Testing)* ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation. 
+Advisories are experimental and currently cover major crops in selected states. 
+Weather data is sourced from IMD.
+Market data from eNAM, Agmarknet, and State APMCs.
+Soil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.
+Government schemes from https://www.myscheme.gov.in/. 
+Other agricultural information and advisories are expert-verified by Annam.ai. 
+
+Users should independently validate recommendations before acting."""
+
+# Canned reply produced when the `gdb` sub-agent finds nothing relevant. We
+# short-circuit the LLM in this case so the farmer gets a clean, predictable
+# acknowledgement instead of a hallucinated answer.
+EMPTY_GDB_REPLY = (
+    "Your question has been sent to Agri Experts at annam.ai, and they will "
+    "review it within 2 hours. Please ask the same question after 2 hours for "
+    "a detailed answer from our experts."
+    f"\n\n{WARNING_TEXT}"
+)
+
+# Sentinel returned by the gdb sub-agent (see GDB_SYSTEM_PROMPT rule 4) when
+# every retrieval path comes back empty.
+_GDB_EMPTY_SENTINEL = "NO_RELEVANT_CONTENT"
+
+# Prompt used by the relevance_check_node to verify that the final answer
+# actually addresses the farmer's question. Kept deliberately strict so we
+# only flag obvious mismatches (e.g. farmer asks about wheat pests but the
+# answer talks only about today's weather forecast).
+RELEVANCE_CHECK_PROMPT = """
+You are a quality-control reviewer for AjraSakha, a farmer assistant.
+
+Given a farmer's question and the assistant's proposed final answer, decide
+whether the answer is relevant to what the farmer asked.
+
+Mark as RELEVANT (is_relevant=true) when:
+- The answer directly addresses the farmer's question (even if partial).
+- The answer correctly says it cannot help, or asks the farmer for a
+  clarifying detail needed to answer.
+- The farmer asked a weather/market/soil/scheme/crop question and the
+  answer provides matching information for that topic.
+
+Mark as NOT RELEVANT (is_relevant=false) ONLY when:
+- The answer is about a clearly different topic than the question
+  (e.g. farmer asks about pest control but answer only gives weather forecast).
+- The answer is generic filler that does not address the question at all.
+
+When in doubt, prefer is_relevant=true. Be strict only on obvious mismatches.
+""".strip()
+
+
+class _RelevanceCheck(BaseModel):
+    is_relevant: bool
+    reasoning: str
+
 
 logger = logging.getLogger(__name__)
 
@@ -371,19 +430,7 @@ async def exact_search_node(state: AjraSakhaState, config: RunnableConfig) -> di
                                 else:
                                     content += f"- {src_name}\n"
                         
-                        warning_text = """\n⚠️ *Important Notice (Testing)* ⚠️
-
-This AjraSakha application is under development and intended only for testing and validation. 
-Advisories are experimental and currently cover major crops in selected states. 
-Weather data is sourced from IMD.
-Market data from eNAM, Agmarknet, and State APMCs.
-Soil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.
-Government schemes from https://www.myscheme.gov.in/. 
-Other agricultural information and advisories are expert-verified by Annam.ai. 
-
-Users should independently validate recommendations before acting."""
-
-                        content += warning_text
+                        content += f"\n{WARNING_TEXT}"
                         
                         return {"messages": [AIMessage(content=content)]}
         except Exception as e:
@@ -402,10 +449,196 @@ def route_after_exact_search(state: AjraSakhaState) -> str:
     return "ajrasakha"
 
 
+def _tool_message_text(message: ToolMessage) -> str:
+    """Normalise ToolMessage.content (which may be a string or a list of
+    content blocks) into a single trimmed string for sentinel matching."""
+    content = message.content
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return " ".join(parts).strip()
+    return str(content).strip()
+
+
+def _is_empty_gdb_tool_content(message: ToolMessage) -> bool:
+    """Return True when the gdb sub-agent reported no relevant content.
+
+    We treat the explicit ``NO_RELEVANT_CONTENT`` sentinel as well as truly
+    empty payloads (``""``, ``"[]"``, ``"{}"``) as "empty". Error strings
+    (e.g. ``"⚠️ The database service is temporarily unavailable …"``) are
+    deliberately NOT matched so the LLM can still handle them gracefully.
+    """
+    text = _tool_message_text(message)
+    if not text:
+        return True
+    if text in {"[]", "{}"}:
+        return True
+    return text.upper() == _GDB_EMPTY_SENTINEL
+
+
+def route_after_tools(state: AjraSakhaState) -> str:
+    """If the most recent tool batch shows that `gdb` returned nothing useful,
+    short-circuit straight to the canned acknowledgement instead of looping
+    back to the LLM (which would otherwise hallucinate or run further
+    fallbacks). All other cases continue with the regular flow."""
+    messages = state.get("messages") or []
+    for msg in reversed(messages):
+        # Stop scanning once we hit the AIMessage that issued the current
+        # tool_calls — anything before that belongs to an older turn.
+        if isinstance(msg, AIMessage):
+            break
+        if isinstance(msg, ToolMessage) and getattr(msg, "name", None) == "gdb":
+            if _is_empty_gdb_tool_content(msg):
+                logger.info(
+                    "gdb returned empty/NO_RELEVANT_CONTENT — short-circuiting "
+                    "to canned reviewer-upload acknowledgement"
+                )
+                return "empty_gdb_reply"
+    return "ajrasakha"
+
+
+def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
+    """Deterministic terminal node: emits the reviewer-upload acknowledgement
+    plus the mandatory testing-version disclaimer when gdb has no match."""
+    return {
+        "messages": [AIMessage(content=EMPTY_GDB_REPLY)],
+        "location": state.get("location"),
+    }
+
+
+def _message_to_text(message: BaseMessage) -> str:
+    """Flatten a message's content (string or list of blocks) into plain text."""
+    content = message.content
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return " ".join(parts).strip()
+    return str(content).strip()
+
+
+def route_after_ajrasakha(state: AjraSakhaState) -> str:
+    """Replacement for ``tools_condition``: if the main LLM still has tool_calls
+    pending, run the tools; otherwise hand the final answer to the relevance
+    checker before returning to the farmer."""
+    messages = state.get("messages") or []
+    if not messages:
+        return "relevance_check"
+    last_message = messages[-1]
+    if isinstance(last_message, AIMessage) and getattr(last_message, "tool_calls", None):
+        return "tools"
+    return "relevance_check"
+
+
+async def relevance_check_node(
+    state: AjraSakhaState,
+    config: RunnableConfig,
+) -> dict:
+    """Verify the assistant's final answer is on-topic for the farmer's question.
+
+    If it isn't (e.g. farmer asked about pest control but the answer only
+    discusses today's weather), we replace it with the canned reviewer-upload
+    acknowledgement so the farmer doesn't receive an irrelevant response.
+    """
+    messages = state.get("messages") or []
+    if not messages:
+        return {}
+
+    final_answer_msg: AIMessage | None = None
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
+            final_answer_msg = msg
+            break
+
+    last_user_msg: HumanMessage | None = None
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            last_user_msg = msg
+            break
+
+    if final_answer_msg is None or last_user_msg is None:
+        return {}
+
+    question_text = _message_to_text(last_user_msg)
+    answer_text = _message_to_text(final_answer_msg)
+
+    if not question_text or not answer_text:
+        return {}
+
+    # Never second-guess the canned acknowledgement itself — it's already the
+    # safe fallback we'd otherwise route to.
+    if answer_text.startswith(EMPTY_GDB_REPLY[:80]):
+        return {}
+
+    try:
+        checker = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(_RelevanceCheck)
+        result = await checker.ainvoke(
+            [
+                SystemMessage(content=RELEVANCE_CHECK_PROMPT),
+                HumanMessage(
+                    content=(
+                        f"Farmer's question:\n{question_text}\n\n"
+                        f"Proposed answer:\n{answer_text}"
+                    )
+                ),
+            ],
+            config=config,
+        )
+    except (asyncio.CancelledError, TimeoutError, APITimeoutError,
+            APIConnectionError, APIStatusError) as exc:
+        logger.warning(
+            "Relevance check failed (%s: %s) — passing original answer through",
+            type(exc).__name__, exc,
+        )
+        return {}
+    except Exception as exc:
+        logger.warning(
+            "Relevance check raised unexpectedly (%s: %s) — passing original answer through",
+            type(exc).__name__, exc,
+        )
+        return {}
+
+    if result.is_relevant:
+        return {}
+
+    logger.info(
+        "Final answer flagged as not relevant (reason: %s) — replacing with "
+        "canned reviewer-upload acknowledgement",
+        result.reasoning,
+    )
+    # Reuse the original message id so the `add_messages` reducer overwrites
+    # the irrelevant answer instead of appending a second AIMessage.
+    return {
+        "messages": [AIMessage(content=EMPTY_GDB_REPLY, id=final_answer_msg.id)],
+        "location": state.get("location"),
+    }
+
+
 builder = StateGraph(AjraSakhaState)
 builder.add_node("exact_search", exact_search_node)
 builder.add_node("ajrasakha", ajrasakha_node)
 builder.add_node("tools", tools_node)
+builder.add_node("empty_gdb_reply", empty_gdb_reply_node)
+builder.add_node("relevance_check", relevance_check_node)
 
 builder.add_edge(START, "exact_search")
 builder.add_conditional_edges(
@@ -413,7 +646,17 @@ builder.add_conditional_edges(
     route_after_exact_search,
     {END: END, "ajrasakha": "ajrasakha"}
 )
-builder.add_conditional_edges("ajrasakha", tools_condition)
-builder.add_edge("tools", "ajrasakha")
+builder.add_conditional_edges(
+    "ajrasakha",
+    route_after_ajrasakha,
+    {"tools": "tools", "relevance_check": "relevance_check"},
+)
+builder.add_conditional_edges(
+    "tools",
+    route_after_tools,
+    {"ajrasakha": "ajrasakha", "empty_gdb_reply": "empty_gdb_reply"},
+)
+builder.add_edge("empty_gdb_reply", END)
+builder.add_edge("relevance_check", END)
 
 graph = builder.compile()
