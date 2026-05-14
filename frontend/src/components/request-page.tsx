@@ -100,7 +100,7 @@ export const RequestsPage = ({
                   <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
             <Sliders className="w-5 h-5 text-primary" />
-            <h1 className="text-xl font-semibold text-pretty">Request Queue</h1>
+            <h1 className="text-xl font-semibold text-pretty">Flags Reported</h1>
             {selectedRequestId && (
               <Badge variant="secondary" className="ml-2">
                 Highlighted
