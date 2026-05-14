@@ -174,6 +174,11 @@ export class GetQuestionsAnalyticsQuery {
   @JSONSchema({example: 'question'})
   @IsEnum(['question', 'answer'])
   type!: 'question' | 'answer';
+
+  @JSONSchema({example: 'open', description: 'Filter by question status'})
+  @IsOptional()
+  @IsString()
+  status?: string;
 }
 
 export class UserRoleOverview {
@@ -342,6 +347,9 @@ export class AnalyticsItem {
   @JSONSchema({description: 'Count for this item', example: 245})
   @IsInt()
   count!: number;
+
+  @JSONSchema({description: 'Breakdown of items grouped into Others (only present for the Others entry)', example: [{name: 'Sugarcane', count: 189}]})
+  otherItems?: { name: string; count: number }[];
 }
 
 export class Analytics {
