@@ -132,8 +132,11 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
     }
 
     const colorClass =
+      q.priority === "critical"
+        ? "bg-red-600/10 text-red-700 border-red-700/30 ring-1 ring-red-700/10 dark:bg-red-900/30 dark:text-red-300 dark:border-red-900 dark:ring-red-500/30"
+         :
       q.priority === "high"
-        ? "bg-red-50 text-red-600 border-red-100 ring-1 ring-red-500/10 dark:bg-red-900/30 dark:text-red-300 dark:border-red-900 dark:ring-red-500/30"
+        ? "bg-red-50 text-orange-600 border-orange-100 ring-1 ring-orange-500/10 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-900 dark:ring-orange-500/30"
         : q.priority === "medium"
           ? "bg-yellow-50 text-yellow-600 border-yellow-100 ring-1 ring-yellow-500/10 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-900 dark:ring-yellow-500/30"
           : "bg-green-50 text-green-600 border-green-100 ring-1 ring-green-500/10 dark:bg-green-900/30 dark:text-green-300 dark:border-green-900 dark:ring-green-500/30";

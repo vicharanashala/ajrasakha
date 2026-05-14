@@ -317,7 +317,7 @@ class QuestionResponse {
   text!: string;
 
   @IsOptional()
-  @IsEnum(['low', 'medium', 'high'])
+  @IsEnum(['low', 'medium', 'high', 'critical'])
   priority?: IQuestionPriority;
 
   @IsString()
@@ -377,8 +377,8 @@ class AddQuestionBodyDto {
   question!: string;
 
   @IsOptional()
-  @IsEnum(['low', 'medium', 'high'])
-  priority!: 'low' | 'medium' | 'high';
+  @IsEnum(['low', 'medium', 'high', 'critical'])
+  priority!: 'low' | 'medium' | 'high' | 'critical';
 
   @IsOptional()
   @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP', 'OUTREACH'])
