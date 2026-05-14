@@ -586,7 +586,7 @@ export const QuestionsFilters = ({
   }, [isDragging]);
 
   const handleClick = ()=>{
-    navigate({ to: "/request-queue" });
+    navigate({ to: "/flags-reported" });
   }
 
   return (
@@ -1175,7 +1175,7 @@ export const QuestionsFilters = ({
                 >
                   <TopRightBadge label="new" left={0} />
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-500">
+                    <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-500">
                       <AlertTriangle size={20} />
                     </div>
                     <div className="text-left">
