@@ -350,8 +350,10 @@ const currentStyle =
             {question?.priority && (
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                  question.priority === "high"
-                    ? "bg-red-500/10 text-red-600 border-red-500/30"
+                  question.priority === "critical"
+                    ? "bg-red-600/10 text-red-700 border-red-700/30 text-[12px]"
+                    : question.priority === "high"
+                    ? "bg-orange-500/10 text-orange-600 border-orange-500/30"
                     : question.priority === "medium"
                     ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
                     : "bg-green-500/10 text-green-600 border-green-500/30"

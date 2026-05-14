@@ -131,9 +131,13 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   // }, [q.priority]);
 
   const PRIORITY_CONFIG = {
+    critical: {
+      label: "Crit",
+      className: "bg-red-600/10 text-red-700 border-red-700/30",
+    },
     high: {
       label: "High",
-      className: "bg-red-500/10 text-red-600 border-red-500/30",
+      className: "bg-orange-500/10 text-orange-600 border-orange-500/30",
     },
     medium: {
       label: "Med",

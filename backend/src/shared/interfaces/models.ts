@@ -35,7 +35,7 @@ export interface IUser {
   isVerified?: boolean
 }
 
-export type IQuestionPriority = 'low' | 'medium' | 'high';
+export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface IQuestionMetrics {
   mean_similarity: number;
