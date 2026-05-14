@@ -4,6 +4,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { sendPaeAssignmentEmail } from '#root/utils/buildPaeAssignmentEmail.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,6 +62,12 @@ export const startBackgroundProcessing = (
     errors: [] as any[],
   };
 
+  const paeAggregate = {
+    email: null as string | null,
+    firstName: null as string | null,
+    questionTexts: [] as string[],
+  };
+
   // Determine optimal concurrency
   const cpuCount = os.cpus().length;
   const MAX_WORKERS = Math.min(8, Math.max(2, Math.floor(cpuCount / 2))); // Cap at 8 
@@ -107,6 +114,11 @@ export const startBackgroundProcessing = (
       }
       if (msg?.error) {
         aggregateResults.errors.push(msg.error);
+      }
+      if (msg?.paeAssignedQuestionTexts?.length) {
+        paeAggregate.questionTexts.push(...msg.paeAssignedQuestionTexts);
+        if (!paeAggregate.email) paeAggregate.email = msg.paeEmail;
+        if (!paeAggregate.firstName) paeAggregate.firstName = msg.paeFirstName;
       }
     });
 
@@ -158,6 +170,14 @@ export const startBackgroundProcessing = (
         auditService.createAuditTrail(auditPayload).catch(err => {
           console.error('Failed to create audit trail for bulk upload:', err);
         });
+
+        if (paeAggregate.email && paeAggregate.questionTexts.length > 0) {
+          sendPaeAssignmentEmail(
+            paeAggregate.email,
+            paeAggregate.firstName ?? '',
+            paeAggregate.questionTexts,
+          ).catch(err => console.error('Failed to send PAE assignment email:', err));
+        }
       }
     });
   });
