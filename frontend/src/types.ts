@@ -149,7 +149,7 @@ export interface HistoryItem {
 
 }
 
-export type QuestionPriority = "low" | "medium" | "high";
+export type QuestionPriority = "low" | "medium" | "high" | "critical";
 export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 
 export interface IQuestion {
@@ -704,7 +704,7 @@ export interface IRerouteHistoryResponse {
 // API returns an array
 // ---------------------
 export type RerouteHistoryApiResponse = IRerouteHistoryResponse[];
-type Priority = "high" | "medium" | "low";
+type Priority = "critical" | "high" | "medium" | "low";
 
 export interface ReroutedQuestionItem {
   id: string;

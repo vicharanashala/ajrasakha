@@ -927,11 +927,12 @@ export class QuestionRepository implements IQuestionRepository {
             priorityOrder: {
               $switch: {
                 branches: [
-                  { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                  { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                  { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                  { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                  { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                  { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                  { case: { $eq: ['$priority', 'low'] }, then: 4 },
                 ],
-                default: 4,
+                default: 5,
               },
             },
           },
@@ -1343,11 +1344,12 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                { case: { $eq: ['$priority', 'low'] }, then: 4 },
               ],
-              default: 4,
+              default: 5,
             },
           },
         },
@@ -1855,31 +1857,69 @@ export class QuestionRepository implements IQuestionRepository {
 
       const now = new Date();
       const twoHoursMs = 2 * 60 * 60 * 1000;
+      const oneAndHalfHoursMs = 1.5 * 60 * 60 * 1000;
 
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
       const result = await this.QuestionCollection.updateMany(
-        {
-          status: { $in: ['open'] },
-          isOnHold: { $ne: true },
-          $expr: {
-            $lte: [
+            {
+              status: { $in: ['open'] },
+              isOnHold: { $ne: true },
+            },
+            [
               {
-                $add: [
-                  '$createdAt',
-                  twoHoursMs,
-                  { $ifNull: ['$accumulatedHoldMs', 0] },
-                ],
+                $set: {
+                  priority: {
+                    $cond: [
+                      {
+                        $and: [
+                          {
+                            $lte: [
+                              {
+                                $add: [
+                                  '$createdAt',
+                                  oneAndHalfHoursMs,
+                                  { $ifNull: ['$accumulatedHoldMs', 0] },
+                                ],
+                              },
+                              now,
+                            ],
+                          },
+                          {
+                            $ne: ['$priority', 'critical'],
+                          },
+                        ],
+                      },
+                      'critical',
+                      '$priority',
+                    ],
+                  },
+
+                  status: {
+                    $cond: [
+                      {
+                        $lte: [
+                          {
+                            $add: [
+                              '$createdAt',
+                              twoHoursMs,
+                              { $ifNull: ['$accumulatedHoldMs', 0] },
+                            ],
+                          },
+                          now,
+                        ],
+                      },
+                      'delayed',
+                      '$status',
+                    ],
+                  },
+                },
               },
-              now,
             ],
-          },
-        },
-        { $set: { status: 'delayed' } },
-      );
+          );
 
       console.log(
-        ` Updated ${result.modifiedCount} questions to "delayed" status`,
+        ` Updated ${result.modifiedCount} questions to "delayed" status/ 'critical' priority.`,
       );
     } catch (error) {
       console.error('Error updating expired questions', error);
@@ -2115,11 +2155,12 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                { case: { $eq: ['$priority', 'low'] }, then: 4 },
               ],
-              default: 4,
+              default: 5,
             },
           },
         },

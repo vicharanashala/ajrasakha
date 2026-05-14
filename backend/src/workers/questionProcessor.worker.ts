@@ -149,7 +149,7 @@ const {checkDuplicateQuestionHelper} =
       };
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
-      const priorities = ['low', 'high', 'medium'];
+      const priorities = ['low', 'high', 'medium', 'critical'];
       const priority = priorities.includes(priorityRaw)
         ? (priorityRaw as any)
         : 'medium';
