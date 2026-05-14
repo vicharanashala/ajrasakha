@@ -493,6 +493,19 @@ export interface IQuestionFullData {
     name: string;
     email: string;
   }
+  closedFinalAnswer?: {
+    _id: string;
+    questionId: string;
+    authorId: string;
+    approvedBy: string | null;
+    answer: string;
+    isFinalAnswer: boolean;
+    sources: SourceItem[];
+    answerIteration: number;
+    approvalCount: number;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
 }
 
 export interface QuestionFullDataResponse {

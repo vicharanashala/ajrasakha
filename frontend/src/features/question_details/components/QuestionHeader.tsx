@@ -84,11 +84,17 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     return match ? match[1].trim() : null;
   })();
 
-  // For compare mode: last history entry that has an answer (this duplicate question's submitted answer)
+  const finalAnswer = question.closedFinalAnswer;
+
+  // Fallback: last history entry with an answer (used when closedFinalAnswer is absent)
   const lastHistoryWithAnswer = [...(question?.submission?.history || [])]
     .sort((a, b) => new Date(a.updatedAt ?? 0).getTime() - new Date(b.updatedAt ?? 0).getTime())
     .reverse()
     .find((h) => h.answer !== null);
+
+  // Use closedFinalAnswer when present; fall back to submission history
+  const currentAnswerText = finalAnswer?.answer ?? lastHistoryWithAnswer?.answer?.answer ?? "";
+  const currentAnswerSources = finalAnswer?.sources ?? lastHistoryWithAnswer?.answer?.sources ?? [];
 
   const sortedHistory = [...(question?.submission?.history || [])].sort(
     (a, b) =>
@@ -328,7 +334,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
               <DialogTitle className="text-red-500">
                 Duplicate Reference Question
               </DialogTitle>
-              {question.status === "closed" && (referenceAnswerText || lastHistoryWithAnswer?.answer) && (
+              {question.status === "closed" && (referenceAnswerText || currentAnswerText) && (
                 <Button
                   size="sm"
                   variant={compareMode ? "default" : "outline"}
@@ -412,7 +418,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
 
               {/* Compare Answer: 2-column side-by-side */}
               {compareMode ? (() => {
-                const currentText = lastHistoryWithAnswer?.answer?.answer ?? "";
+                const currentText = currentAnswerText;
                 const previousText = referenceAnswerText ?? "";
                 const diff = diffWords(previousText, currentText);
                 return (
@@ -443,9 +449,9 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                           </div>
                           <div className="pt-2 border-t mt-auto">
                             <p className="text-xs font-medium text-muted-foreground mb-1">Sources</p>
-                            {lastHistoryWithAnswer?.answer?.sources && lastHistoryWithAnswer.answer.sources.length > 0 ? (
+                            {currentAnswerSources.length > 0 ? (
                               <ul className="space-y-2">
-                                {lastHistoryWithAnswer.answer.sources.map((s, i) => (
+                                {currentAnswerSources.map((s, i) => (
                                   <li key={i} className="text-xs flex flex-col gap-0.5">
                                     <span className="font-medium text-foreground">
                                       {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
