@@ -30,8 +30,8 @@ export const ClosedFinalAnswerModal = ({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="w-[95vw] sm:max-w-2xl md:max-w-3xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] sm:max-w-2xl md:max-w-3xl h-[85vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
             <div className="p-2 rounded-lg bg-green-500/10 flex items-center justify-center">
               <FileText className="w-5 h-5 text-green-600" />
@@ -40,7 +40,7 @@ export const ClosedFinalAnswerModal = ({
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-2 mt-2">
+        <ScrollArea className="flex-1 overflow-hidden mt-2 pr-2">
           <div className="space-y-6">
             {/* Answer */}
             <div className="rounded-lg border border-border bg-muted/30 p-4">
