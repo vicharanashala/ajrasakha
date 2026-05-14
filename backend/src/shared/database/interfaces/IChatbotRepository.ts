@@ -13,6 +13,7 @@ export interface KpiSummary {
   totalAppInstalls: number; // It will the count the user whose profile is completed or not.
   inactiveUsersLast3Days: number; // users with zero messages in the last 3 days
   duplicateQuestionsCount: number; // questions with a similarityScore field
+  lowFeedbackUsersCount: number; // users who have never given any feedback (no feedback object in messages)
 }
 
 export interface DuplicateQuestionEntry {
@@ -236,6 +237,7 @@ export interface IChatbotRepository {
     userType?: string,
     sortBy?: string,
     sortOrder?: string,
+    lowFeedbackOnly?: boolean,
   ): Promise<PaginatedUserDetails>;
 
   /** Aggregate conversations from the messages collection for Excel export. */

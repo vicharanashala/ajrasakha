@@ -69,6 +69,19 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   const clearSegment = () => setActiveSegment(null);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
+  // Navigate to User Details with low-feedback-only filter pre-applied
+  const handleLowFeedbackUsersClick = useCallback(() => {
+    setUserDetailsInitialFilters({
+      lowFeedbackOnly: true,
+      inactiveOnly: false,
+      search: "",
+      crop: "",
+      village: "",
+      profileCompleted: "all",
+    });
+    setActiveView("user-details");
+  }, []);
+
   // Navigate to User Details with inactive-only filter pre-applied
   const handleInactiveUsersClick = useCallback(() => {
     // Align to midnight to match the backend KPI calculation in getKpiSummary
@@ -210,6 +223,8 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                       onInactiveClick={handleInactiveUsersClick}
                       duplicateQuestionsCount={(data as any).duplicateQuestionsCount ?? 0}
                       onDuplicateClick={() => setIsDuplicateModalOpen(true)}
+                      lowFeedbackUsersCount={(data as any).lowFeedbackUsersCount ?? null}
+                      onLowFeedbackClick={handleLowFeedbackUsersClick}
                     />
                     {isDuplicateModalOpen && (
                       <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} source={source} />
