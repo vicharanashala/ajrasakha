@@ -184,7 +184,7 @@ export const PlaygroundPage = () => {
                     value="questions"
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
-                    <span>Questions</span>
+                    <span>My Queue</span>
                   </TabsTrigger>
                 )}
                 <TabsTrigger
