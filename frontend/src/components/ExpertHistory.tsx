@@ -339,11 +339,23 @@ export default function UserActivityHistory({
 
   return (
     <main className="min-h-screen   sm:p-8 ">
-      <div className="flex gap-2">
-       <button onClick={handleBack} className="shrink-0 text-muted-foreground hover:-translate-x-1 transition-transform duration-200">
+      <div className="flex justify-between items-center">
+      <div className="flex gap-2 items-center">
+         <button onClick={handleBack} className="shrink-0 text-muted-foreground hover:-translate-x-1 transition-transform duration-200">
                   <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
       <h1 className="text-xl">History</h1>
+      </div>
+
+              <div className="mb-6 w-64">
+          <DateRangeFilter
+            advanceFilter={{
+              startTime: dateRange.start,
+              endTime: dateRange.end,
+            }}
+            handleDialogChange={handleDialogChange}
+          />
+        </div>
       </div>
       {selectedQuestionId && questionDetails ? (
         <>
@@ -360,15 +372,6 @@ export default function UserActivityHistory({
       ):
       (
       <div className=" mx-auto px-6">
-        <div className="mb-6 w-64">
-          <DateRangeFilter
-            advanceFilter={{
-              startTime: dateRange.start,
-              endTime: dateRange.end,
-            }}
-            handleDialogChange={handleDialogChange}
-          />
-        </div>
 
         {/* loading... */}
           {isLoading && (
