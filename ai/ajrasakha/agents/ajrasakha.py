@@ -29,7 +29,13 @@ from ajrasakha.agents.location_context import (
     merge_location_from_ai_tool_calls,
 )
 from ajrasakha.agents.market_agent import market
-from ajrasakha.agents.prompts import AJRASAKHA_SYSTEM_PROMPT, GDB_SYSTEM_PROMPT, WHATSAPP_SYSTEM_PROMPT
+from ajrasakha.agents.prompts import (
+    EMPTY_GDB_REPLY,
+    LLM_FALLBACK_MSG,
+    RELEVANCE_CHECK_PROMPT,
+    WARNING_TEXT,
+    WHATSAPP_SYSTEM_PROMPT,
+)
 from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.soil_agent import soil
 from ajrasakha.agents.weather_agent import weather
@@ -79,12 +85,6 @@ async def _get_tools() -> list:
     return _tools_cache
 
 
-SYSTEM_PROMPT ="""
-You are AjraSakha, a helpful and knowledgeable assistant for farmers. Your purpose is to provide accurate and timely information to farmers based on their queries. 
-You have access to gdb tool, use it to fetch location aware answers to questions that farmers have, these are curated by agri experts.
-""".strip()
-
-
 _location_tool = None
 _reviewer_tool = None
 
@@ -104,65 +104,9 @@ async def _get_reviewer_tool():
         _reviewer_tool = tools[0]  # only one tool
     return _reviewer_tool
 
-# Fallback message returned when the LLM call fails — keeps the checkpoint
-# clean so the thread history is never corrupted.
-_LLM_FALLBACK_MSG = (
-    "I'm sorry, my connection is not working properly right now. "
-    "Please try asking again after some time. 🙏"
-)
-
-# Mandatory testing-version disclaimer appended to every canned reply we emit
-# deterministically (i.e. without going through the LLM).
-WARNING_TEXT = """⚠️ *Important Notice (Testing)* ⚠️
-
-This AjraSakha application is under development and intended only for testing and validation. 
-Advisories are experimental and currently cover major crops in selected states. 
-Weather data is sourced from IMD.
-Market data from eNAM, Agmarknet, and State APMCs.
-Soil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.
-Government schemes from https://www.myscheme.gov.in/. 
-Other agricultural information and advisories are expert-verified by Annam.ai. 
-
-Users should independently validate recommendations before acting."""
-
-# Canned reply produced when the `gdb` sub-agent finds nothing relevant. We
-# short-circuit the LLM in this case so the farmer gets a clean, predictable
-# acknowledgement instead of a hallucinated answer.
-EMPTY_GDB_REPLY = (
-    "Your question has been sent to Agri Experts at annam.ai, and they will "
-    "review it within 2 hours. Please ask the same question after 2 hours for "
-    "a detailed answer from our experts."
-    f"\n\n{WARNING_TEXT}"
-)
-
 # Sentinel returned by the gdb sub-agent (see GDB_SYSTEM_PROMPT rule 4) when
 # every retrieval path comes back empty.
 _GDB_EMPTY_SENTINEL = "NO_RELEVANT_CONTENT"
-
-# Prompt used by the relevance_check_node to verify that the final answer
-# actually addresses the farmer's question. Kept deliberately strict so we
-# only flag obvious mismatches (e.g. farmer asks about wheat pests but the
-# answer talks only about today's weather forecast).
-RELEVANCE_CHECK_PROMPT = """
-You are a quality-control reviewer for AjraSakha, a farmer assistant.
-
-Given a farmer's question and the assistant's proposed final answer, decide
-whether the answer is relevant to what the farmer asked.
-
-Mark as RELEVANT (is_relevant=true) when:
-- The answer directly addresses the farmer's question (even if partial).
-- The answer correctly says it cannot help, or asks the farmer for a
-  clarifying detail needed to answer.
-- The farmer asked a weather/market/soil/scheme/crop question and the
-  answer provides matching information for that topic.
-
-Mark as NOT RELEVANT (is_relevant=false) ONLY when:
-- The answer is about a clearly different topic than the question
-  (e.g. farmer asks about pest control but answer only gives weather forecast).
-- The answer is generic filler that does not address the question at all.
-
-When in doubt, prefer is_relevant=true. Be strict only on obvious mismatches.
-""".strip()
 
 
 class _RelevanceCheck(BaseModel):
@@ -264,14 +208,14 @@ async def ajrasakha_node(
             "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
             type(exc).__name__, exc,
         )
-        return {"messages": [AIMessage(content=_LLM_FALLBACK_MSG)], "location": state.get("location")}
+        return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
     except APIStatusError as exc:
         if exc.status_code >= 500:
             logger.warning(
                 "Anthropic server error (%s) — returning safe fallback",
                 exc.status_code,
             )
-            return {"messages": [AIMessage(content=_LLM_FALLBACK_MSG)], "location": state.get("location")}
+            return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
         raise  # 4xx errors (auth, rate-limit) should still propagate
 
     return {"messages": [response], "location": state.get("location")}

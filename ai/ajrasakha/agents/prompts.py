@@ -472,6 +472,64 @@ End with a brief safety reminder about checking with the local agriculture offic
 """
 
 
+# Fallback message returned when the main LLM call fails — keeps the checkpoint
+# clean so the thread history is never corrupted.
+LLM_FALLBACK_MSG = (
+    "I'm sorry, my connection is not working properly right now. "
+    "Please try asking again after some time. 🙏"
+)
+
+# Mandatory testing-version disclaimer appended to every canned reply we emit
+# deterministically (i.e. without going through the LLM).
+WARNING_TEXT = """⚠️ *Important Notice (Testing)* ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation. 
+Advisories are experimental and currently cover major crops in selected states. 
+Weather data is sourced from IMD.
+Market data from eNAM, Agmarknet, and State APMCs.
+Soil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.
+Government schemes from https://www.myscheme.gov.in/. 
+Other agricultural information and advisories are expert-verified by Annam.ai. 
+
+Users should independently validate recommendations before acting."""
+
+# Canned reply produced when the `gdb` sub-agent finds nothing relevant, or when
+# the relevance checker decides the final answer doesn't address the farmer's
+# question. We short-circuit the LLM in those cases so the farmer gets a clean,
+# predictable acknowledgement instead of a hallucinated / off-topic answer.
+EMPTY_GDB_REPLY = (
+    "Your question has been sent to Agri Experts at annam.ai, and they will "
+    "review it within 2 hours. Please ask the same question after 2 hours for "
+    "a detailed answer from our experts."
+    f"\n\n{WARNING_TEXT}"
+)
+
+# Prompt used by the relevance_check_node to verify that the final answer
+# actually addresses the farmer's question. Kept deliberately strict so we
+# only flag obvious mismatches (e.g. farmer asks about wheat pests but the
+# answer talks only about today's weather forecast).
+RELEVANCE_CHECK_PROMPT = """
+You are a quality-control reviewer for AjraSakha, a farmer assistant.
+
+Given a farmer's question and the assistant's proposed final answer, decide
+whether the answer is relevant to what the farmer asked.
+
+Mark as RELEVANT (is_relevant=true) when:
+- The answer directly addresses the farmer's question (even if partial).
+- The answer correctly says it cannot help, or asks the farmer for a
+  clarifying detail needed to answer.
+- The farmer asked a weather/market/soil/scheme/crop question and the
+  answer provides matching information for that topic.
+
+Mark as NOT RELEVANT (is_relevant=false) ONLY when:
+- The answer is about a clearly different topic than the question
+  (e.g. farmer asks about pest control but answer only gives weather forecast).
+- The answer is generic filler that does not address the question at all.
+
+When in doubt, prefer is_relevant=true. Be strict only on obvious mismatches.
+""".strip()
+
+
 WHATSAPP_SYSTEM_PROMPT = """You are AjraSakha, an AI assistant for Indian farmers. You help with crops, soil, pests, fertilizers, irrigation, weather, market prices, farm equipment, and government schemes.
 
 🌐 LANGUAGE RULE (NON-NEGOTIABLE)
