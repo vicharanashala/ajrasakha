@@ -92,7 +92,7 @@ export const RequestsPage = ({
     const handleBack = () => window.history.back();
 
   return (
-    <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
+    <main className="mx-auto w-full px-6 py-6 md:px-10 md:py-8">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
         <section className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2 relative">
@@ -100,7 +100,7 @@ export const RequestsPage = ({
                   <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
             <Sliders className="w-5 h-5 text-primary" />
-            <h1 className="text-xl font-semibold text-pretty">Request Queue</h1>
+            <h1 className="text-xl font-semibold text-pretty">Flags Reported</h1>
             {selectedRequestId && (
               <Badge variant="secondary" className="ml-2">
                 Highlighted

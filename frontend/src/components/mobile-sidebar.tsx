@@ -1,5 +1,6 @@
 import type { IUser } from "@/types";
 import {
+  AlertTriangle,
   BarChart3,
   Bot,
   Clock,
@@ -111,7 +112,7 @@ export const MobileSidebar = ({
       : []),
 
     ...(user && user.role !== "expert"
-      ? [{ id: "request_queue", label: "Request Queue", icon: Clock }]
+      ? [{ id: "request_queue", label: "Flags Reported", icon: AlertTriangle }]
       : []),
 
     { id: "upload", label: "Agents Interface", icon: Upload },
