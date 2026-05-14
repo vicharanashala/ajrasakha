@@ -254,6 +254,7 @@ export function useDashboardData(filters?: DashboardFilterValues, source: 'vicha
       source,
       userType,
     ],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
 

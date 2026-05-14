@@ -49,13 +49,14 @@ export interface UserDetailsFilters {
   profileCompleted: "all" | "yes" | "no";
   inactiveOnly: boolean;
   lowFeedbackOnly: boolean;
+  userType: "all" | "internal" | "external";
 }
 
 interface UserDetailsPreferenceFilterProps {
   filters: UserDetailsFilters;
   onApply: (filters: UserDetailsFilters) => void;
   /** Fields to hide from the filter dialog */
-  hideFields?: Array<'crop' | 'inactive' | 'profile' | 'lowFeedback'>;
+  hideFields?: Array<'crop' | 'inactive' | 'profile' | 'userType' | 'lowFeedback'>;
 }
 
 function toDateInputValue(d: Date | undefined): string {
@@ -158,6 +159,7 @@ export function UserDetailsPreferenceFilter({
       profileCompleted: "all",
       inactiveOnly: false,
       lowFeedbackOnly: false,
+      userType: "all",
     });
   };
 
@@ -171,7 +173,8 @@ export function UserDetailsPreferenceFilter({
     (filters.startTime ? 1 : 0) +
     (filters.profileCompleted !== "all" ? 1 : 0) +
     (filters.inactiveOnly ? 1 : 0) +
-    (filters.lowFeedbackOnly ? 1 : 0);
+    (filters.lowFeedbackOnly ? 1 : 0) +
+    (filters.userType !== "all" ? 1 : 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -211,6 +214,27 @@ export function UserDetailsPreferenceFilter({
 
         {/* Body */}
         <div className="px-6 py-5 space-y-3 max-h-[60vh] overflow-y-auto">
+          {/* User Type */}
+          {!hideFields.includes('userType') && (
+            <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="User Type">
+              <Select
+                value={draft.userType}
+                onValueChange={(v) =>
+                  setDraft((d) => ({ ...d, userType: v as "all" | "internal" | "external" }))
+                }
+              >
+                <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[10002]">
+                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="external">External Users</SelectItem>
+                  <SelectItem value="internal">Internal Users</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterSection>
+          )}
+
           {/* Search */}
           <FilterSection icon={<Search className="h-3.5 w-3.5" />} label="Name / Email">
             <input
@@ -417,7 +441,7 @@ export function UserDetailsPreferenceFilter({
                 <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[10002]">
                   <SelectItem value="all">All Farmers</SelectItem>
                   <SelectItem value="yes">Profile Completed</SelectItem>
                   <SelectItem value="no">Profile Not Completed</SelectItem>

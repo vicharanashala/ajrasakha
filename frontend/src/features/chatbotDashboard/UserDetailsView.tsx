@@ -97,6 +97,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   profileCompleted: "all",
   inactiveOnly: false,
   lowFeedbackOnly: false,
+  userType: "all",
 };
 
 interface UserDetailsViewProps {
@@ -613,6 +614,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               <UserDetailsPreferenceFilter
                 filters={filters}
                 onApply={handleApplyFilters}
+                hideFields={['userType']}
               />
             </div>
           </div>

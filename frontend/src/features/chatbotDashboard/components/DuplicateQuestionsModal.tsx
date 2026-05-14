@@ -24,6 +24,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   endTime: undefined,
   profileCompleted: 'all',
   inactiveOnly: false,
+  userType: 'all',
 };
 
 export function DuplicateQuestionsModal({ onClose, source = 'annam' }: DuplicateQuestionsModalProps) {
@@ -34,6 +35,8 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
     if (!data) return [];
     return data.filter(row => {
       const q = (s: string) => s.toLowerCase();
+      if (filters.userType === 'external' && !row.email.toLowerCase().startsWith('rup')) return false;
+      if (filters.userType === 'internal' && row.email.toLowerCase().startsWith('rup')) return false;
       if (filters.search) {
         const s = q(filters.search);
         if (!q(row.farmerName).includes(s) && !q(row.email).includes(s)) return false;
