@@ -1465,6 +1465,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             user,
             type,
           );
+          await this.questionRepo.updateQuestion(
+            questionId,
+            { firstAllocationAt: new Date() },
+            session,
+          );
         }
       }
       if (
