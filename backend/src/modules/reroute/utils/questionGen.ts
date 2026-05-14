@@ -73,7 +73,7 @@ const detailsArray = [
   },
 ];
 
-const priorities: IQuestionPriority[] = ['high', 'low', 'medium'];
+const priorities: IQuestionPriority[] = ['high', 'low', 'medium', 'critical'];
 const questionStatus: QuestionStatus[] = ['in-review', 'closed', 'open'];
 
 const sources: ('AJRASAKHA' | 'AGRI_EXPERT')[] = ['AJRASAKHA', 'AGRI_EXPERT'];

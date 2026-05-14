@@ -13,6 +13,7 @@ export interface KpiSummary {
   totalAppInstalls: number; // It will the count the user whose profile is completed or not.
   inactiveUsersLast3Days: number; // users with zero messages in the last 3 days
   duplicateQuestionsCount: number; // questions with a similarityScore field
+  lowFeedbackUsersCount: number; // users who have never given any feedback (no feedback object in messages)
 }
 
 export interface DuplicateQuestionEntry {
@@ -134,6 +135,15 @@ export interface PlatformInstallEntry {
   count: number;
 }
 
+export interface DomainSpikeEntry {
+  domain: string;
+  date: string;       // 'YYYY-MM-DD'
+  count: number;      // query count on that date
+  baseline: number;   // rolling 30-day average (excluding the spike day)
+  spikePct: number;   // % above baseline, rounded
+  location?: string;  // most common "District, State" for that domain+date
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
@@ -227,6 +237,7 @@ export interface IChatbotRepository {
     userType?: string,
     sortBy?: string,
     sortOrder?: string,
+    lowFeedbackOnly?: boolean,
   ): Promise<PaginatedUserDetails>;
 
   /** Aggregate conversations from the messages collection for Excel export. */
@@ -251,7 +262,10 @@ export interface IChatbotRepository {
   getPlatformInstalls(source: string, session?: ClientSession): Promise<PlatformInstallEntry[]>;
 
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
-  getDuplicateQuestions(session?: ClientSession): Promise<DuplicateQuestionEntry[]>;
+  getDuplicateQuestions(source?: string, session?: ClientSession): Promise<DuplicateQuestionEntry[]>;
+
+  /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
+  getDomainSpikes(days?: number, session?: ClientSession): Promise<DomainSpikeEntry[]>;
 }
 
 export interface ChatbotConversationData {

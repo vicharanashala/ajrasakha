@@ -11,7 +11,7 @@ interface AssignmentJob {
   expertId: string;
 }
 
-export const startBalanceWorkloadWorkers = (assignments: AssignmentJob[]) => {
+export const startBalanceWorkloadWorkers = (assignments: AssignmentJob[], inactiveExpertIds: string[] = []) => {
   if (!assignments.length) return;
 
   const cpuCount = os.cpus().length;
@@ -31,6 +31,7 @@ export const startBalanceWorkloadWorkers = (assignments: AssignmentJob[]) => {
         assignments: chunk,
         mongoUri: process.env.DB_URL!,
         dbName: process.env.DB_NAME!,
+        inactiveExpertIds,
       },
     });
 

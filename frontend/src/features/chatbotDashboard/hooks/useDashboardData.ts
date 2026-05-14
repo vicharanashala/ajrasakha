@@ -8,7 +8,7 @@ import type { DailyEntry } from '../utils/dashboardHelpers';
 import type { DashboardFilterValues } from '../DashboardFilters';
 import type { DemographicEntry } from '../types';
 import type { IPlatformInstallEntry } from '../types';
-
+import type { DomainSpikeEntry } from '../components/DomainSpikesModal';
 export type DashboardDataType = typeof DASHBOARD_DATA;
 
 interface DashboardApiResponse {
@@ -22,6 +22,8 @@ interface DashboardApiResponse {
     voiceUsageSharePct: number;
     totalAppInstalls: number;
     inactiveUsersLast3Days: number;
+    duplicateQuestionsCount: number;
+    lowFeedbackUsersCount: number;
   };
   dau: DailyEntry[];
   weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
@@ -38,6 +40,7 @@ interface DashboardApiResponse {
   agriAppUsage: DemographicEntry[];
   landHolding: DemographicEntry[];
   platformInstalls: IPlatformInstallEntry[];
+  domainSpikes?: DomainSpikeEntry[];
 }
 
 // ── Date range label helpers ──────────────────────────────────────────────────
@@ -114,9 +117,8 @@ function weeklyRange(entries: Array<{ week: string }>): string {
 
 // ── Transform raw API response into dashboard shape ─────────────────────────
 
-function transformApiResponse(result: DashboardApiResponse): DashboardDataType & { inactiveUsersLast3Days: number; duplicateQuestionsCount: number } {
-  const updatedData = { ...DASHBOARD_DATA } as DashboardDataType & { inactiveUsersLast3Days: number; duplicateQuestionsCount: number };
-
+function transformApiResponse(result: DashboardApiResponse): DashboardDataType & { inactiveUsersLast3Days: number; duplicateQuestionsCount: number; lowFeedbackUsersCount: number } {
+  const updatedData = { ...DASHBOARD_DATA } as DashboardDataType & { inactiveUsersLast3Days: number; duplicateQuestionsCount: number; lowFeedbackUsersCount: number };
   // Use the real month-over-month % from the backend
   const pct = result.kpi.dauLastMonthPct;
   const delta = pct > 0
@@ -172,6 +174,8 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
   updatedData.farmingExperience = result.farmingExperience ?? [];
   updatedData.landHolding = result.landHolding?.length ? result.landHolding : DASHBOARD_DATA.landHolding;
   updatedData.platformInstalls = result.platformInstalls ?? [];
+  // Use real spikes from API; only fall back to mock if field is absent (old backend)
+  updatedData.domainSpikes = Array.isArray(result.domainSpikes) ? result.domainSpikes : DASHBOARD_DATA.domainSpikes;
 
   updatedData.kpiRow2 = DASHBOARD_DATA.kpiRow2.map(card => {
     if (card.id === 'totalInstalls') {
@@ -185,6 +189,7 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
 
   updatedData.inactiveUsersLast3Days = result.kpi.inactiveUsersLast3Days ?? 0;
   updatedData.duplicateQuestionsCount = result.kpi.duplicateQuestionsCount ?? 0;
+  updatedData.lowFeedbackUsersCount = result.kpi.lowFeedbackUsersCount ?? 0;
 
   updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
     if (card.id === 'dau') {
@@ -249,6 +254,7 @@ export function useDashboardData(filters?: DashboardFilterValues, source: 'vicha
       source,
       userType,
     ],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
 

@@ -12,6 +12,8 @@ import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
+import { CircleCheck, GitCompareArrows } from "lucide-react";
+import { diffWords } from "@/utils/wordDifference";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -40,6 +42,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     buildHoldCountdownOptions(question)
   );
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
 
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -73,6 +76,20 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const isQuestionOnHold = question.isOnHold;
   const originalQuestion = question.originalQuestion?.trim();
 
+  // For compare mode: reference answer (from the original/reference question)
+  const referenceAnswerText = (() => {
+    const text = question.referenceQuestionData?.text;
+    if (!text) return null;
+    const match = text.match(/answer:\s*([\s\S]+)/i);
+    return match ? match[1].trim() : null;
+  })();
+
+  // For compare mode: last history entry that has an answer (this duplicate question's submitted answer)
+  const lastHistoryWithAnswer = [...(question?.submission?.history || [])]
+    .sort((a, b) => new Date(a.updatedAt ?? 0).getTime() - new Date(b.updatedAt ?? 0).getTime())
+    .reverse()
+    .find((h) => h.answer !== null);
+
   const sortedHistory = [...(question?.submission?.history || [])].sort(
     (a, b) =>
       new Date(a.updatedAt).getTime() -
@@ -87,7 +104,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const diffMs =
     latestHistory && question?.closedAt
       ? new Date(question.closedAt).getTime() -
-      new Date(latestHistory.updatedAt).getTime()
+        new Date(latestHistory.updatedAt).getTime()
       : null;
 
   const formattedTime = (() => {
@@ -95,14 +112,28 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
       return "N/A";
     }
 
-    const totalMinutes = Math.round(diffMs / (1000 * 60));
+    const totalMilliseconds = diffMs;
+
+    const totalSeconds = Math.floor(totalMilliseconds / 1000);
+    const milliseconds = totalMilliseconds % 1000;
+
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
 
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
 
-    return hours > 0
-      ? `${hours} hour${hours > 1 ? "s" : ""} ${minutes} minute${minutes !== 1 ? "s" : ""}`
-      : `${minutes} minute${minutes !== 1 ? "s" : ""}`;
+    return [
+      hours > 0 ? `${hours} hour${hours !== 1 ? "s" : ""}` : null,
+
+      minutes > 0 ? `${minutes} minute${minutes !== 1 ? "s" : ""}` : null,
+
+      `${seconds} second${seconds !== 1 ? "s" : ""}`,
+
+      `${milliseconds} ms`,
+    ]
+      .filter(Boolean)
+      .join(" ");
   })();
 
   return (
@@ -123,18 +154,33 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
 
           <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-start sm:justify-end sm:flex-shrink-0">
             <div className="flex flex-wrap justify-end gap-2">
-              {currentUser.role != 'expert' && isQuestionAllocatedToExpert && question.status !== 'closed' && (
-                <Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">
-                  {isQuestionOnHold ? "Release Hold" : "Hold the question"}
-                </Button>
-              )}
-              <SarvamTranslateDropdown query={question.question} onTranslate={(result) => setTranslatedText(result)} />
+              {currentUser.role != "expert" &&
+                isQuestionAllocatedToExpert &&
+                question.status !== "closed" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleHold}
+                    className="whitespace-nowrap"
+                  >
+                    {isQuestionOnHold ? "Release Hold" : "Hold the question"}
+                  </Button>
+                )}
+              <SarvamTranslateDropdown
+                query={question.question}
+                onTranslate={(result) => setTranslatedText(result)}
+              />
             </div>
 
             <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
               {/* <TimerDisplay timer={timer} status={question.status} size="lg" /> */}
               {question.status !== "pass" && (
-                <TimerDisplay timer={timer} status={question.status} source={question.source} size="lg" />
+                <TimerDisplay
+                  timer={timer}
+                  status={question.status}
+                  source={question.source}
+                  size="lg"
+                />
               )}
 
               <div className="flex justify-end">
@@ -198,13 +244,13 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
 
                 <Badge
                   className={
-                    question.priority === "high"
-                      ? "bg-red-500/10 text-red-600 border-red-500/30"
-                      : question.priority === "medium"
-                        ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                        : question.priority === "low"
-                          ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                          : "bg-muted text-foreground"
+                  question.priority === "critical"
+                    ? "bg-red-600/10 text-red-700 border-red-700/30"
+                    : question.priority === "high"
+                    ? "bg-orange-500/10 text-orange-600 border-orange-500/30"
+                    : question.priority === "medium"
+                    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                    : "bg-blue-500/10 text-blue-600 border-blue-500/30"
                   }
                 >
                   {question.priority ? question.priority.toUpperCase() : "NIL"}
@@ -216,18 +262,36 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
               Total answers: {question.totalAnswersCount}
             </span>
           </div>
-          {(question?.status === "closed" &&
+          {/* {(question?.status === "closed" &&
             (currentUser.role === "moderator" ||
               currentUser.role === "admin")) && (
               <div>
                 <div className="text-sm">
                   {question?.closedAt && (
                     <span>
-                      The Question was closed at:{" "}
+                      The Question was closed at:{" "} {question.approved_moderator?.name} {question.approved_moderator.email}
                       {new Date(question.closedAt).toLocaleString()}
                     </span>
                   )}
                 </div>
+              </div>
+            )} */}
+          {question?.status === "closed" &&
+            (currentUser.role === "moderator" ||
+              currentUser.role === "admin") &&
+            question?.closedAt && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CircleCheck className="h-3.5 w-3.5 text-primary" />
+                <span>
+                  Closed by{" "}
+                  <span className="font-medium text-foreground">
+                    {question.approved_moderator?.name || "Unknown"}
+                  </span>
+                </span>
+
+                <span>•</span>
+
+                <span>{new Date(question.closedAt).toLocaleString()}</span>
               </div>
             )}
         </div>
@@ -240,14 +304,14 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             <span>Updated: {formatDate(new Date(question.updatedAt))}</span>
           </div>
           <div>
-            {(question?.status === "closed" &&
+            {question?.status === "closed" &&
               (currentUser.role === "moderator" ||
-                currentUser.role === "admin")) && (
+                currentUser.role === "admin") && (
                 <div className="text-sm">
                   {question?.closedAt && (
-                    <div >
+                    <div>
                       Moderator TAT:{" "}
-                      {(latestHistory && diffMs) && diffMs > 0
+                      {latestHistory && diffMs && diffMs > 0
                         ? formattedTime
                         : "N/A"}
                     </div>
@@ -257,10 +321,25 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </div>
         </div>
       </header>
-      <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
-        <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
+      <Dialog open={duplicateModalOpen} onOpenChange={(open) => { setDuplicateModalOpen(open); if (!open) setCompareMode(false); }}>
+        <DialogContent className="!max-w-[65vw] max-h-[92vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-red-500">Duplicate Reference Question</DialogTitle>
+            <div className="flex items-center justify-between gap-3 pr-8">
+              <DialogTitle className="text-red-500">
+                Duplicate Reference Question
+              </DialogTitle>
+              {question.status === "closed" && (referenceAnswerText || lastHistoryWithAnswer?.answer) && (
+                <Button
+                  size="sm"
+                  variant={compareMode ? "default" : "outline"}
+                  onClick={() => setCompareMode((prev) => !prev)}
+                  className="gap-1.5 shrink-0"
+                >
+                  <GitCompareArrows size={14} />
+                  Compare Answer
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
           {question.referenceQuestionData ? (
@@ -268,62 +347,197 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
               {/* Metadata */}
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm border rounded-md p-4 bg-muted/30">
                 <div>
-                  <span className="text-muted-foreground font-medium">Status: </span>
-                  <span className="capitalize">{question.referenceQuestionData.status}</span>
+                  <span className="text-muted-foreground font-medium">
+                    Status:{" "}
+                  </span>
+                  <span className="capitalize">
+                    {question.referenceQuestionData.status}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground font-medium">Similarity: </span>
+                  <span className="text-muted-foreground font-medium">
+                    Similarity:{" "}
+                  </span>
                   <span>{question.similarityScore?.toFixed(1)}%</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground font-medium">State: </span>
+                  <span className="text-muted-foreground font-medium">
+                    State:{" "}
+                  </span>
                   <span>{question.referenceQuestionData.details?.state}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground font-medium">District: </span>
-                  <span>{question.referenceQuestionData.details?.district}</span>
+                  <span className="text-muted-foreground font-medium">
+                    District:{" "}
+                  </span>
+                  <span>
+                    {question.referenceQuestionData.details?.district}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground font-medium">Crop: </span>
+                  <span className="text-muted-foreground font-medium">
+                    Crop:{" "}
+                  </span>
                   <span>{question.referenceQuestionData.details?.crop}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground font-medium">Season: </span>
+                  <span className="text-muted-foreground font-medium">
+                    Season:{" "}
+                  </span>
                   <span>{question.referenceQuestionData.details?.season}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground font-medium">Domain: </span>
+                  <span className="text-muted-foreground font-medium">
+                    Domain:{" "}
+                  </span>
                   <span>{question.referenceQuestionData.details?.domain}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground font-medium">Source: </span>
+                  <span className="text-muted-foreground font-medium">
+                    Source:{" "}
+                  </span>
                   <span>{question.referenceSource}</span>
                 </div>
               </div>
 
               {/* Question */}
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Question</p>
-                <p className="text-sm border rounded-md p-3 bg-muted/20">{question.referenceQuestionData.question}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  Question
+                </p>
+                <p className="text-sm border rounded-md p-3 bg-muted/20">
+                  {question.referenceQuestionData.question}
+                </p>
               </div>
 
-              {/* Answer extracted from text field */}
-              {question.referenceQuestionData.text && (() => {
-                const answerMatch = question.referenceQuestionData.text.match(/answer:\s*([\s\S]+)/i);
-                const answerText = answerMatch ? answerMatch[1].trim() : null;
-                return answerText ? (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Answer</p>
-                    <p className="text-sm border rounded-md p-3 bg-muted/20 whitespace-pre-wrap">{answerText}</p>
+              {/* Compare Answer: 2-column side-by-side */}
+              {compareMode ? (() => {
+                const currentText = lastHistoryWithAnswer?.answer?.answer ?? "";
+                const previousText = referenceAnswerText ?? "";
+                const diff = diffWords(previousText, currentText);
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+                    {/* Column 1: Current Answer — shows added (green) words */}
+                    <div className="border rounded-lg p-4 bg-muted/30 flex flex-col">
+                      <p className="text-sm font-semibold text-foreground">Current Answer</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Answer submitted for this duplicate question
+                      </p>
+                      {currentText ? (
+                        <>
+                          <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                            {diff.map((part, idx) =>
+                              part.type === "removed" ? null : (
+                                <span
+                                  key={idx}
+                                  className={
+                                    part.type === "added"
+                                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                      : "text-dark dark:text-white"
+                                  }
+                                >
+                                  {part.value}
+                                </span>
+                              )
+                            )}
+                          </div>
+                          <div className="pt-2 border-t mt-auto">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Sources</p>
+                            {lastHistoryWithAnswer?.answer?.sources && lastHistoryWithAnswer.answer.sources.length > 0 ? (
+                              <ul className="space-y-2">
+                                {lastHistoryWithAnswer.answer.sources.map((s, i) => (
+                                  <li key={i} className="text-xs flex flex-col gap-0.5">
+                                    <span className="font-medium text-foreground">
+                                      {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
+                                    </span>
+                                    {s.source && (
+                                      <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No sources</p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">No answer available</p>
+                      )}
+                    </div>
+
+                    {/* Column 2: Previous Answer — shows removed (red) words */}
+                    <div className="border rounded-lg p-4 bg-muted/30 flex flex-col">
+                      <p className="text-sm font-semibold text-foreground">Previous Answer</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Answer from the reference question
+                      </p>
+                      {previousText ? (
+                        <>
+                          <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                            {diff.map((part, idx) =>
+                              part.type === "added" ? null : (
+                                <span
+                                  key={idx}
+                                  className={
+                                    part.type === "removed"
+                                      ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                                      : "text-dark dark:text-white"
+                                  }
+                                >
+                                  {part.value}
+                                </span>
+                              )
+                            )}
+                          </div>
+                          <div className="pt-2 border-t mt-auto">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Sources</p>
+                            {question.referenceQuestionData?.sources && question.referenceQuestionData.sources.length > 0 ? (
+                              <ul className="space-y-2">
+                                {question.referenceQuestionData.sources.map((s, i) => (
+                                  <li key={i} className="text-xs flex flex-col gap-0.5">
+                                    <span className="font-medium text-foreground">
+                                      {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
+                                    </span>
+                                    {s.source && (
+                                      <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No sources</p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">No answer available</p>
+                      )}
+                    </div>
                   </div>
-                ) : null;
-              })()}
+                );
+              })() : null}
+
+              {/* Default single-column answer view when not comparing */}
+              {!compareMode && referenceAnswerText && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Answer
+                  </p>
+                  <p className="text-sm border rounded-md p-3 bg-muted/20 whitespace-pre-wrap">
+                    {referenceAnswerText}
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Reference question: <span className="font-medium">{question.referenceQuestion}</span>
+              Reference question:{" "}
+              <span className="font-medium">{question.referenceQuestion}</span>
               <br />
-              <span className="text-xs mt-1 block">Detailed data not available.</span>
+              <span className="text-xs mt-1 block">
+                Detailed data not available.
+              </span>
             </p>
           )}
         </DialogContent>
@@ -331,14 +545,14 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
 
       <AlertDialog
         open={confirmDialog.open}
-        onOpenChange={(open) =>
-          setConfirmDialog((prev) => ({ ...prev, open }))
-        }
+        onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {question.isOnHold ? "Release this question?" : "Hold this question?"}
+              {question.isOnHold
+                ? "Release this question?"
+                : "Hold this question?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {question.isOnHold

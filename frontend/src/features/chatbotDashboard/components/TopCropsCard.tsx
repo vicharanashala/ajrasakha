@@ -205,49 +205,76 @@ export const TopCropsCard = ({topCrops,
               </p>
             </div>
 
-            {/* Enlarged Chart */}
-            <div className="w-full h-[500px] relative">
-              {/* Y-axis border */}
-              <div className="absolute left-0 top-0 bottom-12 w-px bg-gray-300 dark:bg-gray-700 z-10"></div>
-              {/* X-axis border */}
-              <div className="absolute left-0 right-0 bottom-12 h-px bg-gray-300 dark:bg-gray-700 z-10"></div>
-              
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={processedData}
-                  margin={{ top: 25, right: 20, left: 10, bottom: 60 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border, #e2e8f0)" />
-                  <XAxis
-                    dataKey="name"
-                    stroke="var(--color-muted-foreground, #64748b)"
-                    tick={{ fontSize: 13, textAnchor: "end", dy: 8 }}
-                    tickLine={false}
-                    axisLine={false}
-                    interval={0}
-                    height={80}
-                    angle={-35}
-                  />
-                  <YAxis
-                    stroke="var(--color-muted-foreground)"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 13 }}
-                    tickFormatter={(value) =>
-                      value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
-                    }
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'var(--color-muted, #f1f5f9)', opacity: 0.4 }}
-                    content={<CustomTooltip />}
-                  />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                    {processedData.map((entry:any, index:null) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+            {/* Chart (left) + Table (right) */}
+            <div className="flex gap-4 items-start">
+              {/* Chart — 65% */}
+              <div className="flex-[65] min-w-0 h-[460px] relative">
+                <div className="absolute left-0 top-0 bottom-12 w-px bg-gray-300 dark:bg-gray-700 z-10" />
+                <div className="absolute left-0 right-0 bottom-12 h-px bg-gray-300 dark:bg-gray-700 z-10" />
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={processedData}
+                    margin={{ top: 25, right: 20, left: 10, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border, #e2e8f0)" />
+                    <XAxis
+                      dataKey="name"
+                      stroke="var(--color-muted-foreground, #64748b)"
+                      tick={{ fontSize: 13, textAnchor: "end", dy: 8 }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={0}
+                      height={80}
+                      angle={-35}
+                    />
+                    <YAxis
+                      stroke="var(--color-muted-foreground)"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 13 }}
+                      tickFormatter={(value) =>
+                        value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
+                      }
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'var(--color-muted, #f1f5f9)', opacity: 0.4 }}
+                      content={<CustomTooltip />}
+                    />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                      {processedData.map((entry: any, index: any) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Table — 35% */}
+              <div className="flex-[35] min-w-0 max-h-[460px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Crop</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Questions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processedData.map((row: any, idx: number) => (
+                      <tr key={idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: row.color }} />
+                            {row.name}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                          {row.count.toLocaleString()}
+                        </td>
+                      </tr>
                     ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>,

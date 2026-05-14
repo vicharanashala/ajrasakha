@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { X, MapPin, Maximize2 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
@@ -29,8 +29,6 @@ import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import UserGrowthChart from "./components/UserGrowthChart";
 import { AlertCard } from "./AlertCard";
 import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
-
-const PAGE_SIZE = 10;
 
 const VISIBLE_CROPS = 2;
 
@@ -98,6 +96,8 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   endTime: undefined,
   profileCompleted: "all",
   inactiveOnly: false,
+  lowFeedbackOnly: false,
+  userType: "all",
 };
 
 interface UserDetailsViewProps {
@@ -112,17 +112,26 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     ...initialFilters,
   }));
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const [sortBy, setSortBy] = useState<'totalQuestions' | 'name'>('totalQuestions');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const tableRef = useRef<HTMLDivElement>(null);
 
-  // Apply initialFilters when they change (e.g. clicking from AlertCard)
+  const scrollToTable = () => {
+    setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  };
+
+  // Apply initialFilters when they change (e.g. clicking from AlertCard in overview)
   useEffect(() => {
     if (initialFilters) {
       setFilters(prev => ({ ...prev, ...initialFilters }));
       setCurrentPage(1);
+      if (initialFilters.inactiveOnly || initialFilters.lowFeedbackOnly) {
+        scrollToTable();
+      }
     }
   }, [initialFilters]);
 
@@ -130,13 +139,14 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     filters.startTime,
     filters.endTime,
     currentPage,
-    PAGE_SIZE,
+    pageSize,
     filters.search,
     source,
     filters.crop,
     filters.village,
     filters.profileCompleted,
     filters.inactiveOnly,
+    filters.lowFeedbackOnly,
     userType,
     sortBy,
     sortOrder,
@@ -215,7 +225,8 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     filters.state ||
     filters.startTime ||
     filters.profileCompleted !== "all" ||
-    filters.inactiveOnly;
+    filters.inactiveOnly ||
+    filters.lowFeedbackOnly;
 
   const dateLabel = filters.startTime && filters.endTime
     ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
@@ -251,9 +262,48 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               kpiRow2={kpiRow2WithOverlay} 
             />
 
-            {/* Additional Charts */}
+            {/* User Growth Trend + Alerts & Notifications */}
+            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch">
+              <UserGrowthChart />
+              <AlertCard
+                alerts={dashboardData.alerts}
+                inactiveUsersLast3Days={(dashboardData as any).inactiveUsersLast3Days ?? 0}
+                onInactiveClick={() => {
+                  const threeDaysAgo = new Date();
+                  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+                  threeDaysAgo.setHours(0, 0, 0, 0);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  setFilters(prev => ({
+                    ...prev,
+                    startTime: threeDaysAgo,
+                    endTime: today,
+                    inactiveOnly: true,
+                    lowFeedbackOnly: false,
+                  }));
+                  setCurrentPage(1);
+                  scrollToTable();
+                }}
+                duplicateQuestionsCount={isDashboardLoading ? undefined : (dashboardData as any).duplicateQuestionsCount ?? 0}
+                onDuplicateClick={() => setIsDuplicateModalOpen(true)}
+                lowFeedbackUsersCount={isDashboardLoading ? null : (dashboardData as any).lowFeedbackUsersCount ?? null}
+                onLowFeedbackClick={() => {
+                  setFilters(prev => ({
+                    ...prev,
+                    lowFeedbackOnly: true,
+                    inactiveOnly: false,
+                  }));
+                  setCurrentPage(1);
+                  scrollToTable();
+                }}
+              />
+              {isDuplicateModalOpen && (
+                <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} source={source} />
+              )}
+            </div>
+
+            {/* Demographics */}
             <div className="mb-4">
-              {/* User Demographics - renders its own grid of 4 cards */}
               <UserDemographicsSection 
                 data={{
                   ageGroups: dashboardData.ageGroups || [],
@@ -326,27 +376,6 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                   })()}
                 </div>
               </div>
-            </div>
-
-            {/* User Growth Trend + Alerts & Notifications */}
-            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 mb-4">
-              <UserGrowthChart />
-              <AlertCard
-                inactiveUsersLast3Days={(dashboardData as any).inactiveUsersLast3Days ?? 0}
-                onInactiveClick={() => {
-                  const end = new Date();
-                  const start = new Date();
-                  start.setDate(start.getDate() - 3);
-                  setFilters(prev => ({ ...prev, startTime: start, endTime: end, inactiveOnly: true }));
-                  setCurrentPage(1);
-                }}
-                duplicateQuestionsCount={(dashboardData as any).duplicateQuestionsCount ?? 0}
-                onDuplicateClick={() => setIsDuplicateModalOpen(true)}
-              />
-              {isDuplicateModalOpen && (
-                <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} />
-              )}
-
             </div>
 
             {/* Top Crops - Full Width */}
@@ -523,17 +552,38 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                     </h3>
                   </div>
 
-                  <div className="w-full relative">
-                    {/* Y-axis border */}
-                    <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700 z-10"></div>
-                    {/* X-axis border */}
-                    <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700 z-10"></div>
-                    
-                    <BarGraph
-                      data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
-                      height={400}
-                      showMaximize={false}
-                    />
+                  {/* Chart (left) + Table (right) */}
+                  <div className="flex gap-4 items-start">
+                    {/* Chart — 65% */}
+                    <div className="flex-[65] min-w-0 relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700 z-10" />
+                      <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700 z-10" />
+                      <BarGraph
+                        data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
+                        height={400}
+                        showMaximize={false}
+                      />
+                    </div>
+
+                    {/* Table — 35% */}
+                    <div className="flex-[35] min-w-0 max-h-[400px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">User</th>
+                            <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Questions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map((u, idx) => (
+                            <tr key={idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                              <td className="px-3 py-2 text-gray-600 dark:text-gray-400 truncate max-w-[140px]">{u.name}</td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">{u.totalQuestions.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>,
@@ -544,6 +594,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
       </div>
 
       {/* Users table */}
+      <div ref={tableRef}>
       <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3 min-w-0 w-full">
@@ -563,6 +614,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               <UserDetailsPreferenceFilter
                 filters={filters}
                 onApply={handleApplyFilters}
+                hideFields={['userType']}
               />
             </div>
           </div>
@@ -662,7 +714,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                       return (
                         <TableRow key={user.userId} className="text-center">
                           <TableCell className="align-middle">
-                            {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                            {(currentPage - 1) * pageSize + idx + 1}
                           </TableCell>
                           <TableCell className="align-middle">
                             <span
@@ -796,14 +848,16 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
                     <span className="text-xs text-(--muted-foreground)">
                       Showing{" "}
-                      {users.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}
-                      –{(currentPage - 1) * PAGE_SIZE + users.length} of{" "}
+                      {users.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}
+                      –{(currentPage - 1) * pageSize + users.length} of{" "}
                       {totalUsers} users
                     </span>
                     <Pagination
                       currentPage={currentPage}
                       totalPages={totalPages}
                       onPageChange={(page) => setCurrentPage(page)}
+                      limit={pageSize}
+                      onLimitChange={setPageSize}
                     />
                   </div>
                 </div>
@@ -812,6 +866,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

@@ -278,6 +278,7 @@ export class ChatbotController {
   @Authorized()
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
     const inactiveOnly = query.inactiveOnly === 'true';
+    const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
       query.endDate,
@@ -289,6 +290,7 @@ export class ChatbotController {
       query.village,
       query.profileCompleted,
       inactiveOnly,
+      lowFeedbackOnly,
       query.userType,
       query.sortBy,
       query.sortOrder,
@@ -333,8 +335,19 @@ export class ChatbotController {
   @Get('/duplicate-questions')
   @HttpCode(200)
   @Authorized()
-  async getDuplicateQuestions() {
-    return this.chatbotService.getDuplicateQuestions();
+  async getDuplicateQuestions(@QueryParams() query: SourceQueryDto) {
+    return this.chatbotService.getDuplicateQuestions(query.source);
+  }
+
+  @OpenAPI({
+    summary: 'Get domain query spikes',
+    description: 'Returns domains where daily question count is ≥1.5× the rolling average over the last N days.',
+  })
+  @Get('/domain-spikes')
+  @HttpCode(200)
+  @Authorized()
+  async getDomainSpikes(@QueryParams() query: { days?: number }) {
+    return this.chatbotService.getDomainSpikes(query.days ?? 60);
   }
 
   @Get('/user-growth')

@@ -32,6 +32,7 @@ import {
   UserCheck,
   RefreshCcw,
   UserX,
+  MessageSquareOff,
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,13 +48,15 @@ export interface UserDetailsFilters {
   endTime: Date | undefined;
   profileCompleted: "all" | "yes" | "no";
   inactiveOnly: boolean;
+  lowFeedbackOnly: boolean;
+  userType: "all" | "internal" | "external";
 }
 
 interface UserDetailsPreferenceFilterProps {
   filters: UserDetailsFilters;
   onApply: (filters: UserDetailsFilters) => void;
   /** Fields to hide from the filter dialog */
-  hideFields?: Array<'crop' | 'inactive' | 'profile'>;
+  hideFields?: Array<'crop' | 'inactive' | 'profile' | 'userType' | 'lowFeedback'>;
 }
 
 function toDateInputValue(d: Date | undefined): string {
@@ -155,6 +158,8 @@ export function UserDetailsPreferenceFilter({
       endTime: undefined,
       profileCompleted: "all",
       inactiveOnly: false,
+      lowFeedbackOnly: false,
+      userType: "all",
     });
   };
 
@@ -167,7 +172,9 @@ export function UserDetailsPreferenceFilter({
     (filters.state ? 1 : 0) +
     (filters.startTime ? 1 : 0) +
     (filters.profileCompleted !== "all" ? 1 : 0) +
-    (filters.inactiveOnly ? 1 : 0);
+    (filters.inactiveOnly ? 1 : 0) +
+    (filters.lowFeedbackOnly ? 1 : 0) +
+    (filters.userType !== "all" ? 1 : 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -207,6 +214,27 @@ export function UserDetailsPreferenceFilter({
 
         {/* Body */}
         <div className="px-6 py-5 space-y-3 max-h-[60vh] overflow-y-auto">
+          {/* User Type */}
+          {!hideFields.includes('userType') && (
+            <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="User Type">
+              <Select
+                value={draft.userType}
+                onValueChange={(v) =>
+                  setDraft((d) => ({ ...d, userType: v as "all" | "internal" | "external" }))
+                }
+              >
+                <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[10002]">
+                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="external">External Users</SelectItem>
+                  <SelectItem value="internal">Internal Users</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterSection>
+          )}
+
           {/* Search */}
           <FilterSection icon={<Search className="h-3.5 w-3.5" />} label="Name / Email">
             <input
@@ -354,6 +382,53 @@ export function UserDetailsPreferenceFilter({
             </div>
           )}
 
+          {/* Low Feedback Users */}
+          {!hideFields.includes('lowFeedback') && (
+            <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-md bg-orange-500/10 text-orange-500">
+                    <MessageSquareOff className="h-3.5 w-3.5" />
+                  </span>
+                  Low Feedback Users
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px] text-xs">
+                      Shows users who have never given any feedback (no thumbs up/down on any response)
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+                <label
+                  htmlFor="low-feedback-only"
+                  className={cn(
+                    "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+                    draft.lowFeedbackOnly
+                      ? "bg-orange-500"
+                      : "bg-gray-300 dark:bg-gray-600"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    id="low-feedback-only"
+                    className="sr-only"
+                    checked={draft.lowFeedbackOnly}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, lowFeedbackOnly: e.target.checked }))
+                    }
+                  />
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
+                      draft.lowFeedbackOnly ? "translate-x-[20px]" : "translate-x-[2px]"
+                    )}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
           {/* Profile Completed */}
           {!hideFields.includes('profile') && (
             <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="Farmer Profile">
@@ -366,7 +441,7 @@ export function UserDetailsPreferenceFilter({
                 <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[10002]">
                   <SelectItem value="all">All Farmers</SelectItem>
                   <SelectItem value="yes">Profile Completed</SelectItem>
                   <SelectItem value="no">Profile Not Completed</SelectItem>

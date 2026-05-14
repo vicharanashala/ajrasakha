@@ -61,6 +61,7 @@ type UserTableProps = {
   userRole?: UserRole;
   setSelectExpertId?: (userId: string) => void;
   setRankPosition?: (rank: number) => void;
+  setLimit: (val: number) => void;
 };
 
 export const UsersTable = ({
@@ -76,6 +77,7 @@ export const UsersTable = ({
   totalPages,
   setSelectExpertId,
   setRankPosition,
+  setLimit,
 }: UserTableProps) => {
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
@@ -217,6 +219,8 @@ export const UsersTable = ({
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={(page) => setCurrentPage(page)}
+        limit={limit}
+        onLimitChange={setLimit}
       />
     </div>
   );

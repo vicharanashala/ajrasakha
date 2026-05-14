@@ -87,7 +87,6 @@ export interface IUserRepository {
   ): Promise<IUser[]>;
 
   getSpecialTaskForceModerators(
-
     session?: ClientSession,
   ): Promise<IUser[]>;
 
@@ -161,6 +160,10 @@ export interface IUserRepository {
   updateReputationScore(
     userId: string,
     isIncrement: boolean,
+    session?: ClientSession,
+  ): Promise<void>;
+  recalculateReputationScore(
+    userId: string,
     session?: ClientSession,
   ): Promise<void>;
 
@@ -281,4 +284,6 @@ export interface IUserRepository {
    * @returns A promise that resolves to an array of admins.
    */
   findAdmins(session?: ClientSession): Promise<IUser[]>;
+
+  findInactiveOrBlockedExperts(session?: ClientSession): Promise<IUser[]>;
 }

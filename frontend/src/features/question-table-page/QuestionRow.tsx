@@ -58,6 +58,7 @@ interface QuestionRowProps {
   ) => Promise<void>;
   onViewMore: (id: string) => void;
   showClosedAt?: boolean;
+  isLoading?: boolean;
 }
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -83,6 +84,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   handleQuestionsSelection,
   selectedQuestionIds,
   showClosedAt,
+  isLoading,
 }) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -129,9 +131,13 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   // }, [q.priority]);
 
   const PRIORITY_CONFIG = {
+    critical: {
+      label: "Crit",
+      className: "bg-red-600/10 text-red-700 border-red-700/30",
+    },
     high: {
       label: "High",
-      className: "bg-red-500/10 text-red-600 border-red-500/30",
+      className: "bg-orange-500/10 text-orange-600 border-orange-500/30",
     },
     medium: {
       label: "Med",
@@ -221,25 +227,29 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <TableRow
+      <ContextMenuTrigger asChild >
+        <TableRow 
           key={q._id}
-
-          className={`text-center transition-all duration-300 ease-out
+          className={`text-center transition-all duration-300 ease-out 
               ${isSelected ? "bg-primary/10" : "hover:bg-muted/50"}
-              hover:shadow-sm hover:scale-[1.01] hover:brightness-[1.02]
+              ${isLoading ? "opacity-50 pointer-events-none" : "hover:shadow-sm hover:scale-[1.01] hover:brightness-[1.02]"}
             `}
+
+          
           onClick={() => {
             if (!q._id || !hasSelectedQuestions) return;
             handleQuestionsSelection?.(q._id);
           }}
         >
+        
           {/* Serial Number */}
           {visibleColumns.sl_No && (
+            // <div className={`border-l-4 rounded-lg ${q.source === "AJRASAKHA" ? "border-blue-500" : q.source === "WHATSAPP" ? "border-green-500" : q.source === "OUTREACH" ? "border-orange-500" : q.source === "AGRI_EXPERT" ? "border-gray-500" : "border-yellow-500"} `}>
             <TableCell
               className="align-middle text-center p-4"
               title={idx.toString()}
             >
+            
               {hasSelectedQuestions ? (
                 <Checkbox
                   checked={q._id ? selectedQuestionIds.includes(q._id) : false}
@@ -252,6 +262,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                 (currentPage - 1) * limit + idx + 1
               )}
             </TableCell>
+            // </div>
           )}
 
           {/* Question Text */}
@@ -428,6 +439,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
               {q.closedAt ? formatDate(new Date(q.closedAt!), false) : "N/C"}
             </TableCell>
           ) : null}
+         
         </TableRow>
       </ContextMenuTrigger>
 

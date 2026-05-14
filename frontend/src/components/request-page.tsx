@@ -10,10 +10,11 @@ import {
 import type { RequestStatus } from "@/types";
 import { useGetAllRequests } from "@/hooks/api/request/useGetAllRequest";
 import { Pagination } from "./pagination";
-import { Sliders, Circle, Layers, Calendar } from "lucide-react";
+import { Sliders, Circle, Layers, Calendar, ArrowLeft } from "lucide-react";
 import { RequestCard } from "./RequestCard";
 import ViewDropdown from "@/features/questions/components/ViewDropdown";
 import { RequestListItem } from "./RequestListItem";
+import { TopRightBadge } from "./NewBadge";
 
 type SortOrder = "newest" | "oldest";
 
@@ -45,11 +46,11 @@ export const RequestsPage = ({
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null,
   );
-  const LIMIT = 10;
+  const [limit, setLimit] = useState(12);
   const [view, setView] = useState<"grid" | "table">("grid");
   const { data: requestData, isLoading } = useGetAllRequests(
     currentPage,
-    LIMIT,
+    limit,
     status,
     reqType,
     sortOrder,
@@ -88,19 +89,25 @@ export const RequestsPage = ({
     }
   }, [status, reqType, sortOrder, currentPage]);
 
+    const handleBack = () => window.history.back();
+
   return (
-    <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
+    <main className="mx-auto w-full px-6 py-6 md:px-10 md:py-8">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
         <section className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
+              <button onClick={handleBack} className="shrink-0 text-muted-foreground hover:-translate-x-1 transition-transform duration-200">
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
             <Sliders className="w-5 h-5 text-primary" />
-            <h1 className="text-xl font-semibold text-pretty">Request Queue</h1>
+            <h1 className="text-xl font-semibold text-pretty">Flags Reported</h1>
             {selectedRequestId && (
               <Badge variant="secondary" className="ml-2">
                 Highlighted
               </Badge>
             )}
             <ViewDropdown view={view} setView={setView} />
+            <TopRightBadge label="new" left={0} />
           </div>
 
           <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
@@ -203,11 +210,13 @@ export const RequestsPage = ({
         )}
       </section>
 
-      {(requestData?.totalCount || 0) > LIMIT && (
+      {(requestData?.totalCount || 0) > limit && (
         <Pagination
           currentPage={currentPage}
           totalPages={requestData?.totalPages || 0}
           onPageChange={(page) => setCurrentPage(page)}
+          limit={limit}
+          onLimitChange={setLimit}
         />
       )}
     </main>

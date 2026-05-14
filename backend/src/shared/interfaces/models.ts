@@ -5,7 +5,7 @@ export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-r
 export interface IPreference {
   state: string;
   crop: string;
-  domain: string;
+  domain: string | string[];
 }
 export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export type UserStatus = "active" | "in-active";
@@ -35,7 +35,7 @@ export interface IUser {
   isVerified?: boolean
 }
 
-export type IQuestionPriority = 'low' | 'medium' | 'high';
+export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface IQuestionMetrics {
   mean_similarity: number;
@@ -90,6 +90,7 @@ export interface IQuestion {
   referenceSource?: string;
   saved_to_draft?: boolean;
   pae_review?: boolean;
+  firstAllocationAt?: Date;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

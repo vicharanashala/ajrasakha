@@ -12,6 +12,7 @@ import {
   CurrentUser,
   Post,
   Param,
+  QueryParam,
   NotFoundError,
   Patch,
   UploadedFile,
@@ -311,7 +312,9 @@ export class QuestionController {
             errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
         };
-        this.auditTrailsService.createAuditTrail(auditPayload);
+        if(actorPayload !== null){
+          this.auditTrailsService.createAuditTrail(auditPayload);
+        }
         if(err instanceof InternalServerError){
           throw new InternalServerError(err.message);
         }
@@ -366,6 +369,7 @@ export class QuestionController {
   @OpenAPI({ summary: 'ReAllocating questions which are delayed to those who has less workload' })
   async reAllocateLessWorkload(
      @CurrentUser() user: IUser,
+     @QueryParam('type') type?: string,
   ) {
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
@@ -380,7 +384,7 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const result = await this.questionService.balanceWorkload();
+      const result = await this.questionService.balanceWorkload(undefined, type);
       auditPayload = {
         ...auditPayload,
         changes: {
@@ -410,6 +414,27 @@ export class QuestionController {
       );
 
     }
+  }
+
+  @Get('/reallocation-preview')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get preview of questions and experts for reallocation' })
+  async getReallocationPreview(@QueryParam('type') type: string) {
+    return this.questionService.getReallocationPreview(type);
+  }
+
+  @Post('/reallocate-manual')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually reallocate questions to experts' })
+  async reallocateManual(
+    @Body() body: { 
+      assignments: { submissionId: string; expertId: string }[];
+      inactiveExpertIds?: string[];
+    }
+  ) {
+    return this.questionService.manualReallocate(body.assignments, body.inactiveExpertIds);
   }
 
   @Get("/download-question-report")
@@ -563,6 +588,8 @@ export class QuestionController {
       status?: string;
       hiddenQuestions?: string;
       duplicateQuestions?: string;
+      startDate?: string;
+      endDate?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -596,6 +623,8 @@ export class QuestionController {
         status: query.status,
         hiddenQuestions: query.hiddenQuestions,
         duplicateQuestions: query.duplicateQuestions,
+        startDate: query.startDate,
+        endDate: query.endDate,
       });
     } catch(err: any){
       auditPayload = {
@@ -689,7 +718,7 @@ export class QuestionController {
   ) {
     const { questionId } = params;
     const userId = user._id.toString();
-    const question = await this.questionService.getQuestionFullData(
+    const {question , approved_moderator} = await this.questionService.getQuestionFullData(
       questionId,
       userId,
     );
@@ -698,7 +727,7 @@ export class QuestionController {
       throw new NotFoundError(`Question with id ${questionId} not found`);
     }
 
-    return { success: true, data: question };
+    return { success: true, data: {...question, approved_moderator} };
   }
 
   @Patch('/:questionId/toggle-auto-allocate')
@@ -1085,7 +1114,7 @@ export class QuestionController {
   async bulkDeleteQuestions(
     @Body() body: BulkDeleteQuestionDto,
     @CurrentUser() user: IUser,
-  ): Promise<{ deletedCount: number }> {
+  ): Promise<{ message: string; jobId: string }> {
     const { questionIds } = body;
     let prevQuestions;
     let response;
@@ -1108,7 +1137,7 @@ export class QuestionController {
     };
     try{
       prevQuestions = await Promise.all(questionIds.map(id => this.questionService.getQuestionById(id)));
-      response = await this.questionService.bulkDeleteQuestions(questionIds);
+      response = await this.questionService.bulkDeleteQuestions(user._id.toString(), questionIds);
     } catch(err: any){
       auditPayload = {
         ...auditPayload,

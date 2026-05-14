@@ -1,4 +1,4 @@
-import { parentPort, workerData } from 'worker_threads';
+import {parentPort, workerData} from 'worker_threads';
 import 'reflect-metadata';
 import path from 'path';
 import {Container} from 'inversify';
@@ -8,6 +8,7 @@ import {ObjectId} from 'mongodb';
 import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
 import {getBackgroundJobs} from './workerManager.js';
 import {appConfig} from '#root/config/app.js';
+import {DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT} from '#root/shared/constants/general.js';
 
 interface WorkerData {
   questions: any[];
@@ -29,7 +30,12 @@ const isRequiredAiInitialAnswer = data.isRequiredAiInitialAnswer ?? false;
 const isOutreachQuestion = data.isOutreachQuestion ?? false;
 const allocationMode = data.allocationMode ?? 'expert';
 const paeExpertId = data.paeExpertId ?? null;
-console.log('[Worker] allocationMode:', allocationMode, '| paeExpertId:', paeExpertId);
+console.log(
+  '[Worker] allocationMode:',
+  allocationMode,
+  '| paeExpertId:',
+  paeExpertId,
+);
 
 if (!parentPort) {
   console.error(
@@ -38,7 +44,7 @@ if (!parentPort) {
   process.exit(1);
 }
 
-const container = new Container({ defaultScope: 'Singleton' });
+const container = new Container({defaultScope: 'Singleton'});
 
 container.bind<string>(GLOBAL_TYPES.uri).toConstantValue(mongoUri);
 container.bind<string>(GLOBAL_TYPES.dbName).toConstantValue(dbName);
@@ -49,31 +55,25 @@ container
 
 const database = container.get<MongoDatabase>(GLOBAL_TYPES.Database);
 await database.init();
-const { QuestionRepository } = await import(
-  '#root/shared/database/providers/mongo/repositories/QuestionRepository.js'
-);
+const {QuestionRepository} =
+  await import('#root/shared/database/providers/mongo/repositories/QuestionRepository.js');
 const questionRepo = new QuestionRepository(database);
 await (questionRepo as any).init();
-const { ContextRepository } = await import(
-  '#root/shared/database/providers/mongo/repositories/ContextRepository.js'
-);
-const { UserRepository } = await import(
-  '#root/shared/database/providers/mongo/repositories/UserRepository.js'
-);
-const { QuestionSubmissionRepository } = await import(
-  '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js'
-);
-const { NotificationRepository } = await import(
-  '#root/shared/database/providers/mongo/repositories/NotificationRepository.js'
-);
-const {NotificationService} = await import(
-  '#root/modules/notification/services/NotificationService.js'
-);
+const {ContextRepository} =
+  await import('#root/shared/database/providers/mongo/repositories/ContextRepository.js');
+const {UserRepository} =
+  await import('#root/shared/database/providers/mongo/repositories/UserRepository.js');
+const {QuestionSubmissionRepository} =
+  await import('#root/shared/database/providers/mongo/repositories/SubmissionRepository.js');
+const {NotificationRepository} =
+  await import('#root/shared/database/providers/mongo/repositories/NotificationRepository.js');
+const {NotificationService} =
+  await import('#root/modules/notification/services/NotificationService.js');
 const {AiService} = await import('#root/modules/ai/services/AiService.js');
-const { CropRepository } = await import(
-  '#root/shared/database/providers/mongo/repositories/CropRepository.js'
-);
-const { normalizeKeysToLower } = await import('#root/utils/normalizeKeysToLower.js');
+const {CropRepository} =
+  await import('#root/shared/database/providers/mongo/repositories/CropRepository.js');
+const {normalizeKeysToLower} =
+  await import('#root/utils/normalizeKeysToLower.js');
 
 const contextRepo = new ContextRepository(database);
 await (contextRepo as any).init();
@@ -88,19 +88,17 @@ await (cropRepo as any).init();
 const notificationService = new NotificationService(notificationRepo, database);
 const aiService = new AiService();
 
-const { DuplicateQuestionRepository } = await import(
-  '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js'
-);
+const {DuplicateQuestionRepository} =
+  await import('#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js');
 const duplicateQuestionRepo = new DuplicateQuestionRepository(database);
 await (duplicateQuestionRepo as any).init();
 
-const { checkDuplicateQuestionHelper } = await import(
-  '#root/modules/question/helpers/duplicateQuestionHelper.js'
-);
+const {checkDuplicateQuestionHelper} =
+  await import('#root/modules/question/helpers/duplicateQuestionHelper.js');
 
 (async () => {
   if (questionsPayload.length === 0) {
-    parentPort?.postMessage({ success: true, processed: 0 });
+    parentPort?.postMessage({success: true, processed: 0});
     process.exit(0);
   }
 
@@ -151,7 +149,7 @@ const { checkDuplicateQuestionHelper } = await import(
       };
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
-      const priorities = ['low', 'high', 'medium'];
+      const priorities = ['low', 'high', 'medium', 'critical'];
       const priority = priorities.includes(priorityRaw)
         ? (priorityRaw as any)
         : 'medium';
@@ -169,29 +167,29 @@ const { checkDuplicateQuestionHelper } = await import(
       let aiInitialAnswer = qRaw.aiInitialAnswer || '';
 
       if (ENABLE_AI_SERVER) {
-        const { embedding } = await aiService.getEmbedding(questionText);
+        const {embedding} = await aiService.getEmbedding(questionText);
         textEmbedding = embedding;
 
         if (isRequiredAiInitialAnswer && !aiInitialAnswer) {
           try {
+            const partialQuestion: any = {question: questionText, details};
 
-            const partialQuestion: any = { question: questionText, details };
-
-            const result = await aiService.getAnswerByQuestionDetails(partialQuestion);
+            const result =
+              await aiService.getAnswerByQuestionDetails(partialQuestion);
 
             const answer = result?.answer?.trim();
 
             if (!answer) {
               aiInitialAnswer =
-                "AI could not generate an initial answer at this time.";
+                'AI could not generate an initial answer at this time.';
             } else {
               aiInitialAnswer = answer;
             }
           } catch (error) {
-            console.error("AI initial answer generation failed:", error);
+            console.error('AI initial answer generation failed:', error);
 
             aiInitialAnswer =
-              "AI service is currently unavailable. Please try again later.";
+              'AI service is currently unavailable. Please try again later.';
           }
         }
       }
@@ -201,8 +199,8 @@ const { checkDuplicateQuestionHelper } = await import(
         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
         question: questionText,
         priority,
-        source: isOutreachQuestion ? "OUTREACH" : (low.source || 'AGRI_EXPERT'),
-        status:allocationMode === 'draft'?"draft" :'open',
+        source: isOutreachQuestion ? 'OUTREACH' : low.source || 'AGRI_EXPERT',
+        status: allocationMode === 'draft' ? 'draft' : 'open',
         totalAnswersCount: 0,
         contextId: null,
         details,
@@ -211,7 +209,7 @@ const { checkDuplicateQuestionHelper } = await import(
         embedding: textEmbedding,
         metrics: null,
         text: `Question: ${questionText}`,
-      //  saved_to_draft: allocationMode === 'draft',
+        //  saved_to_draft: allocationMode === 'draft',
         pae_review: allocationMode === 'pae_expert',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -233,7 +231,7 @@ const { checkDuplicateQuestionHelper } = await import(
             aiService,
             duplicateQuestionRepo,
             null,
-            true
+            true,
           );
 
           if (duplicateResult.isDuplicate) {
@@ -242,7 +240,7 @@ const { checkDuplicateQuestionHelper } = await import(
             );
             processed++;
             duplicateCount++;
-            parentPort?.postMessage({ processed: 1, duplicateCount: 1 });
+            parentPort?.postMessage({processed: 1, duplicateCount: 1});
             continue; // Skip allocation
           }
         } catch (dupError: any) {
@@ -258,7 +256,9 @@ const { checkDuplicateQuestionHelper } = await import(
       if (!savedQuestion?._id) {
         throw new Error('Failed to save question to database');
       }
-      console.log(`✅ Question saved to database with ID: ${savedQuestion._id}`);
+      console.log(
+        `✅ Question saved to database with ID: ${savedQuestion._id}`,
+      );
       const qId = savedQuestion._id.toString();
 
       // 6. Allocation — branch by allocationMode
@@ -269,30 +269,41 @@ const { checkDuplicateQuestionHelper } = await import(
 
       if (allocationMode === 'draft') {
         // Draft mode: empty queue, no allocation, no notification
-        console.log(`📝 Draft mode — skipping expert allocation for question ${qId}`);
-
+        console.log(
+          `📝 Draft mode — skipping expert allocation for question ${qId}`,
+        );
       } else if (allocationMode === 'pae_expert' && paeExpertId) {
         // PAE Expert mode: assign to the specified PAE expert
         try {
           const paeUser = await userRepo.findById(paeExpertId);
           if (!paeUser) {
-            console.warn(`⚠️ PAE expert ${paeExpertId} not found, falling back to empty queue`);
+            console.warn(
+              `⚠️ PAE expert ${paeExpertId} not found, falling back to empty queue`,
+            );
           } else {
             queue = [new ObjectId(paeUser._id!.toString())];
             notificationRecipient = paeUser._id!.toString();
             notificationMessage = 'A Question has been assigned for answering';
             notificationTitle = 'Answer Creation Assigned';
-            console.log(`👤 PAE Expert mode — assigned question ${qId} to ${paeUser.email}`);
+            console.log(
+              `👤 PAE Expert mode — assigned question ${qId} to ${paeUser.email}`,
+            );
           }
         } catch (paeErr: any) {
           console.error(`❌ Error finding PAE expert:`, paeErr.message);
         }
-
       } else {
         // Default 'expert' mode: auto-allocate to experts by reputation score
-        const users = await userRepo.findExpertsByReputationScore(details as any);
-        const intialUsersToAllocate = users.slice(0, 3);
-        queue = intialUsersToAllocate.map(user => new ObjectId(user._id.toString()));
+        const users = await userRepo.findExpertsByReputationScore(
+          details as any,
+        );
+        const intialUsersToAllocate = users.slice(
+          0,
+          DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
+        );
+        queue = intialUsersToAllocate.map(
+          user => new ObjectId(user._id.toString()),
+        );
         if (intialUsersToAllocate.length > 0) {
           const IS_INCREMENT = true;
           const firstUserId = intialUsersToAllocate[0]._id.toString();
@@ -300,6 +311,10 @@ const { checkDuplicateQuestionHelper } = await import(
           notificationRecipient = firstUserId;
         }
         console.log(`✅ Experts allocated for question ${qId}`);
+      }
+
+      if (queue.length > 0) {
+        await questionRepo.updateQuestion(qId, { firstAllocationAt: new Date() });
       }
 
       // 7. Create QuestionSubmission entry (always created; queue may be empty for drafts)
@@ -328,8 +343,7 @@ const { checkDuplicateQuestionHelper } = await import(
 
       processed++;
       successIds.push(qId);
-      parentPort?.postMessage({ processed: 1, successIds: [qId] });
-
+      parentPort?.postMessage({processed: 1, successIds: [qId]});
     } catch (error: any) {
       console.error(
         `❌ Error processing raw question:`,
@@ -345,12 +359,12 @@ const { checkDuplicateQuestionHelper } = await import(
         error: error?.message || 'Unknown error',
       });
     }
-}
+  }
 
   console.log(
     `🏁 Worker finished. Total processed: ${processed}/${questionsPayload.length}`,
   );
-    parentPort?.postMessage({
+  parentPort?.postMessage({
     success: true,
   });
   process.exit(0);

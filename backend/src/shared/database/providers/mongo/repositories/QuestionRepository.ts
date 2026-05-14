@@ -44,6 +44,7 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import { buildReviewTimeline } from '#root/utils/buildReviewTat.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -269,7 +270,7 @@ export class QuestionRepository implements IQuestionRepository {
       );
 
       if (!question)
-        throw new NotFoundError(`Faile to find question ${questionId}`);
+        throw new NotFoundError(`Failed to find question ${questionId}`);
 
       const formattedQuestion: IQuestion = {
         ...question,
@@ -926,11 +927,12 @@ export class QuestionRepository implements IQuestionRepository {
             priorityOrder: {
               $switch: {
                 branches: [
-                  { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                  { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                  { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                  { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                  { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                  { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                  { case: { $eq: ['$priority', 'low'] }, then: 4 },
                 ],
-                default: 4,
+                default: 5,
               },
             },
           },
@@ -1342,11 +1344,12 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                { case: { $eq: ['$priority', 'low'] }, then: 4 },
               ],
-              default: 4,
+              default: 5,
             },
           },
         },
@@ -1664,10 +1667,11 @@ export class QuestionRepository implements IQuestionRepository {
       });
 
       const rerouteHistory = Array.from(rerouteHistoryMap.values());
-
+      const reviewTimeline = buildReviewTimeline(submission?.history || [], submission?.queue || [], question?.createdAt,question.status);
+      
       // 7 Populate submissions manually
       const submissionHistory =
-        submission?.history?.map(h => ({
+        submission?.history?.map((h, index) => ({
           updatedBy: h.updatedBy
             ? {
               _id: h.updatedBy?.toString(),
@@ -1708,6 +1712,11 @@ export class QuestionRepository implements IQuestionRepository {
             }
             : null,
           status: h.status,
+          //tat
+          assignedAt: reviewTimeline[index]?.assignedAt || null,
+          completedAt: reviewTimeline[index]?.completedAt || null,
+          timeTakenMs: reviewTimeline[index]?.timeTakenMs || null,
+          isCompleted: reviewTimeline[index]?.isCompleted || false,
           reasonForRejection: h.reasonForRejection,
           approvedAnswer: h.approvedAnswer?.toString(),
           rejectedAnswer: h.rejectedAnswer?.toString(),
@@ -1759,6 +1768,7 @@ export class QuestionRepository implements IQuestionRepository {
             : usersMap.get(q.toString())?.firstName,
           email: !isExpert && usersMap.get(q.toString())?.email,
         })),
+        authorTimeline: reviewTimeline[0],
         history: combinedHistory,
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,
@@ -1780,6 +1790,7 @@ export class QuestionRepository implements IQuestionRepository {
         status: string;
         details: Record<string, any>;
         text: string;
+        sources: { source: string; page?: number | null; sourceType?: string; sourceName?: string }[];
       } | null = null;
 
       if (question.referenceQuestionId) {
@@ -1795,10 +1806,16 @@ export class QuestionRepository implements IQuestionRepository {
             refId = new ObjectId(String(rid));
           }
 
-          const refQuestion = await this.QuestionCollection.findOne(
-            { _id: refId },
-            { projection: { question: 1, status: 1, details: 1, text: 1 } },
-          ) as any;
+          const [refQuestion, refFinalAnswer] = await Promise.all([
+            this.QuestionCollection.findOne(
+              { _id: refId },
+              { projection: { question: 1, status: 1, details: 1, text: 1 } },
+            ) as any,
+            this.AnswersCollection.findOne(
+              { questionId: refId, isFinalAnswer: true },
+              { projection: { sources: 1 } },
+            ) as any,
+          ]);
 
           if (refQuestion) {
             referenceQuestionData = {
@@ -1806,6 +1823,7 @@ export class QuestionRepository implements IQuestionRepository {
               status: refQuestion.status || '',
               details: refQuestion.details || {},
               text: refQuestion.text || '',
+              sources: refFinalAnswer?.sources || [],
             };
           }
         } catch (e) {
@@ -1847,31 +1865,69 @@ export class QuestionRepository implements IQuestionRepository {
 
       const now = new Date();
       const twoHoursMs = 2 * 60 * 60 * 1000;
+      const oneAndHalfHoursMs = 1.5 * 60 * 60 * 1000;
 
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
       const result = await this.QuestionCollection.updateMany(
-        {
-          status: { $in: ['open'] },
-          isOnHold: { $ne: true },
-          $expr: {
-            $lte: [
+            {
+              status: { $in: ['open'] },
+              isOnHold: { $ne: true },
+            },
+            [
               {
-                $add: [
-                  '$createdAt',
-                  twoHoursMs,
-                  { $ifNull: ['$accumulatedHoldMs', 0] },
-                ],
+                $set: {
+                  priority: {
+                    $cond: [
+                      {
+                        $and: [
+                          {
+                            $lte: [
+                              {
+                                $add: [
+                                  '$createdAt',
+                                  oneAndHalfHoursMs,
+                                  { $ifNull: ['$accumulatedHoldMs', 0] },
+                                ],
+                              },
+                              now,
+                            ],
+                          },
+                          {
+                            $ne: ['$priority', 'critical'],
+                          },
+                        ],
+                      },
+                      'critical',
+                      '$priority',
+                    ],
+                  },
+
+                  status: {
+                    $cond: [
+                      {
+                        $lte: [
+                          {
+                            $add: [
+                              '$createdAt',
+                              twoHoursMs,
+                              { $ifNull: ['$accumulatedHoldMs', 0] },
+                            ],
+                          },
+                          now,
+                        ],
+                      },
+                      'delayed',
+                      '$status',
+                    ],
+                  },
+                },
               },
-              now,
             ],
-          },
-        },
-        { $set: { status: 'delayed' } },
-      );
+          );
 
       console.log(
-        ` Updated ${result.modifiedCount} questions to "delayed" status`,
+        ` Updated ${result.modifiedCount} questions to "delayed" status/ 'critical' priority.`,
       );
     } catch (error) {
       console.error('Error updating expired questions', error);
@@ -2107,11 +2163,12 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                { case: { $eq: ['$priority', 'low'] }, then: 4 },
               ],
-              default: 4,
+              default: 5,
             },
           },
         },
@@ -2607,20 +2664,25 @@ export class QuestionRepository implements IQuestionRepository {
       closedAt: { $exists: true }
     };
 
-    /**
-     * Filter by CLOSED DATE
-     * (Recommended for daily average response time)
-     */
     if (startDate && endDate) {
 
-      const startOfDay = new Date(
+     /* const startOfDay = new Date(
         `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`
       );
 
       const endOfDay = new Date(
         `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`
-      );
+      );*/
+    const startOfDay = new Date(startDate);
+    startOfDay.setHours(0, 0, 0, 0);
 
+    const endOfDay = new Date(endDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+      matchCondition.createdAt = {
+        $gte: startOfDay,
+        $lte: endOfDay
+      };
       matchCondition.closedAt = {
         $gte: startOfDay,
         $lte: endOfDay
@@ -2629,7 +2691,7 @@ export class QuestionRepository implements IQuestionRepository {
 
     /**
      * Optional Time Filter (IST)
-     * Filters based on CLOSED TIME
+     * Filters based on CREATED TIME
      */
     if (customStartTime && customEndTime) {
 
@@ -2652,7 +2714,7 @@ export class QuestionRepository implements IQuestionRepository {
                     $multiply: [
                       {
                         $hour: {
-                          date: '$closedAt',
+                          date: '$createdAt',
                           timezone: 'Asia/Kolkata'
                         }
                       },
@@ -2661,7 +2723,7 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                   {
                     $minute: {
-                      date: '$closedAt',
+                      date: '$createdAt',
                       timezone: 'Asia/Kolkata'
                     }
                   }
@@ -2678,7 +2740,7 @@ export class QuestionRepository implements IQuestionRepository {
                     $multiply: [
                       {
                         $hour: {
-                          date: '$closedAt',
+                          date: '$createdAt',
                           timezone: 'Asia/Kolkata'
                         }
                       },
@@ -2687,7 +2749,7 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                   {
                     $minute: {
-                      date: '$closedAt',
+                      date: '$createdAt',
                       timezone: 'Asia/Kolkata'
                     }
                   }
@@ -2765,6 +2827,7 @@ export class QuestionRepository implements IQuestionRepository {
         avgTime: number;
         totalTickets: number;
       }[];
+      
 
     const whatsapp =
       result.find(r => r.source === 'whatsapp')?.avgTime ?? 0;

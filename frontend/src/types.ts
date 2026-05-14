@@ -19,7 +19,7 @@ export interface AuthUser {
 export interface IMyPreference {
   state: string;
   crop: string;
-  domain: string;
+  domain: string | string[];
 }
 export type NotificationRetentionType = "3d" | "1w" | "2w" | "1m" | "never";
 export interface IUser {
@@ -149,7 +149,7 @@ export interface HistoryItem {
 
 }
 
-export type QuestionPriority = "low" | "medium" | "high";
+export type QuestionPriority = "low" | "medium" | "high" | "critical";
 export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 
 export interface IQuestion {
@@ -420,6 +420,9 @@ export interface ISubmissionHistory {
   reasonForLastModification: string;
   isReroute?: boolean;
   previousAllocations?: IPreviousAllocation[];
+  assignedAt?: string;
+  completedAt?: string;
+  timeTakenMs?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -465,9 +468,9 @@ export interface IQuestionFullData {
   aiApprovedAnswer?: string;
   aiApprovedSources?: SourceItem[];
   authors_history?: IAuthorsHistory[];
-  similarityScore?: number;        // percentage (0–100)
+  similarityScore?: number; // percentage (0–100)
   referenceQuestionId?: string;
-  referenceQuestion?: string
+  referenceQuestion?: string;
   referenceSource?: string;
   referenceQuestionData?: {
     question: string;
@@ -481,10 +484,15 @@ export interface IQuestionFullData {
       [key: string]: string;
     };
     text: string;
+    sources?: SourceItem[];
   };
   originalQuestion?: string;
   closedAt?: string;
   threadId?: string;
+  approved_moderator:{
+    name: string;
+    email: string;
+  }
 }
 
 export interface QuestionFullDataResponse {
@@ -697,7 +705,7 @@ export interface IRerouteHistoryResponse {
 // API returns an array
 // ---------------------
 export type RerouteHistoryApiResponse = IRerouteHistoryResponse[];
-type Priority = "high" | "medium" | "low";
+type Priority = "critical" | "high" | "medium" | "low";
 
 export interface ReroutedQuestionItem {
   id: string;
@@ -905,6 +913,14 @@ export interface WorkloadBalanceResponse {
   message: string;
   expertsInvolved: number;
   submissionsProcessed: number;
+  inactiveExpertsFound?: number;
+}
+export interface ReallocateExpertsSelectedQuestionsResponse {
+  message: string;
+  expertsInvolved: number;
+  submissionsProcessed: number;
+  questionsFiltered?: number;
+  unallocatedQuestions?: number;
 }
 
 export type GrowthResponse = {

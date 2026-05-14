@@ -5,6 +5,7 @@ import { inject, injectable } from 'inversify';
 import { ClientSession, ObjectId } from 'mongodb';
 import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
 import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js';
+import { startBulkDeleteWorker } from '#root/workers/bulkDelete.manager.js';
 import {
   IQuestion,
   IQuestionSubmission,
@@ -178,7 +179,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       details.normalised_crop = normalised_crop;
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
-      const priorities = ['low', 'high', 'medium'];
+      const priorities = ['low', 'high', 'medium', 'critical'];
       const priority = priorities.includes(priorityRaw)
         ? (priorityRaw as IQuestionPriority)
         : 'medium';
@@ -899,10 +900,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         };
       }
 
-      const validPriorities = ['low', 'medium', 'high'];
+      const validPriorities = ['low', 'medium', 'high', 'critical'];
       priority = priority?.toLowerCase() as IQuestion['priority'];
       if (!validPriorities.includes(priority)) {
         priority = 'medium';
+      }
+      if(source === "AJRASAKHA" || source === "WHATSAPP"){
+        priority = 'high';
       }
 
       if (!question?.trim()) {
@@ -998,30 +1002,35 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: new Date(),
           ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
         };
-        // const enableDuplicateFeature = false
-        // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
-        // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-        // if (enableDuplicateFeature)
-        let duplicateResult: { isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
-        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-          duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
-        }
 
-        // =====================================================
-        // 🔥 IF NOT SIMILAR → NORMAL FLOW
-        // =====================================================
-
+        // 🔹 Save question first, then check for duplicates
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-        const savedQuestion = await this.questionRepo.addQuestion(
-          duplicateResult?.isDuplicate ? duplicateResult?.duplicateData : baseQuestion,
-          session,
-        );
-
+        const savedQuestion = await this.questionRepo.addQuestion(baseQuestion, session);
 
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
+
+        // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
+        let duplicateResult: { isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
+        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+          try {
+            duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
+            if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
+              const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
+              await this.questionRepo.updateQuestion(
+                savedQuestion._id.toString(),
+                { status: 'duplicate', similarityScore, referenceQuestionId, referenceQuestion, referenceSource },
+                session,
+              );
+            }
+          } catch (duplicateError: any) {
+            console.error('Duplicate check failed, question saved as open:', duplicateError.message);
+            logData.duplicateCheckError = duplicateError.message;
+          }
+        }
+
 
         const users = await this.userRepo.findExpertsByPreference(
           details as PreferenceDto,
@@ -1066,6 +1075,11 @@ export class QuestionService extends BaseService implements IQuestionService {
               'answer_creation',
             );
           }
+          await this.questionRepo.updateQuestion(
+            savedQuestion._id.toString(),
+            { firstAllocationAt: new Date() },
+            session,
+          );
         } else {
 
           const submissionData: IQuestionSubmission = {
@@ -1454,6 +1468,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             user,
             type,
           );
+          await this.questionRepo.updateQuestion(
+            questionId,
+            { firstAllocationAt: new Date() },
+            session,
+          );
         }
       }
       if (
@@ -1711,6 +1730,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             entityId,
             user,
             type,
+          );
+          await this.questionRepo.updateQuestion(
+            questionId,
+            { firstAllocationAt: new Date() },
+            session,
           );
         }
 
@@ -2226,13 +2250,27 @@ export class QuestionService extends BaseService implements IQuestionService {
         const currentQuestion = await this.questionRepo.getById(questionId, session);
         const existingHistory = currentQuestion.authors_history || [];
 
+        const questionUpdates: Partial<IQuestion> = {
+          userId: new ObjectId(newExpertId),
+          authors_history: [...existingHistory, authorsHistoryEntry],
+        };
+
+        if (question.isOnHold) {
+          const prevAccum = question.accumulatedHoldMs ?? 0;
+          let segmentMs = 0;
+          if (question.holdAt) {
+            segmentMs = Math.max(0, now.getTime() - new Date(question.holdAt).getTime());
+          }
+          questionUpdates.isOnHold = false;
+          questionUpdates.status = 'open';
+          questionUpdates.accumulatedHoldMs = prevAccum + segmentMs;
+          questionUpdates.holdAt = null;
+        }
+
         // Update question's userId (author) and append to authors_history
         await this.questionRepo.updateQuestion(
           questionId,
-          {
-            userId: new ObjectId(newExpertId),
-            authors_history: [...existingHistory, authorsHistoryEntry],
-          },
+          questionUpdates,
           session
         );
 
@@ -2494,6 +2532,24 @@ export class QuestionService extends BaseService implements IQuestionService {
         },
       };
 
+      if (question.isOnHold) {
+        const prevAccum = question.accumulatedHoldMs ?? 0;
+        let segmentMs = 0;
+        if (question.holdAt) {
+          segmentMs = Math.max(0, now.getTime() - new Date(question.holdAt).getTime());
+        }
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {
+            isOnHold: false,
+            status: 'open',
+            accumulatedHoldMs: prevAccum + segmentMs,
+            holdAt: null,
+          },
+          session,
+        );
+      }
+
       const updated = await this.questionSubmissionRepo.updateById(
         questionSubmission._id!.toString(),
         updateData,
@@ -2737,30 +2793,22 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
   }
 
-  async bulkDeleteQuestions(questionIds: string[]) {
-    return this._withTransaction(async (session: ClientSession) => {
-      if (!questionIds || questionIds.length === 0) {
-        throw new BadRequestError('No question IDs found to delete!');
-      }
-      if (questionIds.length > 50) {
-        throw new BadRequestError('You can select a maximum of 50 questions');
-      }
+  async bulkDeleteQuestions(userId: string, questionIds: string[]) {
+    if (!questionIds || questionIds.length === 0) {
+      throw new BadRequestError('No question IDs found to delete!');
+    }
 
-      let deletedCount = 0;
-
-      for (const id of questionIds) {
-        const res = await this.deleteQuestion(id, session);
-        deletedCount += res.deletedCount ?? 0;
-      }
-
-      return { deletedCount };
-    });
+    const jobId = startBulkDeleteWorker(questionIds, userId);
+    return {
+      jobId,
+      message: `Your bulk delete request for ${questionIds.length} question(s) is being processed in the background. Estimated time: ~ ${Math.ceil(questionIds.length * 0.6)} sec.`,
+    };
   }
 
   async getQuestionFullData(
     questionId: string,
     userId: string,
-  ): Promise<IQuestion | null> {
+  ): Promise<{question: IQuestion | null; approved_moderator: {name: string; email: string}}> {
     try {
       const user = await this.userRepo.findById(userId);
       const isExpert = user.role == 'expert';
@@ -2772,7 +2820,33 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!question) {
         return null;
       }
-      return question;
+
+      let approved_moderator = {
+        name: '',
+        email: '',
+      };
+      if (question.status === 'closed') {
+        const answers = await this.answerRepo.getByQuestionId(questionId);
+        const finalizedAnswer = answers.find(answer => answer.isFinalAnswer);
+        
+        if (finalizedAnswer?.approvedBy) {
+          const moderator = await this.userRepo.findById(
+            finalizedAnswer.approvedBy,
+          );
+
+          if (moderator) {
+            approved_moderator = {
+              name: `${moderator.firstName} ${moderator.lastName}`,
+              email: moderator.email,
+            };
+          }
+        }
+      }
+
+      return {
+        question,
+        approved_moderator,
+      };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
     }
@@ -2942,6 +3016,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
     console.log('Completed!');
   }
+
   async balanceWorkload_copy() {
     return await this._withTransaction(async session => {
       try {
@@ -3181,93 +3256,377 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-  async balanceWorkload() {
-    const lessWorkloadExperts =
-      await this.userRepo.findActiveLowReputationExpertsToday();
+  async balanceWorkload(
+    session?: ClientSession,
+    type?: string,
+  ): Promise<{
+    message: string;
+    expertsInvolved: number;
+    submissionsProcessed: number;
+    inactiveExpertsFound?: number;
+  }> {
+    console.log(`[QuestionService] balanceWorkload called with type: ${type}`);
 
-    const MAX_PER_EXPERT = 5;
-    const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
+    // ==========================================
+    // 🚩 Path 1: Inactive to Active Reallocation
+    // ==========================================
+    if (type === 'inactive') {
+      const lessWorkloadExperts =
+        await this.userRepo.findActiveLowReputationExpertsToday(session);
+      console.log(`[QuestionService] [Path 1] Found ${lessWorkloadExperts.length} active experts for replacement`);
 
-    if (!lessWorkloadExperts.length) {
+      if (!lessWorkloadExperts.length) {
+        return {
+          message: 'No active experts with low workload available for balancing',
+          expertsInvolved: 0,
+          submissionsProcessed: 0,
+        };
+      }
+
+      const inactiveExperts =
+        await this.userRepo.findInactiveOrBlockedExperts(session);
+      const inactiveExpertIds = inactiveExperts.map(u => u._id.toString());
+      
+      console.log(`[QuestionService] [Path 1] Found ${inactiveExpertIds.length} inactive/blocked experts to clean`);
+
+      if (inactiveExpertIds.length === 0) {
+        return {
+          message: 'No inactive or blocked experts found',
+          expertsInvolved: lessWorkloadExperts.length,
+          submissionsProcessed: 0,
+        };
+      }
+
+      const targetSubmissions =
+        await this.questionSubmissionRepo.findSubmissionsWithExpertsInQueue(
+          inactiveExpertIds,
+          session,
+        );
+      console.log(`[QuestionService] [Path 1] Found ${targetSubmissions.length} active tasks owned by inactive experts`);
+
+      if (!targetSubmissions.length) {
+        return {
+          message: 'No active tasks found for inactive experts',
+          expertsInvolved: lessWorkloadExperts.length,
+          submissionsProcessed: 0,
+        };
+      }
+
+      const assignments: Record<string, any[]> = {};
+      const expertLoad: Record<string, number> = {};
+      const MAX_PER_EXPERT = 5;
+
+      lessWorkloadExperts.forEach(e => {
+        const id = e._id.toString();
+        assignments[id] = [];
+        expertLoad[id] = 0;
+      });
+
+      let expertIndex = 0;
+
+      for (const submission of targetSubmissions) {
+        let attempts = 0;
+        let assigned = false;
+
+        const historyExpertIds = new Set(
+          (submission.history || []).map(h => h.updatedBy?.toString()),
+        );
+        const currentQueueIds = new Set(
+          (submission.queue || []).map(id => id.toString()),
+        );
+
+        while (attempts < lessWorkloadExperts.length && !assigned) {
+          const expert = lessWorkloadExperts[expertIndex];
+          const expertId = expert._id.toString();
+
+          if (
+            !historyExpertIds.has(expertId) &&
+            !currentQueueIds.has(expertId) &&
+            expertLoad[expertId] < MAX_PER_EXPERT
+          ) {
+            assignments[expertId].push(submission);
+            expertLoad[expertId]++;
+            assigned = true;
+          }
+
+          expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
+          attempts++;
+        }
+      }
+
+      const flatAssignments: { submissionId: string; expertId: string }[] = [];
+      for (const expertId in assignments) {
+        for (const submission of assignments[expertId]) {
+          flatAssignments.push({
+            submissionId: submission._id.toString(),
+            expertId,
+          });
+        }
+      }
+
+      startBalanceWorkloadWorkers(flatAssignments, inactiveExpertIds);
+
       return {
-        message: 'No Expert Present To Reallocate Questions .No action needed.',
-        expertsInvolved: 0,
-        submissionsProcessed: 0,
+        message: 'Inactive-to-Active reallocation started in background',
+        inactiveExpertsFound: inactiveExpertIds.length,
+        expertsInvolved: lessWorkloadExperts.length,
+        submissionsProcessed: flatAssignments.length,
       };
     }
 
-    const delayedSubmissions =
-      await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
-        maxAssignments,
-      );
+    // ==========================================
+    // 🚩 Path 2: Default ReAllocate (Escalation)
+    // ==========================================
+    else {
+      const lessWorkloadExperts =
+        await this.userRepo.findActiveLowReputationExpertsToday(session);
 
-    if (!delayedSubmissions.length) {
+      console.log(`[QuestionService] Found ${lessWorkloadExperts.length} active experts with low workload`);
+
+      const MAX_PER_EXPERT = 5;
+      const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
+
+      if (!lessWorkloadExperts.length) {
+        return {
+          message: 'No Expert Present To Reallocate Questions .No action needed.',
+          expertsInvolved: 0,
+          submissionsProcessed: 0,
+        };
+      }
+
+      const delayedSubmissions =
+        await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
+          maxAssignments,
+          session,
+        );
+      
+      console.log(`[QuestionService] Found ${delayedSubmissions.length} delayed submissions needing escalation`);
+
+      if (!delayedSubmissions.length) {
+        return {
+          message:
+            'No questions are pending allocation for more than one hour. No action needed.',
+          expertsInvolved: 0,
+          submissionsProcessed: 0,
+        };
+      }
+
+      await this._withTransaction(async session => {
+        for (const submission of delayedSubmissions as any[]) {
+          const question = submission.question;
+          if (question && question.isOnHold) {
+            const now = new Date();
+            const prevAccum = question.accumulatedHoldMs ?? 0;
+            let segmentMs = 0;
+            if (question.holdAt) {
+              segmentMs = Math.max(
+                0,
+                now.getTime() - new Date(question.holdAt).getTime(),
+              );
+            }
+            await this.questionRepo.updateQuestion(
+              question._id.toString(),
+              {
+                isOnHold: false,
+                status: 'open',
+                accumulatedHoldMs: prevAccum + segmentMs,
+                holdAt: null,
+              },
+              session,
+            );
+          }
+        }
+      });
+
+      const assignments: Record<string, any[]> = {};
+      const expertLoad: Record<string, number> = {};
+
+      lessWorkloadExperts.forEach(e => {
+        const id = e._id.toString();
+        assignments[id] = [];
+        expertLoad[id] = 0;
+      });
+
+      let expertIndex = 0;
+
+      for (const submission of delayedSubmissions) {
+        let attempts = 0;
+        let assigned = false;
+
+        const historyExpertIds = new Set(
+          (submission.history || []).map(h => h.updatedBy?.toString()),
+        );
+        const firstExpertId = submission.queue?.[0]?.toString();
+        const queueExpertIds = new Set(firstExpertId ? [firstExpertId] : []);
+
+        while (attempts < lessWorkloadExperts.length && !assigned) {
+          const expert = lessWorkloadExperts[expertIndex];
+          const expertId = expert._id.toString();
+
+          if (
+            !historyExpertIds.has(expertId) &&
+            !queueExpertIds.has(expertId) &&
+            expertLoad[expertId] < MAX_PER_EXPERT
+          ) {
+            assignments[expertId].push(submission);
+            expertLoad[expertId]++;
+            assigned = true;
+          } else {
+            console.log(`[QuestionService] Skipping expert ${expertId} for submission ${submission._id}: alreadyInHistory=${historyExpertIds.has(expertId)}, alreadyInQueue=${queueExpertIds.has(expertId)}, load=${expertLoad[expertId]}`);
+          }
+
+          expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
+          attempts++;
+        }
+      }
+
+      const flatAssignments: { submissionId: string; expertId: string }[] = [];
+
+      for (const expertId in assignments) {
+        for (const submission of assignments[expertId]) {
+          flatAssignments.push({
+            submissionId: submission._id.toString(),
+            expertId,
+          });
+        }
+      }
+      
+      console.log(`[QuestionService] Created ${flatAssignments.length} reallocation assignments`);
+      
+      if (flatAssignments.length > 0) {
+        startBalanceWorkloadWorkers(flatAssignments);
+      }
       return {
-        message:
-          'No questions are pending allocation for more than one hour. No action needed.',
-        expertsInvolved: 0,
-        submissionsProcessed: 0,
+        message: 'Workload balancing started in background',
+        expertsInvolved: lessWorkloadExperts.length,
+        submissionsProcessed: flatAssignments.length,
       };
     }
+  }
 
-    const assignments: Record<string, any[]> = {};
-    const expertLoad: Record<string, number> = {};
+  async getReallocationPreview(type: string): Promise<any> {
+    return this._withTransaction(async (session) => {
+      let questions: any[] = [];
+      let inactiveExpertIds: string[] = [];
+      const activeExperts = await this.userRepo.findActiveLowReputationExpertsToday(session);
 
-    lessWorkloadExperts.forEach(e => {
-      const id = e._id.toString();
-      assignments[id] = [];
-      expertLoad[id] = 0;
-    });
+      if (type === 'inactive') {
+        const inactiveExperts = await this.userRepo.findInactiveOrBlockedExperts(session);
+        inactiveExpertIds = inactiveExperts.map(e => e._id.toString());
+        
+        if (inactiveExpertIds.length > 0) {
+          const INACTIVE_PREVIEW_LIMIT = 50;
+          questions = await this.questionSubmissionRepo.findSubmissionsWithExpertsInQueue(
+            inactiveExpertIds,
+            session,
+            INACTIVE_PREVIEW_LIMIT,
+          );
+        }
+      } else {
+        // escalation - show questions that are delayed (1+ hour)
+        // We fetch a generous amount for the manual preview
+        const ESCALATION_LIMIT = 50; 
+        questions = await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
+          ESCALATION_LIMIT,
+          session,
+        );
+      }
 
-    let expertIndex = 0;
+      // Identify experts name and status for display
+      const expertInfoMap = new Map<string, { name: string, status: string, isBlocked: boolean }>();
+      if (questions.length > 0) {
+        // Collect all expert IDs in queues
+        const allExpertIdsInQueues = new Set<string>();
+        questions.forEach(q => {
+          q.queue?.forEach((id: any) => allExpertIdsInQueues.add(id.toString()));
+        });
+        
+        const experts = await this.userRepo.getUsersByIds(Array.from(allExpertIdsInQueues), session);
+        experts.forEach(e => expertInfoMap.set(e._id.toString(), {
+          name: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
+          status: e.status || 'unknown',
+          isBlocked: !!e.isBlocked
+        }));
+      }
 
-    for (const submission of delayedSubmissions) {
-      let attempts = 0;
-      let assigned = false;
+      // Populate question text and identify current "responsible" expert
+      const populatedQuestions = (await Promise.all(questions.map(async (submission) => {
+        let questionText = '';
+        try {
+          const question = await this.questionRepo.getById(submission.questionId.toString(), session);
+          if (!question) return null; // Skip if question document is deleted
+          questionText = question.question;
+        } catch (err) {
+          console.error(`[QuestionService] Failed to fetch question ${submission.questionId}:`, err);
+          return null; // Skip on error to avoid invalid entries
+        }
+        
+        let currentExpertId = null;
+        const targetExpertIdsSet = new Set(inactiveExpertIds);
 
-      const historyExpertIds = new Set(
-        (submission.history || []).map(h => h.updatedBy?.toString()),
-      );
-      const firstExpertId = submission.queue?.[0]?.toString();
-      const queueExpertIds = new Set(firstExpertId ? [firstExpertId] : []);
-
-      while (attempts < lessWorkloadExperts.length && !assigned) {
-        const expert = lessWorkloadExperts[expertIndex];
-        const expertId = expert._id.toString();
-
-        if (
-          !historyExpertIds.has(expertId) &&
-          !queueExpertIds.has(expertId) &&
-          expertLoad[expertId] < MAX_PER_EXPERT
-        ) {
-          assignments[expertId].push(submission);
-          expertLoad[expertId]++;
-          assigned = true;
+        if (type === 'inactive') {
+          // Identify which inactive expert is currently assigned
+          const historyLength = (submission.history || []).length;
+          const currentInQueue = submission.queue?.[historyLength];
+          
+          if (currentInQueue && targetExpertIdsSet.has(currentInQueue.toString())) {
+            currentExpertId = currentInQueue.toString();
+          } else {
+            // Fallback: search queue for any inactive/blocked expert
+            const targetInQueue = submission.queue?.find(id => targetExpertIdsSet.has(id.toString()));
+            if (targetInQueue) {
+              currentExpertId = targetInQueue.toString();
+            }
+          }
+        } else {
+          // Escalation - whoever is currently supposed to review
+          const historyLength = (submission.history || []).length;
+          currentExpertId = submission.queue?.[historyLength]?.toString();
         }
 
-        expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
-        attempts++;
-      }
-    }
+        const info = currentExpertId ? expertInfoMap.get(currentExpertId) : null;
+        const currentExpertName = info?.name || 'No Experts Assigned';
+        const currentExpertStatus = info?.status || 'unknown';
+        const isCurrentExpertBlocked = info?.isBlocked || false;
 
-    const flatAssignments: { submissionId: string; expertId: string }[] = [];
-
-    // console.log("the assignments=======",assignments)
-
-    for (const expertId in assignments) {
-      for (const submission of assignments[expertId]) {
-        flatAssignments.push({
+        return {
           submissionId: submission._id.toString(),
-          expertId,
-        });
-      }
-    }
-    const jobId = startBalanceWorkloadWorkers(flatAssignments);
+          questionId: submission.questionId.toString(),
+          questionText: questionText,
+          currentExpertId,
+          currentExpertName,
+          currentExpertStatus,
+          isCurrentExpertBlocked,
+          queue: submission.queue?.map(id => id.toString()) || []
+        };
+      }))).filter(q => q !== null);
 
+      // Get names for active experts
+      const populatedActiveExperts = activeExperts.map(e => ({
+        id: e._id.toString(),
+        name: `${e.firstName} ${e.lastName || ''}`.trim(),
+        reputation_score: e.reputation_score || 0
+      }));
+
+      return {
+        questions: populatedQuestions,
+        activeExperts: populatedActiveExperts,
+        inactiveExpertIds: type === 'inactive' ? inactiveExpertIds : []
+      };
+    });
+  }
+
+  async manualReallocate(
+    assignments: { submissionId: string; expertId: string }[],
+    inactiveExpertIds?: string[],
+  ): Promise<{ message: string; submissionsProcessed: number }> {
+    if (assignments.length > 0) {
+      startBalanceWorkloadWorkers(assignments, inactiveExpertIds);
+    }
+    
     return {
-      message: 'Workload balancing started in background',
-      expertsInvolved: lessWorkloadExperts.length,
-      submissionsProcessed: flatAssignments.length,
+      message: 'Manual reallocation started in background',
+      submissionsProcessed: assignments.length,
     };
   }
 
@@ -3630,6 +3989,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     status?: string;
     hiddenQuestions?: string;
     duplicateQuestions?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       // Build filter query
@@ -3658,10 +4019,26 @@ export class QuestionService extends BaseService implements IQuestionService {
         query['details.domain'] = filters.domain;
       }
       if (filters.status && filters.status !== 'all') {
-        query.status = filters.status;
+        if (filters.status === 'pae_closed') {
+          query.status = 'closed';
+          query.pae_review = true;
+        } else {
+          query.status = filters.status;
+        }
       }
       if (filters.hiddenQuestions === 'true') {
         query.isHidden = { $eq: true };
+      }
+      if (filters.startDate || filters.endDate) {
+        query.createdAt = {};
+        if (filters.startDate) {
+          query.createdAt.$gte = new Date(filters.startDate);
+        }
+        if (filters.endDate) {
+          const end = new Date(filters.endDate);
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end;
+        }
       }
 
       // Get questions from repository
@@ -4086,10 +4463,9 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   //balance workload to experts for selected questions
-  async balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number }> {
+  async balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number; questionsFiltered?: number; unallocatedQuestions?: number }> {
     const lessWorkloadExperts =
       await this.userRepo.findActiveLowReputationExpertsToday();
-    console.log('less workload experts found:', lessWorkloadExperts);
     const MAX_PER_EXPERT = 5;
 
     if (!lessWorkloadExperts.length) {
@@ -4100,11 +4476,51 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
 
+    if(questionIds.length > lessWorkloadExperts.length * MAX_PER_EXPERT) {
+      return {
+        message: `Too many questions selected. Only ${lessWorkloadExperts.length} experts are currently available for reallocation. The maximum allowed is ${lessWorkloadExperts.length * MAX_PER_EXPERT} questions based on the current expert capacity. Please reduce the number of selected questions or increase the number of available experts.`,
+        expertsInvolved: lessWorkloadExperts.length,
+        submissionsProcessed: 0,
+      }
+    }
+
     const questionSubmissionDetails = await this.questionSubmissionRepo.findReallocationQuestionsByIds(questionIds);
 
-    if (!questionSubmissionDetails.length) throw new NotFoundError(
-      `Failed to find Questions`,
-    );
+    if (!questionSubmissionDetails.length) {
+      return {
+        message: `No valid questions found. Selected questions are either closed, in review, passed, draft, or already submitted.`,
+        expertsInvolved: lessWorkloadExperts.length,
+        submissionsProcessed: 0,
+      };
+    }
+
+    await this._withTransaction(async session => {
+      for (const submission of questionSubmissionDetails as any[]) {
+        const question = submission.question;
+        if (question && question.isOnHold) {
+          const now = new Date();
+          const prevAccum = question.accumulatedHoldMs ?? 0;
+          let segmentMs = 0;
+          if (question.holdAt) {
+            segmentMs = Math.max(
+              0,
+              now.getTime() - new Date(question.holdAt).getTime(),
+            );
+          }
+          await this.questionRepo.updateQuestion(
+            question._id.toString(),
+            {
+              isOnHold: false,
+              status: 'open',
+              accumulatedHoldMs: prevAccum + segmentMs,
+              holdAt: null,
+            },
+            session,
+          );
+        }
+      }
+    });
+
     const assignments: Record<string, any[]> = {};
     const expertLoad: Record<string, number> = {};
 
@@ -4116,6 +4532,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
 
     let expertIndex = 0;
+    let unallocatedQuestionsCount = 0;
 
     for (const submission of questionSubmissionDetails) {
       let attempts = 0;
@@ -4151,6 +4568,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
         attempts++;
       }
+      if(!assigned) unallocatedQuestionsCount++;
     }
 
     const flatAssignments: { submissionId: string; expertId: string }[] = [];
@@ -4169,6 +4587,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       message: 'Workload balancing started in background',
       expertsInvolved: lessWorkloadExperts.length,
       submissionsProcessed: flatAssignments.length,
+      questionsFiltered: questionIds.length - questionSubmissionDetails.length,
+      unallocatedQuestions: unallocatedQuestionsCount,
     };
   }
 

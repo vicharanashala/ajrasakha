@@ -16,13 +16,13 @@ export interface DuplicateQuestionEntry {
   state: string;
 }
 
-export function useDuplicateQuestions(enabled = false) {
+export function useDuplicateQuestions(enabled = false, source: 'vicharanashala' | 'annam' = 'annam') {
   return useQuery<DuplicateQuestionEntry[], Error>({
-    queryKey: ['duplicate-questions'],
+    queryKey: ['duplicate-questions', source],
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const result = await apiFetch<DuplicateQuestionEntry[]>(
-        `${API_BASE_URL}/analytics/duplicate-questions`
+        `${API_BASE_URL}/analytics/duplicate-questions?source=${source}`
       );
       return result ?? [];
     },
