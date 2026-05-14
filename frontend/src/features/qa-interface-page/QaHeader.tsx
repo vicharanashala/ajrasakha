@@ -240,6 +240,8 @@ const QaQuestionItem = ({
   onQuestionSelect: (id: string) => void;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
 }) => {
+
+  console.log("Rendring question: ", question)
   
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
@@ -257,7 +259,7 @@ const QaQuestionItem = ({
     <div
       key={question?.id}
       ref={(el) => setQuestionRef(question?.id || "", el)}
-      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
+      className={`relative group rounded-xl border border-l-4 ${question.source === "AJRASAKHA" ? "border-blue-500" : question.source === "WHATSAPP" ? "border-green-500" : question.source === "OUTREACH" ? "border-orange-500" : question.source === "AGRI_EXPERT" ? "border-gray-500" : "border-yellow-500"}  transition-all duration-200 overflow-hidden bg-transparent ${
         selectedQuestion === question?.id
           ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
           : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
