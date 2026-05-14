@@ -22,6 +22,7 @@ interface DashboardApiResponse {
     voiceUsageSharePct: number;
     totalAppInstalls: number;
     inactiveUsersLast3Days: number;
+    duplicateQuestionsCount: number;
   };
   dau: DailyEntry[];
   weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
@@ -251,6 +252,7 @@ export function useDashboardData(filters?: DashboardFilterValues, source: 'vicha
       source,
       userType,
     ],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
 

@@ -283,10 +283,12 @@ export class ChatbotRepository implements IChatbotRepository {
       const dupeMsgIds = dupeWithMsgId.map(q => q.messageId).filter(Boolean) as string[];
       let duplicateQuestionsCount = 0;
       if (dupeMsgIds.length > 0) {
-        // this.messagesCollection is already set to the correct source DB by init(source) above
-        duplicateQuestionsCount = await this.messagesCollection.countDocuments(
-          { messageId: { $in: dupeMsgIds } },
-        );
+        const existingMessages = await this.messagesCollection
+          .find({ messageId: { $in: dupeMsgIds } })
+          .project<{ messageId: string }>({ messageId: 1 })
+          .toArray();
+        const existingMsgIdSet = new Set(existingMessages.map(m => m.messageId));
+        duplicateQuestionsCount = dupeWithMsgId.filter(q => existingMsgIdSet.has(q.messageId)).length;
       }
 
       return {
@@ -1655,7 +1657,6 @@ export class ChatbotRepository implements IChatbotRepository {
           createdAt: 1,
         })
         .sort({ createdAt: -1 })
-        .limit(200)
         .toArray();
 
       if (dupeQuestions.length === 0) return [];
