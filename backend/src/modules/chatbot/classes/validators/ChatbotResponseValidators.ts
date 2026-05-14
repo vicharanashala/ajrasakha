@@ -90,6 +90,15 @@ export class KpiSummaryResponse {
   })
   @IsNumber()
   inactiveUsersLast3Days: number;
+
+  @JSONSchema({
+    description: 'Number of users who have never given any feedback',
+    example: 1200,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  lowFeedbackUsersCount: number;
 }
 
 // ─── Daily Active Users Entry ─────────────────────────────────────────────────

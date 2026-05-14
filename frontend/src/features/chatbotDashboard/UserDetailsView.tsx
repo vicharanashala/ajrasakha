@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { X, MapPin, Maximize2 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
@@ -96,6 +96,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   endTime: undefined,
   profileCompleted: "all",
   inactiveOnly: false,
+  lowFeedbackOnly: false,
 };
 
 interface UserDetailsViewProps {
@@ -116,12 +117,20 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const tableRef = useRef<HTMLDivElement>(null);
 
-  // Apply initialFilters when they change (e.g. clicking from AlertCard)
+  const scrollToTable = () => {
+    setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  };
+
+  // Apply initialFilters when they change (e.g. clicking from AlertCard in overview)
   useEffect(() => {
     if (initialFilters) {
       setFilters(prev => ({ ...prev, ...initialFilters }));
       setCurrentPage(1);
+      if (initialFilters.inactiveOnly || initialFilters.lowFeedbackOnly) {
+        scrollToTable();
+      }
     }
   }, [initialFilters]);
 
@@ -136,6 +145,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     filters.village,
     filters.profileCompleted,
     filters.inactiveOnly,
+    filters.lowFeedbackOnly,
     userType,
     sortBy,
     sortOrder,
@@ -214,7 +224,8 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
     filters.state ||
     filters.startTime ||
     filters.profileCompleted !== "all" ||
-    filters.inactiveOnly;
+    filters.inactiveOnly ||
+    filters.lowFeedbackOnly;
 
   const dateLabel = filters.startTime && filters.endTime
     ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
@@ -267,11 +278,23 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                     startTime: threeDaysAgo,
                     endTime: today,
                     inactiveOnly: true,
+                    lowFeedbackOnly: false,
                   }));
                   setCurrentPage(1);
+                  scrollToTable();
                 }}
                 duplicateQuestionsCount={isDashboardLoading ? undefined : (dashboardData as any).duplicateQuestionsCount ?? 0}
                 onDuplicateClick={() => setIsDuplicateModalOpen(true)}
+                lowFeedbackUsersCount={isDashboardLoading ? null : (dashboardData as any).lowFeedbackUsersCount ?? null}
+                onLowFeedbackClick={() => {
+                  setFilters(prev => ({
+                    ...prev,
+                    lowFeedbackOnly: true,
+                    inactiveOnly: false,
+                  }));
+                  setCurrentPage(1);
+                  scrollToTable();
+                }}
               />
               {isDuplicateModalOpen && (
                 <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} source={source} />
@@ -570,6 +593,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
       </div>
 
       {/* Users table */}
+      <div ref={tableRef}>
       <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3 min-w-0 w-full">
@@ -840,6 +864,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
