@@ -241,7 +241,37 @@ const QaQuestionItem = ({
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
 }) => {
 
-  console.log("Rendring question: ", question)
+ const sourceStyles = {
+  AJRASAKHA: {
+    border: "border-blue-500",
+    hover: "hover:border-blue-500/70",
+    selected: "border-blue-500 ring-blue-500/20 bg-blue-500/5",
+  },
+  WHATSAPP: {
+    border: "border-green-500",
+    hover: "hover:border-green-500/70",
+    selected: "border-green-500 ring-green-500/20 bg-green-500/5",
+  },
+  OUTREACH: {
+    border: "border-orange-500",
+    hover: "hover:border-orange-500/70",
+    selected: "border-orange-500 ring-orange-500/20 bg-orange-500/5",
+  },
+  AGRI_EXPERT: {
+    border: "border-gray-500",
+    hover: "hover:border-gray-500/70",
+    selected: "border-gray-500 ring-gray-500/20 bg-gray-500/5",
+  },
+  DEFAULT: {
+    border: "border-yellow-500",
+    hover: "hover:border-yellow-500/70",
+    selected: "border-yellow-500 ring-yellow-500/20 bg-yellow-500/5",
+  },
+};
+
+const currentStyle =
+  sourceStyles[question.source as keyof typeof sourceStyles] ||
+  sourceStyles.DEFAULT;
   
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
@@ -257,16 +287,32 @@ const QaQuestionItem = ({
 
   return (
     <div
-      key={question?.id}
-      ref={(el) => setQuestionRef(question?.id || "", el)}
-      className={`relative group rounded-xl border border-l-4 ${question.source === "AJRASAKHA" ? "border-blue-500" : question.source === "WHATSAPP" ? "border-green-500" : question.source === "OUTREACH" ? "border-orange-500" : question.source === "AGRI_EXPERT" ? "border-gray-500" : "border-yellow-500"}  transition-all duration-200 overflow-hidden bg-transparent ${
-        selectedQuestion === question?.id
-          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
-          : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
-      }`}
-    >
+  key={question?.id}
+  ref={(el) => setQuestionRef(question?.id || "", el)}
+  className={`relative group rounded-xl border border-l-4
+    ${currentStyle.border}
+    transition-all duration-200 overflow-hidden
+    ${
+      selectedQuestion === question?.id
+        ? `${currentStyle.selected} shadow-md ring-2`
+        : `bg-card ${currentStyle.hover} hover:bg-accent/20 hover:shadow-sm`
+    }
+  `}
+>
       {selectedQuestion === question?.id && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+       <div
+  className={`absolute left-0 top-0 bottom-0 w-1 ${
+    question.source === "AJRASAKHA"
+      ? "bg-blue-500"
+      : question.source === "WHATSAPP"
+      ? "bg-green-500"
+      : question.source === "OUTREACH"
+      ? "bg-orange-500"
+      : question.source === "AGRI_EXPERT"
+      ? "bg-gray-500"
+      : "bg-yellow-500"
+  }`}
+/>
       )}
 
       <div className="p-4">
