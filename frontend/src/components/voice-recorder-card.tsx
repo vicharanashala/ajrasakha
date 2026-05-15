@@ -48,8 +48,7 @@ export interface GeneratedQuestion {
 }
 
 export interface VoiceRecorderCardProps {
-  callTranscript?: string;
-  isCallActive?: boolean;
+  // No props needed - call transcript is only in CallInterface
 }
 declare global {
   interface Window {
@@ -85,19 +84,12 @@ const supportedLanguages: {
   { code: "sd-IN", label: "Sindhi" },
 ];
 
-export const VoiceRecorderCard = ({ callTranscript = "", isCallActive = false }: VoiceRecorderCardProps) => {
+export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState(``);
   const [isListening, setIsListening] = useState(false);
 
-  // Set call transcript to main transcript state when call is active
-  useEffect(() => {
-    if (callTranscript && isCallActive) {
-      setTranscript(callTranscript);
-    }
-  }, [callTranscript, isCallActive]);
-
-  // Use transcript directly (call transcript is now merged into transcript state)
+  // Use transcript directly
   const combinedTranscript = transcript;
   const [language, setLanguage] = useState<SupportedLanguage>("auto");
   const [isLoadingRemainingTranscript, setIsLoadingRemainingTranscript] =
@@ -281,10 +273,7 @@ export const VoiceRecorderCard = ({ callTranscript = "", isCallActive = false }:
 
     try {
       await submitTranscript(combinedTranscript);
-      // Only clear voice transcript, keep call transcript if call is active
-      if (!isCallActive) {
-        setTranscript("");
-      }
+      setTranscript("");
       toast.success("Transcript submitted successfully!");
     } catch (error) {
       console.error(error);
@@ -293,10 +282,7 @@ export const VoiceRecorderCard = ({ callTranscript = "", isCallActive = false }:
   };
 
   const handleClear = () => {
-    // Only clear voice transcript, keep call transcript if call is active
-    if (!isCallActive) {
-      setTranscript("");
-    }
+    setTranscript("");
     setIsRecording(false);
     setIsListening(false);
     if (mediaRecorderRef.current) {
@@ -305,9 +291,7 @@ export const VoiceRecorderCard = ({ callTranscript = "", isCallActive = false }:
         .getTracks()
         .forEach((track) => track.stop());
     }
-    if (!isCallActive) {
-      setQuestions([]);
-    }
+    setQuestions([]);
   };
 
   return (
@@ -353,13 +337,11 @@ export const VoiceRecorderCard = ({ callTranscript = "", isCallActive = false }:
                   onClick={() => handleRecordingToggle()}
                   size="sm"
                   variant={isRecording ? "destructive" : "default"}
-                  disabled={isCallActive}
                   className={cn(
                     "h-12 w-12 rounded-full flex-shrink-0 self-center sm:self-auto",
-                    isRecording && "animate-pulse",
-                    isCallActive && "opacity-50 cursor-not-allowed"
+                    isRecording && "animate-pulse"
                   )}
-                  title={isCallActive ? "Voice recording disabled during active call" : "Toggle recording"}
+                  title="Toggle recording"
                 >
                   {isRecording ? (
                     <MicOff className="h-5 w-5" />
@@ -412,25 +394,18 @@ export const VoiceRecorderCard = ({ callTranscript = "", isCallActive = false }:
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Transcript</Label>
-                  <div className="flex items-center gap-2">
-                    {isCallActive && (
-                      <Badge variant="default" className="text-xs">
-                        Live Call
-                      </Badge>
-                    )}
-                    {transcript.length > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {transcript.length} chars
-                      </span>
-                    )}
-                  </div>
+                  {transcript.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {transcript.length} chars
+                    </span>
+                  )}
                 </div>
 
                 <div className="h-40 relative">
                   <div className="h-full w-full overflow-y-auto rounded-md border bg-background/50 p-3 text-sm whitespace-pre-wrap break-words">
                     {!transcript ? (
                       <span className="text-muted-foreground">
-                        {isCallActive ? "Call transcription will appear here..." : "Your speech will appear here..."}
+                        Your speech will appear here...
                       </span>
                     ) : (
                       <span className="text-muted-foreground">

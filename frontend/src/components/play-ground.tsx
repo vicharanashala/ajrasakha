@@ -27,7 +27,7 @@ import { AnnamDashboard_dev as AnnamDashboard } from '../features/chatbotDashboa
 import { cn } from "@/lib/utils";
 import AuditPage from "./AuditPage";
 import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
-import { IncomingCallBox } from "./IncomingCallBox";
+import { CallInterface } from "./CallInterface";
 import { env } from "@/config/env";
 
 export const PlaygroundPage = () => {
@@ -49,10 +49,7 @@ export const PlaygroundPage = () => {
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
   const [chatbotSource, setChatbotSource] = useState<'vicharanashala' | 'annam'>('vicharanashala');
-  
-  // Call state management for voice recorder
-  const [isCallActive, setIsCallActive] = useState(false);
-  const [callTranscript, setCallTranscript] = useState("");
+
   const getStorageKey = (user?: { email?: string }) => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
@@ -228,6 +225,17 @@ export const PlaygroundPage = () => {
                     <span>Agents Interface</span>
                   </HoverCard>
                 </TabsTrigger>
+
+                {targetUserId && user?._id == targetUserId && (
+                  <TabsTrigger
+                    value="call_interface"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>Call Interface</span>
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
 
                 {user && user.role !== "expert" && (
                   <DropdownMenu>
@@ -417,20 +425,23 @@ export const PlaygroundPage = () => {
               )}>
                 <div className=" overflow-hidden bg-background p-4 ps-0">
                   <div className=" mx-auto py-8 pt-0">
-                    {/* Incoming Call Box - appears only when there's an incoming/active call */}
-                    {targetUserId && user?._id == targetUserId && (
-                    <IncomingCallBox 
-                      onTranscriptUpdate={(transcript) => setCallTranscript(transcript)}
-                      onCallStateChange={(isActive) => setIsCallActive(isActive)}
-                    />
-                    )}
-                    <VoiceRecorderCard 
-                      callTranscript={callTranscript}
-                      isCallActive={isCallActive}
-                    />
+                    <VoiceRecorderCard />
                   </div>
                 </div>
               </TabsContent>
+
+              {targetUserId && user?._id == targetUserId && (
+                <TabsContent value="call_interface" className={cn(
+                  "mt-0 border-0 md:px-8 outline-none",
+                  "data-[state=active]:animate-in",
+                  "data-[state=active]:fade-in-0",
+                  "data-[state=active]:zoom-in-[0.98]",
+                  "data-[state=active]:slide-in-from-bottom-3",
+                  "duration-500 ease-out"
+                )}>
+                  <CallInterface />
+                </TabsContent>
+              )}
                             {user && (
                 <TabsContent
                   value="history"
