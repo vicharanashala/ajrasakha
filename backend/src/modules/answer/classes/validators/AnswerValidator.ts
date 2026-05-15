@@ -26,14 +26,11 @@ class SourceItem {
   source: string;
 
   @JSONSchema({
-    description: 'Page number of the source reference',
-    example: 12,
-    type: 'integer',
+    description: 'Page number(s) of the source reference (comma-separated for multiple)',
+    example: '1,2,3',
   })
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  page?: number;
+  page?: string | number;
 }
 class AddAnswerBody {
   @JSONSchema({

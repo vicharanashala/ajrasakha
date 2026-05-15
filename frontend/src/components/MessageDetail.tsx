@@ -493,8 +493,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             }
             for (const pdf of editedPdfSources) {
                 if (pdf.link) {
-                    const firstPage = pdf.pages ? parseInt(pdf.pages.split(',')[0].trim(), 10) : NaN;
-                    sources.push({ sourceType: (pdf.sourceType || "other") as any, sourceName: pdf.name || "chatbot", source: pdf.link, page: isNaN(firstPage) ? undefined : firstPage });
+                    const trimmedPages = pdf.pages ? pdf.pages.trim() : "";
+                    sources.push({ sourceType: (pdf.sourceType || "other") as any, sourceName: pdf.name || "chatbot", source: pdf.link, page: trimmedPages || undefined });
                 }
             }
             const isAcceptFlow = confirmDialog.type === "accept";

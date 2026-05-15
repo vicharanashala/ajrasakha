@@ -99,7 +99,7 @@ export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
-  page?: number;
+  page?: string | number;
 }
 export interface PreviousAnswersItem{
   modifiedBy:string | ObjectId;
@@ -431,7 +431,7 @@ export interface IChemical {
 }
 export interface ISource {
   source: string;     // URL or document reference
-  page?: number;      // optional (some sources may not have page)
+  page?: string | number;      // optional (some sources may not have page)
   title?: string;     // optional (future-proof)
   type?: string;      // optional (pdf, link, doc, etc.)
 }

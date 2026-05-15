@@ -1808,7 +1808,7 @@ export class QuestionRepository implements IQuestionRepository {
         status: string;
         details: Record<string, any>;
         text: string;
-        sources: { source: string; page?: number | null; sourceType?: string; sourceName?: string }[];
+        sources: { source: string; page?: string | number | null; sourceType?: string; sourceName?: string }[];
       } | null = null;
 
       if (question.referenceQuestionId) {
