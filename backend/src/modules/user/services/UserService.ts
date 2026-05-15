@@ -190,21 +190,25 @@ export class UserService extends BaseService {
     role?: string,
     isBlocked?: boolean,
     isVerified?: boolean,
-  ): Promise<{users: IUser[]; totalUsers: number; totalPages: number}> {
+    isSTF?: boolean,
+  ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
     return await this._withTransaction(async () => {
-      const {users, totalUsers, totalPages} = await this.userRepo.findAllUsers(
-        page,
-        limit,
-        search,
-        sort,
-        filter,
-        role,
-        isBlocked,
-        isVerified,
-      );
-      return {users, totalUsers, totalPages};
+      const { users, totalUsers, totalPages } =
+        await this.userRepo.findAllUsers(
+          page,
+          limit,
+          search,
+          sort,
+          filter,
+          role,
+          isBlocked,
+          isVerified,
+          isSTF,
+        );
+      return { users, totalUsers, totalPages };
     });
   }
+  
   async getAllUsersforManualSelect(
     userId: string,
     page: number,
@@ -312,6 +316,12 @@ export class UserService extends BaseService {
         }
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
+    });
+  }
+
+  async updateSTFStatus(userId: string, action: string): Promise<void> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      await this.userRepo.updateSTFStatus(userId, action, session);
     });
   }
 
