@@ -89,9 +89,9 @@ export const ClosedFinalAnswerModal = ({
                             {src.sourceType}
                           </span>
                         )}
-                        {src.page != null && (
+                        {src.page != null && (Array.isArray(src.page) ? src.page.length > 0 : true) && (
                           <span className="text-xs text-muted-foreground">
-                            Page {src.page}
+                            Page {Array.isArray(src.page) ? src.page.join(", ") : src.page}
                           </span>
                         )}
                       </div>

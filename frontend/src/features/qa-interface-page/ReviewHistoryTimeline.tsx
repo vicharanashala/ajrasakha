@@ -505,9 +505,9 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                                   </a>
 
                                                   {/* Column 3: Page Number */}
-                                                  {source.page ? (
+                                                  {source.page && (Array.isArray(source.page) ? source.page.length > 0 : source.page != null) ? (
                                                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                      pg {source.page}
+                                                      pg {Array.isArray(source.page) ? source.page.join(", ") : source.page}
                                                     </span>
                                                   ) : (
                                                     <span />

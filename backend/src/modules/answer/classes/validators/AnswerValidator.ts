@@ -26,14 +26,20 @@ class SourceItem {
   source: string;
 
   @JSONSchema({
-    description: 'Page number of the source reference',
-    example: 12,
-    type: 'integer',
+    description: 'Page numbers of the source reference (required for PDF/document links)',
+    example: [12, 13],
+    type: 'array',
+    items: { type: 'integer', minimum: 1 },
   })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  page?: number;
+  @ValidateIf((o: SourceItem) => {
+    const url = (o.source || '').toLowerCase();
+    return url.includes('zoho') || url.includes('.pdf');
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  page?: number[];
 }
 class AddAnswerBody {
   @JSONSchema({
