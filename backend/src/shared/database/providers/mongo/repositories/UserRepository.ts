@@ -334,10 +334,11 @@ export class UserRepository implements IUserRepository {
                 {
                   $addFields: {
                     historyLen: { $size: '$historyArr' },
+                    // Fix: use $historyArr (already computed) instead of re-evaluating $history
                     historyExceptFirst: {
                       $cond: [
-                        { $gt: [{ $size: { $ifNull: ['$history', []] } }, 1] },
-                        { $slice: ['$history', 1, { $subtract: [{ $size: { $ifNull: ['$history', []] } }, 1] }] },
+                        { $gt: [{ $size: '$historyArr' }, 1] },
+                        { $slice: ['$historyArr', 1, { $subtract: [{ $size: '$historyArr' }, 1] }] },
                         [],
                       ],
                     },
@@ -373,9 +374,47 @@ export class UserRepository implements IUserRepository {
                   },
                 },
                 { $match: { $expr: { $or: [{ $eq: ['$isAuthor', true] }, { $eq: ['$hasInReviewEntry', true] }] } } },
+                // Join to questions — drops submissions whose question no longer exists,
+                // matching getUserReviewLevel which uses preserveNullAndEmptyArrays: false
+                {
+                  $lookup: {
+                    from: 'questions',
+                    localField: 'questionId',
+                    foreignField: '_id',
+                    as: 'questionDetails',
+                  },
+                },
+                { $unwind: { path: '$questionDetails', preserveNullAndEmptyArrays: false } },
                 { $count: 'count' },
               ],
               as: 'pendingSubmissionsMeta',
+            },
+          },
+
+          /** Pending rerouted questions count */
+          {
+            $lookup: {
+              from: 'reroutes',
+              let: { userId: '$_id', userIdStr: { $toString: '$_id' } },
+              pipeline: [
+                // Each reroute doc has a nested reroutes[] array — unwind it first
+                { $unwind: '$reroutes' },
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $or: [
+                          { $eq: ['$reroutes.reroutedTo', '$$userId'] },
+                          { $eq: ['$reroutes.reroutedTo', '$$userIdStr'] },
+                        ]},
+                        { $eq: ['$reroutes.status', 'pending'] },
+                      ],
+                    },
+                  },
+                },
+                { $count: 'count' },
+              ],
+              as: 'pendingReroutesMeta',
             },
           },
 
@@ -387,7 +426,13 @@ export class UserRepository implements IUserRepository {
               },
               penalty: { $ifNull: ['$penalty', 0] },
               incentive: { $ifNull: ['$incentive', 0] },
-              reputation_score: { $ifNull: [{ $arrayElemAt: ['$pendingSubmissionsMeta.count', 0] }, 0] },
+              // Sum submissions + reroutes to match the profile page total
+              reputation_score: {
+                $add: [
+                  { $ifNull: [{ $arrayElemAt: ['$pendingSubmissionsMeta.count', 0] }, 0] },
+                  { $ifNull: [{ $arrayElemAt: ['$pendingReroutesMeta.count', 0] }, 0] },
+                ],
+              },
             },
           },
 
@@ -602,7 +647,8 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     const submissionCollection = await this.db.getCollection<any>('question_submissions');
-    
+    const rerouteCollection = await this.db.getCollection<any>('reroutes');
+
     const userObjectId = new ObjectId(userId);
     const userIdStr = userId.toString();
 
@@ -624,10 +670,11 @@ export class UserRepository implements IUserRepository {
       {
         $addFields: {
           historyLen: { $size: '$historyArr' },
+          // Fix: use $historyArr (already computed) instead of re-evaluating $history
           historyExceptFirst: {
             $cond: [
-              { $gt: [{ $size: { $ifNull: ['$history', []] } }, 1] },
-              { $slice: ['$history', 1, { $subtract: [{ $size: { $ifNull: ['$history', []] } }, 1] }] },
+              { $gt: [{ $size: '$historyArr' }, 1] },
+              { $slice: ['$historyArr', 1, { $subtract: [{ $size: '$historyArr' }, 1] }] },
               [],
             ],
           },
@@ -673,10 +720,42 @@ export class UserRepository implements IUserRepository {
           $or: [{ isAuthor: true }, { hasInReviewEntry: true }],
         },
       },
+      // Join to questions — drops submissions whose question no longer exists,
+      // matching getUserReviewLevel which uses preserveNullAndEmptyArrays: false
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'questionDetails',
+        },
+      },
+      { $unwind: { path: '$questionDetails', preserveNullAndEmptyArrays: false } },
       { $count: 'total' },
     ], { session }).toArray();
 
-    const count = agg[0]?.total ?? 0;
+    const submissionCount = agg[0]?.total ?? 0;
+
+    // Count pending rerouted questions assigned to this user — matches getUserReviewLevel
+    // The reroutes collection has one doc per question with a nested reroutes[] array,
+    // so we must unwind and match on reroutes.reroutedTo, not a top-level field.
+    const rerouteAgg = await rerouteCollection.aggregate([
+      { $unwind: '$reroutes' },
+      {
+        $match: {
+          $or: [
+            { 'reroutes.reroutedTo': userObjectId },
+            { 'reroutes.reroutedTo': userIdStr },
+          ],
+          'reroutes.status': 'pending',
+        },
+      },
+      { $count: 'total' },
+    ], { session }).toArray();
+
+    const rerouteCount = rerouteAgg[0]?.total ?? 0;
+
+    const count = submissionCount + rerouteCount;
 
     await this.usersCollection.updateOne(
       { _id: userObjectId },
@@ -1266,10 +1345,11 @@ export class UserRepository implements IUserRepository {
               {
                 $addFields: {
                   historyLen: { $size: '$historyArr' },
+                  // Fix: use $historyArr (already computed) instead of re-evaluating $history
                   historyExceptFirst: {
                     $cond: [
-                      { $gt: [{ $size: { $ifNull: ['$history', []] } }, 1] },
-                      { $slice: ['$history', 1, { $subtract: [{ $size: { $ifNull: ['$history', []] } }, 1] }] },
+                      { $gt: [{ $size: '$historyArr' }, 1] },
+                      { $slice: ['$historyArr', 1, { $subtract: [{ $size: '$historyArr' }, 1] }] },
                       [],
                     ],
                   },
@@ -1305,9 +1385,47 @@ export class UserRepository implements IUserRepository {
                 },
               },
               { $match: { $expr: { $or: [{ $eq: ['$isAuthor', true] }, { $eq: ['$hasInReviewEntry', true] }] } } },
+              // Join to questions — drops submissions whose question no longer exists,
+              // matching getUserReviewLevel which uses preserveNullAndEmptyArrays: false
+              {
+                $lookup: {
+                  from: 'questions',
+                  localField: 'questionId',
+                  foreignField: '_id',
+                  as: 'questionDetails',
+                },
+              },
+              { $unwind: { path: '$questionDetails', preserveNullAndEmptyArrays: false } },
               { $count: 'count' },
             ],
             as: 'pendingSubmissionsMeta',
+          },
+        },
+
+        /** Pending rerouted questions count */
+        {
+          $lookup: {
+            from: 'reroutes',
+            let: { userId: '$_id', userIdStr: { $toString: '$_id' } },
+            pipeline: [
+              // Each reroute doc has a nested reroutes[] array — unwind it first
+              { $unwind: '$reroutes' },
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $or: [
+                        { $eq: ['$reroutes.reroutedTo', '$$userId'] },
+                        { $eq: ['$reroutes.reroutedTo', '$$userIdStr'] },
+                      ]},
+                      { $eq: ['$reroutes.status', 'pending'] },
+                    ],
+                  },
+                },
+              },
+              { $count: 'count' },
+            ],
+            as: 'pendingReroutesMeta',
           },
         },
 
@@ -1319,7 +1437,13 @@ export class UserRepository implements IUserRepository {
             },
             penalty: { $ifNull: ['$penalty', 0] },
             incentive: { $ifNull: ['$incentive', 0] },
-            reputation_score: { $ifNull: [{ $arrayElemAt: ['$pendingSubmissionsMeta.count', 0] }, 0] },
+            // Sum submissions + reroutes to match the profile page total
+            reputation_score: {
+              $add: [
+                { $ifNull: [{ $arrayElemAt: ['$pendingSubmissionsMeta.count', 0] }, 0] },
+                { $ifNull: [{ $arrayElemAt: ['$pendingReroutesMeta.count', 0] }, 0] },
+              ],
+            },
           },
         },
 
