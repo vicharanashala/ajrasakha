@@ -20,6 +20,10 @@ export const useToggleSTF = () => {
                 queryKey: ["experts"],
                 exact: false,
             });
+            queryClient.invalidateQueries({
+                queryKey: ["admin"],
+                exact: false,
+            });
             toast.success(action === 'assign' ? "STF status assigned successfully" : "STF status removed successfully");
         },
         onError: (error: any) => {
