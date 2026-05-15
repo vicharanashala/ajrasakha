@@ -324,6 +324,61 @@ export class UserRepository implements IUserRepository {
             },
           },
 
+          /** Live pending workload count — same logic as getUserReviewLevel pending pipeline */
+          {
+            $lookup: {
+              from: 'question_submissions',
+              let: { userId: '$_id', userIdStr: { $toString: '$_id' } },
+              pipeline: [
+                { $addFields: { historyArr: { $ifNull: ['$history', []] } } },
+                {
+                  $addFields: {
+                    historyLen: { $size: '$historyArr' },
+                    historyExceptFirst: {
+                      $cond: [
+                        { $gt: [{ $size: { $ifNull: ['$history', []] } }, 1] },
+                        { $slice: ['$history', 1, { $subtract: [{ $size: { $ifNull: ['$history', []] } }, 1] }] },
+                        [],
+                      ],
+                    },
+                  },
+                },
+                {
+                  $addFields: {
+                    isAuthor: {
+                      $and: [
+                        { $eq: ['$historyLen', 0] },
+                        { $or: [
+                          { $eq: [{ $arrayElemAt: ['$queue', 0] }, '$$userId'] },
+                          { $eq: [{ $arrayElemAt: ['$queue', 0] }, '$$userIdStr'] },
+                        ]},
+                      ],
+                    },
+                    hasInReviewEntry: {
+                      $gt: [
+                        { $size: { $filter: {
+                          input: '$historyExceptFirst',
+                          as: 'h',
+                          cond: { $and: [
+                            { $or: [
+                              { $eq: ['$$h.updatedBy', '$$userId'] },
+                              { $eq: ['$$h.updatedBy', '$$userIdStr'] },
+                            ]},
+                            { $eq: ['$$h.status', 'in-review'] },
+                          ]},
+                        }}},
+                        0,
+                      ],
+                    },
+                  },
+                },
+                { $match: { $expr: { $or: [{ $eq: ['$isAuthor', true] }, { $eq: ['$hasInReviewEntry', true] }] } } },
+                { $count: 'count' },
+              ],
+              as: 'pendingSubmissionsMeta',
+            },
+          },
+
           /** Derived fields */
           {
             $addFields: {
@@ -332,7 +387,7 @@ export class UserRepository implements IUserRepository {
               },
               penalty: { $ifNull: ['$penalty', 0] },
               incentive: { $ifNull: ['$incentive', 0] },
-              reputation_score: { $ifNull: ['$reputation_score', 0] },
+              reputation_score: { $ifNull: [{ $arrayElemAt: ['$pendingSubmissionsMeta.count', 0] }, 0] },
             },
           },
 
@@ -551,32 +606,77 @@ export class UserRepository implements IUserRepository {
     const userObjectId = new ObjectId(userId);
     const userIdStr = userId.toString();
 
-    // Count active assignments:
-    // 1. History is empty AND user is at index 0 of queue
-    // 2. History is NOT empty AND user is the updatedBy of the last history entry AND status is 'in-review'
-    const count = await submissionCollection.countDocuments({
-      $or: [
-        {
-          $and: [
-            { history: { $size: 0 } },
-            { $or: [{ 'queue.0': userObjectId }, { 'queue.0': userIdStr }] }
-          ]
+    // Count pending tasks using the same logic as getUserReviewLevel's pending pipeline,
+    // so this matches the "Pending Tasks" total shown in the expert's Summary table.
+    //
+    // A submission is pending for this user if:
+    // 1. Author: user is at queue[0] AND history is empty (not yet picked up by anyone)
+    // 2. Level N: user has an 'in-review' entry in history[1..] (they are an active reviewer)
+    //
+    // Note: a history[0] in-review entry is intentionally excluded — that means the user
+    // already picked it up and it has left the "Author pending" state, matching the table.
+    const agg = await submissionCollection.aggregate([
+      {
+        $addFields: {
+          historyArr: { $ifNull: ['$history', []] },
         },
-        {
-          $and: [
-            { history: { $not: { $size: 0 } } },
-            { 
-              $expr: {
-                $and: [
-                  { $eq: [{ $arrayElemAt: ['$history.status', -1] }, 'in-review'] },
-                  { $in: [{ $arrayElemAt: ['$history.updatedBy', -1] }, [userObjectId, userIdStr]] }
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    }, { session });
+      },
+      {
+        $addFields: {
+          historyLen: { $size: '$historyArr' },
+          historyExceptFirst: {
+            $cond: [
+              { $gt: [{ $size: { $ifNull: ['$history', []] } }, 1] },
+              { $slice: ['$history', 1, { $subtract: [{ $size: { $ifNull: ['$history', []] } }, 1] }] },
+              [],
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          isAuthor: {
+            $and: [
+              { $eq: ['$historyLen', 0] },
+              { $or: [
+                { $eq: [{ $arrayElemAt: ['$queue', 0] }, userObjectId] },
+                { $eq: [{ $arrayElemAt: ['$queue', 0] }, userIdStr] },
+              ]},
+            ],
+          },
+          hasInReviewEntry: {
+            $gt: [
+              {
+                $size: {
+                  $filter: {
+                    input: '$historyExceptFirst',
+                    as: 'h',
+                    cond: {
+                      $and: [
+                        { $or: [
+                          { $eq: ['$$h.updatedBy', userObjectId] },
+                          { $eq: ['$$h.updatedBy', userIdStr] },
+                        ]},
+                        { $eq: ['$$h.status', 'in-review'] },
+                      ],
+                    },
+                  },
+                },
+              },
+              0,
+            ],
+          },
+        },
+      },
+      {
+        $match: {
+          $or: [{ isAuthor: true }, { hasInReviewEntry: true }],
+        },
+      },
+      { $count: 'total' },
+    ], { session }).toArray();
+
+    const count = agg[0]?.total ?? 0;
 
     await this.usersCollection.updateOne(
       { _id: userObjectId },
@@ -1156,6 +1256,61 @@ export class UserRepository implements IUserRepository {
           },
         },
 
+        /** Live pending workload count — same logic as getUserReviewLevel pending pipeline */
+        {
+          $lookup: {
+            from: 'question_submissions',
+            let: { userId: '$_id', userIdStr: { $toString: '$_id' } },
+            pipeline: [
+              { $addFields: { historyArr: { $ifNull: ['$history', []] } } },
+              {
+                $addFields: {
+                  historyLen: { $size: '$historyArr' },
+                  historyExceptFirst: {
+                    $cond: [
+                      { $gt: [{ $size: { $ifNull: ['$history', []] } }, 1] },
+                      { $slice: ['$history', 1, { $subtract: [{ $size: { $ifNull: ['$history', []] } }, 1] }] },
+                      [],
+                    ],
+                  },
+                },
+              },
+              {
+                $addFields: {
+                  isAuthor: {
+                    $and: [
+                      { $eq: ['$historyLen', 0] },
+                      { $or: [
+                        { $eq: [{ $arrayElemAt: ['$queue', 0] }, '$$userId'] },
+                        { $eq: [{ $arrayElemAt: ['$queue', 0] }, '$$userIdStr'] },
+                      ]},
+                    ],
+                  },
+                  hasInReviewEntry: {
+                    $gt: [
+                      { $size: { $filter: {
+                        input: '$historyExceptFirst',
+                        as: 'h',
+                        cond: { $and: [
+                          { $or: [
+                            { $eq: ['$$h.updatedBy', '$$userId'] },
+                            { $eq: ['$$h.updatedBy', '$$userIdStr'] },
+                          ]},
+                          { $eq: ['$$h.status', 'in-review'] },
+                        ]},
+                      }}},
+                      0,
+                    ],
+                  },
+                },
+              },
+              { $match: { $expr: { $or: [{ $eq: ['$isAuthor', true] }, { $eq: ['$hasInReviewEntry', true] }] } } },
+              { $count: 'count' },
+            ],
+            as: 'pendingSubmissionsMeta',
+          },
+        },
+
         /** Derived fields */
         {
           $addFields: {
@@ -1164,7 +1319,7 @@ export class UserRepository implements IUserRepository {
             },
             penalty: { $ifNull: ['$penalty', 0] },
             incentive: { $ifNull: ['$incentive', 0] },
-            reputation_score: { $ifNull: ['$reputation_score', 0] },
+            reputation_score: { $ifNull: [{ $arrayElemAt: ['$pendingSubmissionsMeta.count', 0] }, 0] },
           },
         },
 
