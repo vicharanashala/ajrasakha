@@ -258,7 +258,7 @@ const UserRow: React.FC<UserRowProps> = ({
   const { mutate: toggleSTF } = useToggleSTF();
 
   //expert block/unblock modal state
-  type ConfirmAction = "block" | "unblock" | "switch-role" | "verify" | null;
+  type ConfirmAction = "block" | "unblock" | "switch-role" | "verify" | "make-stf" | "remove-stf" | null;
 
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [actionUserId, setActionUserId] = useState<string>("");
@@ -573,13 +573,12 @@ const UserRow: React.FC<UserRowProps> = ({
                   </div>
                 </DropdownMenuItem>
               )}
-              {isAdmin && (
+              {isAdmin && u.role === 'expert' && (
                 <DropdownMenuItem
                   onSelect={(e) => {
                     e.preventDefault();
                     setIsOpen(false);
-                    const action = u.special_task_force ? 'remove' : 'assign';
-                    toggleSTF({ userId: u._id!, action });
+                    setConfirmAction(u.special_task_force ? 'remove-stf' : 'make-stf');
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -600,7 +599,11 @@ const UserRow: React.FC<UserRowProps> = ({
                   ? "Block the User?"
                   : confirmAction === "verify"
                     ? "Verify User?"
-                    : "Unblock the User?"
+                    : confirmAction === "make-stf"
+                      ? "Assign STF Status?"
+                      : confirmAction === "remove-stf"
+                        ? "Remove STF Status?"
+                        : "Unblock the User?"
             }
             description={
               confirmAction === "switch-role"
@@ -615,7 +618,11 @@ const UserRow: React.FC<UserRowProps> = ({
                     ? "This action will verify the user's account, granting them full access to the platform's features. Are you sure you want to proceed?"
                     : actionRole === "expert"
                       ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
-                      : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
+                      : confirmAction === "make-stf"
+                        ? "Are you sure you want to assign STF status to this expert?"
+                        : confirmAction === "remove-stf"
+                          ? "Are you sure you want to remove STF status from this expert?"
+                          : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
             }
             confirmText={
               confirmAction === "switch-role"
@@ -624,7 +631,11 @@ const UserRow: React.FC<UserRowProps> = ({
                   ? "Block"
                   : confirmAction === "verify"
                     ? "Verify"
-                    : "Unblock"
+                    : confirmAction === "make-stf"
+                      ? "Assign STF"
+                      : confirmAction === "remove-stf"
+                        ? "Remove STF"
+                        : "Unblock"
             }
             cancelText="Cancel"
             type={confirmAction === "block" ? "delete" : "default"}
@@ -634,6 +645,10 @@ const UserRow: React.FC<UserRowProps> = ({
                 setSelectRole("");
               } else if (confirmAction === "verify") {
                 verifyUser({ userId: actionUserId, isVerified: true });
+              } else if (confirmAction === "make-stf") {
+                toggleSTF({ userId: u._id!, action: 'assign' });
+              } else if (confirmAction === "remove-stf") {
+                toggleSTF({ userId: u._id!, action: 'remove' });
               } else {
                 handleBlock();
               }
