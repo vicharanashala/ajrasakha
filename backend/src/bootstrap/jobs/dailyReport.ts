@@ -1,4 +1,4 @@
-import { sendStatsEmail} from '../../utils/backupEmailService.js';
+import {sendStatsEmail} from '../../utils/backupEmailService.js';
 import cron from 'node-cron';
 
 const job = async () => {

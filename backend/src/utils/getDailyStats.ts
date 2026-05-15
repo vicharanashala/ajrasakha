@@ -29,6 +29,20 @@ export interface DailyStats {
   todayGolden: number;
   chatbot: number;
   manual: number;
+
+  // Source-wise Stats
+  whatsappStats: {
+    addedToday: number;
+    closedWithin2Hours: number;
+    inReview: number;
+    delayed: number;
+  };
+  chatbotStats: {
+    addedToday: number;
+    closedWithin2Hours: number;
+    inReview: number;
+    delayed: number;
+  };
 }
 
 // export const getDailyStats = async (): Promise<DailyStats> => {
@@ -112,6 +126,8 @@ export const getDailyStats = async (): Promise<DailyStats> => {
   /* -------------------------------------------------------
      PARALLEL LIGHTWEIGHT QUERIES
   ------------------------------------------------------- */
+  const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
   const totalQuestions = await questionRepository.count();
   const [
     {
@@ -124,23 +140,31 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     todayGolden,
     chatbotCount,
     manual,
+    whatsappAddedToday,
+    whatsappClosedWithin2Hours,
+    whatsappInReview,
+    whatsappDelayed,
+    chatbotAddedToday,
+    chatbotClosedWithin2Hours,
+    chatbotInReview,
+    chatbotDelayed,
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
-    questionRepository.count({
-      createdAt: { $gte: todayStart },
-    }),
-    questionRepository.count({
-      closedAt: { $gte: todayStart },
-    }),
-    questionRepository.count({
-      createdAt: { $gte: todayStart },
-      source: 'AJRASAKHA',
-    }),
-    questionRepository.count({
-      createdAt: { $gte: todayStart },
-      source: { $ne: ['AJRASAKHA' , 'WHATSAPP']},
-    }),
+    questionRepository.count({ createdAt: { $gte: todayStart } }),
+    questionRepository.count({ closedAt: { $gte: todayStart } }),
+    questionRepository.count({ createdAt: { $gte: todayStart }, source: 'AJRASAKHA' }),
+    questionRepository.count({ createdAt: { $gte: todayStart }, source: { $ne: ['AJRASAKHA', 'WHATSAPP'] } }),
+    // WhatsApp stats
+    questionRepository.count({ source: 'WHATSAPP', createdAt: { $gte: todayStart } }),
+    questionRepository.count({ source: 'WHATSAPP', status: 'closed', closedAt: { $gte: todayStart }, $expr: { $lte: [{ $subtract: ['$closedAt', '$createdAt'] }, TWO_HOURS_MS] } }),
+    questionRepository.count({ source: 'WHATSAPP', status: 'in-review' }),
+    questionRepository.count({ source: 'WHATSAPP', status: 'delayed' }),
+    // Chatbot stats
+    questionRepository.count({ source: 'AJRASAKHA', createdAt: { $gte: todayStart } }),
+    questionRepository.count({ source: 'AJRASAKHA', status: 'closed', closedAt: { $gte: todayStart }, $expr: { $lte: [{ $subtract: ['$closedAt', '$createdAt'] }, TWO_HOURS_MS] } }),
+    questionRepository.count({ source: 'AJRASAKHA', status: 'in-review' }),
+    questionRepository.count({ source: 'AJRASAKHA', status: 'delayed' }),
   ]);
 
   const totalQuestionsUnderExpertReview =
@@ -152,12 +176,22 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     totalClosedQuestions,
     totalQuestionsUnderExpertReview,
     moderatorApprovalRate,
-
     reviewWiseCount,
-
     todayAdded,
     todayGolden,
     chatbot: chatbotCount,
     manual,
+    whatsappStats: {
+      addedToday: whatsappAddedToday,
+      closedWithin2Hours: whatsappClosedWithin2Hours,
+      inReview: whatsappInReview,
+      delayed: whatsappDelayed,
+    },
+    chatbotStats: {
+      addedToday: chatbotAddedToday,
+      closedWithin2Hours: chatbotClosedWithin2Hours,
+      inReview: chatbotInReview,
+      delayed: chatbotDelayed,
+    },
   };
 };

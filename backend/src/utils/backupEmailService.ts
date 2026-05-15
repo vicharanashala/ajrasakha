@@ -21,19 +21,14 @@ export async function sendBackupSuccessEmail(results: {db: string; publicUrl: st
   await sendEmailNotification(recipient, title, '', template);
 }
 
-export async function sendStatsEmail(adminEmail?:string) {
-  // const recipient = emailConfig.BACKUP_NOTIFICATION_EMAIL;
+export async function sendStatsEmail(adminEmail?: string) {
   let recipients: string[] = [];
-  if(adminEmail)
-  {
+  if (adminEmail) {
     recipients = [adminEmail];
-
-  }
-  else{
+  } else {
     recipients = emailConfig.BACKUP_NOTIFICATION_EMAIL?.split(',')
-    .map(email => email.trim())
-    .filter(Boolean);
-
+      .map(email => email.trim())
+      .filter(Boolean);
   }
   const stats = await getDailyStats();
   const template = buildDailyStatsEmailTemplate(stats);

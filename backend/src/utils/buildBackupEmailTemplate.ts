@@ -261,9 +261,9 @@ export const buildDailyStatsEmailTemplate = (stats?: DailyStats) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
     <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-      
+
       <div style="width: 100%; margin: 0 auto; background-color: #ffffff;">
-        
+
         <!-- Header -->
         <div style="padding: 40px 24px 32px 24px; text-align: center; border-bottom: 1px solid #e5e7eb;">
           <h1 style="color: #047857; margin: 0 0 8px 0; font-size: 28px; font-weight: 700; letter-spacing: -0.8px;">
@@ -276,7 +276,7 @@ export const buildDailyStatsEmailTemplate = (stats?: DailyStats) => {
 
         <!-- Content -->
         <div style="padding: 32px 24px;">
-          
+
           ${
             stats
               ? `
@@ -293,6 +293,17 @@ export const buildDailyStatsEmailTemplate = (stats?: DailyStats) => {
                   </p>
                 </div>
               `
+          }
+
+          ${
+            stats
+              ? `
+                <div style="height: 24px;"></div>
+                ${buildWhatsappStatsTable(stats)}
+                <div style="height: 24px;"></div>
+                ${buildChatbotStatsTable(stats)}
+              `
+              : ''
           }
 
         </div>
@@ -480,6 +491,102 @@ export const buildTodayStatsTable = (stats: DailyStats) => `
           </td>
           <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #4b5563;">
             ${stats.manual.toLocaleString()}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+`;
+
+export const buildWhatsappStatsTable = (stats: DailyStats) => `
+  <div style="border: 1px solid #e5e7eb;">
+    <div style="background-color: #f0fdf4; padding: 16px 20px; border-bottom: 2px solid #25d366;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 600; color: #1f2937;">
+        WhatsApp Questions
+      </h2>
+    </div>
+    <table border="0" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+      <tbody>
+        <tr style="border-bottom: 1px solid #f3f4f6; background-color: #f0fdf4;">
+          <td style="padding: 16px 20px; font-size: 14px; color: #065f46; font-weight: 500;">
+            Questions Added Today
+          </td>
+          <td style="padding: 16px 20px; text-align: right;">
+            <span style="display: inline-block; background-color: #25d366; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 15px; font-weight: 700;">
+              ${stats.whatsappStats.addedToday.toLocaleString()}
+            </span>
+          </td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 16px 20px; font-size: 14px; color: #4b5563;">
+            Closed Within 2 Hours (Today)
+          </td>
+          <td style="padding: 16px 20px; text-align: right; font-size: 14px; font-weight: 600; color: #059669;">
+            ${stats.whatsappStats.closedWithin2Hours.toLocaleString()}
+          </td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 16px 20px; font-size: 14px; color: #4b5563;">
+            Currently In Review
+          </td>
+          <td style="padding: 16px 20px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">
+            ${stats.whatsappStats.inReview.toLocaleString()}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 16px 20px; font-size: 14px; color: #4b5563;">
+            Currently Delayed
+          </td>
+          <td style="padding: 16px 20px; text-align: right; font-size: 14px; font-weight: 600; color: #dc2626;">
+            ${stats.whatsappStats.delayed.toLocaleString()}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+`;
+
+export const buildChatbotStatsTable = (stats: DailyStats) => `
+  <div style="border: 1px solid #e5e7eb;">
+    <div style="background-color: #f9fafb; padding: 16px 20px; border-bottom: 2px solid #047857;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 600; color: #1f2937;">
+        Chatbot Questions (AjraSakha)
+      </h2>
+    </div>
+    <table border="0" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+      <tbody>
+        <tr style="border-bottom: 1px solid #f3f4f6; background-color: #f0fdf4;">
+          <td style="padding: 16px 20px; font-size: 14px; color: #065f46; font-weight: 500;">
+            Questions Added Today
+          </td>
+          <td style="padding: 16px 20px; text-align: right;">
+            <span style="display: inline-block; background-color: #059669; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 15px; font-weight: 700;">
+              ${stats.chatbotStats.addedToday.toLocaleString()}
+            </span>
+          </td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 16px 20px; font-size: 14px; color: #4b5563;">
+            Closed Within 2 Hours (Today)
+          </td>
+          <td style="padding: 16px 20px; text-align: right; font-size: 14px; font-weight: 600; color: #059669;">
+            ${stats.chatbotStats.closedWithin2Hours.toLocaleString()}
+          </td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 16px 20px; font-size: 14px; color: #4b5563;">
+            Currently In Review
+          </td>
+          <td style="padding: 16px 20px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">
+            ${stats.chatbotStats.inReview.toLocaleString()}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 16px 20px; font-size: 14px; color: #4b5563;">
+            Currently Delayed
+          </td>
+          <td style="padding: 16px 20px; text-align: right; font-size: 14px; font-weight: 600; color: #dc2626;">
+            ${stats.chatbotStats.delayed.toLocaleString()}
           </td>
         </tr>
       </tbody>
