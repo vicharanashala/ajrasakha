@@ -1,0 +1,18 @@
+services:
+  imd-weather:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      # Host:container (processes listen on 9004 / 9005 inside the image)
+      - "${IMD_PUBLISH_API_PORT:-9004}:9004"
+      - "${IMD_PUBLISH_MCP_PORT:-9005}:9005"
+    environment:
+      IMD_API_HOST: ${IMD_API_HOST:-0.0.0.0}
+      IMD_API_PORT: "9004"
+      IMD_MCP_HOST: ${IMD_MCP_HOST:-0.0.0.0}
+      IMD_MCP_PORT: "9005"
+      IMD_MCP_PATH: ${IMD_MCP_PATH:-/mcp}
+      IMD_CITY_BASE: ${IMD_CITY_BASE:-}
+      IMD_MAUSAM_BASE: ${IMD_MAUSAM_BASE:-}
+    restart: unless-stopped
