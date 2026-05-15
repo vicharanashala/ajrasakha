@@ -149,7 +149,7 @@ const {checkDuplicateQuestionHelper} =
       };
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
-      const priorities = ['low', 'high', 'medium'];
+      const priorities = ['low', 'high', 'medium', 'critical'];
       const priority = priorities.includes(priorityRaw)
         ? (priorityRaw as any)
         : 'medium';
@@ -311,6 +311,10 @@ const {checkDuplicateQuestionHelper} =
           notificationRecipient = firstUserId;
         }
         console.log(`✅ Experts allocated for question ${qId}`);
+      }
+
+      if (queue.length > 0) {
+        await questionRepo.updateQuestion(qId, { firstAllocationAt: new Date() });
       }
 
       // 7. Create QuestionSubmission entry (always created; queue may be empty for drafts)

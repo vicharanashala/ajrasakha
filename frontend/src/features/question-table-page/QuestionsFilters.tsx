@@ -33,6 +33,8 @@ import {
   Loader2,
   Beaker,
   MessageSquare,
+  MessageCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
@@ -583,6 +585,10 @@ export const QuestionsFilters = ({
     };
   }, [isDragging]);
 
+  const handleClick = ()=>{
+    navigate({ to: "/flags-reported" });
+  }
+
   return (
     <div className="w-full p-4 border-b bg-card ms-2 md:ms-0  rounded flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       {/* Add Dialog */}
@@ -997,6 +1003,8 @@ export const QuestionsFilters = ({
                 </button>
               )}
 
+
+
               {/* update crops */}
               {userRole !== "expert" && (
                 <button
@@ -1159,6 +1167,31 @@ export const QuestionsFilters = ({
             <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
               System
             </h3>
+
+              {userRole !== "expert" && (
+                <button
+                  onClick={handleClick}
+                  className="relative w-full flex items-center justify-between p-4 mb-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                >
+                  <TopRightBadge label="new" left={0} />
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-500">
+                      <AlertTriangle size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                          Flags Reported
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        View flags reported
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
             <div className="flex gap-3 pb-5">
               <button
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-lg text-sm hover:border-gray-400 dark:hover:border-gray-600 transition-colors text-gray-700 dark:text-gray-300 shadow-sm dark:shadow-none"

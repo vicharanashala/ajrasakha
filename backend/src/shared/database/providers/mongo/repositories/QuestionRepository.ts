@@ -927,11 +927,12 @@ export class QuestionRepository implements IQuestionRepository {
             priorityOrder: {
               $switch: {
                 branches: [
-                  { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                  { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                  { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                  { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                  { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                  { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                  { case: { $eq: ['$priority', 'low'] }, then: 4 },
                 ],
-                default: 4,
+                default: 5,
               },
             },
           },
@@ -1343,11 +1344,12 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                { case: { $eq: ['$priority', 'low'] }, then: 4 },
               ],
-              default: 4,
+              default: 5,
             },
           },
         },
@@ -1772,6 +1774,24 @@ export class QuestionRepository implements IQuestionRepository {
         updatedAt: submission?.updatedAt,
       };
 
+      // 7.2 If question is closed with no submission queue, fetch the final answer directly
+      let closedFinalAnswer: any = null;
+      if (question.status === 'closed' && (submission?.queue?.length ?? 0) === 0) {
+        const fa = await this.AnswersCollection.findOne({
+          questionId: questionObjectId,
+          isFinalAnswer: true,
+        });
+        if (fa) {
+          closedFinalAnswer = {
+            ...fa,
+            _id: fa._id?.toString(),
+            questionId: fa.questionId?.toString(),
+            authorId: fa.authorId?.toString(),
+            approvedBy: fa.approvedBy?.toString() ?? null,
+          };
+        }
+      }
+
       // 8 Attach context
       const contextId = question.contextId || '';
       let context = '';
@@ -1788,6 +1808,7 @@ export class QuestionRepository implements IQuestionRepository {
         status: string;
         details: Record<string, any>;
         text: string;
+        sources: { source: string; page?: number | null; sourceType?: string; sourceName?: string }[];
       } | null = null;
 
       if (question.referenceQuestionId) {
@@ -1803,10 +1824,16 @@ export class QuestionRepository implements IQuestionRepository {
             refId = new ObjectId(String(rid));
           }
 
-          const refQuestion = await this.QuestionCollection.findOne(
-            { _id: refId },
-            { projection: { question: 1, status: 1, details: 1, text: 1 } },
-          ) as any;
+          const [refQuestion, refFinalAnswer] = await Promise.all([
+            this.QuestionCollection.findOne(
+              { _id: refId },
+              { projection: { question: 1, status: 1, details: 1, text: 1 } },
+            ) as any,
+            this.AnswersCollection.findOne(
+              { questionId: refId, isFinalAnswer: true },
+              { projection: { sources: 1 } },
+            ) as any,
+          ]);
 
           if (refQuestion) {
             referenceQuestionData = {
@@ -1814,6 +1841,7 @@ export class QuestionRepository implements IQuestionRepository {
               status: refQuestion.status || '',
               details: refQuestion.details || {},
               text: refQuestion.text || '',
+              sources: refFinalAnswer?.sources || [],
             };
           }
         } catch (e) {
@@ -1837,6 +1865,7 @@ export class QuestionRepository implements IQuestionRepository {
         context,
         submission: populatedSubmission,
         referenceQuestionData,
+        closedFinalAnswer,
       };
 
       return result;
@@ -1855,31 +1884,69 @@ export class QuestionRepository implements IQuestionRepository {
 
       const now = new Date();
       const twoHoursMs = 2 * 60 * 60 * 1000;
+      const oneAndHalfHoursMs = 1.5 * 60 * 60 * 1000;
 
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
       const result = await this.QuestionCollection.updateMany(
-        {
-          status: { $in: ['open'] },
-          isOnHold: { $ne: true },
-          $expr: {
-            $lte: [
+            {
+              status: { $in: ['open'] },
+              isOnHold: { $ne: true },
+            },
+            [
               {
-                $add: [
-                  '$createdAt',
-                  twoHoursMs,
-                  { $ifNull: ['$accumulatedHoldMs', 0] },
-                ],
+                $set: {
+                  priority: {
+                    $cond: [
+                      {
+                        $and: [
+                          {
+                            $lte: [
+                              {
+                                $add: [
+                                  '$createdAt',
+                                  oneAndHalfHoursMs,
+                                  { $ifNull: ['$accumulatedHoldMs', 0] },
+                                ],
+                              },
+                              now,
+                            ],
+                          },
+                          {
+                            $ne: ['$priority', 'critical'],
+                          },
+                        ],
+                      },
+                      'critical',
+                      '$priority',
+                    ],
+                  },
+
+                  status: {
+                    $cond: [
+                      {
+                        $lte: [
+                          {
+                            $add: [
+                              '$createdAt',
+                              twoHoursMs,
+                              { $ifNull: ['$accumulatedHoldMs', 0] },
+                            ],
+                          },
+                          now,
+                        ],
+                      },
+                      'delayed',
+                      '$status',
+                    ],
+                  },
+                },
               },
-              now,
             ],
-          },
-        },
-        { $set: { status: 'delayed' } },
-      );
+          );
 
       console.log(
-        ` Updated ${result.modifiedCount} questions to "delayed" status`,
+        ` Updated ${result.modifiedCount} questions to "delayed" status/ 'critical' priority.`,
       );
     } catch (error) {
       console.error('Error updating expired questions', error);
@@ -2115,11 +2182,12 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                { case: { $eq: ['$priority', 'high'] }, then: 1 },
-                { case: { $eq: ['$priority', 'medium'] }, then: 2 },
-                { case: { $eq: ['$priority', 'low'] }, then: 3 },
+                { case: { $eq: ['$priority', 'critical'] }, then: 1 },
+                { case: { $eq: ['$priority', 'high'] }, then: 2 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 3 },
+                { case: { $eq: ['$priority', 'low'] }, then: 4 },
               ],
-              default: 4,
+              default: 5,
             },
           },
         },

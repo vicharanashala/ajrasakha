@@ -149,7 +149,7 @@ export interface HistoryItem {
 
 }
 
-export type QuestionPriority = "low" | "medium" | "high";
+export type QuestionPriority = "low" | "medium" | "high" | "critical";
 export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 
 export interface IQuestion {
@@ -484,6 +484,7 @@ export interface IQuestionFullData {
       [key: string]: string;
     };
     text: string;
+    sources?: SourceItem[];
   };
   originalQuestion?: string;
   closedAt?: string;
@@ -492,6 +493,19 @@ export interface IQuestionFullData {
     name: string;
     email: string;
   }
+  closedFinalAnswer?: {
+    _id: string;
+    questionId: string;
+    authorId: string;
+    approvedBy: string | null;
+    answer: string;
+    isFinalAnswer: boolean;
+    sources: SourceItem[];
+    answerIteration: number;
+    approvalCount: number;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
 }
 
 export interface QuestionFullDataResponse {
@@ -704,7 +718,7 @@ export interface IRerouteHistoryResponse {
 // API returns an array
 // ---------------------
 export type RerouteHistoryApiResponse = IRerouteHistoryResponse[];
-type Priority = "high" | "medium" | "low";
+type Priority = "critical" | "high" | "medium" | "low";
 
 export interface ReroutedQuestionItem {
   id: string;

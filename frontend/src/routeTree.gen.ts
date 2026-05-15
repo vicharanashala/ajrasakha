@@ -15,6 +15,8 @@ import { Route as ProfileIndexRouteImport } from './routes/profile/index'
 import { Route as PaeExpertIndexRouteImport } from './routes/pae-expert/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
+import { Route as HistoryIndexRouteImport } from './routes/history/index'
+import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuditIndexRouteImport } from './routes/audit/index'
 
@@ -48,6 +50,16 @@ const HomeIndexRoute = HomeIndexRouteImport.update({
   path: '/home/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HistoryIndexRoute = HistoryIndexRouteImport.update({
+  id: '/history/',
+  path: '/history/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FlagsReportedIndexRoute = FlagsReportedIndexRouteImport.update({
+  id: '/flags-reported/',
+  path: '/flags-reported/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/auth/',
   path: '/auth/',
@@ -64,6 +76,8 @@ export interface FileRoutesByFullPath {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/flags-reported': typeof FlagsReportedIndexRoute
+  '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
   '/notifications': typeof NotificationsIndexRoute
   '/pae-expert': typeof PaeExpertIndexRoute
@@ -74,6 +88,8 @@ export interface FileRoutesByTo {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/flags-reported': typeof FlagsReportedIndexRoute
+  '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
   '/notifications': typeof NotificationsIndexRoute
   '/pae-expert': typeof PaeExpertIndexRoute
@@ -85,6 +101,8 @@ export interface FileRoutesById {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit/': typeof AuditIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/flags-reported/': typeof FlagsReportedIndexRoute
+  '/history/': typeof HistoryIndexRoute
   '/home/': typeof HomeIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
   '/pae-expert/': typeof PaeExpertIndexRoute
@@ -97,6 +115,8 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/audit'
     | '/auth'
+    | '/flags-reported'
+    | '/history'
     | '/home'
     | '/notifications'
     | '/pae-expert'
@@ -107,6 +127,8 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/audit'
     | '/auth'
+    | '/flags-reported'
+    | '/history'
     | '/home'
     | '/notifications'
     | '/pae-expert'
@@ -117,6 +139,8 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/audit/'
     | '/auth/'
+    | '/flags-reported/'
+    | '/history/'
     | '/home/'
     | '/notifications/'
     | '/pae-expert/'
@@ -128,6 +152,8 @@ export interface RootRouteChildren {
   WhatsappHistoryRoute: typeof WhatsappHistoryRoute
   AuditIndexRoute: typeof AuditIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
+  FlagsReportedIndexRoute: typeof FlagsReportedIndexRoute
+  HistoryIndexRoute: typeof HistoryIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
   NotificationsIndexRoute: typeof NotificationsIndexRoute
   PaeExpertIndexRoute: typeof PaeExpertIndexRoute
@@ -178,6 +204,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/history/': {
+      id: '/history/'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/flags-reported/': {
+      id: '/flags-reported/'
+      path: '/flags-reported'
+      fullPath: '/flags-reported'
+      preLoaderRoute: typeof FlagsReportedIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/': {
       id: '/auth/'
       path: '/auth'
@@ -200,6 +240,8 @@ const rootRouteChildren: RootRouteChildren = {
   WhatsappHistoryRoute: WhatsappHistoryRoute,
   AuditIndexRoute: AuditIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
+  FlagsReportedIndexRoute: FlagsReportedIndexRoute,
+  HistoryIndexRoute: HistoryIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
   NotificationsIndexRoute: NotificationsIndexRoute,
   PaeExpertIndexRoute: PaeExpertIndexRoute,

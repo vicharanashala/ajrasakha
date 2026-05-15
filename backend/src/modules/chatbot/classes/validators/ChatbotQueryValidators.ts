@@ -88,6 +88,11 @@ export class UserDetailsQueryDto {
   @IsString()
   inactiveOnly?: string;
 
+  @JSONSchema({ example: 'false', description: 'If true, return only users who have never given any feedback' })
+  @IsOptional()
+  @IsString()
+  lowFeedbackOnly?: string;
+
   @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
   @IsOptional()
   @IsIn(['all', 'external', 'internal'])

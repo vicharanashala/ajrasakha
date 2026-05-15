@@ -186,7 +186,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const userDocFilter = this.buildUserDocFilter(userType);
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls, activeUsersLast3Days] =
+      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls, activeUsersLast3Days, usersWithFeedback] =
         await Promise.all([
           this.users.countDocuments(userDocFilter, { session }),
 
@@ -250,6 +250,18 @@ export class ChatbotRepository implements IChatbotRepository {
               { session },
             )
             .toArray(),
+
+          // Count distinct users who have given at least one feedback (feedback object exists in any message)
+          this.messagesCollection
+            .aggregate(
+              [
+                { $match: { feedback: { $exists: true }, isCreatedByUser: false } },
+                { $group: { _id: '$user' } },
+                { $count: 'total' },
+              ],
+              { session },
+            )
+            .toArray(),
         ]);
 
       const monthMap = Object.fromEntries(
@@ -269,6 +281,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const avgMs = sessionStats[0]?.avg ?? 0;
       const activeCount = (activeUsersLast3Days as any[])[0]?.total ?? 0;
+      const feedbackCount = (usersWithFeedback as any[])[0]?.total ?? 0;
 
       await this.initReviewSystem();
       // Count only duplicates that have a matching message in the selected source DB —
@@ -283,10 +296,12 @@ export class ChatbotRepository implements IChatbotRepository {
       const dupeMsgIds = dupeWithMsgId.map(q => q.messageId).filter(Boolean) as string[];
       let duplicateQuestionsCount = 0;
       if (dupeMsgIds.length > 0) {
-        // this.messagesCollection is already set to the correct source DB by init(source) above
-        duplicateQuestionsCount = await this.messagesCollection.countDocuments(
-          { messageId: { $in: dupeMsgIds } },
-        );
+        const existingMessages = await this.messagesCollection
+          .find({ messageId: { $in: dupeMsgIds } })
+          .project<{ messageId: string }>({ messageId: 1 })
+          .toArray();
+        const existingMsgIdSet = new Set(existingMessages.map(m => m.messageId));
+        duplicateQuestionsCount = dupeWithMsgId.filter(q => existingMsgIdSet.has(q.messageId)).length;
       }
 
       return {
@@ -300,6 +315,7 @@ export class ChatbotRepository implements IChatbotRepository {
         totalAppInstalls,
         inactiveUsersLast3Days: Math.max(0, totalUsers - activeCount),
         duplicateQuestionsCount,
+        lowFeedbackUsersCount: Math.max(0, totalUsers - feedbackCount),
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get KPI summary: ${error}`);
@@ -956,6 +972,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     sortBy = 'totalQuestions',
     sortOrder = 'desc',
+    lowFeedbackOnly = false,
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -1066,7 +1083,20 @@ export class ChatbotRepository implements IChatbotRepository {
       }));
 
       // Filter to inactive users only if requested
-      const finalList = inactiveOnly ? merged.filter((u) => u.totalQuestions === 0) : merged;
+      const afterInactive = inactiveOnly ? merged.filter((u) => u.totalQuestions === 0) : merged;
+
+      // Filter to low-feedback users only if requested (all-time, no date range on feedback)
+      let finalList = afterInactive;
+      if (lowFeedbackOnly) {
+        const feedbackDocs = await this.messagesCollection
+          .aggregate([
+            { $match: { feedback: { $exists: true }, isCreatedByUser: false } },
+            { $group: { _id: '$user' } },
+          ])
+          .toArray();
+        const usersWithFeedback = new Set(feedbackDocs.map((d: any) => String(d._id)));
+        finalList = afterInactive.filter((u) => !usersWithFeedback.has(u.userId));
+      }
 
       // Sort based on sortBy and sortOrder parameters
       if (sortBy === 'name') {
@@ -1655,7 +1685,6 @@ export class ChatbotRepository implements IChatbotRepository {
           createdAt: 1,
         })
         .sort({ createdAt: -1 })
-        .limit(200)
         .toArray();
 
       if (dupeQuestions.length === 0) return [];

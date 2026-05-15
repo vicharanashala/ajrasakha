@@ -8,6 +8,7 @@ import type {
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AllocationQueueHeader } from "./AllocationQueueHeader";
+import { ClosedFinalAnswerModal } from "./ClosedFinalAnswerModal";
 import {
   AlertCircle,
   CalendarClock,
@@ -214,6 +215,19 @@ export const AllocationTimeline = ({
 
   return (
     <div className="w-full space-y-6 my-6">
+      {question.closedFinalAnswer && (
+        <div className="flex items-center justify-between p-4 rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
+          <div>
+            <p className="text-sm font-semibold text-green-800 dark:text-green-300">
+              This question has been closed with a final answer.
+            </p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+              Click to view the answer and its sources.
+            </p>
+          </div>
+          <ClosedFinalAnswerModal question={question} />
+        </div>
+      )}
       <AllocationQueueHeader
         queue={queue}
         question={question}

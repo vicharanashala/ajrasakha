@@ -17,6 +17,8 @@ interface AlertCardProps {
   onInactiveClick?: () => void;
   duplicateQuestionsCount?: number | null;
   onDuplicateClick?: () => void;
+  lowFeedbackUsersCount?: number | null;
+  onLowFeedbackClick?: () => void;
 }
 
 export function AlertCard({
@@ -25,6 +27,8 @@ export function AlertCard({
   onInactiveClick,
   duplicateQuestionsCount,
   onDuplicateClick,
+  lowFeedbackUsersCount,
+  onLowFeedbackClick,
 }: AlertCardProps) {
   const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
 
@@ -121,6 +125,43 @@ export function AlertCard({
           </div>
         </div>
         <Badge label={duplicateQuestionsCount != null ? duplicateQuestionsCount.toLocaleString() : '—'} variant="amber" />
+      </div>
+
+      {/* Low Feedback Users Row */}
+      <div
+        className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-950/30 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
+        onClick={() => onLowFeedbackClick?.()}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 dark:bg-orange-900/40">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-orange-600 dark:text-orange-400"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-gray-900 dark:text-gray-50">
+              Low Feedback Users
+            </div>
+            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+              Users who have never given feedback
+            </div>
+          </div>
+        </div>
+        <Badge label={lowFeedbackUsersCount != null ? lowFeedbackUsersCount.toLocaleString() : '—'} variant="amber" />
       </div>
 
       {/* Domain Spikes Row — always rendered, shows top spike or a placeholder */}
