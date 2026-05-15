@@ -19,6 +19,10 @@ from langgraph.store.base import BaseStore
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
+from ajrasakha.agents.answer_quality import (
+    is_sufficient_expert_answer,
+    strip_two_hour_disclaimer,
+)
 from ajrasakha.agents.chemical_checker_agent import chemical_checker
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
 from ajrasakha.agents.gdb_agent import gdb
@@ -577,12 +581,51 @@ async def relevance_check_node(
     }
 
 
+def sanitize_answer_node(state: AjraSakhaState) -> dict:
+    """Strip the 2-hour reviewer disclaimer when the final answer is already sufficient.
+
+    GDB often returns expert names, sources, and links, but the LLM may still append
+    the upload acknowledgement. This node removes that disclaimer deterministically.
+    """
+    messages = state.get("messages") or []
+    final_answer_msg: AIMessage | None = None
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
+            final_answer_msg = msg
+            break
+
+    if final_answer_msg is None:
+        return {}
+
+    answer_text = _message_to_text(final_answer_msg)
+    if not answer_text or answer_text.startswith(EMPTY_GDB_REPLY[:80]):
+        return {}
+
+    if not is_sufficient_expert_answer(answer_text):
+        return {}
+
+    cleaned = strip_two_hour_disclaimer(answer_text)
+    if cleaned == answer_text:
+        return {}
+
+    logger.info(
+        "Removing 2-hour disclaimer from sufficient expert answer (len %d -> %d)",
+        len(answer_text),
+        len(cleaned),
+    )
+    return {
+        "messages": [AIMessage(content=cleaned, id=final_answer_msg.id)],
+        "location": state.get("location"),
+    }
+
+
 builder = StateGraph(AjraSakhaState)
 builder.add_node("exact_search", exact_search_node)
 builder.add_node("ajrasakha", ajrasakha_node)
 builder.add_node("tools", tools_node)
 builder.add_node("empty_gdb_reply", empty_gdb_reply_node)
 builder.add_node("relevance_check", relevance_check_node)
+builder.add_node("sanitize_answer", sanitize_answer_node)
 
 builder.add_edge(START, "exact_search")
 builder.add_conditional_edges(
@@ -601,6 +644,7 @@ builder.add_conditional_edges(
     {"ajrasakha": "ajrasakha", "empty_gdb_reply": "empty_gdb_reply"},
 )
 builder.add_edge("empty_gdb_reply", END)
-builder.add_edge("relevance_check", END)
+builder.add_edge("relevance_check", "sanitize_answer")
+builder.add_edge("sanitize_answer", END)
 
 graph = builder.compile()
