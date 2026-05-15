@@ -180,15 +180,17 @@ export class WhatsAppService implements IWhatsAppService {
         throw new UnauthorizedError(
           "You don't have permission to send message!",
         );
+        
+      const sendBy = user.firstName + ' ' + user.lastName;
 
       const response = await fetch(appConfig.WA_SEND_MESSAGE_WEBHOOK_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-internal-api-key': appConfig.WA_WEBHOOK_API_KEY,
-        },
+        }, 
         body: JSON.stringify({
-          phoneNumber, messageText
+          phoneNumber, messageText, sendBy
         }),
       });
       const contentType = response.headers.get('content-type');
