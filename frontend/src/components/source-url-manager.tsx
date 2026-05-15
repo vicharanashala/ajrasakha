@@ -77,10 +77,13 @@ export const SourceUrlManager = ({
     }
 
     // Allow only Zoho WorkDrive external links
-    const allowedDomain = "workdrive.zohoexternal.in";
+    const hostname = parsedUrl.hostname.toLowerCase();
 
-    if (parsedUrl.hostname !== allowedDomain) {
-      toast.error(`Only URLs from ${allowedDomain} are allowed.`);
+    const isZohoWorkDrive =
+      hostname.includes("zoho") && hostname.includes("workdrive");
+
+    if (!isZohoWorkDrive) {
+      toast.error("Only Zoho WorkDrive URLs are allowed.");
       return;
     }
 
@@ -113,7 +116,7 @@ export const SourceUrlManager = ({
     setSourceName("");
     setUrlInput("");
     setPageInput("");
-  };;
+  };;;
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
