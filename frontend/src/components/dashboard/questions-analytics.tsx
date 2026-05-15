@@ -33,11 +33,13 @@ import {
   SelectValue,
 } from "../atoms/select";
 import { Label } from "../atoms/label";
-import { Activity } from "lucide-react";
+import { Activity, Filter } from "lucide-react";
 import { ScrollArea } from "../atoms/scroll-area";
 import { DateRangeFilter } from "../DateRangeFilter";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import CountUp from "react-countup";
+import React from "react";
+import { differenceInCalendarDays } from "date-fns";
 
 export interface DateRange {
   startTime?: Date;
@@ -50,6 +52,8 @@ interface QuestionsAnalyticsProps {
   data: QuestionsAnalytics;
   setAnalyticsType: (value: "question" | "answer") => void;
   analyticsType: "question" | "answer";
+  analyticsStatus: string;
+  setAnalyticsStatus: (value: string) => void;
 }
 const colors = [
   "var(--color-chart-1)",
@@ -59,9 +63,76 @@ const colors = [
   "var(--color-chart-5)",
 ];
 
+// Custom tooltip for the domain pie chart — shows breakdown when hovering "Others"
+const DomainPieTooltip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
+  if (!active || !payload?.length) return null;
+  const entry = payload[0].payload as AnalyticsItem & { color: string };
+
+  if (entry.name === "Others" && entry.otherItems?.length) {
+    const sorted = [...entry.otherItems].sort((a, b) => b.count - a.count);
+    return (
+      <div
+        style={{
+          backgroundColor: "var(--color-card)",
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius)",
+          color: "var(--color-foreground)",
+          padding: "10px 14px",
+          minWidth: 180,
+          maxHeight: 260,
+          overflowY: "auto",
+        }}
+      >
+        <p style={{ fontWeight: 600, marginBottom: 6 }}>Others</p>
+        {sorted.map((item) => (
+          <div
+            key={item.name}
+            style={{ display: "flex", justifyContent: "space-between", gap: 16, fontSize: 13, marginBottom: 3 }}
+          >
+            <span>{item.name}</span>
+            <span style={{ fontWeight: 600 }}>{item.count}</span>
+          </div>
+        ))}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 16,
+            fontSize: 13,
+            fontWeight: 700,
+            borderTop: "1px solid var(--color-border)",
+            marginTop: 6,
+            paddingTop: 6,
+          }}
+        >
+          <span>Total</span>
+          <span>{entry.count}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        backgroundColor: "var(--color-card)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius)",
+        color: "var(--color-foreground)",
+        padding: "8px 12px",
+        fontSize: 13,
+      }}
+    >
+      <p style={{ fontWeight: 600 }}>{entry.name}</p>
+      <p>{entry.count}</p>
+    </div>
+  );
+};
+
 export interface AnalyticsItem {
   name: string;
   count: number;
+  otherItems?: { name: string; count: number }[];
 }
 
 export interface QuestionsAnalytics {
@@ -76,15 +147,41 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   data,
   setAnalyticsType,
   analyticsType,
+  analyticsStatus,
+  setAnalyticsStatus,
 }) => {
 
   const { ref, key,} = useRestartOnView()
+
+  // ── Analytics-specific date range logic (max 30 days) ──────────────────────
+  const MAX_RANGE_DAYS = 30;
+  const [rangeWarning, setRangeWarning] = React.useState(false);
+  // pendingRange tracks what the calendar shows; only committed to parent when valid
+  const [pendingRange, setPendingRange] = React.useState<{ startTime?: Date; endTime?: Date }>({
+    startTime: date.startTime,
+    endTime: date.endTime,
+  });
+
   const handleDateChange = (key: string, value?: Date) => {
-    setDate((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    const next = { ...pendingRange, [key]: value };
+    setPendingRange(next);
+
+    const { startTime, endTime } = next;
+
+    if (startTime && endTime) {
+      const diff = differenceInCalendarDays(endTime, startTime);
+      if (diff > MAX_RANGE_DAYS) {
+        setRangeWarning(true);
+        // Do NOT commit to parent — invalid range
+        return;
+      }
+    }
+
+    // Valid — commit to parent and clear warning
+    setRangeWarning(false);
+    setDate((prev) => ({ ...prev, [key]: value }));
   };
+  // ───────────────────────────────────────────────────────────────────────────
 
   const processedCropWithColors = data.cropData.map((item, index) => ({
     ...item,
@@ -107,6 +204,36 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
         </div>
 
         <div className=" flex justify-center items-center gap-6">
+          <div className="w-[140px] flex flex-col">
+            <Label
+              htmlFor="analyticsStatus"
+              className="mb-2 text-sm font-medium flex items-center gap-1"
+            >
+              <Filter className="w-4 h-4 text-primary" />
+              Status
+            </Label>
+            <Select
+              value={analyticsStatus}
+              onValueChange={(value) => setAnalyticsStatus(value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="in-review">In Review</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="delayed">Delayed</SelectItem>
+                <SelectItem value="re-routed">Re-routed</SelectItem>
+                <SelectItem value="hold">Hold</SelectItem>
+                <SelectItem value="pae_submitted">PAE Submitted</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="duplicate">Duplicate</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="w-[120px] flex flex-col">
             <Label
               htmlFor="analyticsType"
@@ -133,8 +260,11 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 
           <div className="min-w-[220px]">
             <DateRangeFilter
-              advanceFilter={date}
+              advanceFilter={pendingRange}
               handleDialogChange={handleDateChange}
+              helperText="You can select up to 1 month of data at a time"
+              showWarning={rangeWarning}
+              warningMessage={`Range exceeds ${MAX_RANGE_DAYS} days. Please pick an end date within ${MAX_RANGE_DAYS} days of the start.`}
             />
           </div>
         </div>
@@ -282,15 +412,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       ))}
                     </Pie>
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: "var(--color-card)",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: "var(--radius)",
-                        color: "var(--color-foreground)",
-                      }}
-                      itemStyle={{
-                        color: "var(--color-foreground)",
-                      }}
+                      content={<DomainPieTooltip />}
                     />
                   </PieChart>
                 </ResponsiveContainer>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { subDays } from "date-fns";
 import { ApprovalRateCard } from "./dashboard/approval-rate";
 import { ExpertsPerformance } from "./dashboard/experts-performance";
 import {
@@ -59,12 +60,13 @@ export const Dashboard = () => {
 
   // ---- QuestionsAnalytics state filters ----- //
   const [date, setDate] = useState<DateRange>({
-    startTime: undefined,
-    endTime: undefined,
+    startTime: subDays(new Date(), 30),
+    endTime: new Date(),
   });
   const [analyticsType, setAnalyticsType] = useState<"question" | "answer">(
     "question"
   );
+  const [analyticsStatus, setAnalyticsStatus] = useState<string>("all");
 
   // ---- Heat map state filters ----- //
   const [heatMapDate, setHeatMapDate] = useState<DateRange>({
@@ -92,6 +94,7 @@ export const Dashboard = () => {
     type: analyticsType,
     startTime: date.startTime,
     endTime: date.endTime,
+    status: analyticsStatus,
   });
 
   const handleHeatMapDateChange = (key: string, value?: Date) => {
@@ -300,6 +303,8 @@ export const Dashboard = () => {
               setDate={setDate}
               analyticsType={analyticsType}
               setAnalyticsType={setAnalyticsType}
+              analyticsStatus={analyticsStatus}
+              setAnalyticsStatus={setAnalyticsStatus}
               data={
                 analyticsData ?? { cropData: [], stateData: [], domainData: [] }
               }

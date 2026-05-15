@@ -196,10 +196,11 @@ export class NotificationController {
     statusCode: 500,
     description: 'Internal server error - Failed to save subscription',
   })
+
   @Post('/subscriptions')
   @HttpCode(201)
   @Authorized()
-  async saveSubscription(@Body() body: AddPushSubscriptionBody, @CurrentUser() user: IUser) {
+  async saveSubscription(@Body() body: any, @CurrentUser() user: IUser) {
     const {subscription} = body;
     const userId = user._id.toString();
     return this.notificationService.saveSubscription(userId,subscription)

@@ -332,7 +332,7 @@ export class QuestionRepository implements IQuestionRepository {
       } = query;
       //  const filter: any = {};
       const filter: any = {
-        isHidden: { $ne: true }, // default to exclude hidden questions
+        // isHidden: { $ne: true }, // default to exclude hidden questions
         isOnHold: { $ne: true }, // default to exclude on hold questions
       };
       if (pae_review) {
@@ -3500,6 +3500,7 @@ export class QuestionRepository implements IQuestionRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    status?: string,
   ): Promise<{ analytics: Analytics }> {
     await this.init();
 
@@ -3508,6 +3509,9 @@ export class QuestionRepository implements IQuestionRepository {
     if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
 
     const matchStage: any = { status: { $ne: 'pass' } };
+    if (status && status !== 'all') {
+      matchStage.status = status;
+    }
     if (Object.keys(filterDate).length > 0) {
       matchStage.createdAt = filterDate;
     }
@@ -3515,11 +3519,12 @@ export class QuestionRepository implements IQuestionRepository {
     const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
       const sorted = [...data].sort((a, b) => b.count - a.count);
       const topTen = sorted.slice(0, 10);
-      const othersCount = sorted.slice(10).reduce((sum, item) => sum + item.count, 0);
+      const othersItems = sorted.slice(10);
+      const othersCount = othersItems.reduce((sum, item) => sum + item.count, 0);
 
       return [
         ...topTen,
-        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount }] : []),
+        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount, otherItems: othersItems }] : []),
       ];
     };
 

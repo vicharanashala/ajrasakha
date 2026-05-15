@@ -1273,11 +1273,12 @@ export class AnswerRepository implements IAnswerRepository {
     const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
       const sorted = [...data].sort((a, b) => b.count - a.count);
       const topTen = sorted.slice(0, 10);
-      const othersCount = sorted.slice(10).reduce((sum, item) => sum + item.count, 0);
+      const othersItems = sorted.slice(10);
+      const othersCount = othersItems.reduce((sum, item) => sum + item.count, 0);
 
       return [
         ...topTen,
-        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount }] : []),
+        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount, otherItems: othersItems }] : []),
       ];
     };
 

@@ -20,6 +20,7 @@ import {
 import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
 import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAutoAllocateQuestion";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
+import { initializeNotifications } from "@/services/pushService";
 import type { IQuestionFullData, ISubmission, IUser } from "@/types";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import { Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
@@ -114,6 +115,7 @@ export const AllocationQueueHeader = ({
       });
       setSelectedExperts([]);
       setIsModalOpen(false);
+      await initializeNotifications();
     } catch (error: any) {
       console.error("Error allocating experts:", error);
       toast.error(
