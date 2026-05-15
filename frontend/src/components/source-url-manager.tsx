@@ -24,6 +24,7 @@ const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   state: "State",
   central: "Central",
   other: "Other",
+  MODERATOR_REVIEW: "Moderator Review",
 };
 
 interface SourceUrlManagerProps {
@@ -42,6 +43,17 @@ export const SourceUrlManager = ({
   const [urlInput, setUrlInput] = useState("");
   const [pageInput, setPageInput] = useState("");
 
+  const isPdfLink = (url: string) => /\.pdf($|\?|#)/i.test(url) || /pdf/i.test(url);
+
+  const validatePageInput = (input: string): boolean => {
+    const parts = input.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 0) return false;
+    return parts.every((p) => {
+      const n = Number(p);
+      return Number.isInteger(n) && n >= 1;
+    });
+  };
+
   const addSource = () => {
     if (!selectedType) {
       toast.error("Please select a source type.");
@@ -59,13 +71,6 @@ export const SourceUrlManager = ({
       toast.error("Please enter the source URL.");
       return;
     }
-
-    if (!pageInput.trim()) {
-      toast.error("Please enter the page number.");
-      return;
-    }
-
-    const pageNum = pageInput ? Number(pageInput) : undefined;
 
     let parsedUrl: URL;
 
@@ -87,16 +92,26 @@ export const SourceUrlManager = ({
       return;
     }
 
-    if (pageNum !== undefined && (isNaN(pageNum) || pageNum < 1)) {
-      toast.error("Please enter a valid page number (1 or greater).");
+    const trimmedPage = pageInput.trim();
+    const isPdf = isPdfLink(trimmedUrl);
+
+    if (isPdf && !trimmedPage) {
+      toast.error("Page number is required for PDF links.");
       return;
     }
+
+    if (trimmedPage && !validatePageInput(trimmedPage)) {
+      toast.error("Please enter valid page number(s) (e.g. 1 or 1,2,3).");
+      return;
+    }
+
+    const pageValue = trimmedPage || undefined;
 
     const exists = sources.some(
       (item) =>
         item.sourceType === selectedType &&
         item.source === trimmedUrl &&
-        item.page === pageNum,
+        item.page === pageValue,
     );
     if (exists) {
       toast.error("This source already exists.");
@@ -109,14 +124,14 @@ export const SourceUrlManager = ({
         sourceType: selectedType,
         sourceName: sourceName.trim(),
         source: trimmedUrl,
-        page: pageNum,
+        page: pageValue,
       },
     ]);
     setSelectedType("");
     setSourceName("");
     setUrlInput("");
     setPageInput("");
-  };;;
+  };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -174,13 +189,12 @@ export const SourceUrlManager = ({
                 className="flex-1"
               />
               <Input
-                type="number"
-                placeholder="Page"
+                type="text"
+                placeholder="Page(s) e.g. 1,2,3"
                 value={pageInput}
                 onChange={(e) => setPageInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-24"
-                min={1}
+                className="w-36"
               />
               <button
                 type="button"
