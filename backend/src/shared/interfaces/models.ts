@@ -193,6 +193,8 @@ export interface ISubmissionHistory {
 
   previousAllocations?: IPreviousAllocations[];
 
+  reviewDelayNotificationSent?: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -263,6 +265,7 @@ export type INotificationType =
   | 'question_from_ajrasakha'
   | 'expert_replacement'
   | 'user_verification'
+  | 'delayed_question'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;

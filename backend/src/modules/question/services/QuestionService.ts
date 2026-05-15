@@ -4590,7 +4590,44 @@ export class QuestionService extends BaseService implements IQuestionService {
       questionsFiltered: questionIds.length - questionSubmissionDetails.length,
       unallocatedQuestions: unallocatedQuestionsCount,
     };
+
   }
 
+  //send notification to moderators for delayed questions
+  async sendDelayedNotifications(): Promise<void> {
+    await this._withTransaction(async session => {
+      const delayedReviews = await this.questionSubmissionRepo.getDelayedReviews(session);
+      if (!delayedReviews.length) {
+        return;
+      }
+
+      const notifiedSubmissionIds: ObjectId[] = [];
+
+      for (const item of delayedReviews) {
+        try {
+          await this.notificationService.saveTheNotifications(
+            'A question has been delayed for 45 minutes',
+            'Question Delayed',
+            item?.questionId.toString(),
+            item?.userId.toString(),
+            'question_delayed',
+          );
+
+          notifiedSubmissionIds.push(item?._id);
+        } catch (error) {
+          console.error(
+            `Failed notification for question ${item?.questionId}`,
+            error,
+          );
+        }
+      }
+      if (notifiedSubmissionIds.length) {
+            await this.questionSubmissionRepo.markDelayedNotificationsSent(
+              notifiedSubmissionIds,
+              session,
+            );
+          }
+    });
+  }
 
 }

@@ -190,4 +190,7 @@ export interface IQuestionSubmissionRepository {
     questionIds: string[],
     session?: ClientSession,
   ): Promise<IQuestionSubmission[]>;
+
+  getDelayedReviews(session?: ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]>;
+  markDelayedNotificationsSent(notifiedSubmissionIds: ObjectId[], session?: ClientSession): Promise<void>;
 }

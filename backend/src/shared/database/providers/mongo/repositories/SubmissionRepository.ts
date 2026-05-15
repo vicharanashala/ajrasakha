@@ -3740,4 +3740,198 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {session},
     ).toArray();
   }
+
+    //get delayed questions
+  async getDelayedReviews(session:ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]> {
+    try {
+      await this.init();
+
+      const thirtySecondsAgo = new Date(
+        Date.now() - 30 * 1000,
+      );
+      const thresholdTime = new Date(
+        Date.now() - 45 * 60 * 1000,
+      );
+
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const delayedReviews =
+        await this.QuestionSubmissionCollection.aggregate([
+          {
+            $match: {
+              createdAt: {
+                $gte: startOfDay,
+              },
+            },
+          },
+
+          {
+            $lookup: {
+              from: 'questions',
+              localField: 'questionId',
+              foreignField: '_id',
+              as: 'question',
+            },
+          },
+
+          {
+            $unwind: '$question',
+          },
+
+          {
+            $addFields: {
+              latestHistory: {
+                $arrayElemAt: [
+                  '$history',
+                  -1,
+                ],
+              },
+            },
+          },
+
+          {
+            $match: {
+              $or: [
+                /**
+                 * CASE 1
+                 * First reviewer
+                 */
+                {
+                  $and: [
+                    {
+                      history: {
+                        $size: 0,
+                      },
+                    },
+
+                    {
+                      'queue.0': {
+                        $exists: true,
+                      },
+                    },
+
+                    {
+                      'question.firstAllocationAt': {
+                        $lte: thresholdTime,
+                      },
+                    },
+
+                    {
+                      $expr: {
+                        $ne: [
+                          '$delayNotificationSentToReviewerId',
+                          {
+                            $arrayElemAt: [
+                              '$queue',
+                              0,
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+
+                /**
+                 * CASE 2
+                 * Active reviewer
+                 */
+                {
+                  $and: [
+                    {
+                      history: {
+                        $not: {
+                          $size: 0,
+                        },
+                      },
+                    },
+
+                    {
+                      'latestHistory.status':
+                        'in-review',
+                    },
+
+                    {
+                      'latestHistory.createdAt':
+                      {
+                        $lte: thresholdTime,
+                      },
+                    },
+
+                    {
+                      $expr: {
+                        $ne: [
+                          '$delayNotificationSentToReviewerId',
+                          '$latestHistory.updatedBy',
+                        ],
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+
+          {
+            $project: {
+              _id: 1,
+
+              questionId: 1,
+
+              userId: '$question.userId',
+
+              currentReviewerId: {
+                $cond: [
+                  {
+                    $eq: [
+                      {
+                        $size: '$history',
+                      },
+                      0,
+                    ],
+                  },
+                  {
+                    $arrayElemAt: [
+                      '$queue',
+                      0,
+                    ],
+                  },
+                  '$latestHistory.updatedBy',
+                ],
+              },
+            },
+          },
+        ]).toArray();
+        console.log('delayedrev:',delayedReviews)
+      return delayedReviews as { _id: ObjectId; questionId: ObjectId; userId: ObjectId; }[];
+
+    } catch (error) {
+      console.error('Error getting delayed questions', error);
+    }
+  }
+
+   //mark delayed notification sent
+  async markDelayedNotificationsSent(notifiedSubmissionIds: ObjectId[], session?: ClientSession): Promise<void> {
+    try {
+      await this.init();
+     await this.QuestionSubmissionCollection.updateMany(
+  {
+    _id: {
+      $in: notifiedSubmissionIds,
+    },
+  },
+  {
+    $set: {
+      reviewDelayNotificationSent: true,
+    },
+  },
+);
+
+    }
+    catch (error) {
+      console.error('Error marking delayed notifications sent', error);
+    }
+  }
+
 }
