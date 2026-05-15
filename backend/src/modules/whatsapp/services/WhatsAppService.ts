@@ -190,7 +190,7 @@ export class WhatsAppService implements IWhatsAppService {
           'x-internal-api-key': appConfig.WA_WEBHOOK_API_KEY,
         }, 
         body: JSON.stringify({
-          phoneNumber, messageText, sendBy
+          phoneNumber, messageText, sendBy, userId: user._id.toString()
         }),
       });
       const contentType = response.headers.get('content-type');
