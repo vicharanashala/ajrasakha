@@ -54,14 +54,39 @@ export const SourceUrlManager = ({
     }
 
     const trimmedUrl = urlInput.trim();
+
+    if (!trimmedUrl) {
+      toast.error("Please enter the source URL.");
+      return;
+    }
+
+    if (!pageInput.trim()) {
+      toast.error("Please enter the page number.");
+      return;
+    }
+
     const pageNum = pageInput ? Number(pageInput) : undefined;
 
+    let parsedUrl: URL;
+
     try {
-      new URL(trimmedUrl);
+      parsedUrl = new URL(trimmedUrl);
     } catch {
       toast.error("Please enter a valid URL.");
       return;
     }
+
+    // Allow only Zoho WorkDrive external links
+    const hostname = parsedUrl.hostname.toLowerCase();
+
+    const isZohoWorkDrive =
+      hostname.includes("zoho") && hostname.includes("workdrive");
+
+    if (!isZohoWorkDrive) {
+      toast.error("Only Zoho WorkDrive URLs are allowed.");
+      return;
+    }
+
 
     if (pageNum !== undefined && (isNaN(pageNum) || pageNum < 1)) {
       toast.error("Please enter a valid page number (1 or greater).");
@@ -72,7 +97,7 @@ export const SourceUrlManager = ({
       (item) =>
         item.sourceType === selectedType &&
         item.source === trimmedUrl &&
-        item.page === pageNum
+        item.page === pageNum,
     );
     if (exists) {
       toast.error("This source already exists.");
@@ -182,8 +207,12 @@ export const SourceUrlManager = ({
                   {item.sourceType ? (
                     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
                       {(() => {
-                        const label = SOURCE_TYPE_LABELS[item.sourceType!] || item.sourceType;
-                        return item.sourceName && item.sourceName.toLowerCase() !== (label || '').toLowerCase()
+                        const label =
+                          SOURCE_TYPE_LABELS[item.sourceType!] ||
+                          item.sourceType;
+                        return item.sourceName &&
+                          item.sourceName.toLowerCase() !==
+                            (label || "").toLowerCase()
                           ? `${label}: ${item.sourceName}`
                           : label;
                       })()}
