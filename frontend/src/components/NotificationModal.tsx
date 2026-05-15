@@ -112,7 +112,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
         setOpen(false);
 
         if (type === "answer_creation" || type === "peer_review" || type === "re-routed" || 
-            type === "question_from_whatsapp" || type === "question_from_ajrasakha") {
+            type === "question_from_whatsapp" || type === "question_from_ajrasakha" || type === 'question_delayed') {
             goToQuestion(enitity_id, type);
             return;
         }
