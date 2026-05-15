@@ -54,12 +54,33 @@ export const SourceUrlManager = ({
     }
 
     const trimmedUrl = urlInput.trim();
+
+    if (!trimmedUrl) {
+      toast.error("Please enter the source URL.");
+      return;
+    }
+
+    if (!pageInput.trim()) {
+      toast.error("Please enter the page number.");
+      return;
+    }
+
     const pageNum = pageInput ? Number(pageInput) : undefined;
 
+    let parsedUrl: URL;
+
     try {
-      new URL(trimmedUrl);
+      parsedUrl = new URL(trimmedUrl);
     } catch {
       toast.error("Please enter a valid URL.");
+      return;
+    }
+
+    // Allow only Zoho WorkDrive external links
+    const allowedDomain = "workdrive.zohoexternal.in";
+
+    if (parsedUrl.hostname !== allowedDomain) {
+      toast.error(`Only URLs from ${allowedDomain} are allowed.`);
       return;
     }
 
@@ -72,7 +93,7 @@ export const SourceUrlManager = ({
       (item) =>
         item.sourceType === selectedType &&
         item.source === trimmedUrl &&
-        item.page === pageNum
+        item.page === pageNum,
     );
     if (exists) {
       toast.error("This source already exists.");
@@ -92,7 +113,7 @@ export const SourceUrlManager = ({
     setSourceName("");
     setUrlInput("");
     setPageInput("");
-  };
+  };;
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
