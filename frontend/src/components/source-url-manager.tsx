@@ -42,18 +42,6 @@ export const SourceUrlManager = ({
   const [urlInput, setUrlInput] = useState("");
   const [pageInput, setPageInput] = useState("");
 
-  const isPdfLink = (url: string) => {
-    const lower = url.toLowerCase();
-    return lower.includes("zoho") || lower.includes(".pdf");
-  };
-
-  const parsePages = (input: string): number[] => {
-    return input
-      .split(/[,\s]+/)
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => !isNaN(n) && n >= 1);
-  };
-
   const addSource = () => {
     if (!selectedType) {
       toast.error("Please select a source type.");
@@ -72,7 +60,15 @@ export const SourceUrlManager = ({
       return;
     }
 
+    if (!pageInput.trim()) {
+      toast.error("Please enter the page number.");
+      return;
+    }
+
+    const pageNum = pageInput ? Number(pageInput) : undefined;
+
     let parsedUrl: URL;
+
     try {
       parsedUrl = new URL(trimmedUrl);
     } catch {
@@ -80,7 +76,9 @@ export const SourceUrlManager = ({
       return;
     }
 
+    // Allow only Zoho WorkDrive external links
     const hostname = parsedUrl.hostname.toLowerCase();
+
     const isZohoWorkDrive =
       hostname.includes("zoho") && hostname.includes("workdrive");
 
@@ -89,21 +87,16 @@ export const SourceUrlManager = ({
       return;
     }
 
-    if (!pageInput.trim()) {
-      toast.error("Page number is required for PDF/document links.");
-      return;
-    }
-
-    const pages = parsePages(pageInput);
-    if (pages.length === 0) {
-      toast.error("Please enter valid page numbers (e.g. 1, 2, 5).");
+    if (pageNum !== undefined && (isNaN(pageNum) || pageNum < 1)) {
+      toast.error("Please enter a valid page number (1 or greater).");
       return;
     }
 
     const exists = sources.some(
       (item) =>
         item.sourceType === selectedType &&
-        item.source === trimmedUrl,
+        item.source === trimmedUrl &&
+        item.page === pageNum,
     );
     if (exists) {
       toast.error("This source already exists.");
@@ -116,14 +109,14 @@ export const SourceUrlManager = ({
         sourceType: selectedType,
         sourceName: sourceName.trim(),
         source: trimmedUrl,
-        page: pages,
+        page: pageNum,
       },
     ]);
     setSelectedType("");
     setSourceName("");
     setUrlInput("");
     setPageInput("");
-  };
+  };;;
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -181,12 +174,13 @@ export const SourceUrlManager = ({
                 className="flex-1"
               />
               <Input
-                type="text"
-                placeholder="Pages e.g. 1,2,5"
+                type="number"
+                placeholder="Page"
                 value={pageInput}
                 onChange={(e) => setPageInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-36"
+                className="w-24"
+                min={1}
               />
               <button
                 type="button"
@@ -227,10 +221,10 @@ export const SourceUrlManager = ({
                     {item.source}
                   </span>
 
-                  {/* Column 3: Page Numbers */}
-                  {item.page && item.page.length > 0 ? (
+                  {/* Column 3: Page Number */}
+                  {item.page ? (
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      pg {item.page.join(", ")}
+                      pg {item.page}
                     </span>
                   ) : (
                     <span />

@@ -454,7 +454,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                 {currentAnswerSources.map((s, i) => (
                                   <li key={i} className="text-xs flex flex-col gap-0.5">
                                     <span className="font-medium text-foreground">
-                                      {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${Array.isArray(s.page) ? s.page.join(", ") : s.page})` : ""}` : "Source"}
+                                      {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
                                     </span>
                                     {s.source && (
                                       <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
@@ -503,7 +503,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                 {question.referenceQuestionData.sources.map((s, i) => (
                                   <li key={i} className="text-xs flex flex-col gap-0.5">
                                     <span className="font-medium text-foreground">
-                                      {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${Array.isArray(s.page) ? s.page.join(", ") : s.page})` : ""}` : "Source"}
+                                      {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
                                     </span>
                                     {s.source && (
                                       <span className="break-all pl-3 text-muted-foreground">{s.source}</span>

@@ -225,9 +225,9 @@ export const ViewMoreContent = ({
                 </Tooltip>
 
                 {/* Column 3: Page Number */}
-                {source.page && (Array.isArray(source.page) ? source.page.length > 0 : source.page != null) ? (
+                {source.page ? (
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    pg {Array.isArray(source.page) ? source.page.join(", ") : source.page}
+                    pg {source.page}
                   </span>
                 ) : (
                   <span />

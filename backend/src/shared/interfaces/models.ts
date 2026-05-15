@@ -99,7 +99,7 @@ export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
-  page?: number[];
+  page?: number;
 }
 export interface PreviousAnswersItem{
   modifiedBy:string | ObjectId;
