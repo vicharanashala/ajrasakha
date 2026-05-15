@@ -332,7 +332,7 @@ export class QuestionRepository implements IQuestionRepository {
       } = query;
       //  const filter: any = {};
       const filter: any = {
-        isHidden: { $ne: true }, // default to exclude hidden questions
+        // isHidden: { $ne: true }, // default to exclude hidden questions
         isOnHold: { $ne: true }, // default to exclude on hold questions
       };
       if (pae_review) {
