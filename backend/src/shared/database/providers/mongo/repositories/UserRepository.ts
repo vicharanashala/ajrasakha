@@ -282,6 +282,7 @@ export class UserRepository implements IUserRepository {
         matchQuery.special_task_force = isSTFFilter;
       }
 
+
       const sortMap: any = {
         role: { roleOrder: 1 },
         workload_asc: { reputation_score: 1 },
@@ -1328,9 +1329,14 @@ export class UserRepository implements IUserRepository {
     try {
       const special_task_force = action === 'assign';
       await this.usersCollection.updateOne(
-        { _id: new ObjectId(userId) },
-        { $set: { special_task_force } },
-        { upsert: true, session },
+        {_id: new ObjectId(userId)},
+        {
+          $set: {
+            special_task_force,
+            updatedAt: new Date(),
+          },
+        },
+        {upsert: true, session},
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update STF status`);
