@@ -3753,18 +3753,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   }
 
     //get delayed questions
-  async getDelayedReviews(session:ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]> {
+  async getDelayedReviews(session: ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]> {
     try {
       await this.init();
 
-      const thirtySecondsAgo = new Date(
-        Date.now() - 30 * 1000,
-      );
-      const thresholdTime = thirtySecondsAgo
-      
-      // new Date(
-      //   Date.now() - 45 * 60 * 1000,
+      // for testing purpose
+      // const thirtySecondsAgo = new Date(
+      //   Date.now() - 30 * 1000,
       // );
+
+      const thresholdTime = new Date(
+        Date.now() - 45 * 60 * 1000,
+      );
 
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
@@ -3902,8 +3902,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               },
             },
           },
-        ]).toArray();
-        console.log('delayedrev:',delayedReviews)
+        ],
+          { session }
+        ).toArray();
+
       return delayedReviews as { _id: ObjectId; questionId: ObjectId; userId: ObjectId; }[];
 
     } catch (error) {
@@ -3911,22 +3913,22 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
   }
 
-   //mark delayed notification sent
+  //mark delayed notification sent
   async markDelayedNotificationsSent(notifiedSubmissionIds: ObjectId[], session?: ClientSession): Promise<void> {
     try {
       await this.init();
-     await this.QuestionSubmissionCollection.updateMany(
-  {
-    _id: {
-      $in: notifiedSubmissionIds,
-    },
-  },
-  {
-    $set: {
-      reviewDelayNotificationSent: true,
-    },
-  },
-);
+      await this.QuestionSubmissionCollection.updateMany(
+        {
+          _id: {
+            $in: notifiedSubmissionIds,
+          },
+        },
+        {
+          $set: {
+            reviewDelayNotificationSent: true,
+          },
+        },
+      );
 
     }
     catch (error) {
