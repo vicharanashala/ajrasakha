@@ -55,11 +55,19 @@ export class WhatsAppService implements IWhatsAppService {
             !existing ||
             new Date(t.updated_at) > existing.lastMessageTimestamp
           ) {
+            let lastMessageDate = '';
+            if (t.thread_id.includes('-')) {
+              lastMessageDate = t.thread_id.split('-').slice(1).join('-');
+            } else {
+              lastMessageDate = new Date(t.updated_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            }
+
             uniqueThreadsMap.set(phoneNumber, {
               id: phoneNumber,
               phoneNumber,
               lastMessage: t.metadata.thread_name || 'No message available',
               lastMessageTimestamp: new Date(t.updated_at),
+              lastMessageDate,
               unreadCount: 0,
             });
           }
@@ -76,8 +84,10 @@ export class WhatsAppService implements IWhatsAppService {
 
   async getThreadDetails(phoneNumber: string, date: string): Promise<Message[]> {
     try {
-
-      const threadId = `${phoneNumber}-${date}`;
+      let threadId = phoneNumber;
+      if (!threadId.includes('-')) {
+        threadId = `${phoneNumber}-${date}`;
+      }
 
       const response = await axios.get(`${this.baseUrl}/threads/${threadId}/state`);
       const data = response.data;

@@ -192,9 +192,9 @@ export const STATUS=[
   "delayed",
   "re-routed",
   "pae_submitted",
-  "pae_closed",
+  //"pae_closed",
   "pass",
-  "closed"
+ // "closed"
 ]
 export const Review_Level_QAI=[
   "Author",

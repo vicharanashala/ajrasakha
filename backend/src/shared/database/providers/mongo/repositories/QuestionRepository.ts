@@ -4635,6 +4635,28 @@ export class QuestionRepository implements IQuestionRepository {
       this.AnswersCollection
     );
 
+    // Apply pae_review filter exactly matching findDetailedQuestions logic
+    if (query.pae_review) {
+      filter.pae_review = { $eq: true };
+    } else {
+      filter.$or = [
+        { pae_review: { $eq: false } },
+        { pae_review: { $exists: false } }
+      ];
+    }
+
+    // Apply isOnHold filter exactly matching findDetailedQuestions logic
+    if (query.isOnHold === 'true') {
+      filter.isOnHold = { $eq: true };
+    } else {
+      filter.isOnHold = { $ne: true };
+    }
+
+    // Apply isHidden filter exactly matching findDetailedQuestions logic
+    if (query.hiddenQuestions === 'true' || query.status === 'pass') {
+      filter.isHidden = { $eq: true };
+    }
+
     // Apply states/normalisedCrops from body if provided (matching findDetailedQuestions logic)
     if (body?.states && body.states.length > 0) {
       filter['details.state'] = { $in: body.states };
@@ -4656,14 +4678,6 @@ export class QuestionRepository implements IQuestionRepository {
         if (!filter.$and) filter.$and = [];
         filter.$and.push({ $or: orConditions });
       }
-    }
-
-    // Default exclusions
-    if (filter.isHidden === undefined && query.hiddenQuestions !== 'true') {
-      filter.isHidden = { $ne: true };
-    }
-    if (filter.isOnHold === undefined && query.isOnHold !== 'true') {
-      filter.isOnHold = { $ne: true };
     }
 
     const results = await this.QuestionCollection.aggregate(

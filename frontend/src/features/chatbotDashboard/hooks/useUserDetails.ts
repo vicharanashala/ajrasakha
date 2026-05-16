@@ -58,8 +58,8 @@ export function useUserDetails(
   inactiveOnly = false,
   lowFeedbackOnly = false,
   userType: 'all' | 'external' | 'internal' = 'all',
-  sortBy: 'totalQuestions' | 'name' = 'totalQuestions',
-  sortOrder: 'asc' | 'desc' = 'desc',
+  sortBy: 'totalQuestions' | 'name' = 'name',
+  sortOrder: 'asc' | 'desc' = 'asc',
 ) {
   const startISO = startDate?.toISOString();
   // Extend endDate to end of day (23:59:59.999) so the selected day is fully included.

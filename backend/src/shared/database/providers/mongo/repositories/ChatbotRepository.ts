@@ -970,8 +970,8 @@ export class ChatbotRepository implements IChatbotRepository {
     inactiveOnly = false,
     session?: ClientSession,
     userType = 'all',
-    sortBy = 'totalQuestions',
-    sortOrder = 'desc',
+    sortBy = "name",
+    sortOrder = 'asc',
     lowFeedbackOnly = false,
   ): Promise<PaginatedUserDetails> {
     try {
@@ -1317,8 +1317,8 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $bucket: {
                 groupBy: '$farmerProfile.age',
-                boundaries: [18, 26, 36, 46, 56],
-                default: '55+',
+                boundaries: [18, 30, 45, 60],
+                default: '60+',
                 output: { count: { $sum: 1 } },
               },
             },
@@ -1377,22 +1377,41 @@ export class ChatbotRepository implements IChatbotRepository {
         total === 0 ? 0 : parseFloat(((count / total) * 100).toFixed(2));
 
       const ageBoundaryLabel: Record<string | number, string> = {
-        18: '18-25', 26: '26-35', 36: '36-45', 46: '46-55', '55+': '55+',
+        18: '18-30', 30: '30-45', 45: '45-60', '60+': '60+',
       };
       const ageTotal = ageRaw.reduce((s, r) => s + r.count, 0);
-      const ageGroups: DemographicEntry[] = ageRaw.map(r => ({
-        label: ageBoundaryLabel[r._id] ?? String(r._id),
-        count: r.count,
-        pct: toPct(r.count, ageTotal),
-      }));
+      const ageGroupsMap = new Map(ageRaw.map(r => [r._id, r.count]));
+      
+      const ageGroups: DemographicEntry[] = [18, 30, 45, '60+'].map(key => {
+        const count = ageGroupsMap.get(key) || 0;
+        return {
+          label: ageBoundaryLabel[key],
+          count,
+          pct: toPct(count, ageTotal),
+        };
+      });
 
-      const genderTotal = genderRaw.reduce((s, r) => s + r.count, 0);
-      const genderMap: Record<string, string> = { male: 'Male', female: 'Female', other: 'Other' };
-      const genderSplit: DemographicEntry[] = genderRaw.map(r => ({
-        label: genderMap[(r._id ?? '').toLowerCase()] ?? r._id,
-        count: r.count,
-        pct: toPct(r.count, genderTotal),
-      }));
+      let maleCount = 0;
+      let femaleCount = 0;
+      let othersCount = 0;
+
+      genderRaw.forEach(r => {
+        const genderStr = (r._id ?? '').toLowerCase();
+        if (genderStr === 'male') {
+          maleCount += r.count;
+        } else if (genderStr === 'female') {
+          femaleCount += r.count;
+        } else {
+          othersCount += r.count;
+        }
+      });
+
+      const genderTotal = maleCount + femaleCount + othersCount;
+      const genderSplit: DemographicEntry[] = [
+        { label: 'Male', count: maleCount, pct: toPct(maleCount, genderTotal) },
+        { label: 'Female', count: femaleCount, pct: toPct(femaleCount, genderTotal) },
+        { label: 'Others', count: othersCount, pct: toPct(othersCount, genderTotal) },
+      ].filter(g => g.count > 0);
 
       const expBoundaryLabel: Record<string | number, string> = {
         0: 'Less than 2 yrs', 2: '2 - 5 yrs', 5: '5 - 10 yrs', 10: '10 - 20 yrs', '20+': '20+ yrs',
