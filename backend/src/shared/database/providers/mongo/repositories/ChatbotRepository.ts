@@ -970,8 +970,8 @@ export class ChatbotRepository implements IChatbotRepository {
     inactiveOnly = false,
     session?: ClientSession,
     userType = 'all',
-    sortBy = 'totalQuestions',
-    sortOrder = 'desc',
+    sortBy = "name",
+    sortOrder = 'asc',
     lowFeedbackOnly = false,
   ): Promise<PaginatedUserDetails> {
     try {
