@@ -31,7 +31,9 @@ async def test_weather_intent_routing(base_config):
     
     tool_names = [call["name"] for call in response_message.tool_calls]
     weather_tool_called = any("weather" in name for name in tool_names)
+    reviewer_called = any("upload_question" in name for name in tool_names)
     
+    assert reviewer_called, f"Expected reviewer upload before weather. Called: {tool_names}"
     assert weather_tool_called, f"Expected weather tool to be called, but got: {tool_names}"
 
 
@@ -59,9 +61,9 @@ async def test_gdb_reviewer_routing(base_config):
 
 
 @pytest.mark.asyncio
-async def test_greeting_skips_tools(base_config):
+async def test_greeting_uploads_to_reviewer(base_config):
     """
-    Test if a basic greeting avoids unnecessary tool calls and saves API latency/costs.
+    Every message including greetings must call upload_question_to_reviewer_system first.
     """
     state: AjraSakhaState = {
         "messages": [HumanMessage(content="Namaste Ajrasakha!")],
@@ -71,7 +73,12 @@ async def test_greeting_skips_tools(base_config):
     result = await ajrasakha_node(state, base_config)
     response_message = result["messages"][0]
     
-    assert len(response_message.tool_calls) == 0, f"Tools were called for a simple greeting! {response_message.tool_calls}"
+    assert response_message.tool_calls is not None and len(response_message.tool_calls) > 0, (
+        "Expected reviewer upload for a greeting, but no tools were called."
+    )
+    tool_names = [call["name"] for call in response_message.tool_calls]
+    reviewer_called = any("upload_question" in name for name in tool_names)
+    assert reviewer_called, f"Greeting must upload to reviewer first. Called: {tool_names}"
 
 @pytest.mark.asyncio
 async def test_soil_intent_routing(base_config):
