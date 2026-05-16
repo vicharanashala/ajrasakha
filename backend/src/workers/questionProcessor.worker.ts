@@ -116,7 +116,7 @@ const {checkDuplicateQuestionHelper} =
       // 1. Normalization
       const low = normalizeKeysToLower(qRaw || {});
       const rawCropName = (low.crop || '').toString();
-      let normalised_crop = rawCropName.trim().toLowerCase();
+      let normalised_crop: string | undefined;
 
       if (rawCropName.trim()) {
         const cacheKey = rawCropName.trim().toLowerCase();
@@ -127,25 +127,22 @@ const {checkDuplicateQuestionHelper} =
             const existingCrop = await cropRepo.findByNameOrAlias(rawCropName);
             if (existingCrop) {
               normalised_crop = existingCrop.name;
-            } else {
-              const normalizedName = rawCropName.trim().toLowerCase();
-              await cropRepo.createCrop(normalizedName, userId || '', []);
-              normalised_crop = normalizedName;
+              cropCache.set(cacheKey, normalised_crop);
             }
+            // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
           } catch (cropError: any) {
             console.error('Crop normalization warning:', cropError.message);
           }
-          cropCache.set(cacheKey, normalised_crop);
         }
       }
 
-      const details = {
+      const details: any = {
         state: (low.state || '').toString(),
         district: (low.district || '').toString(),
         crop: rawCropName.trim(),
-        normalised_crop,
         season: (low.season || '').toString(),
         domain: (low.domain || '').toString(),
+        ...(normalised_crop !== undefined && { normalised_crop }),
       };
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();

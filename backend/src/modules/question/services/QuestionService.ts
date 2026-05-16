@@ -152,7 +152,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // ── Crop normalisation (mirrors addQuestion logic, with per-call cache) ──
       const rawCropName = (low.crop || '').toString();
-      let normalised_crop = rawCropName.trim().toLowerCase();
+      let normalised_crop: string | undefined;
       if (rawCropName.trim()) {
         const cacheKey = rawCropName.trim().toLowerCase();
         if (cropCache.has(cacheKey)) {
@@ -162,21 +162,16 @@ export class QuestionService extends BaseService implements IQuestionService {
             const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
             if (existingCrop) {
               normalised_crop = existingCrop.name;
-            } else {
-              const normalizedName = rawCropName.trim().toLowerCase();
-              await this.cropRepository.createCrop(normalizedName, userId || '', []);
-              normalised_crop = normalizedName;
+              cropCache.set(cacheKey, normalised_crop);
             }
+            // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
           } catch (cropError: any) {
             console.error('Crop normalization warning:', cropError.message);
           }
-          // Always cache — prevents retrying failed crop creation on subsequent questions
-          cropCache.set(cacheKey, normalised_crop);
         }
       }
-      // Explicitly preserve the original input string — normalised_crop holds the canonical name
       details.crop = rawCropName.trim();
-      details.normalised_crop = normalised_crop;
+      if (normalised_crop !== undefined) details.normalised_crop = normalised_crop;
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
       const priorities = ['low', 'high', 'medium', 'critical'];
@@ -934,30 +929,24 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // ─── Normalize crop against crop_master DB ───────────────────────────
       const rawCropName = typeof details.crop === 'string' ? details.crop : details.crop?.name || '';
-      let normalised_crop = rawCropName.trim().toLowerCase();
+      let normalised_crop: string | undefined;
       if (rawCropName.trim()) {
         try {
           const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
           if (existingCrop) {
-            // Crop found — keep original input string, normalise to canonical name
             normalised_crop = existingCrop.name;
             logData.cropNormalization = { original: rawCropName, resolved: existingCrop.name, action: rawCropName.trim().toLowerCase() === existingCrop.name ? 'EXACT_MATCH' : 'ALIAS_RESOLVED' };
           } else {
-            // Crop not found — auto-create it in the DB
-            const normalizedName = rawCropName.trim().toLowerCase();
-            await this.cropRepository.createCrop(normalizedName, userId || '', []);
-            normalised_crop = normalizedName;
-            logData.cropNormalization = { original: rawCropName, resolved: normalizedName, action: 'AUTO_CREATED' };
+            // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
+            logData.cropNormalization = { original: rawCropName, action: 'NOT_FOUND' };
           }
         } catch (cropError: any) {
-          // If crop normalization fails (e.g. uniqueness race condition), log but don't block question creation
           console.error('Crop normalization warning:', cropError.message);
           logData.cropNormalizationError = cropError.message;
         }
       }
-      // Explicitly preserve the original input string — normalised_crop holds the canonical name
       details.crop = rawCropName.trim();
-      details.normalised_crop = normalised_crop;
+      if (normalised_crop !== undefined) details.normalised_crop = normalised_crop;
 
       // 🔹 Create Embedding — OUTSIDE transaction
       const text = `Question: ${question}`;
