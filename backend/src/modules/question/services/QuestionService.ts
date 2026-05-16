@@ -885,7 +885,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         source = 'AGRI_EXPERT',
         details,
         context,
-        originalquestion = ''
+        originalquestion = '',
+        messageId,
+        userId: bodyUserId,
+        referenceQuestionDetails,
+        popContext,
       } = body;
       console.log("the body coming=====", body)
 
@@ -985,7 +989,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // source="AJRASAKHA"
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
-          userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
+          userId: (bodyUserId?.trim() || userId?.trim()) ? new ObjectId(bodyUserId?.trim() || userId) : null,
           question,
           priority,
           source,
@@ -1000,7 +1004,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
-          ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
+          ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion }),
+          ...(messageId && { messageId }),
+          ...(referenceQuestionDetails?.length && { referenceQuestionDetails }),
+          ...(popContext && { popContext }),
         };
 
         // 🔹 Save question first, then check for duplicates

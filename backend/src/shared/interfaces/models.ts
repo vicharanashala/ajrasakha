@@ -91,6 +91,8 @@ export interface IQuestion {
   saved_to_draft?: boolean;
   pae_review?: boolean;
   firstAllocationAt?: Date;
+  referenceQuestionDetails?: Array<{ _id: ObjectId | string; duplicate: boolean }>;
+  popContext?: string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
