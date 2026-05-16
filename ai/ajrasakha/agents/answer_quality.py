@@ -7,6 +7,24 @@ import re
 # Minimum body length (excluding disclaimer) to treat an answer as substantive.
 MIN_ANSWER_LENGTH = 150
 
+# Appended when GDB/upload could not answer (must match farmer-facing copy in prompts).
+TWO_HOUR_DISCLAIMER = (
+    "Your question has been sent to Agri Experts at annam.ai, and they will "
+    "review it within 2 hours. Please ask the same question after 2 hours for "
+    "a detailed answer from our experts."
+)
+
+# LLM replies that admit no GDB hit — still need the 2-hour line for the farmer.
+_NO_DATABASE_MATCH = re.compile(
+    r"unable to find|could not find|couldn't find|was unable to find|"
+    r"not find specific|not documented|does not appear in|"
+    r"not (?:in|available in) (?:our |the )?(?:comprehensive )?"
+    r"(?:agricultural )?database|"
+    r"no (?:specific )?information(?: was)? found|"
+    r"not available in (?:our|the) (?:approved )?sources?",
+    re.IGNORECASE,
+)
+
 _EXPERT_INDICATORS = re.compile(
     r"expert|author|agri\s*specialist|agriexpert|specialist|reviewed\s+by",
     re.IGNORECASE,
@@ -44,13 +62,38 @@ _TWO_HOUR_DISCLAIMER_PATTERNS: list[re.Pattern[str]] = [
 ]
 
 
+def is_no_database_match_answer(text: str) -> bool:
+    """True when the reply says GDB / approved sources had no answer for the query."""
+    return bool(text and _NO_DATABASE_MATCH.search(text))
+
+
+def has_two_hour_disclaimer(text: str) -> bool:
+    """True when the standard 2-hour reviewer-queue message is already present."""
+    if not text:
+        return False
+    lower = text.lower()
+    return (
+        "2 hours" in lower or "2 hour" in lower
+    ) and (
+        "annam.ai" in lower
+        or "transferred to an expert" in lower
+        or "shared with an expert" in lower
+        or "sent to agri experts" in lower
+    )
+
+
 def is_sufficient_expert_answer(text: str) -> bool:
     """Return True when the answer looks detailed with expert attribution and sources.
 
     Matches the product rule from Hemanth/Karan: skip the 2-hour disclaimer when the
     reply includes agriculture expert names, sources, and/or relevant links.
+
+    A long “we could not find this in our database” reply is NOT sufficient.
     """
     if not text:
+        return False
+
+    if is_no_database_match_answer(text):
         return False
 
     stripped = text.strip()
@@ -72,3 +115,10 @@ def strip_two_hour_disclaimer(text: str) -> str:
         result = pattern.sub("", result)
     # Collapse excessive blank lines left after removal.
     return re.sub(r"\n{3,}", "\n\n", result).strip()
+
+
+def ensure_two_hour_disclaimer(text: str) -> str:
+    """Append the 2-hour disclaimer when it is missing and the answer is not sufficient."""
+    if not text or has_two_hour_disclaimer(text):
+        return text.strip() if text else ""
+    return f"{text.rstrip()}\n\n{TWO_HOUR_DISCLAIMER}"

@@ -1,6 +1,8 @@
 """Unit tests for expert-answer quality heuristics and disclaimer stripping."""
 
 from ajrasakha.agents.answer_quality import (
+    ensure_two_hour_disclaimer,
+    is_no_database_match_answer,
     is_sufficient_expert_answer,
     strip_two_hour_disclaimer,
 )
@@ -45,3 +47,21 @@ def test_insufficient_fallback_disclaimer_not_stripped_by_quality_check():
         "been transferred to an expert and will be processed within 2 hours."
     )
     assert is_sufficient_expert_answer(fallback) is False
+
+
+def test_no_database_match_not_treated_as_sufficient():
+    no_match = (
+        "I apologize, but I was unable to find specific information about COM 0265 "
+        "in our expert-verified database for Karnataka."
+    )
+    assert is_no_database_match_answer(no_match) is True
+    assert is_sufficient_expert_answer(no_match) is False
+
+
+def test_ensure_disclaimer_appended_for_no_match():
+    no_match = (
+        "COM 0265 is not documented in our database. Please contact your nearest KVK."
+    )
+    result = ensure_two_hour_disclaimer(no_match)
+    assert "2 hours" in result
+    assert "annam.ai" in result

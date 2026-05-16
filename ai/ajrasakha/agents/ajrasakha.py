@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from typing_extensions import TypedDict
 
 from ajrasakha.agents.answer_quality import (
+    ensure_two_hour_disclaimer,
     is_sufficient_expert_answer,
     strip_two_hour_disclaimer,
 )
@@ -582,10 +583,10 @@ async def relevance_check_node(
 
 
 def sanitize_answer_node(state: AjraSakhaState) -> dict:
-    """Strip the 2-hour reviewer disclaimer when the final answer is already sufficient.
+    """Adjust the 2-hour reviewer disclaimer on the final farmer-facing answer.
 
-    GDB often returns expert names, sources, and links, but the LLM may still append
-    the upload acknowledgement. This node removes that disclaimer deterministically.
+    - Strong GDB-style answer (expert + sources + links): strip disclaimer if present.
+    - Weak / no-database-match answer: append disclaimer if missing.
     """
     messages = state.get("messages") or []
     final_answer_msg: AIMessage | None = None
@@ -601,20 +602,31 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
     if not answer_text or answer_text.startswith(EMPTY_GDB_REPLY[:80]):
         return {}
 
-    if not is_sufficient_expert_answer(answer_text):
-        return {}
+    if is_sufficient_expert_answer(answer_text):
+        cleaned = strip_two_hour_disclaimer(answer_text)
+        if cleaned == answer_text:
+            return {}
+        logger.info(
+            "Removing 2-hour disclaimer from sufficient expert answer (len %d -> %d)",
+            len(answer_text),
+            len(cleaned),
+        )
+        return {
+            "messages": [AIMessage(content=cleaned, id=final_answer_msg.id)],
+            "location": state.get("location"),
+        }
 
-    cleaned = strip_two_hour_disclaimer(answer_text)
-    if cleaned == answer_text:
+    updated = ensure_two_hour_disclaimer(answer_text)
+    if updated == answer_text:
         return {}
 
     logger.info(
-        "Removing 2-hour disclaimer from sufficient expert answer (len %d -> %d)",
+        "Appending 2-hour disclaimer to insufficient/no-match answer (len %d -> %d)",
         len(answer_text),
-        len(cleaned),
+        len(updated),
     )
     return {
-        "messages": [AIMessage(content=cleaned, id=final_answer_msg.id)],
+        "messages": [AIMessage(content=updated, id=final_answer_msg.id)],
         "location": state.get("location"),
     }
 
