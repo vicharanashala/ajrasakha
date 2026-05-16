@@ -36,6 +36,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [verifiedFilter, setVerifiedFilter] = useState<string>("ALL");
+  const [stfFilter, setStfFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(12);
   const states = STATES;
@@ -43,16 +44,17 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const isModerator = currentUser?.role === "moderator";
 
   const { data: adminUsers, isLoading: adminLoading } = useAdminGetAllUsers(
-    page,
-    limit,
-    search,
-    sort,
-    filter,
-    roleFilter,
-    statusFilter,
-    verifiedFilter,
-    { enabled: isAdmin }
-  );
+  page,
+  limit,
+  search,
+  sort,
+  filter,
+  roleFilter,
+  statusFilter,
+  verifiedFilter,
+  stfFilter,
+  { enabled: isAdmin }
+);
   const toggleSort = (key: string) => {
     if (key === "rank") {
       setSort("");
@@ -240,6 +242,22 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                 </div>
               )}
             </div>
+            {/* STF Filter */}
+              {isAdmin && (
+                <div className="flex items-center gap-3 w-[180px] relative">
+                  <Badge className="absolute -top-2 -right-1 h-4 text-[9px] px-1.5 py-0 bg-red-500 hover:bg-red-600 border-0 z-10 text-white">New</Badge>
+                  <Select value={stfFilter} onValueChange={(val) => { setStfFilter(val); setPage(1); }}>
+                    <SelectTrigger className="bg-background px-3 py-2 w-full">
+                      <SelectValue placeholder="STF Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Users</SelectItem>
+                      <SelectItem value="true">STF Users</SelectItem>
+                      <SelectItem value="false">Non-STF Users</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
           </div>
 
           <UsersTable

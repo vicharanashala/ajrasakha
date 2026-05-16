@@ -5,6 +5,7 @@ import { GLOBAL_TYPES } from '#root/types.js';
 import { Container } from 'inversify';
 import { ObjectId } from 'mongodb';
 import { IQuestionSubmission } from '#root/shared/interfaces/models.js';
+import { sendPaeAssignmentEmail } from '#root/utils/buildPaeAssignmentEmail.js';
 
 interface WorkerData {
   questionIds: string[];
@@ -70,6 +71,7 @@ const notificationService = new NotificationService(notificationRepo, database);
   let processed = 0;
   const succeeded: string[] = [];
   const failed: Array<{ questionId: string; reason: string }> = [];
+  const assignedQuestionTexts: string[] = [];
 
   // Validate PAE expert once up-front
   const paeUser = await userRepo.findById(paeExpertId);
@@ -82,15 +84,15 @@ const notificationService = new NotificationService(notificationRepo, database);
 
   for (const questionId of questionIds) {
     try {
-      // 1. Get question and validate it's still draft
+      // 1. Get question and validate it can be PAE-assigned
       const question = await questionRepo.getById(questionId);
       if (!question) throw new Error('Question not found');
-      if (question.status !== 'draft')
-        throw new Error(`Expected draft, got status '${question.status}'`);
+      if (question.status !== 'draft' && question.status !== 'open')
+        throw new Error(`Cannot assign PAE expert to question with status '${question.status}'`);
 
-      // 2. Promote question: draft → open with pae_review flag
+      // 2. For draft questions promote to open; for already-open questions just set pae_review flag
       await questionRepo.updateQuestion(questionId, {
-        status: 'open',
+        ...(question.status === 'draft' && { status: 'open' }),
         pae_review: true,
       });
 
@@ -130,6 +132,11 @@ const notificationService = new NotificationService(notificationRepo, database);
         'answer_creation',
       );
 
+      // 7. Collect question text for summary email
+      const questionText = (question.question || questionId).toString();
+      const truncatedText = questionText.length > 120 ? questionText.slice(0, 120) + '…' : questionText;
+      assignedQuestionTexts.push(truncatedText);
+
       processed++;
       succeeded.push(questionId);
       parentPort?.postMessage({ processed: 1, successId: questionId });
@@ -147,6 +154,10 @@ const notificationService = new NotificationService(notificationRepo, database);
   console.log(
     `🏁 PAE Allocation Worker finished. ${succeeded.length} succeeded, ${failed.length} failed.`,
   );
+
+  // Send a single summary email for all successfully assigned questions
+  await sendPaeAssignmentEmail(paeUser.email, paeUser.firstName, assignedQuestionTexts);
+
   parentPort?.postMessage({ success: true, succeeded, failed });
   process.exit(0);
 })();

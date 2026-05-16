@@ -92,7 +92,6 @@ const AliasEntryForm = ({
   const canAdd = isChemical
     ? entry.english_representation.trim() !== ""
     : entry.language.trim() !== "" &&
-      entry.region.trim() !== "" &&
       entry.english_representation.trim() !== "" &&
       entry.native_representation.trim() !== "";
 

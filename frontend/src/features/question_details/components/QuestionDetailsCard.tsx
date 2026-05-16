@@ -43,11 +43,12 @@ function ThreadIdLink({ threadId }: { threadId: string }) {
   };
 
   const handleClick = () => {
+    const cleanThreadId = threadId.replace(/"/g, '');
     navigate({
       to: "/whatsapp-history",
       search: {
-        threadId,
-        date: extractDate(threadId),
+        threadId: cleanThreadId,
+        date: extractDate(cleanThreadId),
       },
     });
   };
@@ -58,7 +59,7 @@ function ThreadIdLink({ threadId }: { threadId: string }) {
       className="max-w-[220px] truncate rounded-md border bg-muted px-2 py-1 text-xs font-medium text-foreground hover:bg-accent hover:text-primary transition-colors cursor-pointer"
       title="View WhatsApp thread history"
     >
-      {threadId}
+      {threadId.replace(/"/g, '')}
     </button>
   );
 }

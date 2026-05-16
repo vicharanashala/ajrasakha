@@ -19,6 +19,7 @@ on:
           - reviewer_system
           - agmarknet-mcp
           - soil-health-mcp
+          - imd_weather
 permissions:
   contents: read
   packages: write
@@ -70,6 +71,9 @@ jobs:
           fi
           if [[ "$TARGET" == "all" || "$TARGET" == "soil-health-mcp" ]]; then
             add_entry "soil-health-mcp"
+          fi
+          if [[ "$TARGET" == "all" || "$TARGET" == "imd_weather" ]]; then
+            add_entry "imd_weather"
           fi
           COMPACT_JSON=$(echo $MATRIX_JSON | jq -c .)
           echo "matrix=$COMPACT_JSON" >> $GITHUB_OUTPUT

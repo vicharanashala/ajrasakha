@@ -137,6 +137,7 @@ export interface IUserRepository {
     role?: string,
     isBlocked?: boolean,
     isVerified?: boolean,
+    isSTF?: boolean,
     session?: ClientSession,
   ): Promise<{
     users: IUser[];
@@ -227,6 +228,12 @@ export interface IUserRepository {
    * @returns void
    */
   updateIsBlocked(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void>;
+  
+  updateSTFStatus(
     userId: string,
     action: string,
     session?: ClientSession,

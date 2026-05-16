@@ -186,6 +186,7 @@ export class UserController {
       role?: string;
       isBlocked?: string;
       isVerified?: string;
+      isSTF?: string;
     },
     
   ) {
@@ -197,6 +198,7 @@ export class UserController {
     const role = query.role || 'ALL';
     const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
     const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
+    const isSTF = query.isSTF === 'true' ? true : query.isSTF === 'false' ? false : undefined;
 
     return this.userService.getAllUsers(
       pageNum,
@@ -207,6 +209,7 @@ export class UserController {
       role,
       isBlocked,
       isVerified,
+      isSTF,
     );
   }
 
@@ -434,6 +437,86 @@ export class UserController {
     }
     this.auditTrailsService.createAuditTrail(auditPayload);
     return {message: `${action} Expert successfully`};
+  }
+
+  @OpenAPI({
+    summary: 'Assign or remove STF status for a user',
+    description: 'Assigns or removes Special Task Force status for a user. Admin access required.',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'STF status updated successfully',
+  })
+  @Patch('/stf')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async toggleSTFStatus(
+    @Body() body: BlockUnblockBody,
+    @CurrentUser() user: IUser,
+  ): Promise<{ message: string }> {
+    const { action, userId } = body;
+    const expertDetails = await this.userService.getUserById(userId);
+    if (!expertDetails) {
+      throw new NotFoundError('User not found');
+    }
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_MANAGEMENT,
+      action: action === 'assign' ? AuditAction.ASSIGN_STF : AuditAction.REMOVE_STF,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        userId: userId,
+        name: `${expertDetails.firstName} ${expertDetails.lastName}`,
+        email: expertDetails.email,
+        role: expertDetails.role,
+      },
+      changes: {
+        before: {
+          special_task_force: action === 'assign' ? false : true,
+        },
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      await this.userService.updateSTFStatus(userId, action);
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to update STF status',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to update STF status');
+    }
+
+    auditPayload = {
+      ...auditPayload,
+      changes: {
+        ...auditPayload.changes,
+        after: {
+          special_task_force: action === 'assign' ? true : false,
+        },
+      },
+    };
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return { message: `STF status ${action === 'assign' ? 'assigned' : 'removed'} successfully` };
   }
 
   @OpenAPI({

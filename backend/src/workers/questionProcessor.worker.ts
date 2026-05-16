@@ -108,6 +108,16 @@ const {checkDuplicateQuestionHelper} =
   const successIds: string[] = [];
   let duplicateCount = 0;
   const errors: any[] = [];
+  const paeAssignedQuestionTexts: string[] = [];
+
+  // Resolve PAE expert once before the loop so we don't re-fetch on every question
+  const paeUserRef = (allocationMode === 'pae_expert' && paeExpertId)
+    ? await userRepo.findById(paeExpertId)
+    : null;
+
+  if (allocationMode === 'pae_expert' && paeExpertId && !paeUserRef) {
+    console.warn(`⚠️ PAE expert ${paeExpertId} not found — no questions will be assigned`);
+  }
 
   const cropCache = new Map<string, string>();
 
@@ -116,7 +126,7 @@ const {checkDuplicateQuestionHelper} =
       // 1. Normalization
       const low = normalizeKeysToLower(qRaw || {});
       const rawCropName = (low.crop || '').toString();
-      let normalised_crop = rawCropName.trim().toLowerCase();
+      let normalised_crop: string | undefined;
 
       if (rawCropName.trim()) {
         const cacheKey = rawCropName.trim().toLowerCase();
@@ -127,25 +137,22 @@ const {checkDuplicateQuestionHelper} =
             const existingCrop = await cropRepo.findByNameOrAlias(rawCropName);
             if (existingCrop) {
               normalised_crop = existingCrop.name;
-            } else {
-              const normalizedName = rawCropName.trim().toLowerCase();
-              await cropRepo.createCrop(normalizedName, userId || '', []);
-              normalised_crop = normalizedName;
+              cropCache.set(cacheKey, normalised_crop);
             }
+            // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
           } catch (cropError: any) {
             console.error('Crop normalization warning:', cropError.message);
           }
-          cropCache.set(cacheKey, normalised_crop);
         }
       }
 
-      const details = {
+      const details: any = {
         state: (low.state || '').toString(),
         district: (low.district || '').toString(),
         crop: rawCropName.trim(),
-        normalised_crop,
         season: (low.season || '').toString(),
         domain: (low.domain || '').toString(),
+        ...(normalised_crop !== undefined && { normalised_crop }),
       };
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
@@ -272,26 +279,15 @@ const {checkDuplicateQuestionHelper} =
         console.log(
           `📝 Draft mode — skipping expert allocation for question ${qId}`,
         );
-      } else if (allocationMode === 'pae_expert' && paeExpertId) {
-        // PAE Expert mode: assign to the specified PAE expert
-        try {
-          const paeUser = await userRepo.findById(paeExpertId);
-          if (!paeUser) {
-            console.warn(
-              `⚠️ PAE expert ${paeExpertId} not found, falling back to empty queue`,
-            );
-          } else {
-            queue = [new ObjectId(paeUser._id!.toString())];
-            notificationRecipient = paeUser._id!.toString();
-            notificationMessage = 'A Question has been assigned for answering';
-            notificationTitle = 'Answer Creation Assigned';
-            console.log(
-              `👤 PAE Expert mode — assigned question ${qId} to ${paeUser.email}`,
-            );
-          }
-        } catch (paeErr: any) {
-          console.error(`❌ Error finding PAE expert:`, paeErr.message);
-        }
+      } else if (allocationMode === 'pae_expert' && paeUserRef) {
+        // PAE Expert mode: assign to the pre-fetched PAE expert
+        queue = [new ObjectId(paeUserRef._id!.toString())];
+        notificationRecipient = paeUserRef._id!.toString();
+        notificationMessage = 'A Question has been assigned for answering';
+        notificationTitle = 'Answer Creation Assigned';
+        const truncated = questionText.length > 120 ? questionText.slice(0, 120) + '…' : questionText;
+        paeAssignedQuestionTexts.push(truncated);
+        console.log(`👤 PAE Expert mode — assigned question ${qId} to ${paeUserRef.email}`);
       } else {
         // Default 'expert' mode: auto-allocate to experts by reputation score
         const users = await userRepo.findExpertsByReputationScore(
@@ -364,8 +360,12 @@ const {checkDuplicateQuestionHelper} =
   console.log(
     `🏁 Worker finished. Total processed: ${processed}/${questionsPayload.length}`,
   );
+
   parentPort?.postMessage({
     success: true,
+    paeEmail: paeUserRef?.email ?? null,
+    paeFirstName: paeUserRef?.firstName ?? null,
+    paeAssignedQuestionTexts,
   });
   process.exit(0);
 })();

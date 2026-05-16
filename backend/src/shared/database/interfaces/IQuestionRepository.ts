@@ -360,6 +360,7 @@ export interface IQuestionRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    status?: string,
   ): Promise<{analytics: Analytics}>;
 
   /**

@@ -133,6 +133,7 @@ export class PerformaneService {
     type: "question" | "answer";
     startTime?: Date;
     endTime?: Date;
+    status?: string;
   }): Promise<QuestionsAnalytics | null> {
     const params = new URLSearchParams();
     params.append("type", query.type);
@@ -140,6 +141,8 @@ export class PerformaneService {
       params.append("startTime", formatDateLocal(query.startTime));
     if (query.endTime)
       params.append("endTime", formatDateLocal(query.endTime));
+    if (query.status && query.status !== "all")
+      params.append("status", query.status);
 
     return apiFetch<QuestionsAnalytics>(
       `${this._baseUrl}/questions-analytics?${params.toString()}`
