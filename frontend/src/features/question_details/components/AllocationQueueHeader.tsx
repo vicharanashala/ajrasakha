@@ -26,7 +26,6 @@ import { DialogTitle } from "@radix-ui/react-dialog";
 import { Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { FeedbackModal } from "@/components/FeedbackModal";
 
 interface AllocationQueueHeaderProps {
   question: IQuestionFullData;
@@ -43,12 +42,6 @@ export const AllocationQueueHeader = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackConfig, setFeedbackConfig] = useState<{
-    variant: "success" | "error";
-    title: string;
-    description: string;
-  }>({ variant: "success", title: "", description: "" });
 
   const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
   const { mutateAsync: allocateExpert, isPending: allocatingExperts } =
@@ -128,33 +121,15 @@ export const AllocationQueueHeader = ({
         questionId: question._id,
         experts: selectedExperts,
       });
-      const count = selectedExperts.length;
       setSelectedExperts([]);
       setIsModalOpen(false);
       await initializeNotifications();
-
-      setFeedbackConfig({
-        variant: "success",
-        title: "Allocation Successful!",
-        description: `Successfully allocated the question to ${count} expert${count > 1 ? "s" : ""}. A notification has been sent to their dashboard.`,
-      });
-      setTimeout(() => {
-        setShowFeedbackModal(true);
-      }, 350);
+      toast.success("Experts allocated successfully!");
     } catch (error: any) {
       console.error("Error allocating experts:", error);
       toast.error(
         error?.message || "Failed to allocate experts. Please try again."
       );
-      setFeedbackConfig({
-        variant: "error",
-        title: "Allocation Failed",
-        description: error?.message || "Failed to allocate experts. Please try again.",
-      });
-      setIsModalOpen(false);
-      setTimeout(() => {
-        setShowFeedbackModal(true);
-      }, 350);
     }
   };
 
@@ -163,9 +138,8 @@ export const AllocationQueueHeader = ({
     setIsModalOpen(false);
   };
   return (
-    <>
-      <div className="flex flex-col gap-4 pb-6 border-b border-border">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="flex flex-col gap-4 pb-6 border-b border-border">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* LEFT SECTION */}
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-primary/10">
@@ -398,18 +372,5 @@ export const AllocationQueueHeader = ({
         )}
       </div>
     </div>
-      <FeedbackModal
-        isOpen={showFeedbackModal}
-        onClose={() => setShowFeedbackModal(false)}
-        variant={feedbackConfig.variant}
-        title={feedbackConfig.title}
-        description={feedbackConfig.description}
-        animationPreset="zoom"
-        primaryAction={{
-          label: "Dismiss",
-          onClick: () => setShowFeedbackModal(false),
-        }}
-      />
-    </>
   );
 };
