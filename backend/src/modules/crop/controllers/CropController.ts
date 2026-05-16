@@ -127,26 +127,56 @@ export class CropController {
     const { crops } = await this.cropService.getAllCrops({ limit: 100000, sort: 'name_asc', type });
 
     const rows: Record<string, string>[] = [];
+    const merges: XLSX.Range[] = [];
+    // row 0 in the sheet is the header; data rows start at index 1
+    let currentDataRow = 1;
+    // number of leading columns to merge per crop (Name for crops; Name+Status+Crops for chemicals)
+    const mergeColCount = type === 'chemical' ? 3 : 1;
+
     for (const crop of crops) {
       const aliases = crop.aliases ?? [];
-      const baseRow: Record<string, string> = { Name: crop.name };
-      if (type === 'chemical' && crop.status) baseRow['Status'] = crop.status;
-      if (type === 'chemical') baseRow['Crops'] = (crop.crops ?? []).join(', ');
+      const startRow = currentDataRow;
 
       if (aliases.length === 0) {
-        rows.push({ ...baseRow, Language: '', Region: '', 'English Name': '', 'Native Name': '' });
+        const row: Record<string, string> = { Name: crop.name };
+        if (type === 'chemical') {
+          row['Status'] = crop.status ?? '';
+          row['Crops'] = (crop.crops ?? []).join(', ');
+        }
+        rows.push({ ...row, Language: '', Region: '', 'English Name': '', 'Native Name': '' });
+        currentDataRow++;
       } else {
-        for (const alias of aliases) {
+        for (let i = 0; i < aliases.length; i++) {
+          const alias = aliases[i];
+          const row: Record<string, string> = {};
+
+          // Only populate crop-level fields on the first alias row
+          row['Name'] = i === 0 ? crop.name : '';
+          if (type === 'chemical') {
+            row['Status'] = i === 0 ? (crop.status ?? '') : '';
+            row['Crops'] = i === 0 ? (crop.crops ?? []).join(', ') : '';
+          }
+
           if (typeof alias === 'string') {
-            rows.push({ ...baseRow, Language: '', Region: '', 'English Name': alias, 'Native Name': '' });
+            row['Language'] = '';
+            row['Region'] = '';
+            row['English Name'] = alias;
+            row['Native Name'] = '';
           } else {
-            rows.push({
-              ...baseRow,
-              Language: alias.language ?? '',
-              Region: alias.region ?? '',
-              'English Name': alias.english_representation ?? '',
-              'Native Name': alias.native_representation ?? '',
-            });
+            row['Language'] = alias.language ?? '';
+            row['Region'] = alias.region ?? '';
+            row['English Name'] = alias.english_representation ?? '';
+            row['Native Name'] = alias.native_representation ?? '';
+          }
+
+          rows.push(row);
+          currentDataRow++;
+        }
+
+        // Merge crop-level columns vertically across all alias rows for this crop
+        if (aliases.length > 1) {
+          for (let c = 0; c < mergeColCount; c++) {
+            merges.push({ s: { r: startRow, c }, e: { r: currentDataRow - 1, c } });
           }
         }
       }
@@ -155,6 +185,7 @@ export class CropController {
     const sheetName = type === 'chemical' ? 'Chemicals' : 'Crops';
     const filename = type === 'chemical' ? 'chemicals_list.xlsx' : 'crops_list.xlsx';
     const ws = XLSX.utils.json_to_sheet(rows);
+    if (merges.length > 0) ws['!merges'] = merges;
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     response.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

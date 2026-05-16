@@ -73,11 +73,19 @@ export const AllocationQueueHeader = ({
          ) || [];
      }*/
 
-  const filteredExperts = experts.filter(
-    (expert) =>
-      expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredExperts = experts
+    .filter(
+      (expert) =>
+        expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      const aIsInactiveOrBlocked = a.isBlocked || a.status === 'in-active';
+      const bIsInactiveOrBlocked = b.isBlocked || b.status === 'in-active';
+      if (!aIsInactiveOrBlocked && bIsInactiveOrBlocked) return -1;
+      if (aIsInactiveOrBlocked && !bIsInactiveOrBlocked) return 1;
+      return 0;
+    });
 
   const handleToggle = async (checked: boolean) => {
     try {
@@ -116,6 +124,7 @@ export const AllocationQueueHeader = ({
       setSelectedExperts([]);
       setIsModalOpen(false);
       await initializeNotifications();
+      toast.success("Experts allocated successfully!");
     } catch (error: any) {
       console.error("Error allocating experts:", error);
       toast.error(

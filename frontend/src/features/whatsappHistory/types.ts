@@ -20,5 +20,6 @@ export interface Thread {
   phoneNumber: string;
   lastMessage: string;
   lastMessageTimestamp: Date;
+  lastMessageDate?: string;
   unreadCount?: number;
 }
