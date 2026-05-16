@@ -431,12 +431,12 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           )}
           {!showClosedAt && visibleColumns.created ? (
             <TableCell className="align-middle">
-              {formatDate(new Date(q.createdAt!), false)}
+              {formatDate(new Date(q.createdAt!))}
             </TableCell>
           ) : null}
           {showClosedAt && visibleColumns.closed ? (
             <TableCell className="align-middle">
-              {q.closedAt ? formatDate(new Date(q.closedAt!), false) : "N/C"}
+              {q.closedAt ? formatDate(new Date(q.closedAt!)) : "N/C"}
             </TableCell>
           ) : null}
          

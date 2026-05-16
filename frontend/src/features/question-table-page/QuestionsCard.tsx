@@ -348,7 +348,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
                 size={14}
                 className="text-gray-400 dark:text-gray-500"
               />
-              {formatDate(new Date(q.createdAt!), false)}
+              {formatDate(new Date(q.createdAt!))}
             </div>
           </div>
             )}
