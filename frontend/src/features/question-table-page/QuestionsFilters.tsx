@@ -35,7 +35,6 @@ import {
   MessageSquare,
   MessageCircle,
   AlertTriangle,
-  Download,
 } from "lucide-react";
 import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
@@ -74,7 +73,6 @@ import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
-import { CropService } from "@/hooks/services/cropService";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck } from "lucide-react";
@@ -199,8 +197,6 @@ export const QuestionsFilters = ({
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
-  const [isDownloadingCrops, setIsDownloadingCrops] = useState(false);
-  const [isDownloadingChemicals, setIsDownloadingChemicals] = useState(false);
   const [isPaeAllocateModalOpen, setIsPaeAllocateModalOpen] = useState(false);
   const [isManualReallocateOpen, setIsManualReallocateOpen] = useState(false);
   const [manualReallocateType, setManualReallocateType] = useState<"inactive" | "escalation">("inactive");
@@ -402,42 +398,6 @@ export const QuestionsFilters = ({
       console.error("Error in handleAddQuestion:", error);
       // toast.error("An unexpected error occurred. Please try again.");
       setAddOpen(false);
-    }
-  };
-
-  const cropService = new CropService();
-
-  const handleDownloadCrops = async () => {
-    setIsDownloadingCrops(true);
-    try {
-      const blob = await cropService.downloadList('crop');
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "crops_list.xlsx";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Failed to download crops list.");
-    } finally {
-      setIsDownloadingCrops(false);
-    }
-  };
-
-  const handleDownloadChemicals = async () => {
-    setIsDownloadingChemicals(true);
-    try {
-      const blob = await cropService.downloadList('chemical');
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "chemicals_list.xlsx";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Failed to download chemicals list.");
-    } finally {
-      setIsDownloadingChemicals(false);
     }
   };
 
@@ -1072,8 +1032,8 @@ export const QuestionsFilters = ({
                 </button>
               )}
 
-              {/* update chemicals — commented out */}
-              {/* {userRole !== "expert" && (
+              {/* update chemicals */}
+              {userRole !== "expert" && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1097,7 +1057,7 @@ export const QuestionsFilters = ({
                     </div>
                   </div>
                 </button>
-              )} */}
+              )}
 
               {/* reallocate */}
               {userRole !== "expert" && (
@@ -1197,26 +1157,6 @@ export const QuestionsFilters = ({
                   <DownloadLevelWiseReportButton
                     closeSideBar={() => setIsSidebarOpen(false)}
                   />
-                </div>
-
-                {/* Download Master Lists — Crops & Chemicals */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleDownloadCrops}
-                    disabled={isDownloadingCrops}
-                    className="flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-amber-600 dark:text-amber-500 disabled:opacity-50 text-xs font-medium"
-                  >
-                    {isDownloadingCrops ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                    Crops List
-                  </button>
-                  <button
-                    onClick={handleDownloadChemicals}
-                    disabled={isDownloadingChemicals}
-                    className="flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-purple-600 dark:text-purple-500 disabled:opacity-50 text-xs font-medium"
-                  >
-                    {isDownloadingChemicals ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                    Chemicals List
-                  </button>
                 </div>
               </div>
             </section>

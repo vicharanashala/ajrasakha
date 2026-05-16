@@ -1,7 +1,5 @@
 import { apiFetch } from "../api/api-fetch";
 import { env } from "@/config/env";
-import { auth } from "@/config/firebase";
-import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -85,18 +83,6 @@ export class CropService {
       method: "POST",
       body: formData,
     });
-  }
-
-  async downloadList(type: 'crop' | 'chemical'): Promise<Blob> {
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) throw new Error("User not authenticated");
-    const token = await getIdToken(firebaseUser);
-    const response = await fetch(`${this._baseUrl}/download?type=${type}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) throw new Error(`Failed to download ${type} list`);
-    return response.blob();
   }
 
   async getAllCrops(query?: {
