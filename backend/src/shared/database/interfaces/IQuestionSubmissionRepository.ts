@@ -30,6 +30,7 @@ export interface IQuestionSubmissionRepository {
     questionId: string,
     userSubmissionData: ISubmissionHistory,
     session?: ClientSession,
+    reviewDelayNotificationSent?: boolean
   ): Promise<void>;
 
   /**

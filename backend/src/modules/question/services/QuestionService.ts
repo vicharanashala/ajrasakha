@@ -1488,6 +1488,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           questionId,
           nextAllocatedSubmissionData,
           session,
+          false
         );
         const IS_INCREMENT = true;
         await this.userRepo.updateReputationScore(
@@ -1569,6 +1570,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               queue: [],
               createdAt: new Date(),
               updatedAt: new Date(),
+              reviewDelayNotificationSent: false,
             }, session)
 
           // const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
@@ -1773,6 +1775,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionId,
             userSubmissionData,
             session,
+            false,
           );
         }
         //7. Update question submission with new experts

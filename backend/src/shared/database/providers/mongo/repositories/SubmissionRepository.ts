@@ -166,6 +166,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             queue: new ObjectId(expertId),
             history: { updatedBy: new ObjectId(expertId) },
           },
+          $set: {
+            reviewDelayNotificationSent: false,
+          },
         },
         { session },
       );
@@ -220,6 +223,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     questionId: string,
     userSubmissionData: ISubmissionHistory,
     session?: ClientSession,
+    reviewDelayNotificationSent?: boolean
   ): Promise<void> {
     try {
       await this.init();
@@ -238,6 +242,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         userSubmissionData.answer.toString().trim() !== ''
       ) {
         updateDoc.$set.lastRespondedBy = userSubmissionData.updatedBy;
+      }
+
+      if (
+        reviewDelayNotificationSent !== undefined
+      ) {
+        updateDoc.$set.reviewDelayNotificationSent =
+          reviewDelayNotificationSent;
       }
 
       const result = await this.QuestionSubmissionCollection.updateOne(
@@ -3749,9 +3760,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       const thirtySecondsAgo = new Date(
         Date.now() - 30 * 1000,
       );
-      const thresholdTime = new Date(
-        Date.now() - 45 * 60 * 1000,
-      );
+      const thresholdTime = thirtySecondsAgo
+      
+      // new Date(
+      //   Date.now() - 45 * 60 * 1000,
+      // );
 
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
@@ -3762,6 +3775,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             $match: {
               createdAt: {
                 $gte: startOfDay,
+              },
+              reviewDelayNotificationSent: {
+                $ne: true,
               },
             },
           },
@@ -3816,20 +3832,6 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                         $lte: thresholdTime,
                       },
                     },
-
-                    {
-                      $expr: {
-                        $ne: [
-                          '$delayNotificationSentToReviewerId',
-                          {
-                            $arrayElemAt: [
-                              '$queue',
-                              0,
-                            ],
-                          },
-                        ],
-                      },
-                    },
                   ],
                 },
 
@@ -3860,13 +3862,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                     },
 
                     {
-                      $expr: {
-                        $ne: [
-                          '$delayNotificationSentToReviewerId',
-                          '$latestHistory.updatedBy',
-                        ],
+                      'latestHistory.answer': {
+                        $exists: false,
                       },
                     },
+
                   ],
                 },
               ],

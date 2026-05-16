@@ -195,8 +195,6 @@ export interface ISubmissionHistory {
 
   previousAllocations?: IPreviousAllocations[];
 
-  reviewDelayNotificationSent?: boolean;
-
   createdAt: Date;
   updatedAt: Date;
 }
@@ -207,6 +205,7 @@ export interface IQuestionSubmission {
   lastRespondedBy: string | ObjectId;
   history: ISubmissionHistory[];
   queue: (string | ObjectId)[];
+  reviewDelayNotificationSent?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
