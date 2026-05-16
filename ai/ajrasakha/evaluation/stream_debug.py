@@ -1,9 +1,10 @@
 import json
 import httpx
+import os
 
+LIVE_API_URL = os.getenv("LIVE_API_URL", "http://localhost:2026")
+ASSISTANT_ID = os.getenv("ASSISTANT_ID", "")
 
-API_URL = "http://localhost:2026/runs/stream"
-ASSISTANT_ID = "4269e130-b89b-576b-9688-00c7cb0f9516"
 
 
 def build_payload(query: str) -> dict:
