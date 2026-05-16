@@ -4602,15 +4602,22 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const notifiedSubmissionIds: ObjectId[] = [];
 
+       const moderators = await this.userRepo.findModerators();
+        
       for (const item of delayedReviews) {
         try {
-          await this.notificationService.saveTheNotifications(
-            'A question has been delayed for 45 minutes',
-            'Question Delayed',
-            item?.questionId.toString(),
-            item?.userId.toString(),
-            'question_delayed',
-          );
+
+          await Promise.allSettled(
+          moderators.map(mod =>
+            this.notificationRepository.addNotification(
+              mod._id.toString(),
+              item.questionId.toString(),
+              'question_delayed',
+              'A question has been delayed for 45 minutes',
+              'Question Delayed',
+            )
+          )
+        );
 
           notifiedSubmissionIds.push(item?._id);
         } catch (error) {
