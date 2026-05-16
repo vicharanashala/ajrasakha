@@ -15,6 +15,8 @@ import {
   BadRequestError,
   InternalServerError,
   UploadedFile,
+  Res,
+  ContentType,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -108,6 +110,55 @@ export class CropController {
     const job = getCropBulkJobById(params.jobId);
     if (!job) throw new NotFoundError(`Bulk job "${params.jobId}" not found`);
     return job;
+  }
+
+  // ─── DOWNLOAD CROPS AS EXCEL ─────────────────────────────────────────────
+
+  @OpenAPI({ summary: 'Download crops or chemicals list as Excel' })
+  @Get('/download')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async downloadCrops(
+    @QueryParams() query: { type?: 'crop' | 'chemical' },
+    @Res() response: any,
+  ): Promise<Buffer> {
+    const type = query.type;
+    const { crops } = await this.cropService.getAllCrops({ limit: 100000, sort: 'name_asc', type });
+
+    const rows: Record<string, string>[] = [];
+    for (const crop of crops) {
+      const aliases = crop.aliases ?? [];
+      const baseRow: Record<string, string> = { Name: crop.name };
+      if (type === 'chemical' && crop.status) baseRow['Status'] = crop.status;
+      if (type === 'chemical') baseRow['Crops'] = (crop.crops ?? []).join(', ');
+
+      if (aliases.length === 0) {
+        rows.push({ ...baseRow, Language: '', Region: '', 'English Name': '', 'Native Name': '' });
+      } else {
+        for (const alias of aliases) {
+          if (typeof alias === 'string') {
+            rows.push({ ...baseRow, Language: '', Region: '', 'English Name': alias, 'Native Name': '' });
+          } else {
+            rows.push({
+              ...baseRow,
+              Language: alias.language ?? '',
+              Region: alias.region ?? '',
+              'English Name': alias.english_representation ?? '',
+              'Native Name': alias.native_representation ?? '',
+            });
+          }
+        }
+      }
+    }
+
+    const sheetName = type === 'chemical' ? 'Chemicals' : 'Crops';
+    const filename = type === 'chemical' ? 'chemicals_list.xlsx' : 'crops_list.xlsx';
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    response.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
   // ─── GET CROP BY ID ──────────────────────────────────────────────────────
