@@ -26,7 +26,7 @@ function DonutSegments({ segments }: { segments: { label: string; count: number;
   const r = 32, cx = 44, cy = 44, circ = 2 * Math.PI * r;
   let offset = 0;
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-4 w-full">
+    <div className="flex flex-row flex-wrap 2xl:flex-nowrap items-center justify-center sm:justify-start gap-4 w-full">
       <div className="relative flex-shrink-0">
       <svg width={88} height={88} viewBox="0 0 88 88" className="flex-shrink-0">
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={14} strokeLinecap="butt" />
@@ -59,7 +59,7 @@ function DonutSegments({ segments }: { segments: { label: string; count: number;
           )}
         </div>
       </div>
-      <div className="flex flex-col gap-1.5 w-full">
+      <div className="flex flex-col gap-1.5 flex-1 min-w-[120px] w-full">
         {segments.map((s) => (
           <div key={s.label} className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
             <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: s.color }} />
@@ -131,8 +131,8 @@ function HorizontalBars({ segments }: { segments: { label: string; count: number
     <div className="flex flex-col gap-2.5 w-full">
       {segments.map((s) => (
         <div key={s.label} className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 dark:text-gray-400 w-20 sm:w-24 flex-shrink-0 truncate">{s.label}</span>
-          <div className="flex-1 h-2.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+          <span className="text-xs text-gray-500 dark:text-gray-400 w-20 sm:w-24 flex-shrink min-w-0 truncate">{s.label}</span>
+          <div className="flex-1 min-w-[24px] h-2.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
             <div className="h-full rounded-full transition-all duration-500"
               style={{ width: `${s.pct}%`, background: s.color }} />
           </div>
