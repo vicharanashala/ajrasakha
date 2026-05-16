@@ -3,10 +3,18 @@ import { appConfig } from '../../../config/app.js';
 // import * as fs from 'fs';
 // import * as path from 'path';
 
-interface SarvamTranscribeResponse {
-  transcript: string;
-  confidence?: number;
-  language?: string;
+interface WhisperTranscribeResponse {
+  text: string;
+  usage?: {
+    type: string;
+    input_tokens: number;
+    input_token_details?: {
+      text_tokens: number;
+      audio_tokens: number;
+    };
+    output_tokens: number;
+    total_tokens: number;
+  };
 }
 
 @injectable()
@@ -144,38 +152,26 @@ export class PlivoService {
         type: 'audio/wav' // WAV format is accepted by Sarvam
       });
       formData.append('file', audioFile);
-      formData.append('language', 'en'); // Force English instead of auto-detect
+      formData.append('model', 'whisper-1');
       
-      const headers = {
-        'api-subscription-key': this.sarvamApiKey,
-      };
-      
-      // Log FormData contents (without file data)
-      // console.log(`📤 [PLIVO-SERVICE] FormData language:`, formData.get('language'));
-      // const fileEntry = formData.get('file');
-      // console.log(`📤 [PLIVO-SERVICE] FormData file type:`, fileEntry instanceof File ? fileEntry.type : 'Not a File');
-      // console.log(`📤 [PLIVO-SERVICE] FormData file size:`, fileEntry instanceof File ? fileEntry.size : 'Unknown');
-      // console.log(`📤 [PLIVO-SERVICE] FormData file name:`, fileEntry instanceof File ? fileEntry.name : 'Unknown');
-      
-      const response = await fetch('https://api.sarvam.ai/speech-to-text-translate', {
+      const response = await fetch('http://100.100.108.44:9016/v1/audio/transcriptions', {
         method: 'POST',
-        headers,
         body: formData,
       });
 
-      // console.log(`📥 [PLIVO-SERVICE] Sarvam API response status: ${response.status}`);
+      console.log(`📥 [PLIVO-SERVICE] Whisper API response status: ${response.status}`);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ [PLIVO-SERVICE] Sarvam API error ${response.status}:`, errorText);
-        throw new Error(`Sarvam API error: ${response.status}`);
+        console.error(`❌ [PLIVO-SERVICE] Whisper API error ${response.status}:`, errorText);
+        throw new Error(`Whisper API error: ${response.status}`);
       }
 
-      const result = await response.json() as SarvamTranscribeResponse;
-      // console.log(`📝 [PLIVO-SERVICE] Sarvam API response:`, result);
+      const result = await response.json() as WhisperTranscribeResponse;
+      console.log(`📝 [PLIVO-SERVICE] Whisper API response:`, result);
       
-      const transcript = result.transcript || '';
-      // console.log(`📝 [PLIVO-SERVICE] Extracted transcript: "${transcript}"`);
+      const transcript = result.text || '';
+      console.log(`📝 [PLIVO-SERVICE] Extracted transcript: "${transcript}"`);
 
       // Accumulate transcript for this call
       const currentTranscript = this.activeTranscriptions.get(callId) || '';
@@ -234,37 +230,38 @@ export class PlivoService {
 
   /**
    * Get final English transcript (auto-detected language to English)
+   * NOTE: Commented out since we're using Whisper API which already transcribes to English
    */
-  async getFinalEnglishTranscript(callId: string): Promise<string> {
-    const transcript = this.getTranscript(callId);
-    if (!transcript.trim()) return '';
+  // async getFinalEnglishTranscript(callId: string): Promise<string> {
+  //   const transcript = this.getTranscript(callId);
+  //   if (!transcript.trim()) return '';
 
-    try {
-      // Use existing translate service logic to convert to English
-      // This is a simplified version - you might want to use the actual service
-      const response = await fetch('https://api.sarvam.ai/speech-to-text-translate', {
-        method: 'POST',
-        headers: {
-          'api-subscription-key': this.sarvamApiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          input: transcript,
-          source_language_code: 'auto',
-          target_language_code: 'en-IN',
-          model: 'sarvam-translate:v1',
-        }),
-      });
+  //   try {
+  //     // Use existing translate service logic to convert to English
+  //     // This is a simplified version - you might want to use the actual service
+  //     const response = await fetch('https://api.sarvam.ai/speech-to-text-translate', {
+  //       method: 'POST',
+  //       headers: {
+  //         'api-subscription-key': this.sarvamApiKey,
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({
+  //         input: transcript,
+  //         source_language_code: 'auto',
+  //         target_language_code: 'en-IN',
+  //         model: 'sarvam-translate:v1',
+  //       }),
+  //     });
 
-      if (response.ok) {
-        const result = await response.json() as { translated_text?: string };
-        return result.translated_text || transcript;
-      }
+  //     if (response.ok) {
+  //       const result = await response.json() as { translated_text?: string };
+  //       return result.translated_text || transcript;
+  //     }
 
-      return transcript;
-    } catch (error) {
-      console.error('Translation error:', error);
-      return transcript; // Return original if translation fails
-    }
-  }
+  //     return transcript;
+  //   } catch (error) {
+  //     console.error('❌ [PLIVO-SERVICE] Translation error:', error);
+  //     return transcript;
+  //   }
+  // }
 }

@@ -114,9 +114,9 @@ export const initWebSocket = (server: Server) => {
             console.error('Final chunk processing failed:', finalChunkError);
           }
           
-          // Get final English transcript
+          // Get final transcript (Whisper already provides English)
           try {
-            const finalTranscript = await plivoService.getFinalEnglishTranscript(callId);
+            const finalTranscript = plivoService.getTranscript(callId);
             
             // Broadcast final transcript
             Array.from(wss.clients).forEach((client: any) => {
