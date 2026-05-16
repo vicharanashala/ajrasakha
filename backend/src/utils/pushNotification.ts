@@ -1,17 +1,21 @@
 import 'reflect-metadata';
 import webPush from 'web-push';
 import {ISubscription} from '#root/shared/index.js';
-// import { CORE_TYPES, NotificationService } from '#root/modules/core/index.js';
-// import { getContainer } from '#root/bootstrap/loadModules.js';
 webPush.setVapidDetails(
   `mailto:${process.env.VAPID_EMAIL}`,
   process.env.VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!,
 );
-
+type PushNotificationPayload = {
+  title: string;
+  body: string;
+  url: string;
+  source?: string;
+};
 export const sendPushNotification = async (
   subscription: any,
-  payload: {title: string; body: string; url: string},
+  // payload: {title: string; body: string; url: string},
+  payload: PushNotificationPayload,
   onExpire?: (endpoint: string) => Promise<void>,
 ) => {
   // const container = getContainer();
@@ -38,6 +42,7 @@ export const notifyUser = async (
   userId: string,
   message: string,
   subscription: ISubscription,
+  source: string = 'DEFAULT',
   onExpire?: (endpoint: string) => Promise<void>,
 ) => {
   if (!subscription) {
@@ -48,6 +53,7 @@ export const notifyUser = async (
     title: 'Annam.AI',
     body: message,
     url: '/notifications',
+    source,
   };
   // const container = getContainer();
   // const notificationService = container.get<NotificationService>(CORE_TYPES.NotificationService)
@@ -64,5 +70,5 @@ export const notifyUser = async (
     return;
   }
 
-  await sendPushNotification(subscription.subscription, payload);
+  await sendPushNotification(subscription.subscription, payload,onExpire);
 };

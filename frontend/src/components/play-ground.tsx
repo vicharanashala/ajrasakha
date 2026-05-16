@@ -32,6 +32,7 @@ import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboa
 import { cn } from "@/lib/utils";
 import AuditPage from "./AuditPage";
 import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
+import { notificationSoundManager } from "@/services/notificationSoundManager";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -148,6 +149,40 @@ export const PlaygroundPage = () => {
 
     initializeNotifications();
   }, [user]);
+
+  useEffect(() => {
+  if (!navigator.serviceWorker) return;
+
+  const handleMessage = (event: MessageEvent) => {
+    if (
+      event.data?.type ===
+      'PLAY_NOTIFICATION_SOUND'
+    ) {
+      notificationSoundManager.play(
+        event.data.source,
+      );
+    }
+
+    if (
+      event.data?.type ===
+      'NOTIFICATION_CLICKED'
+    ) {
+      window.location.href = event.data.url;
+    }
+  };
+
+  navigator.serviceWorker.addEventListener(
+    'message',
+    handleMessage,
+  );
+
+  return () => {
+    navigator.serviceWorker.removeEventListener(
+      'message',
+      handleMessage,
+    );
+  };
+}, []);
 
   return (
     <>

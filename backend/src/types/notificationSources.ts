@@ -1,0 +1,9 @@
+export const NOTIFICATION_SOURCES = {
+  AJRASAKHA: 'AJRASAKHA',
+  AGRI_EXPERT: 'AGRI_EXPERT',
+  WHATSAPP: 'WHATSAPP',
+  DEFAULT: 'DEFAULT',
+} as const;
+
+export type NotificationSource =
+  (typeof NOTIFICATION_SOURCES)[keyof typeof NOTIFICATION_SOURCES];

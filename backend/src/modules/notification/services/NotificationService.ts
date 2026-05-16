@@ -162,6 +162,7 @@ export class NotificationService extends BaseService {
     entityId: string,
     userId: string,
     type: string,
+    source: string = 'DEFAULT',
     session?: ClientSession,
   ) {
     // return await this._withTransaction(async (session: ClientSession) => {
@@ -208,7 +209,7 @@ export class NotificationService extends BaseService {
     const subscription =
       await this.notificationRepository.getSubscriptionByUserId(userId);
     // await sendEmailNotification(user.email.toString(), title, message, html);
-    await notifyUser(userId, title, subscription, async (endpoint: string) => {
+    await notifyUser(userId, title, subscription,source, async (endpoint: string) => {
       await this.deleteExpiredSubscriptionForUser(endpoint)
     });
     // });
