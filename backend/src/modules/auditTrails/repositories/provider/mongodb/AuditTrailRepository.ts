@@ -5,6 +5,7 @@ import {
 import {IAuditTrailsRepository} from '#root/modules/auditTrails/interfaces/IAuditTrailsRepository.js';
 import {MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
+import { getShiftFilter } from '#root/utils/date.utils.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {query} from 'winston';
@@ -204,5 +205,91 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
         session,
       }),
     };
+  }
+
+  async getShiftBasedAuditActionCounts(
+    startDate: string,
+    endDate: string,
+    shift: "morning" | "evening" | "all",
+    session?: ClientSession
+  ): Promise<
+    {
+      category: string;
+      action: string;
+      count: number;
+    }[]
+  > {
+
+    await this.init();
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const result =
+      await this.auditTrailsCollection.aggregate<{
+        category: string;
+        action: string;
+        count: number;
+      }>(
+        [
+
+          /**
+           * Filter date range
+           */
+          {
+            $match: {
+              createdAt: {
+                $gte: start,
+                $lte: end,
+              },
+              ...getShiftFilter(
+                "createdAt",
+                shift
+              ),
+            },
+          },
+
+          /**
+           * Group by action
+           */
+          {
+            $group: {
+              _id: {
+                category: "$category",
+                action: "$action",
+              },
+              count: {
+                $sum: 1,
+              },
+            },
+          },
+
+          /**
+           * Sort highest first
+           */
+          {
+            $sort: {
+              count: -1,
+            },
+          },
+
+          /**
+           * Projection
+           */
+          {
+            $project: {
+              _id: 0,
+              category: "$category",
+              action: "$_id",
+              count: 1,
+            },
+          },
+        ],
+        { session }
+      ).toArray();
+
+      // console.log("Shift-based audit action counts:", result);
+    return result;
   }
 }

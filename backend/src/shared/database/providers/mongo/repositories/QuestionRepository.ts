@@ -45,6 +45,7 @@ import {
   QuestionResponse,
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import { buildReviewTimeline } from '#root/utils/buildReviewTat.js';
+import { getShiftFilter } from '#root/utils/date.utils.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -4807,6 +4808,752 @@ export class QuestionRepository implements IQuestionRepository {
   async count(filter = {}) {
     await this.init();
     return await this.QuestionCollection.countDocuments(filter);
+  }
+
+
+
+
+
+  async getShiftBasedMetrics(
+    startDate: string,
+    endDate: string,
+    shift: "morning" | "evening" | "all",
+    session?: ClientSession
+  ): Promise<{
+    questionsAdded: number;
+    questionsClosed: number;
+    averageClosureTimeInMinutes: number;
+    totalReroutedQuestions: number;
+  }> {
+    await this.init();
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const createdAtShiftFilter =
+      getShiftFilter("createdAt", shift);
+
+    const closedAtShiftFilter =
+      getShiftFilter("closedAt", shift);
+
+
+    const [questionsAdded, questionsClosed, averageClosureTimeResult, totalReroutedQuestions] =
+      await Promise.all([
+        /**
+         * Questions Added
+         */
+        this.QuestionCollection.countDocuments(
+          {
+            createdAt: {
+              $gte: start,
+              $lte: end,
+            },
+
+            ...createdAtShiftFilter,
+          },
+          { session }
+        ),
+
+        /**
+         * Questions Closed
+         */
+        this.QuestionCollection.countDocuments(
+          {
+            status: "closed",
+
+            closedAt: {
+              $gte: start,
+              $lte: end,
+            },
+
+            ...closedAtShiftFilter,
+          },
+          { session }
+        ),
+
+      /**
+       * Average Closure Time
+       *
+       * Only consider questions:
+       * 1. Opened within selected date range
+       * 2. Opened within selected shift
+       * 3. Already closed
+       */
+      this.QuestionCollection.aggregate(
+        [
+          {
+            $match: {
+              status: "closed",
+              createdAt: {
+                $gte: start,
+                $lte: end,
+              },
+              closedAt: {
+                $exists: true,
+              },
+              ...createdAtShiftFilter,
+            },
+          },
+
+          {
+            $project: {
+              closureTimeInMinutes: {
+                $divide: [
+                  {
+                    $subtract: [
+                      "$closedAt",
+                      "$createdAt",
+                    ],
+                  },
+                  1000 * 60,
+                ],
+              },
+            },
+          },
+
+          {
+            $group: {
+              _id: null,
+              averageClosureTimeInMinutes: {
+                $avg: "$closureTimeInMinutes",
+              },
+            },
+          },
+        ],
+        { session }
+      ).toArray(),
+
+      /**
+       * total rerouted questions
+       *
+       * Only consider questions:
+       * 1. Opened within selected date range
+       * 2. Opened within selected shift
+       */
+      this.QuestionCollection.aggregate(
+        [
+          {
+            $match: {
+              status: "re-routed",
+              createdAt: {
+                $gte: start,
+                $lte: end,
+              },
+              ...createdAtShiftFilter,
+            },
+          },
+
+          {
+            $count: "totalReroutedQuestions",
+          },
+        ],
+        { session }
+      ).toArray(),
+
+      ]);
+
+    return {
+      questionsAdded,
+      questionsClosed,
+      averageClosureTimeInMinutes: Number(
+        (
+          averageClosureTimeResult[0]
+            ?.averageClosureTimeInMinutes || 0
+        ).toFixed(2)
+      ),
+      totalReroutedQuestions: totalReroutedQuestions[0]?.totalReroutedQuestions || 0,
+    };
+  }
+
+  async getShiftBasedTrends(
+    startDate: string,
+    endDate: string,
+    shift: "morning" | "evening" | "all",
+    session?: ClientSession
+  ): Promise<
+    {
+      hour: string;
+      added: number;
+      closed: number;
+    }[]
+  > {
+    await this.init();
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    /**
+     * Added Questions Aggregation
+     */
+    const addedAnalytics =
+      await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: {
+              createdAt: {
+                $gte: start,
+                $lte: end,
+              },
+              ...getShiftFilter(
+                "createdAt",
+                shift
+              ),
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: "%H:00",
+                  date: "$createdAt",
+                  timezone: "Asia/Kolkata",
+                },
+              },
+              added: {
+                $sum: 1,
+              },
+            },
+          },
+
+          {
+            $sort: {
+              _id: 1,
+            },
+          },
+        ],
+        { session }
+      ).toArray();
+
+    /**
+     * Closed Questions Aggregation
+     */
+    const closedAnalytics =
+      await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: {
+              status: "closed",
+              closedAt: {
+                $gte: start,
+                $lte: end,
+              },
+              ...getShiftFilter(
+                "closedAt",
+                shift
+              ),
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: "%H:00",
+                  date: "$closedAt",
+                  timezone: "Asia/Kolkata",
+                },
+              },
+              closed: {
+                $sum: 1,
+              },
+            },
+          },
+
+          {
+            $sort: {
+              _id: 1,
+            },
+          },
+        ],
+        { session }
+      ).toArray();
+
+
+    /**
+     * Create fixed 24-hour buckets
+     */
+    const analyticsMap = new Map<
+      string,
+      {
+        hour: string;
+        added: number;
+        closed: number;
+      }
+    >();
+
+    /**
+     * Initialize all hours
+     */
+    for (let hour = 0; hour < 24; hour++) {
+
+      const formattedHour =
+        `${hour.toString().padStart(2, "0")}:00`;
+
+      analyticsMap.set(formattedHour, {
+        hour: formattedHour,
+        added: 0,
+        closed: 0,
+      });
+    }
+
+    /**
+     * Merge added analytics
+     */
+    for (const item of addedAnalytics) {
+
+      if (analyticsMap.has(item._id)) {
+
+        analyticsMap.get(item._id)!.added =
+          item.added;
+      }
+    }
+
+    /**
+     * Merge closed analytics
+     */
+    for (const item of closedAnalytics) {
+
+      if (analyticsMap.has(item._id)) {
+
+        analyticsMap.get(item._id)!.closed =
+          item.closed;
+      }
+    }
+
+    /**
+     * Convert map to sorted array
+     */
+    const result = Array.from(
+      analyticsMap.values()
+    ).sort((a, b) =>
+      a.hour.localeCompare(b.hour)
+    );
+
+    return result;
+  }
+
+  async getQuestionStatusDistribution(
+    startDate: string,
+    endDate: string,
+    shift: "morning" | "evening" | "all",
+    session?: ClientSession
+  ): Promise<
+    {
+      status: string;
+      count: number;
+    }[]
+  > {
+
+    await this.init();
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const result =
+      await this.QuestionCollection.aggregate(
+        [
+
+          /**
+           * Match questions in date range
+           */
+          {
+            $match: {
+              createdAt: {
+                $gte: start,
+                $lte: end,
+              },
+              ...getShiftFilter(
+                "createdAt",
+                shift
+              ),
+            },
+          },
+
+          /**
+           * Group by status
+           */
+          {
+            $group: {
+              _id: "$status",
+              count: {
+                $sum: 1,
+              },
+            },
+          },
+
+          /**
+           * Sort descending
+           */
+          {
+            $sort: {
+              count: -1,
+            },
+          },
+        ],
+        { session }
+      ).toArray();
+
+    return result.map((item) => ({
+      status: item._id || "unknown",
+      count: item.count,
+    }));
+  }
+
+  async getQuestionLevelDistribution(
+    startDate: string,
+    endDate: string,
+    shift: "morning" | "evening" | "all",
+    session?: ClientSession
+  ): Promise<
+    {
+      level: string;
+      count: number;
+    }[]
+  > {
+
+    await this.init();
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const result =
+      await this.QuestionSubmissionCollection.aggregate(
+        [
+
+          /**
+           * Filter submissions
+           */
+          {
+            $match: {
+              createdAt: {
+                $gte: start,
+                $lte: end,
+              },
+              ...getShiftFilter(
+                "createdAt",
+                shift
+              ),
+            },
+          },
+
+          /**
+           * Compute level from history length
+           */
+          {
+            $addFields: {
+              currentLevel: {
+                $size: "$history",
+              },
+            },
+          },
+
+          /**
+           * Group by level
+           */
+          {
+            $group: {
+              _id: "$currentLevel",
+              count: {
+                $sum: 1,
+              },
+            },
+          },
+
+          /**
+           * Sort ascending
+           */
+          {
+            $sort: {
+              _id: 1,
+            },
+          },
+        ],
+        { session }
+      ).toArray();
+
+    return result.map((item) => ({
+      level: `Level ${item._id}`,
+      count: item.count,
+    }));
+  } 
+
+  async getShiftBasedTopExperts(
+    startDate: string,
+    endDate: string,
+    shift: "morning" | "evening" | "all",
+    session?: ClientSession
+  ): Promise<
+    {
+      userId: string;
+      name: string;
+      reviewCount: number;
+      reputation: number;
+      incentive: number;
+      penalty: number;
+    }[]
+  > {
+
+    await this.init();
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const result =
+      await this.QuestionSubmissionCollection.aggregate<{
+        userId: ObjectId;
+        name: string;
+        reviewCount: number;
+        reputation: number;
+        incentive: number;
+        penalty: number;
+      }>(
+        [
+
+          /**
+           * Expand history
+           */
+          {
+            $unwind: "$history",
+          },
+
+          /**
+           * Match reviewed entries
+           */
+          {
+            $match: {
+              "history.status": "reviewed",
+              "history.createdAt": {
+                $gte: start,
+                $lte: end,
+              },
+              ...getShiftFilter(
+                "history.createdAt",
+                shift
+              ),
+            },
+          },
+
+          /**
+           * Group by reviewer
+           */
+          {
+            $group: {
+              _id: "$history.updatedBy",
+              reviewCount: {
+                $sum: 1,
+              },
+            },
+          },
+
+          /**
+           * Join users
+           */
+          {
+            $lookup: {
+              from: "users",
+              localField: "_id",
+              foreignField: "_id",
+              as: "user",
+            },
+          },
+
+          /**
+           * Flatten user
+           */
+          {
+            $unwind: "$user",
+          },
+
+          /**
+           * Sort descending
+           */
+          {
+            $sort: {
+              reviewCount: -1,
+            },
+          },
+
+          /**
+           * Top 5 only
+           */
+          {
+            $limit: 5,
+          },
+
+          /**
+           * Final projection
+           */
+          {
+            $project: {
+              _id: 0,
+              userId: "$user._id",
+              name: {
+                $concat: [
+                  "$user.firstName",
+                  " ",
+                  "$user.lastName",
+                ],
+              },
+              reviewCount: 1,
+              reputation:
+                "$user.reputation_score",
+              incentive:
+                "$user.incentive",
+              penalty:
+                "$user.penalty",
+            },
+          },
+        ],
+        { session }
+      ).toArray();
+
+    return result.map((item) => ({
+      ...item,
+      userId: item.userId.toString(),
+    }));
+  }
+
+  async getShiftBasedTopApprovingExperts(
+    startDate: string,
+    endDate: string,
+    shift: "morning" | "evening" | "all",
+    session?: ClientSession
+  ): Promise<
+    {
+      userId: string;
+      name: string;
+      approvedCount: number;
+      reputation: number;
+      incentive: number;
+      penalty: number;
+    }[]
+  > {
+
+    await this.init();
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const result =
+      await this.QuestionSubmissionCollection.aggregate<{
+        userId: ObjectId;
+        name: string;
+        approvedCount: number;
+        reputation: number;
+        incentive: number;
+        penalty: number;
+      }>(
+        [
+
+          /**
+           * Expand history
+           */
+          {
+            $unwind: "$history",
+          },
+
+          /**
+           * Match approvals
+           */
+          {
+            $match: {
+              "history.status": "approved",
+              "history.createdAt": {
+                $gte: start,
+                $lte: end,
+              },
+              ...getShiftFilter(
+                "history.createdAt",
+                shift
+              ),
+            },
+          },
+
+          /**
+           * Group by approver
+           */
+          {
+            $group: {
+              _id: "$history.updatedBy",
+              approvedCount: {
+                $sum: 1,
+              },
+            },
+          },
+
+          /**
+           * Join users
+           */
+          {
+            $lookup: {
+              from: "users",
+              localField: "_id",
+              foreignField: "_id",
+              as: "user",
+            },
+          },
+
+          /**
+           * Flatten user
+           */
+          {
+            $unwind: "$user",
+          },
+
+          /**
+           * Highest approvals first
+           */
+          {
+            $sort: {
+              approvedCount: -1,
+            },
+          },
+
+          /**
+           * Top 5 only
+           */
+          {
+            $limit: 5,
+          },
+
+          /**
+           * Final projection
+           */
+          {
+            $project: {
+              _id: 0,
+              userId: "$user._id",
+              name: {
+                $concat: [
+                  "$user.firstName",
+                  " ",
+                  "$user.lastName",
+                ],
+              },
+              approvedCount: 1,
+              reputation:
+                "$user.reputation_score",
+              incentive:
+                "$user.incentive",
+              penalty:
+                "$user.penalty",
+            },
+          },
+        ],
+        { session }
+      ).toArray();
+
+    return result.map((item) => ({
+      ...item,
+      userId: item.userId.toString(),
+    }));
   }
 
 }

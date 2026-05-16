@@ -202,5 +202,179 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
   return await response.blob();
 }
 
+  async getShiftBasedMetrics(fromDate:string,toDate:string, shift: string): Promise<any> {
 
+    const params = new URLSearchParams();
+    params.append("startDate", fromDate);
+    params.append("endDate", toDate);
+    params.append("shift", shift);
+
+    // Get the current Firebase user and token
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        throw new Error("User not authenticated");
+      }
+    const token = await getIdToken(firebaseUser);
+    const response = await fetch(
+      `${this._baseUrl}/shift-based-metrics?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`, 
+        },
+      }
+    );
+    return await response.json();
+  }
+
+// /shift-based-trends
+  async getShiftWiseTrends(fromDate:string,toDate:string, shift: string): Promise<any> {
+
+    const params = new URLSearchParams();
+    params.append("startDate", fromDate);
+    params.append("endDate", toDate);
+    params.append("shift", shift);
+
+    // Get the current Firebase user and token
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        throw new Error("User not authenticated");
+      }
+    const token = await getIdToken(firebaseUser);
+    const response = await fetch(
+      `${this._baseUrl}/shift-based-trends?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`, 
+        },
+      }
+    );
+    return await response.json();
+  }
+
+  async getStatusDistribution(fromDate:string,toDate:string, shift: string): Promise<any> {
+
+    const params = new URLSearchParams();
+    params.append("startDate", fromDate);
+    params.append("endDate", toDate);
+    params.append("shift", shift);
+
+    // Get the current Firebase user and token
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        throw new Error("User not authenticated");
+      }
+    const token = await getIdToken(firebaseUser);
+    const response = await fetch(
+      `${this._baseUrl}/shift-based-status-distribution?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`, 
+        },
+      }
+    );
+    return await response.json();
+  }
+
+
+  async getLevelDistribution(fromDate:string,toDate:string, shift: string): Promise<any> {
+
+    const params = new URLSearchParams();
+    params.append("startDate", fromDate);
+    params.append("endDate", toDate);
+    params.append("shift", shift);
+
+    // Get the current Firebase user and token
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        throw new Error("User not authenticated");
+      }
+    const token = await getIdToken(firebaseUser);
+    const response = await fetch(
+      `${this._baseUrl}/shift-based-level-distribution?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`, 
+        },
+      }
+    );
+    return await response.json();
+  }
+
+  async getShiftBasedTopExperts(fromDate:string,toDate:string, shift: string): Promise<any> {
+
+    const params = new URLSearchParams();
+    params.append("startDate", fromDate);
+    params.append("endDate", toDate);
+    params.append("shift", shift);
+
+    // Get the current Firebase user and token
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        throw new Error("User not authenticated");
+      }
+    const token = await getIdToken(firebaseUser);
+    const response = await fetch(
+      `${this._baseUrl}/shift-based-top-experts?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`, 
+        },
+      }
+    );
+    return await response.json();
+  }
+
+  async getShiftBasedTopApprovingExperts(fromDate:string,toDate:string, shift: string): Promise<any> {
+
+    const params = new URLSearchParams();
+    params.append("startDate", fromDate);
+    params.append("endDate", toDate);
+    params.append("shift", shift);
+
+    // Get the current Firebase user and token
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        throw new Error("User not authenticated");
+      }
+    const token = await getIdToken(firebaseUser);
+    const response = await fetch(
+      `${this._baseUrl}/shift-based-top-approving-experts?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`, 
+        },
+      }
+    );
+    return await response.json();
+  }
+
+  async getShiftBasedAuditActionCounts(fromDate:string,toDate:string, shift: string): Promise<any> {
+
+    const params = new URLSearchParams();
+    params.append("startDate", fromDate);
+    params.append("endDate", toDate);
+    params.append("shift", shift);
+     // Get the current Firebase user and token
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        throw new Error("User not authenticated");
+      }
+    const token = await getIdToken(firebaseUser);
+    const response = await fetch(
+      `${`${API_BASE_URL}/audit-trails`}/shift-based-audit-action-counts?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`, 
+        },
+      }
+    );
+    return await response.json();
+  }
 } 

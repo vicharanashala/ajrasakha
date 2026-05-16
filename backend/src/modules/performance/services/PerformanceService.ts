@@ -296,4 +296,45 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
+  getShiftBasedMetrics(startDate:string, endDate:string, shift: string): Promise<any> {
+    // console.log("in performance service - getQuestionsAllocated with params:", { startDate, endDate, shift });  
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getShiftBasedMetrics(startDate, endDate, shift, session);
+    });
+  }
+
+  getShiftBasedTrends(startDate:string, endDate:string, shift: string): Promise<any> {
+    // console.log("in performance service - getQuestionsAllocated with params:", { startDate, endDate, shift });  
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getShiftBasedTrends(startDate, endDate, shift, session);
+    });
+  }
+
+  getQuestionStatusDistribution(startDate:string, endDate:string, shift: string): Promise<any> {
+    // console.log("in performance service - getQuestionsAllocated with params:", { startDate, endDate, shift });  
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getQuestionStatusDistribution(startDate, endDate, shift, session);
+    });
+  }
+
+  getQuestionLevelDistribution(startDate:string, endDate:string, shift: string): Promise<any> {
+    // console.log("in performance service - getQuestionsAllocated with params:", { startDate, endDate, shift });  
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getQuestionLevelDistribution(startDate, endDate, shift, session);
+    });
+  }
+
+  getShiftBasedTopExperts(startDate:string, endDate:string, shift: string): Promise<any> {
+    // console.log("in performance service - getShiftBasedTopExperts with params:", { startDate, endDate, shift });  
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getShiftBasedTopExperts(startDate, endDate, shift, session);
+    });
+  }
+
+  getShiftBasedTopApprovingExperts(startDate:string, endDate:string, shift: string): Promise<any> {
+    // console.log("in performance service - getShiftBasedTopApprovingExperts with params:", { startDate, endDate, shift });  
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getShiftBasedTopApprovingExperts(startDate, endDate, shift, session);
+    });
+  }
 }

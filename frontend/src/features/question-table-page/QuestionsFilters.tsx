@@ -79,6 +79,7 @@ import { UserCheck } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 
 import { TopRightBadge } from "@/components/NewBadge";
+import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -1155,6 +1156,12 @@ export const QuestionsFilters = ({
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadLevelWiseReportButton
+                    closeSideBar={() => setIsSidebarOpen(false)}
+                  />
+                </div>
+
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-cyan-50 dark:hover:bg-cyan-500/5 border border-gray-200 dark:border-gray-800 hover:border-b-cyan-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <DownloadShiftWiseReportButton
                     closeSideBar={() => setIsSidebarOpen(false)}
                   />
                 </div>

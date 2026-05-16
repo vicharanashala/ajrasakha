@@ -36,4 +36,11 @@ export interface IAuditTrailsRepository {
     outComeStatus?: string,
     session?: ClientSession,
   ): Promise<{data: ModeratorAuditTrail[]; totalDocuments: number}>;
+
+  getShiftBasedAuditActionCounts(
+    startDate: string,
+    endDate: string,
+    shift: string,
+    session?: ClientSession
+  ): Promise<any>;
 }

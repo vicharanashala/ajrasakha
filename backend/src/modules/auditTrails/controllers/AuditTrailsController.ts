@@ -15,7 +15,7 @@ import {AUDIT_TRAILS_TYPES} from '../types.js';
 import {AuditTrailsService} from '../services/AuditTrailsService.js';
 import {BadRequestErrorResponse} from '#root/shared/index.js';
 // import { AuditTrailsResponse, AuditTrailUserIdParams } from "../classes/validators/AuditTrailsValidators.js";
-import {AuditTrailsResponse} from '../classes/Validators/AuditTrailsValidators.js';
+import {AuditTrailsResponse, AuditTrailsShiftReportResponse} from '../classes/Validators/AuditTrailsValidators.js';
 import { AuditFilters } from '../interfaces/IAuditTrails.js';
 
 @OpenAPI({
@@ -158,6 +158,40 @@ class AuditTrailsController {
       currentPage: page,
     };
   }
+
+  @OpenAPI({
+    summary: 'Get shift-based audit action counts',
+    description: 'Retrieve counts of audit actions for a specific shift',
+  })
+  @Authorized()
+  @Get('/shift-based-audit-action-counts')
+  @HttpCode(200)
+  @ResponseSchema(AuditTrailsShiftReportResponse, {
+    description: 'List of audit trails shift-based report',
+    statusCode: 200,
+  })
+  @ResponseSchema(BadRequestErrorResponse, {
+    description: 'Bad Request',
+    statusCode: 400,
+  })
+  async getShiftBasedAuditActionCounts(
+    @CurrentUser() user: any,
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+    @QueryParam('shift') shift?: string,
+  ) {
+    const actionCounts = await this.auditTrailsService.getShiftBasedAuditActionCounts(
+      startDate,
+      endDate,
+      shift
+    );
+
+    return {
+      message: 'Shift-based audit action counts retrieved successfully',
+      data: actionCounts,
+    };
+  }
+
 }
 
 export {AuditTrailsController};
