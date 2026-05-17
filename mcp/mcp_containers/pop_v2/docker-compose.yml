@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  pop-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pop-mcp
+    ports:
+      - "9024:9002"
+    env_file:
+      - .env
+    restart: unless-stopped
