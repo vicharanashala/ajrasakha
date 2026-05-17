@@ -1,20 +1,19 @@
 FROM python:3.11-slim
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Set working directory
 WORKDIR /app
 
-# Copy requirements and install dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl bash \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
 COPY . .
+RUN chmod +x run.sh
 
-# Expose port
-EXPOSE 9002
+EXPOSE 9002 9003
 
-# Run the application
-CMD ["python", "pop.py"]
+CMD ["./run.sh"]

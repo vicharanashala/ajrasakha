@@ -4,3 +4,5 @@ aiohttp>=3.9.0
 numpy>=1.26.0
 scikit-learn>=1.4.0
 python-dotenv>=1.0.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0

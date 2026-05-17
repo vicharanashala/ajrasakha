@@ -1,4 +1,4 @@
-"""Backward-compatible entry: runs FastMCP only. Use ./run.sh for API + MCP."""
+"""Run FastMCP only (same as python mcp_app.py). For API + MCP use ./run.sh."""
 
 from mcp_app import run_mcp_server
 

@@ -26,13 +26,11 @@ if [[ ! -f "$STAMP" ]] || [[ "$ROOT/requirements.txt" -nt "$STAMP" ]]; then
   touch "$STAMP"
 fi
 
-mkdir -p "$ROOT/data"
-
-API_HOST="${POP_API_HOST:-0.0.0.0}"
-API_PORT="${POP_API_PORT:-9003}"
-MCP_HOST="${POP_MCP_HOST:-0.0.0.0}"
-MCP_PORT="${POP_MCP_PORT:-9002}"
-export POP_MCP_PATH="${POP_MCP_PATH:-/mcp}"
+API_HOST="${REVIEWER_API_HOST:-0.0.0.0}"
+API_PORT="${REVIEWER_API_PORT:-9022}"
+MCP_HOST="${REVIEWER_MCP_HOST:-0.0.0.0}"
+MCP_PORT="${REVIEWER_MCP_PORT:-9023}"
+export REVIEWER_MCP_PATH="${REVIEWER_MCP_PATH:-/mcp}"
 
 cleanup() {
   [[ -n "${UVICORN_PID:-}" ]] && kill "$UVICORN_PID" 2>/dev/null || true
