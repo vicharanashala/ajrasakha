@@ -14,6 +14,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN chmod +x run.sh
 
-EXPOSE 9022 9023
+EXPOSE 9002 9003
 
 CMD ["./run.sh"]

@@ -11,6 +11,7 @@ from domains import allowed_domains, crop_required_domains, crop_all_domains
 # Local imports
 import reviewer_values
 from crop_name_lookup import (
+    crop_name_references_english,
     find_english_crop,
     find_local_exact,
     find_local_fuzzy,
@@ -19,6 +20,7 @@ from crop_name_lookup import (
 from crop_variants import expand_crop_variants_for_state
 from reviewer_rag_tool import reviewer_retriever_tool
 from context_validator import validate_retrieved_context
+from crop_requirement_validator import is_crop_specific_question
 from reviewer_exact_match import (
     find_exact_question_context,
 )
@@ -32,6 +34,7 @@ mcp = FastMCP("Reviewer_MCP")
 REVIEWER_MONGODB_URI = os.getenv("REVIEWER_MONGODB_URI")
 REVIEWER_MONGODB_DATABASE = os.getenv("REVIEWER_MONGODB_DATABASE")
 REVIEWER_MONGODB_COLLECTION = os.getenv("REVIEWER_MONGODB_COLLECTION") # Questions collection
+REVIEWER_MCP_PORT = int(os.getenv("REVIEWER_MCP_PORT", "9023"))
 
 # --- Helper Functions for Reviewer Data Update ---
 
@@ -229,9 +232,9 @@ async def upload_question_to_reviewer_system(
     question: str,
     original_question: str,
     state: str,
-    crop: str,
+    english_crop_name: str,
     domain: str,
-    local_crop_name: str,
+    crop_name: str,
     district: Optional[str] = None,
     season: str | None = None,
 ) -> dict:
@@ -247,9 +250,10 @@ async def upload_question_to_reviewer_system(
                       This should be a string containing the query related to crop protection or any other agricultural query.
     - state (str): The full state name (e.g., "Punjab").
     - district (str, optional): The district name (e.g., "Chandigarh"). Defaults to "Not specified".
-    - crop (str): English crop name associated with the query.
-    - local_crop_name (str, ): Local-language crop name provided by user, especially when query is non-English.
+    - crop_name (str): Crop name exactly as it appears in original_question, in the same language as original_question.
+    - english_crop_name (str): English name of the crop.
                   Ask farmer about the crop if domain is in this list: Agriculture Mechanization, Bio-Pesticides and Bio-Fertilizers, Crop Insurance, Cultural Practices, Fertilizer Use and Availability, Field Preparation, Horticulture & Allied Agriculture, Market Information, Nutrient Management, Organic Farming, Plant Protection, Post Harvest Preservation, Seeds, Soil Testing, Sowing Time and Weather, Storage, Varieties, Water Management, Weed Management.
+                  For crop-required domains without crop, an LLM decides if the question is crop-specific (error, ask farmer) or general (stored as crop "all").
                   If domain is in this list, crop will be auto-set to "all": Extension & Capacity Building, Financial & Institutional Services, Fisheries & Aquaculture, Infrastructure & Utilities, Livestock & Animal Husbandry, Soil Health Card, Veterinary & Animal Health.
     - domain (str): Must be one of allowed domains: Agriculture Mechanization, Bio-Pesticides and Bio-Fertilizers, Crop Insurance, Cultural Practices, Extension & Capacity Building, Fertilizer Use and Availability, Field Preparation, Financial & Institutional Services, Fisheries & Aquaculture, Horticulture & Allied Agriculture, Infrastructure & Utilities, Livestock & Animal Husbandry, Market Information, Nutrient Management, Organic Farming, Plant Protection, Post Harvest Preservation, Seeds, Soil Health Card, Soil Testing, Sowing Time and Weather, Storage, Varieties, Veterinary & Animal Health, Water Management, Weed Management.
     - season (str, optional): Crop season (must be one of: "Kharif", "Rabi", "Zaid", "Pre-Kharif", "Post-Kharif",
@@ -265,7 +269,7 @@ async def upload_question_to_reviewer_system(
     details = {
         "state": state,
         "district": district,
-        "crop": crop,
+        "crop": english_crop_name,
         "season": season,
         "domain": domain,
     }
@@ -280,13 +284,27 @@ async def upload_question_to_reviewer_system(
             ),
         }
 
-    crop_value = str(details.get("crop") or crop or "").strip()
+    crop_value = str(details.get("crop") or english_crop_name or "").strip()
     crop_missing = not crop_value or crop_value.lower() in {"not specified", "na", "n/a", "none", "null","all"}
 
     if domain_value in crop_required_domains and crop_missing:
-        raise ValueError(
-            "Crop is mandatory for this domain. Ask farmer first and do not call upload_question_to_reviewer_system until crop is provided."
+        needs_crop = await is_crop_specific_question(
+            question=question,
+            original_question=original_question or question,
+            domain=domain_value,
         )
+        classification = "crop_specific" if needs_crop else "general"
+        question_snippet = (original_question or question or "")[:120]
+        print(
+            f"Crop classification: domain={domain_value} "
+            f"classification={classification} question={question_snippet!r}",
+            flush=True,
+        )
+        if needs_crop:
+            raise ValueError(
+                "Crop is mandatory for this domain. Ask farmer about the crop and call the upload_question_to_reviewer_system again."
+            )
+        details["crop"] = "all"
 
     if domain_value in crop_all_domains:
         details["crop"] = "all"
@@ -294,22 +312,32 @@ async def upload_question_to_reviewer_system(
         details["crop"] = crop_value
 
     crop_name_validation = None
-    local_crop_value = str(local_crop_name or "").strip()
+    crop_name_value = str(crop_name or "").strip()
     provided_english_crop = str(details.get("crop") or "").strip()
+    print(
+        f"Crop validation input: english_crop_name={provided_english_crop!r} "
+        f"crop_name={crop_name_value!r} domain={domain_value!r}",
+        flush=True,
+    )
     canonical_english_crop = find_english_crop(provided_english_crop)
 
     if canonical_english_crop:
         details["crop"] = canonical_english_crop
-        if local_crop_value:
-            matched_english = find_local_exact(local_crop_value)
+        if crop_name_value:
+            matched_english = find_local_exact(crop_name_value)
             match_reason = "exact_local_match"
             fuzzy_meta = None
 
             if not matched_english:
-                fuzzy_meta = find_local_fuzzy(local_crop_value, min_score=90)
+                fuzzy_meta = find_local_fuzzy(crop_name_value, min_score=90)
                 if fuzzy_meta:
                     matched_english = fuzzy_meta["english_name"]
                     match_reason = "fuzzy_local_match"
+                elif crop_name_references_english(
+                    crop_name_value, canonical_english_crop
+                ):
+                    matched_english = canonical_english_crop
+                    match_reason = "english_token_in_crop_name"
 
             if matched_english:
                 if matched_english != canonical_english_crop:
@@ -317,13 +345,13 @@ async def upload_question_to_reviewer_system(
                     crop_name_validation = {
                         "status": "corrected",
                         "provided_english_name": provided_english_crop,
-                        "provided_local_name": local_crop_value,
+                        "provided_crop_name": crop_name_value,
                         "actual_english_name": matched_english,
                         "match_reason": match_reason,
                         "message": (
                             f"English crop name '{provided_english_crop}' is wrong. "
                             f"Actual crop is '{matched_english}' according to our database. "
-                            f"From now onward for this crop '{local_crop_value}', call tool with English name '{matched_english}'."
+                            f"From now onward for this crop '{crop_name_value}', call tool with english_crop_name '{matched_english}'."
                         ),
                     }
                     if fuzzy_meta:
@@ -332,36 +360,34 @@ async def upload_question_to_reviewer_system(
                     crop_name_validation = {
                         "status": "validated",
                         "provided_english_name": provided_english_crop,
-                        "provided_local_name": local_crop_value,
+                        "provided_crop_name": crop_name_value,
                         "actual_english_name": canonical_english_crop,
                         "match_reason": match_reason,
                     }
                     if fuzzy_meta:
                         crop_name_validation["fuzzy_score"] = fuzzy_meta["score"]
             else:
-                top_candidates = get_top_local_candidates(local_crop_value, top_n=5)
-                return {
-                    "status": "Failed",
+                top_candidates = get_top_local_candidates(crop_name_value, top_n=5)
+                crop_name_validation = {
+                    "status": "no_match",
+                    "provided_english_name": provided_english_crop,
+                    "provided_crop_name": crop_name_value,
                     "message": (
-                        "Nothing is matching for provided local crop name. "
-                        "Upload skipped."
+                        "Nothing is matching these are top matched candidate crop names from database."
                     ),
-                    "information": {
-                        "crop_name_validation": {
-                            "status": "no_match",
-                            "provided_english_name": provided_english_crop,
-                            "provided_local_name": local_crop_value,
-                            "message": (
-                                "Nothing is matching these are top matched candidate local crop names from database."
-                            ),
-                            "top_candidates": top_candidates,
-                        }
-                    },
+                    "top_candidates": top_candidates,
                 }
+                print(
+                    f"Crop validation: no_match crop_name={crop_name_value!r} "
+                    f"english_crop_name={provided_english_crop!r} "
+                    f"resolved_crop={details.get('crop')!r} "
+                    f"top_candidates={top_candidates}",
+                    flush=True,
+                )
     else:
         # English crop not found as canonical DB key.
         # Still attempt to discover a DB crop match from available crop text.
-        fallback_crop_text = local_crop_value or provided_english_crop
+        fallback_crop_text = crop_name_value or provided_english_crop
         if fallback_crop_text:
             matched_english = find_local_exact(fallback_crop_text)
             match_reason = "exact_lookup_from_non_db_english"
@@ -377,13 +403,13 @@ async def upload_question_to_reviewer_system(
                 crop_name_validation = {
                     "status": "corrected",
                     "provided_english_name": provided_english_crop,
-                    "provided_local_name": local_crop_value or None,
+                    "provided_crop_name": crop_name_value or None,
                     "actual_english_name": matched_english,
                     "match_reason": match_reason,
                     "message": (
                         f"English crop name '{provided_english_crop}' is not present as canonical name in database. "
                         f"Matched crop '{matched_english}' from database. "
-                        f"From now onward for this crop '{local_crop_value}', call tool with English name '{matched_english}'."
+                        f"From now onward for this crop '{crop_name_value}', call tool with english_crop_name '{matched_english}'."
                     ),
                 }
                 if fuzzy_meta:
@@ -402,6 +428,13 @@ async def upload_question_to_reviewer_system(
 
     if not details.get("crop"):
         details["crop"] = "all"
+
+    if crop_name_validation:
+        print(
+            f"Crop validation result: status={crop_name_validation.get('status')} "
+            f"resolved_crop={details.get('crop')!r}",
+            flush=True,
+        )
 
     exact_match = await find_exact_question_context(
         mongo_uri=REVIEWER_MONGODB_URI,
@@ -630,9 +663,18 @@ async def get_crops_by_state_for_reviwer_dataset(state: str) -> List[str]:
 
     return crops
 
-if __name__ == "__main__":
+def run_mcp_server() -> None:
+    import os
+    host = os.getenv("REVIEWER_MCP_HOST", "0.0.0.0").strip()
+    port = int(os.getenv("REVIEWER_MCP_PORT", str(REVIEWER_MCP_PORT)))
+    path = os.getenv("REVIEWER_MCP_PATH", "/mcp").strip() or "/mcp"
     mcp.run(
         transport="streamable-http",
-        host="0.0.0.0",
-        port=9023,
+        host=host,
+        port=port,
+        path=path,
     )
+
+
+if __name__ == "__main__":
+    run_mcp_server()
