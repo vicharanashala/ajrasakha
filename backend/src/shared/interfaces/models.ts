@@ -91,6 +91,8 @@ export interface IQuestion {
   saved_to_draft?: boolean;
   pae_review?: boolean;
   firstAllocationAt?: Date;
+  referenceQuestionDetails?: Array<{ _id: ObjectId | string; duplicate: boolean }>;
+  popContext?: string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -99,7 +101,7 @@ export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
-  page?: number;
+  page?: string | number;
 }
 export interface PreviousAnswersItem{
   modifiedBy:string | ObjectId;
@@ -359,7 +361,6 @@ export interface ISimilarQuestion extends IQuestion {
     // matched original question
 }
 export interface AddQuestionResult {
-  isDuplicate: boolean;
   data: Partial<IQuestion>;
 }
 
@@ -431,7 +432,7 @@ export interface IChemical {
 }
 export interface ISource {
   source: string;     // URL or document reference
-  page?: number;      // optional (some sources may not have page)
+  page?: string | number;      // optional (some sources may not have page)
   title?: string;     // optional (future-proof)
   type?: string;      // optional (pdf, link, doc, etc.)
 }

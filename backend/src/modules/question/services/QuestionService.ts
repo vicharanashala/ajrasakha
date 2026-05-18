@@ -152,7 +152,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // ── Crop normalisation (mirrors addQuestion logic, with per-call cache) ──
       const rawCropName = (low.crop || '').toString();
-      let normalised_crop = rawCropName.trim().toLowerCase();
+      let normalised_crop: string | undefined;
       if (rawCropName.trim()) {
         const cacheKey = rawCropName.trim().toLowerCase();
         if (cropCache.has(cacheKey)) {
@@ -162,21 +162,16 @@ export class QuestionService extends BaseService implements IQuestionService {
             const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
             if (existingCrop) {
               normalised_crop = existingCrop.name;
-            } else {
-              const normalizedName = rawCropName.trim().toLowerCase();
-              await this.cropRepository.createCrop(normalizedName, userId || '', []);
-              normalised_crop = normalizedName;
+              cropCache.set(cacheKey, normalised_crop);
             }
+            // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
           } catch (cropError: any) {
             console.error('Crop normalization warning:', cropError.message);
           }
-          // Always cache — prevents retrying failed crop creation on subsequent questions
-          cropCache.set(cacheKey, normalised_crop);
         }
       }
-      // Explicitly preserve the original input string — normalised_crop holds the canonical name
       details.crop = rawCropName.trim();
-      details.normalised_crop = normalised_crop;
+      if (normalised_crop !== undefined) details.normalised_crop = normalised_crop;
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
       const priorities = ['low', 'high', 'medium', 'critical'];
@@ -885,7 +880,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         source = 'AGRI_EXPERT',
         details,
         context,
-        originalquestion = ''
+        originalquestion = '',
+        messageId,
+        userId: bodyUserId,
+        referenceQuestionDetails,
+        popContext,
       } = body;
       console.log("the body coming=====", body)
 
@@ -930,30 +929,24 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // ─── Normalize crop against crop_master DB ───────────────────────────
       const rawCropName = typeof details.crop === 'string' ? details.crop : details.crop?.name || '';
-      let normalised_crop = rawCropName.trim().toLowerCase();
+      let normalised_crop: string | undefined;
       if (rawCropName.trim()) {
         try {
           const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
           if (existingCrop) {
-            // Crop found — keep original input string, normalise to canonical name
             normalised_crop = existingCrop.name;
             logData.cropNormalization = { original: rawCropName, resolved: existingCrop.name, action: rawCropName.trim().toLowerCase() === existingCrop.name ? 'EXACT_MATCH' : 'ALIAS_RESOLVED' };
           } else {
-            // Crop not found — auto-create it in the DB
-            const normalizedName = rawCropName.trim().toLowerCase();
-            await this.cropRepository.createCrop(normalizedName, userId || '', []);
-            normalised_crop = normalizedName;
-            logData.cropNormalization = { original: rawCropName, resolved: normalizedName, action: 'AUTO_CREATED' };
+            // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
+            logData.cropNormalization = { original: rawCropName, action: 'NOT_FOUND' };
           }
         } catch (cropError: any) {
-          // If crop normalization fails (e.g. uniqueness race condition), log but don't block question creation
           console.error('Crop normalization warning:', cropError.message);
           logData.cropNormalizationError = cropError.message;
         }
       }
-      // Explicitly preserve the original input string — normalised_crop holds the canonical name
       details.crop = rawCropName.trim();
-      details.normalised_crop = normalised_crop;
+      if (normalised_crop !== undefined) details.normalised_crop = normalised_crop;
 
       // 🔹 Create Embedding — OUTSIDE transaction
       const text = `Question: ${question}`;
@@ -967,13 +960,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       logData.embeddingGenerated = textEmbedding.length > 0;
       logData.vectorLength = textEmbedding.length;
 
-      // 🔥 Similarity Check — OUTSIDE transaction ($vectorSearch cannot run inside one)
-
-      // Check 4 Questions best match- 
-
-      let topMatches: { questionId: ObjectId, question: string, similarityScore: number }[] = []
-
-      // ✅ Everything that needs atomicity goes inside the transaction
       return this._withTransaction(async (session: ClientSession) => {
         // 🔹 Create Context
         let contextId: ObjectId | null = null;
@@ -982,10 +968,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           const { insertedId } = await this.contextRepo.addContext(context, session);
           contextId = new ObjectId(insertedId);
         }
-        // source="AJRASAKHA"
+
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
-          userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
+          userId: (bodyUserId?.trim() || userId?.trim()) ? new ObjectId(bodyUserId?.trim() || userId) : null,
           question,
           priority,
           source,
@@ -1000,10 +986,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
-          ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion })
+          ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion }),
+          ...(messageId && { messageId }),
+          ...(referenceQuestionDetails?.length && { referenceQuestionDetails }),
+          ...(popContext && { popContext }),
         };
 
-        // 🔹 Save question first, then check for duplicates
+        // 🔹 Save question
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
         const savedQuestion = await this.questionRepo.addQuestion(baseQuestion, session);
@@ -1012,123 +1001,33 @@ export class QuestionService extends BaseService implements IQuestionService {
           throw new InternalServerError(`Failed to save question to database`);
         }
 
-        // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
-        let duplicateResult: { isDuplicate: boolean; duplicateData?: IQuestion | null } = { isDuplicate: false, duplicateData: null };
-        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-          try {
-            duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
-            if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
-              const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
-              await this.questionRepo.updateQuestion(
-                savedQuestion._id.toString(),
-                { status: 'duplicate', similarityScore, referenceQuestionId, referenceQuestion, referenceSource },
-                session,
-              );
-            }
-          } catch (duplicateError: any) {
-            console.error('Duplicate check failed, question saved as open:', duplicateError.message);
-            logData.duplicateCheckError = duplicateError.message;
-          }
-        }
+        // 🔹 Create bare submission record (expert queue populated in background)
+        const submissionData: IQuestionSubmission = {
+          questionId: new ObjectId(savedQuestion._id.toString()),
+          lastRespondedBy: null,
+          history: [],
+          queue: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        await this.questionSubmissionRepo.addSubmission(submissionData, session);
 
-
-        const users = await this.userRepo.findExpertsByPreference(
-          details as PreferenceDto,
-          session,
-        );
-        let queue: ObjectId[] = [];
-        let initialUsersToAllocate: typeof users = [];
-
-        if (source === 'AGRI_EXPERT') {
-          initialUsersToAllocate = users.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
-
-          queue = initialUsersToAllocate.map(
-            (user) => new ObjectId(user._id.toString()),
-          );
-
-
-          if (initialUsersToAllocate[0]) {
-            await this.userRepo.updateReputationScore(
-              initialUsersToAllocate[0]._id.toString(),
-              true,
-              session,
+        // 🔹 Kick off background processing (duplicate check, expert allocation, notifications)
+        const questionId = savedQuestion._id.toString();
+        setImmediate(() => {
+          this.processQuestionInBackground({ questionId, source, details, baseQuestion: { ...baseQuestion, _id: savedQuestion._id }, logData })
+            .catch((err: any) =>
+              console.error(`[addQuestion] Background processing failed for questionId=${questionId}:`, err?.message),
             );
-          }
+        });
 
-          const submissionData: IQuestionSubmission = {
-            questionId: new ObjectId(savedQuestion._id.toString()),
-            lastRespondedBy: null,
-            history: [],
-            queue,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-
-          await this.questionSubmissionRepo.addSubmission(submissionData, session);
-
-          if (initialUsersToAllocate[0]) {
-            await this.notificationService.saveTheNotifications(
-              `A Question has been assigned for answering`,
-              'Answer Creation Assigned',
-              savedQuestion._id.toString(),
-              initialUsersToAllocate[0]._id.toString(),
-              'answer_creation',
-            );
-          }
-          await this.questionRepo.updateQuestion(
-            savedQuestion._id.toString(),
-            { firstAllocationAt: new Date() },
-            session,
-          );
-        } else {
-
-          const submissionData: IQuestionSubmission = {
-            questionId: new ObjectId(savedQuestion._id.toString()),
-            lastRespondedBy: null,
-            history: [],
-            queue: [],
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-
-          await this.questionSubmissionRepo.addSubmission(submissionData, session);
-
-          const [allModerators, taskForceModerators] = await Promise.all([
-            this.userRepo.findModerators(),
-            this.userRepo.getSpecialTaskForceModerators()
-          ]);
-          const allUsers = [...allModerators, ...taskForceModerators]
-
-          const sourceLabel =
-            source === "AJRASAKHA" ? "Ajrasakha" : "WhatsApp";
-
-          const message = `A new question has been received from ${sourceLabel} and needs your attention.`;
-
-          await Promise.all(
-            allUsers.map((moderator: any) =>
-              this.notificationService.saveTheNotifications(
-                message,
-                "New Question Received",
-                savedQuestion._id.toString(),
-                moderator._id.toString(),
-                source === "AJRASAKHA" ? "question_from_ajrasakha" : "question_from_whatsapp"
-              )
-            )
-          );
-        }
-
-
-        let responseobj = {
-          isDuplicate: duplicateResult?.isDuplicate ? true : false,
+        return {
           data: {
             ...baseQuestion,
-            _id: savedQuestion._id?.toString?.(),
+            _id: questionId,
             userId: baseQuestion.userId?.toString?.(),
           },
         };
-        // return { isDuplicate: false, data: baseQuestion };
-        console.log("the response onject coming===", responseobj)
-        return responseobj
       });
     } catch (error) {
       console.error(error);
@@ -1141,6 +1040,68 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }
+
+  private async processQuestionInBackground(params: {
+    questionId: string;
+    source: IQuestion['source'];
+    details: IQuestion['details'];
+    baseQuestion: IQuestion;
+    logData: Record<string, any>;
+  }): Promise<void> {
+    const { questionId, source, details, baseQuestion, logData } = params;
+    try {
+      if (source === 'AGRI_EXPERT') {
+        const users = await this.userRepo.findExpertsByPreference(details as PreferenceDto);
+        const initialUsersToAllocate = users.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
+        const queue: ObjectId[] = initialUsersToAllocate.map((u) => new ObjectId(u._id.toString()));
+
+        await this.questionSubmissionRepo.updateQueue(questionId, queue);
+
+        if (initialUsersToAllocate[0]) {
+          await Promise.all([
+            this.userRepo.updateReputationScore(initialUsersToAllocate[0]._id.toString(), true),
+            this.notificationService.saveTheNotifications(
+              `A Question has been assigned for answering`,
+              'Answer Creation Assigned',
+              questionId,
+              initialUsersToAllocate[0]._id.toString(),
+              'answer_creation',
+            ),
+            this.questionRepo.updateQuestion(questionId, { firstAllocationAt: new Date() }),
+          ]);
+        }
+      } else {
+        // AJRASAKHA / WHATSAPP — duplicate check then notify moderators
+        try {
+          const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData);
+          if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
+            const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
+            await this.questionRepo.updateQuestion(questionId, { status: 'duplicate', similarityScore, referenceQuestionId, referenceQuestion, referenceSource });
+            return;
+          }
+        } catch (duplicateError: any) {
+          console.error('[processQuestionInBackground] Duplicate check failed, proceeding as open:', duplicateError.message);
+        }
+
+        const [allModerators, taskForceModerators] = await Promise.all([
+          this.userRepo.findModerators(),
+          this.userRepo.getSpecialTaskForceModerators(),
+        ]);
+        const sourceLabel = source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
+        const message = `A new question has been received from ${sourceLabel} and needs your attention.`;
+        const notificationType = source === 'AJRASAKHA' ? 'question_from_ajrasakha' : 'question_from_whatsapp';
+
+        await Promise.all(
+          [...allModerators, ...taskForceModerators].map((moderator: any) =>
+            this.notificationService.saveTheNotifications(message, 'New Question Received', questionId, moderator._id.toString(), notificationType),
+          ),
+        );
+      }
+    } catch (error: any) {
+      console.error(`[processQuestionInBackground] Failed for questionId=${questionId}:`, error?.message);
+    }
+  }
+
 
 
   async getQuestionDataById(questionId: string): Promise<IQuestion | null> {
@@ -4188,7 +4149,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-  async getMatchedQuestion(questionId: string) {
+  /*async getMatchedQuestion(questionId: string) {
     const questionData = await this.questionRepo.getById(questionId);
 
     if (!questionData) {
@@ -4276,7 +4237,191 @@ export class QuestionService extends BaseService implements IQuestionService {
       },
       content: message.content || [],
     };
+  }*/
+ async getMatchedQuestion(questionId: string) {
+  const questionData = await this.questionRepo.getById(questionId);
+
+  if (!questionData) {
+    throw new Error('Question not found');
   }
+
+  const questionSource = questionData.source;
+
+  // =========================
+  // WHATSAPP FLOW
+  // =========================
+  console.log('Question Data ====', questionData);
+  if (questionSource === 'WHATSAPP') {
+    if (!questionData.threadId) {
+      throw new Error('Thread id not found for WhatsApp question');
+    }
+
+    const response = await this.aiService.fetchWhatsAppMessage(
+      questionData.threadId,
+      questionData._id.toString(),
+    );
+
+    if (!response) {
+      throw new Error('No matching WhatsApp message found');
+    }
+
+    return {
+      messageId: response.messageId || '',
+      createdAt: response.createdAt
+        ? new Date(response.createdAt).toISOString()
+        : '',
+      updatedAt: response.updatedAt
+        ? new Date(response.updatedAt).toISOString()
+        : '',
+      user: {
+        username: response.userDetails?.username || 'N/A',
+        email: response.userDetails?.email || '',
+        emailVerified: response.userDetails?.emailVerified || false,
+        avatar: response.userDetails?.avatar || null,
+      },
+      content: response.content || [],
+    };
+  }
+
+  // =========================
+  // NORMAL FLOW
+  // =========================
+
+
+
+  const {
+    question,
+    details,
+    createdAt,
+    messageId,
+    userId,
+  } = questionData;
+
+  const analyticsPromise =
+    this.chatbotRepository.findMatchingMessages({
+      question,
+      details,
+      createdAt,
+      questionId: questionId.toString(),
+      messageId: messageId
+        ? messageId.toString()
+        : undefined,
+    });
+
+  const annamPromise =
+    this.chatbotRepository.findFromSecondDb({
+      question,
+      details,
+      createdAt,
+      questionId: questionId.toString(),
+      messageId: messageId
+        ? messageId.toString()
+        : undefined,
+    });
+
+  const [analyticsResult, annamResult] =
+    await Promise.allSettled([
+      analyticsPromise,
+      annamPromise,
+    ]);
+
+  // =========================
+  // HANDLE RESULTS
+  // =========================
+
+  const analyticsMessages =
+    analyticsResult.status === 'fulfilled'
+      ? analyticsResult.value
+      : [];
+
+  const annamMessages =
+    annamResult.status === 'fulfilled'
+      ? annamResult.value
+      : [];
+
+  // =========================
+  // LOG FAILURES
+  // =========================
+
+  if (analyticsResult.status === 'rejected') {
+    console.error('Analytics DB failed:', {
+      error: analyticsResult.reason?.message,
+      stack: analyticsResult.reason?.stack,
+      questionId,
+      messageId,
+    });
+  }
+
+  if (annamResult.status === 'rejected') {
+    console.error('Second DB failed:', {
+      error: annamResult.reason?.message,
+      stack: annamResult.reason?.stack,
+      questionId,
+      messageId,
+    });
+  }
+// =========================
+  // MERGE RESULTS
+  // =========================
+
+  const allMessages = [
+    ...analyticsMessages,
+    ...annamMessages,
+  ];
+
+  const message = allMessages?.[0];
+
+  if (!message) {
+    throw new Error('No matching message found');
+  }
+
+  // =========================
+  // UPDATE USER ID IF NEEDED
+  // =========================
+
+  if (
+    message.userDetails?._id &&
+    message.userDetails._id !== userId?.toString() &&
+    !questionData.messageId
+  ) {
+    try {
+      await this.questionRepo.updateQuestion(
+        questionId.toString(),
+        {
+          userId: new ObjectId(message.userDetails._id),
+        },
+      );
+    } catch (updateError) {
+      console.error(
+        'Failed to update userId:',
+        updateError,
+      );
+    }
+  }
+
+  // =========================
+  // FINAL RESPONSE
+  // =========================
+
+  return {
+    messageId: message.messageId || '',
+    createdAt: message.createdAt
+      ? new Date(message.createdAt).toISOString()
+      : '',
+    updatedAt: message.updatedAt
+      ? new Date(message.updatedAt).toISOString()
+      : '',
+    user: {
+      username:
+        message?.userDetails?.username || 'N/A',
+      email: message?.userDetails?.email || '',
+      emailVerified:
+        message?.userDetails?.emailVerified || false,
+      avatar: message?.userDetails?.avatar || null,
+    },
+    content: message.content || [],
+  };
+}
   async checkStatus(
     questionIds: string[],
   ): Promise<ICheckStatusResponse[]> {

@@ -25,7 +25,7 @@ export async function sendEmailNotification(
   
   try {
     const info = await transporter.sendMail({
-      from: `"Review System Report" <${user}>`,
+      from: `"Agri Platform" <${user}>`,
       to: email,
       subject: title,
     // text: message,
@@ -62,7 +62,7 @@ export async function sendEmailWithAttachment(
     },
   });
   await transporter.sendMail({
-    from: `"Review System Report" <${emailConfig.EMAIL_USER}>`,
+    from: `"Agri Platform" <${emailConfig.EMAIL_USER}>`,
     to: email,
     subject: title,
     html,

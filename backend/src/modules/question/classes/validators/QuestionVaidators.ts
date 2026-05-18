@@ -371,6 +371,14 @@ class QuestionResponse {
   @IsOptional()
   isAutoAllocate?: boolean;
 }
+class ReferenceQuestionDetailDto {
+  @IsMongoId()
+  _id!: string;
+
+  @IsBoolean()
+  duplicate!: boolean;
+}
+
 class AddQuestionBodyDto {
   @IsString()
   @IsOptional()
@@ -422,7 +430,24 @@ class AddQuestionBodyDto {
   @IsOptional()
   originalquestion?: string;
 
-  
+  @IsString()
+  @IsOptional()
+  messageId?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsMongoId()
+  userId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReferenceQuestionDetailDto)
+  referenceQuestionDetails?: ReferenceQuestionDetailDto[];
+
+  @IsString()
+  @IsOptional()
+  popContext?: string;
 }
 
 class GenerateQuestionsBody {

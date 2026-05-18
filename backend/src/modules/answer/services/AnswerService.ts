@@ -1646,6 +1646,14 @@ export class AnswerService extends BaseService implements IAnswerService {
         );
       }
 
+      // Block approval if normalised_crop is missing or not registered in the crop list
+      const normalisedCrop = question.details?.normalised_crop?.trim();
+      if (!normalisedCrop) {
+        throw new BadRequestError(
+          `This question does not have a normalised crop. Please add the respective crop from the Agri Tech Management section before approving this answer.`,
+        );
+      }
+
       const submission =
         await this.questionSubmissionRepo.getByQuestionId(
           questionId,

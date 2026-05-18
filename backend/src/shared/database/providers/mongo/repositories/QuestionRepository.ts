@@ -332,7 +332,7 @@ export class QuestionRepository implements IQuestionRepository {
       } = query;
       //  const filter: any = {};
       const filter: any = {
-        isHidden: { $ne: true }, // default to exclude hidden questions
+        // isHidden: { $ne: true }, // default to exclude hidden questions
         isOnHold: { $ne: true }, // default to exclude on hold questions
       };
       if (pae_review) {
@@ -1774,6 +1774,24 @@ export class QuestionRepository implements IQuestionRepository {
         updatedAt: submission?.updatedAt,
       };
 
+      // 7.2 If question is closed with no submission queue, fetch the final answer directly
+      let closedFinalAnswer: any = null;
+      if (question.status === 'closed' && (submission?.queue?.length ?? 0) === 0) {
+        const fa = await this.AnswersCollection.findOne({
+          questionId: questionObjectId,
+          isFinalAnswer: true,
+        });
+        if (fa) {
+          closedFinalAnswer = {
+            ...fa,
+            _id: fa._id?.toString(),
+            questionId: fa.questionId?.toString(),
+            authorId: fa.authorId?.toString(),
+            approvedBy: fa.approvedBy?.toString() ?? null,
+          };
+        }
+      }
+
       // 8 Attach context
       const contextId = question.contextId || '';
       let context = '';
@@ -1790,7 +1808,7 @@ export class QuestionRepository implements IQuestionRepository {
         status: string;
         details: Record<string, any>;
         text: string;
-        sources: { source: string; page?: number | null; sourceType?: string; sourceName?: string }[];
+        sources: { source: string; page?: string | number | null; sourceType?: string; sourceName?: string }[];
       } | null = null;
 
       if (question.referenceQuestionId) {
@@ -1847,6 +1865,7 @@ export class QuestionRepository implements IQuestionRepository {
         context,
         submission: populatedSubmission,
         referenceQuestionData,
+        closedFinalAnswer,
       };
 
       return result;
@@ -3481,6 +3500,7 @@ export class QuestionRepository implements IQuestionRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    status?: string,
   ): Promise<{ analytics: Analytics }> {
     await this.init();
 
@@ -3489,6 +3509,9 @@ export class QuestionRepository implements IQuestionRepository {
     if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
 
     const matchStage: any = { status: { $ne: 'pass' } };
+    if (status && status !== 'all') {
+      matchStage.status = status;
+    }
     if (Object.keys(filterDate).length > 0) {
       matchStage.createdAt = filterDate;
     }
@@ -3496,11 +3519,12 @@ export class QuestionRepository implements IQuestionRepository {
     const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
       const sorted = [...data].sort((a, b) => b.count - a.count);
       const topTen = sorted.slice(0, 10);
-      const othersCount = sorted.slice(10).reduce((sum, item) => sum + item.count, 0);
+      const othersItems = sorted.slice(10);
+      const othersCount = othersItems.reduce((sum, item) => sum + item.count, 0);
 
       return [
         ...topTen,
-        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount }] : []),
+        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount, otherItems: othersItems }] : []),
       ];
     };
 
@@ -4610,6 +4634,28 @@ export class QuestionRepository implements IQuestionRepository {
       this.AnswersCollection
     );
 
+    // Apply pae_review filter exactly matching findDetailedQuestions logic
+    if (query.pae_review) {
+      filter.pae_review = { $eq: true };
+    } else {
+      filter.$or = [
+        { pae_review: { $eq: false } },
+        { pae_review: { $exists: false } }
+      ];
+    }
+
+    // Apply isOnHold filter exactly matching findDetailedQuestions logic
+    if (query.isOnHold === 'true') {
+      filter.isOnHold = { $eq: true };
+    } else {
+      filter.isOnHold = { $ne: true };
+    }
+
+    // Apply isHidden filter exactly matching findDetailedQuestions logic
+    if (query.hiddenQuestions === 'true' || query.status === 'pass') {
+      filter.isHidden = { $eq: true };
+    }
+
     // Apply states/normalisedCrops from body if provided (matching findDetailedQuestions logic)
     if (body?.states && body.states.length > 0) {
       filter['details.state'] = { $in: body.states };
@@ -4631,14 +4677,6 @@ export class QuestionRepository implements IQuestionRepository {
         if (!filter.$and) filter.$and = [];
         filter.$and.push({ $or: orConditions });
       }
-    }
-
-    // Default exclusions
-    if (filter.isHidden === undefined && query.hiddenQuestions !== 'true') {
-      filter.isHidden = { $ne: true };
-    }
-    if (filter.isOnHold === undefined && query.isOnHold !== 'true') {
-      filter.isOnHold = { $ne: true };
     }
 
     const results = await this.QuestionCollection.aggregate(

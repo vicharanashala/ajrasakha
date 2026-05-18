@@ -243,6 +243,7 @@ export class UserRepository implements IUserRepository {
     role?: string,
     isBlockedFilter?: boolean,
     isVerifiedFilter?: boolean,
+    isSTFFilter?: boolean,
     session?: ClientSession,
   ): Promise<{
     users: IUser[];
@@ -277,9 +278,10 @@ export class UserRepository implements IUserRepository {
         matchQuery.isBlocked = isBlockedFilter;
       }
 
-      if (isVerifiedFilter !== undefined) {
-        matchQuery.isVerified = isVerifiedFilter;
+      if (isSTFFilter !== undefined) {
+        matchQuery.special_task_force = isSTFFilter;
       }
+
 
       const sortMap: any = {
         role: { roleOrder: 1 },
@@ -1315,6 +1317,29 @@ export class UserRepository implements IUserRepository {
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update IsBlock`);
+    }
+  }
+  
+  async updateSTFStatus(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      const special_task_force = action === 'assign';
+      await this.usersCollection.updateOne(
+        {_id: new ObjectId(userId)},
+        {
+          $set: {
+            special_task_force,
+            updatedAt: new Date(),
+          },
+        },
+        {upsert: true, session},
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to update STF status`);
     }
   }
 

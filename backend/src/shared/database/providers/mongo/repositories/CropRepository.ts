@@ -333,7 +333,8 @@ export class CropRepository implements ICropRepository {
       if (!this.CropCollection) await this.init();
 
       const escaped = CropRepository.escapeRegex(cropName.trim());
-      const regex = new RegExp(`^${escaped}$`, 'i');
+      //const regex = new RegExp(`^${escaped}$`, 'i');
+      const regex = new RegExp(`\\b${escaped}\\b`, 'i');
 
       const crop = await this.CropCollection.findOne({
         $and: [
@@ -367,7 +368,8 @@ export class CropRepository implements ICropRepository {
       if (!this.CropCollection) await this.init();
 
       const escaped = CropRepository.escapeRegex(name.trim());
-      const regex = new RegExp(`^${escaped}$`, 'i');
+      //const regex = new RegExp(`^${escaped}$`, 'i');
+      const regex = new RegExp(`\\b${escaped}\\b`, 'i');
 
       const crop = await this.CropCollection.findOne({
         $and: [

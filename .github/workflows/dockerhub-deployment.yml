@@ -14,11 +14,13 @@ on:
           - market
           - other_markets
           - pop
+          - pop_v2
           - weather
           - review-search-mcp
           - reviewer_system
           - agmarknet-mcp
           - soil-health-mcp
+          - imd_weather
 permissions:
   contents: read
   packages: write
@@ -56,6 +58,9 @@ jobs:
           if [[ "$TARGET" == "all" || "$TARGET" == "pop" ]]; then
             add_entry "pop"
           fi
+          if [[ "$TARGET" == "all" || "$TARGET" == "pop_v2" ]]; then
+            add_entry "pop_v2"
+          fi
           if [[ "$TARGET" == "all" || "$TARGET" == "weather" ]]; then
             add_entry "weather"
           fi
@@ -70,6 +75,9 @@ jobs:
           fi
           if [[ "$TARGET" == "all" || "$TARGET" == "soil-health-mcp" ]]; then
             add_entry "soil-health-mcp"
+          fi
+          if [[ "$TARGET" == "all" || "$TARGET" == "imd_weather" ]]; then
+            add_entry "imd_weather"
           fi
           COMPACT_JSON=$(echo $MATRIX_JSON | jq -c .)
           echo "matrix=$COMPACT_JSON" >> $GITHUB_OUTPUT

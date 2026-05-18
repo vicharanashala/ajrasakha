@@ -131,6 +131,7 @@ export const useGetQuestionsAnalytics = (query: {
   type: "question" | "answer";
   startTime?: Date;
   endTime?: Date;
+  status?: string;
 }) => {
   return useQuery({
     queryKey: ["dashboard", "questions-analytics", query],

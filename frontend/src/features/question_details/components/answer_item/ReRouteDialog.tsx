@@ -48,6 +48,14 @@ export const ReRouteDialog = ({
   lastReroutedTo,
   isAllocatingExperts,
 }: ReRouteDialogProps) => {
+  const sortedFilteredExperts = [...filteredExperts].sort((a, b) => {
+    const aIsInactiveOrBlocked = a.isBlocked || a.status === 'in-active';
+    const bIsInactiveOrBlocked = b.isBlocked || b.status === 'in-active';
+    if (!aIsInactiveOrBlocked && bIsInactiveOrBlocked) return -1;
+    if (aIsInactiveOrBlocked && !bIsInactiveOrBlocked) return 1;
+    return 0;
+  });
+
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
       <DialogTrigger asChild>
@@ -127,7 +135,7 @@ export const ReRouteDialog = ({
               </div>
             )}
 
-            {!isUsersLoading && filteredExperts.length === 0 && (
+            {!isUsersLoading && sortedFilteredExperts.length === 0 && (
               <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
                 <UserPlus className="w-8 h-8 mb-2 text-muted-foreground/80" />
                 <p className="text-sm font-medium">No experts available</p>
@@ -138,7 +146,7 @@ export const ReRouteDialog = ({
             )}
 
             {!isUsersLoading &&
-              filteredExperts.map((expert) => (
+              sortedFilteredExperts.map((expert) => (
                 <div
                   key={expert._id}
                   className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${
