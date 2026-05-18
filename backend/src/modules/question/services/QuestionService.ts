@@ -331,8 +331,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (query?.search) {
       try {
         // const embedding=[]
-        const { embedding } = await this.aiService.getEmbedding(query.search);
-        searchEmbedding = embedding;
+        // const { embedding } = await this.aiService.getEmbedding(query.search);
+        // searchEmbedding = embedding;
+        searchEmbedding = null
       } catch (err) {
         console.error(
           'Embedding generation failed, falling back to normal search:',
