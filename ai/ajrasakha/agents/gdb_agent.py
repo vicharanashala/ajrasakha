@@ -8,7 +8,7 @@ from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.constants import START
 from langgraph.graph import StateGraph
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
 from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
@@ -44,16 +44,39 @@ async def _get_gdb_agent():
 
 class GDBInput(BaseModel):
     query: str
+    crop: str = Field(
+        ...,
+        description=(
+            "Crop for Golden DB retrieval (required). Use the crop from the farmer's "
+            "question; if not mentioned, use 'General'."
+        ),
+    )
+    state: str = Field(
+        ...,
+        description=(
+            "Indian state for Golden DB retrieval (required). Use thread location state "
+            "or the state named in the farmer's message."
+        ),
+    )
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     address: Optional[str] = None
 
 @tool(args_schema=GDBInput)
-async def gdb(query: str, latitude: Optional[float], longitude: Optional[float], address: Optional[str], config: RunnableConfig) -> str:
+async def gdb(
+    query: str,
+    crop: str,
+    state: str,
+    latitude: Optional[float],
+    longitude: Optional[float],
+    address: Optional[str],
+    config: RunnableConfig,
+) -> str:
     """
-    Query the golden database agent.
-    Use when the task needs location-aware data lookup.
-    Pass a focused query. Location is resolved automatically if not provided.
+    Query the golden database agent for crop/disease/pest/farming knowledge.
+
+    crop and state are required — pass them on every call (use thread location for state
+    when the farmer did not name one; use 'General' for crop when not crop-specific).
     """
     try:
         injected: dict = (config.get("configurable") or {}).get("location") or {}
@@ -61,8 +84,14 @@ async def gdb(query: str, latitude: Optional[float], longitude: Optional[float],
         lat  = injected.get("latitude")  or latitude
         lon  = injected.get("longitude") or longitude
         addr = injected.get("address")   or address
+        crop = (crop or "").strip()
+        state = (injected.get("state") or state or "").strip()
 
         context = f"""
+Mandatory Golden DB filters (pass these on every golden_retriever_tool / golden_exact_search_tool call):
+- Crop : {crop or "unknown"}
+- State: {state or "unknown"}
+
 Location Context:
 - Address  : {addr or "unknown"}
 - Latitude : {lat or "unknown"}
