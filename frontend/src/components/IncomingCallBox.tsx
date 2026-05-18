@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
-import { Phone, PhoneOff, Pause, Play, VolumeX, Volume2 } from "lucide-react";
+import { Phone, PhoneOff, Pause, Play, VolumeX, Volume2, Mic, MicOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlivoWebSocketService } from "@/hooks/services/plivoWebSocketService";
 import type { PlivoTranscriptMessage } from "@/hooks/services/plivoWebSocketService";
@@ -22,7 +22,7 @@ interface CallTranscript {
 }
 
 export interface IncomingCallBoxProps {
-  onTranscriptUpdate?: (transcript: string) => void;
+  onTranscriptChange?: (transcript: string) => void;
   onCallStateChange?: (isActive: boolean) => void;
 }
 
@@ -34,7 +34,7 @@ declare global {
 
 // things to do:- auth the websocket, call only for admin, and make transcript working, and make UI good,
 
-export const IncomingCallBox = ({ onTranscriptUpdate, onCallStateChange }: IncomingCallBoxProps) => {
+export const IncomingCallBox = ({ onTranscriptChange, onCallStateChange }: IncomingCallBoxProps) => {
   console.log(' [IncomingCallBox] Component mounting...');
 
   const { data: currentUser, isLoading: isUserLoading } = useGetCurrentUser();
@@ -45,6 +45,7 @@ export const IncomingCallBox = ({ onTranscriptUpdate, onCallStateChange }: Incom
   const [transcripts, setTranscripts] = useState<CallTranscript[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [isSDKLoaded] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
 
   const wsRef = useRef<PlivoWebSocketService | null>(null);
   const plivoClientRef = useRef<any>(null);
@@ -279,7 +280,7 @@ export const IncomingCallBox = ({ onTranscriptUpdate, onCallStateChange }: Incom
           const updated = [...prev, newTranscript];
           // Update parent component with full accumulated transcript
           const fullTranscript = updated.map(t => t.text).join(' ');
-          onTranscriptUpdate?.(fullTranscript);
+          onTranscriptChange?.(fullTranscript);
           return updated;
         });
       }
@@ -323,7 +324,8 @@ export const IncomingCallBox = ({ onTranscriptUpdate, onCallStateChange }: Incom
       wsRef.current.disconnect();
       wsRef.current = null;
     }
-    setTranscripts([]);
+    // setTranscripts([]);
+    setIsRecording(false);
   };
 
   const handleAnswer = () => {
@@ -382,6 +384,18 @@ export const IncomingCallBox = ({ onTranscriptUpdate, onCallStateChange }: Incom
         plivoClientRef.current.client.mute();
         setIsMuted(true);
       }
+    }
+  };
+
+  const handleToggleRecording = () => {
+    if (isRecording) {
+      // Stop recording - disconnect WebSocket
+      disconnectWebSocket();
+      setIsRecording(false);
+    } else {
+      // Start recording - connect WebSocket
+      connectWebSocket();
+      setIsRecording(true);
     }
   };
 
@@ -481,6 +495,28 @@ export const IncomingCallBox = ({ onTranscriptUpdate, onCallStateChange }: Incom
                 >
                   <PhoneOff className="h-5 w-5" />
                   <span className="font-semibold">Hang Up</span>
+                </Button>
+
+                <Button
+                  onClick={handleToggleRecording}
+                  size="sm"
+                  variant={isRecording ? "destructive" : "default"}
+                  className={cn(
+                    "flex items-center gap-1.5 h-8",
+                    isRecording && "animate-pulse"
+                  )}
+                >
+                  {isRecording ? (
+                    <>
+                      <MicOff className="h-4 w-4" />
+                      <span>Stop</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="h-4 w-4" />
+                      <span>Record</span>
+                    </>
+                  )}
                 </Button>
 
                 <Button

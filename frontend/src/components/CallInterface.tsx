@@ -2,13 +2,11 @@ import { useState } from "react";
 import { IncomingCallBox } from "./IncomingCallBox";
 import { CallHistory } from "./CallHistory";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
-import { plivoApi } from "@/hooks/api/plivo/api";
 import { toast } from "sonner";
 import Plivo from 'plivo-browser-sdk';
 
 export const CallInterface = () => {
-  const [isCallActive, setIsCallActive] = useState(false);
-  const [callTranscript, setCallTranscript] = useState("");
+  const [editableTranscript, setEditableTranscript] = useState("");
     let plivoClientRef;
 
 
@@ -37,20 +35,22 @@ export const CallInterface = () => {
     <div className="space-y-6">
       {/* Incoming Call Box - Top Section */}
       <IncomingCallBox
-        onTranscriptUpdate={(transcript) => setCallTranscript(transcript)}
-        onCallStateChange={(isActive) => setIsCallActive(isActive)}
+        onTranscriptChange={(transcript) => setEditableTranscript(transcript)}
       />
 
-      {/* Live Transcript - Shows when call is active */}
-      {isCallActive && callTranscript && (
+      {/* Live Transcript - Shows even after call ends */}
+      {editableTranscript && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Live Transcript</CardTitle>
+            <CardTitle className="text-sm">Transcript</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="p-4 bg-muted/50 rounded-lg min-h-[100px] max-h-[300px] overflow-y-auto">
-              <p className="text-sm whitespace-pre-wrap">{callTranscript}</p>
-            </div>
+            <textarea
+              value={editableTranscript}
+              onChange={(e) => setEditableTranscript(e.target.value)}
+              className="w-full min-h-[100px] max-h-[300px] p-4 text-sm rounded-lg border bg-muted/50 resize-y overflow-y-auto whitespace-pre-wrap"
+              placeholder="Transcript will appear here..."
+            />
           </CardContent>
         </Card>
       )}
