@@ -53,7 +53,7 @@ export const PlaygroundPage = () => {
   const [activeTab, setActiveTab] = useState<string>("all_questions");
   const [chatbotSource, setChatbotSource] = useState<
     "vicharanashala" | "annam"
-  >("vicharanashala");
+  >("annam");
   const getStorageKey = (user?: { email?: string }) => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
@@ -237,58 +237,12 @@ export const PlaygroundPage = () => {
                 </TabsTrigger>
 
                 {user && user.role !== "expert" && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className={`px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-1 ${
-                          activeTab === "chatbotanalytics"
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                        }`}
-                      >
-                        ChatBot Analytics
-                        <ChevronDownIcon className="w-3.5 h-3.5 opacity-60" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setChatbotSource("vicharanashala");
-                          handleTabChange("chatbotanalytics");
-                        }}
-                        className={
-                          activeTab === "chatbotanalytics" &&
-                          chatbotSource === "vicharanashala"
-                            ? "bg-primary/10 text-primary font-medium"
-                            : ""
-                        }
-                      >
-                        Vicharanashala
-                        {activeTab === "chatbotanalytics" &&
-                          chatbotSource === "vicharanashala" && (
-                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
-                          )}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setChatbotSource("annam");
-                          handleTabChange("chatbotanalytics");
-                        }}
-                        className={
-                          activeTab === "chatbotanalytics" &&
-                          chatbotSource === "annam"
-                            ? "bg-primary/10 text-primary font-medium"
-                            : ""
-                        }
-                      >
-                        Annam
-                        {activeTab === "chatbotanalytics" &&
-                          chatbotSource === "annam" && (
-                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
-                          )}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <TabsTrigger
+                    value="chatbotanalytics"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>ChatBot Analytics</span>
+                  </TabsTrigger>
                 )}
                 {/* 
                 {user && (
@@ -409,7 +363,7 @@ export const PlaygroundPage = () => {
               <TabsContent
                 value="chatbotanalytics"
                 className={cn(
-                  "mt-0 border-0 md:px-8 outline-none",
+                  "mt-0 border-0 md:px-4 px-4 outline-none",
                   "data-[state=active]:animate-in",
                   "data-[state=active]:fade-in-0",
                   "data-[state=active]:zoom-in-[0.98]",
@@ -417,7 +371,7 @@ export const PlaygroundPage = () => {
                   "duration-500 ease-out",
                 )}
               >
-                <AnnamDashboard source={chatbotSource} />
+                <AnnamDashboard source={chatbotSource} onSourceChange={setChatbotSource} />
               </TabsContent>
 
               {user && user.role !== "expert" && (
