@@ -43,7 +43,7 @@ export interface IChatbotService {
   getChannelSplit(source?: string): Promise<ChannelSplitEntry[]>;
   getVoiceAccuracyByLanguage(source?: string): Promise<VoiceAccuracyEntry[]>;
   getGeoDistribution(source?: string): Promise<GeoStateEntry[]>;
-  getQueryCategories(source?: string): Promise<QueryCategoryEntry[]>;
+  getQueryCategories(source?: string, userType?: string): Promise<QueryCategoryEntry[]>;
   getTopCrops(): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   getDailyQueryCounts(days?: number, source?: string, userType?: string): Promise<DailyQueryCountEntry[]>;
