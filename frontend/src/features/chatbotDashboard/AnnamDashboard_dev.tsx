@@ -946,17 +946,18 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     />
                   </div>
 
-                  {/* <div
-  ref={(el) => {
-    sectionRefs.current["feedback-sentiment"] = el;
-  }}
-  className="lg:col-span-2"
->
-  <ChannelSplitCard
-    channelSplit={data.channelSplit}
-    voiceAccuracy={data.voiceAccuracy}
-  />
-</div> */}
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["feedback-sentiment"] = el;
+                    }}
+                    className="lg:col-span-2"
+                  >
+                    <TopCropsCard
+                      topCrops={topCrops}
+                      isLoadingTopCrops={isLoadingTopCrops}
+                      errorLoadingtopCrops={errorLoadingtopCrops}
+                    />
+                  </div>
                 </div>
 
                 {/* Geo + Health */}
@@ -966,11 +967,10 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   }}
                   className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
                 >
-                  <TopCropsCard
-                    topCrops={topCrops}
-                    isLoadingTopCrops={isLoadingTopCrops}
-                    errorLoadingtopCrops={errorLoadingtopCrops}
-                  />
+                  {/* <ChannelSplitCard
+                    channelSplit={data.channelSplit}
+                    voiceAccuracy={data.voiceAccuracy}
+                  /> */}
                   {/* <GeoCard states={data.geoStates} />
                   <div
                     ref={(el) => {
