@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, RotateCcw, Loader2, Send, FileText, Bot, ChevronsRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
 import { Label } from "../../components/atoms/label";
@@ -31,12 +32,15 @@ import {
 } from "@/hooks/api/answer/useReviewAnswer";
 
 import { QuestionDetailsDialog } from "./QuestionDetailsDialog";
+import { parseChatbotText } from "@/components/MessageDetail";
 
 import { ResponseTimeline } from "./ResponseTimeline";
 import { ReRouteResponseTimeline } from "./ReRouteResponseTimeline";
 import { AnswerCreateDialog } from "./AnswerCreateDialog";
 import { QaHeader } from "./QaHeader";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
+import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/useGetQuestionMessageDetailsByQuestionId";
+import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 
 export type QuestionFilter =
   | "newest"
@@ -54,6 +58,7 @@ export const QAInterface = ({
   selectQuestionType: string | null;
   onManualSelectQuestionType: (type: string | null) => void;
 }) => {
+  const queryClient = useQueryClient();
 
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
@@ -147,7 +152,7 @@ export const QAInterface = ({
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences, actionType, autoSelectQuestionId, reviewLevel);
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences as any, actionType, autoSelectQuestionId, reviewLevel);
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
 
@@ -426,10 +431,10 @@ export const QAInterface = ({
     }
 
     // For AJRASAKHA questions, pre-fill sources from moderator-approved sources stored on the question
+    const currentSource = selectedQuestionData.source === 'AJRASAKHA'|| selectedQuestionData.source === 'WHATSAPP'
     if (
-      selectedQuestionData.source === 'AJRASAKHA' &&
-      selectedQuestionData.aiApprovedSources?.length &&
-      !draft?.sources?.length
+       currentSource &&
+      selectedQuestionData.aiApprovedSources?.length
     ) {
       setSources(selectedQuestionData.aiApprovedSources);
     }
@@ -445,6 +450,106 @@ export const QAInterface = ({
     setTranslatedDraftText("");
     setSources([]);
     setRemarks("");
+  };
+
+  const getFinalAnswerTextFromMessage = (
+    content: any[] = [],
+    source?: string,
+  ): string => {
+    if (!Array.isArray(content) || content.length === 0) return "";
+
+    if (source === "WHATSAPP") {
+      const lastAiIndex = content.map((item: any) => item?.type).lastIndexOf("ai");
+      return lastAiIndex >= 0 ? content[lastAiIndex]?.text || "" : "";
+    }
+
+    for (let i = content.length - 1; i >= 0; i -= 1) {
+      const item = content[i];
+      if (item?.type === "text" && typeof item.text === "string") {
+        return item.text;
+      }
+    }
+
+    return "";
+  };
+
+    const {
+              data: messageDetails,
+              isLoading: messageLoading,
+          } = useGetQuestionMessageDetailsByQuestionId(selectedQuestion);
+
+     const { mutateAsync: updateQuestion, isPending: isAddingAiAnswer } =
+        useUpdateQuestion();
+
+  const handleAddAiAnswer = async () => {
+    if (!selectedQuestion || !selectedQuestionData) return;
+    let rawFinalAnswer = "";
+
+    try {
+
+      if (messageDetails?.success && messageDetails.data?.content?.length) {
+        rawFinalAnswer = getFinalAnswerTextFromMessage(
+          messageDetails.data.content,
+          selectedQuestionData.source,
+        );
+      }
+    } catch (error) {
+      console.error("Failed to fetch message details for AI answer:", error);
+    }
+
+
+    const parsedFinalAnswer = parseChatbotText(rawFinalAnswer);
+
+    if (!parsedFinalAnswer.answerBody.trim()) {
+      toast.error("No final AI answer is available to add.");
+      return;
+    }
+
+    const parsedSources: SourceItem[] = [];
+
+    for (const specialist of parsedFinalAnswer.agriSpecialists) {
+      if (specialist.sourceLink) {
+        parsedSources.push({
+          sourceType: (specialist.sourceType || "other") as any,
+          sourceName: specialist.name || "chatbot",
+          source: specialist.sourceLink,
+        });
+      }
+    }
+
+    for (const pdf of parsedFinalAnswer.pdfSources) {
+      if (pdf.link) {
+        const firstPage = pdf.pages
+          ? parseInt(pdf.pages.split(",")[0].trim(), 10)
+          : NaN;
+
+        parsedSources.push({
+          sourceType: (pdf.sourceType || "other") as any,
+          sourceName: pdf.name || "chatbot",
+          source: pdf.link,
+          page: Number.isNaN(firstPage) ? undefined : firstPage,
+        });
+      }
+    }
+
+    try {
+      await updateQuestion({
+        _id:selectedQuestion,
+        aiInitialAnswer: parsedFinalAnswer.answerBody.trim(),
+        aiApprovedSources: parsedSources.length > 0
+          ? parsedSources
+          : []
+      })
+
+      await queryClient.invalidateQueries({
+        queryKey: ["question", selectedQuestion, actionType],
+      });
+
+      toast.success("AI answer added successfully");
+    } catch (error) {
+      console.error("Failed to add AI answer:", error);
+      toast.error("Failed to add AI answer. Please try again.");
+    }
   };
 
   const handleSubmitResponse = async (
@@ -540,6 +645,17 @@ export const QAInterface = ({
     onManualSelectQuestionType?.(null)
 
   };
+
+  const activeAiAnswer = (
+    selectedQuestionData?.aiInitialAnswer ||
+    selectedQuestionData?.aiApprovedAnswer ||
+    ""
+  ).trim();
+
+  const isShowingAiAnswer =
+    !!activeAiAnswer && newAnswer.trim() === activeAiAnswer;
+
+  
   return (
     <div className=" mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
@@ -639,9 +755,7 @@ export const QAInterface = ({
                               htmlFor="new-answer"
                               className="text-sm font-medium flex items-center gap-1"
                             >
-                              {selectedQuestionData.aiInitialAnswer &&
-                                newAnswer.trim() ===
-                                selectedQuestionData.aiInitialAnswer ? (
+                              {isShowingAiAnswer ? (
                                 <>
                                   <Bot className="h-4 w-4 text-blue-600" />
                                   AI Suggested Answer:
@@ -652,17 +766,36 @@ export const QAInterface = ({
                             </Label>
 
                             <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={handleAddAiAnswer}
+                                disabled={isAddingAiAnswer}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm border
+          ${isAddingAiAnswer
+                                    ? "bg-primary/5 text-primary border-primary/20 cursor-wait"
+                                    : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-accent/50 hover:shadow-md active:scale-95"
+                                  }`}
+                              >
+                                {isAddingAiAnswer ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Adding AI Answer...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Bot className="w-4 h-4 text-primary" />
+                                    <span>Add AI Answer</span>
+                                  </>
+                                )}
+                              </Button>
                               <SarvamTranslateDropdown
                                 query={newAnswer}
                                 onTranslate={(result) => setTranslatedDraftText(result)}
                               />
-                              {selectedQuestionData.aiInitialAnswer &&
-                                !newAnswer && (
+                              {activeAiAnswer && !newAnswer && (
                                   <button
                                     onClick={() => {
-                                      setNewAnswer(
-                                        selectedQuestionData.aiInitialAnswer || ""
-                                      );
+                                      setNewAnswer(activeAiAnswer);
                                       setTranslatedDraftText("");
                                       setRemarks("AI Suggested Answer");
                                     }}
@@ -692,9 +825,7 @@ export const QAInterface = ({
                             placeholder="Enter your answer here..."
                             value={translatedDraftText || newAnswer}
                             onChange={(e) => { setTranslatedDraftText(""); setNewAnswer(e.target.value); }}
-                            className={`mt-1 md:max-h-[240px] max-h-[170px] min-h-[210px] resize-y border text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent ${newAnswer.trim() ===
-                                selectedQuestionData?.aiInitialAnswer &&
-                                selectedQuestionData.aiInitialAnswer
+                            className={`mt-1 md:max-h-[240px] max-h-[170px] min-h-[210px] resize-y border text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent ${isShowingAiAnswer
                                 ? "border-blue-400/70 bg-blue-50 dark:bg-blue-950/30 italic"
                                 : "border-gray-200 dark:border-gray-600"
                               }`}

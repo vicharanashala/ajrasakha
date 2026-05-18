@@ -546,12 +546,21 @@ export interface IQuestionMetrics {
   recent_similarity: number;
   collusion_score: number;
 }
+
+export interface SourceItem {
+  sourceType?: SourceType;
+  sourceName?: string;
+  source: string;
+  page?: number;
+}
+
 export interface IDetailedQuestion {
   _id?: string;
   userId: string;
   question: string;
   context: string;
   aiInitialAnswer: string;
+  aiApprovedSources?: SourceItem[]
   status: QuestionStatus;
   totalAnswersCount: number;
   priority: QuestionPriority;

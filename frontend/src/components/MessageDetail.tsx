@@ -339,7 +339,7 @@ interface ParsedChatbotText {
 }
 
 // --- Parser function ---
-const parseChatbotText = (text: string): ParsedChatbotText => {
+export const parseChatbotText = (text: string): ParsedChatbotText => {
     let workingText = text;
     const noticeIdx = workingText.indexOf('\u26A0\uFE0F');
     if (noticeIdx !== -1) workingText = workingText.substring(0, noticeIdx).trim();
