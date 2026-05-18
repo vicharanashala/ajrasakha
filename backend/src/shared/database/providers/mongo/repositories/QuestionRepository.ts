@@ -628,8 +628,13 @@ export class QuestionRepository implements IQuestionRepository {
       let result = [];
 
       const isSearchTermObjectId = isValidObjectId(search);
+      // Use vector search only for longer natural-language queries (>= 4 words or > 30 chars).
+      // Short/literal strings like "question q33" should use text search for exact matching.
+      const searchWordCount = search ? search.trim().split(/\s+/).length : 0;
+      const isSemanticQuery = searchWordCount >= 4 || (search?.trim().length ?? 0) > 30;
       if (
         !isSearchTermObjectId &&
+        isSemanticQuery &&
         searchEmbedding &&
         searchEmbedding.length > 0
       ) {
@@ -831,22 +836,35 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       if (search && search.trim() !== '') {
-        filter.$or = [
-          { _id: { $regex: search, $options: 'i' } },
-          { question: { $regex: search, $options: 'i' } },
-          { 'details.crop': { $regex: search, $options: 'i' } },
-          { 'details.state': { $regex: search, $options: 'i' } },
-          { 'details.domain': { $regex: search, $options: 'i' } },
+        // Escape special regex characters so literal strings like "How to control weeds?"
+        // are matched as-is rather than being interpreted as regex patterns.
+        const escapedSearch = escapeRegex(search.trim());
+        const searchConditions = [
+          { question: { $regex: escapedSearch, $options: 'i' } },
+          { 'details.crop': { $regex: escapedSearch, $options: 'i' } },
+          { 'details.state': { $regex: escapedSearch, $options: 'i' } },
+          { 'details.domain': { $regex: escapedSearch, $options: 'i' } },
           {
             $expr: {
               $regexMatch: {
                 input: { $toString: '$_id' },
-                regex: search,
+                regex: escapedSearch,
                 options: 'i',
               },
             },
           },
         ];
+
+        // If filter.$or already exists (e.g. from pae_review), combine using $and
+        // to avoid overwriting the existing $or condition
+        if (filter.$or) {
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({ $or: filter.$or });
+          filter.$and.push({ $or: searchConditions });
+          delete filter.$or;
+        } else {
+          filter.$or = searchConditions;
+        }
       }
 
       totalCount = await questionsCollection.countDocuments(filter);
