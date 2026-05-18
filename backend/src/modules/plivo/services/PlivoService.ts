@@ -1,7 +1,14 @@
 import { injectable } from 'inversify';
 import { appConfig } from '../../../config/app.js';
-// import * as fs from 'fs';
-// import * as path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
+
+
+interface SarvamTranscribeResponse {
+  transcript: string;
+  confidence?: number;
+  language?: string;
+}
 
 interface WhisperTranscribeResponse {
   text: string;
@@ -22,19 +29,34 @@ export class PlivoService {
   private sarvamApiKey: string;
   private activeTranscriptions: Map<string, string> = new Map();
   private audioBuffers: Map<string, Buffer[]> = new Map(); // Store audio chunks
-  private readonly CHUNK_DURATION_MS = 3000; // 3 seconds of audio
+  private readonly CHUNK_DURATION_MS = 5000; // 5 seconds of audio
   private readonly SAMPLE_RATE = 16000; // 16kHz Linear PCM
-  private readonly CHUNK_SIZE = (this.SAMPLE_RATE * 2 * this.CHUNK_DURATION_MS) / 1000; // 96,000 bytes for 3 seconds (16-bit samples)
+  private readonly CHUNK_SIZE = (this.SAMPLE_RATE * 2 * this.CHUNK_DURATION_MS) / 1000; // 160,000 bytes for 5 seconds (16-bit samples)
+  private readonly DEBUG_AUDIO_DIR = path.join(process.cwd(), 'debug_audio');
 
   constructor() {
     this.sarvamApiKey = appConfig.sarvamAPI;
+    this.ensureDebugDir();
   }
 
+  private ensureDebugDir(): void {
+    if (!fs.existsSync(this.DEBUG_AUDIO_DIR)) {
+      fs.mkdirSync(this.DEBUG_AUDIO_DIR, { recursive: true });
+      console.log(`📁 [PLIVO-SERVICE] Created debug audio directory: ${this.DEBUG_AUDIO_DIR}`);
+    }
+  }
   /**
    * Convert 16kHz Linear PCM buffer to WAV format
    */
   private convertLinearPcmToWav(pcmBuffer: Buffer): Buffer {
-    // console.log(`🔄 [PLIVO-SERVICE] Converting ${pcmBuffer.length} bytes of 16kHz PCM to WAV`);
+    // console.log(`🔄 [PLIVO-SERVICE] Converting ${pcmBuffer.length} bytes of PCM to WAV`);
+    
+    // // Log first few raw bytes to check format
+    // const firstBytes = Array.from(pcmBuffer.slice(0, 20)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    // console.log(`🔍 [PLIVO-SERVICE] First 20 bytes (hex): ${firstBytes}`);
+    
+    // // Check if it looks like 16-bit or 8-bit
+    // console.log(`🔍 [PLIVO-SERVICE] Assuming 16-bit samples, sample count: ${pcmBuffer.length / 2}`);
     
     // PCM buffer is already 16kHz, 16-bit, mono - just add WAV header
     const sampleCount = pcmBuffer.length / 2; // 16-bit samples
@@ -61,7 +83,7 @@ export class PlivoService {
     // Copy PCM data directly (no conversion needed)
     pcmBuffer.copy(wavBuffer, 44);
     
-    // console.log(`🔄 [PLIVO-SERVICE] Created 16kHz WAV: ${wavBuffer.length} bytes (${sampleCount} samples)`);
+    // console.log(`🔄 [PLIVO-SERVICE] Created WAV: ${wavBuffer.length} bytes (${sampleCount} samples) at 16kHz`);
     
     return wavBuffer;
   }
@@ -138,45 +160,63 @@ export class PlivoService {
       }
       // console.log(`🔍 [PLIVO-SERVICE] First 5 PCM samples:`, pcmSamples);
       
-      // // Save WAV file for debugging
-      // const debugDir = path.join(process.cwd(), 'debug_audio');
-      // if (!fs.existsSync(debugDir)) {
-      //   fs.mkdirSync(debugDir);
-      // }
-      // const debugFilePath = path.join(debugDir, `debug_${callId}_${Date.now()}.wav`);
-      // fs.writeFileSync(debugFilePath, wavBuffer);
-      // console.log(`💾 [PLIVO-SERVICE] Saved debug WAV file: ${debugFilePath}`);
+      // Save WAV file for debugging
+      const debugDir = path.join(process.cwd(), 'debug_audio');
+      if (!fs.existsSync(debugDir)) {
+        fs.mkdirSync(debugDir);
+      }
+      const debugFilePath = path.join(debugDir, `debug_${callId}_${Date.now()}.wav`);
+      fs.writeFileSync(debugFilePath, wavBuffer);
+      console.log(`💾 [PLIVO-SERVICE] Saved debug WAV file: ${debugFilePath}`);
       
       const formData = new FormData();
       const audioFile = new File([wavBuffer], `audio_${Date.now()}.wav`, {
         type: 'audio/wav' // WAV format is accepted by Sarvam
       });
-      formData.append('file', audioFile);
-      formData.append('model', 'whisper-1');
+      // formData.append('file', audioFile);
+      // formData.append('model', 'whisper-1');
       
-      const response = await fetch('http://100.100.108.44:9016/v1/audio/transcriptions', {
+      // const response = await fetch('http://100.100.108.44:9016/v1/audio/transcriptions', {
+      //   method: 'POST',
+      //   body: formData,
+      // });
+
+      // console.log(`📥 [PLIVO-SERVICE] Whisper API response status: ${response.status}`);
+
+      // if (!response.ok) {
+      //   const errorText = await response.text();
+      //   console.error(`❌ [PLIVO-SERVICE] Whisper API error ${response.status}:`, errorText);
+      //   throw new Error(`Whisper API error: ${response.status}`);
+      // }
+
+      // const result = await response.json() as WhisperTranscribeResponse;
+      // console.log(`📝 [PLIVO-SERVICE] Whisper API response:`, result);
+      
+      // const transcript = result.text || '';
+      // console.log(`📝 [PLIVO-SERVICE] Extracted transcript: "${transcript}"`);
+
+      // // Accumulate transcript for this call
+      // const currentTranscript = this.activeTranscriptions.get(callId) || '';
+      // this.activeTranscriptions.set(callId, currentTranscript + ' ' + transcript);
+      // // console.log(`📚 [PLIVO-SERVICE] Accumulated transcript for call ${callId}:`, this.activeTranscriptions.get(callId));
+
+
+       formData.append('file', audioFile);
+      const headers = {
+        'api-subscription-key': this.sarvamApiKey,
+      };
+        const response = await fetch('https://api.sarvam.ai/speech-to-text-translate', {
         method: 'POST',
+        headers,
         body: formData,
       });
-
       console.log(`📥 [PLIVO-SERVICE] Whisper API response status: ${response.status}`);
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ [PLIVO-SERVICE] Whisper API error ${response.status}:`, errorText);
-        throw new Error(`Whisper API error: ${response.status}`);
       }
-
-      const result = await response.json() as WhisperTranscribeResponse;
-      console.log(`📝 [PLIVO-SERVICE] Whisper API response:`, result);
-      
-      const transcript = result.text || '';
-      console.log(`📝 [PLIVO-SERVICE] Extracted transcript: "${transcript}"`);
-
-      // Accumulate transcript for this call
-      const currentTranscript = this.activeTranscriptions.get(callId) || '';
-      this.activeTranscriptions.set(callId, currentTranscript + ' ' + transcript);
-      // console.log(`📚 [PLIVO-SERVICE] Accumulated transcript for call ${callId}:`, this.activeTranscriptions.get(callId));
+      const result = await response.json() as SarvamTranscribeResponse;
+      console.log(`📝 [PLIVO-SERVICE] Sarvam API response:`, result);
+      const transcript = result.transcript || '';
 
       return transcript;
     } catch (error) {

@@ -343,7 +343,7 @@ export const IncomingCallBox = ({ onTranscriptChange, onCallStateChange }: Incom
     }
 
     try {
-      connectWebSocket();
+      // Don't auto-connect WebSocket - only connect when Record button is clicked
       client.client.answer(incomingCall.uuid);
       // console.log("✅ [handleAnswer] Answer called successfully");
     } catch (error) {

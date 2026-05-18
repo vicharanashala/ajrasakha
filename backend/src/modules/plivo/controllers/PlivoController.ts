@@ -1,6 +1,5 @@
 import 'reflect-metadata';
 import {
-  JsonController,
   Post,
   Get,
   Body,
@@ -29,7 +28,6 @@ import plivo from 'plivo';
 export class PlivoController {
   private client = new plivo.Client(process.env.PLIVO_AUTH_ID, process.env.PLIVO_AUTH_TOKEN, { timeout: 30000 });
 
-
   
   @Post('/answer')
   @HttpCode(200)
@@ -43,7 +41,9 @@ export class PlivoController {
       // FIXED XML Structure: Stream outside Dial, proper fallback handling
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
                     <Response>
-                              <Stream audioTrack="both" contentType="audio/x-l16;rate=16000">${streamUrl}</Stream>
+                              <Stream contentType="audio/x-l16;rate=16000" bidirectional="true"
+          noiseCancellation="true" audioTrack="inbound" 
+          >${streamUrl}</Stream>
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>
                               </Dial>

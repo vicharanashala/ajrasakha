@@ -4,12 +4,18 @@ import { CallHistory } from "./CallHistory";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { toast } from "sonner";
 import Plivo from 'plivo-browser-sdk';
+import { Button } from "./atoms/button";
+import { RotateCcw } from "lucide-react";
 
 export const CallInterface = () => {
   const [editableTranscript, setEditableTranscript] = useState("");
-    let plivoClientRef;
 
-
+  const handleResetTranscript = () => {
+    // Clear transcript state
+    setEditableTranscript("");
+    // Notify parent component
+    // onTranscriptChange?.('');
+  };
 
   const handleRedial = async (phoneNumber: string) => {
     //   const options = {
@@ -32,7 +38,7 @@ export const CallInterface = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Incoming Call Box - Top Section */}
       <IncomingCallBox
         onTranscriptChange={(transcript) => setEditableTranscript(transcript)}
@@ -42,7 +48,20 @@ export const CallInterface = () => {
       {editableTranscript && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Transcript</CardTitle>
+            <CardTitle className="text-lg flex justify-between">
+              <span>Transcript</span>
+              <Button
+                onClick={handleResetTranscript}
+                size="sm"
+                variant="outline"
+                className="flex items-center justify-end gap-1 h-6"
+                title="Clear transcript"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span>Reset</span>
+              </Button>
+            </CardTitle>
+
           </CardHeader>
           <CardContent>
             <textarea

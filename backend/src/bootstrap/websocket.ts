@@ -12,6 +12,11 @@ export const initWebSocket = (server: Server) => {
 
   wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
     console.log('🔌 Plivo stream connected');
+
+    const callId = Date.now().toString();
+    // const filePath = path.join(process.cwd(), `call_${callId}.raw`);
+    // const fileStream = fs.createWriteStream(filePath);
+
     console.log('📊 [WEBSOCKET] Total clients before connection:', wss.clients.size);
     console.log('📊 [WEBSOCKET] New client readyState:', ws.readyState);
 
@@ -19,7 +24,7 @@ export const initWebSocket = (server: Server) => {
     const user = null;
 
     // Create a unique call ID for this connection
-    const callId = Date.now().toString();
+    // const callId = Date.now().toString();
 
     // Store connection info
     const connectionInfo = { callId, user, ws };
@@ -47,7 +52,6 @@ export const initWebSocket = (server: Server) => {
 
         if (msg.event === 'media') {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
-          // console.log('🎧 Audio chunk received, size:', audioBuffer.length);
 
           try {
             // Transcribe audio chunk continuously
