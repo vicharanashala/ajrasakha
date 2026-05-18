@@ -1,71 +1,87 @@
-from click import prompt
-import os
-import logging
-from typing import Dict, Any
+
+
+from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.prebuilt import create_react_agent
+from langgraph.constants import START
+from langgraph.graph import StateGraph
+from pydantic import BaseModel
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("MarketAgent")
+from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
+from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
+from ajrasakha.agents.prompts import GDB_SYSTEM_PROMPT, WEATHER_SYSTEM_PROMPT, SOIL_SYSTEM_PROMPT, MARKET_SYSTEM_PROMPT
 
-REMOTE_IP = "100.100.108.44"
-
-llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
-
-mcp_client = MultiServerMCPClient({
-    "enam_server": {
-        "url": f"http://{REMOTE_IP}:9002/mcp",
-        "transport": "http"
-    },
-    "agmarknet_server": {
-        "url": f"http://{REMOTE_IP}:9006/mcp",
-        "transport": "http"
+market_mcp = MultiServerMCPClient(
+    {
+        "enam": {
+            "url": MCP_URLS["enam"],
+            "transport": "streamable_http",
+        },
+        "agmarknet": {
+            "url": MCP_URLS["agmarknet"],
+            "transport": "streamable_http",
+        }
     }
-})
+)
 
-async def run_market_agent(state: Dict[str, Any]) -> Dict[str, Any]:
+llm = ChatAnthropic(model=CLAUDE_MODEL)
+
+_market_agent_graph = None  # lazy init
+
+async def _get_market_agent():
+    global _market_agent_graph
+    if _market_agent_graph is None:
+        tools = await market_mcp.get_tools()
+        _market_agent_graph = create_agent(
+            name="market_agent",
+            model=llm,
+            tools=tools,
+            system_prompt=None,
+            checkpointer=False,
+        )
+    return _market_agent_graph
+
+class MarketInput(BaseModel):
+    query: str        # e.g., "What is the current price of rice in Rangareddy?"
+    state: str        # e.g., "Telangana"
+    district: str     # e.g., "Rangareddy"
+    crop: str         # e.g., "Rice"
+    date: str | None = None  # Optional: "YYYY-MM-DD", defaults to today if omitted
+
+
+@tool(args_schema=MarketInput)
+async def market(query: str, state: str, district: str, crop: str, date: str | None, config: RunnableConfig) -> str:
     """
-    Receives state from the Master Orchestrator, dynamically fetches Market MCP tools
-    from remote Docker servers, runs a ReAct agent, and returns the final answer.
+    Query the market price agent.
+    Use when the user asks for mandi prices, APMC rates, or commodity arrivals.
+    Always pass the user's state, district, crop of interest, and a focused query.
     """
-    query = state.get("query", "")
-    logger.info(f"Received query: '{query}'")
-    logger.info(f"Connecting to remote MCP Servers at {REMOTE_IP} (Ports 9002 & 9006)...")
-    
     try:
-        tools = await mcp_client.get_tools()
-        tool_names = [t.name for t in tools]
-        logger.info(f"Successfully loaded {len(tools)} tools: {tool_names}")
-    except Exception as e:
-        logger.error(f"FATAL: Failed to connect to MCP servers at {REMOTE_IP}. Error: {e}")
-        return {"final_answer": "System Error: Market data servers are currently unreachable. Please check the remote connection."}
-    
-    sys_msg = (
-        "You are an expert agricultural market assistant for AjraSakha. "
-        "Your job is to provide accurate commodity prices, arrivals, and mandi data.\n\n"
-        "*** CRITICAL DATA FETCHING WORKFLOW ***\n"
-        "1. PRIMARY SOURCE (Agmarknet): You MUST always try to fetch data using the Agmarknet tools FIRST.\n"
-        "2. FALLBACK SOURCE (eNAM): IF AND ONLY IF Agmarknet tools return no data, fail, or lack the specific mandi/commodity, you should fallback to using eNAM tools.\n\n"
-        "IMPORTANT: Before fetching trade data, use the relevant tools to resolve the State Name to a State ID, and the APMC/Mandi Name "
-        "to an APMC ID. Never hallucinate prices or IDs."
-    )
-    
-    agent = create_react_agent(
-        model=llm,
-        tools=tools,
-        prompt=sys_msg
-    )
-    
-    logger.info("Executing ReAct agent logic with Primary/Fallback routing...")
-    try:
-        response = await agent.ainvoke({"messages": [HumanMessage(content=query)]})
-        final_message = response["messages"][-1].content
-        
-        logger.info("Successfully generated market data using MCP Tools.")
-        return {"final_answer": final_message}
-        
-    except Exception as e:
-        logger.error(f"Agent execution failed during LLM/Tool invocation: {e}")
-        return {"final_answer": "Error: Failed to process the market query with the provided tools."}
+        context = f"""
+    State   : {state}
+    District: {district}
+    Crop    : {crop}
+    Date    : {date or "today"}
+
+    Query: {query}
+        """.strip()
+
+        system_text = sub_agent_system_prompt_with_thread_location(MARKET_SYSTEM_PROMPT, config)
+        agent = await _get_market_agent()
+        result = await agent.ainvoke(
+            {
+                "messages": [
+                    SystemMessage(content=system_text),
+                    HumanMessage(content=context),
+                ]
+            },
+            config=config,
+        )
+        return result["messages"][-1].content
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("market sub-agent failed: %s", exc)
+        return f"⚠️ The market price service is temporarily unavailable. Error: {type(exc).__name__}"
