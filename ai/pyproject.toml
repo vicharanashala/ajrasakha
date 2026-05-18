@@ -24,6 +24,7 @@ dependencies = [
     #    "sentence-transformers>=2.6.0",
     "langchain-mcp-adapters",
     "langchain-anthropic>=1.4.1",
+    "motor>=3.7.1",
 ]
 
 [build-system]
@@ -39,3 +40,8 @@ testpaths = ["ajrasakha"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+
+[dependency-groups]
+dev = [
+    "langgraph-cli[inmem]>=0.4.26",
+]
