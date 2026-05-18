@@ -486,8 +486,10 @@ export function EightCardsComponent({
   kpiRow1: KpiCardData[];
   kpiRow2: KpiCardData[];
 }) {
+  const combinedKpis = [...kpiRow1, ...kpiRow2];
   return (
     <>
+      {/* Original 2-row layout commented out as requested:
       <div className="mb-2.5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {kpiRow1.map((kpi) => (
           <KpiCard key={kpi.id} kpi={kpi} />
@@ -495,6 +497,12 @@ export function EightCardsComponent({
       </div>
       <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {kpiRow2.map((kpi) => (
+          <KpiCard key={kpi.id} kpi={kpi} />
+        ))}
+      </div>
+      */}
+      <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
+        {combinedKpis.map((kpi) => (
           <KpiCard key={kpi.id} kpi={kpi} />
         ))}
       </div>

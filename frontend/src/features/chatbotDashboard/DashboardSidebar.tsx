@@ -144,7 +144,7 @@ const NAV_SECTIONS: SidebarSection[] = [
             { label: "Geo intelligence", icon: <GlobeIcon />, view: "geo-intelligence" },
         ],
     },
-    {
+    /* {
         sectionLabel: "Quality",
         items: [
             { label: "Feedback & sentiment", icon: <StarIcon />, view: "feedback-sentiment" },
@@ -156,7 +156,7 @@ const NAV_SECTIONS: SidebarSection[] = [
             { label: "Query analysis", icon: <ListIcon />, view: "query-analysis", badge: "28%", badgeVariant: "amber" },
             { label: "App health score", icon: <SunIcon />, view: "app-health" },
         ],
-    },
+    }, */
     {
         sectionLabel: "Management",
         items: [
@@ -471,7 +471,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             </div>
 
             {/* ── HEALTH SCORE FOOTER ── */}
-            <div className="absolute bottom-0 left-0 w-full border-t border-(--border) bg-(--card) overflow-hidden">
+            {/* <div className="absolute bottom-0 left-0 w-full border-t border-(--border) bg-(--card) overflow-hidden">
                 {(collapsed && !isMobile) ? (
                     <div className="flex justify-center items-center py-3" title={`Health score: ${healthScore} — ${healthLabel}`}>
                         <div
@@ -500,7 +500,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                         </div>
                     </div>
                 )}
-            </div>
+            </div> */}
         </aside>
     );
 

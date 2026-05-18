@@ -40,7 +40,7 @@ const DEFAULT_FILTERS: DashboardFilterValues = {
   userType: "all",
 };
 
-export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { className?: string; source?: 'vicharanashala' | 'annam' }) {
+export function AnnamDashboard_dev({ className, source = 'vicharanashala', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam'; onSourceChange?: (source: 'vicharanashala' | 'annam') => void }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [filters, setFilters] = useState<DashboardFilterValues>(DEFAULT_FILTERS);
@@ -122,16 +122,20 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   }, [data.kpiRow1, dauTrend]);
 
   // Remove these two variables when data is dynamic
-  const kpiRow1WithOverlay = patchedKpiRow1.map(card => ({
-    ...card,
-    isDummy: !dynamicIds.includes(card.id),
-  }));
+  const kpiRow1WithOverlay = patchedKpiRow1
+    .filter(card => dynamicIds.includes(card.id)) // Commented out dummy cards: filter only dynamic ones
+    .map(card => ({
+      ...card,
+      isDummy: !dynamicIds.includes(card.id),
+    }));
 
- const kpiRow2WithOverlay = data.kpiRow2.map((card) => ({
-   ...card,
-   // isDummy: false, // temporarily disabled for testing
-   isDummy: card.id !== "totalInstalls",
- }));
+ const kpiRow2WithOverlay = data.kpiRow2
+   .filter(card => card.id === "totalInstalls") // Commented out dummy cards: filter only totalInstalls
+   .map((card) => ({
+     ...card,
+     // isDummy: false, // temporarily disabled for testing
+     isDummy: card.id !== "totalInstalls",
+   }));
 
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
@@ -168,6 +172,36 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
               <UserDetailsView source={source} initialFilters={userDetailsInitialFilters} userType={filters.userType} />
             ) : (
               <div className="flex-1 overflow-y-auto px-5 pb-5">
+                {/* Source Selection Tabs */}
+                <div className="flex items-center gap-2 border-b border-gray-200 dark:border-[#2a2a2a] pb-3 mb-5 pt-3">
+                  <button
+                    onClick={() => onSourceChange?.('vicharanashala')}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      source === 'vicharanashala'
+                        ? 'bg-green-500 text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]'
+                    }`}
+                  >
+                    Vicharanashala
+                  </button>
+                  <button
+                    onClick={() => onSourceChange?.('annam')}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      source === 'annam'
+                        ? 'bg-green-500 text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]'
+                    }`}
+                  >
+                    Annam
+                  </button>
+                  <button
+                    disabled
+                    className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                  >
+                    Outreach
+                  </button>
+                </div>
+
                 <DashboardFilters
                   filters={filters}
                   onFilterChange={setFilters}
@@ -448,7 +482,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                     )}
                   </>
                   </div>
-                  <div
+                  {/* <div
                     className="lg:col-span-2"
                     ref={(el) => {
                       sectionRefs.current["query-analysis"] = el;
@@ -468,7 +502,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                       channelSplit={data.channelSplit}
                       voiceAccuracy={data.voiceAccuracy}
                     />
-                  </div>
+                  </div> */}
                 </div>
 
                 {/* Geo + Health */}
@@ -479,14 +513,14 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
                 >
                   <TopCropsCard topCrops={topCrops} isLoadingTopCrops={isLoadingTopCrops} errorLoadingtopCrops={errorLoadingtopCrops}/>
-                  <GeoCard states={data.geoStates} />
+                  {/* <GeoCard states={data.geoStates} />
                   <div
                     ref={(el) => {
                       sectionRefs.current["app-health"] = el;
                     }}
                   >
                     <HealthScoreCard pillars={data.healthPillars} />
-                  </div>
+                  </div> */}
                 </div>
               </div>
             )}
