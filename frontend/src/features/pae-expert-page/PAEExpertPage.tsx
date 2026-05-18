@@ -28,6 +28,7 @@ import {
 import { QaHeader } from "../qa-interface-page/QaHeader";
 import type { QuestionFilter } from "../qa-interface-page/QA-interface";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
+import { QuestionDetailsDialog } from "../qa-interface-page/QuestionDetailsDialog";
 
 export const PAEExpertPage = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -221,6 +222,12 @@ export const PAEExpertPage = () => {
     if (!selectedQuestion || isResponding) return;
     setIsSidebarCollapsed(false);
 
+    const requiresSources = !status || status === "rejected" || status === "modified";
+    if (requiresSources && sources.length === 0) {
+      toast.error("At least one source is required!");
+      return;
+    }
+
     const payload = { questionId: selectedQuestion, parameters } as IReviewAnswerPayload;
 
     const answerToSubmit = overrideAnswer ?? newAnswer;
@@ -276,11 +283,14 @@ export const PAEExpertPage = () => {
 
     return (
       <Card className="w-full border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
-        <CardHeader className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <FileText className="w-5 h-5 text-primary" />
+        <CardHeader className="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <FileText className="w-5 h-5 text-primary" />
+            </div>
+            <CardTitle className="text-lg font-semibold">Response</CardTitle>
           </div>
-          <CardTitle className="text-lg font-semibold">Response</CardTitle>
+          <QuestionDetailsDialog question={selectedQuestionData} />
         </CardHeader>
         <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden">
           {isSelectedQuestionLoading ? (
