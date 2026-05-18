@@ -12,7 +12,7 @@ import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
 import { BellIcon, ChevronDownIcon } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { RequestsPage } from "./request-page";
+import { RequestsPage } from "./FlagsReported";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect, useRef, useState } from "react";
 import {

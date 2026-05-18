@@ -986,7 +986,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           totalAnswersCount: 0,
           contextId,
           details,
-          isAutoAllocate: !(source === "AJRASAKHA" || source === "WHATSAPP"),
+          isAutoAllocate: true,
           embedding: textEmbedding,
           metrics: null,
           aiInitialAnswer,
@@ -1017,7 +1017,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
               await this.questionRepo.updateQuestion(
                 savedQuestion._id.toString(),
-                { status: 'duplicate', similarityScore, referenceQuestionId, referenceQuestion, referenceSource },
+                { status: 'duplicate', similarityScore, referenceQuestionId, referenceQuestion, referenceSource, isAutoAllocate: false },
                 session,
               );
             }
@@ -1035,7 +1035,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         let queue: ObjectId[] = [];
         let initialUsersToAllocate: typeof users = [];
 
-        if (source === 'AGRI_EXPERT') {
+        if (!duplicateResult?.isDuplicate) {
           initialUsersToAllocate = users.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
 
           queue = initialUsersToAllocate.map(
@@ -1088,7 +1088,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           };
 
           await this.questionSubmissionRepo.addSubmission(submissionData, session);
+        }
 
+        if (source === "AJRASAKHA" || source === "WHATSAPP") {
           const [allModerators, taskForceModerators] = await Promise.all([
             this.userRepo.findModerators(),
             this.userRepo.getSpecialTaskForceModerators()
@@ -1112,6 +1114,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             )
           );
         }
+
+
 
 
         let responseobj = {
@@ -2804,7 +2808,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQuestionFullData(
     questionId: string,
     userId: string,
-  ): Promise<{question: IQuestion | null; approved_moderator: {name: string; email: string}}> {
+  ): Promise<{ question: IQuestion | null; approved_moderator: { name: string; email: string } }> {
     try {
       const user = await this.userRepo.findById(userId);
       const isExpert = user.role == 'expert';
@@ -2824,7 +2828,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (question.status === 'closed') {
         const answers = await this.answerRepo.getByQuestionId(questionId);
         const finalizedAnswer = answers.find(answer => answer.isFinalAnswer);
-        
+
         if (finalizedAnswer?.approvedBy) {
           const moderator = await this.userRepo.findById(
             finalizedAnswer.approvedBy,
@@ -3282,7 +3286,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const inactiveExperts =
         await this.userRepo.findInactiveOrBlockedExperts(session);
       const inactiveExpertIds = inactiveExperts.map(u => u._id.toString());
-      
+
       console.log(`[QuestionService] [Path 1] Found ${inactiveExpertIds.length} inactive/blocked experts to clean`);
 
       if (inactiveExpertIds.length === 0) {
@@ -3395,7 +3399,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           maxAssignments,
           session,
         );
-      
+
       console.log(`[QuestionService] Found ${delayedSubmissions.length} delayed submissions needing escalation`);
 
       if (!delayedSubmissions.length) {
@@ -3486,9 +3490,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           });
         }
       }
-      
+
       console.log(`[QuestionService] Created ${flatAssignments.length} reallocation assignments`);
-      
+
       if (flatAssignments.length > 0) {
         startBalanceWorkloadWorkers(flatAssignments);
       }
@@ -3509,7 +3513,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (type === 'inactive') {
         const inactiveExperts = await this.userRepo.findInactiveOrBlockedExperts(session);
         inactiveExpertIds = inactiveExperts.map(e => e._id.toString());
-        
+
         if (inactiveExpertIds.length > 0) {
           const INACTIVE_PREVIEW_LIMIT = 50;
           questions = await this.questionSubmissionRepo.findSubmissionsWithExpertsInQueue(
@@ -3521,7 +3525,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       } else {
         // escalation - show questions that are delayed (1+ hour)
         // We fetch a generous amount for the manual preview
-        const ESCALATION_LIMIT = 50; 
+        const ESCALATION_LIMIT = 50;
         questions = await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
           ESCALATION_LIMIT,
           session,
@@ -3536,7 +3540,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         questions.forEach(q => {
           q.queue?.forEach((id: any) => allExpertIdsInQueues.add(id.toString()));
         });
-        
+
         const experts = await this.userRepo.getUsersByIds(Array.from(allExpertIdsInQueues), session);
         experts.forEach(e => expertInfoMap.set(e._id.toString(), {
           name: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
@@ -3556,7 +3560,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           console.error(`[QuestionService] Failed to fetch question ${submission.questionId}:`, err);
           return null; // Skip on error to avoid invalid entries
         }
-        
+
         let currentExpertId = null;
         const targetExpertIdsSet = new Set(inactiveExpertIds);
 
@@ -3564,7 +3568,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           // Identify which inactive expert is currently assigned
           const historyLength = (submission.history || []).length;
           const currentInQueue = submission.queue?.[historyLength];
-          
+
           if (currentInQueue && targetExpertIdsSet.has(currentInQueue.toString())) {
             currentExpertId = currentInQueue.toString();
           } else {
@@ -3619,7 +3623,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (assignments.length > 0) {
       startBalanceWorkloadWorkers(assignments, inactiveExpertIds);
     }
-    
+
     return {
       message: 'Manual reallocation started in background',
       submissionsProcessed: assignments.length,
@@ -4656,7 +4660,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
 
-    if(questionIds.length > lessWorkloadExperts.length * MAX_PER_EXPERT) {
+    if (questionIds.length > lessWorkloadExperts.length * MAX_PER_EXPERT) {
       return {
         message: `Too many questions selected. Only ${lessWorkloadExperts.length} experts are currently available for reallocation. The maximum allowed is ${lessWorkloadExperts.length * MAX_PER_EXPERT} questions based on the current expert capacity. Please reduce the number of selected questions or increase the number of available experts.`,
         expertsInvolved: lessWorkloadExperts.length,
@@ -4748,7 +4752,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
         attempts++;
       }
-      if(!assigned) unallocatedQuestionsCount++;
+      if (!assigned) unallocatedQuestionsCount++;
     }
 
     const flatAssignments: { submissionId: string; expertId: string }[] = [];

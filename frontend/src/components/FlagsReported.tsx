@@ -10,7 +10,7 @@ import {
 import type { RequestStatus } from "@/types";
 import { useGetAllRequests } from "@/hooks/api/request/useGetAllRequest";
 import { Pagination } from "./pagination";
-import { Sliders, Circle, Layers, Calendar, ArrowLeft } from "lucide-react";
+import { Sliders, Circle, Layers, Calendar, ArrowLeft, AlertTriangle } from "lucide-react";
 import { RequestCard } from "./RequestCard";
 import ViewDropdown from "@/features/questions/components/ViewDropdown";
 import { RequestListItem } from "./RequestListItem";
@@ -99,7 +99,9 @@ export const RequestsPage = ({
             <button onClick={handleBack} className="shrink-0 text-muted-foreground hover:-translate-x-1 transition-transform duration-200">
               <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
-            <Sliders className="w-5 h-5 text-primary" />
+            <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-500">
+              <AlertTriangle size={20} />
+            </div>
             <h1 className="text-xl font-semibold text-pretty">Flags Reported</h1>
             {selectedRequestId && (
               <Badge variant="secondary" className="ml-2">
@@ -109,71 +111,81 @@ export const RequestsPage = ({
 
           </div>
 
-          <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto items-end">
-            <div className="relative">
-              <ViewDropdown view={view} setView={setView} />
-              <TopRightBadge label="new" left={0} />
-            </div>
-            <div className="flex-1 min-w-[180px]">
-              <label className="text-sm font-medium mb-1 flex items-center gap-1">
-                <Circle className="w-4 h-4 text-primary" />
-                <span>Status</span>
-              </label>
-              <Select value={status} onValueChange={(v) => setStatus(v as any)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex gap-4 flex-wrap md:flex-nowrap w-full md:w-auto items-center">
+  <div className="relative">
+    <ViewDropdown view={view} setView={setView} />
+    <TopRightBadge label="new" left={0} />
+  </div>
 
-            <div className="flex-1 min-w-[180px]">
-              <label className="text-sm font-medium mb-1 flex items-center gap-1">
-                <Layers className="w-4 h-4 text-primary" />
-                <span>Request Type</span>
-              </label>
-              <Select
-                value={reqType}
-                onValueChange={(v) => setReqType(v as any)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  {typeOptions.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+  {/* Status */}
+  <div className="flex items-center gap-3 min-w-[220px]">
+    <label className="text-sm font-medium flex items-center gap-1 whitespace-nowrap">
+      <Circle className="w-4 h-4 text-primary" />
+      <span>Status</span>
+    </label>
 
-            <div className="flex-1 min-w-[180px]">
-              <label className="text-sm font-medium mb-1 flex items-center gap-1">
-                <Calendar className="w-4 h-4 text-primary" />
-                <span>Sort By</span>
-              </label>
-              <Select
-                value={sortOrder}
-                onValueChange={(v) => setSortOrder(v as SortOrder)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Newest" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Created (Newest)</SelectItem>
-                  <SelectItem value="oldest">Created (Oldest)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+    <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="All" />
+      </SelectTrigger>
+
+      <SelectContent>
+        {statusOptions.map((s) => (
+          <SelectItem key={s.value} value={s.value}>
+            {s.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  {/* Request Type */}
+  <div className="flex items-center gap-3 min-w-[220px]">
+    <label className="text-sm font-medium flex items-center gap-1 whitespace-nowrap">
+      <Layers className="w-4 h-4 text-primary" />
+      <span>Request Type</span>
+    </label>
+
+    <Select
+      value={reqType}
+      onValueChange={(v) => setReqType(v as any)}
+    >
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="All" />
+      </SelectTrigger>
+
+      <SelectContent>
+        {typeOptions.map((t) => (
+          <SelectItem key={t.value} value={t.value}>
+            {t.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  {/* Sort By */}
+  <div className="flex items-center gap-3 min-w-[220px]">
+    <label className="text-sm font-medium flex items-center gap-1 whitespace-nowrap">
+      <Calendar className="w-4 h-4 text-primary" />
+      <span>Sort By</span>
+    </label>
+
+    <Select
+      value={sortOrder}
+      onValueChange={(v) => setSortOrder(v as SortOrder)}
+    >
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="Newest" />
+      </SelectTrigger>
+
+      <SelectContent>
+        <SelectItem value="newest">Created (Newest)</SelectItem>
+        <SelectItem value="oldest">Created (Oldest)</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+</div>
         </section>
       </section>
 
