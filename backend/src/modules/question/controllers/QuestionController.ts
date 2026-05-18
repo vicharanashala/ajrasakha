@@ -290,13 +290,11 @@ export class QuestionController {
         );
       }
     } else {
-      let isDuplicate;
       let data;
 
       try {
         console.log("the controller body coming===",body)
         const result = await this.questionService.addQuestion(userId, body);
-        isDuplicate = result.isDuplicate;
         data = result.data;
       } catch(err: any){
         auditPayload = {
@@ -321,13 +319,6 @@ export class QuestionController {
         throw new BadRequestError(
           err?.message || 'Failed to add question',
         );
-      }
-      if (isDuplicate) {
-        return {
-          success: true,
-          message: 'Your question is similar to an existing question.',
-          question_id: data._id,
-        };
       }
 
       auditPayload = {

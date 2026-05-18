@@ -745,6 +745,10 @@ export class QuestionService {
     params.append("duplicateQuestions", String(filter.duplicateQuestions));
     params.append("isOnHold", String(filter.isOnHold));
 
+    if (filter.pae_review === true) {
+      params.append("pae_review", "true");
+    }
+
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
     if (filter.states && filter.states.length > 0) {

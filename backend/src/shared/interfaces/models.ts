@@ -363,7 +363,6 @@ export interface ISimilarQuestion extends IQuestion {
     // matched original question
 }
 export interface AddQuestionResult {
-  isDuplicate: boolean;
   data: Partial<IQuestion>;
 }
 
