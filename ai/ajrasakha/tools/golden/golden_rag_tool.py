@@ -48,6 +48,13 @@ class QuestionAnswerPair(BaseModel):
     similarity_score: Optional[float] = None
 
 
+def _normalize_crop_state(crop: str, state: str) -> tuple[str, str]:
+    """Require crop and state; use 'all' only when a value is missing after trim."""
+    crop = (crop or "").strip() or "all"
+    state = (state or "").strip() or "all"
+    return crop, state
+
+
 async def _get_answer_text_sources_and_author_name(question_id: str):
     answer_document = await answers_collection.find_one(
         {
@@ -74,20 +81,25 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
 @mcp.tool()
 async def golden_retriever_tool(
         query: str,
-        crop: str | None = None,
+        crop: str,
+        state: str,
         season: str | None = None,
-        state: str | None = None,
         domain: str | None = None,
 ):
-    '''Retrieve relevant documents from the Golden dataset based on the query and optional filters.'''
-    filters = {"status": "closed"}
+    """Retrieve relevant documents from the Golden dataset.
 
-    if crop:
-        filters["details.crop"] = crop
+    crop and state are required on every call. Use the farmer's crop and state when known;
+    use crop='all' or state='all' only as a last resort when that dimension is unknown.
+    """
+    crop, state = _normalize_crop_state(crop, state)
+    filters = {
+        "status": "closed",
+        "details.crop": crop,
+        "details.state": state,
+    }
+
     if season:
         filters["details.season"] = season
-    if state:
-        filters["details.state"] = state
     if domain:
         filters["details.domain"] = domain
 
@@ -163,9 +175,9 @@ async def get_available_seasons(state: str | None = None, crop: str | None = Non
 @mcp.tool()
 async def golden_exact_search_tool(
         query: str,
-        crop: str | None = None,
+        crop: str,
+        state: str,
         season: str | None = None,
-        state: str | None = None,
         domain: str | None = None,
         min_score: float = 1.0,
 ) -> list:
@@ -173,31 +185,24 @@ async def golden_exact_search_tool(
     Search the Golden dataset using full-text keyword matching on the 'question'
     and 'text' fields via MongoDB Atlas Search ($search).
 
-    This does NOT use embeddings. It finds documents where the query words
-    appear literally in the question or text. Use this when the user's query
-    contains specific keywords, crop names, disease names, or technical terms
-    that should match word-for-word in the database.
-
-    Falls back to an empty list if no keyword matches are found — the caller
-    should then fall back to golden_retriever_tool (vector search).
+    crop and state are required metadata filters on every search.
 
     Args:
         query:     The user's question or keywords to match.
-        crop:      Optional crop filter (e.g. "Wheat", "Rice").
+        crop:      Required crop filter (e.g. "Wheat", "Rice", or "all" as last resort).
+        state:     Required state filter (e.g. "Punjab", "Maharashtra", or "all" as last resort).
         season:    Optional season filter (e.g. "Kharif", "Rabi").
-        state:     Optional state filter (e.g. "Punjab", "Maharashtra").
         domain:    Optional domain filter (e.g. "pest management").
         min_score: Minimum Atlas Search relevance score to include a result.
-                   Default 1.0 — raise this to require stronger keyword matches.
     """
-    # --- Build post-search metadata filters ---
-    meta_filter: dict = {"status": "closed"}
-    if crop:
-        meta_filter["details.crop"] = crop
+    crop, state = _normalize_crop_state(crop, state)
+    meta_filter: dict = {
+        "status": "closed",
+        "details.crop": crop,
+        "details.state": state,
+    }
     if season:
         meta_filter["details.season"] = season
-    if state:
-        meta_filter["details.state"] = state
     if domain:
         meta_filter["details.domain"] = domain
 

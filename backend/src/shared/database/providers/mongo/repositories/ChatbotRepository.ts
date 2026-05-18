@@ -168,54 +168,6 @@ export class ChatbotRepository implements IChatbotRepository {
       : { email: { $not: { $regex: '^rup', $options: 'i' } } };
   }
 
-  private buildQuestionUserTypeLookupStages(userType: string): any[] {
-    if (userType === 'all') return [];
-
-    const stages: any[] = [
-      {
-        $addFields: {
-          _userOid: {
-            $cond: [
-              { $and: [{ $ne: ['$userId', null] }, { $ne: ['$userId', ''] }] },
-              { $toObjectId: '$userId' },
-              null,
-            ],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_userOid',
-          foreignField: '_id',
-          as: '_userDoc',
-        },
-      },
-    ];
-
-    const userDocFilter = this.buildUserDocFilter(userType);
-    const transformedFilter: Record<string, any> = {};
-    for (const key of Object.keys(userDocFilter)) {
-      transformedFilter[`_userDoc.${key}`] = userDocFilter[key];
-    }
-
-    if (userType === 'external') {
-      stages.push(
-        { $unwind: '$_userDoc' },
-        { $match: transformedFilter }
-      );
-    } else {
-      stages.push(
-        { $unwind: { path: '$_userDoc', preserveNullAndEmptyArrays: true } },
-        { $match: transformedFilter }
-      );
-    }
-
-    stages.push({ $unset: ['_userOid', '_userDoc'] });
-    return stages;
-  }
-
-
   async getKpiSummary(source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<KpiSummary> {
     try {
       await this.init(source);
@@ -430,64 +382,9 @@ export class ChatbotRepository implements IChatbotRepository {
     return [];
   }
 
-  async getQueryCategories(_source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<QueryCategoryEntry[]> {
-    try {
-      await this.initReviewSystem();
-
-      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-
-      const pipeline = [
-        {
-          $match: {
-            source: 'AJRASAKHA',
-            'details.domain': { $exists: true, $nin: [null, ''] },
-          },
-        },
-        ...lookupStages,
-        {
-          $project: {
-            domain: '$details.domain',
-            isDuplicate: {
-              $cond: [
-                { $eq: ['$status', 'duplicate'] },
-                1,
-                0
-              ]
-            }
-          }
-        },
-        {
-          $group: {
-            _id: '$domain',
-            totalCount: { $sum: 1 },
-            duplicateCount: { $sum: '$isDuplicate' },
-            uniqueCount: {
-              $sum: {
-                $cond: [{ $eq: ['$isDuplicate', 0] }, 1, 0]
-              }
-            }
-          }
-        },
-        {
-          $sort: { totalCount: -1 }
-        },
-        {
-          $limit: 15
-        }
-      ];
-
-      const raw = await this.QuestionCollection.aggregate(pipeline, { session }).toArray();
-
-      return raw.map(item => ({
-        label: item._id,
-        questionCount: item.uniqueCount,
-        duplicateQuestionCount: item.duplicateCount,
-      }));
-    } catch (error) {
-      throw new InternalServerError(`Failed to get query categories: ${error}`);
-    }
+  async getQueryCategories(_source = 'vicharanashala', _session?: ClientSession): Promise<QueryCategoryEntry[]> {
+    return [];
   }
-
 
   async getTopCrops(session?: ClientSession): Promise<{ totalQuestions: number, topCrops: any[] }> {
     try {

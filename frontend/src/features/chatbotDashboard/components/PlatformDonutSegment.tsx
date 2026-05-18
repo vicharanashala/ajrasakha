@@ -112,8 +112,7 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ ra
 
   return (
     <>
-      <div className="w-full p-4 bg-white rounded-xl border border-gray-200 
-        dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative">
+      <div className="w-full h-full p-4 bg-white rounded-xl border border-gray-200 dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative flex flex-col">
         {/* Maximize Button */}
         {!isEmpty && (
           <button
@@ -125,11 +124,11 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ ra
           </button>
         )}
 
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 shrink-0">
           Installations by Platform
         </h3>
       {isEmpty ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-6">
+        <div className="flex flex-col items-center justify-center gap-3 py-6 flex-1">
           <svg width={120} height={120}>
             <circle
               cx="60"
@@ -146,7 +145,7 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ ra
           </p>
         </div>
       ) : (
-        <div className="flex flex-col sm:flex-row items-center gap-6 w-full">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-6 w-full flex-1">
           <div className="relative flex items-center justify-center">
             <svg
               width={VIEW}
