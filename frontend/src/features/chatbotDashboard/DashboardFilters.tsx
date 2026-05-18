@@ -77,14 +77,14 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
     <div className="mb-4">
       {/* Page header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-5">
-        <div>
+        {/* <div>
           <h1 className="text-[#1a1a1a] dark:text-white text-base font-medium m-0">
             National overview
           </h1>
           <p className="text-[#888] dark:text-gray-400 text-[12px] mt-1 m-0">
             {getSubtitle()}
           </p>
-        </div>
+        </div> */}
         {/* Commented out All Users and action buttons since All Users moved next to tabs:
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
           <SearchableSelect
