@@ -22,7 +22,9 @@ import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
 // import { UserGrowthChart } from "./components/UserGrowthChart";
-const LazyUserGrowthChart = React.lazy(() => import("./components/UserGrowthChart"));
+const LazyUserGrowthChart = React.lazy(
+  () => import("./components/UserGrowthChart"),
+);
 import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
 import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
@@ -40,31 +42,73 @@ const DEFAULT_FILTERS: DashboardFilterValues = {
   userType: "all",
 };
 
-export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { className?: string; source?: 'vicharanashala' | 'annam' }) {
+export function AnnamDashboard_dev({
+  className,
+  source = "vicharanashala",
+}: {
+  className?: string;
+  source?: "vicharanashala" | "annam";
+}) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
-  const [filters, setFilters] = useState<DashboardFilterValues>(DEFAULT_FILTERS);
+  const [filters, setFilters] =
+    useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters, source);
-  const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source, filters.userType);
-  const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
-  const { data:topCrops, isLoading:isLoadingTopCrops, error:errorLoadingtopCrops } = useTopCrops();
+  const {
+    data: dauTrend,
+    isLoading: dauLoading,
+    error: dauError,
+  } = useDailyUserTrend(30, source, filters.userType);
+  const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
+    Partial<UserDetailsFilters> | undefined
+  >(undefined);
+  const {
+    data: topCrops,
+    isLoading: isLoadingTopCrops,
+    error: errorLoadingtopCrops,
+  } = useTopCrops();
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
-  const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [agriHovered, setAgriHovered] = useState<string | null>(null);
+
+  const sectionRefs = useRef<
+    Partial<Record<DashboardView, HTMLDivElement | null>>
+  >({});
   const { ref: growthRef, isVisible: isGrowthVisible } = useInView();
   const scrollTo = (view: DashboardView) => {
-    setTimeout(() => sectionRefs.current[view]?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    setTimeout(
+      () =>
+        sectionRefs.current[view]?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        }),
+      50,
+    );
   };
 
   // remove this varaible when data is dynamci
-  const dynamicIds = ['dau', 'queries', 'session'];
+  const dynamicIds = ["dau", "queries", "session"];
 
-  const handleSegmentClick = useCallback((seg: Segment) => {
-    if (activeSegment?.id === seg.id) { setActiveSegment(null); return; }
-    setActiveSegment(seg);
-    setTimeout(() => sectionRefs.current["farmer-segments"]?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
-  }, [activeSegment]);
+  const handleSegmentClick = useCallback(
+    (seg: Segment) => {
+      if (activeSegment?.id === seg.id) {
+        setActiveSegment(null);
+        return;
+      }
+      setActiveSegment(seg);
+      setTimeout(
+        () =>
+          sectionRefs.current["farmer-segments"]?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          }),
+        50,
+      );
+    },
+    [activeSegment],
+  );
 
   const clearSegment = () => setActiveSegment(null);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
@@ -109,9 +153,10 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   // Patch the DAU card to show "today / total" instead of just total
   const patchedKpiRow1 = useMemo(() => {
     if (!data?.kpiRow1) return data.kpiRow1;
-    const todayCount = dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
-    return data.kpiRow1.map(card => {
-      if (card.id === 'dau' && todayCount !== null) {
+    const todayCount =
+      dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
+    return data.kpiRow1.map((card) => {
+      if (card.id === "dau" && todayCount !== null) {
         return {
           ...card,
           value: `${todayCount.toLocaleString()} / ${Number(card.value).toLocaleString()}`,
@@ -122,16 +167,16 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   }, [data.kpiRow1, dauTrend]);
 
   // Remove these two variables when data is dynamic
-  const kpiRow1WithOverlay = patchedKpiRow1.map(card => ({
+  const kpiRow1WithOverlay = patchedKpiRow1.map((card) => ({
     ...card,
     isDummy: !dynamicIds.includes(card.id),
   }));
 
- const kpiRow2WithOverlay = data.kpiRow2.map((card) => ({
-   ...card,
-   // isDummy: false, // temporarily disabled for testing
-   isDummy: card.id !== "totalInstalls",
- }));
+  const kpiRow2WithOverlay = data.kpiRow2.map((card) => ({
+    ...card,
+    // isDummy: false, // temporarily disabled for testing
+    isDummy: card.id !== "totalInstalls",
+  }));
 
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
@@ -156,7 +201,8 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
               onViewChange={(view) => {
                 setActiveView(view);
                 // Clear AlertCard's pre-set filters when navigating via sidebar
-                if (view === "user-details") setUserDetailsInitialFilters(undefined);
+                if (view === "user-details")
+                  setUserDetailsInitialFilters(undefined);
                 if (view !== "user-details") scrollTo(view);
               }}
               healthScore={70}
@@ -165,7 +211,11 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
             />
 
             {activeView === "user-details" ? (
-              <UserDetailsView source={source} initialFilters={userDetailsInitialFilters} userType={filters.userType} />
+              <UserDetailsView
+                source={source}
+                initialFilters={userDetailsInitialFilters}
+                userType={filters.userType}
+              />
             ) : (
               <div className="flex-1 overflow-y-auto px-5 pb-5">
                 <DashboardFilters
@@ -180,12 +230,22 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   />
                 )}
 
-                <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
-                  {isLoading && <Spinner text="Fetching metrics..." fullScreen={false} />}
+                <div
+                  ref={(el) => {
+                    sectionRefs.current["overview"] = el;
+                  }}
+                  className="relative"
+                >
+                  {isLoading && (
+                    <Spinner text="Fetching metrics..." fullScreen={false} />
+                  )}
 
                   {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
                   {/* Uncomment the above line when data is dynamic and delete the below code */}
-                  <EightCardsComponent kpiRow1={kpiRow1WithOverlay} kpiRow2={kpiRow2WithOverlay} />
+                  <EightCardsComponent
+                    kpiRow1={kpiRow1WithOverlay}
+                    kpiRow2={kpiRow2WithOverlay}
+                  />
                 </div>
 
                 {/* DAU trend + Alerts */}
@@ -202,7 +262,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                     error={dauError}
                   /> */}
                   {isGrowthVisible ? (
-                    <Suspense fallback={<Spinner/>}>
+                    <Suspense fallback={<Spinner />}>
                       <LazyUserGrowthChart />
                     </Suspense>
                   ) : (
@@ -211,7 +271,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                       <div className="h-[300px] bg-gray-100 dark:bg-[#1a1a1a] animate-pulse rounded-xl" />
                     </div>
                   )}
-                  
+
                   <div
                     ref={(el) => {
                       sectionRefs.current["bugs-ux"] = el;
@@ -219,21 +279,34 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   >
                     <AlertCard
                       alerts={data.alerts}
-                      inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0}
+                      inactiveUsersLast3Days={
+                        (data as any).inactiveUsersLast3Days ?? 0
+                      }
                       onInactiveClick={handleInactiveUsersClick}
-                      duplicateQuestionsCount={(data as any).duplicateQuestionsCount ?? 0}
+                      duplicateQuestionsCount={
+                        (data as any).duplicateQuestionsCount ?? 0
+                      }
                       onDuplicateClick={() => setIsDuplicateModalOpen(true)}
-                      lowFeedbackUsersCount={(data as any).lowFeedbackUsersCount ?? null}
+                      lowFeedbackUsersCount={
+                        (data as any).lowFeedbackUsersCount ?? null
+                      }
                       onLowFeedbackClick={handleLowFeedbackUsersClick}
                     />
                     {isDuplicateModalOpen && (
-                      <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} source={source} />
+                      <DuplicateQuestionsModal
+                        onClose={() => setIsDuplicateModalOpen(false)}
+                        source={source}
+                      />
                     )}
                   </div>
                 </div>
 
                 {/* Demographics */}
-                <div ref={(el) => { sectionRefs.current["demographics"] = el; }}>
+                <div
+                  ref={(el) => {
+                    sectionRefs.current["demographics"] = el;
+                  }}
+                >
                   <UserDemographicsSection
                     data={{
                       ageGroups: data.ageGroups,
@@ -266,21 +339,27 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                           <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                         </button>
 
-                      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
-                        Knowledge & Awareness
-                      </div>
-                      <div className="flex flex-wrap gap-4 justify-center items-center h-[calc(100%-2rem)] overflow-hidden">
-                        {/* KCC Awareness Circle */}
-                        {(() => {
-                          const pct = data.kccAwareness?.[0]?.pct ?? 0;
-                          const r = 45,
-                            cx = 60,
-                            cy = 60,
-                            circ = 2 * Math.PI * r;
-                          const dash = (pct / 100) * circ;
-                          return (
-                            <div className="flex flex-col items-center gap-2 min-w-0">
-                              <svg
+                        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
+                          Knowledge & Awareness
+                        </div>
+                        <div className="flex flex-wrap gap-4 justify-center items-center h-[calc(100%-2rem)] overflow-hidden">
+                          {/* KCC Awareness Circle */}
+                          {(() => {
+                            const pct =
+                              data.kccAwareness?.[0]?.count +
+                                data.kccAwareness?.[1]?.count || 0;
+                            const r = 45,
+                              cx = 60,
+                              cy = 60,
+                              circ = 2 * Math.PI * r;
+                            // const dash = (pct / 100) * circ;
+                            const yesDash =
+                              (data.kccAwareness?.[0]?.count / pct) * circ;
+                            const noDash =
+                              (data.kccAwareness?.[1]?.count / pct) * circ;
+                            return (
+                              <div className="flex flex-col items-center gap-2 min-w-0">
+                                {/* <svg
                                 viewBox="0 0 120 120"
                                 className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
                               >
@@ -299,7 +378,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                                   fill="none"
                                   stroke="#3AAA5A"
                                   strokeWidth={10}
-                                  strokeDasharray={`${dash} ${circ - dash}`}
+                                  strokeDasharray={`${aware} ${circ - dash}`}
                                   strokeDashoffset={circ / 4}
                                   transform={`rotate(-90 ${cx} ${cy})`}
                                 />
@@ -311,142 +390,511 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                                   fontWeight={600}
                                   fill="#3AAA5A"
                                 >
-                                  {pct}%
+                                  Total {pct}
                                 </text>
-                              </svg>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                KCC Awareness
-                              </span>
-                            </div>
-                          );
-                        })()}
-                        {/* Uses Agri Apps Circle */}
-                        {(() => {
-                          const pct = data.agriAppUsage?.[0]?.pct ?? 0;
-                          const r = 45,
-                            cx = 60,
-                            cy = 60,
-                            circ = 2 * Math.PI * r;
-                          const dash = (pct / 100) * circ;
-                          return (
-                            <div className="flex flex-col items-center gap-2 min-w-0">
-                              <svg
-                                viewBox="0 0 120 120"
-                                className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
-                              >
-                                <circle
-                                  cx={cx}
-                                  cy={cy}
-                                  r={r}
-                                  fill="none"
-                                  stroke="#e5e7eb"
-                                  strokeWidth={10}
-                                />
-                                <circle
-                                  cx={cx}
-                                  cy={cy}
-                                  r={r}
-                                  fill="none"
-                                  stroke="#378ADD"
-                                  strokeWidth={10}
-                                  strokeDasharray={`${dash} ${circ - dash}`}
-                                  strokeDashoffset={circ / 4}
-                                  transform={`rotate(-90 ${cx} ${cy})`}
-                                />
-                                <text
-                                  x={cx}
-                                  y={cy + 6}
-                                  textAnchor="middle"
-                                  fontSize={16}
-                                  fontWeight={600}
-                                  fill="#378ADD"
+                              </svg> */}
+
+                                <svg
+                                  viewBox="0 0 120 120"
+                                  className="w-[110px] h-[110px]"
                                 >
-                                  {pct}%
-                                </text>
-                              </svg>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                Uses Agri Apps
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
+                                  {/* Background Ring */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#2f3542"
+                                    strokeWidth={10}
+                                  />
 
-                    {/* Maximized Modal */}
-                    {isKnowledgeMaximized && createPortal(
-                      <div 
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-                        onClick={() => setIsKnowledgeMaximized(false)}
-                      >
-                        <div 
-                          className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() => setIsKnowledgeMaximized(false)}
-                            className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                            title="Close"
-                          >
-                            <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                          </button>
+                                  {/* YES SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#22c55e"
+                                    strokeWidth={hovered === "yes" ? 14 : 10}
+                                    strokeDasharray={`${yesDash} ${circ}`}
+                                    strokeDashoffset={0}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setHovered("yes")}
+                                    onMouseLeave={() => setHovered(null)}
+                                  />
 
-                          <div className="mb-8">
-                            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                              Knowledge & Awareness
-                            </h3>
-                          </div>
+                                  {/* NO SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#6b7280"
+                                    strokeWidth={hovered === "no" ? 14 : 10}
+                                    strokeDasharray={`${noDash} ${circ}`}
+                                    strokeDashoffset={-yesDash}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setHovered("no")}
+                                    onMouseLeave={() => setHovered(null)}
+                                  />
 
-                          <div className="flex flex-wrap gap-12 justify-center items-center">
-                            {(() => {
-                              const pct = data.kccAwareness?.[0]?.pct ?? 0;
-                              const circ = 2 * Math.PI * 90;
-                              const dash = (pct / 100) * circ;
-                              return (
-                                <div className="flex flex-col items-center gap-4">
-                                  <svg viewBox="0 0 240 240" className="w-[200px] h-[200px]">
-                                    <circle cx={120} cy={120} r={90} fill="none" stroke="#e5e7eb" strokeWidth={20} />
-                                    <circle cx={120} cy={120} r={90} fill="none" stroke="#3AAA5A" strokeWidth={20}
-                                      strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
-                                      transform="rotate(-90 120 120)" />
-                                    <text x={120} y={130} textAnchor="middle" fontSize={32} fontWeight={600} fill="#3AAA5A">
-                                      {pct}%
-                                    </text>
-                                  </svg>
-                                  <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
-                                    KCC Awareness
-                                  </span>
-                                </div>
-                              );
-                            })()}
+                                  {/* CENTER TEXT */}
+                                  <text
+                                    x={cx}
+                                    y={cy - 2}
+                                    textAnchor="middle"
+                                    fontSize={hovered ? 16 : 18}
+                                    fontWeight={700}
+                                    fill="#ffffff"
+                                  >
+                                    {hovered === "yes"
+                                      ? `${data.kccAwareness?.[0]?.count ?? 0}`
+                                      : hovered === "no"
+                                        ? `${data.kccAwareness?.[1]?.count ?? 0}`
+                                        : pct}
+                                  </text>
 
-                            {(() => {
-                              const pct = data.agriAppUsage?.[0]?.pct ?? 0;
-                              const circ = 2 * Math.PI * 90;
-                              const dash = (pct / 100) * circ;
-                              return (
-                                <div className="flex flex-col items-center gap-4">
-                                  <svg viewBox="0 0 240 240" className="w-[200px] h-[200px]">
-                                    <circle cx={120} cy={120} r={90} fill="none" stroke="#e5e7eb" strokeWidth={20} />
-                                    <circle cx={120} cy={120} r={90} fill="none" stroke="#378ADD" strokeWidth={20}
-                                      strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
-                                      transform="rotate(-90 120 120)" />
-                                    <text x={120} y={130} textAnchor="middle" fontSize={32} fontWeight={600} fill="#378ADD">
-                                      {pct}%
-                                    </text>
-                                  </svg>
-                                  <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
-                                    Uses Agri Apps
-                                  </span>
-                                </div>
-                              );
-                            })()}
-                          </div>
+                                  <text
+                                    x={cx}
+                                    y={cy + 18}
+                                    textAnchor="middle"
+                                    fontSize={11}
+                                    fill="#9ca3af"
+                                  >
+                                    {hovered === "yes"
+                                      ? "Aware"
+                                      : hovered === "no"
+                                        ? "Unaware"
+                                        : "TOTAL"}
+                                  </text>
+                                </svg>
+
+                                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                  KCC Awareness
+                                </span>
+                              </div>
+                            );
+                          })()}
+                          {/* Uses Agri Apps Circle */}
+                          {(() => {
+                            const pct =
+                              data.agriAppUsage?.[0]?.count +
+                                data.agriAppUsage?.[1]?.count || 0;
+                            const r = 45,
+                              cx = 60,
+                              cy = 60,
+                              circ = 2 * Math.PI * r;
+                            // const dash = (pct / 100) * circ;
+                            const yesDash =
+                              (data.agriAppUsage?.[0]?.count / pct) * circ;
+                            const noDash =
+                              (data.agriAppUsage?.[1]?.count / pct) * circ;
+                            return (
+                              <div className="flex flex-col items-center gap-2 min-w-0">
+                                {/* <svg
+                                  viewBox="0 0 120 120"
+                                  className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
+                                >
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#e5e7eb"
+                                    strokeWidth={10}
+                                  />
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#378ADD"
+                                    strokeWidth={10}
+                                    strokeDasharray={`${dash} ${circ - dash}`}
+                                    strokeDashoffset={circ / 4}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                  />
+                                  <text
+                                    x={cx}
+                                    y={cy + 6}
+                                    textAnchor="middle"
+                                    fontSize={16}
+                                    fontWeight={600}
+                                    fill="#378ADD"
+                                  >
+                                    {pct}%
+                                  </text>
+                                </svg> */}
+
+                                <svg
+                                  viewBox="0 0 120 120"
+                                  className="w-[110px] h-[110px]"
+                                >
+                                  {/* Background Ring */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#2f3542"
+                                    strokeWidth={10}
+                                  />
+
+                                  {/* YES SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="blue"
+                                    strokeWidth={
+                                      agriHovered === "yes" ? 14 : 10
+                                    }
+                                    strokeDasharray={`${yesDash} ${circ}`}
+                                    strokeDashoffset={0}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setAgriHovered("yes")}
+                                    onMouseLeave={() => setAgriHovered(null)}
+                                  />
+
+                                  {/* NO SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#ffff"
+                                    strokeWidth={agriHovered === "no" ? 14 : 10}
+                                    strokeDasharray={`${noDash} ${circ}`}
+                                    strokeDashoffset={-yesDash}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setAgriHovered("no")}
+                                    onMouseLeave={() => setAgriHovered(null)}
+                                  />
+
+                                  {/* CENTER TEXT */}
+                                  <text
+                                    x={cx}
+                                    y={cy - 2}
+                                    textAnchor="middle"
+                                    fontSize={agriHovered ? 16 : 18}
+                                    fontWeight={700}
+                                    fill="#ffffff"
+                                  >
+                                    {agriHovered === "yes"
+                                      ? `${data.agriAppUsage?.[0]?.count ?? 0}`
+                                      : agriHovered === "no"
+                                        ? `${data.agriAppUsage?.[1]?.count ?? 0}`
+                                        : pct}
+                                  </text>
+
+                                  <text
+                                    x={cx}
+                                    y={cy + 18}
+                                    textAnchor="middle"
+                                    fontSize={11}
+                                    fill="#9ca3af"
+                                  >
+                                    {agriHovered === "yes"
+                                      ? "Aware"
+                                      : agriHovered === "no"
+                                        ? "Unaware"
+                                        : "TOTAL"}
+                                  </text>
+                                </svg>
+
+                                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                  Uses Agri Apps
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
-                      </div>,
-                      document.body
-                    )}
-                  </>
+                      </div>
+
+                      {/* Maximized Modal */}
+                      {isKnowledgeMaximized &&
+                        createPortal(
+                          <div
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+                            onClick={() => setIsKnowledgeMaximized(false)}
+                          >
+                            <div
+                              className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                onClick={() => setIsKnowledgeMaximized(false)}
+                                className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                title="Close"
+                              >
+                                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                              </button>
+
+                              <div className="mb-8">
+                                <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+                                  Knowledge & Awareness
+                                </h3>
+                              </div>
+
+                              <div className="flex flex-wrap gap-12 justify-center items-center">
+                                {(() => {
+                                  const pct =
+                                    data.kccAwareness?.[0]?.count +
+                                      data.kccAwareness?.[1]?.count || 0;
+                                  const circ = 2 * Math.PI * 90;
+                                  // const dash = (pct / 100) * circ;
+                                  const yesDash =
+                                    (data.kccAwareness?.[0]?.count / pct) *
+                                    circ;
+                                  const noDash =
+                                    (data.kccAwareness?.[1]?.count / pct) *
+                                    circ;
+                                  const cx = 120,
+                                    cy = 120,
+                                    r = 90;
+                                  return (
+                                    <div className="flex flex-col items-center gap-4">
+                                      {/* <svg
+                                        viewBox="0 0 240 240"
+                                        className="w-[200px] h-[200px]"
+                                      >
+                                        <circle
+                                          cx={120}
+                                          cy={120}
+                                          r={90}
+                                          fill="none"
+                                          stroke="#e5e7eb"
+                                          strokeWidth={20}
+                                        />
+                                        <circle
+                                          cx={120}
+                                          cy={120}
+                                          r={90}
+                                          fill="none"
+                                          stroke="#3AAA5A"
+                                          strokeWidth={20}
+                                          strokeDasharray={`${dash} ${circ - dash}`}
+                                          strokeDashoffset={circ / 4}
+                                          transform="rotate(-90 120 120)"
+                                        />
+                                        <text
+                                          x={120}
+                                          y={130}
+                                          textAnchor="middle"
+                                          fontSize={32}
+                                          fontWeight={600}
+                                          fill="#3AAA5A"
+                                        >
+                                          {pct}%
+                                        </text>
+                                      </svg> */}
+
+                                      <svg
+                                        viewBox="0 0 240 240"
+                                        className="w-[200px] h-[200px]"
+                                      >
+                                        {/* Background Ring */}
+                                        <circle
+                                          cx={cx}
+                                          cy={cy}
+                                          r={r}
+                                          fill="none"
+                                          stroke="#2f3542"
+                                          strokeWidth={10}
+                                        />
+
+                                        {/* YES SEGMENT */}
+                                        <circle
+                                          cx={cx}
+                                          cy={cy}
+                                          r={r}
+                                          fill="none"
+                                          stroke="#22c55e"
+                                          strokeWidth={
+                                            hovered === "yes" ? 14 : 10
+                                          }
+                                          strokeDasharray={`${yesDash} ${circ}`}
+                                          strokeDashoffset={0}
+                                          transform={`rotate(-90 ${cx} ${cy})`}
+                                          strokeLinecap="butt"
+                                          className="transition-all duration-300 cursor-pointer"
+                                          onMouseEnter={() => setHovered("yes")}
+                                          onMouseLeave={() => setHovered(null)}
+                                        />
+
+                                        {/* NO SEGMENT */}
+                                        <circle
+                                          cx={cx}
+                                          cy={cy}
+                                          r={r}
+                                          fill="none"
+                                          stroke="#6b7280"
+                                          strokeWidth={
+                                            hovered === "no" ? 14 : 10
+                                          }
+                                          strokeDasharray={`${noDash} ${circ}`}
+                                          strokeDashoffset={-yesDash}
+                                          transform={`rotate(-90 ${cx} ${cy})`}
+                                          strokeLinecap="butt"
+                                          className="transition-all duration-300 cursor-pointer"
+                                          onMouseEnter={() => setHovered("no")}
+                                          onMouseLeave={() => setHovered(null)}
+                                        />
+
+                                        {/* CENTER TEXT */}
+                                        <text
+                                          x={120}
+                                          y={120}
+                                          textAnchor="middle"
+                                          fontSize={hovered ? 32 : 32}
+                                          fontWeight={700}
+                                          fill="#ffffff"
+                                        >
+                                          {hovered === "yes"
+                                            ? `${data.kccAwareness?.[0]?.count ?? 0}`
+                                            : hovered === "no"
+                                              ? `${data.kccAwareness?.[1]?.count ?? 0}`
+                                              : pct}
+                                        </text>
+
+                                        <text
+                                          x={120}
+                                          y={138}
+                                          textAnchor="middle"
+                                          fontSize={20}
+                                          fill="#9ca3af"
+                                        >
+                                          {hovered === "yes"
+                                            ? "Aware"
+                                            : hovered === "no"
+                                              ? "Unaware"
+                                              : "TOTAL"}
+                                        </text>
+                                      </svg>
+                                      <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
+                                        KCC Awareness
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
+
+                                {(() => {
+                                  const pct =
+                                    data.agriAppUsage?.[0]?.count +
+                                      data.agriAppUsage?.[1]?.count || 0;
+                                  const circ = 2 * Math.PI * 90;
+                                  // const dash = (pct / 100) * circ;
+                                   const yesDash =
+                                    (data.kccAwareness?.[0]?.count / pct) *
+                                    circ;
+                                  const noDash =
+                                    (data.kccAwareness?.[1]?.count / pct) *
+                                    circ;
+                                      const cx = 120,
+                                    cy = 120,
+                                    r = 90;
+                                  return (
+                                    <div className="flex flex-col items-center gap-4">
+                                      <svg
+                                        viewBox="0 0 240 240"
+                                        className="w-[200px] h-[200px]"
+                                      >
+                                        <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#2f3542"
+                                    strokeWidth={10}
+                                  />
+
+                                  {/* YES SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="blue"
+                                    strokeWidth={
+                                      agriHovered === "yes" ? 14 : 10
+                                    }
+                                    strokeDasharray={`${yesDash} ${circ}`}
+                                    strokeDashoffset={0}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setAgriHovered("yes")}
+                                    onMouseLeave={() => setAgriHovered(null)}
+                                  />
+
+                                  {/* NO SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#ffff"
+                                    strokeWidth={agriHovered === "no" ? 14 : 10}
+                                    strokeDasharray={`${noDash} ${circ}`}
+                                    strokeDashoffset={-yesDash}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setAgriHovered("no")}
+                                    onMouseLeave={() => setAgriHovered(null)}
+                                  />
+
+                                  {/* CENTER TEXT */}
+                                   <text
+                                          x={120}
+                                          y={120}
+                                          textAnchor="middle"
+                                          fontSize={agriHovered ? 32 : 32}
+                                          fontWeight={700}
+                                          fill="#ffffff"
+                                        >
+                                          {agriHovered === "yes"
+                                            ? `${data.agriAppUsage?.[0]?.count ?? 0}`
+                                            : agriHovered === "no"
+                                              ? `${data.agriAppUsage?.[1]?.count ?? 0}`
+                                              : pct}
+                                        </text>
+
+                                        <text
+                                          x={120}
+                                          y={138}
+                                          textAnchor="middle"
+                                          fontSize={20}
+                                          fill="#9ca3af"
+                                        >
+                                          {agriHovered === "yes"
+                                            ? "Aware"
+                                            : agriHovered === "no"
+                                              ? "Unaware"
+                                              : "TOTAL"}
+                                        </text>
+                                      </svg>
+                                      <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
+                                        Uses Agri Apps
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>,
+                          document.body,
+                        )}
+                    </>
                   </div>
                   <div
                     className="lg:col-span-2"
@@ -478,7 +926,11 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   }}
                   className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
                 >
-                  <TopCropsCard topCrops={topCrops} isLoadingTopCrops={isLoadingTopCrops} errorLoadingtopCrops={errorLoadingtopCrops}/>
+                  <TopCropsCard
+                    topCrops={topCrops}
+                    isLoadingTopCrops={isLoadingTopCrops}
+                    errorLoadingtopCrops={errorLoadingtopCrops}
+                  />
                   <GeoCard states={data.geoStates} />
                   <div
                     ref={(el) => {
