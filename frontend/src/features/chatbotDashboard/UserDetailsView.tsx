@@ -118,6 +118,8 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+    const [hovered, setHovered] = useState<string | null>(null);
+      const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
   const scrollToTable = () => {
@@ -334,7 +336,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                 </div>
                 <div className="flex gap-8 justify-center items-center flex-1 py-4">
                   {/* KCC Awareness Circle */}
-                  {(() => {
+                  {/* {(() => {
                     const pct = dashboardData.kccAwareness?.[0]?.pct ?? 0;
                     const r = 45, cx = 60, cy = 60, circ = 2 * Math.PI * r;
                     const dash = (pct / 100) * circ;
@@ -352,10 +354,112 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                         <span className="text-xs text-gray-500 dark:text-gray-400">KCC Awareness</span>
                       </div>
                     );
-                  })()}
+                  })()} */}
+
+                  {(() => {
+                            const pct =
+                              dashboardData.kccAwareness?.[0]?.count +
+                                dashboardData.kccAwareness?.[1]?.count || 0;
+                            const r = 45,
+                              cx = 60,
+                              cy = 60,
+                              circ = 2 * Math.PI * r;
+                            // const dash = (pct / 100) * circ;
+                            const yesDash =
+                              (dashboardData.kccAwareness?.[0]?.count / pct) * circ;
+                            const noDash =
+                              (dashboardData.kccAwareness?.[1]?.count / pct) * circ;
+                            return (
+                              <div className="flex flex-col items-center gap-3">
+
+                                <svg
+                                  viewBox="0 0 120 120"
+                                  className="w-[110px] h-[110px]"
+                                >
+                                  {/* Background Ring */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#2f3542"
+                                    strokeWidth={10}
+                                  />
+
+                                  {/* YES SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#22c55e"
+                                    strokeWidth={hovered === "yes" ? 14 : 10}
+                                    strokeDasharray={`${yesDash} ${circ}`}
+                                    strokeDashoffset={0}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setHovered("yes")}
+                                    onMouseLeave={() => setHovered(null)}
+                                  />
+
+                                  {/* NO SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#6b7280"
+                                    strokeWidth={hovered === "no" ? 14 : 10}
+                                    strokeDasharray={`${noDash} ${circ}`}
+                                    strokeDashoffset={-yesDash}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setHovered("no")}
+                                    onMouseLeave={() => setHovered(null)}
+                                  />
+
+                                  {/* CENTER TEXT */}
+                                  <text
+                                    x={cx}
+                                    y={cy - 2}
+                                    textAnchor="middle"
+                                    fontSize={hovered ? 16 : 18}
+                                    fontWeight={700}
+                                    fill="#ffffff"
+                                  >
+                                    {hovered === "yes"
+                                      ? `${dashboardData.kccAwareness?.[0]?.count ?? 0}`
+                                      : hovered === "no"
+                                        ? `${dashboardData.kccAwareness?.[1]?.count ?? 0}`
+                                        : pct}
+                                  </text>
+
+                                  <text
+                                    x={cx}
+                                    y={cy + 18}
+                                    textAnchor="middle"
+                                    fontSize={11}
+                                    fill="#9ca3af"
+                                  >
+                                    {hovered === "yes"
+                                      ? "Aware"
+                                      : hovered === "no"
+                                        ? "Unaware"
+                                        : "TOTAL"}
+                                  </text>
+                                </svg>
+
+                                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                  KCC Awareness
+                                </span>
+                              </div>
+                            );
+                          })()}
 
                   {/* Agri Apps Usage Circle */}
-                  {(() => {
+                  {/* {(() => {
                     const pct = dashboardData.agriAppUsage?.[0]?.pct ?? 0;
                     const r = 45, cx = 60, cy = 60, circ = 2 * Math.PI * r;
                     const dash = (pct / 100) * circ;
@@ -373,7 +477,110 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                         <span className="text-xs text-gray-500 dark:text-gray-400">Uses Agri Apps</span>
                       </div>
                     );
-                  })()}
+                  })()} */}
+                  {(() => {
+                            const pct =
+                              dashboardData.agriAppUsage?.[0]?.count +
+                                dashboardData.agriAppUsage?.[1]?.count || 0;
+                            const r = 45,
+                              cx = 60,
+                              cy = 60,
+                              circ = 2 * Math.PI * r;
+                            // const dash = (pct / 100) * circ;
+                            const yesDash =
+                              (dashboardData.agriAppUsage?.[0]?.count / pct) * circ;
+                            const noDash =
+                              (dashboardData.agriAppUsage?.[1]?.count / pct) * circ;
+                            return (
+                              <div className="flex flex-col items-center gap-3">
+
+                                <svg
+                                  viewBox="0 0 120 120"
+                                  className="w-[110px] h-[110px]"
+                                >
+                                  {/* Background Ring */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#2f3542"
+                                    strokeWidth={10}
+                                  />
+
+                                  {/* YES SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="blue"
+                                    strokeWidth={
+                                      agriHovered === "yes" ? 14 : 10
+                                    }
+                                    strokeDasharray={`${yesDash} ${circ}`}
+                                    strokeDashoffset={0}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setAgriHovered("yes")}
+                                    onMouseLeave={() => setAgriHovered(null)}
+                                  />
+
+                                  {/* NO SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#ffff"
+                                    strokeWidth={agriHovered === "no" ? 14 : 10}
+                                    strokeDasharray={`${noDash} ${circ}`}
+                                    strokeDashoffset={-yesDash}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setAgriHovered("no")}
+                                    onMouseLeave={() => setAgriHovered(null)}
+                                  />
+
+                                  {/* CENTER TEXT */}
+                                  <text
+                                    x={cx}
+                                    y={cy - 2}
+                                    textAnchor="middle"
+                                    fontSize={agriHovered ? 16 : 18}
+                                    fontWeight={700}
+                                    fill="#ffffff"
+                                  >
+                                    {agriHovered === "yes"
+                                      ? `${dashboardData.agriAppUsage?.[0]?.count ?? 0}`
+                                      : agriHovered === "no"
+                                        ? `${dashboardData.agriAppUsage?.[1]?.count ?? 0}`
+                                        : pct}
+                                  </text>
+
+                                  <text
+                                    x={cx}
+                                    y={cy + 18}
+                                    textAnchor="middle"
+                                    fontSize={11}
+                                    fill="#9ca3af"
+                                  >
+                                    {agriHovered === "yes"
+                                      ? "Aware"
+                                      : agriHovered === "no"
+                                        ? "Unaware"
+                                        : "TOTAL"}
+                                  </text>
+                                </svg>
+
+                                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                  Uses Agri Apps
+                                </span>
+                              </div>
+                            );
+                          })()}
                 </div>
               </div>
             </div>
@@ -413,7 +620,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
 
                   <div className="flex gap-12 justify-center items-center">
                     {/* KCC Awareness - Enlarged */}
-                    {(() => {
+                    {/* {(() => {
                       const pct = dashboardData.kccAwareness?.[0]?.pct ?? 0;
                       const r = 80, cx = 100, cy = 100, circ = 2 * Math.PI * r;
                       const dash = (pct / 100) * circ;
@@ -432,10 +639,117 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                           <span className="text-base text-gray-700 dark:text-gray-200 font-medium">KCC Awareness</span>
                         </div>
                       );
-                    })()}
+                    })()} */}
+
+                    {(() => {
+                                  const pct =
+                                    dashboardData.kccAwareness?.[0]?.count +
+                                      dashboardData.kccAwareness?.[1]?.count || 0;
+                                  const circ = 2 * Math.PI * 90;
+                                  // const dash = (pct / 100) * circ;
+                                  const yesDash =
+                                    (dashboardData.kccAwareness?.[0]?.count / pct) *
+                                    circ;
+                                  const noDash =
+                                    (dashboardData.kccAwareness?.[1]?.count / pct) *
+                                    circ;
+                                  const cx = 120,
+                                    cy = 120,
+                                    r = 90;
+                                  return (
+                                    <div className="flex flex-col items-center gap-4">
+
+                                      <svg
+                                        viewBox="0 0 240 240"
+                                        className="w-[200px] h-[200px]"
+                                      >
+                                        {/* Background Ring */}
+                                        <circle
+                                          cx={cx}
+                                          cy={cy}
+                                          r={r}
+                                          fill="none"
+                                          stroke="#2f3542"
+                                          strokeWidth={10}
+                                        />
+
+                                        {/* YES SEGMENT */}
+                                        <circle
+                                          cx={cx}
+                                          cy={cy}
+                                          r={r}
+                                          fill="none"
+                                          stroke="#22c55e"
+                                          strokeWidth={
+                                            hovered === "yes" ? 14 : 10
+                                          }
+                                          strokeDasharray={`${yesDash} ${circ}`}
+                                          strokeDashoffset={0}
+                                          transform={`rotate(-90 ${cx} ${cy})`}
+                                          strokeLinecap="butt"
+                                          className="transition-all duration-300 cursor-pointer"
+                                          onMouseEnter={() => setHovered("yes")}
+                                          onMouseLeave={() => setHovered(null)}
+                                        />
+
+                                        {/* NO SEGMENT */}
+                                        <circle
+                                          cx={cx}
+                                          cy={cy}
+                                          r={r}
+                                          fill="none"
+                                          stroke="#6b7280"
+                                          strokeWidth={
+                                            hovered === "no" ? 14 : 10
+                                          }
+                                          strokeDasharray={`${noDash} ${circ}`}
+                                          strokeDashoffset={-yesDash}
+                                          transform={`rotate(-90 ${cx} ${cy})`}
+                                          strokeLinecap="butt"
+                                          className="transition-all duration-300 cursor-pointer"
+                                          onMouseEnter={() => setHovered("no")}
+                                          onMouseLeave={() => setHovered(null)}
+                                        />
+
+                                        {/* CENTER TEXT */}
+                                        <text
+                                          x={120}
+                                          y={120}
+                                          textAnchor="middle"
+                                          fontSize={hovered ? 32 : 32}
+                                          fontWeight={700}
+                                          fill="#ffffff"
+                                        >
+                                          {hovered === "yes"
+                                            ? `${dashboardData.kccAwareness?.[0]?.count ?? 0}`
+                                            : hovered === "no"
+                                              ? `${dashboardData.kccAwareness?.[1]?.count ?? 0}`
+                                              : pct}
+                                        </text>
+
+                                        <text
+                                          x={120}
+                                          y={138}
+                                          textAnchor="middle"
+                                          fontSize={20}
+                                          fill="#9ca3af"
+                                        >
+                                          {hovered === "yes"
+                                            ? "Aware"
+                                            : hovered === "no"
+                                              ? "Unaware"
+                                              : "TOTAL"}
+                                        </text>
+                                      </svg>
+                                      <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
+                                        KCC Awareness
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
 
                     {/* Agri Apps - Enlarged */}
-                    {(() => {
+                    {/* {(() => {
                       const pct = dashboardData.agriAppUsage?.[0]?.pct ?? 0;
                       const r = 80, cx = 100, cy = 100, circ = 2 * Math.PI * r;
                       const dash = (pct / 100) * circ;
@@ -454,7 +768,110 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                           <span className="text-base text-gray-700 dark:text-gray-200 font-medium">Uses Agri Apps</span>
                         </div>
                       );
-                    })()}
+                    })()} */}
+
+                    {(() => {
+                                  const pct =
+                                    dashboardData.agriAppUsage?.[0]?.count +
+                                      dashboardData.agriAppUsage?.[1]?.count || 0;
+                                  const circ = 2 * Math.PI * 90;
+                                  // const dash = (pct / 100) * circ;
+                                   const yesDash =
+                                    (dashboardData.kccAwareness?.[0]?.count / pct) *
+                                    circ;
+                                  const noDash =
+                                    (dashboardData.kccAwareness?.[1]?.count / pct) *
+                                    circ;
+                                      const cx = 120,
+                                    cy = 120,
+                                    r = 90;
+                                  return (
+                                    <div className="flex flex-col items-center gap-4">
+                                      <svg
+                                        viewBox="0 0 240 240"
+                                        className="w-[200px] h-[200px]"
+                                      >
+                                        <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#2f3542"
+                                    strokeWidth={10}
+                                  />
+
+                                  {/* YES SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="blue"
+                                    strokeWidth={
+                                      agriHovered === "yes" ? 14 : 10
+                                    }
+                                    strokeDasharray={`${yesDash} ${circ}`}
+                                    strokeDashoffset={0}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setAgriHovered("yes")}
+                                    onMouseLeave={() => setAgriHovered(null)}
+                                  />
+
+                                  {/* NO SEGMENT */}
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={r}
+                                    fill="none"
+                                    stroke="#ffff"
+                                    strokeWidth={agriHovered === "no" ? 14 : 10}
+                                    strokeDasharray={`${noDash} ${circ}`}
+                                    strokeDashoffset={-yesDash}
+                                    transform={`rotate(-90 ${cx} ${cy})`}
+                                    strokeLinecap="butt"
+                                    className="transition-all duration-300 cursor-pointer"
+                                    onMouseEnter={() => setAgriHovered("no")}
+                                    onMouseLeave={() => setAgriHovered(null)}
+                                  />
+
+                                  {/* CENTER TEXT */}
+                                   <text
+                                          x={120}
+                                          y={120}
+                                          textAnchor="middle"
+                                          fontSize={agriHovered ? 32 : 32}
+                                          fontWeight={700}
+                                          fill="#ffffff"
+                                        >
+                                          {agriHovered === "yes"
+                                            ? `${dashboardData.agriAppUsage?.[0]?.count ?? 0}`
+                                            : agriHovered === "no"
+                                              ? `${dashboardData.agriAppUsage?.[1]?.count ?? 0}`
+                                              : pct}
+                                        </text>
+
+                                        <text
+                                          x={120}
+                                          y={138}
+                                          textAnchor="middle"
+                                          fontSize={20}
+                                          fill="#9ca3af"
+                                        >
+                                          {agriHovered === "yes"
+                                            ? "Aware"
+                                            : agriHovered === "no"
+                                              ? "Unaware"
+                                              : "TOTAL"}
+                                        </text>
+                                      </svg>
+                                      <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
+                                        Uses Agri Apps
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
                   </div>
                 </div>
               </div>,
