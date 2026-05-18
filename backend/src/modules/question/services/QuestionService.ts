@@ -4285,7 +4285,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   // =========================
   // WHATSAPP FLOW
   // =========================
-
+  console.log('Question Data ====', questionData);
   if (questionSource === 'WHATSAPP') {
     if (!questionData.threadId) {
       throw new Error('Thread id not found for WhatsApp question');
@@ -4322,7 +4322,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   // NORMAL FLOW
   // =========================
 
-  console.log('Question Data ====', questionData);
+
 
   const {
     question,
@@ -4395,18 +4395,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       messageId,
     });
   }
-
-  console.log(
-    'analyticsMessages ====',
-    analyticsMessages,
-  );
-
-  console.log(
-    'annamMessages ====',
-    annamMessages,
-  );
-
-  // =========================
+// =========================
   // MERGE RESULTS
   // =========================
 
