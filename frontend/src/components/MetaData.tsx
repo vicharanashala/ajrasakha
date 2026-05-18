@@ -295,3 +295,19 @@ export const DISTRICTS: Record<string, string[]> = {
     "Alipurduar", "Bankura", "Birbhum", "Cooch Behar", "Dakshin Dinajpur (South Dinajpur)", "Darjeeling", "Hooghly", "Howrah", "Jalpaiguri", "Jhargram", "Kalimpong", "Kolkata", "Malda", "Murshidabad", "Nadia", "North 24 Parganas", "Paschim Bardhaman (West Bardhaman)", "Paschim Medinipur (West Medinipur)", "Purba Bardhaman (East Bardhaman)", "Purba Medinipur (East Medinipur)", "Purulia", "South 24 Parganas", "Uttar Dinajpur (North Dinajpur)"
   ]
 };
+export const pae_domains=[
+  "Agricultural Schemes & Subsidies",
+  "Climate, Weather & Stress Management",
+  "Credit, Loan & Insurance",
+  "Cultural and Crop Management Practices",
+  "Disease Management",
+  "Farm Tools & Mechanisation",
+  "Insect–Pest Management",
+  "Irrigation and Water Management",
+  "Market Prices, MSP & Marketing",
+  "Organic and Natural Farming",
+  "Post-Harvest Management & Storage",
+  "Seed and Variety Selection",
+  "Soil Health and Nutrient Management",
+  "Weed Management"
+]

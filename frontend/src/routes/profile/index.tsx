@@ -1,4 +1,4 @@
-import { CROPS, STATES, DOMAINS } from "@/components/advanced-question-filter";
+import { CROPS, STATES, pae_domains as DOMAINS } from "@/components/MetaData";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 import { MultiSelect } from "@/components/atoms/MultiSelect";
 import { Button } from "@/components/atoms/button";
@@ -212,9 +212,20 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     },
   });
 
-  const [selectedDomains, setSelectedDomains] = useState<string[]>(
-    Array.isArray(user?.preference?.domain) ? user.preference.domain : []
+  const presetDomainSet = new Set(DOMAINS.filter((d) => d !== "Others"));
+
+  const [selectedDomains, setSelectedDomains] = useState<string[]>(() =>
+    Array.isArray(user?.preference?.domain)
+      ? user.preference.domain.filter((d) => presetDomainSet.has(d))
+      : []
   );
+  const [customOtherDomains, setCustomOtherDomains] = useState<string[]>(() =>
+    Array.isArray(user?.preference?.domain)
+      ? user.preference.domain.filter((d) => !presetDomainSet.has(d))
+      : []
+  );
+  const [paeOtherDomain, setPaeOtherDomain] = useState("");
+  const [paeOtherDomainError, setPaeOtherDomainError] = useState("");
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
@@ -348,6 +359,15 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         }
       }
 
+      if (user.role === "pae_expert" && selectedDomains.includes(OTHER_DOMAIN_VALUE)) {
+        const err = validateCustomDomain(paeOtherDomain);
+        if (err) {
+          setPaeOtherDomainError(err);
+          toast.error(err);
+          return;
+        }
+      }
+
       const normalizedDomain =
         formData.preference?.domain === "" || formData.preference?.domain === "All"
           ? "all"
@@ -363,7 +383,16 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
           state: formData.preference?.state ?? "",
           crop: formData.preference?.crop ?? "",
           domain: user.role === "pae_expert"
-            ? (selectedDomains.length > 0 ? selectedDomains : "all")
+            ? (() => {
+                const resolved = selectedDomains
+                  .map((d) => (d === OTHER_DOMAIN_VALUE ? paeOtherDomain.trim() : d))
+                  .filter(Boolean);
+                const newCustom = paeOtherDomain.trim() && selectedDomains.includes(OTHER_DOMAIN_VALUE)
+                  ? [...customOtherDomains, paeOtherDomain.trim()]
+                  : customOtherDomains;
+                const all = [...resolved.filter((d) => presetDomainSet.has(d)), ...newCustom];
+                return all.length > 0 ? all : "all";
+              })()
             : normalizedDomain,
         },
       };
@@ -373,6 +402,14 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       const strDomain = typeof normalizedDomain === "string" ? normalizedDomain : "";
       setDomainSelection(isPresetDomain(strDomain) ? strDomain : OTHER_DOMAIN_VALUE);
       setCustomDomain(isPresetDomain(strDomain) ? "" : strDomain);
+
+      if (user.role === "pae_expert") {
+        const savedDomains = Array.isArray(payload.preference?.domain) ? payload.preference.domain as string[] : [];
+        setSelectedDomains(savedDomains.filter((d) => presetDomainSet.has(d)));
+        setCustomOtherDomains(savedDomains.filter((d) => !presetDomainSet.has(d)));
+        setPaeOtherDomain("");
+        setPaeOtherDomainError("");
+      }
 
       if (payload.avatar) {
         useAuthStore.getState().updateUser({ avatar: payload.avatar });
@@ -1026,13 +1063,78 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             {user.role === "pae_expert" ? (
               <div className="space-y-3">
                 {isEditMode ? (
-                  <MultiSelect
-                    items={domainOptions.map((d) => ({ value: d, label: d }))}
-                    selected={selectedDomains}
-                    onChange={setSelectedDomains}
-                    placeholder="Select domains"
-                    direction="up"
-                  />
+                  <>
+                    <MultiSelect
+                      items={[
+                        ...domainOptions.map((d) => ({ value: d, label: d })),
+                        { value: OTHER_DOMAIN_VALUE, label: "Others" },
+                      ]}
+                      selected={selectedDomains}
+                      onChange={(next) => {
+                        setSelectedDomains(next);
+                        if (!next.includes(OTHER_DOMAIN_VALUE)) {
+                          setPaeOtherDomain("");
+                          setPaeOtherDomainError("");
+                        }
+                      }}
+                      placeholder="Select domains"
+                      direction="up"
+                    />
+                    {selectedDomains.includes(OTHER_DOMAIN_VALUE) && (
+                      <div className="space-y-1">
+                        <Input
+                          placeholder="Others (Please mention)"
+                          value={paeOtherDomain}
+                          onChange={(e) => {
+                            setPaeOtherDomain(e.target.value);
+                            if (paeOtherDomainError) setPaeOtherDomainError(validateCustomDomain(e.target.value));
+                          }}
+                          onBlur={() => setPaeOtherDomainError(validateCustomDomain(paeOtherDomain))}
+                        />
+                        {paeOtherDomainError && (
+                          <p className="text-sm text-red-500">{paeOtherDomainError}</p>
+                        )}
+                      </div>
+                    )}
+                    {customOtherDomains.length > 0 && (
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-xs text-primary underline underline-offset-2 hover:text-primary/80 transition-colors w-fit"
+                          >
+                            Others ({customOtherDomains.length})
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-sm">
+                          <DialogHeader>
+                            <DialogTitle>Others</DialogTitle>
+                          </DialogHeader>
+                          <div className="overflow-y-auto max-h-64 space-y-2 pr-1">
+                            {customOtherDomains.map((d) => (
+                              <div
+                                key={d}
+                                className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <Network className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  {d}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setCustomOtherDomains((prev) => prev.filter((x) => x !== d))}
+                                  className="text-muted-foreground hover:text-destructive transition-colors text-base leading-none"
+                                  aria-label={`Remove ${d}`}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </>
                 ) : Array.isArray(formData.preference?.domain) && formData.preference.domain.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {(formData.preference.domain as string[]).map((d) => (
