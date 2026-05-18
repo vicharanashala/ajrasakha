@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/atoms/card";
 import {
   ListTodo,
@@ -23,12 +23,18 @@ import {
   TableHeader,
   TableRow,
 } from "./atoms/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/atoms/tabs";
+import { Input } from "@/components/atoms/input";
+import { Pagination } from "@/components/pagination";
 import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
-import { TopRightBadge } from "./NewBadge";
 import { Badge } from "./atoms/badge";
 import { ConfirmationModal } from "./confirmation-modal";
 import { useRemoveExpertAllocations } from "@/hooks/api/Admin/useRemoveExpertAllocations";
+import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQuestions";
+import { useDebounce } from "@/hooks/ui/useDebounce";
+import type { IQuestion } from "@/types";
+import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
@@ -117,6 +123,91 @@ export const ExpertDashboard = ({
   const [totalUsers, setTotalUsers] = useState<number>(0);
   const [checkInTimer, setCheckInTimer] = useState<string>("00:00:00");
   const [lateTimer, setLateTimer] = useState<string | null>(null);
+  const [questionsPage, setQuestionsPage] = useState(1);
+  const questionsLimit = 11;
+  const [questionsSearch, setQuestionsSearch] = useState("");
+  const debouncedQuestionsSearch = useDebounce(questionsSearch, 200);
+
+  const formatReviewLevel = (rawLevel: string | number | undefined) => {
+    if (rawLevel === undefined || rawLevel === null) return "N/A";
+    if (typeof rawLevel === "string") return rawLevel;
+    return rawLevel === 0 ? "Author" : `Level ${rawLevel}`;
+  };
+
+  const allocatedPreferences = useMemo<AdvanceFilterValues>(
+    () => ({
+      status: "all",
+      source: "all",
+      state: "all",
+      states: [],
+      answersCount: [0, 100],
+      dateRange: "all",
+      user: userId || "all",
+      domain: "all",
+      crop: "all",
+      crops: [],
+      normalised_crop: "all",
+      priority: "all",
+      review_level: "all",
+      startTime: expertDate.startTime,
+      endTime: expertDate.endTime,
+      hiddenQuestions: false,
+      duplicateQuestions: false,
+      isOnHold: false,
+    }),
+    [expertDate.endTime, expertDate.startTime, userId],
+  );
+
+  const {
+    data: allocatedQuestionPages,
+    isLoading: isQuestionsLoading,
+    isFetching: isQuestionsFetching,
+  } = useGetAllocatedQuestions(
+    2000,
+    "newest",
+    allocatedPreferences,
+    "allocated",
+    null,
+    "all",
+  );
+
+  const allAllocatedQuestions = useMemo<
+    (IQuestion & { review_level_number?: string | number })[]
+  >(() => {
+    const flattened = allocatedQuestionPages?.pages?.flat() || [];
+    return flattened as (IQuestion & { review_level_number?: string | number })[];
+  }, [allocatedQuestionPages]);
+
+  const filteredQuestions = useMemo(() => {
+    const needle = debouncedQuestionsSearch.trim().toLowerCase();
+    const sorted = [...allAllocatedQuestions].sort((a, b) => {
+      const getLevel = (value: string | number | undefined) => {
+        if (value === "Author" || value === 0) return 0;
+        if (typeof value === "number") return value;
+        if (typeof value === "string") {
+          const parsed = Number(value.replace("Level", "").trim());
+          return Number.isNaN(parsed) ? 999 : parsed;
+        }
+        return 999;
+      };
+      return getLevel(a.review_level_number) - getLevel(b.review_level_number);
+    });
+
+    if (!needle) return sorted;
+    return sorted.filter((q) => (q.text || "").toLowerCase().includes(needle));
+  }, [allAllocatedQuestions, debouncedQuestionsSearch]);
+
+  const totalQuestionCount = filteredQuestions.length;
+  const paginatedQuestions = useMemo(() => {
+    const start = (questionsPage - 1) * questionsLimit;
+    const end = start + questionsLimit;
+    return filteredQuestions.slice(start, end);
+  }, [filteredQuestions, questionsLimit, questionsPage]);
+  const totalQuestionPages = Math.ceil(totalQuestionCount / questionsLimit);
+
+  useEffect(() => {
+    setQuestionsPage(1);
+  }, [debouncedQuestionsSearch, expertDate.endTime, expertDate.startTime, userId]);
 
   const expertArr = expertDetailsList || expertDetails;
   useEffect(() => {
@@ -525,9 +616,15 @@ export const ExpertDashboard = ({
             </CardContent>
           </Card>
         </div>
-        {/*summary of review level */}
-        <Card className="mt-10">
-          <div className="flex justify-between  ml-5 mr-5">
+        <Tabs defaultValue="review_level" className="mt-10">
+          <TabsList>
+            <TabsTrigger value="review_level">Review Level</TabsTrigger>
+            <TabsTrigger value="questions">Questions</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="review_level">
+            <Card>
+          <div className="flex justify-between ml-5 mr-5">
             <h1 className="text-1xl font-bold text-foreground mt-0 mb-3">
               Summary of Pending Tasks by Review Level
             </h1>
@@ -611,6 +708,85 @@ export const ExpertDashboard = ({
             </Table>
           </div>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="questions">
+            <Card>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between ml-5 mr-5">
+                <h1 className="text-1xl font-bold text-foreground mt-0 mb-3">
+                  Questions
+                </h1>
+                <Input
+                  value={questionsSearch}
+                  onChange={(e) => setQuestionsSearch(e.target.value)}
+                  placeholder="Search questions..."
+                  className="md:w-80"
+                />
+              </div>
+              <div className="ml-5 mr-5 mb-2 text-sm text-muted-foreground">
+                Total Questions: {totalQuestionCount}
+              </div>
+
+              <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh] ml-5 mr-5">
+                <Table className="min-w-[800px]">
+                  <TableHeader className="bg-card sticky top-0 z-10">
+                    <TableRow>
+                      <TableHead className="text-center w-12">Sl.No</TableHead>
+                      <TableHead className="text-left">Question Text</TableHead>
+                      <TableHead className="text-center w-52">Review Level</TableHead>
+                    </TableRow>
+                  </TableHeader>
+
+                  <TableBody>
+                    {isQuestionsLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-10">
+                          <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
+                        </TableCell>
+                      </TableRow>
+                    ) : paginatedQuestions.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={3}
+                          className="text-center py-10 text-muted-foreground"
+                        >
+                          No questions found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedQuestions.map((question, index: number) => (
+                        <TableRow key={question.id ?? index}>
+                          <TableCell className="align-top text-center">
+                            {(questionsPage - 1) * questionsLimit + index + 1}
+                          </TableCell>
+                          <TableCell className="align-top">{question.text}</TableCell>
+                          <TableCell className="align-top text-center">
+                            {formatReviewLevel(question.review_level_number)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {isQuestionsFetching && !isQuestionsLoading ? (
+                <div className="ml-5 mr-5 mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="animate-spin w-4 h-4" />
+                  Updating results...
+                </div>
+              ) : null}
+
+              <div className="ml-5 mr-5">
+                <Pagination
+                  currentPage={questionsPage}
+                  totalPages={totalQuestionPages}
+                  onPageChange={setQuestionsPage}
+                />
+              </div>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );
