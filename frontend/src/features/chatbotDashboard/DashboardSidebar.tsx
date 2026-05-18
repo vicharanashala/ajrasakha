@@ -142,7 +142,7 @@ const NAV_SECTIONS: SidebarSection[] = [
             { label: "Alerts & Notifications", icon: <BellIcon />, view: "bugs-ux" },
             { label: "Usage patterns", icon: <ChartLineIcon />, view: "usage-patterns" },
             { label: "Demographics", icon: <PeopleIcon />, view: "demographics" },
-            { label: "Geo intelligence", icon: <GlobeIcon />, view: "geo-intelligence" },
+            // { label: "Geo intelligence", icon: <GlobeIcon />, view: "geo-intelligence" },
         ],
     },
     /* {
@@ -433,6 +433,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 ))}
 
                 {/* ── DOWNLOAD EXCEL BUTTON ── */}
+                {/* Commented out export button as requested:
                 <div className={`
                     overflow-hidden transition-all duration-200
                     ${(collapsed && !isMobile) ? "h-0 opacity-0 mt-0" : "h-auto opacity-100 mt-3"}
@@ -481,6 +482,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                         <span className="flex-1 leading-snug font-medium">Download Excel</span>
                     </div>
                 )}
+                */}
             </div>
 
             {/* ── HEALTH SCORE FOOTER ── */}
