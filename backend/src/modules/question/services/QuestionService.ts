@@ -4184,7 +4184,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-  async getMatchedQuestion(questionId: string) {
+  /*async getMatchedQuestion(questionId: string) {
     const questionData = await this.questionRepo.getById(questionId);
 
     if (!questionData) {
@@ -4272,7 +4272,202 @@ export class QuestionService extends BaseService implements IQuestionService {
       },
       content: message.content || [],
     };
+  }*/
+ async getMatchedQuestion(questionId: string) {
+  const questionData = await this.questionRepo.getById(questionId);
+
+  if (!questionData) {
+    throw new Error('Question not found');
   }
+
+  const questionSource = questionData.source;
+
+  // =========================
+  // WHATSAPP FLOW
+  // =========================
+
+  if (questionSource === 'WHATSAPP') {
+    if (!questionData.threadId) {
+      throw new Error('Thread id not found for WhatsApp question');
+    }
+
+    const response = await this.aiService.fetchWhatsAppMessage(
+      questionData.threadId,
+      questionData._id.toString(),
+    );
+
+    if (!response) {
+      throw new Error('No matching WhatsApp message found');
+    }
+
+    return {
+      messageId: response.messageId || '',
+      createdAt: response.createdAt
+        ? new Date(response.createdAt).toISOString()
+        : '',
+      updatedAt: response.updatedAt
+        ? new Date(response.updatedAt).toISOString()
+        : '',
+      user: {
+        username: response.userDetails?.username || 'N/A',
+        email: response.userDetails?.email || '',
+        emailVerified: response.userDetails?.emailVerified || false,
+        avatar: response.userDetails?.avatar || null,
+      },
+      content: response.content || [],
+    };
+  }
+
+  // =========================
+  // NORMAL FLOW
+  // =========================
+
+  console.log('Question Data ====', questionData);
+
+  const {
+    question,
+    details,
+    createdAt,
+    messageId,
+    userId,
+  } = questionData;
+
+  const analyticsPromise =
+    this.chatbotRepository.findMatchingMessages({
+      question,
+      details,
+      createdAt,
+      questionId: questionId.toString(),
+      messageId: messageId
+        ? messageId.toString()
+        : undefined,
+    });
+
+  const annamPromise =
+    this.chatbotRepository.findFromSecondDb({
+      question,
+      details,
+      createdAt,
+      questionId: questionId.toString(),
+      messageId: messageId
+        ? messageId.toString()
+        : undefined,
+    });
+
+  const [analyticsResult, annamResult] =
+    await Promise.allSettled([
+      analyticsPromise,
+      annamPromise,
+    ]);
+
+  // =========================
+  // HANDLE RESULTS
+  // =========================
+
+  const analyticsMessages =
+    analyticsResult.status === 'fulfilled'
+      ? analyticsResult.value
+      : [];
+
+  const annamMessages =
+    annamResult.status === 'fulfilled'
+      ? annamResult.value
+      : [];
+
+  // =========================
+  // LOG FAILURES
+  // =========================
+
+  if (analyticsResult.status === 'rejected') {
+    console.error('Analytics DB failed:', {
+      error: analyticsResult.reason?.message,
+      stack: analyticsResult.reason?.stack,
+      questionId,
+      messageId,
+    });
+  }
+
+  if (annamResult.status === 'rejected') {
+    console.error('Second DB failed:', {
+      error: annamResult.reason?.message,
+      stack: annamResult.reason?.stack,
+      questionId,
+      messageId,
+    });
+  }
+
+  console.log(
+    'analyticsMessages ====',
+    analyticsMessages,
+  );
+
+  console.log(
+    'annamMessages ====',
+    annamMessages,
+  );
+
+  // =========================
+  // MERGE RESULTS
+  // =========================
+
+  const allMessages = [
+    ...analyticsMessages,
+    ...annamMessages,
+  ];
+
+  const message = allMessages?.[0];
+
+  if (!message) {
+    throw new Error('No matching message found');
+  }
+
+  // =========================
+  // UPDATE USER ID IF NEEDED
+  // =========================
+
+  if (
+    message.userDetails?._id &&
+    message.userDetails._id !== userId?.toString() &&
+    !questionData.messageId
+  ) {
+    try {
+      await this.questionRepo.updateQuestion(
+        questionId.toString(),
+        {
+          userId: new ObjectId(message.userDetails._id),
+        },
+      );
+    } catch (updateError) {
+      console.error(
+        'Failed to update userId:',
+        updateError,
+      );
+    }
+  }
+
+  // =========================
+  // FINAL RESPONSE
+  // =========================
+
+  return {
+    messageId: message.messageId || '',
+    createdAt: message.createdAt
+      ? new Date(message.createdAt).toISOString()
+      : '',
+    updatedAt: message.updatedAt
+      ? new Date(message.updatedAt).toISOString()
+      : '',
+    user: {
+      username:
+        message?.userDetails?.username || 'N/A',
+      email: message?.userDetails?.email || '',
+      emailVerified:
+        message?.userDetails?.emailVerified || false,
+      avatar: message?.userDetails?.avatar || null,
+    },
+    content: message.content || [],
+  };
+}
   async checkStatus(
     questionIds: string[],
   ): Promise<ICheckStatusResponse[]> {
