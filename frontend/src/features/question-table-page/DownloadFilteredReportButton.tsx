@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "../../components/atoms/button";
-import { Download, Loader2, Filter, Sprout, AlertTriangle, Info } from "lucide-react";
+import { Download, Loader2, Filter, Sprout } from "lucide-react";
 import { toast } from "sonner";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
@@ -24,21 +24,37 @@ import { Separator } from "@/components/atoms/separator";
 import { Checkbox } from "@/components/atoms/checkbox";
 import { STATES, CROPS, SEASONS, DOMAINS, STATUS } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/atoms/tooltip";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
+
+const getDefaultDates = () => {
+  const today = new Date();
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+  return { startTime: oneMonthAgo, endTime: today };
+};
+
+const toDateString = (d: Date | undefined) =>
+  d ? d.toISOString().split("T")[0] : undefined;
 
 export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { data: cropsData } = useGetAllCrops();
+  const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops ?? [];
-  
-  const [filters, setFilters] = useState({
+
+  const [filters, setFilters] = useState<{
+    state: string;
+    crop: string;
+    normalised_crop: string;
+    season: string;
+    domain: string;
+    status: string;
+    hiddenQuestions: boolean;
+    duplicateQuestions: boolean;
+    startTime: Date | undefined;
+    endTime: Date | undefined;
+  }>({
     state: "all",
     crop: "all",
     normalised_crop: "all",
@@ -47,16 +63,16 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     status: "all",
     hiddenQuestions: false,
     duplicateQuestions: false,
+    ...getDefaultDates(),
   });
 
   const handleDownloadReport = async () => {
-    // Check if at least one filter is selected
-    const hasFilter = Object.entries(filters).some(([, value]) =>
-      typeof value === "boolean" ? value : value !== "all",
-    );
-    
-    if (!hasFilter) {
-      toast.error("Please select at least one filter");
+    if (!filters.startTime || !filters.endTime) {
+      toast.error("Please select a valid date range");
+      return;
+    }
+    if (filters.startTime > filters.endTime) {
+      toast.error("Start date cannot be after end date");
       return;
     }
 
@@ -64,11 +80,16 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       setIsDownloading(true);
       toast.info("Preparing download...");
 
-      // Download filtered report
-      const blob = await questionService.downloadFilteredReport(filters);
+      const blob = await questionService.downloadFilteredReport({
+        ...filters,
+        startDate: toDateString(filters.startTime),
+        endDate: toDateString(filters.endTime),
+      });
 
-      // Create filename based on filters
-      const filterParts = [];
+      // Build filename
+      const filterParts: string[] = [];
+      if (filters.startTime) filterParts.push(toDateString(filters.startTime)!);
+      if (filters.endTime) filterParts.push(toDateString(filters.endTime)!);
       if (filters.state !== "all") filterParts.push(filters.state);
       if (filters.crop !== "all") filterParts.push(filters.crop);
       if (filters.normalised_crop !== "all") filterParts.push(filters.normalised_crop === '__NOT_SET__' ? 'legacy' : filters.normalised_crop);
@@ -77,10 +98,9 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       if (filters.status !== "all") filterParts.push(filters.status);
       if (filters.hiddenQuestions) filterParts.push("hidden");
       if (filters.duplicateQuestions) filterParts.push("duplicate");
-      
-      const filename = `questions_${filterParts.join("_") || "filtered"}.xlsx`;
 
-      // Create download link
+      const filename = `questions_${filterParts.join("_")}.xlsx`;
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -105,6 +125,10 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleDateChange = (key: string, value: Date | undefined) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
   const handleCheckboxChange = (key: "hiddenQuestions" | "duplicateQuestions", value: boolean) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
@@ -119,6 +143,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       status: "all",
       hiddenQuestions: false,
       duplicateQuestions: false,
+      ...getDefaultDates(),
     });
   };
 
@@ -140,7 +165,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
               </div>
               <div className="text-left">
                 <p className="text-sm font-bold text-gray-900 dark:text-white">
-                  {isDownloading ? "Downloading..." : "Filtered Report"}
+                  {isDownloading ? "Downloading..." : "Custom Question Report"}
                 </p>
                 <p className="text-[11px] text-gray-500">
                   Questions filtered by State, Crop, Season, Domain, and Status
@@ -155,12 +180,25 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
               Select Filters for Report
             </DialogTitle>
             <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md border">
-              Choose filters to download questions. At least one filter must be selected.
+              By default, the last 1 month of data is downloaded. You can customize the date range and apply additional filters.
             </div>
           </DialogHeader>
-          
+
           <div className="overflow-y-auto flex-1 py-2">
             <div className="grid grid-cols-2 gap-4">
+
+              {/* Date Range Filter */}
+              <div className="col-span-2">
+                <DateRangeFilter
+                  advanceFilter={{ startTime: filters.startTime, endTime: filters.endTime }}
+                  handleDialogChange={handleDateChange}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <Separator className="my-1" />
+              </div>
+
               {/* State Filter */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">State</Label>
@@ -179,25 +217,11 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                 </Select>
               </div>
 
-
-
               {/* Crop Type Filter */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium flex items-center gap-2">
                   <Sprout className="h-4 w-4 text-primary" />
                   Crop Type
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button type="button" className="text-muted-foreground hover:text-primary transition-colors">
-                          <Info className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs text-sm">
-                        <p>Filter by the standardized crop name. You can view a crop's alternative names by hovering over the "+" icon next to it. Use "Not Set" to find older questions without a normalized crop.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </Label>
                 <Select value={filters.normalised_crop} onValueChange={(val) => handleFilterChange("normalised_crop", val)}>
                   <SelectTrigger className="h-9">
@@ -205,37 +229,10 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Crops</SelectItem>
-                    <SelectItem value="__NOT_SET__">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
-                      </div>
-                    </SelectItem>
                     {dbCrops.length > 0
                       ? dbCrops.map((crop) => (
                           <SelectItem key={crop._id || crop.name} value={crop.name}>
-                            {crop.aliases && crop.aliases.length > 0 ? (
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="flex items-center gap-2 cursor-default">
-                                      <span className="capitalize">{crop.name}</span>
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                                        +{crop.aliases.length}
-                                      </span>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="right" className="text-xs">
-                                    <p className="font-semibold mb-0.5">Also known as:</p>
-                                    {crop.aliases.map((a: string) => (
-                                      <p key={a} className="capitalize text-muted-foreground">{a}</p>
-                                    ))}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : (
-                              <span className="capitalize">{crop.name}</span>
-                            )}
+                            <span className="capitalize">{crop.name}</span>
                           </SelectItem>
                         ))
                       : CROPS.map((c) => (
@@ -317,18 +314,6 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                     />
                     <span className="text-sm">Show passed questions</span>
                   </label>
-
-                  {/* <label className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={filters.duplicateQuestions}
-                      onChange={(event) =>
-                        handleCheckboxChange("duplicateQuestions", event.target.checked)
-                      }
-                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
-                    />
-                    <span className="text-sm">Show duplicate questions</span>
-                  </label> */}
                 </div>
               </div>
             </div>

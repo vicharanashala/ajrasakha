@@ -8,6 +8,7 @@ const TYPES = {
   ContextController: Symbol.for('ContextController'),
   RequestController: Symbol.for('RequestController'),
   ReRouteController:Symbol.for('ReRouteController'),
+  ChemicalController: Symbol.for('ChemicalController'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -34,8 +35,10 @@ const TYPES = {
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
   ChatbotRepository: Symbol.for('ChatbotRepository'),
   CropRepository: Symbol.for('CropRepository'),
+  ChemicalRepository: Symbol.for('ChemicalRepository'),
   MongoDatabase: Symbol.for('MongoDatabase'),
   CropService: Symbol.for('CropService'),
+  ChemicalService: Symbol.for('ChemicalService'),
 
   // Constants
   uri: Symbol.for('dbURI'),

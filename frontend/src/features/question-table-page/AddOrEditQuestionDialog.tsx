@@ -55,6 +55,7 @@ import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
 import { toast } from "sonner";
 import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
+import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 
 
 
@@ -104,7 +105,7 @@ const OPTIONS: Partial<Record<DetailField, string[]>> = {
   domain: DOMAINS,
 };
 
-// ── Crop Select with DB data — shows crop names + aliases as selectable items ──
+// ── Crop Select with DB data — shows crop names only ──
 const CropSelect = ({
   value,
   onValueChange,
@@ -120,42 +121,24 @@ const CropSelect = ({
   placeholder?: string;
   onNormalisedCropResolved?: (canonicalName: string) => void;
 }) => {
-  const { data: cropsData, isLoading } = useGetAllCrops();
+  const { data: cropsData, isLoading } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
   const useDbCrops = dbCrops.length > 0;
 
-  // Build a flat list of all selectable items: each crop name + each alias
-  // Every item maps back to its canonical (normalised) crop name
-  const selectItems: { label: string; value: string; canonicalName: string; isAlias: boolean }[] = [];
-  if (useDbCrops) {
-    for (const crop of dbCrops) {
-      // Add the crop name itself
-      selectItems.push({ label: crop.name, value: crop.name, canonicalName: crop.name, isAlias: false });
-      // Add each alias as a separate selectable item
-      for (const alias of (crop.aliases || [])) {
-        selectItems.push({ label: alias, value: alias, canonicalName: crop.name, isAlias: true });
-      }
-    }
-  }
-
-  // Try to match current value against the items list
+  const cropNames = dbCrops.map((c) => c.name);
   const normalizedVal = value?.trim().toLowerCase();
-  const matchedItem = normalizedVal
-    ? selectItems.find((item) => item.value.toLowerCase() === normalizedVal)
-    : undefined;
+  const isKnown = normalizedVal ? cropNames.some((n) => n.toLowerCase() === normalizedVal) : false;
 
   const handleChange = (selectedValue: string) => {
     onValueChange(selectedValue);
-    // Resolve the canonical crop name and notify parent
-    const item = selectItems.find((i) => i.value === selectedValue);
-    if (item && onNormalisedCropResolved) {
-      onNormalisedCropResolved(item.canonicalName);
+    if (onNormalisedCropResolved) {
+      onNormalisedCropResolved(selectedValue);
     }
   };
 
   return (
     <Select
-      value={matchedItem?.value ?? (value?.trim() ? value : undefined)}
+      value={value?.trim() || undefined}
       onValueChange={handleChange}
     >
       <SelectTrigger
@@ -164,14 +147,14 @@ const CropSelect = ({
         <SelectValue placeholder={isLoading ? "Loading crops..." : (placeholder ?? "Select crop")} />
       </SelectTrigger>
       <SelectContent>
-        {/* Show current value if it doesn't match any known item (legacy data) */}
-        {!matchedItem && value?.trim() && (
+        {/* Show current value if it doesn't match any known crop (legacy data) */}
+        {!isKnown && value?.trim() && (
           <SelectItem key={value.trim()} value={value.trim()}>{value.trim()}</SelectItem>
         )}
         {useDbCrops
-          ? selectItems.map((item) => (
-            <SelectItem key={`${item.canonicalName}-${item.value}`} value={item.value}>
-              <span className="capitalize">{item.label}</span>
+          ? cropNames.map((name) => (
+            <SelectItem key={name} value={name}>
+              <span className="capitalize">{name}</span>
             </SelectItem>
           ))
           : CROPS.map((crop) => (
@@ -205,6 +188,7 @@ export const AddOrEditQuestionDialog = ({
 
   const [isRequiredAiInitialAnswer, setIsRequiredAiInitialAnswer] = useState(false);
   const [isOutreachQuestion, setIsOutreachQuestion] = useState(false);
+  const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
 
   const invalidFieldClass =
     "border-red-500 dark:border-red-400 focus-visible:ring-red-500/60";
@@ -773,6 +757,7 @@ export const AddOrEditQuestionDialog = ({
                       <SelectItem value="low">Low</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="critical">Critical</SelectItem>
                     </SelectContent>
                   </Select>
                   {mode === "add" && validationErrors?.priority && (
@@ -1113,24 +1098,16 @@ export const AddOrEditQuestionDialog = ({
                 <Button
                   variant="default"
                   disabled={!file}
-                  onClick={() => {
-                    if (file) {
-                      const formData = new FormData();
-                      formData.append("file", file);
-                      formData.append("isRequiredAiInitialAnswer", String(isRequiredAiInitialAnswer));
-                      formData.append("isOutreachQuestion", String(isOutreachQuestion));
-                      onSave?.("add", undefined, undefined, undefined, formData);
-                      setFile(null);
-                    }
-                  }}
+                  onClick={() => setIsAllocationModalOpen(true)}
                 >
                   <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {isLoadingAction ? "Uploading..." : "Upload Questions"}
+                  Upload Questions
                 </Button>
               ) : (
                 <Button
                   variant="default"
                   onClick={() => onSave?.("add")}
+                  disabled={isLoadingAction || !updatedData?.question.trim()}
                 >
                   <Save className="mr-2 h-4 w-4" aria-hidden="true" />
                   {isLoadingAction ? "Adding..." : "Add Question"}
@@ -1140,7 +1117,7 @@ export const AddOrEditQuestionDialog = ({
           ) : userRole === "expert" ? (
             <Button
               variant="destructive"
-              disabled={isLoadingAction}
+              disabled={isLoadingAction || !flagReason.trim()}
               onClick={() => {
                 onSave?.("edit", question?._id!, flagReason);
               }}
@@ -1151,6 +1128,7 @@ export const AddOrEditQuestionDialog = ({
           ) : (
             <Button
               variant="default"
+              disabled={isLoadingAction || !updatedData?.question.trim()}
               onClick={() => {
                 onSave?.("edit", question?._id!);
               }}
@@ -1161,6 +1139,25 @@ export const AddOrEditQuestionDialog = ({
           )}
         </DialogFooter>
       </DialogContent>
+
+      <BulkUploadAllocationModal
+        open={isAllocationModalOpen}
+        onClose={() => setIsAllocationModalOpen(false)}
+        isLoading={isLoadingAction}
+        onConfirm={(mode, paeExpertId) => {
+          if (file) {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("isRequiredAiInitialAnswer", String(isRequiredAiInitialAnswer));
+            formData.append("isOutreachQuestion", String(isOutreachQuestion));
+            formData.append("allocationMode", mode);
+            if (paeExpertId) formData.append("paeExpertId", paeExpertId);
+            onSave?.("add", undefined, undefined, undefined, formData);
+            setFile(null);
+            setIsAllocationModalOpen(false);
+          }
+        }}
+      />
     </Dialog>
   );
 };

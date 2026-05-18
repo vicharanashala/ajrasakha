@@ -5,6 +5,7 @@ import { useQuestionClickability } from "@/hooks/ui/useQuestionClickability";
 import { Badge } from "../../components/atoms/badge";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
+import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import {
   AlertCircle,
   Calendar,
@@ -18,6 +19,7 @@ import {
   User,
 } from "lucide-react";
 import { ConfirmationModal } from "../../components/confirmation-modal";
+import { useQuestionTableStore } from "@/stores/all-questions";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -76,12 +78,17 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
   isSelected,
   handleQuestionsSelection,
   selectedQuestionIds,
+  showClosedAt,
 }) => {
+  const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
+  // Get correct timer start time based on user role (Author vs Level Expert)
+  const timerStartTime = getTimerStartTime(q);
 
   const { timer, isClickable } = useQuestionClickability(
     q.source,
-    q.createdAt,
+    timerStartTime,
     uploadedQuestionsCount,
     userRole,
     isBulkUpload,
@@ -104,7 +111,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
           ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
           : effectiveStatus === "closed"
             ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-            : "bg-muted text-foreground";
+            : effectiveStatus === "pae_submitted"
+              ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+              : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -114,16 +123,20 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
   }, [q.status, timer]);
 
   const priorityBadge = useMemo(() => {
-    if (!q.priority)
+    if (!q.priority) {
       return (
         <Badge variant="outline" className="text-muted-foreground">
           NIL
         </Badge>
       );
+    }
 
     const colorClass =
+      q.priority === "critical"
+        ? "bg-red-600/10 text-red-700 border-red-700/30 ring-1 ring-red-700/10 dark:bg-red-900/30 dark:text-red-300 dark:border-red-900 dark:ring-red-500/30"
+         :
       q.priority === "high"
-        ? "bg-red-50 text-red-600 border-red-100 ring-1 ring-red-500/10 dark:bg-red-900/30 dark:text-red-300 dark:border-red-900 dark:ring-red-500/30"
+        ? "bg-red-50 text-orange-600 border-orange-100 ring-1 ring-orange-500/10 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-900 dark:ring-orange-500/30"
         : q.priority === "medium"
           ? "bg-yellow-50 text-yellow-600 border-yellow-100 ring-1 ring-yellow-500/10 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-900 dark:ring-yellow-500/30"
           : "bg-green-50 text-green-600 border-green-100 ring-1 ring-green-500/10 dark:bg-green-900/30 dark:text-green-300 dark:border-green-900 dark:ring-green-500/30";
@@ -137,10 +150,20 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
     );
   }, [q.priority]);
 
-  const hasSelectedQuestions =
-    selectedQuestionIds && selectedQuestionIds.length > 0;
-  // Handle Right Click
-  const handleContextMenu = (e: any) => {
+  const hasSelectedQuestions = !!selectedQuestionIds?.length;
+  const showCreatedColumn = !showClosedAt && visibleColumns.created;
+  const showClosedColumn = !!showClosedAt && visibleColumns.closed;
+  const showDetailsSection =
+    visibleColumns.priority ||
+    visibleColumns.review_level ||
+    visibleColumns.state ||
+    visibleColumns.crop ||
+    visibleColumns.domain ||
+    visibleColumns.source ||
+    showCreatedColumn ||
+    showClosedColumn;
+
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (!q._id) return;
     if (!isSelectionModeOn) {
@@ -154,6 +177,12 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
     ? "hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
     : "hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400";
 
+  const isDuplicate = Boolean(
+    q?.similarityScore &&
+    q?.referenceQuestionId &&
+    q?.referenceQuestion &&
+    q?.referenceSource
+  );
   return (
     <div
       onContextMenu={handleContextMenu}
@@ -193,40 +222,60 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
       <div
         className={`p-5 space-y-4 ${isSelectionModeOn ? "pl-12" : ""} transition-all duration-300`}
       >
-        {/* Header Row ( Line 1 — Serial + Status ) */}
+        {(visibleColumns.sl_No || visibleColumns.status) && (
         <div className="flex justify-between items-start">
+          {visibleColumns.sl_No && (
           <span className="text-sm font-medium text-gray-400 font-mono dark:text-gray-500">
             #{(currentPage - 1) * limit + idx + 1}
           </span>
-          {statusBadge}
-        </div>
+            )}
+            <div className={`flex items-center gap-1.5 ${!visibleColumns.sl_No ? "ml-auto" : ""}`}>
+              {q.pae_review && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-purple-500/10 text-purple-600 border-purple-500/30 dark:text-purple-400 dark:border-purple-500/30 whitespace-nowrap">
+                  PAE
+                </span>
+              )}
+              {visibleColumns.status && statusBadge}
+            </div>
+          </div>
+        )}
 
-        {/* Title ( Question and timer )*/}
-        <div className="flex flex-col h-[5rem] justify-between">
+        {visibleColumns.question && (
+        <div className="flex flex-col h-[5.75rem] justify-between">
+          <div className="h-6 flex items-start">
+            {isDuplicate && (
+              <Badge
+                variant="outline"
+                className="bg-red-500/10 text-red-600 border-red-500/30"
+              >
+                Duplicate
+              </Badge>
+            )}
+          </div>
           <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-green-700 transition-colors line-clamp-2 dark:text-gray-100 dark:group-hover:text-green-400" title={q.question}>
             {truncate(q.question, 80)}
           </h3>
           <div className="mt-1 h-5 flex items-center">
-            {/* <TimerDisplay timer={timer} status={q.status} /> */}
-            <TimerDisplay
-              timer={timer}
-              status={q.status}
-              source={q.source}
-            />
+            {q.status !== "pass" && (
+              <TimerDisplay timer={timer} status={q.status} source={q.source} />
+            )}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Grid of details */}
+        {showDetailsSection && (
         <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-2 border-t border-gray-100 dark:border-gray-700">
           {/* Priority */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-400 dark:text-gray-500  uppercase tracking-wider">
-              Priority
-            </span>
-            {priorityBadge}
-          </div>
+          {visibleColumns.priority && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                Priority
+              </span>
+              {priorityBadge}
+            </div>
+          )}
 
-          {/* Review Level */}
+          {visibleColumns.review_level && (
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-gray-400 uppercase dark:text-gray-500 tracking-wider">
               Review Level
@@ -236,8 +285,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
               {q.review_level_number}
             </div>
           </div>
+            )}
 
-          {/* State */}
+          {visibleColumns.state && (
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider dark:text-gray-500">
               State
@@ -249,8 +299,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
               </span>
             </div>
           </div>
+            )}
 
-          {/* Crop */}
+          {visibleColumns.crop && (
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider dark:text-gray-500">
               Crop
@@ -258,13 +309,25 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
             <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
               <Sprout
                 size={14}
-                className="text-green-500 dark:text-green-400"
+                className="text-green-500 dark:text-green-400" 
               />
               <span className="truncate max-w-[150px]">{q.details.crop}</span>
             </div>
           </div>
+            )}
 
-          {/* Source */}
+            {visibleColumns.domain && (
+              <div className="truncate flex flex-col gap-1">
+                <span className="text-xs font-medium text-gray-400 uppercase tracking-wider dark:text-gray-500">
+                  Domain
+                </span>
+                <span className="truncate max-w-[150px] text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {q.details.domain || "NIL"}
+                </span>
+              </div>
+            )}
+
+            {visibleColumns.source && (
           <div className="truncate flex flex-col gap-1">
             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider dark:text-gray-500">
               Source
@@ -273,8 +336,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
               {q.source}
             </span>
           </div>
+            )}
 
-          {/* Created Date */}
+          {showCreatedColumn && (
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider dark:text-gray-500">
               Created
@@ -284,18 +348,33 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
                 size={14}
                 className="text-gray-400 dark:text-gray-500"
               />
-              {formatDate(new Date(q.createdAt!), false)}
+              {formatDate(new Date(q.createdAt!))}
             </div>
           </div>
-        </div>
+            )}
+
+            {showClosedColumn && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-gray-400 uppercase tracking-wider dark:text-gray-500">
+                  Closed
+                </span>
+                <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <Calendar size={14} className="text-gray-400 dark:text-gray-500" />
+                  {q.closedAt ? formatDate(new Date(q.closedAt), false) : "N/C"}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Actions */}
-      <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center dark:bg-background/50 dark:border-gray-700">
+      <div className={`px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center dark:bg-background/50 dark:border-gray-700 ${visibleColumns.answers ? "justify-between" : "justify-end"}`}>
+        {visibleColumns.answers && (
         <div className="flex items-center gap-2 text-gray-500 text-sm dark:text-gray-400">
           <MessageCircle size={16} />
           <span className="font-medium">{q.totalAnswersCount} Answers</span>
         </div>
+        )}
         <div className="flex gap-2 animate-in fade-in duration-200">
           {isSelectionModeOn && (
             <button
@@ -318,11 +397,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
             className={`p-1.5 rounded-full transition-colors text-gray-400 dark:text-gray-500 ${hoverClasses}`}
             title={`${userRole === "expert" ? "Raise Flag" : "Edit Question"}`}
           >
-            {userRole === "expert" ? (
-              <AlertCircle size={18} />
-            ) : (
-              <Edit size={18} />
-            )}
+            {userRole === "expert" ? 
+            <AlertCircle size={18} />
+             : <Edit size={18} />}
           </button>
           {userRole !== "expert" && (
             <button

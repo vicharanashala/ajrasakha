@@ -14,6 +14,11 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsIn(['vicharanashala', 'annam'])
   source: 'vicharanashala' | 'annam' = 'vicharanashala';
+
+  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @IsOptional()
+  @IsIn(['all', 'external', 'internal'])
+  userType: 'all' | 'external' | 'internal' = 'all';
 }
 
 export class SourceQueryDto {
@@ -21,6 +26,11 @@ export class SourceQueryDto {
   @IsOptional()
   @IsIn(['vicharanashala', 'annam'])
   source: 'vicharanashala' | 'annam' = 'vicharanashala';
+
+  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @IsOptional()
+  @IsIn(['all', 'external', 'internal'])
+  userType: 'all' | 'external' | 'internal' = 'all';
 }
 
 export class UserDetailsQueryDto {
@@ -72,4 +82,29 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsIn(['yes', 'no', 'all'])
   profileCompleted: 'yes' | 'no' | 'all' = 'all';
+
+  @JSONSchema({ example: 'false', description: 'If true, return only users with zero questions in the date range' })
+  @IsOptional()
+  @IsString()
+  inactiveOnly?: string;
+
+  @JSONSchema({ example: 'false', description: 'If true, return only users who have never given any feedback' })
+  @IsOptional()
+  @IsString()
+  lowFeedbackOnly?: string;
+
+  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @IsOptional()
+  @IsIn(['all', 'external', 'internal'])
+  userType: 'all' | 'external' | 'internal' = 'all';
+
+  @JSONSchema({ example: 'totalQuestions', description: 'Sort by field: totalQuestions or name' })
+  @IsOptional()
+  @IsIn(['totalQuestions', 'name'])
+  sortBy: 'totalQuestions' | 'name' = 'totalQuestions';
+
+  @JSONSchema({ example: 'desc', description: 'Sort order: asc or desc' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder: 'asc' | 'desc' = 'desc';
 }

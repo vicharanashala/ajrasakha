@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useMemo, useRef, useState,  } from "react";
-import {CheckCircle,RotateCcw,Loader2,Send,FileText,Bot, ChevronsRight} from "lucide-react";
+import { useEffect, useMemo, useRef, useState, } from "react";
+import { CheckCircle, RotateCcw, Loader2, Send, FileText, Bot, ChevronsRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
 import { Label } from "../../components/atoms/label";
 import { Textarea } from "../../components/atoms/textarea";
@@ -18,7 +18,7 @@ import {
   type QuestionPriorityFilter,
   type QuestionSourceFilter,
 } from "../../components/advanced-question-filter";
-import type {} from "../../components/questions-page";
+import type { } from "../../components/questions-page";
 import type {
   IReviewParmeters,
   SourceItem
@@ -51,7 +51,7 @@ export const QAInterface = ({
 }: {
   autoSelectQuestionId: string | null;
   onManualSelect: (id: string | null) => void;
-  selectQuestionType:string|null;
+  selectQuestionType: string | null;
   onManualSelectQuestionType: (type: string | null) => void;
 }) => {
 
@@ -61,22 +61,21 @@ export const QAInterface = ({
 
   // toggle sidebar
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-  
+
   const [actionType, setActionType] = useState<"allocated" | "reroute">(
     "reroute"
   );
-  useEffect(()=>{
+  useEffect(() => {
     if (!selectQuestionType) return
-    if(selectQuestionType=="re-routed")
-    {
+    if (selectQuestionType == "re-routed") {
       setActionType("reroute")
     }
-    else{
+    else {
       setActionType("allocated")
     }
-    console.log("the selected type===",selectQuestionType)
-  },[selectQuestionType])
-  
+    console.log("the selected type===", selectQuestionType)
+  }, [selectQuestionType])
+
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
@@ -96,7 +95,7 @@ export const QAInterface = ({
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [remarks, setRemarks] = useState("");
-  const[reviewLevel,setReviewLevel]=useState('all')
+  const [reviewLevel, setReviewLevel] = useState('all')
 
   const [isLoaded, setIsLoaded] = useState(false);
   const handleDialogChange = (key: string, value: any) => {
@@ -148,10 +147,10 @@ export const QAInterface = ({
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences,actionType,autoSelectQuestionId,reviewLevel);
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences, actionType, autoSelectQuestionId, reviewLevel);
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
-   
+
   const questions = useMemo(() => {
     if (!questionPages?.pages) return [];
     return questionPages.pages.flat();
@@ -161,20 +160,20 @@ export const QAInterface = ({
   useEffect(() => {
     // wait until data is loaded
     if (!questionPages?.pages) return;
-  
+
     // run ONLY once
     if (didInit.current) return;
     didInit.current = true;
-  
+
     if (questions.length === 0) {
       setActionType("allocated");
     }
   }, [questionPages, questions]);
-  
-  
+
+
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
-    useGetQuestionById(selectedQuestion,actionType);
+    useGetQuestionById(selectedQuestion, actionType);
 
   const { mutateAsync: respondQuestion, isPending: isResponding } =
     useReviewAnswer();
@@ -231,7 +230,7 @@ export const QAInterface = ({
       const firstId = questions[0]?.id ?? null;
       setSelectedQuestion(firstId);
     }
-  }, [isLoading, questions, autoSelectQuestionId,actionType]);
+  }, [isLoading, questions, autoSelectQuestionId, actionType]);
 
   useEffect(() => {
     if (!selectedQuestion) return;
@@ -277,7 +276,7 @@ export const QAInterface = ({
         },
       };
     });
-  }, [newAnswer, sources, remarks, selectedQuestion,actionType]);
+  }, [newAnswer, sources, remarks, selectedQuestion, actionType]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -314,7 +313,7 @@ export const QAInterface = ({
       return;
 
     const findAndSelectQuestion = async () => {
-     // setIsLoadingTargetQuestion(true);
+      // setIsLoadingTargetQuestion(true);
 
       // Check if question is in currently loaded pages
       const allLoadedQuestions = questionPages?.pages.flat() || [];
@@ -406,8 +405,8 @@ export const QAInterface = ({
 
     const draft = drafts[selectedQuestion]; // previous answer that were stored in localstorage
 
-    // Set AI initial answer only if user hasn't typed anything
-    if (!newAnswer && !draft?.answer) {
+    // Set AI initial answer only if user hasn't typed anything AND it's not a review flow (no history)
+    if (!newAnswer && !draft?.answer && selectedQuestionData.history?.length === 0) {
       let prefillAnswer = '';
 
       if (selectedQuestionData.source === 'AJRASAKHA') {
@@ -502,7 +501,7 @@ export const QAInterface = ({
       payload.answer = newAnswer;
       payload.sources = sources;
     }
-    payload.type=actionType
+    payload.type = actionType
 
     try {
       await respondQuestion(payload);
@@ -534,26 +533,25 @@ export const QAInterface = ({
   };
 
 
-const handleActionChange = (value: string) => {
-  setActionType(value as "allocated" | "reroute");
-  setSelectedQuestion(null);
-  onManualSelect?.(null); // Clear the auto-select since question doesn't exist
-  onManualSelectQuestionType?.(null)
+  const handleActionChange = (value: string) => {
+    setActionType(value as "allocated" | "reroute");
+    setSelectedQuestion(null);
+    onManualSelect?.(null); // Clear the auto-select since question doesn't exist
+    onManualSelectQuestionType?.(null)
 
-};
+  };
   return (
     <div className=" mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
         <div
-           className={`grid grid-cols-1 ${
-            questions.length && !isLoadingTargetQuestion
+          className={`grid grid-cols-1 ${questions.length && !isLoadingTargetQuestion
               ? isSidebarCollapsed
                 ? "lg:grid-cols-[minmax(0,_1fr)]"
                 : "lg:grid-cols-[minmax(400px,_1fr)_minmax(400px,_1fr)]"
               : ""
-          } gap-6 transition-all duration-300 relative`}
+            } gap-6 transition-all duration-300 relative`}
         >
-           {isSidebarCollapsed && (
+          {isSidebarCollapsed && (
             <Button
               variant="ghost"
               size="sm"
@@ -565,111 +563,111 @@ const handleActionChange = (value: string) => {
               <span className="sr-only">Expand Questions</span>
             </Button>
           )}
-        
+
           <div
             className={`transition-all duration-300 ${isSidebarCollapsed ? "hidden" : "w-full"}`}
           >
-         <QaHeader
-  questions={questions}
-  selectedQuestion={selectedQuestion}
-  onQuestionSelect={handleQuestionClick}
-  isLoading={isQuestionsLoading }
-  isLoadingTarget={isLoadingTargetQuestion}
-  isFetchingNextPage={isFetchingNextPage}
-  onRefresh={refetch}
-  actionType={actionType}
-  onActionTypeChange={handleActionChange}
-  reviewLevel={reviewLevel}
-  source={source}
-  states={states}
-  crops={crops}
-  onFilterChange={handleDialogChange}
-  scrollRef={scrollRef}
-  questionItemRefs={questionItemRefs}
-  setQuestionRef={setQuestionRef}
-  onToggleCollapse={() =>setIsSidebarCollapsed(!isSidebarCollapsed)}
-/>
-</div>
+            <QaHeader
+              questions={questions}
+              selectedQuestion={selectedQuestion}
+              onQuestionSelect={handleQuestionClick}
+              isLoading={isQuestionsLoading}
+              isLoadingTarget={isLoadingTargetQuestion}
+              isFetchingNextPage={isFetchingNextPage}
+              onRefresh={refetch}
+              actionType={actionType}
+              onActionTypeChange={handleActionChange}
+              reviewLevel={reviewLevel}
+              source={source}
+              states={states}
+              crops={crops}
+              onFilterChange={handleDialogChange}
+              scrollRef={scrollRef}
+              questionItemRefs={questionItemRefs}
+              setQuestionRef={setQuestionRef}
+              onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            />
+          </div>
           {selectedQuestionData &&
             selectedQuestionData?.history?.length == 0 && (
               <div className={`transition-all duration-300 w-full`}>
-              <Card className="w-full  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
-                <CardHeader className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <FileText className="w-5 h-5 text-primary" />
-                  </div>
-
-                  <div className="flex items-center justify-between w-full">
-                    <CardTitle className="text-lg font-semibold">
-                      Response
-                    </CardTitle>
-
-                    <QuestionDetailsDialog question={selectedQuestionData} />
-                  </div>
-                </CardHeader>
-
-                <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800">
-                  {isSelectedQuestionLoading ? (
-                    <div className="h-full flex flex-col items-center justify-center">
-                      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Loading responses...
-                      </p>
+                <Card className="w-full h-full  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
+                  <CardHeader className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <FileText className="w-5 h-5 text-primary" />
                     </div>
-                  ) : selectedQuestionData ? (
-                    <>
-                      <div className="flex flex-col w-full">
-                        <div className="flex items-center justify-between gap-2">
-                          <Label className="text-sm font-medium text-muted-foreground">
-                            Current Query:
-                          </Label>
-                         {/* Translate language dropdown */}
-                          <SarvamTranslateDropdown
-                            query={selectedQuestionData.text}
-                            onTranslate={(result) => setTranslatedText(result)}
-                          />
-                        </div>
 
-                        <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
-                          {translatedText || selectedQuestionData.text}
+                    <div className="flex items-center justify-between w-full">
+                      <CardTitle className="text-lg font-semibold">
+                        Response
+                      </CardTitle>
+
+                      <QuestionDetailsDialog question={selectedQuestionData} />
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800">
+                    {isSelectedQuestionLoading ? (
+                      <div className="h-full flex flex-col items-center justify-center">
+                        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Loading responses...
                         </p>
                       </div>
-
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <Label
-                            htmlFor="new-answer"
-                            className="text-sm font-medium flex items-center gap-1"
-                          >
-                            {selectedQuestionData.aiInitialAnswer &&
-                            newAnswer.trim() ===
-                              selectedQuestionData.aiInitialAnswer ? (
-                              <>
-                                <Bot className="h-4 w-4 text-blue-600" />
-                                AI Suggested Answer:
-                              </>
-                            ) : (
-                              "Draft Response:"
-                            )}
-                          </Label>
-
-                          <div className="flex items-center gap-2">
+                    ) : selectedQuestionData ? (
+                      <>
+                        <div className="flex flex-col w-full">
+                          <div className="flex items-center justify-between gap-2">
+                            <Label className="text-sm font-medium text-muted-foreground">
+                              Current Query:
+                            </Label>
+                            {/* Translate language dropdown */}
                             <SarvamTranslateDropdown
-                              query={newAnswer}
-                              onTranslate={(result) => setTranslatedDraftText(result)}
+                              query={selectedQuestionData.text}
+                              onTranslate={(result) => setTranslatedText(result)}
                             />
-                          {selectedQuestionData.aiInitialAnswer &&
-                            !newAnswer && (
-                              <button
-                                onClick={() => {
-                                  setNewAnswer(
-                                    selectedQuestionData.aiInitialAnswer || ""
-                                  );
-                                  setTranslatedDraftText("");
-                                  setRemarks("AI Suggested Answer");
-                                }}
-                                // The classes below are the ones you provided, slightly adjusted for square shape
-                                className="
+                          </div>
+
+                          <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
+                            {translatedText || selectedQuestionData.text}
+                          </p>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <Label
+                              htmlFor="new-answer"
+                              className="text-sm font-medium flex items-center gap-1"
+                            >
+                              {selectedQuestionData.aiInitialAnswer &&
+                                newAnswer.trim() ===
+                                selectedQuestionData.aiInitialAnswer ? (
+                                <>
+                                  <Bot className="h-4 w-4 text-blue-600" />
+                                  AI Suggested Answer:
+                                </>
+                              ) : (
+                                "Draft Response:"
+                              )}
+                            </Label>
+
+                            <div className="flex items-center gap-2">
+                              <SarvamTranslateDropdown
+                                query={newAnswer}
+                                onTranslate={(result) => setTranslatedDraftText(result)}
+                              />
+                              {selectedQuestionData.aiInitialAnswer &&
+                                !newAnswer && (
+                                  <button
+                                    onClick={() => {
+                                      setNewAnswer(
+                                        selectedQuestionData.aiInitialAnswer || ""
+                                      );
+                                      setTranslatedDraftText("");
+                                      setRemarks("AI Suggested Answer");
+                                    }}
+                                    // The classes below are the ones you provided, slightly adjusted for square shape
+                                    className="
                                   inline-flex items-center justify-center 
                                   text-blue-500 dark:text-blue-400
                                   bg-transparent
@@ -682,162 +680,161 @@ const handleActionChange = (value: string) => {
                                   active:scale-[0.98]
                                   focus:outline-none focus:ring-1 focus:ring-blue-300
                                 "
-                                aria-label="Apply Suggested AI Answer"
-                              >
-                                <Bot className="h-5 w-5" />
-                              </button>
+                                    aria-label="Apply Suggested AI Answer"
+                                  >
+                                    <Bot className="h-5 w-5" />
+                                  </button>
+                                )}
+                            </div>
+                          </div>
+                          <Textarea
+                            id="new-answer"
+                            placeholder="Enter your answer here..."
+                            value={translatedDraftText || newAnswer}
+                            onChange={(e) => { setTranslatedDraftText(""); setNewAnswer(e.target.value); }}
+                            className={`mt-1 md:max-h-[240px] max-h-[170px] min-h-[210px] resize-y border text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent ${newAnswer.trim() ===
+                                selectedQuestionData?.aiInitialAnswer &&
+                                selectedQuestionData.aiInitialAnswer
+                                ? "border-blue-400/70 bg-blue-50 dark:bg-blue-950/30 italic"
+                                : "border-gray-200 dark:border-gray-600"
+                              }`}
+                          />
+
+                          {/* Remarks */}
+                          <div className="mt-3">
+                            <Label
+                              htmlFor="remarks"
+                              className="text-sm font-medium"
+                            >
+                              Remarks
+                            </Label>
+                            <Textarea
+                              id="remarks"
+                              placeholder="Enter remarks..."
+                              value={remarks}
+                              onChange={(e) => setRemarks(e.target.value)}
+                              className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[80px] resize-y border border-gray-200 dark:border-gray-600 text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
+                            />
+                          </div>
+
+                          <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
+                            <SourceUrlManager
+                              sources={sources}
+                              onSourcesChange={setSources}
+                            />
+
+                            {sources.length > 0 && (
+                              <div className="mt-6 pt-6 border-t border-border">
+                                <p className="text-sm text-muted-foreground">
+                                  {sources.length}{" "}
+                                  {sources.length === 1 ? "source" : "sources"}{" "}
+                                  added
+                                </p>
+                              </div>
                             )}
                           </div>
-                        </div>
-                        <Textarea
-                          id="new-answer"
-                          placeholder="Enter your answer here..."
-                          value={translatedDraftText || newAnswer}
-                          onChange={(e) => { setTranslatedDraftText(""); setNewAnswer(e.target.value); }}
-                          className={`mt-1 md:max-h-[240px] max-h-[170px] min-h-[210px] resize-y border text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent ${
-                            newAnswer.trim() ===
-                              selectedQuestionData?.aiInitialAnswer &&
-                            selectedQuestionData.aiInitialAnswer
-                              ? "border-blue-400/70 bg-blue-50 dark:bg-blue-950/30 italic"
-                              : "border-gray-200 dark:border-gray-600"
-                          }`}
-                        />
-
-                        {/* Remarks */}
-                        <div className="mt-3">
-                          <Label
-                            htmlFor="remarks"
-                            className="text-sm font-medium"
-                          >
-                            Remarks
-                          </Label>
-                          <Textarea
-                            id="remarks"
-                            placeholder="Enter remarks..."
-                            value={remarks}
-                            onChange={(e) => setRemarks(e.target.value)}
-                            className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[80px] resize-y border border-gray-200 dark:border-gray-600 text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
-                          />
-                        </div>
-
-                        <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
-                          <SourceUrlManager
-                            sources={sources}
-                            onSourcesChange={setSources}
-                          />
-
-                          {sources.length > 0 && (
-                            <div className="mt-6 pt-6 border-t border-border">
-                              <p className="text-sm text-muted-foreground">
-                                {sources.length}{" "}
-                                {sources.length === 1 ? "source" : "sources"}{" "}
-                                added
-                              </p>
-                            </div>
+                          {isFinalAnswer && (
+                            <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                              <CheckCircle className="w-4 h-4" />
+                              <span>
+                                Congratulations! Your response was selected as the
+                                final answer. Great job!
+                              </span>
+                            </p>
                           )}
                         </div>
-                        {isFinalAnswer && (
-                          <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
-                            <CheckCircle className="w-4 h-4" />
-                            <span>
-                              Congratulations! Your response was selected as the
-                              final answer. Great job!
-                            </span>
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between  p-4 pt-0">
-                        <div className="flex items-center space-x-3">
-                          <ConfirmationModal
-                            title="Submit Response"
-                            description="You are the first expert responding to this question. Please cross-check your answer carefully before submitting — accurate responses improve your approval conversion rate."
-                            confirmText="Submit Response"
-                            cancelText="Cancel"
-                            onConfirm={() => handleSubmitResponse()}
-                            trigger={
-                              <Button
-                                disabled={!newAnswer.trim() || isResponding}
-                                className="flex items-center gap-2"
-                              >
-                                {isResponding ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span>Submitting…</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Send className="w-4 h-4" />
-                                    <span>Submit</span>
-                                  </>
-                                )}
-                              </Button>
-                            }
-                          />
+                        <div className="flex items-center justify-between  p-4 pt-0">
+                          <div className="flex items-center space-x-3">
+                            <ConfirmationModal
+                              title="Submit Response"
+                              description="You are the first expert responding to this question. Please cross-check your answer carefully before submitting — accurate responses improve your approval conversion rate."
+                              confirmText="Submit Response"
+                              cancelText="Cancel"
+                              onConfirm={() => handleSubmitResponse()}
+                              trigger={
+                                <Button
+                                  disabled={!newAnswer.trim() || isResponding}
+                                  className="flex items-center gap-2"
+                                >
+                                  {isResponding ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      <span>Submitting…</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Send className="w-4 h-4" />
+                                      <span>Submit</span>
+                                    </>
+                                  )}
+                                </Button>
+                              }
+                            />
 
-                          <Button variant="secondary" onClick={handleReset}>
-                            <span className="sr-only">Reset answer</span>
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
+                            <Button variant="secondary" onClick={handleReset}>
+                              <span className="sr-only">Reset answer</span>
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    </>
-                  ) : (
-                    <AnswerCreateDialog/>
-                  )}
-                </CardContent>
-              </Card>
+                      </>
+                    ) : (
+                      <AnswerCreateDialog />
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             )}
 
           {questions &&
-            questions.length != 0 && actionType=="allocated" &&
+            questions.length != 0 && actionType == "allocated" &&
             selectedQuestionData &&
             selectedQuestionData?.history?.length > 0 && (
-              <div className={`transition-all duration-300 flex-1 min-h-0 flex flex-col`}> 
-              <ResponseTimeline
-                SourceUrlManager={SourceUrlManager}
-                handleReset={handleReset}
-                handleSubmit={handleSubmitResponse}
-                isFinalAnswer={isFinalAnswer}
-                isSelectedQuestionLoading={isSelectedQuestionLoading}
-                isSubmittingAnswer={isResponding}
-                newAnswer={newAnswer}
-                selectedQuestionData={selectedQuestionData!}
-                setNewAnswer={setNewAnswer}
-                setSources={setSources}
-                sources={sources}
-                remarks={remarks}
-                setRemarks={setRemarks}
-                setSelectedQuestion={setSelectedQuestion}
-                refetchQuestions={refetch}
-              />
+              <div className={`transition-all duration-300 flex-1 min-h-0 flex flex-col`}>
+                <ResponseTimeline
+                  SourceUrlManager={SourceUrlManager}
+                  handleReset={handleReset}
+                  handleSubmit={handleSubmitResponse}
+                  isFinalAnswer={isFinalAnswer}
+                  isSelectedQuestionLoading={isSelectedQuestionLoading}
+                  isSubmittingAnswer={isResponding}
+                  newAnswer={newAnswer}
+                  selectedQuestionData={selectedQuestionData!}
+                  setNewAnswer={setNewAnswer}
+                  setSources={setSources}
+                  sources={sources}
+                  remarks={remarks}
+                  setRemarks={setRemarks}
+                  setSelectedQuestion={setSelectedQuestion}
+                  refetchQuestions={refetch}
+                />
               </div>
             )}
-            {questions &&
-            questions.length != 0 && actionType=="reroute" &&
-            selectedQuestionData &&selectedQuestionData?.history?.length > 0 &&
-            
-             (
+          {questions &&
+            questions.length != 0 && actionType == "reroute" &&
+            selectedQuestionData && selectedQuestionData?.history?.length > 0 &&
+
+            (
               <div className={`transition-all duration-300 w-full`}>
-              <ReRouteResponseTimeline
-                SourceUrlManager={SourceUrlManager}
-                handleReset={handleReset}
-                handleSubmit={handleSubmitResponse}
-                isFinalAnswer={isFinalAnswer}
-                isSelectedQuestionLoading={isSelectedQuestionLoading}
-                isSubmittingAnswer={isResponding}
-                newAnswer={newAnswer}
-                selectedQuestionData={selectedQuestionData!}
-                setNewAnswer={setNewAnswer}
-                setSources={setSources}
-                sources={sources}
-                remarks={remarks}
-                setRemarks={setRemarks}
-                questions={questions}
-                selectedQuestion={selectedQuestion}
-                setSelectedQuestion={setSelectedQuestion}
-                refetchQuestions={refetch}
-              />
+                <ReRouteResponseTimeline
+                  SourceUrlManager={SourceUrlManager}
+                  handleReset={handleReset}
+                  handleSubmit={handleSubmitResponse}
+                  isFinalAnswer={isFinalAnswer}
+                  isSelectedQuestionLoading={isSelectedQuestionLoading}
+                  isSubmittingAnswer={isResponding}
+                  newAnswer={newAnswer}
+                  selectedQuestionData={selectedQuestionData!}
+                  setNewAnswer={setNewAnswer}
+                  setSources={setSources}
+                  sources={sources}
+                  remarks={remarks}
+                  setRemarks={setRemarks}
+                  questions={questions}
+                  selectedQuestion={selectedQuestion}
+                  setSelectedQuestion={setSelectedQuestion}
+                  refetchQuestions={refetch}
+                />
               </div>
             )}
         </div>

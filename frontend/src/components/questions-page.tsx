@@ -16,6 +16,7 @@ import {
 } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
+import { useBulkAllocatePaeExperts } from "@/hooks/api/question/useBulkAllocatePaeExperts";
 import { toast } from "sonner";
 import Spinner from "./atoms/spinner";
 import { ReviewLevelsTable } from "@/features/questions/components/review-level/ReviewLevelsTable";
@@ -70,10 +71,10 @@ export const QuestionsPage = ({
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
+  const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
@@ -90,7 +91,13 @@ export const QuestionsPage = ({
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"all" | "review-level">("all");
   const [reviewPage, setReviewPage] = useState(1);
-  const [reviewLimit] = useState(12);
+  const [limit, setLimit] = useState(12);
+  const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setReviewPage(1);
+  }, [limit]);
 
   //handle sort by turn around time
   const [sort, setSort] = useState("");
@@ -119,8 +126,9 @@ export const QuestionsPage = ({
 
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
+  const { mutateAsync: bulkAllocatePaeExperts, isPending: isBulkAllocatingPae } =
+    useBulkAllocatePaeExperts();
 
-  const LIMIT = 12;
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -159,6 +167,7 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      pae_review: paeReview,
     }),
     [
       status,
@@ -184,16 +193,18 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      paeReview,
     ],
   );
 
   const {
     data: questionData,
     isLoading,
+    isFetching,
     refetch,
   } = useGetAllDetailedQuestions(
     currentPage,
-    LIMIT,
+    limit,
     filter,
     debouncedSearch,
     viewMode === "all",
@@ -205,10 +216,10 @@ export const QuestionsPage = ({
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
 
-  const { data: reviewData, isLoading: isReviewLoading } =
+  const { data: reviewData, isLoading: isReviewLoading, refetch: refetchReviewLevels } =
     useGetQuestionsAndLevel(
       reviewPage,
-      reviewLimit,
+      limit,
       search,
       filter,
       viewMode === "review-level",
@@ -236,6 +247,52 @@ export const QuestionsPage = ({
     if (currentUser?.role !== "expert") onReset();
   }, [debouncedSearch]);
 
+  const currentItems = useMemo(() => {
+    if (viewMode === "all") return questionData?.questions || [];
+    return reviewData?.data || [];
+  }, [viewMode, questionData, reviewData]);
+
+  const currentIndex = useMemo(() => {
+    return currentItems.findIndex((q) => q._id === selectedQuestionId);
+  }, [currentItems, selectedQuestionId]);
+
+  const totalPages = viewMode === "all" ? (questionData?.totalPages || 0) : (reviewData?.totalPages || 0);
+  const currentPageVal = viewMode === "all" ? currentPage : reviewPage;
+
+  const hasNext = currentIndex < currentItems.length - 1 || currentPageVal < totalPages;
+  const hasPrev = currentIndex > 0 || currentPageVal > 1;
+
+  const handleNext = () => {
+    if (currentIndex < currentItems.length - 1) {
+      setSelectedQuestionId(currentItems[currentIndex + 1]._id);
+    } else if (currentPageVal < totalPages) {
+      setPendingNav("next");
+      if (viewMode === "all") setCurrentPage(prev => prev + 1);
+      else setReviewPage(prev => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setSelectedQuestionId(currentItems[currentIndex - 1]._id);
+    } else if (currentPageVal > 1) {
+      setPendingNav("prev");
+      if (viewMode === "all") setCurrentPage(prev => prev - 1);
+      else setReviewPage(prev => prev - 1);
+    }
+  };
+
+  useEffect(() => {
+    if (pendingNav && !isLoading && !isFetching && !isReviewLoading && currentItems.length > 0) {
+      if (pendingNav === "next") {
+        setSelectedQuestionId(currentItems[0]._id);
+      } else {
+        setSelectedQuestionId(currentItems[currentItems.length - 1]._id);
+      }
+      setPendingNav(null);
+    }
+  }, [pendingNav, isLoading, isReviewLoading, currentItems]);
+
   const onChangeFilters = (next: {
     status?: QuestionFilterStatus;
     source?: QuestionSourceFilter;
@@ -260,6 +317,7 @@ export const QuestionsPage = ({
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     isOnHold?: boolean;
+    pae_review?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -290,6 +348,8 @@ export const QuestionsPage = ({
       setDuplicateQuestions(next.duplicateQuestions);
     if (next.isOnHold !== undefined)
       setIsOnHold(next.isOnHold);
+    if ("pae_review" in next)
+      setPaeReview(next.pae_review);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -327,6 +387,7 @@ export const QuestionsPage = ({
     setHiddenQuestions(false);
     setDuplicateQuestions(false);
     setIsOnHold(false);
+    setPaeReview(undefined);
   };
 
   const handleViewMore = (questoinId: string) => {
@@ -358,6 +419,28 @@ export const QuestionsPage = ({
     }
   };
 
+  const handleBulkAllocateToPae = async (paeExpertId: string) => {
+    if (!selectedQuestionIds || selectedQuestionIds.length === 0) {
+      toast.error("No questions selected.");
+      return;
+    }
+
+    try {
+      // Send all selected IDs directly — the worker validates draft status per question
+      // and skips non-draft ones. We must NOT filter through questionData (current page only).
+      await bulkAllocatePaeExperts({ questionIds: selectedQuestionIds, paeExpertId });
+      setSelectedQuestionIds([]);
+      setIsSelectionModeOn(false);
+      setTimeout(() => refetch(), 3000);
+      toast.success(
+        `Allocating ${selectedQuestionIds.length} question(s) to PAE in background.`,
+      );
+    } catch (error) {
+      console.error("Bulk PAE allocate error:", error);
+      toast.error("Failed to start PAE allocation. Please try again.");
+    }
+  };
+
   return (
     <main className={"mx-auto w-full p-4 md:p-6 space-y-6"}>
       {selectedQuestionId ? (
@@ -377,6 +460,10 @@ export const QuestionsPage = ({
                 setSelectedQuestionId("");
               }}
               currentUser={currentUser!}
+              onNext={handleNext}
+              onPrev={handlePrev}
+              hasNext={hasNext}
+              hasPrev={hasPrev}
             />
           )
         )
@@ -394,10 +481,6 @@ export const QuestionsPage = ({
             crops={CROPS}
             refetch={() => {
               refetch();
-              setIsRefreshing(true);
-              setTimeout(() => {
-                setIsRefreshing(false);
-              }, 2000);
             }}
             totalQuestions={
               viewMode === "all"
@@ -411,6 +494,8 @@ export const QuestionsPage = ({
             setIsSelectionModeOn={setIsSelectionModeOn}
             setSelectedQuestionIds={setSelectedQuestionIds}
             bulkDeletingQuestions={bulkDeletingQuestions}
+            handleBulkAllocateToPae={handleBulkAllocateToPae}
+            isBulkAllocatingPae={isBulkAllocatingPae}
             viewMode={viewMode}
             setViewMode={setViewMode}
             onSort={toggleSort}
@@ -427,9 +512,9 @@ export const QuestionsPage = ({
               currentPage={currentPage}
               setCurrentPage={setCurrentPage}
               userRole={currentUser?.role!}
-              limit={LIMIT}
+              limit={limit}
               totalPages={questionData?.totalPages || 0}
-              isLoading={isLoading || isRefreshing || bulkDeletingQuestions}
+              isLoading={isLoading || isFetching || bulkDeletingQuestions}
               isBulkUpload={isBulkUpload}
               uploadedQuestionsCount={uploadedQuestionsCount}
               selectedQuestionIds={selectedQuestionIds}
@@ -440,6 +525,7 @@ export const QuestionsPage = ({
               sort={questionSort}
               onSort={toggleQuestionSort}
               view={view}
+              setLimit={setLimit}
             />
           ) : (
             <ReviewLevelsTable
@@ -451,8 +537,10 @@ export const QuestionsPage = ({
               onViewMore={handleViewMore}
               toggleSort={toggleSort}
               sort={sort}
-              limit={reviewLimit}
+              limit={limit}
+              onLimitChange={setLimit}
               view={view}
+              onRefresh={refetchReviewLevels}
             />
           )}
         </>

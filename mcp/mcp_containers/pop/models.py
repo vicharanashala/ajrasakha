@@ -106,6 +106,7 @@ class POPComplianceNotice(BaseModel):
 class POPContextResponse(BaseModel):
     contexts: List[ContextPOP]
     compliance_notice: Optional[POPComplianceNotice] = None
+    response_guidance: str
 
 
 class ThinkingResponseChunk:

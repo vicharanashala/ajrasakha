@@ -14,6 +14,7 @@ import {
   User,
   Send,
   Loader2,
+  ArrowLeft,
 } from "lucide-react";
 import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
 import { DateRangeFilter } from "./DateRangeFilter";
@@ -30,6 +31,7 @@ import {
   DialogTitle,
 } from "./atoms/dialog";
 import { ScrollArea } from "./atoms/scroll-area";
+import type { IUser } from "@/types";
 
 const getStatusColor = (status: string) => {
   switch (status?.toLowerCase()) {
@@ -129,7 +131,7 @@ const ViewContextModal = ({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
-        className="w-[90vw] max-w-6xl flex flex-col max-h-[90vh]"
+        className="w-[90vw] max-w-6xl flex flex-col max-h-[90vh] min-h-0"
         style={{ maxWidth: "70vw" }}
       >
         <DialogHeader className="pb-4 border-b flex-shrink-0">
@@ -138,7 +140,7 @@ const ViewContextModal = ({
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 overflow-y-auto">
+        <ScrollArea className="h-[500px]">
           <div className="space-y-6 p-4 text-sm pr-6">
             {/* ====================== QUESTION ====================== */}
             <div>
@@ -182,9 +184,9 @@ const ViewContextModal = ({
               item.action === "rejected"||item.action=="reroute_approved") && (
               <div>
                 <p className="text-sm font-medium mb-1">Answer</p>
-                <div className="rounded-lg border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
+                <ScrollArea className="h-[300px]">
                   {currentAnswer}
-                </div>
+                </ScrollArea>
               </div>
             )}
 
@@ -301,7 +303,7 @@ const ViewContextModal = ({
 export default function UserActivityHistory({
   selectedHistoryId,
 }: {
-  selectedHistoryId: string | null;
+  selectedHistoryId?: string | null;
 }) {
   const [dateRange, setDateRange] = useState({
     // start: new Date(),
@@ -311,9 +313,10 @@ export default function UserActivityHistory({
   });
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [limit, setLimit] = useState(12);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
-  const { data, isLoading } = useGetSubmissions(currentPage, 5, dateRange,selectedHistoryId?.toString());
+  const { data, isLoading } = useGetSubmissions(currentPage, limit, dateRange,selectedHistoryId?.toString());
   const {
     data: questionDetails,
     refetch: refechSelectedQuestion,
@@ -332,8 +335,28 @@ export default function UserActivityHistory({
     setCurrentPage(1);
   };
 
+    const handleBack = () => window.history.back();
+
   return (
     <main className="min-h-screen   sm:p-8 ">
+      <div className="flex justify-between items-center">
+      <div className="flex gap-2 items-center">
+         <button onClick={handleBack} className="shrink-0 text-muted-foreground hover:-translate-x-1 transition-transform duration-200">
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+      <h1 className="text-xl">History</h1>
+      </div>
+
+              <div className="mb-6 w-64">
+          <DateRangeFilter
+            advanceFilter={{
+              startTime: dateRange.start,
+              endTime: dateRange.end,
+            }}
+            handleDialogChange={handleDialogChange}
+          />
+        </div>
+      </div>
       {selectedQuestionId && questionDetails ? (
         <>
           <QuestionDetails
@@ -349,15 +372,6 @@ export default function UserActivityHistory({
       ):
       (
       <div className=" mx-auto px-6">
-        <div className="mb-6 w-64">
-          <DateRangeFilter
-            advanceFilter={{
-              startTime: dateRange.start,
-              endTime: dateRange.end,
-            }}
-            handleDialogChange={handleDialogChange}
-          />
-        </div>
 
         {/* loading... */}
           {isLoading && (
@@ -536,6 +550,8 @@ export default function UserActivityHistory({
                   currentPage={currentPage}
                   totalPages={totalPages}
                   onPageChange={(p) => setCurrentPage(p)}
+                  limit={limit}
+                  onLimitChange={setLimit}
                 />
               </div>
             )}

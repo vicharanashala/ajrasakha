@@ -158,6 +158,7 @@ export class AnswerRepository implements IAnswerRepository {
         _id: a._id?.toString(),
         answer: a.answer,
         isFinalAnswer: a.isFinalAnswer,
+        approvedBy: a.approvedBy?.toString() || null,
         createdAt: a.createdAt,
       }));
     } catch (error) {
@@ -1269,8 +1270,24 @@ export class AnswerRepository implements IAnswerRepository {
       {session},
     ).toArray()) as AnalyticsItem[];
 
+    const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
+      const sorted = [...data].sort((a, b) => b.count - a.count);
+      const topTen = sorted.slice(0, 10);
+      const othersItems = sorted.slice(10);
+      const othersCount = othersItems.reduce((sum, item) => sum + item.count, 0);
+
+      return [
+        ...topTen,
+        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount, otherItems: othersItems }] : []),
+      ];
+    };
+
     return {
-      analytics: {cropData, stateData, domainData},
+      analytics: {
+        cropData: getTopTenWithOthers(cropData),
+        stateData: stateData,
+        domainData: getTopTenWithOthers(domainData),
+      },
     };
   }
   async getModeratorActivityHistory(

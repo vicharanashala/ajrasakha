@@ -1,5 +1,6 @@
 import type { ClientSession } from "mongodb";
 import type {
+  IAnswer,
   SourceItem,
 } from "#root/shared/interfaces/models.js";
 import type {
@@ -55,6 +56,11 @@ export interface IAnswerService {
     updates: UpdateAnswerBody,
   ): Promise<{modifiedCount: number} | {insertedId: string}>;
 
+  approveLLMAnswer(
+    userId: string,
+    updates: UpdateAnswerBody,
+  ): Promise<{modifiedCount: number}>;
+
   deleteAnswer(
     questionId: string,
     answerId: string,
@@ -71,4 +77,6 @@ export interface IAnswerService {
     answerId: string,
     session?: ClientSession,
   ): Promise<number>;
+
+  getAnswerById(answerId: string): Promise<IAnswer>;
 }

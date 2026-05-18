@@ -10,6 +10,24 @@ export interface KpiSummary {
   csatRating: number;
   repeatQueryRatePct: number;
   voiceUsageSharePct: number;
+  totalAppInstalls: number; // It will the count the user whose profile is completed or not.
+  inactiveUsersLast3Days: number; // users with zero messages in the last 3 days
+  duplicateQuestionsCount: number; // questions with a similarityScore field
+  lowFeedbackUsersCount: number; // users who have never given any feedback (no feedback object in messages)
+}
+
+export interface DuplicateQuestionEntry {
+  questionId: string;
+  question: string;
+  referenceQuestion: string;
+  similarityScore: number;
+  createdAt: Date;
+  farmerName: string;
+  email: string;
+  village: string;
+  block: string;
+  district: string;
+  state: string;
 }
 
 export interface DailyActiveUsersEntry {
@@ -70,6 +88,12 @@ export interface FarmerProfile {
   usesAgriApps?: boolean;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
+  platform?: string;
+  platformHistory?: { os: string; timestamp: string }[];
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export interface UserDetailEntry {
@@ -85,6 +109,7 @@ export interface PaginatedUserDetails {
   totalUsers: number;
   totalPages: number;
   activeUsers: number;
+  inactiveUsers: number;
   totalQuestions: number;
 }
 
@@ -105,17 +130,32 @@ export interface KccAndAgriAppStats {
   agriAppUsage: DemographicEntry[];
 }
 
+export interface PlatformInstallEntry {
+  platform: string;
+  count: number;
+}
+
+export interface DomainSpikeEntry {
+  domain: string;
+  date: string;       // 'YYYY-MM-DD'
+  count: number;      // query count on that date
+  baseline: number;   // rolling 30-day average (excluding the spike day)
+  spikePct: number;   // % above baseline, rounded
+  location?: string;  // most common "District, State" for that domain+date
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
   /** Aggregated KPI summary for the current day. */
-  getKpiSummary(source?: string, session?: ClientSession): Promise<KpiSummary>;
+  getKpiSummary(source?: string, session?: ClientSession, userType?: string): Promise<KpiSummary>;
 
   /** Daily unique active users over the last `days` days. */
   getDailyActiveUsers(
     days: number,
     source?: string,
     session?: ClientSession,
+    userType?: string,
   ): Promise<DailyActiveUsersEntry[]>;
 
   /** Percentage breakdown of sessions by channel (voice / text / kcc_agent / ivrs). */
@@ -133,6 +173,8 @@ export interface IChatbotRepository {
   /** Percentage breakdown of sessions by query category, sorted descending. */
   getQueryCategories(source?: string, session?: ClientSession): Promise<QueryCategoryEntry[]>;
 
+  getTopCrops(session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
     weeks?: number,
@@ -145,15 +187,17 @@ export interface IChatbotRepository {
     days?: number,
     source?: string,
     session?: ClientSession,
+    userType?: string,
   ): Promise<DailyQueryCountEntry[]>;
 
   /** Count of user messages created today from the messages collection. */
-  getTodayQueryCount(source?: string, session?: ClientSession): Promise<number>;
+  getTodayQueryCount(source?: string, session?: ClientSession, userType?: string): Promise<number>;
 
   /** Weekly query totals (all-time) from the messages collection, sorted ascending by ISO week. */
   getWeeklyQueryCounts(
     source?: string,
     session?: ClientSession,
+    userType?: string,
   ): Promise<WeeklyQueryCountEntry[]>;
 
   /** Daily user activity trend (users active per day) over the last `days` days, sorted ascending. */
@@ -161,18 +205,20 @@ export interface IChatbotRepository {
     days?: number,
     source?: string,
     session?: ClientSession,
+    userType?: string,
   ): Promise<DailyActiveUsersEntry[]>;
-  findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string});
-  findFromSecondDb(data: {question: string; details: any; createdAt: Date; questionId: string});
+  findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
+  findFromSecondDb(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
 
   /** Inactivity-gap based avg session duration in minutes (KPI number). Requires MongoDB 5.0+. */
-  getAvgSessionDurationV2(source?: string, session?: ClientSession): Promise<number>;
+  getAvgSessionDurationV2(source?: string, session?: ClientSession, userType?: string): Promise<number>;
 
   /** Inactivity-gap based weekly avg session duration for sparkline/delta. Requires MongoDB 5.0+. */
   getWeeklyAvgSessionDurationV2(
     weeks?: number,
     source?: string,
     session?: ClientSession,
+    userType?: string,
   ): Promise<WeeklySessionDurationEntry[]>;
 
   /** Get all users with their question counts, optionally filtered by date range, with server-side pagination. */
@@ -186,7 +232,12 @@ export interface IChatbotRepository {
     crop?: string,
     village?: string,
     profileCompleted?: string,
+    inactiveOnly?: boolean,
     session?: ClientSession,
+    userType?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    lowFeedbackOnly?: boolean,
   ): Promise<PaginatedUserDetails>;
 
   /** Aggregate conversations from the messages collection for Excel export. */
@@ -198,10 +249,23 @@ export interface IChatbotRepository {
   ): Promise<ChatbotConversationData[]>;
 
   /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
-  getUserDemographics(source?: string, session?: ClientSession): Promise<UserDemographics>;
+  getUserDemographics(source?: string, session?: ClientSession, userType?: string): Promise<UserDemographics>;
 
   /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
-  getKccAndAgriAppStats(source?: string, session?: ClientSession): Promise<KccAndAgriAppStats>;
+  getKccAndAgriAppStats(source?: string, session?: ClientSession, userType?: string): Promise<KccAndAgriAppStats>;
+
+  getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession)
+  getInstalls(startDate:Date,endDate:Date, session?: ClientSession)
+  getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession)
+
+  // get platform wise installs
+  getPlatformInstalls(source: string, session?: ClientSession): Promise<PlatformInstallEntry[]>;
+
+  /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
+  getDuplicateQuestions(source?: string, session?: ClientSession): Promise<DuplicateQuestionEntry[]>;
+
+  /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
+  getDomainSpikes(days?: number, session?: ClientSession): Promise<DomainSpikeEntry[]>;
 }
 
 export interface ChatbotConversationData {

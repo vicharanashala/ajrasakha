@@ -11,7 +11,7 @@ const client = new OpenAI({
 export async function checkConceptDuplicate(
   questionA: string,
   referenceQuestions: string[]
-): Promise<string | null> {
+): Promise<null|number> {
 
   console.log(
     `Checking concept duplication for question: "${questionA}" against ${referenceQuestions.length} reference questions...`
@@ -29,20 +29,16 @@ export async function checkConceptDuplicate(
       {
         role: "system",
         content: `
-You are an agricultural question classifier.
-
-Your task:
-Determine if the input question asks the SAME concept as any candidate question.
-
-Rules:
-- Pest and disease are different concepts.
-- Different crops are different concepts.
-- Yield, variety, fertilizer, irrigation, pest, and disease are different concepts.
-
-Output rules:
-- If a candidate question matches the SAME concept, return the FULL candidate question text exactly.
-- If none match, return: NONE
-`
+        You are an agricultural similar question finder.
+ 
+        Your task:
+        Determine whether the input question is asking the EXACT SAME meaning as any candidate question, even if phrased differently.
+         
+        Output rules:
+         
+        * If a candidate question matches, return only the candidate number.
+        * If none match, return only: NONE
+        `
       },
       {
         role: "user",
@@ -53,7 +49,7 @@ ${questionA}
 Candidate Questions:
 ${formattedQuestions}
 
-Return the exact matching candidate question or NONE.
+Return ONLY the matching candidate number or NONE.
 `
       }
     ]
@@ -67,6 +63,14 @@ Return the exact matching candidate question or NONE.
   if (result.toUpperCase() === "NONE") {
     return null;
   }
+ // return result
+ const cleaned = result.replace(/\D/g, "");
+ const parsedIndex = parseInt(cleaned, 10);
+  if (isNaN(parsedIndex)) {
+    console.log("Invalid LLM response");
+    return null;
+  }
 
-  return result;
+  // Convert 1-based index → 0-based index
+  return parsedIndex - 1;
 }

@@ -10,6 +10,12 @@ export interface UserDemographics {
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
+  landHolding: DemographicEntry[];
+}
+
+export interface IPlatformInstallEntry{
+  platform: string;
+  count: number;
 }
 
 export interface Segment {
@@ -37,4 +43,9 @@ export interface KpiCard {
   sparkLabels?: string[];
   dateRange?: string;
   badges?: { label: string; variant: BadgeVariant }[];
+  icon?: string;
+}
+export interface TopCropsResponse {
+  totalQuestions: number;
+  topCrops: { name: string; count: number }[];
 }

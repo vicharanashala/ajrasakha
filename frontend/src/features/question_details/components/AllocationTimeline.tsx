@@ -8,8 +8,11 @@ import type {
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AllocationQueueHeader } from "./AllocationQueueHeader";
+import { ClosedFinalAnswerModal } from "./ClosedFinalAnswerModal";
 import {
   AlertCircle,
+  CalendarClock,
+  CheckCheck,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -22,6 +25,7 @@ import {
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { Button } from "@/components/atoms/button";
 import { getStatusStyles } from "../constants/allocationStatusStyleConfig";
+import { formatDuration } from "../utils/formatDate";
 
 interface AllocationTimelineProps {
   queue: ISubmission["queue"];
@@ -41,6 +45,10 @@ export const AllocationTimeline = ({
   const [isFlipped, setIsFlipped] = useState(false);
   const [flippedId, setIsFlippedId] = useState("");
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  if (question.status === "pass") {
+    return null;
+  }
 
   const [selectedAllocationIndex, setSelectedAllocationIndex] = useState<
     number | null
@@ -76,7 +84,12 @@ export const AllocationTimeline = ({
 
   const getUserActivityText = (userId: string): string => {
     const submission = getUserSubmission(userId);
-    if (!submission) return "No activity yet.";
+    if (!submission) {
+      if (currentUser.role !== "expert") {
+        return `${queue[0].name} is reviewing the question!!`
+      }
+      return "Author is reviewing the question"
+    };
 
     const userName = submission?.updatedBy?.name || "User";
 
@@ -202,6 +215,19 @@ export const AllocationTimeline = ({
 
   return (
     <div className="w-full space-y-6 my-6">
+      {question.closedFinalAnswer && (
+        <div className="flex items-center justify-between p-4 rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
+          <div>
+            <p className="text-sm font-semibold text-green-800 dark:text-green-300">
+              This question has been closed with a final answer.
+            </p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+              Click to view the answer and its sources.
+            </p>
+          </div>
+          <ClosedFinalAnswerModal question={question} />
+        </div>
+      )}
       <AllocationQueueHeader
         queue={queue}
         question={question}
@@ -225,6 +251,7 @@ export const AllocationTimeline = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6   transition-all duration-500 ease-in-out">
           {displayedQueue?.map((user, index) => {
             const status = getStatus(index);
+            const userSubmission = getUserSubmission(user._id);
             const styles = getStatusStyles(status);
             const isLast = index === displayedQueue?.length - 1;
             const isCurrentUserWaiting =
@@ -238,9 +265,8 @@ export const AllocationTimeline = ({
                 {!isLast && (
                   <div className="absolute top-50 right-36 md:top-1/2 md:right-0 flex items-center transform translate-x-full -translate-y-1/2">
                     <svg
-                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 hidden md:block ${
-                        isCurrentUserWaiting ? "animate-bounce" : ""
-                      }`}
+                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 hidden md:block ${isCurrentUserWaiting ? "animate-bounce" : ""
+                        }`}
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       stroke="currentColor"
@@ -255,9 +281,8 @@ export const AllocationTimeline = ({
                     </svg>
 
                     <svg
-                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 block md:hidden ${
-                        isCurrentUserWaiting ? "animate-bounce" : ""
-                      }`}
+                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 block md:hidden ${isCurrentUserWaiting ? "animate-bounce" : ""
+                        }`}
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       stroke="currentColor"
@@ -285,17 +310,14 @@ export const AllocationTimeline = ({
                       <div className="absolute -top-1 right-3 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
                         <ConfirmationModal
                           title="Remove Expert Allocation?"
-                          description={`${
-                            question.isAutoAllocate
-                              ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
-                              : ""
-                          }${
-                            submittedUserIds.has(user._id)
+                          description={`${question.isAutoAllocate
+                            ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
+                            : ""
+                            }${submittedUserIds.has(user._id)
                               ? "The selected expert has already submitted an answer. "
                               : ""
-                          }Are you sure you want to remove ${
-                            user?.name
-                          }'s allocation? This action cannot be undone. `}
+                            }Are you sure you want to remove ${user?.name
+                            }'s allocation? This action cannot be undone. `}
                           confirmText="Remove"
                           cancelText="Cancel"
                           type="delete"
@@ -318,27 +340,24 @@ export const AllocationTimeline = ({
                   onMouseLeave={handleMouseLeave}
                 >
                   <div
-                    className={`relative w-full h-full transition-transform duration-700 ${
-                      isFlipped && flippedId == user._id
-                        ? "[transform:rotateY(180deg)]"
-                        : ""
-                    }`}
+                    className={`relative w-full h-full transition-transform duration-700 ${isFlipped && flippedId == user._id
+                      ? "[transform:rotateY(180deg)]"
+                      : ""
+                      }`}
                     style={{ transformStyle: "preserve-3d" }}
                   >
                     <div
                       className={`absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 
             rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 
             ${styles.container} 
-            ${
-              isExpanded && index >= INITIAL_DISPLAY_COUNT
-                ? "animate-fade-in"
-                : ""
-            } 
-            ${
-              isCurrentUserWaiting
-                ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
-                : ""
-            }`}
+            ${isExpanded && index >= INITIAL_DISPLAY_COUNT
+                          ? "animate-fade-in"
+                          : ""
+                        } 
+            ${isCurrentUserWaiting
+                          ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
+                          : ""
+                        }`}
                       style={{ backfaceVisibility: "hidden" }}
                     >
                       {removingAllocation &&
@@ -358,11 +377,10 @@ export const AllocationTimeline = ({
                           <RefreshCcw className={`w-6 h-6 ${styles.icon}`} />
                         ) : status === "waiting" ? (
                           <Clock
-                            className={`w-6 h-6 ${styles.icon} ${
-                              isCurrentUserWaiting
-                                ? "animate-bounce-subtle"
-                                : ""
-                            }`}
+                            className={`w-6 h-6 ${styles.icon} ${isCurrentUserWaiting
+                              ? "animate-bounce-subtle"
+                              : ""
+                              }`}
                           />
                         ) : (
                           <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
@@ -406,7 +424,7 @@ export const AllocationTimeline = ({
                     </div>
 
                     <div
-                      className="absolute inset-0 flex items-center justify-center rounded-lg border border-border/50 bg-gradient-to-br from-card to-card/95 shadow-lg transition-all duration-300"
+                      className="absolute inset-0 flex items-center justify-center rounded-lg border border-border/50 bg-gradient-to-br from-card to-card/95 shadow-lg transition-all duration-300 overflow-hidden"
                       style={{
                         backfaceVisibility: "hidden",
                         transform: "rotateY(180deg)",
@@ -414,15 +432,139 @@ export const AllocationTimeline = ({
                           "0 20px 25px -5px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
                       }}
                     >
-                      <div className="flex flex-col items-center justify-center gap-2 px-4 text-center">
-                        <div className="h-1 w-8 rounded-full bg-gradient-to-r from-primary/60 to-primary/20" />
-                        <p
-                          className="text-sm font-semibold leading-relaxed text-foreground"
-                          title={getUserActivityText(user._id)}
-                        >
-                          {getUserActivityText(user._id)}
-                        </p>
-                        <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-primary/20 to-primary/60" />
+                      <div className="flex flex-col h-full w-full overflow-y-auto px-4 py-3">
+                        {/* ========================= HEADER ========================= */}
+                        <div className="flex flex-col items-center text-center gap-2">
+                          <div className="h-1 w-8 rounded-full bg-gradient-to-r from-primary/60 to-primary/20" />
+
+                          <p
+                            className="text-xs sm:text-sm font-semibold leading-relaxed text-foreground break-words max-w-full"
+                            title={getUserActivityText(user._id)}
+                          >
+                            {getUserActivityText(user._id)}
+                          </p>
+                        </div>
+                        {/* timeline*/}
+                        {/* ========================= PREMIUM TIMELINE SECTION ========================= */}
+                        {userSubmission?.assignedAt && currentUser.role != "expert" && (
+                          <div className="w-full mt-3 rounded-2xl border border-border/50 bg-gradient-to-br from-muted/40 to-muted/20 backdrop-blur-sm px-3 py-3 shadow-sm">
+                        
+                            {/* <div className="flex items-center gap-2 mb-3">
+                              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10">
+                                <Timer className="w-3.5 h-3.5 text-primary" />
+                              </div>
+
+                              <p className="text-[11px] font-bold tracking-wide uppercase text-foreground">
+                                Review Timeline
+                              </p>
+                            </div> */}
+
+                            <div className="space-y-2">
+
+                              {/* Assigned At */}
+                              <div className="flex items-start gap-2 rounded-lg bg-background/40 border border-border/30 px-2.5 py-2">
+                                <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/10">
+                                  <CalendarClock className="w-3.5 h-3.5 text-blue-500" />
+                                </div>
+
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                                    Assigned:
+                                  </span>
+
+                                  <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
+                                    {new Date(userSubmission.assignedAt).toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Completed At */}
+                              <div className="flex items-start gap-2 rounded-lg bg-background/40 border border-border/30 px-2.5 py-2">
+                                <div
+                                  className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full ${
+                                    userSubmission.completedAt
+                                      ? "bg-green-500/10"
+                                      : "bg-amber-500/10"
+                                  }`}
+                                >
+                                  <CheckCheck
+                                    className={`w-3.5 h-3.5 ${
+                                      userSubmission.completedAt
+                                        ? "text-green-500"
+                                        : "text-amber-500"
+                                    }`}
+                                  />
+                                </div>
+
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                                    Completed:
+                                  </span>
+
+                                  <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
+                                    {userSubmission.completedAt
+                                      ? new Date(
+                                          userSubmission.completedAt
+                                        ).toLocaleString()
+                                      : "Currently In Progress"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Duration */}
+                              <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/10 px-2.5 py-2">
+                                <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
+                                  <Clock className="w-3.5 h-3.5 text-primary" />
+                                </div>
+
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                                    Duration
+                                  </span>
+
+                                  <span className="text-xs font-bold text-primary leading-snug">
+                                    {userSubmission.timeTakenMs
+                                      ? formatDuration(userSubmission.timeTakenMs)
+                                      : "Ongoing"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+{/* ================================================================= */}
+                        <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-primary/20 to-primary/60 mx-auto my-2" />
+
+                        {/* Previous Allocations Section */}
+                        {(() => {
+                          const userSubmission = getUserSubmission(user._id);
+                          const prevAllocs = userSubmission?.previousAllocations;
+                          if (prevAllocs && prevAllocs.length > 0) {
+                            return (
+                              <div className="mt-auto pt-2 w-full">
+                                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                                  Previous Reviewers ({prevAllocs.length})
+                                </p>
+                                <div className="space-y-1 max-h-[60px] overflow-y-auto">
+                                  {prevAllocs.map((alloc, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="text-[10px] bg-muted/50 rounded px-2 py-1 text-left"
+                                    >
+                                      <p className="font-medium text-foreground truncate">
+                                        {alloc.reasonForChange}
+                                      </p>
+                                      <p className="text-muted-foreground">
+                                        {new Date(alloc.createdAt).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
                   </div>

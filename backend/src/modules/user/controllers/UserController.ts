@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import {
   JsonController,
   Get,
+  Post,
   Put,
   Body,
   HttpCode,
@@ -12,6 +13,9 @@ import {
   NotFoundError,
   Patch,
   QueryParams,
+  BadRequestError,
+  InternalServerError,
+  ForbiddenError
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -19,6 +23,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {
   IUser,
   NotificationRetentionType,
+  UserRole,
 } from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {UserService} from '#root/modules/user/services/UserService.js';
@@ -28,8 +33,14 @@ import {
   UpdatePenaltyAndIncentive,
   UsersNameResponseDto,
   ExpertReviewLevelDto,
-  UpdateUserDto
-} from '../validators/UserValidators.js';
+  UpdateUserDto,
+  ToggleUserRoleDto,
+  VerifyUserBody
+} from '#root/modules/user/validators/UserValidators.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+
 import {
   UserErrorResponse,
   UserSuccessMessageResponse,
@@ -48,6 +59,9 @@ export class UserController {
   constructor(
     @inject(GLOBAL_TYPES.UserService)
     private readonly userService: UserService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   @OpenAPI({
@@ -169,6 +183,10 @@ export class UserController {
       search?: string;
       sort?: string;
       filter?: string;
+      role?: string;
+      isBlocked?: string;
+      isVerified?: string;
+      isSTF?: string;
     },
     
   ) {
@@ -177,6 +195,10 @@ export class UserController {
     const search = query.search || '';
     const sort = query.sort || '';
     const filter = query.filter || '';
+    const role = query.role || 'ALL';
+    const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
+    const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
+    const isSTF = query.isSTF === 'true' ? true : query.isSTF === 'false' ? false : undefined;
 
     return this.userService.getAllUsers(
       pageNum,
@@ -184,6 +206,10 @@ export class UserController {
       search,
       sort,
       filter,
+      role,
+      isBlocked,
+      isVerified,
+      isSTF,
     );
   }
 
@@ -346,10 +372,151 @@ export class UserController {
   @Authorized()
   async BlockAndUnblockExpert(
     @Body() body: BlockUnblockBody,
+    @CurrentUser() user: IUser,
   ): Promise<{message: string}> {
     const {action, userId} = body;
-    await this.userService.blockUnblockExperts(userId, action);
+    const expertDetails = await this.userService.getUserById(userId);
+    if (!expertDetails) {
+      throw new NotFoundError('User not found');
+    }
+
+    let auditPayload : ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_MANAGEMENT,
+      action: action === 'block' ? AuditAction.BLOCK_EXPERT : AuditAction.UNBLOCK_EXPERT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        userId: userId,
+        name: `${expertDetails.firstName} ${expertDetails.lastName}`,
+        email: expertDetails.email,
+        role: expertDetails.role,
+      },
+      changes:{
+        before:{
+          status: action === 'block' ? 'unblocked' : 'blocked',
+        },
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    try{
+      await this.userService.blockUnblockExperts(userId, action);
+    } catch(err: any){  
+      auditPayload = {
+        ...auditPayload,          
+          outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to block/unblock expert',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+          throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to block/unblock expert',
+      );
+    }
+    auditPayload = {
+      ...auditPayload,
+      changes:{
+        ...auditPayload.changes,
+        after:{
+          status: action === 'block' ? 'blocked' : 'unblocked',
+        }
+      }
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
     return {message: `${action} Expert successfully`};
+  }
+
+  @OpenAPI({
+    summary: 'Assign or remove STF status for a user',
+    description: 'Assigns or removes Special Task Force status for a user. Admin access required.',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'STF status updated successfully',
+  })
+  @Patch('/stf')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async toggleSTFStatus(
+    @Body() body: BlockUnblockBody,
+    @CurrentUser() user: IUser,
+  ): Promise<{ message: string }> {
+    const { action, userId } = body;
+    const expertDetails = await this.userService.getUserById(userId);
+    if (!expertDetails) {
+      throw new NotFoundError('User not found');
+    }
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_MANAGEMENT,
+      action: action === 'assign' ? AuditAction.ASSIGN_STF : AuditAction.REMOVE_STF,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        userId: userId,
+        name: `${expertDetails.firstName} ${expertDetails.lastName}`,
+        email: expertDetails.email,
+        role: expertDetails.role,
+      },
+      changes: {
+        before: {
+          special_task_force: action === 'assign' ? false : true,
+        },
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      await this.userService.updateSTFStatus(userId, action);
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to update STF status',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to update STF status');
+    }
+
+    auditPayload = {
+      ...auditPayload,
+      changes: {
+        ...auditPayload.changes,
+        after: {
+          special_task_force: action === 'assign' ? true : false,
+        },
+      },
+    };
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return { message: `STF status ${action === 'assign' ? 'assigned' : 'removed'} successfully` };
   }
 
   @OpenAPI({
@@ -373,9 +540,66 @@ export class UserController {
   @Authorized()
   async updateActivityStatus(
     @Body() body: {userId: string; status: 'active' | 'in-active'},
+    @CurrentUser() user: IUser,
   ): Promise<{message: string}> {
     const {userId, status} = body;
-    await this.userService.updateActivityStatus(userId, status);
+    const expertDetails = await this.userService.getUserById(userId);
+    let auditPayload : ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_MANAGEMENT,
+      action: status === 'active' ? AuditAction.ACTIVATE_EXPERT : AuditAction.DEACTIVATE_EXPERT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        userId: userId,
+        name: `${expertDetails.firstName} ${expertDetails.lastName}`,
+        email: expertDetails.email,
+        role: expertDetails.role,
+      },
+      changes:{
+        before:{
+          status: status === 'in-active' ? 'active' : 'in-active',
+        },
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    try{
+      await this.userService.updateActivityStatus(userId, status);
+    } catch(err: any){  
+      auditPayload = {
+        ...auditPayload,          
+          outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to update expert status',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+          throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to update expert status',
+      );
+    }
+    auditPayload = {
+      ...auditPayload,
+      changes:{
+        ...auditPayload.changes,
+        after:{
+          status: status === 'in-active' ? 'in-active' : 'active',
+        }
+      }
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
     return {message: `Expert status updated to ${status} successfully`};
   }
 
@@ -401,13 +625,74 @@ export class UserController {
   async toggleUserRole(
     @CurrentUser() currentUser: IUser,
     @Param('id') userId: string,
+    @Body() body: ToggleUserRoleDto
   ) {
-    const updatedUser = await this.userService.toggleUserRole(
-      currentUser,
-      userId,
-    );
-    return {message: `User promoted to moderator`, user: updatedUser};
-  }
+    console.log("New Role", body.role)
+    let prevUserDetails = await this.userService.getUserById(userId);
+    let updatedUser;
+    let auditPayload : ModeratorAuditTrail = {
+      category: AuditCategory.ROLE_MANAGEMENT,
+      action: AuditAction.TOGGLE_ROLE,
+      actor: {
+        id: currentUser._id.toString(),
+        name: `${currentUser.firstName} ${currentUser.lastName}`,
+        email: currentUser.email,
+        role: currentUser.role,
+        avatar: currentUser?.avatar || '',
+      },
+      context: {
+        userId: userId,
+        name: `${prevUserDetails.firstName} ${prevUserDetails.lastName}`,
+        email: prevUserDetails.email,
+        role: prevUserDetails.role,
+      },
+      changes:{
+        before:{
+          role: prevUserDetails.role,
+        }
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try{
+      updatedUser = await this.userService.updateUserRole(
+        currentUser,
+        userId,
+        body.role
+      );
+    } catch(err: any){
+      auditPayload = {
+        ...auditPayload,          
+          outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to toggle user role',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to toggle user role',
+      );
+    }
+    auditPayload = {
+      ...auditPayload,
+      changes:{
+        ...auditPayload.changes,
+        after:{
+          role: body.role,
+        }
+      }
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return {message: `User role has been changed successfully!!`, user: updatedUser};
+   }
 
   @OpenAPI({
     summary: 'Get user details by email',
@@ -428,5 +713,180 @@ export class UserController {
   ): Promise<IUser | null> {
     const {email} = params;
     return await this.userService.getUserByEmail(email);
+  }
+
+  @OpenAPI({
+    summary: 'Remove all allocations for an expert (Admin)',
+    description:
+      'Clears all queued allocations for questions where the expert appears and resets the expert workload to zero.',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'Expert allocations removed successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @Authorized(['admin'])
+  @Post('/:id/remove-allocations')
+  @HttpCode(200)
+  async removeExpertAllocations(
+    @Param('id') expertId: string,
+    @CurrentUser() currentUser: IUser,
+  ): Promise<{
+    message: string;
+    questionsAffected: number;
+    removedQueues: number;
+    workloadBefore: number;
+    workloadAfter: number;
+    questionIds: string[];
+  }> {
+    let expertDetails: IUser | null = null;
+    let result:
+      | {
+          questionsAffected: number;
+          removedQueues: number;
+          workloadBefore: number;
+          workloadAfter: number;
+          questionIds: string[];
+        }
+      | null = null;
+
+    const auditPayloadBase: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.REALLOCATE_QUESTIONS,
+      actor: {
+        id: currentUser._id.toString(),
+        name: `${currentUser.firstName} ${currentUser.lastName}`,
+        email: currentUser.email,
+        role: currentUser.role,
+        avatar: currentUser?.avatar || '',
+      },
+      context: {
+        targetExpertId: expertId,
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      expertDetails = await this.userService.getUserById(expertId);
+      result = await this.userService.removeExpertAllocations(
+        currentUser,
+        expertId,
+      );
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayloadBase,
+        changes: {
+          before: {
+            targetExpert: expertDetails
+              ? {
+                  id: expertDetails._id?.toString(),
+                  name: `${expertDetails.firstName} ${expertDetails.lastName || ''}`.trim(),
+                  email: expertDetails.email,
+                  role: expertDetails.role,
+                  workload: expertDetails.reputation_score ?? 0,
+                }
+              : null,
+          },
+        },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to remove expert allocations',
+          errorName: err?.name || 'Error',
+          errorStack:
+            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      });
+
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to remove expert allocations',
+      );
+    }
+
+    this.auditTrailsService.createAuditTrail({
+      ...auditPayloadBase,
+      changes: {
+        before: {
+          targetExpert: expertDetails
+            ? {
+                id: expertDetails._id?.toString(),
+                name: `${expertDetails.firstName} ${expertDetails.lastName || ''}`.trim(),
+                email: expertDetails.email,
+                role: expertDetails.role,
+                workload: result?.workloadBefore ?? 0,
+              }
+            : null,
+        },
+        after: {
+          targetExpert: {
+            id: expertId,
+            workload: result?.workloadAfter ?? 0,
+          },
+          questionsAffected: result?.questionsAffected ?? 0,
+          removedQueues: result?.removedQueues ?? 0,
+        },
+      },
+      context: {
+        ...auditPayloadBase.context,
+        questionIds: result?.questionIds || [],
+      },
+    });
+
+    return {
+      message: 'Expert allocations removed successfully',
+      questionsAffected: result?.questionsAffected ?? 0,
+      removedQueues: result?.removedQueues ?? 0,
+      workloadBefore: result?.workloadBefore ?? 0,
+      workloadAfter: result?.workloadAfter ?? 0,
+      questionIds: result?.questionIds || [],
+    };
+  }
+
+  @OpenAPI({
+    summary: 'Verify or unverify a user (Admin)',
+    description: 'Allows an admin to verify or unverify a user account.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'User verification status updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @Authorized(['admin'])
+  @Patch('/:id/verify')
+  @HttpCode(200)
+  async verifyUser(
+    @Param('id') userId: string,
+    @Body() body: VerifyUserBody,
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    // manual admin check
+  if (currentUser.role !== 'admin') {
+    throw new ForbiddenError(
+      'Only admins can verify users',
+    );
+  }
+    const {isVerified} = body;
+    const updatedUser = await this.userService.verifyUser(userId, isVerified);
+    return updatedUser;
   }
 }

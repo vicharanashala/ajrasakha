@@ -15,6 +15,7 @@ import {
   IsEmail,
   IsIn,
   IsBooleanString,
+  IsBoolean,
 } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
 import { ObjectId } from 'mongodb';
@@ -252,6 +253,20 @@ class AnswerDetails {
   sources!: string[];
 }
 
+class PreviousAllocationItem {
+  @IsString()
+  reviewerId!: string;
+
+  @IsString()
+  reasonForChange!: string;
+
+  @Type(() => Date)
+  createdAt!: Date;
+
+  @Type(() => Date)
+  updatedAt!: Date;
+}
+
 class HistoryItem {
   @ValidateNested()
   @Type(() => UpdatedBy)
@@ -263,8 +278,8 @@ class HistoryItem {
   answer?: AnswerDetails;
 
   @IsOptional()
-  @IsEnum(['approved', 'rejected'])
-  status?: 'approved' | 'rejected';
+  @IsEnum(['approved', 'rejected', 'in-review', 'reviewed'])
+  status?: 'approved' | 'rejected' | 'in-review' | 'reviewed';
 
   @IsOptional()
   @IsString()
@@ -273,6 +288,19 @@ class HistoryItem {
   @IsOptional()
   @IsString()
   approvedAnswer?: string;
+
+  @IsOptional()
+  @IsString()
+  modifiedAnswer?: string;
+
+  @IsOptional()
+  @IsString()
+  reasonForLastModification?: string;
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => PreviousAllocationItem)
+  previousAllocations?: PreviousAllocationItem[];
 
   @Type(() => Date)
   createdAt!: Date;
@@ -289,7 +317,7 @@ class QuestionResponse {
   text!: string;
 
   @IsOptional()
-  @IsEnum(['low', 'medium', 'high'])
+  @IsEnum(['low', 'medium', 'high', 'critical'])
   priority?: IQuestionPriority;
 
   @IsString()
@@ -343,14 +371,22 @@ class QuestionResponse {
   @IsOptional()
   isAutoAllocate?: boolean;
 }
+class ReferenceQuestionDetailDto {
+  @IsMongoId()
+  _id!: string;
+
+  @IsBoolean()
+  duplicate!: boolean;
+}
+
 class AddQuestionBodyDto {
   @IsString()
   @IsOptional()
   question!: string;
 
   @IsOptional()
-  @IsEnum(['low', 'medium', 'high'])
-  priority!: 'low' | 'medium' | 'high';
+  @IsEnum(['low', 'medium', 'high', 'critical'])
+  priority!: 'low' | 'medium' | 'high' | 'critical';
 
   @IsOptional()
   @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP', 'OUTREACH'])
@@ -377,15 +413,41 @@ class AddQuestionBodyDto {
   @IsBooleanString()
   isOutreachQuestion?: string;
 
+  @IsOptional()
+  @IsIn(['expert', 'draft', 'pae_expert'])
+  allocationMode?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsMongoId()
+  paeExpertId?: string;
+
   @IsString()
   @IsOptional()
   createdAt?: string;
 
   @IsString()
   @IsOptional()
-  originalQuestion?: string;
+  originalquestion?: string;
 
-  
+  @IsString()
+  @IsOptional()
+  messageId?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsMongoId()
+  userId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReferenceQuestionDetailDto)
+  referenceQuestionDetails?: ReferenceQuestionDetailDto[];
+
+  @IsString()
+  @IsOptional()
+  popContext?: string;
 }
 
 class GenerateQuestionsBody {
@@ -404,9 +466,36 @@ class ExpertInput {
 class AllocateExpertsRequest {
   experts!: string[];
 }
+class BulkPaeAllocateRequest {
+  @IsArray()
+  @IsMongoId({ each: true })
+  questionIds!: string[];
+
+  @IsNotEmpty()
+  @IsMongoId()
+  paeExpertId!: string;
+}
 class RemoveAllocateBody {
   @IsNumber()
   index!: number;
+}
+class ReplaceQueueExpertRequest {
+  @IsNotEmpty()
+  @IsMongoId()
+  newExpertId!: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  levelIndex!: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isAuthor?: boolean;
+
+  @IsNotEmpty()
+  @IsString()
+  reasonForChange!: string;
 }
 class GeneratedQuestionResponse {
   @IsString()
@@ -701,6 +790,14 @@ class GetDetailedQuestionsQuery {
 
   @IsOptional()
   isOnHold?: string;
+
+  @JSONSchema({
+    description: 'filter questions assigned to PAE experts',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  pae_review?: string;
 }
 
 export interface IQuestionWithAnswerTexts {
@@ -753,6 +850,13 @@ export class ApproveInitialAnswerBody {
   answer :string;
 }
 
+class ReallocateExpertsSelectedQuestionsRequest {
+  @IsNotEmpty()
+  @IsArray()
+  @IsString({ each: true })
+  questionIds!: string[];
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -761,15 +865,19 @@ export const QUESTION_VALIDATORS = [
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   ExpertInput,
   RemoveAllocateBody,
+  ReplaceQueueExpertRequest,
   UpdatedBy,
   HistoryItem,
+  PreviousAllocationItem,
   BulkDeleteQuestionDto,
   DateRangeRequest,
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
   ApproveInitialAnswerBody,
+  ReallocateExpertsSelectedQuestionsRequest,
 ];
 
 export {
@@ -781,10 +889,13 @@ export {
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   ExpertInput,
   RemoveAllocateBody,
+  ReplaceQueueExpertRequest,
   UpdatedBy,
   HistoryItem,
   BulkDeleteQuestionDto,
   DateRangeRequest,
+  ReallocateExpertsSelectedQuestionsRequest,
 };

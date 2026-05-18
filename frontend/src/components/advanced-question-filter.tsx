@@ -54,21 +54,24 @@ import {
   Users,
   Settings,
   Radio,
+  CircleSlash,
+  Copy,
+  AlertCircle,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  TooltipProvider,
 } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
+import { TopRightBadge } from "./NewBadge";
 
-export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -79,7 +82,7 @@ export type QuestionDateRangeFilter =
 
 export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 // New Type
-export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
+export type QuestionPriorityFilter = "all" | "high" | "low" | "medium" | "critical";
 export type QuestionTimeRange = {
   startDate: Date | undefined;
   endDate: Date | undefined;
@@ -121,6 +124,7 @@ export type AdvanceFilterValues = {
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
   isOnHold?: boolean;
+  pae_review?: boolean;
 };
 
 
@@ -153,7 +157,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const { data: userNameReponse, isLoading } = useGetAllUsers();
-  const { data: cropsData } = useGetAllCrops();
+  const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
@@ -169,12 +173,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
       }}
     >
       <DialogTrigger asChild>
-        <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
-          <div className="flex items-center gap-3">
+        <button className="  w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative">
+          <div className="flex items-center gap-3 w-full ">
+            <TopRightBadge label="new" left={0} />
             <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-500 dark:text-purple-400">
               <Settings size={20} />
             </div>
-            <div className="text-left">
+            <div className="text-left ">
               <div className="flex items-center gap-1">
                 <p className="text-sm font-bold text-gray-900 dark:text-white">
                   Preferences
@@ -220,25 +225,35 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
           <div className="space-y-6 py-4">
             {/* Question Status & Source */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 ">
               {!isForQA && (
                 <div className="space-y-2 min-w-0 ">
+
                   <Label className="flex items-center gap-2 text-sm font-semibold">
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
                   </Label>
                   <Select
-                    value={advanceFilter.status}
-                    onValueChange={(v) => handleDialogChange("status", v)}
+                    value={advanceFilter.isOnHold ? "hold" : advanceFilter.status}
+                    onValueChange={(v) => {
+                      if (v === "hold") {
+                        handleDialogChange("status", "all");
+                        handleDialogChange("isOnHold", true);
+                      } else {
+                        handleDialogChange("status", v);
+                        handleDialogChange("isOnHold", false);
+                      }
+                    }}
                   >
-                    <SelectTrigger className="bg-background w-full">
+                    <SelectTrigger className="bg-background w-full relative">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 ">
                           <Eye className="w-4 h-4 text-primary" />
                           <span>All Statuses</span>
+                          <TopRightBadge label="new" />
                         </div>
                       </SelectItem>
 
@@ -269,10 +284,43 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         </div>
                       </SelectItem>
 
+                      <SelectItem value="pae_submitted">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <span>PAE Submitted</span>
+                        </div>
+                      </SelectItem>
+
                       <SelectItem value="closed">
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-red-500" />
                           <span>Closed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="pass">
+                        <div className="flex items-center gap-2">
+                          <CircleSlash className="w-4 h-4 text-gray-500" />
+                          <span>Passed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="duplicate">
+                        <div className="flex items-center gap-2">
+                          <Copy className="w-4 h-4 text-orange-500" />
+                          <span>Duplicate</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="draft">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-gray-400" />
+                          <span>Draft</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="hold">
+                        <div className="flex items-center gap-2">
+                          <Hand className="w-4 h-4 text-orange-600" />
+                          <span>Hold</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -385,24 +433,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Sprout className="h-4 w-4 text-primary" />
                   Crop Type
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Info className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs text-sm">
-                      <p>
-                        Filter by the standardized crop name. You can view a
-                        crop's alternative names by hovering over the "+" icon
-                        next to it. Use "Not Set" to find older questions
-                        without a normalized crop.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
                 </Label>
                 <CropMultiSelect
                   dbCrops={dbCrops}
@@ -530,8 +560,15 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
                     <SelectItem value="high">
                       <div className="flex items-center gap-2">
-                        <ArrowUp className="w-4 h-4 text-red-500" />
+                        <ArrowUp className="w-4 h-4 text-orange-500" />
                         <span>High</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="critical">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        <span>Critical</span>
                       </div>
                     </SelectItem>
                   </SelectContent>

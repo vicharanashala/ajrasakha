@@ -11,7 +11,11 @@ import type {
   UserDetailEntry,
   PaginatedUserDetails,
   DemographicEntry,
+  PlatformInstallEntry,
+  DuplicateQuestionEntry,
+  DomainSpikeEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { GrowthResponse } from '../types/chatbot.type.js';
 
 export interface DashboardResponse {
   kpi: KpiSummary;
@@ -28,24 +32,30 @@ export interface DashboardResponse {
   farmingExperience: DemographicEntry[];
   kccAwareness: DemographicEntry[];
   agriAppUsage: DemographicEntry[];
+  platformInstalls: PlatformInstallEntry[];
+  domainSpikes: DomainSpikeEntry[];
 }
 
 export interface IChatbotService {
-  getDashboard(days: number, source?: string): Promise<DashboardResponse>;
-  getKpiSummary(source?: string): Promise<KpiSummary>;
-  getDailyActiveUsers(days: number, source?: string): Promise<DailyActiveUsersEntry[]>;
+  getDashboard(days: number, source?: string, userType?: string): Promise<DashboardResponse>;
+  getKpiSummary(source?: string, userType?: string): Promise<KpiSummary>;
+  getDailyActiveUsers(days: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
   getChannelSplit(source?: string): Promise<ChannelSplitEntry[]>;
   getVoiceAccuracyByLanguage(source?: string): Promise<VoiceAccuracyEntry[]>;
   getGeoDistribution(source?: string): Promise<GeoStateEntry[]>;
   getQueryCategories(source?: string): Promise<QueryCategoryEntry[]>;
+  getTopCrops(): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
-  getDailyQueryCounts(days?: number, source?: string): Promise<DailyQueryCountEntry[]>;
-  getTodayQueryCount(source?: string): Promise<number>;
-  getWeeklyQueryCounts(source?: string): Promise<WeeklyQueryCountEntry[]>;
-  getDailyUserTrend(days?: number, source?: string): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string): Promise<PaginatedUserDetails>;
-  getAvgSessionDurationV2(source?: string): Promise<number>;
-  getWeeklyAvgSessionDurationV2(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
+  getDailyQueryCounts(days?: number, source?: string, userType?: string): Promise<DailyQueryCountEntry[]>;
+  getTodayQueryCount(source?: string, userType?: string): Promise<number>;
+  getWeeklyQueryCounts(source?: string, userType?: string): Promise<WeeklyQueryCountEntry[]>;
+  getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string,sortBy?:string, sortOrder?:string): Promise<PaginatedUserDetails>;
+  getAvgSessionDurationV2(source?: string, userType?: string): Promise<number>;
+  getWeeklyAvgSessionDurationV2(weeks?: number, source?: string, userType?: string): Promise<WeeklySessionDurationEntry[]>;
   generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
+  getGrowth(range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
+  getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
+  getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
 }
 

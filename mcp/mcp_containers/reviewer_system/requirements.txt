@@ -1,11 +1,9 @@
 fastmcp==2.14.4
-langchain-core
-langchain-huggingface
-langchain-mongodb
 pymongo
 motor
-python-dotenv
 pydantic
-sentence-transformers
-torch
+aiohttp
 requests
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-dotenv>=1.0.0

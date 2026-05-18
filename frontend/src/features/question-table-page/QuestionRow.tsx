@@ -20,10 +20,12 @@ import {
 } from "../../components/atoms/tooltip";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
+import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edit, Eye, Square, Trash, User, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useQuestionTableStore } from "@/stores/all-questions";
+import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 
 interface QuestionRowProps {
   q: IDetailedQuestion;
@@ -56,6 +58,7 @@ interface QuestionRowProps {
   ) => Promise<void>;
   onViewMore: (id: string) => void;
   showClosedAt?: boolean;
+  isLoading?: boolean;
 }
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -81,14 +84,24 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   handleQuestionsSelection,
   selectedQuestionIds,
   showClosedAt,
+  isLoading,
 }) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   // To track cont
 
+  // Get correct timer start time based on user role (Author vs Level Expert)
+  const timerStartTime = getTimerStartTime(q);
+  
+  // const { timer } = useQuestionTimer(
+  //     q.source,
+  //     timerStartTime,
+  //     buildHoldCountdownOptions(q)
+  //   )
+
   const { timer, isClickable, delayMinutes } = useQuestionClickability(
     q.source,
-    q.createdAt,
+    timerStartTime,
     uploadedQuestionsCount,
     userRole,
     isBulkUpload,
@@ -118,9 +131,13 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   // }, [q.priority]);
 
   const PRIORITY_CONFIG = {
+    critical: {
+      label: "Crit",
+      className: "bg-red-600/10 text-red-700 border-red-700/30",
+    },
     high: {
       label: "High",
-      className: "bg-red-500/10 text-red-600 border-red-500/30",
+      className: "bg-orange-500/10 text-orange-600 border-orange-500/30",
     },
     medium: {
       label: "Med",
@@ -168,6 +185,10 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       icon: AlertTriangle,
       className: "bg-orange-500/10 text-orange-600 border-orange-500/30",
     },
+    pae_submitted: {
+      icon: Clock,
+      className: "bg-amber-600/10 text-amber-700 border-amber-600/30",
+    },
   } as const;
   const statusBadge = useMemo(() => {
     // const status = q.status || "NIL";
@@ -189,7 +210,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
             ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
             : effectiveStatus === "delayed"
               ? "bg-orange-500/10 text-orange-600 border-orange-500/30"
-              : "bg-muted text-foreground";
+              : effectiveStatus === "pae_submitted"
+                ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+                : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={`gap-1.5 ${colorClass}`}>
@@ -204,25 +227,29 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <TableRow
+      <ContextMenuTrigger asChild >
+        <TableRow 
           key={q._id}
-
-          className={`text-center transition-all duration-300 ease-out
+          className={`text-center transition-all duration-300 ease-out 
               ${isSelected ? "bg-primary/10" : "hover:bg-muted/50"}
-              hover:shadow-sm hover:scale-[1.01] hover:brightness-[1.02]
+              ${isLoading ? "opacity-50 pointer-events-none" : "hover:shadow-sm hover:scale-[1.01] hover:brightness-[1.02]"}
             `}
+
+          
           onClick={() => {
             if (!q._id || !hasSelectedQuestions) return;
             handleQuestionsSelection?.(q._id);
           }}
         >
+        
           {/* Serial Number */}
           {visibleColumns.sl_No && (
+            // <div className={`border-l-4 rounded-lg ${q.source === "AJRASAKHA" ? "border-blue-500" : q.source === "WHATSAPP" ? "border-green-500" : q.source === "OUTREACH" ? "border-orange-500" : q.source === "AGRI_EXPERT" ? "border-gray-500" : "border-yellow-500"} `}>
             <TableCell
               className="align-middle text-center p-4"
               title={idx.toString()}
             >
+            
               {hasSelectedQuestions ? (
                 <Checkbox
                   checked={q._id ? selectedQuestionIds.includes(q._id) : false}
@@ -235,6 +262,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                 (currentPage - 1) * limit + idx + 1
               )}
             </TableCell>
+            // </div>
           )}
 
           {/* Question Text */}
@@ -296,16 +324,28 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           )} */}
 
 
+          {visibleColumns.question && (
           <TableCell className="text-start ps-0">
             <div className="flex items-center gap-2">
-              <PriorityBadge priority={q.priority} />
+              {visibleColumns.priority && <PriorityBadge priority={q.priority} />}
+              {q.pae_review && (
+                <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-purple-500/10 text-purple-600 border-purple-500/30 whitespace-nowrap">
+                  PAE
+                </span>
+              )}
 
               <div className="flex flex-col gap-1 py-1">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
-                        className={`cursor-pointer ${isClickable
+                        // className={`cursor-pointer hover:underline`}
+                        // onClick={() => {
+                        //   // if (!isClickable || hasSelectedQuestions) return;
+                        //   onViewMore(q._id?.toString() || "");
+                        // }}
+
+                         className={`cursor-pointer ${isClickable
                           ? hasSelectedQuestions
                             ? ""
                             : "hover:underline"
@@ -316,18 +356,28 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           onViewMore(q._id?.toString() || "");
                         }}
                       >
+                        {
+                        q?.similarityScore&&
+                        q?.referenceQuestionId&&
+                        q?.referenceQuestion&&
+                        q?.referenceSource&&
+                        (
+                          <span className='text-xs text-red-600 mr-1'>(DUPLICATE)</span>
+                        )
+                        }
                         {truncate(q.question, 50)}
                       </span>
                     </TooltipTrigger>
                   </Tooltip>
                 </TooltipProvider>
 
-                {q.status !== "delayed" && (
-                  <TimerDisplay timer={timer} status={q.status} source={q.source} />
+                {q.status !== "delayed" && q.status !== "pass" && (
+                  <TimerDisplay timer={timer} status={q.status} source={q.source} showDays={true} />
                 )}
               </div>
             </div>
           </TableCell>
+          )}
 
 
 
@@ -342,8 +392,12 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
 
           {visibleColumns.crop && (
             <TableCell className="align-middle">
-              {truncate(q.details.crop, 10)}
-            </TableCell>
+            {truncate(
+              (q.details.normalised_crop || q.details.crop || "")
+                .replace(/\b\w/g, char => char.toUpperCase()),
+              10
+            )}
+          </TableCell>
           )}
           {visibleColumns.domain && (
             <TableCell className="align-middle">
@@ -377,14 +431,15 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           )}
           {!showClosedAt && visibleColumns.created ? (
             <TableCell className="align-middle">
-              {formatDate(new Date(q.createdAt!), false)}
+              {formatDate(new Date(q.createdAt!))}
             </TableCell>
           ) : null}
           {showClosedAt && visibleColumns.closed ? (
             <TableCell className="align-middle">
-              {q.closedAt ? formatDate(new Date(q.closedAt!), false) : "N/C"}
+              {q.closedAt ? formatDate(new Date(q.closedAt!)) : "N/C"}
             </TableCell>
           ) : null}
+         
         </TableRow>
       </ContextMenuTrigger>
 

@@ -4,6 +4,9 @@ interface HealthPillar { label: string; score: number; color: string; }
 
 export function HealthScoreCard({ pillars }: { pillars: HealthPillar[] }) {
   return (
+    
+        // Remove this div when data is dynamic
+    <div className="relative">
     <Card title="Platform health score" subtitle="Six-pillar composite · weekly">
       <div className="max-h-[280px] overflow-y-auto pr-1">
         <div className="flex justify-end mb-3">
@@ -28,5 +31,12 @@ export function HealthScoreCard({ pillars }: { pillars: HealthPillar[] }) {
         </div>
       </div>
     </Card>
+    
+        {/* // Remove this div when data is dynamic */}
+    <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
+				<span className="text-white text-xs font-semibold tracking-wide">
+				</span>
+				</div>
+    </div>
   );
 }

@@ -38,6 +38,8 @@ import {
 import CountUp from "react-countup";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import { Spinner } from "@/components/atoms/spinner";
+import { TimePicker } from "./time-picker";
+import { TopRightBadge } from "../NewBadge";
 
 
 const monthNames = [
@@ -58,9 +60,17 @@ const monthNames = [
 export interface GoldenDataset {
   type: "year" | "month" | "week" | "day";
   totalEntriesByType: number;
+  totalVerifiedByType: number;
   verifiedEntries: number;
-  todayApproved?:number;
-  moderatorBreakdown?: { moderatorName: string, count: number }[];
+  todayApproved?: number;
+  moderatorBreakdown?: { moderatorName: string; count: number }[];
+  questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
+  questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+  averageResponseTime?: { whatsapp: number; ajrasakha: number };
+   questionStateBreakdown?: {
+    whatsapp: { status: string; count: number }[];
+    ajrasakha: { status: string; count: number }[];
+  };
   yearData: { month: string; entries: number; verified: number }[];
   weeksData: { week: string; entries: number; verified: number }[];
   dailyData: { day: string; entries: number; verified: number }[];
@@ -83,6 +93,10 @@ export interface GoldenDatasetOverviewProps {
   setSelectedWeek: (w: string) => void;
   selectedDay: string;
   setSelectedDay: (d: string) => void;
+  customStartDateTime?: string;
+  setCustomStartDateTime: (d: string) => void;
+  customEndDateTime?: string;
+  setCustomEndDateTime: (d: string) => void;
 }
 
 export const GoldenDatasetOverview = ({
@@ -98,6 +112,10 @@ export const GoldenDatasetOverview = ({
   setSelectedWeek,
   selectedDay,
   setSelectedDay,
+  customStartDateTime,
+  setCustomStartDateTime,
+  customEndDateTime,
+  setCustomEndDateTime,
 }: GoldenDatasetOverviewProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -151,11 +169,16 @@ export const GoldenDatasetOverview = ({
   };
 
   const getChartLabel = () => {
-    if (viewType === "year") return "Monthly Overview - All 12 Months";
-    if (viewType === "month") return `${selectedMonth} - Weekly Breakdown`;
-    if (viewType === "week")
-      return `${selectedMonth} ${selectedWeek} - Daily Breakdown`;
-    return `${selectedMonth} ${selectedWeek} ${selectedDay} - Hourly Breakdown`;
+    let baseLabel = "";
+    if (viewType === "year") baseLabel = "Monthly Overview - All 12 Months";
+    else if (viewType === "month") baseLabel = `${selectedMonth} - Weekly Breakdown`;
+    else if (viewType === "week") baseLabel = `${selectedMonth} ${selectedWeek} - Daily Breakdown`;
+    else if (viewType === "day") baseLabel = `${selectedMonth} ${selectedWeek} ${selectedDay} - Hourly Breakdown`;
+    
+    if (customStartDateTime && customEndDateTime) {
+      return `${baseLabel} (${customStartDateTime} - ${customEndDateTime})`;
+    }
+    return baseLabel;
   };
 
   const chartData = getChartData();
@@ -216,7 +239,7 @@ export const GoldenDatasetOverview = ({
                   Current Period
                 </p>
                     <p className="text-3xl font-bold text-foreground cursor-help">
-                      <CountUp key={`currentPeriod-${key}`} end={data?.totalEntriesByType ?? 0} duration={2} preserveValue /> 
+                      <CountUp key={`currentPeriod-${key}`} end={data?.totalVerifiedByType ?? 0} duration={2} preserveValue /> 
                     </p>
                      {moderatorBreakdown.length > 0 && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -278,7 +301,7 @@ export const GoldenDatasetOverview = ({
         </Dialog>
       )}
                 <p className="text-xs text-green-600 mt-2 font-medium">
-                  Latest data point
+                  Total questions verified in this period
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-chart-3 opacity-60" />
@@ -296,53 +319,50 @@ export const GoldenDatasetOverview = ({
               <CardDescription>{getChartLabel()}</CardDescription>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setViewType("year")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewType === "year"
-                    ? "bg-primary text-white"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Year
-              </button>
-              <button
-                onClick={() => setViewType("month")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewType === "month"
-                    ? "bg-primary text-white"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Month
-              </button>
-              <button
-                onClick={() => setViewType("week")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewType === "week"
-                    ? "bg-primary text-white"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setViewType("day")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewType === "day"
-                    ? "bg-primary text-white"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Day
-              </button>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setViewType("year")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewType === "year"
+                  ? "bg-primary text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+            >
+              Year
+            </button>
+            <button
+              onClick={() => setViewType("month")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewType === "month"
+                  ? "bg-primary text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+            >
+              Month
+            </button>
+            <button
+              onClick={() => setViewType("week")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewType === "week"
+                  ? "bg-primary text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setViewType("day")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewType === "day"
+                  ? "bg-primary text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+            >
+              Day
+            </button>
+          </div>
           </div>
 
-          {/* {(viewType === "month" ||
-            viewType === "week" ||
-            viewType === "day") && ( */}
           <div className="flex flex-wrap gap-3 mt-4">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
               <SelectTrigger className="w-[120px]">
@@ -406,8 +426,22 @@ export const GoldenDatasetOverview = ({
                 </SelectContent>
               </Select>
             )}
+
+            {/* Time Range Filters */}
+            <div className="flex gap-3 items-center ml-auto relative">
+              <TopRightBadge label="new" left={0} />
+              <TimePicker
+                value={customStartDateTime || ""}
+                onChange={setCustomStartDateTime}
+                label="Start Time"
+              />
+              <TimePicker
+                value={customEndDateTime || ""}
+                onChange={setCustomEndDateTime}
+                label="End Time"
+              />
+            </div>
           </div>
-          {/* )} */}
         </CardHeader>
 
                 <CardContent className="relative min-h-[350px]">

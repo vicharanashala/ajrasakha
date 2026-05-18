@@ -1,6 +1,6 @@
 import type { UserCredential } from "firebase/auth";
 
-export type UserRole = "admin" | "moderator" | "expert";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -19,7 +19,7 @@ export interface AuthUser {
 export interface IMyPreference {
   state: string;
   crop: string;
-  domain: string;
+  domain: string | string[];
 }
 export type NotificationRetentionType = "3d" | "1w" | "2w" | "1m" | "never";
 export interface IUser {
@@ -42,10 +42,14 @@ export interface IUser {
   totalAnswers_Created?: number;
   penaltyPercentage?: number;
   rankPosition?: number;
+  expertRank?: number;
   status?: 'active' | 'in-active';
   avatar?: string;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean
+  mobile?: string;
+  university?: string;
+  isVerified?: boolean;
 }
 export interface ReviewLevelCount {
   Review_level: 'Author' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5' | 'Level 6' | 'Level 7' | 'Level 8' | 'Level 9';
@@ -145,7 +149,7 @@ export interface HistoryItem {
 
 }
 
-export type QuestionPriority = "low" | "medium" | "high";
+export type QuestionPriority = "low" | "medium" | "high" | "critical";
 export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 
 export interface IQuestion {
@@ -157,6 +161,7 @@ export interface IQuestion {
   priority: QuestionPriority;
   status: QuestionStatus;
   source: QuestionSource;
+  pae_review?: boolean;
   history: HistoryItem[];
   details: {
     state: string;
@@ -256,7 +261,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -356,7 +361,7 @@ export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
-  page?: number;
+  page?: string|number;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string
@@ -386,6 +391,21 @@ export interface IUserRef {
   email: string;
 }
 
+export interface IPreviousAllocation {
+  reviewerId: string;
+  reasonForChange: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IAuthorsHistory {
+  authorId: string;
+  newAuthorId: string;
+  reasonForChange: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ISubmissionHistory {
   updatedBy: IUserRef | null;
   answer: IAnswer | null;
@@ -398,7 +418,13 @@ export interface ISubmissionHistory {
 
   modifiedAnswer: string;
   reasonForLastModification: string;
-  isReroute?: boolean
+  isReroute?: boolean;
+  previousAllocations?: IPreviousAllocation[];
+  assignedAt?: string;
+  completedAt?: string;
+  timeTakenMs?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ISubmission {
@@ -441,6 +467,45 @@ export interface IQuestionFullData {
   aiInitialAnswer?: string;
   aiApprovedAnswer?: string;
   aiApprovedSources?: SourceItem[];
+  authors_history?: IAuthorsHistory[];
+  similarityScore?: number; // percentage (0–100)
+  referenceQuestionId?: string;
+  referenceQuestion?: string;
+  referenceSource?: string;
+  referenceQuestionData?: {
+    question: string;
+    status: string;
+    details: {
+      state: string;
+      district: string;
+      crop: string;
+      season: string;
+      domain: string;
+      [key: string]: string;
+    };
+    text: string;
+    sources?: SourceItem[];
+  };
+  originalQuestion?: string;
+  closedAt?: string;
+  threadId?: string;
+  approved_moderator:{
+    name: string;
+    email: string;
+  }
+  closedFinalAnswer?: {
+    _id: string;
+    questionId: string;
+    authorId: string;
+    approvedBy: string | null;
+    answer: string;
+    isFinalAnswer: boolean;
+    sources: SourceItem[];
+    answerIteration: number;
+    approvalCount: number;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
 }
 
 export interface QuestionFullDataResponse {
@@ -509,6 +574,19 @@ export interface IDetailedQuestion {
   accumulatedHoldMs?: number;
   isHidden?: boolean;
   paassingRemark?: string;
+  authors_history?: IAuthorsHistory[];
+  submission?: {
+    _id: string;
+    questionId: string;
+    createdAt: string;
+    history: ISubmissionHistory[];
+    queue: IUserRef[];
+  };
+  pae_review?: boolean;
+  similarityScore?: number;        // percentage (0–100)
+  referenceQuestionId?: string;
+  referenceQuestion?: string
+  referenceSource?: string;
 }
 
 export interface IDetailedQuestionResponse {
@@ -640,7 +718,7 @@ export interface IRerouteHistoryResponse {
 // API returns an array
 // ---------------------
 export type RerouteHistoryApiResponse = IRerouteHistoryResponse[];
-type Priority = "high" | "medium" | "low";
+type Priority = "critical" | "high" | "medium" | "low";
 
 export interface ReroutedQuestionItem {
   id: string;
@@ -656,6 +734,7 @@ export interface ReroutedQuestionItem {
   reroute: Reroute;
   details: QuestionDetailsReRoute;
   source: QuestionSource
+  pae_review?: boolean;
 }
 
 interface Moderator {
@@ -847,4 +926,117 @@ export interface WorkloadBalanceResponse {
   message: string;
   expertsInvolved: number;
   submissionsProcessed: number;
+  inactiveExpertsFound?: number;
 }
+export interface ReallocateExpertsSelectedQuestionsResponse {
+  message: string;
+  expertsInvolved: number;
+  submissionsProcessed: number;
+  questionsFiltered?: number;
+  unallocatedQuestions?: number;
+}
+
+export type GrowthResponse = {
+  labels: string[];
+  series: {
+    idsCreated: number[];
+    installs: number[];
+    activeUsers: number[];
+  };
+};
+
+enum AuditCategory {
+  QUESTION = 'QUESTION',
+  EXPERTS_CATEGORY = 'EXPERTS_CATEGORY',
+  EXPERTS_MANAGEMENT = 'EXPERTS_MANAGEMENT',
+  REQUEST_QUEUE = 'REQUEST_QUEUE',
+  ANALYTICS = 'ANALYTICS',
+  CROP_MANAGEMENT = 'CROP_MANAGEMENT',
+  OUTREACH_REPORT = 'OUTREACH_REPORT',
+  AGENTS_INTERFACE = 'AGENTS_INTERFACE', // PENDING, not on priority
+  DOWNLOAD_REPORTS = 'DOWNLOAD_REPORTS',
+  ANSWER = 'ANSWER'
+}
+
+enum AuditAction {
+  // Question
+  QUESTION_ADD = 'QUESTION_ADD',
+  QUESTION_UPDATE = 'QUESTION_UPDATE',
+  QUESTION_DELETE = 'QUESTION_DELETE',
+  QUESTION_BULK_CREATE = 'QUESTION_BULK_CREATE',
+  QUESTION_BULK_UPDATE = 'QUESTION_BULK_UPDATE',
+  QUESTION_BULK_DELETE = 'QUESTION_BULK_DELETE',
+  REALLOCATE_QUESTIONS = 'REALLOCATE_QUESTIONS',
+
+  //EXPERTS_CATEGORY
+  EXPERTS_AUTO_ALLOCATE = 'EXPERTS_AUTO_ALLOCATE',
+  SELECT_EXPERT = 'SELECT_EXPERT',
+  DELETE_EXPERT = 'DELETE_EXPERT',
+  EXPERTS_ADD_COMMENT = 'EXPERTS_ADD_COMMENT',
+
+  //EXPERTS_MANAGEMENT
+  BLOCK_EXPERT = 'BLOCK_EXPERT',
+  UNBLOCK_EXPERT = 'UNBLOCK_EXPERT',
+
+  //REQUEST_QUEUE,
+  CHANGE_STATUS = 'CHANGE_STATUS',
+  DELETE_REQUEST = 'DELETE_REQUEST',
+
+  //ANALYTICS
+  ANALYTICS_EXPORT_PDF = 'ANALYTICS_EXPORT_PDF', // button not functional yet, pending
+
+  //CROP_MANAGEMENT
+  ADD_CROP = 'ADD_CROP',
+  UPDATE_CROP = 'UPDATE_CROP',
+
+  //OUTREACH_REPORT
+  SEND_OUTREACH_REPORT = 'SEND_OUTREACH_REPORT',
+
+  //DOWNLOAD_REPORTS
+  DOWNLOAD = 'DOWNLOAD',
+
+  //ANSWER
+  APPROVE_ANSWER = 'APPROVE_ANSWER',
+  REROUTE_ANSWER = 'REROUTE_ANSWER',
+  REROUTE_REJECTION = 'REROUTE_REJECTION',
+}
+
+enum OutComeStatus {
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  PARTIAL = 'PARTIAL',
+}
+
+export interface ModeratorAuditTrail {
+  category: AuditCategory;
+  action: AuditAction;
+  actor: {
+    id: string;
+    name: string;
+    email: string;
+    role?: string;
+  };
+
+  context?: Record<string, any>;
+
+  changes?: {
+    before?: Record<string, any>;
+    after?: Record<string, any>;
+  };
+
+  outcome?: {
+    status: OutComeStatus;
+    errorCode?: string;
+    errorMessage?: string;
+    errorName?: string;
+    errorStack?: string; // truncated (top 3–5 lines)
+  };
+
+  createdAt?: Date;
+}
+
+export interface IAuditTrailResponse {
+  data: ModeratorAuditTrail[];
+  message: string;
+}
+

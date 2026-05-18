@@ -1,23 +1,24 @@
-import {IUserRepository} from '#shared/database/interfaces/IUserRepository.js';
+import { IUserRepository } from '#shared/database/interfaces/IUserRepository.js';
 import {
   IUser,
   NotificationRetentionType,
   IAnswer,
+  ICropRef,
 } from '#shared/interfaces/models.js';
-import {instanceToPlain} from 'class-transformer';
-import {injectable, inject} from 'inversify';
-import {Collection, MongoClient, ClientSession, ObjectId} from 'mongodb';
-import {MongoDatabase} from '../MongoDatabase.js';
-import {InternalServerError, NotFoundError} from 'routing-controllers';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {User} from '#auth/classes/transformers/User.js';
-import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
+import { instanceToPlain } from 'class-transformer';
+import { injectable, inject } from 'inversify';
+import { Collection, MongoClient, ClientSession, ObjectId } from 'mongodb';
+import { MongoDatabase } from '../MongoDatabase.js';
+import { InternalServerError, NotFoundError } from 'routing-controllers';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { User } from '#auth/classes/transformers/User.js';
+import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import {
   ExpertPerformance,
   ModeratorApprovalRate,
   UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
-import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
 
 @injectable()
 export class UserRepository implements IUserRepository {
@@ -27,7 +28,7 @@ export class UserRepository implements IUserRepository {
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
-  ) {}
+  ) { }
 
   /**
    * Ensures that `usersCollection` is initialized before usage.
@@ -46,7 +47,7 @@ export class UserRepository implements IUserRepository {
         lastName: 1,
         'preference.state': 1,
       });
-      await this.AnswerCollection.createIndex({authorId: 1});
+      await this.AnswerCollection.createIndex({ authorId: 1 });
     } catch (error) {
       console.error('Failed to create index:', error);
     }
@@ -67,14 +68,14 @@ export class UserRepository implements IUserRepository {
   async create(user: IUser, session?: ClientSession): Promise<string> {
     await this.init();
     const existingUser = await this.usersCollection.findOne(
-      {firebaseUID: user.firebaseUID},
-      {session},
+      { firebaseUID: user.firebaseUID },
+      { session },
     );
 
     if (existingUser) {
       throw new Error('User already exists');
     }
-    const result = await this.usersCollection.insertOne(user, {session});
+    const result = await this.usersCollection.insertOne(user, { session });
     if (!result.acknowledged) {
       throw new InternalServerError('Failed to create user');
     }
@@ -90,7 +91,7 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser | null> {
     await this.init();
 
-    const user = await this.usersCollection.findOne({email}, {session});
+    const user = await this.usersCollection.findOne({ email }, { session });
     return user;
   }
 
@@ -104,7 +105,7 @@ export class UserRepository implements IUserRepository {
     await this.init();
 
     const user = await this.usersCollection.findOne(
-      {_id: new ObjectId(id)},
+      { _id: new ObjectId(id) },
       {
         projection: {
           // _id: 0,
@@ -141,7 +142,7 @@ export class UserRepository implements IUserRepository {
     session?: ClientSession,
   ): Promise<IUser | null> {
     await this.init();
-    const user = await this.usersCollection.findOne({firebaseUID}, {session});
+    const user = await this.usersCollection.findOne({ firebaseUID }, { session });
     return user;
   }
 
@@ -151,9 +152,9 @@ export class UserRepository implements IUserRepository {
   async makeAdmin(userId: string, session?: ClientSession): Promise<void> {
     await this.init();
     await this.usersCollection.updateOne(
-      {_id: new ObjectId(userId)},
-      {$set: {roles: 'admin'}},
-      {session},
+      { _id: new ObjectId(userId) },
+      { $set: { roles: 'admin' } },
+      { session },
     );
   }
 
@@ -166,9 +167,9 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser | null> {
     await this.init();
     const result = await this.usersCollection.findOneAndUpdate(
-      {firebaseUID},
-      {$set: {password}},
-      {returnDocument: 'after'},
+      { firebaseUID },
+      { $set: { password } },
+      { returnDocument: 'after' },
     );
     return instanceToPlain(new User(result)) as IUser;
   }
@@ -179,22 +180,22 @@ export class UserRepository implements IUserRepository {
     session?: ClientSession,
   ): Promise<IUser> {
     await this.init();
-    const {_id, ...sanitizedData} = userData;
+    const { _id, ...sanitizedData } = userData;
     const result = await this.usersCollection.updateOne(
-      {_id: new ObjectId(userId)},
+      { _id: new ObjectId(userId) },
       {
         $set: {
           ...sanitizedData,
           updatedAt: new Date(),
         },
       },
-      {session},
+      { session },
     );
     if (result.matchedCount === 0) return null;
 
     const updatedUser = await this.usersCollection.findOne(
-      {_id: new ObjectId(userId)},
-      {session},
+      { _id: new ObjectId(userId) },
+      { session },
     );
 
     return updatedUser as IUser;
@@ -207,7 +208,7 @@ export class UserRepository implements IUserRepository {
     await this.init();
     const objectIds = ids.map(id => new ObjectId(id));
     const users = await this.usersCollection
-      .find({_id: {$in: objectIds}}, {session})
+      .find({ _id: { $in: objectIds } }, { session })
       .toArray();
 
     return users.map(user => ({
@@ -218,7 +219,7 @@ export class UserRepository implements IUserRepository {
 
   async findAll(session?: ClientSession): Promise<IUser[]> {
     await this.init();
-    const allUsers = await this.usersCollection.find({}, {session}).toArray();
+    const allUsers = await this.usersCollection.find({}, { session }).toArray();
 
     // Remove duplicate users (in case multiple  emails point to same user)
     const uniqueUsersMap = new Map<string, IUser>();
@@ -233,196 +234,290 @@ export class UserRepository implements IUserRepository {
     return uniqueUsers;
   }
 
-async findAllUsers(
-  page: number,
-  limit: number,
-  search: string,
-  sortOption: string,
-  filter: string,
-  session?: ClientSession,
-): Promise<{
-  users: IUser[];
-  totalUsers: number;
-  totalPages: number;
-}> {
-  await this.init();
+  async findAllUsers(
+    page: number,
+    limit: number,
+    search: string,
+    sortOption: string,
+    filter: string,
+    role?: string,
+    isBlockedFilter?: boolean,
+    isVerifiedFilter?: boolean,
+    isSTFFilter?: boolean,
+    session?: ClientSession,
+  ): Promise<{
+    users: IUser[];
+    totalUsers: number;
+    totalPages: number;
+  }> {
+    await this.init();
 
-  try {
-    await this.ensureIndexes();
-    const skip = (page - 1) * limit;
+    try {
+      await this.ensureIndexes();
+      const skip = (page - 1) * limit;
 
-    const matchQuery: any = {};
+      const matchQuery: any = {};
 
-    if (search) {
-      matchQuery.$or = [
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-      ];
-    }
+      if (search) {
+        matchQuery.$or = [
+          { firstName: { $regex: search, $options: 'i' } },
+          { lastName: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+        ];
+      }
 
-    if (filter && filter !== 'ALL') {
-      matchQuery['preference.state'] = filter;
-    }
+      if (filter && filter !== 'ALL') {
+        matchQuery['preference.state'] = filter;
+      }
 
-    const sortMap: any = {
-      role: { roleOrder: 1 },
-      workload_asc: { reputation_score: 1 },
-      workload_desc: { reputation_score: -1 },
-      incentive_asc: { incentive: 1 },
-      incentive_desc: { incentive: -1 },
-      penalty_asc: { penalty: 1 },
-      penalty_desc: { penalty: -1 },
-      joined_asc: { createdAt: 1 },
-      joined_desc: { createdAt: -1 },
-      default: { rankPosition: 1 },
-    };
+      if (role && role !== 'ALL') {
+        matchQuery.role = role;
+      }
 
-    const selectedSort = sortMap[sortOption] || sortMap.default;
+      if (isBlockedFilter !== undefined) {
+        matchQuery.isBlocked = isBlockedFilter;
+      }
 
-    const result = await this.usersCollection
-      .aggregate([
-        /** Match users */
-        { $match: matchQuery },
+      if (isSTFFilter !== undefined) {
+        matchQuery.special_task_force = isSTFFilter;
+      }
 
-        /** Default isBlocked */
-        {
-          $addFields: {
-            isBlocked: { $ifNull: ['$isBlocked', false] },
-          },
-        },
 
-        {
-          $addFields: {
-          status: { $ifNull: ["$status", "active"] },
-          },
-        },
+      const sortMap: any = {
+        role: { roleOrder: 1 },
+        workload_asc: { reputation_score: 1 },
+        workload_desc: { reputation_score: -1 },
+        incentive_asc: { incentive: 1 },
+        incentive_desc: { incentive: -1 },
+        penalty_asc: { penalty: 1 },
+        penalty_desc: { penalty: -1 },
+        joined_asc: { createdAt: 1 },
+        joined_desc: { createdAt: -1 },
+        default: { rankPosition: 1 },
+      };
 
-        /** Answers count */
-        {
-          $lookup: {
-            from: 'answers',
-            let: { userId: '$_id' },
-            pipeline: [
-              { $match: { $expr: { $eq: ['$authorId', '$$userId'] } } },
-              { $count: 'count' },
-            ],
-            as: 'answersMeta',
-          },
-        },
+      const selectedSort = sortMap[sortOption] || sortMap.default;
 
-        /** Derived fields */
-        {
-          $addFields: {
-            totalAnswers_Created: {
-              $ifNull: [{ $arrayElemAt: ['$answersMeta.count', 0] }, 0],
+      const result = await this.usersCollection
+        .aggregate([
+          /** Default isBlocked */
+          {
+            $addFields: {
+              isBlocked: { $ifNull: ['$isBlocked', false] },
             },
-            penalty: { $ifNull: ['$penalty', 0] },
-            incentive: { $ifNull: ['$incentive', 0] },
-            reputation_score: { $ifNull: ['$reputation_score', 0] },
           },
-        },
 
-        /** Penalty percentage */
-        {
-          $addFields: {
-            penaltyPercentage: {
-              $cond: [
-                { $gt: ['$totalAnswers_Created', 0] },
-                {
-                  $multiply: [
-                    { $divide: ['$penalty', '$totalAnswers_Created'] },
-                    100,
-                  ],
-                },
-                0,
+          {
+            $addFields: {
+              status: { $ifNull: ["$status", "active"] },
+            },
+          },
+
+          /** Answers count */
+          {
+            $lookup: {
+              from: 'answers',
+              let: { userId: '$_id' },
+              pipeline: [
+                { $match: { $expr: { $eq: ['$authorId', '$$userId'] } } },
+                { $count: 'count' },
               ],
+              as: 'answersMeta',
             },
           },
-        },
 
-        /** Role priority */
-        {
-          $addFields: {
-            roleOrder: {
-              $switch: {
-                branches: [
-                  { case: { $eq: ['$role', 'admin'] }, then: 1 },
-                  { case: { $eq: ['$role', 'moderator'] }, then: 2 },
-                  { case: { $eq: ['$role', 'expert'] }, then: 3 },
+          /** Derived fields */
+          {
+            $addFields: {
+              totalAnswers_Created: {
+                $ifNull: [{ $arrayElemAt: ['$answersMeta.count', 0] }, 0],
+              },
+              penalty: { $ifNull: ['$penalty', 0] },
+              incentive: { $ifNull: ['$incentive', 0] },
+              reputation_score: { $ifNull: ['$reputation_score', 0] },
+            },
+          },
+
+          /** Penalty percentage */
+          {
+            $addFields: {
+              penaltyPercentage: {
+                $cond: [
+                  { $gt: ['$totalAnswers_Created', 0] },
+                  {
+                    $multiply: [
+                      { $divide: ['$penalty', '$totalAnswers_Created'] },
+                      100,
+                    ],
+                  },
+                  0,
                 ],
-                default: 99,
               },
             },
           },
-        },
 
-        /** Ranking sort (global rank order) */
-        {
-          $sort: {
-            isBlocked: 1,
-            roleOrder: 1,
-            createdAt: 1,
+          /** Role priority */
+          {
+            $addFields: {
+              roleOrder: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ['$role', 'admin'] }, then: 1 },
+                    { case: { $eq: ['$role', 'moderator'] }, then: 2 },
+                    { case: { $eq: ['$role', 'expert'] }, then: 3 },
+                  ],
+                  default: 99,
+                },
+              },
+            },
           },
-        },
 
-        /** Assign rankPosition */
-        {
-          $group: {
-            _id: null,
-            users: { $push: '$$ROOT' },
+          /** Rank value */
+          {
+            $addFields: {
+              rankValue: {
+                $cond: [
+                  { $eq: ["$role", "expert"] },
+                  {
+                    $subtract: [
+                      {
+                        $add: [
+                          { $multiply: ["$totalAnswers_Created", 0.5] },
+                          { $multiply: ["$incentive", 0.3] },
+                        ],
+                      },
+                      { $multiply: ["$penaltyPercentage", 0.2] },
+                    ],
+                  },
+                  -1,
+                ],
+              },
+            },
           },
-        },
-        {
-          $unwind: {
-            path: '$users',
-            includeArrayIndex: 'rankPosition',
+
+          /** Ranking sort (global rank order) */
+          {
+            $sort: {
+              isBlocked: 1,
+              roleOrder: 1,
+              rankValue: -1,
+              reputation_score: -1,
+              totalAnswers_Created: -1,
+              penalty: 1,
+              incentive: -1,
+              createdAt: 1,
+            },
           },
-        },
-        {
-          $addFields: {
-            'users.rankPosition': { $add: ['$rankPosition', 1] },
+
+          /** Assign rankPosition */
+          {
+            $group: {
+              _id: null,
+              users: { $push: "$$ROOT" },
+            },
           },
-        },
-        {
-          $replaceRoot: { newRoot: '$users' },
-        },
-
-        /** UI sorting (dropdown) */
-        {
-          $sort: {
-            isBlocked: 1,
-            ...selectedSort,
+          {
+            $addFields: {
+              users: {
+                $map: {
+                  input: { $range: [0, { $size: "$users" }] },
+                  as: "idx",
+                  in: {
+                    $mergeObjects: [
+                      { $arrayElemAt: ["$users", "$$idx"] },
+                      { rankPosition: { $add: ["$$idx", 1] } },
+                    ],
+                  },
+                },
+              },
+            },
           },
-        },
-
-        /** Pagination */
-        {
-          $facet: {
-            users: [{ $skip: skip }, { $limit: limit }],
-            meta: [{ $count: 'totalUsers' }],
+          {
+            $unwind: "$users",
           },
-        },
-      ])
-      .toArray();
+          {
+            $replaceRoot: { newRoot: "$users" },
+          },
 
-    const users = result[0]?.users || [];
-    const totalUsers = result[0]?.meta[0]?.totalUsers || 0;
+          /** Calculate Global Expert Rank */
+          {
+            $facet: {
+              experts: [
+                { $match: { role: 'expert' } },
+                {
+                  $sort: {
+                    status: 1,
+                    isBlocked: 1,
+                    rankValue: -1,
+                    reputation_score: -1,
+                    totalAnswers_Created: -1,
+                    penalty: 1,
+                    incentive: -1,
+                    createdAt: 1,
+                  }
+                },
+                { $group: { _id: null, list: { $push: '$$ROOT' } } },
+                { $unwind: { path: '$list', includeArrayIndex: 'expertRank' } },
+                {
+                  $replaceRoot: {
+                    newRoot: {
+                      $mergeObjects: ['$list', { expertRank: { $add: ['$expertRank', 1] } }]
+                    }
+                  }
+                }
+              ],
+              others: [
+                { $match: { role: { $ne: 'expert' } } },
+                { $addFields: { expertRank: null } }
+              ]
+            }
+          },
+          {
+            $project: {
+              allUsers: { $concatArrays: ['$experts', '$others'] }
+            }
+          },
+          { $unwind: '$allUsers' },
+          { $replaceRoot: { newRoot: '$allUsers' } },
 
-    // Convert ObjectId to string
-    users.forEach(u => {
-      u._id = u._id.toString();
-    });
+          /** Match users (Applied here for global ranking) */
+          { $match: matchQuery },
 
-    return {
-      users,
-      totalUsers,
-      totalPages: Math.ceil(totalUsers / limit),
-    };
-  } catch (error) {
-    throw new InternalServerError('Failed to get users');
+          /** UI sorting (dropdown) */
+          {
+            $sort: {
+              isBlocked: 1,
+              ...selectedSort,
+            },
+          },
+
+          /** Pagination */
+          {
+            $facet: {
+              users: [{ $skip: skip }, { $limit: limit }],
+              meta: [{ $count: "totalUsers" }],
+            },
+          },
+        ])
+        .toArray();
+
+      const users = result[0]?.users || [];
+      const totalUsers = result[0]?.meta[0]?.totalUsers || 0;
+
+      // Convert ObjectId to string
+      users.forEach(u => {
+        u._id = u._id.toString();
+      });
+
+      return {
+        users,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+      };
+    } catch (error) {
+      throw new InternalServerError('Failed to get users');
+    }
   }
-}
 
 
   async updateReputationScore(
@@ -433,18 +528,80 @@ async findAllUsers(
     await this.init();
     const incrementValue = isIncrement ? 1 : -1;
     await this.usersCollection.updateOne(
-      {_id: new ObjectId(userId)},
+      { _id: new ObjectId(userId) },
       [
         {
           $set: {
             reputation_score: {
-              $max: [0, {$add: ['$reputation_score', incrementValue]}],
+              $max: [0, { $add: ['$reputation_score', incrementValue] }],
             },
             updatedAt: new Date(),
           },
         },
       ],
-      {session},
+      { session },
+    );
+  }
+
+  async recalculateReputationScore(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const submissionCollection = await this.db.getCollection<any>('question_submissions');
+    
+    const userObjectId = new ObjectId(userId);
+    const userIdStr = userId.toString();
+
+    // Count active assignments:
+    // 1. History is empty AND user is at index 0 of queue
+    // 2. History is NOT empty AND user is the updatedBy of the last history entry AND status is 'in-review'
+    const count = await submissionCollection.countDocuments({
+      $or: [
+        {
+          $and: [
+            { history: { $size: 0 } },
+            { $or: [{ 'queue.0': userObjectId }, { 'queue.0': userIdStr }] }
+          ]
+        },
+        {
+          $and: [
+            { history: { $not: { $size: 0 } } },
+            { 
+              $expr: {
+                $and: [
+                  { $eq: [{ $arrayElemAt: ['$history.status', -1] }, 'in-review'] },
+                  { $in: [{ $arrayElemAt: ['$history.updatedBy', -1] }, [userObjectId, userIdStr]] }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }, { session });
+
+    await this.usersCollection.updateOne(
+      { _id: userObjectId },
+      { $set: { reputation_score: count, updatedAt: new Date() } },
+      { session }
+    );
+  }
+
+  async setReputationScore(
+    userId: string,
+    score: number,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          reputation_score: Math.max(0, score),
+          updatedAt: new Date(),
+        },
+      },
+      { session },
     );
   }
 
@@ -456,7 +613,7 @@ async findAllUsers(
 
     // 1. Fetch all experts
     const allUsersRaw = await this.usersCollection
-      .find({role: 'expert', isBlocked: false}, {session})
+      .find({ role: 'expert', isBlocked: false }, { session })
       .toArray();
 
     // 2. Remove duplicates based on email
@@ -477,39 +634,52 @@ async findAllUsers(
     const scoredUsers = allUsers
       .map(user => {
         const pref: PreferenceDto = user.preference || {};
-
+        const normalize = (value: string | ICropRef | undefined): string => {
+          if (typeof value === 'string') {
+            return value.toLowerCase().trim();
+          }
+          return '';
+        };
         const prefState = (pref.state || '').toLowerCase().trim();
-        const prefDomain = (pref.domain || '').toLowerCase().trim();
-        const prefCrop = (pref.crop || '').toLowerCase().trim();
+        const normalizeDomain = (d: string | string[] | undefined): string[] => {
+          if (!d) return [];
+          if (Array.isArray(d)) return d.map(v => v.toLowerCase().trim());
+          return [d.toLowerCase().trim()];
+        };
+        const prefDomains = normalizeDomain(pref.domain);
+        const prefCrop = normalize(pref.crop);
+
 
         const detState = (details.state || '').toLowerCase().trim();
-        const detDomain = (details.domain || '').toLowerCase().trim();
-        const detCrop = (details.crop || '').toLowerCase().trim();
+        const detDomains = normalizeDomain(details.domain);
+        const detCrop = normalize(details.crop);
 
+        const prefDomainIsAll = prefDomains.length === 1 && prefDomains[0] === 'all';
         const isAllSelected =
-          prefCrop === 'all' && prefState === 'all' && prefDomain === 'all';
+          prefCrop === 'all' && prefState === 'all' && prefDomainIsAll;
 
         let score = 0;
 
         // Preference Weighting
         if (prefState !== 'all' && prefState === detState) score += 3;
 
-        if (prefDomain !== 'all' && prefDomain === detDomain) score += 2;
+        const hasDomainOverlap = prefDomains.some(d => detDomains.includes(d));
+        if (!prefDomainIsAll && hasDomainOverlap) score += 2;
 
         if (prefCrop !== 'all' && prefCrop === detCrop) score += 1;
 
         const workloadScore =
           typeof user.reputation_score === 'number' ? user.reputation_score : 0;
 
-        return {user, score, isAllSelected, workloadScore};
+        return { user, score, isAllSelected, workloadScore };
       })
 
       .filter(Boolean) as {
-      user: IUser;
-      score: number;
-      isAllSelected: boolean;
-      workloadScore: number;
-    }[];
+        user: IUser;
+        score: number;
+        isAllSelected: boolean;
+        workloadScore: number;
+      }[];
 
     const matched = scoredUsers.filter(x => x.score > 0);
     const unmatched = scoredUsers.filter(x => x.score === 0);
@@ -542,21 +712,36 @@ async findAllUsers(
     let result = [...matched, ...unmatched].map(s => s.user);
     return result;
   }
-  async getSpecialTaskForceExperts(session: ClientSession): Promise<IUser[]> {
+  async getSpecialTaskForceExperts(details: PreferenceDto,
+    session: ClientSession): Promise<IUser[]> {
     await this.init();
     const allUsersRaw = await this.usersCollection
       .find(
         {
           role: 'expert',
           isBlocked: false,
-          special_task_force: true, // 👈 added condition
+          special_task_force: true,
         },
         { session },
       )
       .toArray();
-  
+
     return allUsersRaw;
   }
+
+  async getExpertsWithFallback(
+    details: PreferenceDto,
+    session: ClientSession,
+  ): Promise<IUser[]> {
+    // 1. STF users
+    const stfUsers = await this.getSpecialTaskForceExperts(details, session);
+
+    // 2. Preference users
+    const prefUsers = await this.findExpertsByPreference(details, session);
+
+    return [...stfUsers, ...prefUsers];
+  }
+
   async getSpecialTaskForceModerators(session: ClientSession): Promise<IUser[]> {
     await this.init();
     const allUsersRaw = await this.usersCollection
@@ -569,7 +754,7 @@ async findAllUsers(
         { session },
       )
       .toArray();
-  
+
     return allUsersRaw;
   }
   async findExpertsByReputationScore(
@@ -580,7 +765,7 @@ async findAllUsers(
 
     // 1. Fetch all experts
     const allUsersRaw = await this.usersCollection
-      .find({role: 'expert', isBlocked: false}, {session})
+      .find({ role: 'expert', isBlocked: false }, { session })
       .toArray();
 
     // 2. Remove duplicates based on email
@@ -600,34 +785,39 @@ async findAllUsers(
     session?: ClientSession,
   ): Promise<IUser[]> {
     await this.init();
-  
+
     // Start & end of today (server time)
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-  
+
     const startOfTomorrow = new Date(startOfDay);
     startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-  
+
     const users = await this.usersCollection
       .find(
         {
           role: 'expert',
           isBlocked: false,
-          reputation_score: { $lte: 5 },
+          status: 'active',
           lastCheckInAt: { $gte: startOfDay, $lt: startOfTomorrow },
         },
         { session },
       )
       .sort({ reputation_score: 1 }) // lowest score first
       .toArray();
-      
-  
+
+
     return users;
   }
-  
+
   async findModerators(): Promise<IUser[]> {
     await this.init();
-    return await this.usersCollection.find({role: 'moderator'}).toArray();
+    return await this.usersCollection.find({ role: 'moderator' }).toArray();
+  }
+
+  async findAdmins(session?: ClientSession): Promise<IUser[]> {
+    await this.init();
+    return await this.usersCollection.find({ role: 'admin' }, { session }).toArray();
   }
 
   async updateAutoDeleteNotificationPreference(
@@ -644,9 +834,9 @@ async findAllUsers(
         throw new NotFoundError('user not found');
       }
       await this.usersCollection.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
-        {$set: {notificationRetention: preference}},
-        {upsert: true, session},
+        { _id: new ObjectId(userId) },
+        { $set: { notificationRetention: preference } },
+        { upsert: true, session },
       );
     } catch (error) {
       console.log(error);
@@ -668,9 +858,9 @@ async findAllUsers(
         throw new NotFoundError('User not found');
       }
       await this.usersCollection.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
-        {$inc: {[field]: 1}},
-        {upsert: true, session},
+        { _id: new ObjectId(userId) },
+        { $inc: { [field]: 1 } },
+        { upsert: true, session },
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update incentive`);
@@ -909,7 +1099,7 @@ async findAllUsers(
     sortOption: string,
     filter: string,
     session?: ClientSession,
-  ): Promise<{experts: any[]; totalExperts: number; totalPages: number}> {
+  ): Promise<{ experts: any[]; totalExperts: number; totalPages: number }> {
     await this.init();
 
     try {
@@ -920,8 +1110,8 @@ async findAllUsers(
 
       if (search) {
         matchQuery.$or = [
-          {firstName: {$regex: search, $options: 'i'}},
-          {lastName: {$regex: search, $options: 'i'}},
+          { firstName: { $regex: search, $options: 'i' } },
+          { lastName: { $regex: search, $options: 'i' } },
         ];
       }
 
@@ -930,144 +1120,144 @@ async findAllUsers(
       }
 
       const sortMap: any = {
-        workload_asc: {reputation_score: 1},
-        workload_desc: {reputation_score: -1},
-        incentive_asc: {incentive: 1},
-        incentive_desc: {incentive: -1},
-        penalty_asc: {penaltyPercentage: 1},
-        penalty_desc: {penaltyPercentage: -1},
-        joined_asc: {createdAt: 1},
-        joined_desc: {createdAt: -1},
-        default: {rankPosition: 1},
+        workload_asc: { reputation_score: 1 },
+        workload_desc: { reputation_score: -1 },
+        incentive_asc: { incentive: 1 },
+        incentive_desc: { incentive: -1 },
+        penalty_asc: { penaltyPercentage: 1 },
+        penalty_desc: { penaltyPercentage: -1 },
+        joined_asc: { createdAt: 1 },
+        joined_desc: { createdAt: -1 },
+        default: { rankPosition: 1 },
       };
 
       const selectedSort = sortMap[sortOption] || sortMap.default;
-      
+
       const result = await this.usersCollection.aggregate([
-      /** Match experts */
-      { $match: {role:"expert"} },
-     
+        /** Match experts */
+        { $match: { role: "expert" } },
 
-      /** Default isBlocked */
-      {
-        $addFields: {
-          isBlocked: { $ifNull: ['$isBlocked', false] },
-        },
-      },
 
-      /** Answers count */
-      {
-        $lookup: {
-          from: 'answers',
-          let: { userId: '$_id' },
-          pipeline: [
-            { $match: { $expr: { $eq: ['$authorId', '$$userId'] } } },
-            { $count: 'count' },
-          ],
-          as: 'answersMeta',
-        },
-      },
-
-      /** Derived fields */
-      {
-        $addFields: {
-          totalAnswers_Created: {
-            $ifNull: [{ $arrayElemAt: ['$answersMeta.count', 0] }, 0],
+        /** Default isBlocked */
+        {
+          $addFields: {
+            isBlocked: { $ifNull: ['$isBlocked', false] },
           },
-          penalty: { $ifNull: ['$penalty', 0] },
-          incentive: { $ifNull: ['$incentive', 0] },
-          reputation_score: { $ifNull: ['$reputation_score', 0] },
         },
-      },
 
-      /** Penalty percentage */
-      {
-        $addFields: {
-          penaltyPercentage: {
-            $cond: [
-              { $gt: ['$totalAnswers_Created', 0] },
-              {
-                $multiply: [
-                  { $divide: ['$penalty', '$totalAnswers_Created'] },
-                  100,
-                ],
-              },
-              0,
+        /** Answers count */
+        {
+          $lookup: {
+            from: 'answers',
+            let: { userId: '$_id' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$authorId', '$$userId'] } } },
+              { $count: 'count' },
             ],
+            as: 'answersMeta',
           },
         },
-      },
 
-      /** Rank value */
-      {
-        $addFields: {
-          rankValue: {
-            $subtract: [
-              {
-                $add: [
-                  { $multiply: ['$totalAnswers_Created', 0.5] },
-                  { $multiply: ['$incentive', 0.3] },
-                ],
-              },
-              { $multiply: ['$penaltyPercentage', 0.2] },
-            ],
+        /** Derived fields */
+        {
+          $addFields: {
+            totalAnswers_Created: {
+              $ifNull: [{ $arrayElemAt: ['$answersMeta.count', 0] }, 0],
+            },
+            penalty: { $ifNull: ['$penalty', 0] },
+            incentive: { $ifNull: ['$incentive', 0] },
+            reputation_score: { $ifNull: ['$reputation_score', 0] },
           },
         },
-      },
 
-      /** Ranking sort (global rank order) */
-      {
-        $sort: {
-          status: 1,
-          isBlocked: 1,
-          rankValue: -1,
-          reputation_score: -1,
-          totalAnswers_Created: -1,
-          penalty: 1,
-          incentive: -1,
-          createdAt: 1,
+        /** Penalty percentage */
+        {
+          $addFields: {
+            penaltyPercentage: {
+              $cond: [
+                { $gt: ['$totalAnswers_Created', 0] },
+                {
+                  $multiply: [
+                    { $divide: ['$penalty', '$totalAnswers_Created'] },
+                    100,
+                  ],
+                },
+                0,
+              ],
+            },
+          },
         },
-      },
 
-      /** Assign rankPosition */
-      {
-        $group: {
-          _id: null,
-          experts: { $push: '$$ROOT' },
+        /** Rank value */
+        {
+          $addFields: {
+            rankValue: {
+              $subtract: [
+                {
+                  $add: [
+                    { $multiply: ['$totalAnswers_Created', 0.5] },
+                    { $multiply: ['$incentive', 0.3] },
+                  ],
+                },
+                { $multiply: ['$penaltyPercentage', 0.2] },
+              ],
+            },
+          },
         },
-      },
-      {
-        $unwind: {
-          path: '$experts',
-          includeArrayIndex: 'rankPosition',
-        },
-      },
-      {
-        $addFields: {
-          'experts.rankPosition': { $add: ['$rankPosition', 1] },
-        },
-      },
-      {
-        $replaceRoot: { newRoot: '$experts' },
-      },
 
-      /** UI sorting (dropdown) */
-      {
-        $sort: {
-          isBlocked: 1,
-          ...selectedSort,
+        /** Ranking sort (global rank order) */
+        {
+          $sort: {
+            status: 1,
+            isBlocked: 1,
+            rankValue: -1,
+            reputation_score: -1,
+            totalAnswers_Created: -1,
+            penalty: 1,
+            incentive: -1,
+            createdAt: 1,
+          },
         },
-      },
-      { $match: matchQuery },
 
-      /** Pagination */
-      {
-        $facet: {
-          experts: [{ $skip: skip }, { $limit: limit }],
-          meta: [{ $count: 'totalExperts' }],
+        /** Assign rankPosition */
+        {
+          $group: {
+            _id: null,
+            experts: { $push: '$$ROOT' },
+          },
         },
-      },
-    ]).toArray();
+        {
+          $unwind: {
+            path: '$experts',
+            includeArrayIndex: 'rankPosition',
+          },
+        },
+        {
+          $addFields: {
+            'experts.rankPosition': { $add: ['$rankPosition', 1] },
+          },
+        },
+        {
+          $replaceRoot: { newRoot: '$experts' },
+        },
+
+        /** UI sorting (dropdown) */
+        {
+          $sort: {
+            isBlocked: 1,
+            ...selectedSort,
+          },
+        },
+        { $match: matchQuery },
+
+        /** Pagination */
+        {
+          $facet: {
+            experts: [{ $skip: skip }, { $limit: limit }],
+            meta: [{ $count: 'totalExperts' }],
+          },
+        },
+      ]).toArray();
 
 
       const experts = result[0]?.experts || [];
@@ -1087,7 +1277,7 @@ async findAllUsers(
       throw new InternalServerError('Failed to get experts');
     }
   }
-  
+
   async countActiveExperts(session?: ClientSession): Promise<number> {
     await this.init();
 
@@ -1100,7 +1290,7 @@ async findAllUsers(
     );
   }
 
-  async countNonBlockedExperts(session?:ClientSession): Promise<number> {
+  async countNonBlockedExperts(session?: ClientSession): Promise<number> {
     await this.init();
 
     return this.usersCollection.countDocuments(
@@ -1121,12 +1311,35 @@ async findAllUsers(
     try {
       const isBlocked = action === 'block';
       await this.usersCollection.updateOne(
-        {_id: new ObjectId(userId)},
-        {$set: {isBlocked}},
-        {upsert: true, session},
+        { _id: new ObjectId(userId) },
+        { $set: { isBlocked } },
+        { upsert: true, session },
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update IsBlock`);
+    }
+  }
+  
+  async updateSTFStatus(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      const special_task_force = action === 'assign';
+      await this.usersCollection.updateOne(
+        {_id: new ObjectId(userId)},
+        {
+          $set: {
+            special_task_force,
+            updatedAt: new Date(),
+          },
+        },
+        {upsert: true, session},
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to update STF status`);
     }
   }
 
@@ -1138,9 +1351,9 @@ async findAllUsers(
     await this.init();
     try {
       await this.usersCollection.updateOne(
-        {_id: new ObjectId(userId)},
-        {$set: {status, updatedAt: new Date()}},
-        {session},
+        { _id: new ObjectId(userId) },
+        { $set: { status, updatedAt: new Date() } },
+        { session },
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update activity status`);
@@ -1155,11 +1368,11 @@ async findAllUsers(
       const result = await this.usersCollection
         .aggregate(
           [
-            {$match: {isBlocked: false}},
+            { $match: { isBlocked: false } },
             {
               $group: {
                 _id: '$role',
-                count: {$sum: 1},
+                count: { $sum: 1 },
               },
             },
             {
@@ -1168,8 +1381,8 @@ async findAllUsers(
                 role: {
                   $switch: {
                     branches: [
-                      {case: {$eq: ['$_id', 'expert']}, then: 'Experts'},
-                      {case: {$eq: ['$_id', 'moderator']}, then: 'Moderators'},
+                      { case: { $eq: ['$_id', 'expert'] }, then: 'Experts' },
+                      { case: { $eq: ['$_id', 'moderator'] }, then: 'Moderators' },
                     ],
                     default: 'Others',
                   },
@@ -1178,7 +1391,7 @@ async findAllUsers(
               },
             },
           ],
-          {session},
+          { session },
         )
         .toArray();
 
@@ -1196,7 +1409,7 @@ async findAllUsers(
 
     const experts = await this.usersCollection
       .find(
-        {role: 'expert'},
+        { role: 'expert' },
         {
           session,
           projection: {
@@ -1224,56 +1437,74 @@ async findAllUsers(
   }
 
   async updateCheckInTime(userId: string, time: Date) {
-  await this.init();
-  await this.usersCollection.updateOne(
-    { _id: new ObjectId(userId) },
-    {
-      $set: {
-        lastCheckInAt: time,
-        updatedAt: new Date(),
-      },
-    }
-  );
-}
-
-async findUnblockedUsers(session?:ClientSession):Promise<IUser[]>{
-  try {
-    await this.init()
-    const experts = await this.usersCollection.find(
+    await this.init();
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(userId) },
       {
-        role: 'expert',
-        isBlocked: { $ne: true },
-      },
-      session,
-    ).toArray()
-    return experts
-  } catch (error) {
-    throw new InternalServerError('Failed to fetch users');
-  }
-}
-
-async blockExperts(expertIds:string[],session:ClientSession):Promise<void>{
-  try {
-    await this.init()
-      await this.usersCollection.updateMany(
-      { _id: { $in: expertIds.map(id => new ObjectId(id)) } },
-      { $set: { isBlocked: true } },
-      session,
+        $set: {
+          lastCheckInAt: time,
+          updatedAt: new Date(),
+        },
+      }
     );
-  } catch (error) {
-    throw new InternalServerError('Failed to block users');
   }
-}
 
-async unBlockExperts():Promise<void>{
-  try {
-    await this.init()
-      await this.usersCollection.updateMany(
-      { inactive: { $ne: true } },
-      { $set: { isBlocked: false } },
-    );
-  } catch (error) {
-    throw new InternalServerError('Failed to block users');
+  async findUnblockedUsers(session?: ClientSession): Promise<IUser[]> {
+    try {
+      await this.init()
+      const experts = await this.usersCollection.find(
+        {
+          role: 'expert',
+          isBlocked: { $ne: true },
+        },
+        session,
+      ).toArray()
+      return experts
+    } catch (error) {
+      throw new InternalServerError('Failed to fetch users');
+    }
   }
-}
+
+  async blockExperts(expertIds: string[], session: ClientSession): Promise<void> {
+    try {
+      await this.init()
+      await this.usersCollection.updateMany(
+        { _id: { $in: expertIds.map(id => new ObjectId(id)) } },
+        { $set: { isBlocked: true } },
+        session,
+      );
+    } catch (error) {
+      throw new InternalServerError('Failed to block users');
+    }
+  }
+  async unBlockExperts(): Promise<void> {
+    try {
+      await this.init();
+      await this.usersCollection.updateMany(
+        { inactive: { $ne: true } },
+        { $set: { isBlocked: false } },
+      );
+    } catch (error) {
+      throw new InternalServerError('Failed to unblock experts');
+    }
+  }
+
+  async findInactiveOrBlockedExperts(session?: ClientSession): Promise<IUser[]> {
+    try {
+      await this.init();
+      return await this.usersCollection
+        .find(
+          {
+            role: 'expert',
+            $or: [{ status: 'in-active' }, { isBlocked: true }],
+          },
+          { session },
+        )
+        .toArray();
+    } catch (error) {
+      throw new InternalServerError(
+        'Failed to find inactive or blocked experts',
+      );
+    }
+  }
 }

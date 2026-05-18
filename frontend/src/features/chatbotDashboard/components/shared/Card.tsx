@@ -9,7 +9,7 @@ interface CardProps {
 
 export function Card({ title, subtitle, action, children }: CardProps) {
   return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 flex flex-col">
+    <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 flex flex-col h-full">
       <div className="flex items-start justify-between mb-[14px]">
         <div className={`min-w-0 flex-1 ${action ? "mr-2" : ""}`}>
           <div className="text-[13px] font-medium text-[var(--card-foreground)]">{title}</div>

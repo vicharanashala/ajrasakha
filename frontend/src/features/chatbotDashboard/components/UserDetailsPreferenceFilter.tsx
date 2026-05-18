@@ -19,6 +19,11 @@ import {
 } from "@/components/atoms/select";
 import { Badge } from "@/components/atoms/badge";
 import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/atoms/tooltip";
+import {
   Filter,
   Search,
   Sprout,
@@ -26,30 +31,64 @@ import {
   Calendar,
   UserCheck,
   RefreshCcw,
+  UserX,
+  MessageSquareOff,
+  Info,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface UserDetailsFilters {
   search: string;
   crop: string;
   village: string;
+  block: string;
+  district: string;
+  state: string;
   startTime: Date | undefined;
   endTime: Date | undefined;
   profileCompleted: "all" | "yes" | "no";
+  inactiveOnly: boolean;
+  lowFeedbackOnly: boolean;
+  userType: "all" | "internal" | "external";
 }
 
 interface UserDetailsPreferenceFilterProps {
   filters: UserDetailsFilters;
   onApply: (filters: UserDetailsFilters) => void;
+  /** Fields to hide from the filter dialog */
+  hideFields?: Array<'crop' | 'inactive' | 'profile' | 'userType' | 'lowFeedback'>;
 }
 
 function toDateInputValue(d: Date | undefined): string {
   if (!d) return "";
-  return d.toISOString().split("T")[0];
+  // Format using local time components to stay consistent with fromDateInputValue.
+  // d.toISOString() converts to UTC first, which can shift the date by a day for IST users.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function fromDateInputValue(s: string): Date | undefined {
   if (!s) return undefined;
-  return new Date(s);
+  // Parse as local midnight, NOT UTC.
+  // new Date("YYYY-MM-DD") treats the string as UTC which causes a timezone
+  // offset mismatch vs setHours(0,0,0,0) used elsewhere in the app.
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function defaultInactiveStart(): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - 3);
+  d.setHours(0, 0, 0, 0); // midnight local — must match handleInactiveUsersClick
+  return d;
+}
+
+function defaultInactiveEnd(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0); // midnight today — useUserDetails adds +24h internally
+  return d;
 }
 
 const inputClass =
@@ -77,12 +116,25 @@ function FilterSection({
   );
 }
 
+function getInactiveDateError(from: Date | undefined, to: Date | undefined): string {
+  if (!from || !to) return "A date range is required for inactive users filter";
+  const diffDays = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 3) return "Range must be at least 3 days";
+  if (diffDays > 30) return "Range cannot exceed 30 days";
+  return "";
+}
+
 export function UserDetailsPreferenceFilter({
   filters,
   onApply,
+  hideFields = [],
 }: UserDetailsPreferenceFilterProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<UserDetailsFilters>(filters);
+
+  const inactiveDateError = draft.inactiveOnly
+    ? getInactiveDateError(draft.startTime, draft.endTime)
+    : "";
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen) setDraft(filters);
@@ -99,9 +151,15 @@ export function UserDetailsPreferenceFilter({
       search: "",
       crop: "",
       village: "",
+      block: "",
+      district: "",
+      state: "",
       startTime: undefined,
       endTime: undefined,
       profileCompleted: "all",
+      inactiveOnly: false,
+      lowFeedbackOnly: false,
+      userType: "all",
     });
   };
 
@@ -109,8 +167,14 @@ export function UserDetailsPreferenceFilter({
     (filters.search ? 1 : 0) +
     (filters.crop ? 1 : 0) +
     (filters.village ? 1 : 0) +
+    (filters.block ? 1 : 0) +
+    (filters.district ? 1 : 0) +
+    (filters.state ? 1 : 0) +
     (filters.startTime ? 1 : 0) +
-    (filters.profileCompleted !== "all" ? 1 : 0);
+    (filters.profileCompleted !== "all" ? 1 : 0) +
+    (filters.inactiveOnly ? 1 : 0) +
+    (filters.lowFeedbackOnly ? 1 : 0) +
+    (filters.userType !== "all" ? 1 : 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -130,7 +194,7 @@ export function UserDetailsPreferenceFilter({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg w-full p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-lg w-full p-0 gap-0 overflow-hidden z-[10001]" overlayClassName="z-[10000]">
         {/* Header */}
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-3">
@@ -150,6 +214,27 @@ export function UserDetailsPreferenceFilter({
 
         {/* Body */}
         <div className="px-6 py-5 space-y-3 max-h-[60vh] overflow-y-auto">
+          {/* User Type */}
+          {!hideFields.includes('userType') && (
+            <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="User Type">
+              <Select
+                value={draft.userType}
+                onValueChange={(v) =>
+                  setDraft((d) => ({ ...d, userType: v as "all" | "internal" | "external" }))
+                }
+              >
+                <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[10002]">
+                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="external">External Users</SelectItem>
+                  <SelectItem value="internal">Internal Users</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterSection>
+          )}
+
           {/* Search */}
           <FilterSection icon={<Search className="h-3.5 w-3.5" />} label="Name / Email">
             <input
@@ -161,8 +246,8 @@ export function UserDetailsPreferenceFilter({
             />
           </FilterSection>
 
-          {/* Crop + Village side by side */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Crop */}
+          {!hideFields.includes('crop') && (
             <FilterSection icon={<Sprout className="h-3.5 w-3.5" />} label="Crop">
               <input
                 type="text"
@@ -172,17 +257,41 @@ export function UserDetailsPreferenceFilter({
                 className={inputClass}
               />
             </FilterSection>
+          )}
 
-            <FilterSection icon={<MapPin className="h-3.5 w-3.5" />} label="Village">
+          {/* Location fields */}
+          <FilterSection icon={<MapPin className="h-3.5 w-3.5" />} label="Location">
+            <div className="grid grid-cols-2 gap-3">
               <input
                 type="text"
-                placeholder="e.g. Poonjar..."
+                placeholder="Village..."
                 value={draft.village}
                 onChange={(e) => setDraft((d) => ({ ...d, village: e.target.value }))}
                 className={inputClass}
               />
-            </FilterSection>
-          </div>
+              <input
+                type="text"
+                placeholder="Block..."
+                value={draft.block}
+                onChange={(e) => setDraft((d) => ({ ...d, block: e.target.value }))}
+                className={inputClass}
+              />
+              <input
+                type="text"
+                placeholder="District..."
+                value={draft.district}
+                onChange={(e) => setDraft((d) => ({ ...d, district: e.target.value }))}
+                className={inputClass}
+              />
+              <input
+                type="text"
+                placeholder="State..."
+                value={draft.state}
+                onChange={(e) => setDraft((d) => ({ ...d, state: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+          </FilterSection>
 
           {/* Date Range */}
           <FilterSection icon={<Calendar className="h-3.5 w-3.5" />} label="Date Range">
@@ -213,26 +322,133 @@ export function UserDetailsPreferenceFilter({
                 />
               </div>
             </div>
+            {draft.inactiveOnly && inactiveDateError && (
+              <p className="text-xs text-destructive mt-2">{inactiveDateError}</p>
+            )}
+            {draft.inactiveOnly && !inactiveDateError && (
+              <p className="text-xs text-muted-foreground mt-2">Range: 3–30 days</p>
+            )}
           </FilterSection>
 
+          {/* Inactive Users */}
+          {!hideFields.includes('inactive') && (
+            <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-md bg-[#3AAA5A]/10 text-[#3AAA5A]">
+                    <UserX className="h-3.5 w-3.5" />
+                  </span>
+                  Inactive Users
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px] text-xs">
+                      Shows users who have not asked any questions in the selected date range
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+                <label
+                  htmlFor="inactive-only"
+                  className={cn(
+                    "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+                    draft.inactiveOnly
+                      ? "bg-[#3AAA5A]"
+                      : "bg-gray-300 dark:bg-gray-600"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    id="inactive-only"
+                    className="sr-only"
+                    checked={draft.inactiveOnly}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        inactiveOnly: e.target.checked,
+                        startTime: e.target.checked && !d.startTime ? defaultInactiveStart() : d.startTime,
+                        endTime: e.target.checked && !d.endTime ? defaultInactiveEnd() : d.endTime,
+                      }))
+                    }
+                  />
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
+                      draft.inactiveOnly ? "translate-x-[20px]" : "translate-x-[2px]"
+                    )}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Low Feedback Users */}
+          {!hideFields.includes('lowFeedback') && (
+            <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-md bg-orange-500/10 text-orange-500">
+                    <MessageSquareOff className="h-3.5 w-3.5" />
+                  </span>
+                  Low Feedback Users
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px] text-xs">
+                      Shows users who have never given any feedback (no thumbs up/down on any response)
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+                <label
+                  htmlFor="low-feedback-only"
+                  className={cn(
+                    "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+                    draft.lowFeedbackOnly
+                      ? "bg-orange-500"
+                      : "bg-gray-300 dark:bg-gray-600"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    id="low-feedback-only"
+                    className="sr-only"
+                    checked={draft.lowFeedbackOnly}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, lowFeedbackOnly: e.target.checked }))
+                    }
+                  />
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
+                      draft.lowFeedbackOnly ? "translate-x-[20px]" : "translate-x-[2px]"
+                    )}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
           {/* Profile Completed */}
-          <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="Farmer Profile">
-            <Select
-              value={draft.profileCompleted}
-              onValueChange={(v) =>
-                setDraft((d) => ({ ...d, profileCompleted: v as "all" | "yes" | "no" }))
-              }
-            >
-              <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Farmers</SelectItem>
-                <SelectItem value="yes">Profile Completed</SelectItem>
-                <SelectItem value="no">Profile Not Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          </FilterSection>
+          {!hideFields.includes('profile') && (
+            <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="Farmer Profile">
+              <Select
+                value={draft.profileCompleted}
+                onValueChange={(v) =>
+                  setDraft((d) => ({ ...d, profileCompleted: v as "all" | "yes" | "no" }))
+                }
+              >
+                <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[10002]">
+                  <SelectItem value="all">All Farmers</SelectItem>
+                  <SelectItem value="yes">Profile Completed</SelectItem>
+                  <SelectItem value="no">Profile Not Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterSection>
+          )}
         </div>
 
         {/* Footer */}
@@ -255,7 +471,8 @@ export function UserDetailsPreferenceFilter({
             <Button
               size="sm"
               onClick={handleApply}
-              className="bg-[#3AAA5A] hover:bg-[#2e9449] text-white px-5"
+              disabled={draft.inactiveOnly && !!inactiveDateError}
+              className="bg-[#3AAA5A] hover:bg-[#2e9449] text-white px-5 disabled:opacity-50"
             >
               Apply Filters
             </Button>

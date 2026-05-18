@@ -111,6 +111,76 @@ export class GetDashboardQuery {
   qnAnalyticsType!: 'question' | 'answer';
 }
 
+export class GetGoldenDatasetQuery {
+  @JSONSchema({example: 'year', description: 'View type for Golden Dataset'})
+  @IsString()
+  @IsIn(['year', 'month', 'week', 'day'])
+  viewType!: GoldenDataViewType;
+
+  @JSONSchema({example: '2026'})
+  @IsOptional()
+  @IsString()
+  selectedYear?: string;
+
+  @JSONSchema({example: 'January'})
+  @IsOptional()
+  @IsString()
+  selectedMonth?: string;
+
+  @JSONSchema({example: 'Week 1'})
+  @IsOptional()
+  @IsString()
+  selectedWeek?: string;
+
+  @JSONSchema({example: 'Mon'})
+  @IsOptional()
+  @IsString()
+  selectedDay?: string;
+
+  @JSONSchema({
+    example: '10:30',
+    description: 'Custom start time in HH:mm format (24-hour)',
+  })
+  @IsOptional()
+  @IsString()
+  customStartDateTime?: string;
+
+  @JSONSchema({
+    example: '17:45',
+    description: 'Custom end time in HH:mm format (24-hour)',
+  })
+  @IsOptional()
+  @IsString()
+  customEndDateTime?: string;
+}
+
+export class GetContributionTrendQuery {
+  @JSONSchema({example: '90d', description: 'Time range for Sources Chart'})
+  @IsString()
+  timeRange!: string;
+}
+
+export class GetQuestionsAnalyticsQuery {
+  @JSONSchema({example: '2025-12-01T00:00:00.000Z'})
+  @IsOptional()
+  @IsDateString()
+  startTime?: string;
+
+  @JSONSchema({example: '2025-12-31T23:59:59.999Z'})
+  @IsOptional()
+  @IsDateString()
+  endTime?: string;
+
+  @JSONSchema({example: 'question'})
+  @IsEnum(['question', 'answer'])
+  type!: 'question' | 'answer';
+
+  @JSONSchema({example: 'open', description: 'Filter by question status'})
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
+
 export class UserRoleOverview {
   @JSONSchema({description: 'Role name of the user', example: 'Moderator'})
   role!: string;
@@ -150,12 +220,31 @@ export class GoldenDatasetEntry {
   verified!: number;
 }
 
+export class QuestionStateBreakdownItem {
+  @JSONSchema({ description: 'Question state/status', example: 'open' })
+  status!: string;
+
+  @JSONSchema({ description: 'Count for the status', example: 12 })
+  count!: number;
+}
+
+export class QuestionStateBreakdownBySource {
+  @JSONSchema({ description: 'Question state breakdown for WhatsApp source' })
+  whatsapp!: QuestionStateBreakdownItem[];
+
+  @JSONSchema({ description: 'Question state breakdown for Ajrasakha source' })
+  ajrasakha!: QuestionStateBreakdownItem[];
+}
+
 export class GoldenDataset {
   @JSONSchema({description: 'Total count of verified answers'})
   verifiedEntries: number;
 
   @JSONSchema({description: 'Total count by requested type'})
   totalEntriesByType: number;
+
+  @JSONSchema({description: 'Total verified count by requested type'})
+  totalVerifiedByType: number;
 
   @JSONSchema({description: 'Yearly data breakdown'})
   yearData?: GoldenDatasetEntry[];
@@ -174,14 +263,36 @@ export class GoldenDataset {
 
   @JSONSchema({ description: 'Moderator breakdown with names and approval counts' })
   moderatorBreakdown?: { moderatorName: string, count: number }[];
+
+  @JSONSchema({ description: 'Question source breakdown showing counts from WhatsApp and Ajrasakha' })
+  questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Questions answered within 120 minutes by source' })
+  questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Average response time in minutes by source' })
+  averageResponseTime?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Questions answered after 120 minutes by source' })
+  questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Breakdown of question states separated by source' })
+  questionStateBreakdown?: QuestionStateBreakdownBySource;
+
+  @JSONSchema({ description: 'PAE (Principal Agri Experts) metrics totals' })
+  paeMetrics?: {
+    assigned: number;
+    submitted: number;
+    closed: number;
+  };
 }
 
 export class QuestionContributionTrend {
   @JSONSchema({description: 'Date of contribution', example: '2025-12-01'})
   date!: string;
 
-  @JSONSchema({description: 'Number of contributions by Ajraskha', example: 5})
-  Ajraskha!: number;
+  @JSONSchema({description: 'Number of contributions by Ajrasakha', example: 5})
+  Ajrasakha!: number;
 
   @JSONSchema({description: 'Number of contributions by Moderator', example: 3})
   Moderator!: number;
@@ -236,6 +347,9 @@ export class AnalyticsItem {
   @JSONSchema({description: 'Count for this item', example: 245})
   @IsInt()
   count!: number;
+
+  @JSONSchema({description: 'Breakdown of items grouped into Others (only present for the Others entry)', example: [{name: 'Sugarcane', count: 189}]})
+  otherItems?: { name: string; count: number }[];
 }
 
 export class Analytics {
@@ -263,11 +377,7 @@ export class DashboardResponse {
   goldenDataset!: GoldenDataset;
 
   @JSONSchema({description: 'Question contribution trends'})
-  questionContributionTrend!: {
-    date: string;
-    Ajrasakha: number;
-    Moderator: number;
-  }[];
+  questionContributionTrend!: QuestionContributionTrend[];
 
   @JSONSchema({description: 'Question status overview'})
   statusOverview!: StatusOverview;

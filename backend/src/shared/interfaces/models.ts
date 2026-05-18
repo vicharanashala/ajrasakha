@@ -1,11 +1,11 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted'|'draft'| 'pass' | 'duplicate';
 export interface IPreference {
   state: string;
   crop: string;
-  domain: string;
+  domain: string | string[];
 }
 export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export type UserStatus = "active" | "in-active";
@@ -30,9 +30,12 @@ export interface IUser {
   special_task_force?:boolean
   special_task_force_moderator?: boolean
   avatar?: string
+  mobile?: string;
+  university?: string;
+  isVerified?: boolean
 }
 
-export type IQuestionPriority = 'low' | 'medium' | 'high';
+export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface IQuestionMetrics {
   mean_similarity: number;
@@ -73,11 +76,23 @@ export interface IQuestion {
   passingRemark?:string;
   isOnHold?:boolean;
   messageId?:string;
+  threadId?:string;
   /** Wall-clock moment the current hold segment started (SLA timer freezes until unhold). */
   holdAt?:Date | null;
   /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
   accumulatedHoldMs?: number;
   originalQuestion?:string
+  authors_history?: IAuthorsHistory[];
+  /** for duplicate quesitons */
+  similarityScore?: number;        // percentage (0–100)
+  referenceQuestionId?: ObjectId;
+  referenceQuestion?:string
+  referenceSource?: string;
+  saved_to_draft?: boolean;
+  pae_review?: boolean;
+  firstAllocationAt?: Date;
+  referenceQuestionDetails?: Array<{ _id: ObjectId | string; duplicate: boolean }>;
+  popContext?: string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -86,7 +101,7 @@ export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
-  page?: number;
+  page?: string | number;
 }
 export interface PreviousAnswersItem{
   modifiedBy:string | ObjectId;
@@ -140,6 +155,21 @@ export interface IReview {
   reRoutedReview?:boolean
 }
 
+export interface IPreviousAllocations {
+  reviewerId: string | ObjectId;
+  reasonForChange: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IAuthorsHistory {
+  authorId: string | ObjectId;
+  newAuthorId: string | ObjectId;
+  reasonForChange: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // For transcripts
 export interface IContext {
   _id?: string | ObjectId;
@@ -162,6 +192,8 @@ export interface ISubmissionHistory {
   reasonForLastModification?: string;
 
   approvedAnswer?: string | ObjectId;
+
+  previousAllocations?: IPreviousAllocations[];
 
   createdAt: Date;
   updatedAt: Date;
@@ -231,6 +263,8 @@ export type INotificationType =
   |'re-routed-answer-created'
   | 'question_from_whatsapp'
   | 'question_from_ajrasakha'
+  | 'expert_replacement'
+  | 'user_verification'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
@@ -354,18 +388,52 @@ export interface ICropRef {
   aliases?: string[];
 }
 
+export interface ICropAlias {
+  language: string;                 // BCP-47 code e.g. "te-IN"
+  region: string;                   // e.g. "Andhra and Telangana"
+  english_representation: string;   // romanised / English representation e.g. "vari"
+  native_representation: string;    // native script e.g. "వరి"
+}
+
+export type CropType = 'crop' | 'chemical' | (string & {});
+
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  aliases: string[];
+  type?: CropType;                    // 'crop' (default) | 'chemical' | any custom string
+  status?: string;                    // only relevant when type === 'chemical', any custom string
+  aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
+  crops?: string[];                  // associated crops (only for type === 'chemical')
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+export type ChemicalStatus = 'Restricted' | 'Banned';
+
+export interface IChemicalAuditHistory {
+  createdBy: ObjectId;
+  updatedAt: Date;
+  changesMade?: {
+    old_name?: string;
+    old_status?: string;
+  };
+}
+
+export interface IChemical {
+  _id?: ObjectId | string;
+  name: string;
+  status: ChemicalStatus;
+  aliases?: (ICropAlias | string)[];  // optional structured aliases
+  createdBy?: ObjectId | string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  chemical_audit_history?: IChemicalAuditHistory[];
+}
 export interface ISource {
   source: string;     // URL or document reference
-  page?: number;      // optional (some sources may not have page)
+  page?: string | number;      // optional (some sources may not have page)
   title?: string;     // optional (future-proof)
   type?: string;      // optional (pdf, link, doc, etc.)
 }

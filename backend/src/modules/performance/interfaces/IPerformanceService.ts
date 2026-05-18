@@ -1,8 +1,17 @@
 import { IReviewerHeatmapResponse } from '#root/shared/interfaces/models.js';
 import {
+  Analytics,
   DashboardResponse,
+  ExpertPerformance,
   GetDashboardQuery,
+  GetGoldenDatasetQuery,
   GetHeatMapQuery,
+  GetQuestionsAnalyticsQuery,
+  GoldenDataset,
+  ModeratorApprovalRate,
+  QuestionContributionTrend,
+  StatusOverview,
+  UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 
 export interface IPerformanceService {
@@ -32,6 +41,21 @@ export interface IPerformanceService {
     data: DashboardResponse;
   }>;
 
+  getOverview(currentUserId: string): Promise<{
+    userRoleOverview: UserRoleOverview[];
+    moderatorApprovalRate: ModeratorApprovalRate;
+  }>;
+
+  getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDataset>;
+
+  getContributionTrend(timeRange: string): Promise<QuestionContributionTrend[]>;
+
+  getStatusOverview(): Promise<StatusOverview>;
+
+  getExpertPerformance(): Promise<ExpertPerformance[]>;
+
+  getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<Analytics>;
+
   updateCheckInTime(userId: string, time: Date): Promise<void>;
 
   sendCronSnapshotEmail(
@@ -39,6 +63,4 @@ export interface IPerformanceService {
   ): Promise<void>;
 
   getLevelWiseReport(startDate:string, endDate:string): Promise<ArrayBuffer | null>;
-
-
 }

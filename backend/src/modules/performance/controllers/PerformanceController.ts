@@ -15,6 +15,8 @@ import {
   Put,
   Res,
   ContentType,
+  InternalServerError,
+  BadRequestError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -26,7 +28,21 @@ import {
   IReviewerHeatmapResponse,
 } from '#root/shared/interfaces/models.js';
 import { PerformanceService } from '../services/PerformanceService.js';
-import { DashboardResponse, GetDashboardQuery, GetHeatMapQuery } from '#root/modules/dashboard/validators/DashboardValidators.js';
+import {
+  DashboardResponse,
+  GetDashboardQuery,
+  GetHeatMapQuery,
+  GetGoldenDatasetQuery,
+  GetContributionTrendQuery,
+  GetQuestionsAnalyticsQuery,
+  UserRoleOverview,
+  ModeratorApprovalRate,
+  GoldenDataset,
+  QuestionContributionTrend,
+  StatusOverview,
+  ExpertPerformance,
+  Analytics
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { IPerformanceService } from '../interfaces/IPerformanceService.js';
 import {
   PerformanceErrorResponse,
@@ -36,6 +52,9 @@ import {
   CronSnapshotReportResponse,
   LevelReportErrorResponse,
 } from '../classes/validators/PerformanceResponseValidators.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 
 @OpenAPI({
@@ -47,6 +66,9 @@ export class PerformanceController {
   constructor(
     @inject(GLOBAL_TYPES.PerformanceService)
     private readonly performanceService: IPerformanceService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   @OpenAPI({
@@ -83,6 +105,51 @@ export class PerformanceController {
     );
 
     return data;
+  }
+
+  @OpenAPI({ summary: 'Get role overview and approval rates' })
+  @Get('/overview')
+  @Authorized()
+  async getOverview(@CurrentUser() user: IUser): Promise<{
+    userRoleOverview: UserRoleOverview[];
+    moderatorApprovalRate: ModeratorApprovalRate;
+  }> {
+    return this.performanceService.getOverview(user._id.toString());
+  }
+
+  @OpenAPI({ summary: 'Get golden dataset analytics' })
+  @Get('/golden-dataset')
+  @Authorized()
+  async getGoldenDataset(@QueryParams() query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
+    return this.performanceService.getGoldenDataset(query);
+  }
+
+  @OpenAPI({ summary: 'Get question contribution trends' })
+  @Get('/contribution-trend')
+  @Authorized()
+  async getContributionTrend(@QueryParams() query: GetContributionTrendQuery): Promise<QuestionContributionTrend[]> {
+    return this.performanceService.getContributionTrend(query.timeRange);
+  }
+
+  @OpenAPI({ summary: 'Get status overview' })
+  @Get('/status-overview')
+  @Authorized()
+  async getStatusOverview(): Promise<StatusOverview> {
+    return this.performanceService.getStatusOverview();
+  }
+
+  @OpenAPI({ summary: 'Get expert performance metrics' })
+  @Get('/expert-performance')
+  @Authorized()
+  async getExpertPerformance(): Promise<ExpertPerformance[]> {
+    return this.performanceService.getExpertPerformance();
+  }
+
+  @OpenAPI({ summary: 'Get detailed questions/answers analytics' })
+  @Get('/questions-analytics')
+  @Authorized()
+  async getQuestionsAnalytics(@QueryParams() query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
+    return this.performanceService.getQuestionsAnalytics(query);
   }
 
   @OpenAPI({
@@ -236,10 +303,50 @@ export class PerformanceController {
   @HttpCode(200)
   @Authorized()
   async sendCronSnapshotReport(@CurrentUser() user: IUser) {
-    await this.performanceService.sendCronSnapshotEmail(
-      user._id.toString(),
-    );
 
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ADMIN_REPORT,
+      action: AuditAction.SEND_DASHBOARD_REPORT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        reportType: 'Dashboard Report',
+        timestamp: new Date().toISOString(),
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      await this.performanceService.sendCronSnapshotEmail(
+        user._id.toString(),
+      );
+    } catch (err) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to process uploaded file',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      await this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to generate overall question report',
+      );
+    }
+    await this.auditTrailsService.createAuditTrail(auditPayload);
     return {
       message: "Cron snapshot report email sent successfully.",
     };

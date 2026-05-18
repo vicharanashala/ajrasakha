@@ -31,23 +31,25 @@ export const AnswerTimeline = ({
   rerouteQuestion,
 }: IAnswerTimelineProps) => {
   // map answers to timeline events
+  console.log("Answers from primitive component ->", answers)
   const events = answers
     .slice(0, answerVisibleCount)
     .map((ans, index) => {
       const submission = question.submission.history.find(
         (h) => h.answer?._id === ans?._id
       );
-
-
+// console.log("answer is ->", ans)
       return {
         index,
-      lastAnswerId: answers[0]?._id, // first one will be the last one
+        lastAnswerId: answers[0]?._id, // first one will be the last one
         firstAnswerId: answers[answers?.length - 1]?._id, // last one will be the first one
         answer: ans,
         submission,
         createdAt: new Date(ans.createdAt || "").toLocaleString(),
       };
     });
+
+    
 
   return (
     <div className="w-full">
@@ -126,6 +128,7 @@ export const AnswerTimeline = ({
               queue={queue}
               rerouteQuestion={rerouteQuestion}
               lastAnswerApprovalCount={answers[0].approvalCount}
+              paeReview={question.pae_review}
             />
           </div>
         )}

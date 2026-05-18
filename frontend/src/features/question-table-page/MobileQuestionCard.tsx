@@ -10,6 +10,7 @@ import { Badge } from "../../components/atoms/badge";
 import { Button } from "../../components/atoms/button";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
+import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import {
   AlertCircle,
   Edit,
@@ -25,6 +26,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/atoms/dropdown-menu";
+import { useQuestionTableStore } from "@/stores/all-questions";
+
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
@@ -78,10 +81,16 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
   // setQuestionIdToDelete,
   handleDelete,
   onViewMore,
+  showClosedAt,
 }) => {
+
+  // Get correct timer start time based on user role (Author vs Level Expert)
+  const timerStartTime = getTimerStartTime(q);
+
+  const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   const { timer, isClickable } = useQuestionClickability(
     q.source,
-    q.createdAt,
+    timerStartTime,
     uploadedQuestionsCount,
     userRole,
     isBulkUpload,
@@ -104,7 +113,9 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
           ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
           : effectiveStatus === "closed"
             ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-            : "bg-muted text-foreground";
+            : effectiveStatus === "pae_submitted"
+              ? "bg-amber-600/10 text-amber-700 border-amber-600/30"
+              : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -114,12 +125,13 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
   }, [q.status, timer]);
 
   const priorityBadge = useMemo(() => {
-    if (!q.priority)
+    if (!q.priority) {
       return (
         <Badge variant="outline" className="text-muted-foreground">
           NIL
         </Badge>
       );
+    }
 
     const colorClass =
       q.priority === "high"
@@ -135,20 +147,56 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
     );
   }, [q.priority]);
 
+  const showCreatedColumn = !showClosedAt && visibleColumns.created;
+  const showClosedColumn = !!showClosedAt && visibleColumns.closed;
+  const showDetailsSection =
+    visibleColumns.priority ||
+    visibleColumns.review_level ||
+    visibleColumns.state ||
+    visibleColumns.crop ||
+    visibleColumns.domain ||
+    visibleColumns.source ||
+    visibleColumns.answers ||
+    showCreatedColumn ||
+    showClosedColumn;
+  const isDuplicate = Boolean(
+    q?.similarityScore &&
+    q?.referenceQuestionId &&
+    q?.referenceQuestion &&
+    q?.referenceSource
+  );
+
   return (
     <div className="rounded-lg border p-4 bg-card shadow-sm text-sm leading-snug">
-      {/* Line 1 — Serial + Status */}
+      {(visibleColumns.sl_No || visibleColumns.status) && (
       <div className="flex justify-between items-center mb-1">
+          {visibleColumns.sl_No && (
         <p className="text-muted-foreground font-medium">
           #{(currentPage - 1) * limit + idx + 1}
         </p>
-        <div className="flex-shrink-0">{statusBadge}</div>
-      </div>
+          )}
+          {visibleColumns.status && (
+            <div className={`flex-shrink-0 ${!visibleColumns.sl_No ? "ml-auto" : ""}`}>
+              {statusBadge}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Question */}
+      {visibleColumns.question && (
+        <>
+      <div className="mt-1 h-6 flex items-start">
+        {isDuplicate && (
+          <Badge
+            variant="outline"
+            className="bg-red-500/10 text-red-600 border-red-500/30"
+          >
+            Duplicate
+          </Badge>
+        )}
+      </div>
       <p
-        className={`mt-1 font-medium break-words ${isClickable ? "hover:underline cursor-pointer" : "opacity-50"
-          }`}
+        className={`font-medium break-words ${isClickable ? "hover:underline cursor-pointer" : "opacity-50"}`}
         onClick={() => isClickable && onViewMore(q._id!)}
       >
         {truncate(q.question, 80)}
@@ -157,53 +205,87 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
       {/* Timer */}
       <div className="mt-1 text-xs text-muted-foreground">
         {/* <TimerDisplay timer={timer} status={q.status} /> */}
-        <TimerDisplay
-          timer={timer}
-          status={q.status}
-          source={q.source}
-        />
+        {q.status !== "pass" && (
+          <TimerDisplay
+            timer={timer}
+            status={q.status}
+            source={q.source}
+          />
+        )}
       </div>
+        </>
+      )}
 
-      {/* Grid of details */}
+      {showDetailsSection && (
       <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-3 text-xs">
-        <div className="flex gap-1">
-          <span className="text-muted-foreground">Priority:</span>
-          <span className="flex-shrink-0">{priorityBadge}</span>
-        </div>
+        {visibleColumns.priority && (
+          <div className="flex gap-1">
+            <span className="text-muted-foreground">Priority:</span>
+            <span className="flex-shrink-0">{priorityBadge}</span>
+          </div>
+        )}
+
+          {visibleColumns.review_level && (
         <div className="flex gap-1">
           <span className="text-muted-foreground">Review Level:</span>
           <span className="flex-shrink-0">{q.review_level_number}</span>
         </div>
+          )}
 
+          {visibleColumns.state && (
         <div className="truncate">
           <span className="text-muted-foreground">State:</span>
           <span className="ml-1">{truncate(q.details.state, 10)}</span>
         </div>
+          )}
 
+          {visibleColumns.crop && (
         <div className="truncate">
           <span className="text-muted-foreground">Crop:</span>
           <span className="ml-1">{truncate(q.details.crop, 10)}</span>
         </div>
+          )}
 
+          {visibleColumns.domain && (
+            <div className="truncate">
+              <span className="text-muted-foreground">Domain:</span>
+              <span className="ml-1">{truncate(q.details.domain || "NIL", 12)}</span>
+            </div>
+          )}
+
+          {visibleColumns.source && (
         <div className="truncate flex items-center gap-1">
           <span className="text-muted-foreground">Source:</span>
           <Badge variant="outline" className="px-1 py-0 text-[10px]">
             {q.source}
           </Badge>
         </div>
+          )}
 
+          {visibleColumns.answers && (
         <div>
           <span className="text-muted-foreground">Answers:</span>
           <span className="ml-1">{q.totalAnswersCount}</span>
         </div>
+          )}
 
+          {showCreatedColumn && (
         <div className="truncate">
           <span className="text-muted-foreground">Created:</span>
+              <span className="ml-1">{formatDate(new Date(q.createdAt!), false)}</span>
+          </div>
+          )}
+
+          {showClosedColumn && (
+            <div className="truncate">
+              <span className="text-muted-foreground">Closed:</span>
           <span className="ml-1">
-            {formatDate(new Date(q.createdAt!), false)}
+            {q.closedAt ? formatDate(new Date(q.closedAt), false) : "N/C"}
           </span>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Actions */}
       <div className="flex justify-end mt-4">

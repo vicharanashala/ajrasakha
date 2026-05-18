@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { subDays } from "date-fns";
 import { ApprovalRateCard } from "./dashboard/approval-rate";
 import { ExpertsPerformance } from "./dashboard/experts-performance";
 import {
@@ -12,11 +13,20 @@ import {
   type DateRange,
 } from "./dashboard/questions-analytics";
 import { SourcesChart } from "./dashboard/sources-chart";
+import { QuestionSourceCharts } from "./dashboard/question-source-charts";
+import { QuestionsAnswered120Min } from "./dashboard/questions-answered-120min";
+import { ResponseAdherence } from "./dashboard/response-adherence";
+import { AverageResponseTime } from "./dashboard/average-response-time";
+import { PAEMetrics } from "./dashboard/pae-metrics";
 import HeatMap from "./HeatMap";
 import { Card, CardHeader, CardTitle } from "./atoms/card";
 import {
-  useGetDashboardData,
-  type DashboardAnalyticsResponse,
+  useGetOverview,
+  useGetGoldenDataset,
+  useGetContributionTrend,
+  useGetStatusOverview,
+  useGetExpertPerformance,
+  useGetQuestionsAnalytics,
 } from "@/hooks/api/performance/useGetDashboard";
 import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Spinner } from "./atoms/spinner";
@@ -26,6 +36,7 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
 import { TopRightBadge } from "./NewBadge";
+import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -41,18 +52,21 @@ export const Dashboard = () => {
   const [selectedMonth, setSelectedMonth] = useState("January");
   const [selectedWeek, setSelectedWeek] = useState("Week 1");
   const [selectedDay, setSelectedDay] = useState("Mon");
+  const [customStartDateTime, setCustomStartDateTime] = useState<string>("");
+  const [customEndDateTime, setCustomEndDateTime] = useState<string>("");
 
   // ---- SourcesChart state filters ----- //
-  const [timeRange, setTimeRange] = useState("90d"); // questionContributionTrend
+  const [timeRange, setTimeRange] = useState("90d");
 
   // ---- QuestionsAnalytics state filters ----- //
   const [date, setDate] = useState<DateRange>({
-    startTime: undefined,
-    endTime: undefined,
+    startTime: subDays(new Date(), 30),
+    endTime: new Date(),
   });
   const [analyticsType, setAnalyticsType] = useState<"question" | "answer">(
     "question"
   );
+  const [analyticsStatus, setAnalyticsStatus] = useState<string>("all");
 
   // ---- Heat map state filters ----- //
   const [heatMapDate, setHeatMapDate] = useState<DateRange>({
@@ -60,48 +74,28 @@ export const Dashboard = () => {
     endTime: undefined,
   });
 
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [dashboardState, setDashboardState] =
-    useState<DashboardAnalyticsResponse | null>(null);
+  const { data: user } = useGetCurrentUser();
 
-  const [activeFilter, setActiveFilter] = useState<"all" | "golden" | "sources" | "analytics">("all");
-
-  const { data: user} = useGetCurrentUser();
-
-
-  // Fetch dashboard data
-  const {
-    data: dashboardData,
-    isLoading,
-    isFetching,
-    error,
-  } = useGetDashboardData({
-    goldenDataViewType: viewType,
-    goldenDataSelectedYear: selectedYear,
-    goldenDataSelectedMonth: selectedMonth,
-    goldenDataSelectedWeek: selectedWeek,
-    goldenDataSelectedDay: selectedDay,
-    sourceChartTimeRange: timeRange,
-    qnAnalyticsStartTime: date.startTime,
-    qnAnalyticsEndTime: date.endTime,
-    qnAnalyticsType: analyticsType,
+  // Granular Hooks
+  const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview();
+  const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
+    viewType,
+    selectedYear,
+    selectedMonth,
+    selectedWeek,
+    selectedDay,
+    customStartDateTime,
+    customEndDateTime,
   });
-
-  useEffect(() => {
-    if (dashboardData?.userRoleOverview) {
-      setDashboardState(dashboardData);
-      setInitialLoading(false);
-    }
-    if (error && !dashboardData) {
-      setInitialLoading(false);
-    }
-  }, [dashboardData, error]);
-
-  useEffect(() => {
-    if (!isLoading && !isFetching) {
-      setActiveFilter("all");
-    }
-  }, [isLoading, isFetching]);
+  const { data: contributionData, isLoading: isContributionLoading } = useGetContributionTrend(timeRange);
+  const { data: statusData, isLoading: isStatusLoading } = useGetStatusOverview();
+  const { data: expertData, isLoading: isExpertLoading } = useGetExpertPerformance();
+  const { data: analyticsData, isLoading: isAnalyticsLoading } = useGetQuestionsAnalytics({
+    type: analyticsType,
+    startTime: date.startTime,
+    endTime: date.endTime,
+    status: analyticsStatus,
+  });
 
   const handleHeatMapDateChange = (key: string, value?: Date) => {
     setHeatMapDate((prev) => ({
@@ -109,51 +103,30 @@ export const Dashboard = () => {
       [key]: value,
     }));
   };
-
-  const emptyDashboard: DashboardAnalyticsResponse = {
-    userRoleOverview: [],
-    moderatorApprovalRate: { approved: 0, pending: 0, approvalRate: 0 },
-    goldenDataset: {
-      type: "year" as GoldenDataset["type"],
-      yearData: [] as GoldenDataset["yearData"],
-      weeksData: [] as GoldenDataset["weeksData"],
-      dailyData: [] as GoldenDataset["dailyData"],
-      dayHourlyData: {} as GoldenDataset["dayHourlyData"],
-      totalEntriesByType: 0,
-      verifiedEntries: 0,
-      todayApproved: 0,
-    },
-    questionContributionTrend: [],
-    statusOverview: { questions: [], answers: [] },
-    expertPerformance: [],
-    analytics: { cropData: [], stateData: [], domainData: [] },
-  };
-
+  const[sendingReport, setSendingReport] = useState(false);
   const handleSendCronReport = async () => {
+    setSendingReport(true);
     try {
       const service = new PerformaneService();
       await service.sendCronSnapshotReport();
       toast.success("Cron snapshot report sent successfully");
+      setSendingReport(false);
     } catch (err) {
       toast.error("Failed to send cron snapshot report");
       console.error("Failed to fetch cron snapshot", err);
+      setSendingReport(false);
     }
   };
 
-
-
-  const dataToShow = dashboardState ?? emptyDashboard;
-
-  if (error && !dashboardState && !initialLoading) {
-    return <p className="p-6 text-red-500">Error loading dashboard data</p>;
-  }
-
-  const isGoldenLoading = isLoading || (activeFilter === "golden" && isFetching);
-  const isSourcesLoading = isLoading || (activeFilter === "sources" && isFetching);
-  const isAnalyticsLoading = isLoading || (activeFilter === "analytics" && isFetching);
-  const isGeneralLoading = isLoading || (activeFilter === "all" && isFetching);
-
-  const LoadingWrapper = ({ loading, text, children }: { loading: boolean; text: string; children: React.ReactNode }) => (
+  const LoadingWrapper = ({
+    loading,
+    text,
+    children,
+  }: {
+    loading: boolean;
+    text: string;
+    children: React.ReactNode;
+  }) => (
     <div className="relative overflow-hidden rounded-xl min-h-[300px]">
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-xl">
@@ -170,7 +143,9 @@ export const Dashboard = () => {
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              {user?.role === "admin" ? "Admin Dashboard" : "Moderator Dashboard"}
+              {user?.role === "admin"
+                ? "Admin Dashboard"
+                : "Moderator Dashboard"}
             </h1>
             <p className="text-muted-foreground mt-1">
               Monitor content moderation and expert performance
@@ -178,73 +153,172 @@ export const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-4">
-
             <DashboardClock />
           </div>
         </div>
-       <div>
-</div>
 
         {/* Top Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching role overview...">
-            <ModeratorsOverview data={dataToShow.userRoleOverview} />
+          <LoadingWrapper
+            loading={isOverviewLoading}
+            text="Fetching role overview..."
+          >
+            <ModeratorsOverview data={overviewData?.userRoleOverview ?? []} />
           </LoadingWrapper>
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching approval stats...">
-            <ApprovalRateCard data={dataToShow.moderatorApprovalRate} />
-          </LoadingWrapper>
-        </div>
-        {/* Full Width Sources Chart */}
-        <div className="mb-6 ">
-          <GoldenDatasetOverview
-            data={dataToShow.goldenDataset}
-            isLoading={isGoldenLoading}
-            selectedYear={selectedYear}
-            setSelectedYear={(v) => { setActiveFilter("golden"); setSelectedYear(v); }}
-            selectedDay={selectedDay}
-            selectedMonth={selectedMonth}
-            selectedWeek={selectedWeek}
-            setSelectedDay={(v) => { setActiveFilter("golden"); setSelectedDay(v); }}
-            setSelectedMonth={(v) => { setActiveFilter("golden"); setSelectedMonth(v); }}
-            setSelectedWeek={(v) => { setActiveFilter("golden"); setSelectedWeek(v); }}
-            setViewType={(v) => { setActiveFilter("golden"); setViewType(v); }}
-            viewType={viewType}
-          />
-        </div>
-        <div className="mb-6">
-          <LoadingWrapper loading={isSourcesLoading} text="Fetching sources chart...">
-            <SourcesChart
-              data={dataToShow.questionContributionTrend}
-              timeRange={timeRange}
-              setTimeRange={(v) => { setActiveFilter("sources"); setTimeRange(v); }}
+          <LoadingWrapper
+            loading={isOverviewLoading}
+            text="Fetching approval stats..."
+          >
+            <ApprovalRateCard
+              data={
+                overviewData?.moderatorApprovalRate ?? {
+                  approved: 0,
+                  pending: 0,
+                  approvalRate: 0,
+                }
+              }
             />
           </LoadingWrapper>
         </div>
 
-        {/* Question Status and Golden Dataset Row */}
+        {/* Golden Dataset Row */}
+        <div className="mb-6 ">
+          <GoldenDatasetOverview
+            data={
+              goldenData ?? {
+                type: viewType,
+                yearData: [],
+                weeksData: [],
+                dailyData: [],
+                dayHourlyData: {},
+                totalEntriesByType: 0,
+                totalVerifiedByType: 0,
+                verifiedEntries: 0,
+              }
+            }
+            isLoading={isGoldenLoading}
+            selectedYear={selectedYear}
+            setSelectedYear={setSelectedYear}
+            selectedDay={selectedDay}
+            selectedMonth={selectedMonth}
+            selectedWeek={selectedWeek}
+            setSelectedDay={setSelectedDay}
+            setSelectedMonth={setSelectedMonth}
+            setSelectedWeek={setSelectedWeek}
+            setViewType={setViewType}
+            viewType={viewType}
+            customStartDateTime={customStartDateTime}
+            setCustomStartDateTime={setCustomStartDateTime}
+            customEndDateTime={customEndDateTime}
+            setCustomEndDateTime={setCustomEndDateTime}
+          />
+        </div>
+
+        {/* Question Source Charts Row */}
+        {goldenData?.questionSourceBreakdown && (
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <QuestionSourceCharts
+              whatsappCount={goldenData.questionSourceBreakdown.whatsapp}
+              ajrasakhaCount={goldenData.questionSourceBreakdown.ajrasakha}
+            />
+            <div className="flex flex-col gap-3">
+            {goldenData?.questionsAnsweredWithin120Min && (
+              <QuestionsAnswered120Min
+                whatsappCount={goldenData.questionsAnsweredWithin120Min.whatsapp}
+                ajrasakhaCount={goldenData.questionsAnsweredWithin120Min.ajrasakha}
+              />
+            )}
+             <QuestionsAnsweredAfter120MinProps
+                whatsappCount={goldenData?.questionsAnsweredAfter120Min?.whatsapp??0}
+                ajrasakhaCount={goldenData?.questionsAnsweredAfter120Min?.ajrasakha??0}
+                questionsStateBreakdown={goldenData?.questionStateBreakdown}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Response Adherence Row */}
+        {goldenData?.questionSourceBreakdown && goldenData?.questionsAnsweredWithin120Min && (
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ResponseAdherence
+              totalWhatsapp={goldenData.questionSourceBreakdown.whatsapp}
+              totalAjrasakha={goldenData.questionSourceBreakdown.ajrasakha}
+              answeredWithin120WhatsApp={goldenData.questionsAnsweredWithin120Min.whatsapp}
+              answeredWithin120Ajrasakha={goldenData.questionsAnsweredWithin120Min.ajrasakha}
+            />
+            {goldenData?.averageResponseTime && (
+              <AverageResponseTime
+                whatsappAvgTime={goldenData.averageResponseTime.whatsapp}
+                ajrasakhaAvgTime={goldenData.averageResponseTime.ajrasakha}
+              />
+            )}
+          </div>
+        )}
+
+        {/* PAE Metrics Row */}
+        {goldenData?.paeMetrics && (
+          <div className="mb-6">
+            <PAEMetrics
+              assigned={goldenData.paeMetrics.assigned}
+              submitted={goldenData.paeMetrics.submitted}
+              closed={goldenData.paeMetrics.closed}
+            />
+          </div>
+        )}
+
+        {/* Sources Chart Row */}
         <div className="mb-6">
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching status overview...">
-            <StatusCharts data={dataToShow.statusOverview} />
+          <LoadingWrapper
+            loading={isContributionLoading}
+            text="Fetching sources chart..."
+          >
+            <SourcesChart
+              data={contributionData ?? []}
+              timeRange={timeRange}
+              setTimeRange={setTimeRange}
+            />
           </LoadingWrapper>
         </div>
 
-        {/* Performance Row */}
+        {/* Question Status Row */}
         <div className="mb-6">
-          <LoadingWrapper loading={isAnalyticsLoading} text="Fetching analytics data...">
-            <QuestionsAnalytics
-              date={date}
-              setDate={(v) => { setActiveFilter("analytics"); setDate(v); }}
-              analyticsType={analyticsType}
-              setAnalyticsType={(v) => { setActiveFilter("analytics"); setAnalyticsType(v); }}
-              data={dataToShow.analytics}
+          <LoadingWrapper
+            loading={isStatusLoading}
+            text="Fetching status overview..."
+          >
+            <StatusCharts
+              data={statusData ?? { questions: [], answers: [] }}
             />
           </LoadingWrapper>
         </div>
 
         {/* Analytics Row */}
+        <div className="mb-6">
+          <LoadingWrapper
+            loading={isAnalyticsLoading}
+            text="Fetching analytics data..."
+          >
+            <QuestionsAnalytics
+              date={date}
+              setDate={setDate}
+              analyticsType={analyticsType}
+              setAnalyticsType={setAnalyticsType}
+              analyticsStatus={analyticsStatus}
+              setAnalyticsStatus={setAnalyticsStatus}
+              data={
+                analyticsData ?? { cropData: [], stateData: [], domainData: [] }
+              }
+            />
+          </LoadingWrapper>
+        </div>
+
+        {/* Performance Row */}
         <div className="flex flex-col gap-5">
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching expert performance...">
-            <ExpertsPerformance data={dataToShow.expertPerformance} />
+          <LoadingWrapper
+            loading={isExpertLoading}
+            text="Fetching expert performance..."
+          >
+            <ExpertsPerformance data={expertData ?? []} />
           </LoadingWrapper>
           <div className="space-y-6  hidden md:block">
             <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
@@ -275,12 +349,12 @@ export const Dashboard = () => {
           <button
             onClick={handleSendCronReport}
             className="px-4 py-2 rounded-md bg-green-500 text-white text-sm hover:bg-green-600 shadow-md transition-all relative"
+            disabled={sendingReport}
           >
-            Send Report
+            {sendingReport ? "Sending Report..." : "Send Report"}
           </button>
         </div>
       )}
-
     </main>
   );
 };

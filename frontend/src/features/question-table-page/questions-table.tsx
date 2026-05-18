@@ -44,6 +44,7 @@ type QuestionsTableProps = {
   sort?: string;
   onSort?: (key: string) => void;
   view: "table" | "grid";
+  setLimit: (val: number) => void;
 };
 
 export const QuestionsTable = ({
@@ -65,6 +66,7 @@ export const QuestionsTable = ({
   sort,
   onSort,
   view,
+  setLimit,
 }: QuestionsTableProps) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -458,7 +460,7 @@ export const QuestionsTable = ({
               </TableHeader>
 
               <TableBody>
-                {isLoading ? (
+                {isLoading && (!items || items.length === 0) ? (
                   <TableRow>
                     <TableCell colSpan={11} className="text-center py-10 ">
                       <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
@@ -477,6 +479,7 @@ export const QuestionsTable = ({
                 ) : (
                   items?.map((q, idx) => (
                     <QuestionRow
+                      key={q._id}
                       currentPage={currentPage}
                       deletingQuestion={deletingQuestion}
                       handleDelete={handleDelete}
@@ -494,7 +497,6 @@ export const QuestionsTable = ({
                       totalPages={totalPages}
                       updatingQuestion={updatingQuestion}
                       userRole={userRole!}
-                      key={q._id}
                       handleQuestionsSelection={handleQuestionsSelection}
                       isSelected={
                         !!q._id && selectedQuestionIds.includes(q._id)
@@ -502,6 +504,7 @@ export const QuestionsTable = ({
                       setIsSelectionModeOn={setIsSelectionModeOn}
                       selectedQuestionIds={selectedQuestionIds}
                       showClosedAt={showClosedAt}
+                      isLoading={isLoading}
                     />
                   ))
                 )}
@@ -509,7 +512,7 @@ export const QuestionsTable = ({
             </Table>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
-          ) : isLoading ? (
+          ) : isLoading && (!items || items.length === 0) ? (
             <div className="text-center py-10">
               <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
             </div>
@@ -553,7 +556,7 @@ export const QuestionsTable = ({
                   )}
                 </div>
               )}
-              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))] pb-3">
+              <div className={`grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))] pb-3 ${isLoading ? "opacity-50 pointer-events-none transition-opacity duration-200" : "transition-opacity duration-200"}`}>
                 {items?.map((q, idx) => (
                   <QuestionsCard
                     currentPage={currentPage}
@@ -588,7 +591,7 @@ export const QuestionsTable = ({
         </div>
 
         <div className="md:hidden space-y-4 p-3">
-          {isLoading ? (
+          {isLoading && (!items || items.length === 0) ? (
             <div className="text-center py-10">
               <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
             </div>
@@ -597,7 +600,8 @@ export const QuestionsTable = ({
               No questions found
             </p>
           ) : (
-            items?.map((q, idx) => (
+            <div className={isLoading ? "opacity-50 pointer-events-none transition-opacity duration-200" : "transition-opacity duration-200"}>
+              {items?.map((q, idx) => (
               <MobileQuestionCard
                 currentPage={currentPage}
                 deletingQuestion={deletingQuestion}
@@ -617,8 +621,10 @@ export const QuestionsTable = ({
                 updatingQuestion={updatingQuestion}
                 userRole={userRole!}
                 key={q._id}
+                showClosedAt={showClosedAt}
               />
-            ))
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -627,6 +633,8 @@ export const QuestionsTable = ({
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={(page) => setCurrentPage(page)}
+        limit={limit}
+        onLimitChange={setLimit}
       />
     </div>
   );

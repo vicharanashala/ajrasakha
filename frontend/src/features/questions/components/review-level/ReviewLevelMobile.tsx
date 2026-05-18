@@ -9,6 +9,7 @@ type Props = {
   onViewMore: (id: string) => void;
   sort: string;
   onSort: (key: string) => void;
+  onDelayedClick?: (row: ReviewRow, index: number, time: string) => void;
 };
 
 export function ReviewLevelMobileCard({
@@ -17,6 +18,7 @@ export function ReviewLevelMobileCard({
   onViewMore,
   sort,
   onSort,
+  onDelayedClick,
 }: Props) {
   return (
     <div className="rounded-xl border border-foreground/20 bg-card shadow-sm p-4">
@@ -25,7 +27,14 @@ export function ReviewLevelMobileCard({
 
         <Badge variant="outline">Review Levels</Badge>
       </div>
-
+       {row.isDuplicate && (
+        <Badge
+          variant="outline"
+          className="mt-2 bg-red-500/10 text-red-600 border-red-500/30"
+        >
+          Duplicate
+        </Badge>
+      )}
       <p
         className="font-medium break-words hover:underline cursor-pointer"
         onClick={() => onViewMore(row._id)}
@@ -52,7 +61,7 @@ export function ReviewLevelMobileCard({
               )}
             </button>
 
-            {renderLevelBadge(row, i)}
+            {renderLevelBadge(row, i, { onDelayedClick })}
           </div>
         ))}
       </div>
