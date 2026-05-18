@@ -1,9 +1,10 @@
+import { SearchableSelect } from "@/components/atoms/SearchableSelect";
+/* Commented out unused imports to avoid lint warnings:
 import { CROPS, SEASONS, VILLAGES } from "@/components/MetaData";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
-import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import { Button } from "@/components/atoms/button";
 import { Download, RefreshCcw, Share2 } from "lucide-react";
-
+*/
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 export interface DashboardFilterValues {
@@ -28,6 +29,10 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
     onFilterChange({ ...filters, ...overrides });
   };
 
+  const activeSelect =
+    "text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]";
+
+  /* Commented out unused handlers and styles to avoid lint warnings:
   const handleDateChange = (key: string, value: any) => {
     handleChange({ [key]: value });
   };
@@ -53,9 +58,7 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
 
   const baseSelect =
     "text-sm h-10 px-3 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2a2a2a]";
-
-  const activeSelect =
-    "text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]";
+  */
 
   const getSubtitle = () => {
     const parts: string[] = [];
@@ -71,19 +74,19 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
   };
 
   return (
-    <div className="mb-4">
+    <div>
       {/* Page header */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-5">
-        <div>
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        {/* <div>
           <h1 className="text-[#1a1a1a] dark:text-white text-base font-medium m-0">
             National overview
           </h1>
           <p className="text-[#888] dark:text-gray-400 text-[12px] mt-1 m-0">
             {getSubtitle()}
           </p>
-        </div>
+        </div> */}
+        {/* Commented out All Users and action buttons since All Users moved next to tabs:
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-          {/* User Type Filter */}
           <SearchableSelect
             options={['External', 'Internal']}
             value={userType === 'all' ? 'all' : userType.charAt(0).toUpperCase() + userType.slice(1)}
@@ -115,10 +118,11 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
             Share report
           </Button>
         </div>
+        */}
       </div>
 
+      {/* Commented out filter dropdowns as requested:
       <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-stretch gap-3 w-full">
-        {/* Village Filter */}
         <SearchableSelect
           options={VILLAGES}
           value={village}
@@ -128,7 +132,6 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
           activeClassName={activeSelect}
         />
 
-        {/* Crop Filter */}
         <SearchableSelect
           options={CROPS}
           value={crop}
@@ -138,7 +141,6 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
           activeClassName={activeSelect}
         />
 
-        {/* Season Filter */}
         <SearchableSelect
           options={SEASONS}
           value={season}
@@ -148,7 +150,6 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
           activeClassName={activeSelect}
         />
 
-        {/* Date Range Filter (label hidden, inline calendar button with flexible scaling) */}
         <div className="w-full lg:w-auto lg:flex-none [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-10">
           <DateRangeFilter
             customName=""
@@ -161,8 +162,8 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
             }
           />
         </div>
-
       </div>
+      */}
     </div>
   );
 }

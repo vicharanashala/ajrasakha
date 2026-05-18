@@ -32,6 +32,7 @@ import { useInView } from "@/hooks/useInView";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import { Maximize2, X } from "lucide-react";
 import { createPortal } from "react-dom";
+import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -42,13 +43,7 @@ const DEFAULT_FILTERS: DashboardFilterValues = {
   userType: "all",
 };
 
-export function AnnamDashboard_dev({
-  className,
-  source = "vicharanashala",
-}: {
-  className?: string;
-  source?: "vicharanashala" | "annam";
-}) {
+export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam'; onSourceChange?: (source: 'vicharanashala' | 'annam') => void }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [filters, setFilters] =
@@ -167,16 +162,20 @@ export function AnnamDashboard_dev({
   }, [data.kpiRow1, dauTrend]);
 
   // Remove these two variables when data is dynamic
-  const kpiRow1WithOverlay = patchedKpiRow1.map((card) => ({
-    ...card,
-    isDummy: !dynamicIds.includes(card.id),
-  }));
+  const kpiRow1WithOverlay = patchedKpiRow1
+    .filter(card => dynamicIds.includes(card.id)) // Commented out dummy cards: filter only dynamic ones
+    .map(card => ({
+      ...card,
+      isDummy: !dynamicIds.includes(card.id),
+    }));
 
-  const kpiRow2WithOverlay = data.kpiRow2.map((card) => ({
-    ...card,
-    // isDummy: false, // temporarily disabled for testing
-    isDummy: card.id !== "totalInstalls",
-  }));
+  const kpiRow2WithOverlay = data.kpiRow2
+    .filter(card => card.id === "totalInstalls") // Commented out dummy cards: filter only totalInstalls
+    .map((card) => ({
+      ...card,
+      // isDummy: false, // temporarily disabled for testing
+      isDummy: card.id !== "totalInstalls",
+    }));
 
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
@@ -218,6 +217,46 @@ export function AnnamDashboard_dev({
               />
             ) : (
               <div className="flex-1 overflow-y-auto px-5 pb-5">
+                {/* Source Selection Tabs & All Users Filter */}
+                <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onSourceChange?.('annam')}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'annam'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        }`}
+                    >
+                      Annam
+                    </button>
+                    <button
+                      onClick={() => onSourceChange?.('vicharanashala')}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'vicharanashala'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        }`}
+                    >
+                      Vicharanashala
+                    </button>
+                    <button
+                      disabled
+                      className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
+                    >
+                      Outreach
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <SearchableSelect
+                      options={['External', 'Internal']}
+                      value={filters.userType === 'all' ? 'all' : filters.userType.charAt(0).toUpperCase() + filters.userType.slice(1)}
+                      onChange={(v) => setFilters(prev => ({ ...prev, userType: (v === 'all' ? 'all' : v.toLowerCase()) as DashboardFilterValues['userType'] }))}
+                      placeholder="All Users"
+                      className="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
+                      activeClassName="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
+                    />
+                  </div>
+                </div>
+
                 <DashboardFilters
                   filters={filters}
                   onFilterChange={setFilters}
@@ -347,7 +386,7 @@ export function AnnamDashboard_dev({
                           {(() => {
                             const pct =
                               data.kccAwareness?.[0]?.count +
-                                data.kccAwareness?.[1]?.count || 0;
+                              data.kccAwareness?.[1]?.count || 0;
                             const r = 45,
                               cx = 60,
                               cy = 60,
@@ -483,7 +522,7 @@ export function AnnamDashboard_dev({
                           {(() => {
                             const pct =
                               data.agriAppUsage?.[0]?.count +
-                                data.agriAppUsage?.[1]?.count || 0;
+                              data.agriAppUsage?.[1]?.count || 0;
                             const r = 45,
                               cx = 60,
                               cy = 60,
@@ -649,7 +688,7 @@ export function AnnamDashboard_dev({
                                 {(() => {
                                   const pct =
                                     data.kccAwareness?.[0]?.count +
-                                      data.kccAwareness?.[1]?.count || 0;
+                                    data.kccAwareness?.[1]?.count || 0;
                                   const circ = 2 * Math.PI * 90;
                                   // const dash = (pct / 100) * circ;
                                   const yesDash =
@@ -790,16 +829,16 @@ export function AnnamDashboard_dev({
                                 {(() => {
                                   const pct =
                                     data.agriAppUsage?.[0]?.count +
-                                      data.agriAppUsage?.[1]?.count || 0;
+                                    data.agriAppUsage?.[1]?.count || 0;
                                   const circ = 2 * Math.PI * 90;
                                   // const dash = (pct / 100) * circ;
-                                   const yesDash =
+                                  const yesDash =
                                     (data.kccAwareness?.[0]?.count / pct) *
                                     circ;
                                   const noDash =
                                     (data.kccAwareness?.[1]?.count / pct) *
                                     circ;
-                                      const cx = 120,
+                                  const cx = 120,
                                     cy = 120,
                                     r = 90;
                                   return (
@@ -809,52 +848,52 @@ export function AnnamDashboard_dev({
                                         className="w-[200px] h-[200px]"
                                       >
                                         <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#2f3542"
-                                    strokeWidth={10}
-                                  />
+                                          cx={cx}
+                                          cy={cy}
+                                          r={r}
+                                          fill="none"
+                                          stroke="#2f3542"
+                                          strokeWidth={10}
+                                        />
 
-                                  {/* YES SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="blue"
-                                    strokeWidth={
-                                      agriHovered === "yes" ? 14 : 10
-                                    }
-                                    strokeDasharray={`${yesDash} ${circ}`}
-                                    strokeDashoffset={0}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setAgriHovered("yes")}
-                                    onMouseLeave={() => setAgriHovered(null)}
-                                  />
+                                        {/* YES SEGMENT */}
+                                        <circle
+                                          cx={cx}
+                                          cy={cy}
+                                          r={r}
+                                          fill="none"
+                                          stroke="blue"
+                                          strokeWidth={
+                                            agriHovered === "yes" ? 14 : 10
+                                          }
+                                          strokeDasharray={`${yesDash} ${circ}`}
+                                          strokeDashoffset={0}
+                                          transform={`rotate(-90 ${cx} ${cy})`}
+                                          strokeLinecap="butt"
+                                          className="transition-all duration-300 cursor-pointer"
+                                          onMouseEnter={() => setAgriHovered("yes")}
+                                          onMouseLeave={() => setAgriHovered(null)}
+                                        />
 
-                                  {/* NO SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#ffff"
-                                    strokeWidth={agriHovered === "no" ? 14 : 10}
-                                    strokeDasharray={`${noDash} ${circ}`}
-                                    strokeDashoffset={-yesDash}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setAgriHovered("no")}
-                                    onMouseLeave={() => setAgriHovered(null)}
-                                  />
+                                        {/* NO SEGMENT */}
+                                        <circle
+                                          cx={cx}
+                                          cy={cy}
+                                          r={r}
+                                          fill="none"
+                                          stroke="#ffff"
+                                          strokeWidth={agriHovered === "no" ? 14 : 10}
+                                          strokeDasharray={`${noDash} ${circ}`}
+                                          strokeDashoffset={-yesDash}
+                                          transform={`rotate(-90 ${cx} ${cy})`}
+                                          strokeLinecap="butt"
+                                          className="transition-all duration-300 cursor-pointer"
+                                          onMouseEnter={() => setAgriHovered("no")}
+                                          onMouseLeave={() => setAgriHovered(null)}
+                                        />
 
-                                  {/* CENTER TEXT */}
-                                   <text
+                                        {/* CENTER TEXT */}
+                                        <text
                                           x={120}
                                           y={120}
                                           textAnchor="middle"
@@ -896,7 +935,7 @@ export function AnnamDashboard_dev({
                         )}
                     </>
                   </div>
-                  <div
+                  {/* <div
                     className="lg:col-span-2"
                     ref={(el) => {
                       sectionRefs.current["query-analysis"] = el;
@@ -916,7 +955,7 @@ export function AnnamDashboard_dev({
                       channelSplit={data.channelSplit}
                       voiceAccuracy={data.voiceAccuracy}
                     />
-                  </div>
+                  </div> */}
                 </div>
 
                 {/* Geo + Health */}
@@ -931,27 +970,30 @@ export function AnnamDashboard_dev({
                     isLoadingTopCrops={isLoadingTopCrops}
                     errorLoadingtopCrops={errorLoadingtopCrops}
                   />
-                  <GeoCard states={data.geoStates} />
+                  {/* <GeoCard states={data.geoStates} />
                   <div
                     ref={(el) => {
                       sectionRefs.current["app-health"] = el;
                     }}
                   >
                     <HealthScoreCard pillars={data.healthPillars} />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+                  </div> */}
+                </div >
+              </div >
+            )
+}
+          </div >
 
+{/* Commented out footer as requested:
           <StatusBar
             lastSync={data.meta.lastSync}
             datasetVersion={data.meta.datasetVersion}
             llmVersion={data.meta.llmVersion}
             p0Bugs={data.meta.p0Bugs}
           />
+          */}
         </>
       )}
-    </div>
+    </div >
   );
 }
