@@ -180,7 +180,7 @@ export class ShiftReportErrorResponse {
 
   @JSONSchema({
     description: 'Error message',
-    example: 'startDate, endDate and shift are required',
+    example: 'startDate and shift are required',
     type: 'string',
     readOnly: true,
   })

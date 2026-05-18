@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { PerformaneService } from "@/hooks/services/performanceService";
-import { formatMonthYear } from "@/utils/formateMonthYear";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2 } from "lucide-react";
 import { formatDateLocal } from "@/utils/formatDate";
@@ -54,25 +52,24 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-// import * as XLSX from "xlsx";
-
 
 const DownloadShiftWiseReportButton = ({
   closeSideBar,
+  userRole,
 }: {
   closeSideBar: () => void;
+  userRole: any;
 }) => {
-  const service = new PerformaneService();
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const defaultStartDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const defaultEndDate = new Date(Date.now());
+  const defaultStartDate = new Date(Date.now());
+  // const defaultEndDate = new Date(Date.now());
 
   const [downloadDateRange, setDownloadDateRange] = useState<
     DateRange | undefined
   >({
     from: defaultStartDate,
-    to: defaultEndDate,
+    // to: defaultEndDate,
   });
   const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<
@@ -83,21 +80,21 @@ const DownloadShiftWiseReportButton = ({
     ? formatDateLocal(downloadDateRange.from)
     : "";
 
-  const endDate = downloadDateRange?.to
-    ? formatDateLocal(downloadDateRange.to)
-    : "";
+  // const endDate = downloadDateRange?.to
+  //   ? formatDateLocal(downloadDateRange.to)
+  //   : "";
 
   const { data: shiftWiseData, isFetching: isShiftWiseDataLoading } =
     useShiftBasedMetrics({
       fromDate: startDate,
-      toDate: endDate,
+      // toDate: endDate,
       shift: selectedShift,
     });
 
   const { data: shiftWiseTrends, isFetching: isShiftWiseTrendsLoading } =
     useShiftBasedTrends({
       fromDate: startDate,
-      toDate: endDate,
+      // toDate: endDate,
       shift: selectedShift,
     });
 
@@ -106,7 +103,7 @@ const DownloadShiftWiseReportButton = ({
     isFetching: isQuestionStatusLoading,
   } = useShiftBasedStatusDistribution({
     fromDate: startDate,
-    toDate: endDate,
+    // toDate: endDate,
     shift: selectedShift,
   });
 
@@ -115,28 +112,28 @@ const DownloadShiftWiseReportButton = ({
     isFetching: isQuestionLevelLoading,
   } = useShiftBasedLevelDistribution({
     fromDate: startDate,
-    toDate: endDate,
+    // toDate: endDate,
     shift: selectedShift,
   });
 
   const { data: topExperts, isFetching: isTopExpertsLoading } =
     useShiftBasedTopExperts({
       fromDate: startDate,
-      toDate: endDate,
+      // toDate: endDate,
       shift: selectedShift,
     });
 
   const { data: topApprovingExperts, isFetching: isTopApproversLoading } =
     useShiftBasedTopApprovingExperts({
       fromDate: startDate,
-      toDate: endDate,
+      // toDate: endDate,
       shift: selectedShift,
     });
 
   const { data: auditActionCounts, isFetching: isAuditActionCountsLoading } =
     useShiftBasedAuditActionCounts({
       fromDate: startDate,
-      toDate: endDate,
+      // toDate: endDate,
       shift: selectedShift,
     });
 
@@ -187,197 +184,147 @@ const DownloadShiftWiseReportButton = ({
     },
   ];
 
-  // async function handleShiftWiseReportDownload() {
-  //   console.log("............downloading pdf")
-
-  //   // Validate date range
-  //   if (!downloadDateRange?.from || !downloadDateRange?.to) {
-  //     toast.error("Please select a date range first");
-  //     setIsDateDialogOpen(true);
-  //     return;
-  //   }
-  //   try {
-  //     setIsDownloading(true);
-
-  //     const startDate = formatDateLocal(downloadDateRange.from);
-  //     const endDate = formatDateLocal(downloadDateRange.to);
-  //     const blob = await service.downloadLevelWiseReport(startDate, endDate);
-  //     // Create download link
-  //     const url = window.URL.createObjectURL(blob);
-  //     const link = document.createElement("a");
-  //     link.href = url;
-  //     link.download = `level_wise_report(Nov-25_to_${formatMonthYear(new Date())}).xlsx`;
-  //     document.body.appendChild(link);
-  //     link.click();
-  //     document.body.removeChild(link);
-  //     window.URL.revokeObjectURL(url);
-  //     toast.success("Level Wise report downloaded successfully!");
-  //     setIsDateDialogOpen(false);
-  //   } catch (err: any) {
-  //     console.error("Download error:", err);
-  //     const errorMessage =
-  //       err instanceof Error
-  //         ? err.message
-  //         : "Failed to download filtered report";
-  //     toast.error(errorMessage);
-  //   } finally {
-  //     setIsDownloading(false);
-  //   }
-  // }
-
-
-
-
-
   async function handleShiftWiseReportDownload() {
-  try {
-    setIsDownloading(true);
+    try {
+      setIsDownloading(true);
 
-    const rows: string[] = [];
+      const rows: string[] = [];
 
-    /**
-     * OVERVIEW
-     */
-    rows.push("OVERVIEW");
-    rows.push("Metric,Value");
+      /**
+       *
+       * Heading
+       */
+      rows.push(`Shift Selected,${selectedShift}`);
+      rows.push("");
 
-    overviewCards.forEach((item) => {
-      rows.push(`"${item.title}","${item.value}"`);
-    });
+      rows.push(`Date,${String(downloadDateRange?.from?.toDateString())}`);
+      // rows.push(`To,${String(downloadDateRange?.to)}`);
 
-    rows.push("");
+      rows.push("");
+      rows.push("");
+      /**
+       * OVERVIEW
+       */
+      rows.push("OVERVIEW");
+      rows.push("Metric,Value");
 
-    /**
-     * QUESTIONS TRENDS
-     */
-    rows.push("QUESTIONS ADDED VS CLOSED");
-    rows.push("Hour,Questions Added,Questions Closed");
+      overviewCards.forEach((item) => {
+        rows.push(`"${item.title}","${item.value}"`);
+      });
 
-    (shiftWiseTrends ?? []).forEach((item) => {
-      rows.push(
-        `"${item.hour}","${item.added}","${item.closed}"`,
-      );
-    });
+      rows.push("");
 
-    rows.push("");
+      /**
+       * QUESTIONS TRENDS
+       */
+      rows.push("QUESTIONS ADDED VS CLOSED");
+      rows.push("Hour,Questions Added,Questions Closed");
 
-    /**
-     * STATUS DISTRIBUTION
-     */
-    rows.push("STATUS DISTRIBUTION");
-    rows.push("Status,Count");
+      (shiftWiseTrends ?? []).forEach((item) => {
+        rows.push(`"${item.hour}","${item.added}","${item.closed}"`);
+      });
 
-    (questionStatusDistribution ?? []).forEach((item) => {
-      rows.push(`"${item.status}","${item.count}"`);
-    });
+      rows.push("");
 
-    rows.push("");
+      /**
+       * STATUS DISTRIBUTION
+       */
+      rows.push("STATUS DISTRIBUTION");
+      rows.push("Status,Count");
 
-    /**
-     * LEVEL DISTRIBUTION
-     */
-    rows.push("LEVEL DISTRIBUTION");
-    rows.push("Level,Count");
+      (questionStatusDistribution ?? []).forEach((item) => {
+        rows.push(`"${item.status}","${item.count}"`);
+      });
 
-    (questionLevelDistribution ?? []).forEach((item) => {
-      rows.push(`"${item.level}","${item.count}"`);
-    });
+      rows.push("");
 
-    rows.push("");
+      /**
+       * LEVEL DISTRIBUTION
+       */
+      rows.push("LEVEL DISTRIBUTION");
+      rows.push("Level,Count");
 
-    /**
-     * TOP EXPERTS
-     */
-    rows.push("TOP EXPERTS");
-    rows.push(
-      "Name,Reviews,Reputation,Incentive,Penalty",
-    );
+      (questionLevelDistribution ?? []).forEach((item) => {
+        rows.push(`"${item.level}","${item.count}"`);
+      });
 
-    (topExperts ?? []).forEach((expert) => {
-      rows.push(
-        `"${expert.name}","${expert.reviewCount}","${expert.reputation}","${expert.incentive}","${expert.penalty}"`,
-      );
-    });
+      rows.push("");
 
-    rows.push("");
+      /**
+       * TOP EXPERTS
+       */
+      rows.push("TOP EXPERTS");
+      rows.push("Name,Reviews,Reputation,Incentive,Penalty");
 
-    /**
-     * TOP APPROVERS
-     */
-    rows.push("TOP APPROVERS");
-    rows.push(
-      "Name,Approvals,Reputation,Incentive,Penalty",
-    );
+      (topExperts ?? []).forEach((expert) => {
+        rows.push(
+          `"${expert.name}","${expert.reviewCount}","${expert.reputation}","${expert.incentive ? expert.incentive : 0}","${expert.penalty ? expert.penalty : 0}"`,
+        );
+      });
 
-    (topApprovingExperts ?? []).forEach((expert) => {
-      rows.push(
-        `"${expert.name}","${expert.approvedCount}","${expert.reputation}","${expert.incentive}","${expert.penalty}"`,
-      );
-    });
+      rows.push("");
 
-    rows.push("");
+      /**
+       * TOP APPROVERS
+       */
+      rows.push("TOP APPROVERS");
+      rows.push("Name,Approvals,Reputation,Incentive,Penalty");
 
-    /**
-     * AUDIT ACTIONS
-     */
-    rows.push("AUDIT ACTIONS");
-    rows.push("Action,Count");
+      (topApprovingExperts ?? []).forEach((expert) => {
+        rows.push(`"${expert.name}","${expert.approvedCount}"`);
+      });
 
-    formattedAuditActionCounts.forEach((item) => {
-      rows.push(
-        `"${item.yAxisLabel}","${item.count}"`,
-      );
-    });
+      rows.push("");
 
-    /**
-     * CREATE CSV
-     */
-    const csvContent = rows.join("\n");
+      /**
+       * AUDIT ACTIONS
+       */
+      rows.push("AUDIT ACTIONS");
+      rows.push("Action,Count");
 
-    const blob = new Blob(
-      [csvContent],
-      {
+      formattedAuditActionCounts.forEach((item) => {
+        rows.push(`"${item.yAxisLabel}","${item.count}"`);
+      });
+
+      /**
+       * CREATE CSV
+       */
+      const csvContent = rows.join("\n");
+
+      const blob = new Blob([csvContent], {
         type: "text/csv;charset=utf-8;",
-      },
-    );
+      });
 
-    /**
-     * DOWNLOAD
-     */
-    const url = window.URL.createObjectURL(blob);
+      /**
+       * DOWNLOAD
+       */
+      const url = window.URL.createObjectURL(blob);
 
-    const link = document.createElement("a");
+      const link = document.createElement("a");
 
-    link.href = url;
+      link.href = url;
 
-    link.download =
-      `shift_wise_report_${startDate}_to_${endDate}.csv`;
+      link.download = `shift_wise_report_${startDate}.csv`;
 
-    document.body.appendChild(link);
+      document.body.appendChild(link);
 
-    link.click();
+      link.click();
 
-    document.body.removeChild(link);
+      document.body.removeChild(link);
 
-    window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(url);
 
-    toast.success(
-      "Shift-wise report downloaded successfully!",
-    );
+      toast.success("Shift-wise report downloaded successfully!");
 
-    setIsDateDialogOpen(false);
+      // setIsDateDialogOpen(false);
+    } catch (err) {
+      console.error(err);
 
-  } catch (err) {
-    console.error(err);
-
-    toast.error("Failed to generate report");
-
-  } finally {
-    setIsDownloading(false);
+      toast.error("Failed to generate report");
+    } finally {
+      setIsDownloading(false);
+    }
   }
-}
-
-
 
   return (
     <Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
@@ -417,7 +364,6 @@ const DownloadShiftWiseReportButton = ({
           flex-col
         "
       >
-
         <DialogTitle className="display-none"></DialogTitle>
         <DialogHeader className=" flex-shrink-0 items-center">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -432,20 +378,19 @@ const DownloadShiftWiseReportButton = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex flex-wrap items-center gap-4  p-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Shift
-                  </label>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Select Shift
+                </label>
 
-                  <select
-                    value={selectedShift}
-                    onChange={(e) =>
-                      setSelectedShift(
-                        e.target.value as "morning" | "evening" | "all",
-                      )
-                    }
-                    className="
+                <select
+                  value={selectedShift}
+                  onChange={(e) =>
+                    setSelectedShift(
+                      e.target.value as "morning" | "evening" | "all",
+                    )
+                  }
+                  className="
                           h-7
                           rounded-md
                           border
@@ -453,28 +398,28 @@ const DownloadShiftWiseReportButton = ({
                           px-3
                           text-sm
                         "
-                  >
-                    <option value="morning">Morning Shift</option>
-                    <option value="evening">Evening Shift</option>
-                    <option value="all">All Shifts</option>
-                  </select>
-                </div>
+                >
+                  <option value="morning">Morning Shift</option>
+                  <option value="evening">Evening Shift</option>
+                  <option value="all">Whole Day</option>
+                </select>
+              </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Start Date
-                  </label>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Select Date
+                </label>
 
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) =>
-                      setDownloadDateRange((prev) => ({
-                        from: new Date(e.target.value),
-                        to: prev?.to,
-                      }))
-                    }
-                    className="
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) =>
+                    setDownloadDateRange((prev) => ({
+                      from: new Date(e.target.value),
+                      // to: prev?.to,
+                    }))
+                  }
+                  className="
                             h-7
                             rounded-md
                             border
@@ -482,24 +427,24 @@ const DownloadShiftWiseReportButton = ({
                             px-3
                             text-sm
                           "
-                  />
-                </div>
+                />
+              </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    End Date
-                  </label>
+              {/* <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  End Date
+                </label>
 
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) =>
-                      setDownloadDateRange((prev) => ({
-                        from: prev?.from,
-                        to: new Date(e.target.value),
-                      }))
-                    }
-                    className="
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) =>
+                    setDownloadDateRange((prev) => ({
+                      from: prev?.from,
+                      to: new Date(e.target.value),
+                    }))
+                  }
+                  className="
                           h-7
                           rounded-md
                           border
@@ -507,9 +452,9 @@ const DownloadShiftWiseReportButton = ({
                           px-3
                           text-sm
                         "
-                  />
-                </div>
-              </div>
+                />
+              </div> */}
+              {/* </div> */}
             </div>
           </div>
         </DialogHeader>
@@ -557,6 +502,229 @@ const DownloadShiftWiseReportButton = ({
                     </Card>
                   ))}
                 </div>
+              </section>
+
+              {/* Expert Analytics */}
+
+              <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full">
+                <Card className="w-full h-full min-w-0">
+                  <CardHeader>
+                    <div className="flex justify-between">
+                      <CardTitle>Top Five Experts/STF</CardTitle>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className="
+                                  flex h-4 w-4 items-center justify-center
+                                  rounded-full border text-[10px]
+                                  cursor-pointer
+                                "
+                            >
+                              i
+                            </span>
+                          </TooltipTrigger>
+
+                          <TooltipContent>
+                            <p>
+                              Displays the top 5 experts/STF members based on
+                              total reviews completed during the selected shift
+                              and date range.{" "}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Highest review throughput experts.
+                    </p>
+                  </CardHeader>
+
+                  <CardContent>
+                    {isTopExpertsLoading ? (
+                      <div className="flex h-[320px] items-center justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : topExperts.length ? (
+                      <div className="space-y-4">
+                        {(topExperts ?? []).map((expert, index) => {
+                          const rankColors = [
+                            "bg-yellow-500",
+                            "bg-slate-400",
+                            "bg-amber-700",
+                            "bg-primary",
+                            "bg-secondary",
+                          ];
+
+                          return (
+                            <div
+                              key={expert.userId}
+                              className="
+                                flex items-center justify-between
+                                rounded-xl border p-1
+                                transition-colors
+                                hover:bg-muted/40
+                              "
+                            >
+                              {/* LEFT */}
+                              <div className="flex items-center gap-2">
+                                {/* Rank */}
+                                <div
+                                  className={`
+                                    flex h-8 w-8 items-center
+                                    justify-center rounded-full
+                                    text-sm font-bold text-white
+                                    ${rankColors[index]}
+                                  `}
+                                >
+                                  #{index + 1}
+                                </div>
+
+                                {/* User */}
+                                <div>
+                                  <h4 className="font-semibold">
+                                    {expert.name}
+                                  </h4>
+
+                                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                                    <Badge variant="secondary">
+                                      Reputation: {expert.reputation}
+                                    </Badge>
+
+                                    <Badge variant="outline">
+                                      Incentive:
+                                      {expert.incentive ? expert.incentive : 0}
+                                    </Badge>
+
+                                    <Badge variant="destructive">
+                                      Penalty:
+                                      {expert.penalty ? expert.penalty : 0}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* RIGHT */}
+                              <div className="text-right">
+                                <div className="text-3xl font-bold">
+                                  {expert.reviewCount}
+                                </div>
+
+                                <p className="text-sm text-muted-foreground">
+                                  Reviews
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <>No activity found</>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="w-full h-full min-w-0">
+                  <CardHeader>
+                    <div className="flex justify-between">
+                      <CardTitle>Moderator Approvals Rankings</CardTitle>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className="
+                                  flex h-4 w-4 items-center justify-center
+                                  rounded-full border text-[10px]
+                                  cursor-pointer
+                                "
+                            >
+                              i
+                            </span>
+                          </TooltipTrigger>
+
+                          <TooltipContent>
+                            <p>
+                              Displays the top moderators ranked by total
+                              approved reviews during the selected shift and
+                              date range.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Top moderators by approvals.
+                    </p>
+                  </CardHeader>
+
+                  <CardContent>
+                    {isTopApproversLoading ? (
+                      <div className="flex h-[320px] items-center justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : topApprovingExperts.length ? (
+                      <div className="space-y-4">
+                        {(topApprovingExperts ?? []).map((expert, index) => {
+                          const rankColors = [
+                            "bg-yellow-500",
+                            "bg-slate-400",
+                            "bg-amber-700",
+                            "bg-primary",
+                            "bg-secondary",
+                          ];
+
+                          return (
+                            <div
+                              key={expert.userId}
+                              className="
+                                flex items-center justify-between
+                                rounded-xl border p-1
+                                transition-colors
+                                hover:bg-muted/40
+                              "
+                            >
+                              {/* LEFT */}
+                              <div className="flex items-center gap-2">
+                                {/* Rank */}
+                                <div
+                                  className={`
+                                    flex h-8 w-8 items-center
+                                    justify-center rounded-full
+                                    text-sm font-bold text-white
+                                    ${rankColors[index]}
+                                  `}
+                                >
+                                  #{index + 1}
+                                </div>
+
+                                {/* User */}
+                                <div>
+                                  <h4 className="font-semibold">
+                                    {expert.name}
+                                  </h4>
+                                </div>
+                              </div>
+
+                              {/* RIGHT */}
+                              <div className="text-right">
+                                <div className="text-3xl font-bold">
+                                  {expert.approvedCount}
+                                </div>
+
+                                <p className="text-sm text-muted-foreground">
+                                  Approvals
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <>No activity found</>
+                    )}
+                  </CardContent>
+                </Card>
               </section>
 
               {/* Question Analytics */}
@@ -698,6 +866,8 @@ const DownloadShiftWiseReportButton = ({
                       <div className="flex h-[320px] items-center justify-center">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                       </div>
+                    ) : questionStatusDistribution.length == 0 ? (
+                      <>No activity found</>
                     ) : (
                       <ChartContainer
                         className="h-[380px] w-full"
@@ -815,6 +985,8 @@ const DownloadShiftWiseReportButton = ({
                       <div className="flex h-[320px] items-center justify-center">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                       </div>
+                    ) : questionLevelDistribution.length == 0 ? (
+                      <>No activity found</>
                     ) : (
                       <ChartContainer
                         className="h-[360px] w-full"
@@ -839,6 +1011,11 @@ const DownloadShiftWiseReportButton = ({
 
                           <XAxis
                             dataKey="level"
+                            tickFormatter={(value) =>
+                              value === "Level 0"
+                                ? "Level 0 (With Author)"
+                                : value
+                            }
                             tickLine={false}
                             axisLine={false}
                             tickMargin={10}
@@ -861,7 +1038,10 @@ const DownloadShiftWiseReportButton = ({
                                   entry.level.replace("Level ", ""),
                                 );
 
-                                let color = "#22c55e";
+                                let color = "#516572";
+                                if(level > 0){
+                                  
+                                }
 
                                 if (level >= 1) {
                                   color = "#3b82f6";
@@ -893,237 +1073,6 @@ const DownloadShiftWiseReportButton = ({
                   </CardContent>
                 </Card>
                 {/* </div> */}
-              </section>
-
-              {/* Expert Analytics */}
-
-              <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full">
-                <Card className="w-full h-full">
-                  <CardHeader>
-                    <div className="flex justify-between">
-                      <CardTitle>Top Five Experts/STF</CardTitle>
-
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span
-                              className="
-                                  flex h-4 w-4 items-center justify-center
-                                  rounded-full border text-[10px]
-                                  cursor-pointer
-                                "
-                            >
-                              i
-                            </span>
-                          </TooltipTrigger>
-
-                          <TooltipContent>
-                            <p>
-                              Displays the top 5 experts/STF members based on
-                              total reviews completed during the selected shift
-                              and date range.{" "}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Highest review throughput experts.
-                    </p>
-                  </CardHeader>
-
-                  <CardContent>
-                    {isTopExpertsLoading ? (
-                      <div className="flex h-[320px] items-center justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {(topExperts ?? []).map((expert, index) => {
-                          const rankColors = [
-                            "bg-yellow-500",
-                            "bg-slate-400",
-                            "bg-amber-700",
-                            "bg-primary",
-                            "bg-secondary",
-                          ];
-
-                          return (
-                            <div
-                              key={expert.userId}
-                              className="
-                                flex items-center justify-between
-                                rounded-xl border p-1
-                                transition-colors
-                                hover:bg-muted/40
-                              "
-                            >
-                              {/* LEFT */}
-                              <div className="flex items-center gap-2">
-                                {/* Rank */}
-                                <div
-                                  className={`
-                                    flex h-8 w-8 items-center
-                                    justify-center rounded-full
-                                    text-sm font-bold text-white
-                                    ${rankColors[index]}
-                                  `}
-                                >
-                                  #{index + 1}
-                                </div>
-
-                                {/* User */}
-                                <div>
-                                  <h4 className="font-semibold">
-                                    {expert.name}
-                                  </h4>
-
-                                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                                    <Badge variant="secondary">
-                                      Reputation: {expert.reputation}
-                                    </Badge>
-
-                                    <Badge variant="outline">
-                                      Incentive: {expert.incentive}
-                                    </Badge>
-
-                                    <Badge variant="destructive">
-                                      Penalty: {expert.penalty}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* RIGHT */}
-                              <div className="text-right">
-                                <div className="text-3xl font-bold">
-                                  {expert.reviewCount}
-                                </div>
-
-                                <p className="text-sm text-muted-foreground">
-                                  Reviews
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className="w-full h-full">
-                  <CardHeader>
-                    <div className="flex justify-between">
-                      <CardTitle>Moderator Approvals Rankings</CardTitle>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span
-                              className="
-                                  flex h-4 w-4 items-center justify-center
-                                  rounded-full border text-[10px]
-                                  cursor-pointer
-                                "
-                            >
-                              i
-                            </span>
-                          </TooltipTrigger>
-
-                          <TooltipContent>
-                            <p>
-                              Displays the top moderators ranked by total
-                              approved reviews during the selected shift and
-                              date range.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Top moderators by approvals.
-                    </p>
-                  </CardHeader>
-
-                  <CardContent>
-                    {isTopApproversLoading ? (
-                      <div className="flex h-[320px] items-center justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {(topApprovingExperts ?? []).map((expert, index) => {
-                          const rankColors = [
-                            "bg-yellow-500",
-                            "bg-slate-400",
-                            "bg-amber-700",
-                            "bg-primary",
-                            "bg-secondary",
-                          ];
-
-                          return (
-                            <div
-                              key={expert.userId}
-                              className="
-                                flex items-center justify-between
-                                rounded-xl border p-1
-                                transition-colors
-                                hover:bg-muted/40
-                              "
-                            >
-                              {/* LEFT */}
-                              <div className="flex items-center gap-2">
-                                {/* Rank */}
-                                <div
-                                  className={`
-                                    flex h-8 w-8 items-center
-                                    justify-center rounded-full
-                                    text-sm font-bold text-white
-                                    ${rankColors[index]}
-                                  `}
-                                >
-                                  #{index + 1}
-                                </div>
-
-                                {/* User */}
-                                <div>
-                                  <h4 className="font-semibold">
-                                    {expert.name}
-                                  </h4>
-
-                                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                                    <Badge variant="secondary">
-                                      Reputation: {expert.reputation}
-                                    </Badge>
-
-                                    <Badge variant="outline">
-                                      Incentive: {expert.incentive}
-                                    </Badge>
-
-                                    <Badge variant="destructive">
-                                      Penalty: {expert.penalty}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* RIGHT */}
-                              <div className="text-right">
-                                <div className="text-3xl font-bold">
-                                  {expert.approvedCount}
-                                </div>
-
-                                <p className="text-sm text-muted-foreground">
-                                  Approvals
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
               </section>
 
               <Card className="w-full">
@@ -1254,40 +1203,37 @@ const DownloadShiftWiseReportButton = ({
           </div>
         </div>
 
+        {userRole === "admin" && (
+          <DialogFooter className="gap-2 pt-3 flex-shrink-0 m-1">
+            <DialogClose asChild>
+              <Button
+                variant="outline"
+                type="button"
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+            </DialogClose>
 
-        <DialogFooter className="gap-2 pt-3 flex-shrink-0 m-1">
-          <DialogClose asChild>
             <Button
-              variant="outline"
-              type="button"
+              onClick={handleShiftWiseReportDownload}
+              disabled={!downloadDateRange?.from || isDownloading}
               className="w-full sm:w-auto"
             >
-              Cancel
+              {isDownloading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Excel
+                </>
+              )}
             </Button>
-          </DialogClose>
-          <Button
-            onClick={handleShiftWiseReportDownload}
-            disabled={
-              !downloadDateRange?.from ||
-              !downloadDateRange?.to ||
-              isDownloading
-            }
-            className="w-full sm:w-auto"
-          >
-            {isDownloading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Downloading...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Download Excel
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

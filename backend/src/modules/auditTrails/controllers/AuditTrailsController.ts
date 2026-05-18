@@ -177,12 +177,12 @@ class AuditTrailsController {
   async getShiftBasedAuditActionCounts(
     @CurrentUser() user: any,
     @QueryParam('startDate') startDate?: string,
-    @QueryParam('endDate') endDate?: string,
+    // @QueryParam('endDate') endDate?: string,
     @QueryParam('shift') shift?: string,
   ) {
     const actionCounts = await this.auditTrailsService.getShiftBasedAuditActionCounts(
       startDate,
-      endDate,
+      // endDate,
       shift
     );
 

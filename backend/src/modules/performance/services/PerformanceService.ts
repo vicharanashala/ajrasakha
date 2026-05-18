@@ -296,45 +296,39 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  getShiftBasedMetrics(startDate:string, endDate:string, shift: string): Promise<any> {
-    // console.log("in performance service - getQuestionsAllocated with params:", { startDate, endDate, shift });  
+  getShiftBasedMetrics(startDate:string, shift: string): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedMetrics(startDate, endDate, shift, session);
+      return await this.questionRepo.getShiftBasedMetrics(startDate, shift, session);
     });
   }
 
-  getShiftBasedTrends(startDate:string, endDate:string, shift: string): Promise<any> {
-    // console.log("in performance service - getQuestionsAllocated with params:", { startDate, endDate, shift });  
+  getShiftBasedTrends(startDate:string, shift: string): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedTrends(startDate, endDate, shift, session);
+      return await this.questionRepo.getShiftBasedTrends(startDate, shift, session);
     });
   }
 
-  getQuestionStatusDistribution(startDate:string, endDate:string, shift: string): Promise<any> {
-    // console.log("in performance service - getQuestionsAllocated with params:", { startDate, endDate, shift });  
+  getQuestionStatusDistribution(startDate:string, shift: string): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getQuestionStatusDistribution(startDate, endDate, shift, session);
+      return await this.questionRepo.getQuestionStatusDistribution(startDate, shift, session);
     });
   }
 
-  getQuestionLevelDistribution(startDate:string, endDate:string, shift: string): Promise<any> {
-    // console.log("in performance service - getQuestionsAllocated with params:", { startDate, endDate, shift });  
+  getQuestionLevelDistribution(startDate:string, shift: string): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getQuestionLevelDistribution(startDate, endDate, shift, session);
+      return await this.questionRepo.getQuestionLevelDistribution(startDate, shift, session);
     });
   }
 
-  getShiftBasedTopExperts(startDate:string, endDate:string, shift: string): Promise<any> {
-    // console.log("in performance service - getShiftBasedTopExperts with params:", { startDate, endDate, shift });  
+  getShiftBasedTopExperts(startDate:string, shift: string): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedTopExperts(startDate, endDate, shift, session);
+      return await this.questionRepo.getShiftBasedTopExperts(startDate, shift, session);
     });
   }
 
-  getShiftBasedTopApprovingExperts(startDate:string, endDate:string, shift: string): Promise<any> {
-    // console.log("in performance service - getShiftBasedTopApprovingExperts with params:", { startDate, endDate, shift });  
+  getShiftBasedTopApprovingExperts(startDate:string, shift: string): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedTopApprovingExperts(startDate, endDate, shift, session);
+      return await this.questionRepo.getShiftBasedTopApprovingExperts(startDate, shift, session);
     });
   }
 }

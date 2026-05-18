@@ -39,7 +39,7 @@ export interface IAuditTrailsRepository {
 
   getShiftBasedAuditActionCounts(
     startDate: string,
-    endDate: string,
+    // endDate: string,
     shift: string,
     session?: ClientSession
   ): Promise<any>;

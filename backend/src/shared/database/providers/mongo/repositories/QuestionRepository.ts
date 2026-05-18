@@ -4830,7 +4830,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   async getShiftBasedMetrics(
     startDate: string,
-    endDate: string,
+    // endDate: string,
     shift: "morning" | "evening" | "all",
     session?: ClientSession
   ): Promise<{
@@ -4841,9 +4841,13 @@ export class QuestionRepository implements IQuestionRepository {
   }> {
     await this.init();
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(
+      `${startDate}T00:00:00+05:30`
+    );
+
+    const end = new Date(
+      `${startDate}T23:59:59.999+05:30`
+    );
 
     const createdAtShiftFilter =
       getShiftFilter("createdAt", shift);
@@ -4982,7 +4986,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   async getShiftBasedTrends(
     startDate: string,
-    endDate: string,
+    // endDate: string,
     shift: "morning" | "evening" | "all",
     session?: ClientSession
   ): Promise<
@@ -4994,10 +4998,13 @@ export class QuestionRepository implements IQuestionRepository {
   > {
     await this.init();
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(
+      `${startDate}T00:00:00+05:30`
+    );
 
+    const end = new Date(
+      `${startDate}T23:59:59.999+05:30`
+    );
     /**
      * Added Questions Aggregation
      */
@@ -5151,7 +5158,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   async getQuestionStatusDistribution(
     startDate: string,
-    endDate: string,
+    // endDate: string,
     shift: "morning" | "evening" | "all",
     session?: ClientSession
   ): Promise<
@@ -5163,9 +5170,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     await this.init();
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(
+      `${startDate}T00:00:00+05:30`
+    );
+
+    const end = new Date(
+      `${startDate}T23:59:59.999+05:30`
+    );
 
     const result =
       await this.QuestionCollection.aggregate(
@@ -5219,7 +5230,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   async getQuestionLevelDistribution(
     startDate: string,
-    endDate: string,
+    // endDate: string,
     shift: "morning" | "evening" | "all",
     session?: ClientSession
   ): Promise<
@@ -5231,9 +5242,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     await this.init();
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(
+      `${startDate}T00:00:00+05:30`
+    );
+
+    const end = new Date(
+      `${startDate}T23:59:59.999+05:30`
+    );
 
     const result =
       await this.QuestionSubmissionCollection.aggregate(
@@ -5256,12 +5271,60 @@ export class QuestionRepository implements IQuestionRepository {
           },
 
           /**
-           * Compute level from history length
+           * Compute lengths
+           */
+          {
+            $addFields: {
+              historyLength: {
+                $size: "$history",
+              },
+              queueLength: {
+                $size: "$queue",
+              },
+            },
+          },
+
+          /**
+           * Remove unassigned
+           */
+          {
+            $match: {
+              $or: [
+                {
+                  historyLength: {
+                    $gt: 0,
+                  },
+                },
+                {
+                  queueLength: {
+                    $gt: 0,
+                  },
+                },
+              ],
+            },
+          },
+
+          /**
+           * Compute level
            */
           {
             $addFields: {
               currentLevel: {
-                $size: "$history",
+                $cond: [
+                  {
+                    $eq: [
+                      "$historyLength",
+                      0,
+                    ],
+                  },
+                  0,
+                  {
+                    $subtract: [
+                      "$historyLength",
+                      1,
+                    ],
+                  },
+                ],
               },
             },
           },
@@ -5298,7 +5361,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   async getShiftBasedTopExperts(
     startDate: string,
-    endDate: string,
+    // endDate: string,
     shift: "morning" | "evening" | "all",
     session?: ClientSession
   ): Promise<
@@ -5314,9 +5377,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     await this.init();
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(
+      `${startDate}T00:00:00+05:30`
+    );
+
+    const end = new Date(
+      `${startDate}T23:59:59.999+05:30`
+    );
 
     const result =
       await this.QuestionSubmissionCollection.aggregate<{
@@ -5341,7 +5408,6 @@ export class QuestionRepository implements IQuestionRepository {
            */
           {
             $match: {
-              "history.status": "reviewed",
               "history.createdAt": {
                 $gte: start,
                 $lte: end,
@@ -5350,6 +5416,23 @@ export class QuestionRepository implements IQuestionRepository {
                 "history.createdAt",
                 shift
               ),
+              /**
+               * Either:
+               * - answer exists
+               * - reviewId exists
+               */
+              $or: [
+                {
+                  "history.answer": {
+                    $exists: true,
+                  },
+                },
+                {
+                  "history.reviewId": {
+                    $exists: true,
+                  },
+                },
+              ],
             },
           },
 
@@ -5435,7 +5518,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   async getShiftBasedTopApprovingExperts(
     startDate: string,
-    endDate: string,
+    // endDate: string,
     shift: "morning" | "evening" | "all",
     session?: ClientSession
   ): Promise<
@@ -5443,59 +5526,43 @@ export class QuestionRepository implements IQuestionRepository {
       userId: string;
       name: string;
       approvedCount: number;
-      reputation: number;
-      incentive: number;
-      penalty: number;
     }[]
   > {
 
     await this.init();
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(
+      `${startDate}T00:00:00+05:30`
+    );
+
+    const end = new Date(
+      `${startDate}T23:59:59.999+05:30`
+    );
 
     const result =
-      await this.QuestionSubmissionCollection.aggregate<{
+      await this.AnswersCollection.aggregate<{
         userId: ObjectId;
         name: string;
         approvedCount: number;
-        reputation: number;
-        incentive: number;
-        penalty: number;
       }>(
         [
 
-          /**
-           * Expand history
-           */
-          {
-            $unwind: "$history",
-          },
-
-          /**
-           * Match approvals
-           */
           {
             $match: {
-              "history.status": "approved",
-              "history.createdAt": {
+              status: "approved",
+              updatedAt: {
                 $gte: start,
                 $lte: end,
               },
               ...getShiftFilter(
-                "history.createdAt",
+                "updatedAt",
                 shift
               ),
             },
           },
-
-          /**
-           * Group by approver
-           */
           {
             $group: {
-              _id: "$history.updatedBy",
+              _id: "$approvedBy",
               approvedCount: {
                 $sum: 1,
               },
@@ -5552,12 +5619,6 @@ export class QuestionRepository implements IQuestionRepository {
                 ],
               },
               approvedCount: 1,
-              reputation:
-                "$user.reputation_score",
-              incentive:
-                "$user.incentive",
-              penalty:
-                "$user.penalty",
             },
           },
         ],

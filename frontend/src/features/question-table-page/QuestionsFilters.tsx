@@ -1206,6 +1206,13 @@ export const QuestionsFilters = ({
                   />
                 </div>
 
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-cyan-50 dark:hover:bg-cyan-500/5 border border-gray-200 dark:border-gray-800 hover:border-b-cyan-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <DownloadShiftWiseReportButton
+                    closeSideBar={() => setIsSidebarOpen(false)}
+                    userRole={userRole}
+                  />
+                </div>
+
                 {/* Download Master Lists — Crops & Chemicals */}
                 <div className="flex gap-3">
                   <button
@@ -1224,12 +1231,6 @@ export const QuestionsFilters = ({
                     {isDownloadingChemicals ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                     Chemicals List
                   </button>
-                </div>
-
-                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-cyan-50 dark:hover:bg-cyan-500/5 border border-gray-200 dark:border-gray-800 hover:border-b-cyan-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadShiftWiseReportButton
-                    closeSideBar={() => setIsSidebarOpen(false)}
-                  />
                 </div>
               </div>
             </section>

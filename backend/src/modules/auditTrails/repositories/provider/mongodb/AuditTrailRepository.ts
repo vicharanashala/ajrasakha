@@ -209,7 +209,7 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
 
   async getShiftBasedAuditActionCounts(
     startDate: string,
-    endDate: string,
+    // endDate: string,
     shift: "morning" | "evening" | "all",
     session?: ClientSession
   ): Promise<
@@ -222,9 +222,13 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
 
     await this.init();
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(
+      `${startDate}T00:00:00+05:30`
+    );
+
+    const end = new Date(
+      `${startDate}T23:59:59.999+05:30`
+    );
 
     const result =
       await this.auditTrailsCollection.aggregate<{

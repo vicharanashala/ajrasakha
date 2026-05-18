@@ -143,7 +143,7 @@ export const useGetQuestionsAnalytics = (query: {
 export const useShiftBasedMetrics = (
   query: {
     fromDate: string;
-    toDate: string;
+    // toDate: string;
     shift: string;
   }
 ) => {
@@ -152,14 +152,14 @@ export const useShiftBasedMetrics = (
       "dashboard",
       "shift-based-metrics",
       query.fromDate,
-      query.toDate,
+      // query.toDate,
       query.shift,
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedMetrics(
         query.fromDate,
-        query.toDate,
+        // query.toDate,
         query.shift
       ),
 
@@ -170,7 +170,7 @@ export const useShiftBasedMetrics = (
 export const useShiftBasedTrends = (
     query: {
     fromDate: string;
-    toDate: string;
+    // toDate: string;
     shift: string;
   }
 ) => {
@@ -179,14 +179,14 @@ export const useShiftBasedTrends = (
       "dashboard",
       "shift-based-trends",
       query.fromDate,
-      query.toDate,
+      // query.toDate,
       query.shift,
     ],
 
     queryFn: () =>
       performaceService.getShiftWiseTrends(
         query.fromDate,
-        query.toDate,
+        // query.toDate,
         query.shift
       ),
 
@@ -197,7 +197,7 @@ export const useShiftBasedTrends = (
 export const useShiftBasedStatusDistribution = (
     query: {
     fromDate: string;
-    toDate: string;
+    // toDate: string;
     shift: string;
   }
 ) => {
@@ -206,14 +206,14 @@ export const useShiftBasedStatusDistribution = (
       "dashboard",
       "shift-based-status-distribution",
       query.fromDate,
-      query.toDate,
+      // query.toDate,
       query.shift,
     ],
 
     queryFn: () =>
       performaceService.getStatusDistribution(
         query.fromDate,
-        query.toDate,
+        // query.toDate,
         query.shift
       ),
 
@@ -225,7 +225,7 @@ export const useShiftBasedStatusDistribution = (
 export const useShiftBasedLevelDistribution = (
     query: {
     fromDate: string;
-    toDate: string;
+    // toDate: string;
     shift: string;
   }
 ) => {
@@ -234,14 +234,14 @@ export const useShiftBasedLevelDistribution = (
       "dashboard",
       "shift-based-level-distribution",
       query.fromDate,
-      query.toDate,
+      // query.toDate,
       query.shift,
     ],
 
     queryFn: () =>
       performaceService.getLevelDistribution(
         query.fromDate,
-        query.toDate,
+        // query.toDate,
         query.shift
       ),
 
@@ -252,7 +252,7 @@ export const useShiftBasedLevelDistribution = (
 export const useShiftBasedTopExperts = (
     query: {
     fromDate: string;
-    toDate: string;
+    // toDate: string;
     shift: string;
   }
 ) => {
@@ -261,14 +261,14 @@ export const useShiftBasedTopExperts = (
       "dashboard",
       "shift-based-top-experts",
       query.fromDate,
-      query.toDate,
+      // query.toDate,
       query.shift,
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedTopExperts(
         query.fromDate,
-        query.toDate,
+        // query.toDate,
         query.shift
       ),
 
@@ -280,7 +280,7 @@ export const useShiftBasedTopExperts = (
 export const useShiftBasedTopApprovingExperts = (
     query: {
     fromDate: string;
-    toDate: string;
+    // toDate: string;
     shift: string;
   }
 ) => {
@@ -289,14 +289,14 @@ export const useShiftBasedTopApprovingExperts = (
       "dashboard",
       "shift-based-top-approving-experts",
       query.fromDate,
-      query.toDate,
+      // query.toDate,
       query.shift,
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedTopApprovingExperts(
         query.fromDate,
-        query.toDate,
+        // query.toDate,
         query.shift
       ),
 
@@ -308,7 +308,7 @@ export const useShiftBasedTopApprovingExperts = (
 export const useShiftBasedAuditActionCounts = (
     query: {
     fromDate: string;
-    toDate: string;
+    // toDate: string;
     shift: string;
   }
 ) => {
@@ -317,14 +317,14 @@ export const useShiftBasedAuditActionCounts = (
       "dashboard",
       "shift-based-audit-action-counts",
       query.fromDate,
-      query.toDate,
+      // query.toDate,
       query.shift,
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedAuditActionCounts(
         query.fromDate,
-        query.toDate,
+        // query.toDate,
         query.shift
       ),
 

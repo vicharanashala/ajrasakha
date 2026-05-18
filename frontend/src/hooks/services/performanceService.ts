@@ -202,11 +202,13 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
   return await response.blob();
 }
 
-  async getShiftBasedMetrics(fromDate:string,toDate:string, shift: string): Promise<any> {
+  async getShiftBasedMetrics(fromDate:string,
+    // toDate:string,
+     shift: string): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
-    params.append("endDate", toDate);
+    // params.append("endDate", toDate);
     params.append("shift", shift);
 
     // Get the current Firebase user and token
@@ -228,11 +230,13 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
   }
 
 // /shift-based-trends
-  async getShiftWiseTrends(fromDate:string,toDate:string, shift: string): Promise<any> {
+  async getShiftWiseTrends(fromDate:string,
+    // toDate:string,
+     shift: string): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
-    params.append("endDate", toDate);
+    // params.append("endDate", toDate);
     params.append("shift", shift);
 
     // Get the current Firebase user and token
@@ -253,11 +257,13 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     return await response.json();
   }
 
-  async getStatusDistribution(fromDate:string,toDate:string, shift: string): Promise<any> {
+  async getStatusDistribution(fromDate:string,
+    // toDate:string, 
+    shift: string): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
-    params.append("endDate", toDate);
+    // params.append("endDate", toDate);
     params.append("shift", shift);
 
     // Get the current Firebase user and token
@@ -279,11 +285,13 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
   }
 
 
-  async getLevelDistribution(fromDate:string,toDate:string, shift: string): Promise<any> {
+  async getLevelDistribution(fromDate:string,
+    // toDate:string,
+     shift: string): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
-    params.append("endDate", toDate);
+    // params.append("endDate", toDate);
     params.append("shift", shift);
 
     // Get the current Firebase user and token
@@ -304,11 +312,13 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     return await response.json();
   }
 
-  async getShiftBasedTopExperts(fromDate:string,toDate:string, shift: string): Promise<any> {
+  async getShiftBasedTopExperts(fromDate:string,
+    // toDate:string,
+     shift: string): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
-    params.append("endDate", toDate);
+    // params.append("endDate", toDate);
     params.append("shift", shift);
 
     // Get the current Firebase user and token
@@ -329,11 +339,13 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     return await response.json();
   }
 
-  async getShiftBasedTopApprovingExperts(fromDate:string,toDate:string, shift: string): Promise<any> {
+  async getShiftBasedTopApprovingExperts(fromDate:string,
+    // toDate:string,
+     shift: string): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
-    params.append("endDate", toDate);
+    // params.append("endDate", toDate);
     params.append("shift", shift);
 
     // Get the current Firebase user and token
@@ -354,11 +366,13 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     return await response.json();
   }
 
-  async getShiftBasedAuditActionCounts(fromDate:string,toDate:string, shift: string): Promise<any> {
+  async getShiftBasedAuditActionCounts(fromDate:string,
+    // toDate:string, 
+    shift: string): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
-    params.append("endDate", toDate);
+    // params.append("endDate", toDate);
     params.append("shift", shift);
      // Get the current Firebase user and token
       const firebaseUser = auth.currentUser;

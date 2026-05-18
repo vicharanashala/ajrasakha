@@ -380,9 +380,9 @@ export class PerformanceController {
     @Res() response: any,
   ) {
     const startDate = query.startDate;
-    const endDate = query.endDate;
+    // const endDate = query.endDate;
     const shift = query.shift;
-    if (!startDate || !endDate || !shift) {
+    if (!startDate || !shift) {
       return response.status(400).json({
         success: false,
         message: 'startDate, endDate and shift are required',
@@ -390,7 +390,7 @@ export class PerformanceController {
     }
     const data = await this.performanceService.getShiftBasedMetrics(
       startDate,
-      endDate,
+      // endDate,
       shift,
     );
     if (!data) {
@@ -430,9 +430,9 @@ export class PerformanceController {
     @Res() response: any,
   ) {
     const startDate = query.startDate;
-    const endDate = query.endDate;
+    // const endDate = query.endDate;
     const shift = query.shift;
-    if (!startDate || !endDate || !shift) {
+    if (!startDate || !shift) {
       return response.status(400).json({
         success: false,
         message: 'startDate, endDate and shift are required',
@@ -440,7 +440,7 @@ export class PerformanceController {
     }
     const data = await this.performanceService.getShiftBasedTrends(
       startDate,
-      endDate,
+      // endDate,
       shift,
     );
     if (!data) {
@@ -480,9 +480,9 @@ export class PerformanceController {
     @Res() response: any,
   ) {
     const startDate = query.startDate;
-    const endDate = query.endDate;
+    // const endDate = query.endDate;
     const shift = query.shift;
-    if (!startDate || !endDate || !shift) {
+    if (!startDate || !shift) {
       return response.status(400).json({
         success: false,
         message: 'startDate, endDate and shift are required',
@@ -490,7 +490,7 @@ export class PerformanceController {
     }
     const data = await this.performanceService.getQuestionStatusDistribution(
       startDate,
-      endDate,
+      // endDate,
       shift,
     );
     if (!data) {
@@ -530,9 +530,9 @@ export class PerformanceController {
     @Res() response: any,
   ) {
     const startDate = query.startDate;
-    const endDate = query.endDate;
+    // const endDate = query.endDate;
     const shift = query.shift;
-    if (!startDate || !endDate || !shift) {
+    if (!startDate || !shift) {
       return response.status(400).json({
         success: false,
         message: 'startDate, endDate and shift are required',
@@ -540,7 +540,7 @@ export class PerformanceController {
     }
     const data = await this.performanceService.getQuestionLevelDistribution(
       startDate,
-      endDate,
+      // endDate,
       shift,
     );
     if (!data) {
@@ -580,9 +580,9 @@ export class PerformanceController {
     @Res() response: any,
   ) {
     const startDate = query.startDate;
-    const endDate = query.endDate;
+    // const endDate = query.endDate;
     const shift = query.shift;
-    if (!startDate || !endDate || !shift) {
+    if (!startDate  || !shift) {
       return response.status(400).json({
         success: false,
         message: 'startDate, endDate and shift are required',
@@ -590,7 +590,7 @@ export class PerformanceController {
     }
     const data = await this.performanceService.getShiftBasedTopExperts(
       startDate,
-      endDate,
+      // endDate,
       shift,
     );
     if (!data) {
@@ -630,9 +630,9 @@ export class PerformanceController {
     @Res() response: any,
   ) {
     const startDate = query.startDate;
-    const endDate = query.endDate;
+    // const endDate = query.endDate;
     const shift = query.shift;
-    if (!startDate || !endDate || !shift) {
+    if (!startDate || !shift) {
       return response.status(400).json({
         success: false,
         message: 'startDate, endDate and shift are required',
@@ -640,7 +640,7 @@ export class PerformanceController {
     }
     const data = await this.performanceService.getShiftBasedTopApprovingExperts(
       startDate,
-      endDate,
+      // endDate,
       shift,
     );
     if (!data) {
