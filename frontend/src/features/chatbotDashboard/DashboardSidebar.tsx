@@ -4,7 +4,7 @@ import { Calendar } from "@/components/atoms/calendar";
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Download, Loader2, CalendarIcon } from "lucide-react";
+import { Download, Loader2, CalendarIcon, Shapes } from "lucide-react";
 import { toast } from "sonner";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
@@ -135,17 +135,25 @@ const FARMER_SEGMENT_CHILDREN: ChildNavItem[] = [
 ];
 
 const NAV_SECTIONS: SidebarSection[] = [
-    {
-        sectionLabel: "Core views",
-        items: [
-            { label: "Overview", icon: <GridIcon />, view: "overview" },
-            { label: "Alerts & Notifications", icon: <BellIcon />, view: "bugs-ux" },
-            { label: "Usage patterns", icon: <ChartLineIcon />, view: "usage-patterns" },
-            { label: "Demographics", icon: <PeopleIcon />, view: "demographics" },
-            // { label: "Geo intelligence", icon: <GlobeIcon />, view: "geo-intelligence" },
-        ],
-    },
-    /* {
+  {
+    sectionLabel: "Core views",
+    items: [
+      { label: "Overview", icon: <GridIcon />, view: "overview" },
+      { label: "Alerts & Notifications", icon: <BellIcon />, view: "bugs-ux" },
+      {
+        label: "Usage patterns",
+        icon: <ChartLineIcon />,
+        view: "usage-patterns",
+      },
+      {
+        label: "Demographics",
+        icon: <Shapes size={16} />,
+        view: "demographics",
+      },
+      // { label: "Geo intelligence", icon: <GlobeIcon />, view: "geo-intelligence" },
+    ],
+  },
+  /* {
         sectionLabel: "Quality",
         items: [
             { label: "Feedback & sentiment", icon: <StarIcon />, view: "feedback-sentiment" },
@@ -158,12 +166,12 @@ const NAV_SECTIONS: SidebarSection[] = [
             { label: "App health score", icon: <SunIcon />, view: "app-health" },
         ],
     }, */
-    {
-        sectionLabel: "Management",
-        items: [
-            { label: "User details", icon: <UsersIcon />, view: "user-details" },
-        ],
-    },
+  {
+    sectionLabel: "Management",
+    items: [
+      { label: "User details", icon: <UsersIcon />, view: "user-details" },
+    ],
+  },
 ];
 
 const MOBILE_BREAKPOINT = 768;
