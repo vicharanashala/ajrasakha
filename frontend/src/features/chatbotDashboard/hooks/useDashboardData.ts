@@ -174,8 +174,10 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
   updatedData.farmingExperience = result.farmingExperience ?? [];
   updatedData.landHolding = result.landHolding?.length ? result.landHolding : DASHBOARD_DATA.landHolding;
   updatedData.platformInstalls = result.platformInstalls ?? [];
+  updatedData.queryCategories = result.queryCategories ?? [];
   // Use real spikes from API; only fall back to mock if field is absent (old backend)
   updatedData.domainSpikes = Array.isArray(result.domainSpikes) ? result.domainSpikes : DASHBOARD_DATA.domainSpikes;
+
 
   updatedData.kpiRow2 = DASHBOARD_DATA.kpiRow2.map(card => {
     if (card.id === 'totalInstalls') {

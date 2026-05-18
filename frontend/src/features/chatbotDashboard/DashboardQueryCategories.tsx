@@ -1,40 +1,47 @@
-import type React from "react";
+import React from "react";
+import { ScrollArea } from "@/components/atoms/scroll-area";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 interface QueryCategory {
     label: string;
-    pct: number;
-    color: string;
+    questionCount: number;
+    duplicateQuestionCount: number;
+    color?: string;
     valueColor?: string;
 }
 
 interface QueryCategoriesProps {
     categories?: QueryCategory[];
-    unansweredCluster?: {
-        label: string;
-        count: string;
-    };
 }
 
-// ─── STATIC DATA ──────────────────────────────────────────────────────────────
+// ─── STATIC FALLBACK DATA ──────────────────────────────────────────────────────
 
 const DEFAULT_CATEGORIES: QueryCategory[] = [
-    { label: "Pest & disease", pct: 34, color: "#E24B4A", valueColor: "#A32D2D" },
-    { label: "Fertilizer dosage", pct: 28, color: "#EF9F27", valueColor: "#633806" },
-    { label: "Irrigation timing", pct: 18, color: "#378ADD" },
-    { label: "Crop selection", pct: 12, color: "#3AAA5A" },
-    { label: "Govt. schemes", pct: 8, color: "#7C6FD4" },
-    { label: "Weather forecast", pct: 7, color: "#1D9E75" },
-    { label: "Seed varieties", pct: 6, color: "#E24B4A" },
-    { label: "Soil testing", pct: 5, color: "#EF9F27" },
-    { label: "Market prices", pct: 4, color: "#378ADD" },
+    { label: "Pest & disease", questionCount: 154, duplicateQuestionCount: 32 },
+    { label: "Fertilizer dosage", questionCount: 120, duplicateQuestionCount: 28 },
+    { label: "Irrigation timing", questionCount: 88, duplicateQuestionCount: 14 },
+    { label: "Crop selection", questionCount: 52, duplicateQuestionCount: 8 },
+    { label: "Govt. schemes", questionCount: 34, duplicateQuestionCount: 4 },
 ];
 
-const DEFAULT_UNANSWERED = {
-    label: "Mandi pricing",
-    count: "8,400 queries",
-};
+const PREMIUM_PALETTE = [
+    "#3AAA5A", // Green
+    "#378ADD", // Blue
+    "#EF9F27", // Amber
+    "#E24B4A", // Red
+    "#7C6FD4", // Purple
+    "#1D9E75", // Teal
+    "#EC4899", // Pink
+    "#F59E0B", // Yellow
+    "#10B981", // Emerald
+    "#6366F1", // Indigo
+    "#8B5CF6", // Violet
+    "#06B6D4", // Cyan
+    "#14B8A6", // Teal-Cyan
+    "#F97316", // Orange
+    "#84CC16", // Lime
+];
 
 // ─── PROGRESS BAR ─────────────────────────────────────────────────────────────
 
@@ -42,29 +49,39 @@ interface ProgressBarProps {
     label: string;
     pct: number;
     color: string;
-    valueColor?: string;
+    questionCount: number;
+    duplicateQuestionCount: number;
 }
 
-const ProgressBar: React.FC<ProgressBarProps> = ({ label, pct, color, valueColor }) => (
-    <div className="mb-3 last:mb-0">
-        <div className="flex justify-between items-center mb-1">
-            <span className="text-[11px] text-gray-500 dark:text-gray-400">{label}</span>
-            <span
-                className="text-[11px]"
-                style={{
-                    color: valueColor || undefined,
-                    fontWeight: valueColor ? 500 : 400,
-                }}
-            >
-                {!valueColor && (
-                    <span className="text-gray-500 dark:text-gray-400">{pct}%</span>
-                )}
-                {valueColor && (
-                    <span>{pct}%</span>
-                )}
+const ProgressBar: React.FC<ProgressBarProps> = ({
+    label,
+    pct,
+    color,
+    questionCount,
+    duplicateQuestionCount,
+}) => (
+    <div className="mb-4 last:mb-0">
+        <div className="flex justify-between items-start mb-1.5">
+            <div className="flex flex-col">
+                <span className="text-[12px] font-semibold text-gray-900 dark:text-gray-100">
+                    {label}
+                </span>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    Question Count:{" "}
+                    <span className="font-semibold text-gray-800 dark:text-gray-300">
+                        {questionCount}
+                    </span>{" "}
+                    · Duplicate Question Count:{" "}
+                    <span className="font-semibold text-gray-800 dark:text-gray-300">
+                        {duplicateQuestionCount}
+                    </span>
+                </span>
+            </div>
+            <span className="text-[11px] font-semibold text-gray-900 dark:text-gray-100">
+                {questionCount + duplicateQuestionCount}
             </span>
         </div>
-        <div className="w-full h-[5px] bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+        <div className="w-full h-[6px] bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
             <div
                 className="h-full rounded-full transition-all duration-700 ease-out"
                 style={{ width: `${pct}%`, background: color }}
@@ -77,56 +94,46 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ label, pct, color, valueColor
 
 export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     categories = DEFAULT_CATEGORIES,
-    unansweredCluster = DEFAULT_UNANSWERED,
 }) => {
+    // Determine maximum total count among all categories to scale progress bars proportionally
+    const activeCategories = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
+    const totals = activeCategories.map((c) => c.questionCount + c.duplicateQuestionCount);
+    const maxTotal = Math.max(...totals, 1);
+
     return (
-        // Remove this div when data is dynamic
-        <div className="relative cursor-not-allowed h-full">
         <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full">
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
                 <div>
-                    <div className="text-[13px] font-medium text-gray-900 dark:text-gray-100">
+                    <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">
                         Query categories
                     </div>
                     <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                        This week · all channels
+                        Dynamic Agriculture Domains (Top 15)
                     </div>
                 </div>
-                <button className="text-[11px] text-[#3AAA5A] hover:text-[#2e8c4a] transition-colors cursor-pointer whitespace-nowrap">
-                    See all ↗
-                </button>
+
             </div>
 
             {/* Progress bars — scrollable */}
-            <div className="flex-1 overflow-y-auto pr-1 max-h-[260px]">
-                {categories.map((q) => (
-                    <ProgressBar
-                        key={q.label}
-                        label={q.label}
-                        pct={q.pct}
-                        color={q.color}
-                        valueColor={q.valueColor}
-                    />
-                ))}
-            </div>
+            <ScrollArea className="flex-1 max-h-[300px] pr-1">
+                {activeCategories.map((q, index) => {
+                    const total = q.questionCount + q.duplicateQuestionCount;
+                    const pct = (total / maxTotal) * 100;
+                    const color = q.color || PREMIUM_PALETTE[index % PREMIUM_PALETTE.length];
 
-            {/* Footer: top unanswered cluster */}
-            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-800">
-                <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                    Top unanswered cluster
-                </div>
-                <div className="text-[12px] font-medium text-[#A32D2D] dark:text-[#f87171] mt-0.5">
-                    {unansweredCluster.label} · {unansweredCluster.count}
-                </div>
-            </div>
-            
-            {/* // Remove this div when data is dynamic */}
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
-				<span className="text-white text-xs font-semibold tracking-wide">
-				</span>
-			</div>
-        </div>
+                    return (
+                        <ProgressBar
+                            key={q.label}
+                            label={q.label}
+                            pct={pct}
+                            color={color}
+                            questionCount={q.questionCount}
+                            duplicateQuestionCount={q.duplicateQuestionCount}
+                        />
+                    );
+                })}
+            </ScrollArea>
         </div>
     );
 };

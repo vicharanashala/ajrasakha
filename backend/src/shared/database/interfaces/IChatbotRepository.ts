@@ -52,8 +52,10 @@ export interface GeoStateEntry {
 
 export interface QueryCategoryEntry {
   label: string;
-  pct: number;
+  questionCount: number;
+  duplicateQuestionCount: number;
 }
+
 
 export interface WeeklySessionDurationEntry {
   week: string; // ISO week string, e.g. '2025-W03'

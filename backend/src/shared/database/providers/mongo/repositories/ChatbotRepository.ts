@@ -382,9 +382,61 @@ export class ChatbotRepository implements IChatbotRepository {
     return [];
   }
 
-  async getQueryCategories(_source = 'vicharanashala', _session?: ClientSession): Promise<QueryCategoryEntry[]> {
-    return [];
+  async getQueryCategories(_source = 'vicharanashala', session?: ClientSession): Promise<QueryCategoryEntry[]> {
+    try {
+      await this.initReviewSystem();
+
+      const pipeline = [
+        {
+          $match: {
+            source: 'AJRASAKHA',
+            'details.domain': { $exists: true, $nin: [null, ''] },
+          },
+        },
+        {
+          $project: {
+            domain: '$details.domain',
+            isDuplicate: {
+              $cond: [
+                { $eq: ['$status', 'duplicate'] },
+                1,
+                0
+              ]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: '$domain',
+            totalCount: { $sum: 1 },
+            duplicateCount: { $sum: '$isDuplicate' },
+            uniqueCount: {
+              $sum: {
+                $cond: [{ $eq: ['$isDuplicate', 0] }, 1, 0]
+              }
+            }
+          }
+        },
+        {
+          $sort: { totalCount: -1 }
+        },
+        {
+          $limit: 15
+        }
+      ];
+
+      const raw = await this.QuestionCollection.aggregate(pipeline, { session }).toArray();
+
+      return raw.map(item => ({
+        label: item._id,
+        questionCount: item.uniqueCount,
+        duplicateQuestionCount: item.duplicateCount,
+      }));
+    } catch (error) {
+      throw new InternalServerError(`Failed to get query categories: ${error}`);
+    }
   }
+
 
   async getTopCrops(session?: ClientSession): Promise<{ totalQuestions: number, topCrops: any[] }> {
     try {
@@ -1327,34 +1379,34 @@ export class ChatbotRepository implements IChatbotRepository {
         ).toArray(),
 
         // Gender split
-       this.users.aggregate<{ _id: string; count: number }>(
-  [
-    {
-      $match: {
-        'farmerProfile.gender': { $exists: true, $ne: null },
-        ...userDocFilter,
-      },
-    },
-    {
-      $addFields: {
-        normalizedGender: {
-          $toLower: {
-            $trim: {
-              input: '$farmerProfile.gender',
+        this.users.aggregate<{ _id: string; count: number }>(
+          [
+            {
+              $match: {
+                'farmerProfile.gender': { $exists: true, $ne: null },
+                ...userDocFilter,
+              },
             },
-          },
-        },
-      },
-    },
-    {
-      $group: {
-        _id: '$normalizedGender',
-        count: { $sum: 1 },
-      },
-    },
-  ],
-  { session },
-).toArray(),
+            {
+              $addFields: {
+                normalizedGender: {
+                  $toLower: {
+                    $trim: {
+                      input: '$farmerProfile.gender',
+                    },
+                  },
+                },
+              },
+            },
+            {
+              $group: {
+                _id: '$normalizedGender',
+                count: { $sum: 1 },
+              },
+            },
+          ],
+          { session },
+        ).toArray(),
 
         // Farming experience buckets
         this.users.aggregate<{ _id: number | string; count: number }>(
@@ -1381,7 +1433,7 @@ export class ChatbotRepository implements IChatbotRepository {
       };
       const ageTotal = ageRaw.reduce((s, r) => s + r.count, 0);
       const ageGroupsMap = new Map(ageRaw.map(r => [r._id, r.count]));
-      
+
       const ageGroups: DemographicEntry[] = [18, 30, 45, '60+'].map(key => {
         const count = ageGroupsMap.get(key) || 0;
         return {
@@ -1727,34 +1779,34 @@ export class ChatbotRepository implements IChatbotRepository {
       const userIds = [...new Set(messages.map(m => m.user).filter(Boolean))];
       const users = userIds.length > 0
         ? await this.users
-            .find({
-              _id: {
-                $in: userIds
-                  .map(id => { try { return new ObjectId(id); } catch { return null; } })
-                  .filter(Boolean),
-              },
-            })
-            .project<{
-              _id: any;
-              name?: string;
-              email?: string;
-              farmerProfile?: {
-                farmerName?: string;
-                villageName?: string;
-                blockName?: string;
-                district?: string;
-                state?: string;
-              };
-            }>({
-              name: 1,
-              email: 1,
-              'farmerProfile.farmerName': 1,
-              'farmerProfile.villageName': 1,
-              'farmerProfile.blockName': 1,
-              'farmerProfile.district': 1,
-              'farmerProfile.state': 1,
-            })
-            .toArray()
+          .find({
+            _id: {
+              $in: userIds
+                .map(id => { try { return new ObjectId(id); } catch { return null; } })
+                .filter(Boolean),
+            },
+          })
+          .project<{
+            _id: any;
+            name?: string;
+            email?: string;
+            farmerProfile?: {
+              farmerName?: string;
+              villageName?: string;
+              blockName?: string;
+              district?: string;
+              state?: string;
+            };
+          }>({
+            name: 1,
+            email: 1,
+            'farmerProfile.farmerName': 1,
+            'farmerProfile.villageName': 1,
+            'farmerProfile.blockName': 1,
+            'farmerProfile.district': 1,
+            'farmerProfile.state': 1,
+          })
+          .toArray()
         : [];
 
       const userMap = new Map(users.map(u => [u._id.toString(), u]));
@@ -1787,105 +1839,105 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getDomainSpikes(days = 60, session?: ClientSession) {
-      try {
-        await this.initReviewSystem();
+    try {
+      await this.initReviewSystem();
 
-        const since = new Date();
-        since.setDate(since.getDate() - days);
-        since.setHours(0, 0, 0, 0);
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      since.setHours(0, 0, 0, 0);
 
-        const domainMatch = { createdAt: { $gte: since }, 'details.domain': { $exists: true, $nin: [null, ''] } };
+      const domainMatch = { createdAt: { $gte: since }, 'details.domain': { $exists: true, $nin: [null, ''] } };
 
-        const locationPush = {
-          $push: {
-            $cond: [
-              { $and: [{ $ne: ['$details.district', null] }, { $ne: ['$details.state', null] }, { $ne: ['$details.district', ''] }, { $ne: ['$details.state', ''] }] },
-              { $concat: ['$details.district', ', ', '$details.state'] },
-              '$$REMOVE',
+      const locationPush = {
+        $push: {
+          $cond: [
+            { $and: [{ $ne: ['$details.district', null] }, { $ne: ['$details.state', null] }, { $ne: ['$details.district', ''] }, { $ne: ['$details.state', ''] }] },
+            { $concat: ['$details.district', ', ', '$details.state'] },
+            '$$REMOVE',
+          ],
+        },
+      };
+
+      const groupStage = {
+        $group: {
+          _id: {
+            domain: '$details.domain',
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+          },
+          count: { $sum: 1 },
+          locations: locationPush,
+        },
+      };
+
+      const pipeline: any[] = [
+        { $match: domainMatch },
+        groupStage,
+        {
+          $unionWith: {
+            coll: 'duplicate_questions',
+            pipeline: [
+              { $match: domainMatch },
+              groupStage,
             ],
           },
-        };
-
-        const groupStage = {
+        },
+        {
           $group: {
-            _id: {
-              domain: '$details.domain',
-              date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
-            },
-            count: { $sum: 1 },
-            locations: locationPush,
+            _id: '$_id',
+            count: { $sum: '$count' },
+            locations: { $push: '$locations' },
           },
-        };
+        },
+        { $sort: { '_id.domain': 1, '_id.date': 1 } },
+      ];
 
-        const pipeline: any[] = [
-          { $match: domainMatch },
-          groupStage,
-          {
-            $unionWith: {
-              coll: 'duplicate_questions',
-              pipeline: [
-                { $match: domainMatch },
-                groupStage,
-              ],
-            },
-          },
-          {
-            $group: {
-              _id: '$_id',
-              count: { $sum: '$count' },
-              locations: { $push: '$locations' },
-            },
-          },
-          { $sort: { '_id.domain': 1, '_id.date': 1 } },
-        ];
+      const raw = await this.QuestionCollection.aggregate(pipeline, { session, allowDiskUse: true }).toArray();
 
-        const raw = await this.QuestionCollection.aggregate(pipeline, { session, allowDiskUse: true }).toArray();
+      // Group by domain, compute average baseline, detect spikes
+      const byDomain = new Map<string, Array<{ date: string; count: number; locations: string[][] }>>();
+      for (const row of raw) {
+        const domain = row._id.domain as string;
+        if (!byDomain.has(domain)) byDomain.set(domain, []);
+        byDomain.get(domain)!.push({ date: row._id.date, count: row.count, locations: row.locations });
+      }
 
-        // Group by domain, compute average baseline, detect spikes
-        const byDomain = new Map<string, Array<{ date: string; count: number; locations: string[][] }>>();
-        for (const row of raw) {
-          const domain = row._id.domain as string;
-          if (!byDomain.has(domain)) byDomain.set(domain, []);
-          byDomain.get(domain)!.push({ date: row._id.date, count: row.count, locations: row.locations });
-        }
+      const SPIKE_THRESHOLD = 1.5; // 50% above average = spike
+      const MIN_BASELINE = 3;
+      const spikes: any[] = [];
 
-        const SPIKE_THRESHOLD = 1.5; // 50% above average = spike
-        const MIN_BASELINE = 3;
-        const spikes: any[] = [];
+      for (const [domain, entries] of byDomain) {
+        if (entries.length < 3) continue;
 
-        for (const [domain, entries] of byDomain) {
-          if (entries.length < 3) continue;
+        const totalCount = entries.reduce((s, e) => s + e.count, 0);
+        const avgBaseline = totalCount / entries.length;
+        if (avgBaseline < MIN_BASELINE) continue;
 
-          const totalCount = entries.reduce((s, e) => s + e.count, 0);
-          const avgBaseline = totalCount / entries.length;
-          if (avgBaseline < MIN_BASELINE) continue;
-
-          for (const entry of entries) {
-            if (entry.count >= avgBaseline * SPIKE_THRESHOLD) {
-              const allLocs = entry.locations.flat();
-              const locFreq = new Map<string, number>();
-              for (const loc of allLocs) {
-                if (loc) locFreq.set(loc, (locFreq.get(loc) ?? 0) + 1);
-              }
-              const topLoc = [...locFreq.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-
-              spikes.push({
-                domain,
-                date: entry.date,
-                count: entry.count,
-                baseline: Math.round(avgBaseline),
-                spikePct: Math.round(((entry.count - avgBaseline) / avgBaseline) * 100),
-                location: topLoc ?? undefined,
-              });
+        for (const entry of entries) {
+          if (entry.count >= avgBaseline * SPIKE_THRESHOLD) {
+            const allLocs = entry.locations.flat();
+            const locFreq = new Map<string, number>();
+            for (const loc of allLocs) {
+              if (loc) locFreq.set(loc, (locFreq.get(loc) ?? 0) + 1);
             }
+            const topLoc = [...locFreq.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
+            spikes.push({
+              domain,
+              date: entry.date,
+              count: entry.count,
+              baseline: Math.round(avgBaseline),
+              spikePct: Math.round(((entry.count - avgBaseline) / avgBaseline) * 100),
+              location: topLoc ?? undefined,
+            });
           }
         }
-
-        spikes.sort((a, b) => b.spikePct - a.spikePct);
-        return spikes.slice(0, 50);
-      } catch (error) {
-        throw new InternalServerError(`Failed to get domain spikes: ${error}`);
       }
+
+      spikes.sort((a, b) => b.spikePct - a.spikePct);
+      return spikes.slice(0, 50);
+    } catch (error) {
+      throw new InternalServerError(`Failed to get domain spikes: ${error}`);
     }
+  }
 
 }
