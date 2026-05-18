@@ -236,9 +236,20 @@ ajrasakha/
   tools/     # MCP server implementations — one per domain, deployed separately
   api/       # FastAPI layer — request handling and response streaming
   utils/     # shared utilities
+docker-compose.yml
+aegra.json      # aegra config
+pyproject.toml
 ```
 
 The `tools/` directory is co-located for convenience but each tool server runs as its own process/container, independent of the agent.
+
+## Services
+
+| Service    | Description              |
+|------------|--------------------------|
+| ai-api     | LangGraph agent FastAPI  |
+| ai-postgres | PostgreSQL (checkpointer) |
+| ai-redis   | Redis                    |
 
 ---
 
@@ -263,7 +274,7 @@ The `tools/` directory is co-located for convenience but each tool server runs a
 
 ## Running with Docker
 
-Start all services:
+Start all services (Postgres, Redis, API):
 ```
 aegra up
 ```
@@ -280,6 +291,7 @@ docker compose -f docker-compose.yml logs -f
 
 ## Running in Development (hot reload)
 
+Make sure Docker is running, then:
 ```
 aegra dev
 ```
@@ -288,7 +300,7 @@ Server starts at `http://127.0.0.1:2026` by default.
 
 Options:
 ```
-aegra dev --port 8000
-aegra dev --no-db-check
-aegra dev -e /path/to/.env
+aegra dev --port 8000          # custom port
+aegra dev --no-db-check        # skip auto Postgres check
+aegra dev -e /path/to/.env     # use specific env file
 ```
