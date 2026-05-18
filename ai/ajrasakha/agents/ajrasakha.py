@@ -509,15 +509,21 @@ def _is_unsourced_agricultural_advice(answer_text: str) -> bool:
     that cite their official sources are NOT flagged by this check.
     """
     import re
+    from ajrasakha.agents.answer_quality import strip_warning_disclaimer
 
-    stripped = answer_text.strip()
+    # CRITICAL: Strip the testing disclaimer FIRST. It contains URLs,
+    # source names (Annam.ai, IMD, Agmarknet), and "expert-verified" which
+    # would create false-positive attribution signals.
+    stripped = strip_warning_disclaimer(answer_text.strip())
+
+    # Answers that admit no/limited DB match should be fully replaced with
+    # the canned EMPTY_GDB_REPLY — flag them as unsourced. Must check BEFORE
+    # the length filter so short "limited info" answers aren't skipped.
+    if is_no_database_match_answer(stripped):
+        return True
 
     # Short answers (greetings, clarifications, scope rejections) are fine.
     if len(stripped) < 150:
-        return False
-
-    # Answers that already admit no DB match are handled downstream — skip.
-    if is_no_database_match_answer(stripped):
         return False
 
     # Weather / market / soil / scheme answers with official source citations
@@ -544,8 +550,9 @@ def _is_unsourced_agricultural_advice(answer_text: str) -> bool:
     if _CLARIFICATION.search(stripped):
         return False
 
-    # Now check for source-attribution signals. If NONE are present in a
-    # long agricultural answer, it was generated from LLM knowledge.
+    # Now check for source-attribution signals. If NONE are present in the
+    # answer body (disclaimer already stripped), it was generated from LLM
+    # knowledge.
     _EXPERT_INDICATORS = re.compile(
         r"expert|author|agri\s*specialist|agriexpert|specialist|reviewed\s+by",
         re.IGNORECASE,
