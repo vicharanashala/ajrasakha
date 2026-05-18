@@ -29,7 +29,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getChannelSplit(source),
           this.chatbotRepository.getVoiceAccuracyByLanguage(source),
           this.chatbotRepository.getGeoDistribution(source),
-          this.chatbotRepository.getQueryCategories(source),
+          this.chatbotRepository.getQueryCategories(source, undefined, userType),
           this.chatbotRepository.getDailyQueryCounts(days, source, undefined, userType),
           this.chatbotRepository.getTodayQueryCount(source, undefined, userType),
           this.chatbotRepository.getWeeklyQueryCounts(source, undefined, userType),
@@ -105,9 +105,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQueryCategories(source = 'vicharanashala') {
+  async getQueryCategories(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getQueryCategories(source);
+      return await this.chatbotRepository.getQueryCategories(source, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch query categories: ${error}`);
     }

@@ -207,7 +207,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getQueryCategories(@QueryParams() query: SourceQueryDto) {
-    return this.chatbotService.getQueryCategories(query.source);
+    return this.chatbotService.getQueryCategories(query.source, query.userType);
   }
 
   @OpenAPI({ 

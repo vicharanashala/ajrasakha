@@ -52,7 +52,8 @@ export interface GeoStateEntry {
 
 export interface QueryCategoryEntry {
   label: string;
-  pct: number;
+  questionCount: number;
+  duplicateQuestionCount: number;
 }
 
 export interface WeeklySessionDurationEntry {
@@ -171,7 +172,7 @@ export interface IChatbotRepository {
   getGeoDistribution(source?: string, session?: ClientSession): Promise<GeoStateEntry[]>;
 
   /** Percentage breakdown of sessions by query category, sorted descending. */
-  getQueryCategories(source?: string, session?: ClientSession): Promise<QueryCategoryEntry[]>;
+  getQueryCategories(source?: string, session?: ClientSession, userType?: string): Promise<QueryCategoryEntry[]>;
 
   getTopCrops(session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
 
