@@ -233,6 +233,8 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
     return card;
   });
 
+  updatedData.queryCategories = result.queryCategories ?? [];
+
   return updatedData;
 }
 

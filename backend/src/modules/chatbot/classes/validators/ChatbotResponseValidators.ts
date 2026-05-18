@@ -202,13 +202,22 @@ export class QueryCategoryEntryResponse {
   label: string;
 
   @JSONSchema({
-    description: 'Percentage of queries in this category',
-    example: 28.5,
+    description: 'Total number of primary/unique questions in this category',
+    example: 45,
     type: 'number',
     readOnly: true,
   })
   @IsNumber()
-  pct: number;
+  questionCount: number;
+
+  @JSONSchema({
+    description: 'Total number of duplicate questions in this category',
+    example: 12,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  duplicateQuestionCount: number;
 }
 
 // ─── Weekly Session Duration Entry ──────────────────────────────────────────────
