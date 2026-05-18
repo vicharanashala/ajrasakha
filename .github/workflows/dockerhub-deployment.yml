@@ -14,6 +14,7 @@ on:
           - market
           - other_markets
           - pop
+          - pop_v2
           - weather
           - review-search-mcp
           - reviewer_system
@@ -56,6 +57,9 @@ jobs:
           fi
           if [[ "$TARGET" == "all" || "$TARGET" == "pop" ]]; then
             add_entry "pop"
+          fi
+          if [[ "$TARGET" == "all" || "$TARGET" == "pop_v2" ]]; then
+            add_entry "pop_v2"
           fi
           if [[ "$TARGET" == "all" || "$TARGET" == "weather" ]]; then
             add_entry "weather"

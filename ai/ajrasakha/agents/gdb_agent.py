@@ -1,59 +1,89 @@
-import os
-import logging
-from typing import Dict, Any
+from typing import Optional
+
+from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.prebuilt import create_react_agent
+from langgraph.constants import START
+from langgraph.graph import StateGraph
+from pydantic import BaseModel
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("GDBAgent")
+from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
+from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
+from ajrasakha.agents.prompts import GDB_SYSTEM_PROMPT
 
-REMOTE_IP = "100.100.108.44"
 
-llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
-
-mcp_client = MultiServerMCPClient({
-    "golden_db": {
-        "url": f"http://{REMOTE_IP}:9005/mcp",
-        "transport": "http"
+gdb_mcp = MultiServerMCPClient(
+    {
+        "gdb": {
+            "url": MCP_URLS["gdb"],
+            "transport": "streamable_http",
+        }
     }
-})
+)
 
-async def run_gdb_agent(state: Dict[str, Any]) -> Dict[str, Any]:
-    query = state.get("query", "")
-    logger.info(f"Received query: '{query}'")
-    logger.info(f"Connecting to remote GDB MCP Server at {REMOTE_IP}:9005/mcp...")
-    
+llm = ChatAnthropic(model=CLAUDE_MODEL)
+
+_gdb_agent_graph = None  # lazy init
+
+async def _get_gdb_agent():
+    global _gdb_agent_graph
+    if _gdb_agent_graph is None:
+        tools = await gdb_mcp.get_tools()
+        _gdb_agent_graph = create_agent(
+            name="gdb_agent",
+            model=llm,
+            tools=tools,
+            system_prompt=None,
+            checkpointer=False,
+        )
+    return _gdb_agent_graph
+
+
+class GDBInput(BaseModel):
+    query: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    address: Optional[str] = None
+
+@tool(args_schema=GDBInput)
+async def gdb(query: str, latitude: Optional[float], longitude: Optional[float], address: Optional[str], config: RunnableConfig) -> str:
+    """
+    Query the golden database agent.
+    Use when the task needs location-aware data lookup.
+    Pass a focused query. Location is resolved automatically if not provided.
+    """
     try:
-        tools = await mcp_client.get_tools()
-        tool_names = [t.name for t in tools]
-        logger.info(f"Successfully loaded {len(tools)} tools: {tool_names}")
-    except Exception as e:
-        logger.error(f"FATAL: Failed to connect to GDB MCP server at {REMOTE_IP}. Error: {e}")
-        return {"final_answer": "System Error: Golden DB server is currently unreachable. Please check if Port 9005 is active."}
-    
-    sys_msg = (
-        "You are an expert agricultural assistant for AjraSakha. "
-        "Your job is to answer farming and crop disease queries. "
-        "ALWAYS use the provided MCP tools (like golden_retriever_tool) to search "
-        "the database before answering. Do not hallucinate or guess the answer."
-    )
-    
-    agent = create_react_agent(
-        model=llm,
-        tools=tools,
-        prompt=sys_msg
-    )
-    
-    logger.info("Executing ReAct agent logic for GDB...")
-    try:
-        response = await agent.ainvoke({"messages": [HumanMessage(content=query)]})
-        final_message = response["messages"][-1].content
-        
-        logger.info("Successfully generated GDB data using MCP Tools.")
-        return {"final_answer": final_message}
-        
-    except Exception as e:
-        logger.error(f"Agent execution failed during LLM/Tool invocation: {e}")
-        return {"final_answer": "Error: Failed to process the GDB query with the provided tools."}
+        injected: dict = (config.get("configurable") or {}).get("location") or {}
+
+        lat  = injected.get("latitude")  or latitude
+        lon  = injected.get("longitude") or longitude
+        addr = injected.get("address")   or address
+
+        context = f"""
+Location Context:
+- Address  : {addr or "unknown"}
+- Latitude : {lat or "unknown"}
+- Longitude: {lon or "unknown"}
+
+Query: {query}
+        """.strip()
+
+        system_text = sub_agent_system_prompt_with_thread_location(GDB_SYSTEM_PROMPT, config)
+        agent = await _get_gdb_agent()
+        result = await agent.ainvoke(
+            {
+                "messages": [
+                    SystemMessage(content=system_text),
+                    HumanMessage(content=context),
+                ]
+            },
+            config=config,
+        )
+        return result["messages"][-1].content
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("gdb sub-agent failed: %s", exc)
+        return f"⚠️ The database service is temporarily unavailable. Error: {type(exc).__name__}"
