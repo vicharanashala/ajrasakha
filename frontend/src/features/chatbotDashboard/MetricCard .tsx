@@ -323,6 +323,11 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
                 ))}
               </div>
             )}
+            {kpi.id === 'totalInstalls' && (
+              <div className="mt-1 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#252525] p-2.5 rounded-lg border border-gray-100 dark:border-[#333]">
+                Represents users who submitted a farmer profile out of total users (overall install count).
+              </div>
+            )}
           </div>
         </CardContent>
 

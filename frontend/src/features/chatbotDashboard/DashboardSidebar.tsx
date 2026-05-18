@@ -7,6 +7,7 @@ import type { DateRange } from "react-day-picker";
 import { Download, Loader2, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ChatbotService } from "@/hooks/services/chatbotService";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -178,7 +179,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 }) => {
     const [segmentsExpanded, setSegmentsExpanded] = useState<boolean>(false);
     const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
-    const [collapsed, setCollapsed] = useState<boolean>(() => window.innerWidth <= MOBILE_BREAKPOINT);
+    const [collapsed, setCollapsed] = useState<boolean>(true);
     const [isMobile, setIsMobile] = useState<boolean>(() => window.innerWidth <= MOBILE_BREAKPOINT);
     const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
     const [downloadDateRange, setDownloadDateRange] = useState<DateRange | undefined>(undefined);
@@ -445,29 +446,41 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                         <div className="w-1 h-1 rounded-full bg-(--border)" />
                     </div>
                 )}
-                <div
-                    onClick={() => setIsDownloadDialogOpen(true)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === "Enter" && setIsDownloadDialogOpen(true)}
-                    title={collapsed && !isMobile ? "Download Excel" : undefined}
-                    className={`
-                        group relative flex items-center cursor-pointer select-none
-                        transition-all duration-150
-                        ${collapsed && !isMobile
-                            ? "mx-2 my-0.5 rounded-lg justify-center px-0 py-2.5"
-                            : "px-3 py-2 mx-2 my-0.5 rounded-lg gap-2.5 text-[13px]"
-                        }
-                        text-(--muted-foreground) hover:bg-[#EAF6EC] dark:hover:bg-[#1a3a24] hover:text-[#1E7A3C] dark:hover:text-[#4adc64]
-                    `}
-                >
-                    <span className="shrink-0 flex items-center scale-75 md:scale-100">
-                        <Download size={16} />
-                    </span>
-                    {!(collapsed && !isMobile) && (
+                {collapsed && !isMobile ? (
+                    <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div
+                                    onClick={() => setIsDownloadDialogOpen(true)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => e.key === "Enter" && setIsDownloadDialogOpen(true)}
+                                    className="group relative flex items-center cursor-pointer select-none transition-all duration-150 mx-2 my-0.5 rounded-lg justify-center px-0 py-2.5 text-(--muted-foreground) hover:bg-[#EAF6EC] dark:hover:bg-[#1a3a24] hover:text-[#1E7A3C] dark:hover:text-[#4adc64]"
+                                >
+                                    <span className="shrink-0 flex items-center scale-75 md:scale-100">
+                                        <Download size={16} />
+                                    </span>
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="z-[100] font-medium shadow-md">
+                                Download Excel
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                ) : (
+                    <div
+                        onClick={() => setIsDownloadDialogOpen(true)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === "Enter" && setIsDownloadDialogOpen(true)}
+                        className="group relative flex items-center cursor-pointer select-none transition-all duration-150 px-3 py-2 mx-2 my-0.5 rounded-lg gap-2.5 text-[13px] text-(--muted-foreground) hover:bg-[#EAF6EC] dark:hover:bg-[#1a3a24] hover:text-[#1E7A3C] dark:hover:text-[#4adc64]"
+                    >
+                        <span className="shrink-0 flex items-center scale-75 md:scale-100">
+                            <Download size={16} />
+                        </span>
                         <span className="flex-1 leading-snug font-medium">Download Excel</span>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* ── HEALTH SCORE FOOTER ── */}
@@ -614,58 +627,76 @@ interface NavItemRowProps {
 const NavItemRow: React.FC<NavItemRowProps> = ({
     label, icon, badge, badgeVariant = "red",
     active, expandable, expanded, collapsed = false, onClick,
-}) => (
-    <div
-        onClick={onClick}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === "Enter" && onClick()}
-        title={collapsed ? label : undefined}
-        className={`
-            group relative flex items-center cursor-pointer select-none
-            transition-all duration-150
-            ${collapsed
-                ? "mx-2 my-0.5 rounded-lg justify-center px-0 py-2.5"
-                : "px-3 py-2 mx-2 my-0.5 rounded-lg gap-2.5 text-[13px]"
-            }
-            ${active
-                ? "bg-[#EAF6EC] dark:bg-[#1a3a24] text-[#1E7A3C] dark:text-[#4adc64] font-medium"
-                : "text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground)"
-            }
-        `}
-    >
-        {active && (
-            <span className={`
-                absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#3AAA5A]
-                ${collapsed ? "-left-2" : "-left-3"}
-            `} />
-        )}
+}) => {
+    const content = (
+        <div
+            onClick={onClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === "Enter" && onClick()}
+            className={`
+                group relative flex items-center cursor-pointer select-none
+                transition-all duration-150
+                ${collapsed
+                    ? "mx-2 my-0.5 rounded-lg justify-center px-0 py-2.5"
+                    : "px-3 py-2 mx-2 my-0.5 rounded-lg gap-2.5 text-[13px]"
+                }
+                ${active
+                    ? "bg-[#EAF6EC] dark:bg-[#1a3a24] text-[#1E7A3C] dark:text-[#4adc64] font-medium"
+                    : "text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground)"
+                }
+            `}
+        >
+            {active && (
+                <span className={`
+                    absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#3AAA5A]
+                    ${collapsed ? "-left-2" : "-left-3"}
+                `} />
+            )}
 
-        <span className="shrink-0 flex items-center scale-75 md:scale-100">{icon}</span>
+            <span className="shrink-0 flex items-center scale-75 md:scale-100">{icon}</span>
 
-        {!collapsed && (
-            <>
-                <span className="flex-1 leading-snug">{label}</span>
-                {badge && (
-                    <span className={`text-[10px] font-medium px-1.5 py-px rounded-full text-white leading-none ${badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}`}>
-                        {badge}
-                    </span>
-                )}
-                {expandable && (
-                    <svg width={12} height={12} viewBox="0 0 12 12" fill="none"
-                        className={`shrink-0 transition-transform duration-200 ease-in-out ${expanded ? "rotate-180" : "rotate-0"}`}
-                    >
-                        <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                )}
-            </>
-        )}
+            {!collapsed && (
+                <>
+                    <span className="flex-1 leading-snug">{label}</span>
+                    {badge && (
+                        <span className={`text-[10px] font-medium px-1.5 py-px rounded-full text-white leading-none ${badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}`}>
+                            {badge}
+                        </span>
+                    )}
+                    {expandable && (
+                        <svg width={12} height={12} viewBox="0 0 12 12" fill="none"
+                            className={`shrink-0 transition-transform duration-200 ease-in-out ${expanded ? "rotate-180" : "rotate-0"}`}
+                        >
+                            <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                    )}
+                </>
+            )}
 
-        {collapsed && badge && (
-            <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}`} />
-        )}
-    </div>
-);
+            {collapsed && badge && (
+                <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}`} />
+            )}
+        </div>
+    );
+
+    if (collapsed) {
+        return (
+            <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        {content}
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="z-[100] font-medium shadow-md">
+                        {label}
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        );
+    }
+
+    return content;
+};
 
 // ─── CHILD NAV ITEM ROW ───────────────────────────────────────────────────────
 

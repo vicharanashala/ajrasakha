@@ -173,13 +173,13 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala', onSou
             ) : (
               <div className="flex-1 overflow-y-auto px-5 pb-5">
                 {/* Source Selection Tabs */}
-                <div className="flex items-center gap-2 border-b border-gray-200 dark:border-[#2a2a2a] pb-3 mb-5 pt-3">
+                <div className="flex items-center gap-2 border-b border-border pb-3 mb-5 pt-3">
                   <button
                     onClick={() => onSourceChange?.('vicharanashala')}
                     className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       source === 'vicharanashala'
-                        ? 'bg-green-500 text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                     }`}
                   >
                     Vicharanashala
@@ -188,15 +188,15 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala', onSou
                     onClick={() => onSourceChange?.('annam')}
                     className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       source === 'annam'
-                        ? 'bg-green-500 text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                     }`}
                   >
                     Annam
                   </button>
                   <button
                     disabled
-                    className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                    className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
                   >
                     Outreach
                   </button>
@@ -526,12 +526,14 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala', onSou
             )}
           </div>
 
+          {/* Commented out footer as requested:
           <StatusBar
             lastSync={data.meta.lastSync}
             datasetVersion={data.meta.datasetVersion}
             llmVersion={data.meta.llmVersion}
             p0Bugs={data.meta.p0Bugs}
           />
+          */}
         </>
       )}
     </div>
