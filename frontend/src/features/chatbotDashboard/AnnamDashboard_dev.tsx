@@ -32,6 +32,7 @@ import { useInView } from "@/hooks/useInView";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import { Maximize2, X } from "lucide-react";
 import { createPortal } from "react-dom";
+import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -42,7 +43,7 @@ const DEFAULT_FILTERS: DashboardFilterValues = {
   userType: "all",
 };
 
-export function AnnamDashboard_dev({ className, source = 'vicharanashala', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam'; onSourceChange?: (source: 'vicharanashala' | 'annam') => void }) {
+export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam'; onSourceChange?: (source: 'vicharanashala' | 'annam') => void }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [filters, setFilters] =
@@ -216,32 +217,44 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala', onSou
               />
             ) : (
               <div className="flex-1 overflow-y-auto px-5 pb-5">
-                {/* Source Selection Tabs */}
-                <div className="flex items-center gap-2 border-b border-border pb-3 mb-5 pt-3">
-                  <button
-                    onClick={() => onSourceChange?.('vicharanashala')}
-                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'vicharanashala'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                      }`}
-                  >
-                    Vicharanashala
-                  </button>
-                  <button
-                    onClick={() => onSourceChange?.('annam')}
-                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'annam'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                      }`}
-                  >
-                    Annam
-                  </button>
-                  <button
-                    disabled
-                    className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
-                  >
-                    Outreach
-                  </button>
+                {/* Source Selection Tabs & All Users Filter */}
+                <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onSourceChange?.('annam')}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'annam'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        }`}
+                    >
+                      Annam
+                    </button>
+                    <button
+                      onClick={() => onSourceChange?.('vicharanashala')}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'vicharanashala'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        }`}
+                    >
+                      Vicharanashala
+                    </button>
+                    <button
+                      disabled
+                      className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
+                    >
+                      Outreach
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <SearchableSelect
+                      options={['External', 'Internal']}
+                      value={filters.userType === 'all' ? 'all' : filters.userType.charAt(0).toUpperCase() + filters.userType.slice(1)}
+                      onChange={(v) => setFilters(prev => ({ ...prev, userType: (v === 'all' ? 'all' : v.toLowerCase()) as DashboardFilterValues['userType'] }))}
+                      placeholder="All Users"
+                      className="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
+                      activeClassName="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
+                    />
+                  </div>
                 </div>
 
                 <DashboardFilters

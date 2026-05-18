@@ -1,7 +1,7 @@
+import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 /* Commented out unused imports to avoid lint warnings:
 import { CROPS, SEASONS, VILLAGES } from "@/components/MetaData";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
-import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import { Button } from "@/components/atoms/button";
 import { Download, RefreshCcw, Share2 } from "lucide-react";
 */
@@ -22,14 +22,17 @@ interface DashboardFiltersProps {
 }
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
-export function DashboardFilters({ filters }: DashboardFiltersProps) {
-  const { village, crop, season, startTime, endTime } = filters;
+export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersProps) {
+  const { village, crop, season, startTime, endTime, userType } = filters;
 
-  /* Commented out unused handlers and styles to avoid lint warnings:
   const handleChange = (overrides: Partial<DashboardFilterValues>) => {
     onFilterChange({ ...filters, ...overrides });
   };
 
+  const activeSelect =
+    "text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]";
+
+  /* Commented out unused handlers and styles to avoid lint warnings:
   const handleDateChange = (key: string, value: any) => {
     handleChange({ [key]: value });
   };
@@ -55,9 +58,6 @@ export function DashboardFilters({ filters }: DashboardFiltersProps) {
 
   const baseSelect =
     "text-sm h-10 px-3 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2a2a2a]";
-
-  const activeSelect =
-    "text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]";
   */
 
   const getSubtitle = () => {
@@ -85,7 +85,7 @@ export function DashboardFilters({ filters }: DashboardFiltersProps) {
             {getSubtitle()}
           </p>
         </div>
-        {/* Commented out action buttons as requested:
+        {/* Commented out All Users and action buttons since All Users moved next to tabs:
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
           <SearchableSelect
             options={['External', 'Internal']}

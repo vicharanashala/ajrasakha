@@ -53,7 +53,7 @@ export const PlaygroundPage = () => {
   const [activeTab, setActiveTab] = useState<string>("all_questions");
   const [chatbotSource, setChatbotSource] = useState<
     "vicharanashala" | "annam"
-  >("vicharanashala");
+  >("annam");
   const getStorageKey = (user?: { email?: string }) => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
@@ -363,7 +363,7 @@ export const PlaygroundPage = () => {
               <TabsContent
                 value="chatbotanalytics"
                 className={cn(
-                  "mt-0 border-0 md:px-8 outline-none",
+                  "mt-0 border-0 md:px-4 px-4 outline-none",
                   "data-[state=active]:animate-in",
                   "data-[state=active]:fade-in-0",
                   "data-[state=active]:zoom-in-[0.98]",
