@@ -14,6 +14,8 @@ export interface KpiSummary {
   inactiveUsersLast3Days: number; // users with zero messages in the last 3 days
   duplicateQuestionsCount: number; // questions with a similarityScore field
   lowFeedbackUsersCount: number; // users who have never given any feedback (no feedback object in messages)
+  avgQuestionsPerUserDay?: number;
+  repeatQueryCount?: number;
 }
 
 export interface DuplicateQuestionEntry {
@@ -149,7 +151,13 @@ export interface DomainSpikeEntry {
 
 export interface IChatbotRepository {
   /** Aggregated KPI summary for the current day. */
-  getKpiSummary(source?: string, session?: ClientSession, userType?: string): Promise<KpiSummary>;
+  getKpiSummary(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<KpiSummary>;
 
   /** Daily unique active users over the last `days` days. */
   getDailyActiveUsers(
@@ -267,6 +275,33 @@ export interface IChatbotRepository {
 
   /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
   getDomainSpikes(days?: number, session?: ClientSession): Promise<DomainSpikeEntry[]>;
+
+  /** Daily unique vs duplicate questions asked on the review system (source AJRASAKHA). */
+  getDailyQuestionTrends(
+    days?: number,
+    session?: ClientSession,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
+
+  /** 10 most frequently asked questions from the messages collection. */
+  getTopFaqs(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ question: string; count: number }>>;
+
+  /** 10 most frequently asked questions from the questions collection. */
+  getTopQuestionsFromCollection(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ question: string; count: number }>>;
 }
 
 export interface ChatbotConversationData {

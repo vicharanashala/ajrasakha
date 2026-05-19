@@ -99,6 +99,24 @@ export class KpiSummaryResponse {
   })
   @IsNumber()
   lowFeedbackUsersCount: number;
+
+  @JSONSchema({
+    description: 'Average questions asked per user per day',
+    example: 1.45,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  avgQuestionsPerUserDay?: number;
+
+  @JSONSchema({
+    description: 'Total number of repeated queries',
+    example: 450,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  repeatQueryCount?: number;
 }
 
 // ─── Daily Active Users Entry ─────────────────────────────────────────────────
@@ -394,6 +412,59 @@ export class PaginatedUserDetailsResponse {
   totalQuestions: number;
 }
 
+// ─── Daily Question Trend Entry ───────────────────────────────────────────────
+
+export class DailyQuestionTrendEntryResponse {
+  @JSONSchema({
+    description: 'Date in YYYY-MM-DD format',
+    example: '2025-01-15',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  day: string;
+
+  @JSONSchema({
+    description: 'Number of unique questions asked on this day',
+    example: 124,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  uniqueCount: number;
+
+  @JSONSchema({
+    description: 'Number of duplicate questions asked on this day',
+    example: 32,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  duplicateCount: number;
+}
+
+// ─── Top FAQ Entry ────────────────────────────────────────────────────────────
+
+export class TopFaqEntryResponse {
+  @JSONSchema({
+    description: 'The user message/question text',
+    example: 'What is the best fertilizer for tomato plants?',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  question: string;
+
+  @JSONSchema({
+    description: 'Frequency of this question',
+    example: 45,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  count: number;
+}
+
 // ─── Dashboard Response ─────────────────────────────────────────────────────────
 
 export class DashboardResponseSchema {
@@ -493,6 +564,39 @@ export class DashboardResponseSchema {
   @ValidateNested({ each: true })
   @Type(() => WeeklyQueryCountEntryResponse)
   weeklyQueries: WeeklyQueryCountEntryResponse[];
+
+  @JSONSchema({
+    description: 'Daily unique vs duplicate question trends asked by users',
+    type: 'array',
+    items: { type: 'object' },
+    readOnly: true,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DailyQuestionTrendEntryResponse)
+  dailyQuestionTrends: DailyQuestionTrendEntryResponse[];
+
+  @JSONSchema({
+    description: '10 most frequently asked questions leaderboard',
+    type: 'array',
+    items: { type: 'object' },
+    readOnly: true,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TopFaqEntryResponse)
+  topFaqs: TopFaqEntryResponse[];
+
+  @JSONSchema({
+    description: '10 most frequently asked questions from the questions collection',
+    type: 'array',
+    items: { type: 'object' },
+    readOnly: true,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TopFaqEntryResponse)
+  topQuestionsFromCollection: TopFaqEntryResponse[];
 }
 
 // ─── Top Crops Response ───────────────────────────────────────────────────────
@@ -557,4 +661,6 @@ export const CHATBOT_RESPONSE_VALIDATORS = [
   DashboardResponseSchema,
   TopCropEntryResponse,
   TopCropsResponse,
+  DailyQuestionTrendEntryResponse,
+  TopFaqEntryResponse,
 ];

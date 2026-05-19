@@ -220,6 +220,8 @@ export class ChatbotRepository implements IChatbotRepository {
     source = 'vicharanashala',
     session?: ClientSession,
     userType = 'all',
+    startTime?: string,
+    endTime?: string,
   ): Promise<KpiSummary> {
     try {
       await this.init(source);
@@ -374,18 +376,118 @@ export class ChatbotRepository implements IChatbotRepository {
         ).length;
       }
 
+      // Construct matches based on startTime and endTime if provided
+      const queryMatch: any = { 
+        isCreatedByUser: true, 
+        text: { $exists: true, $ne: null, $nin: ['', ' '] } 
+      };
+      if (startTime || endTime) {
+        queryMatch.createdAt = {};
+        if (startTime) {
+          queryMatch.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          queryMatch.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      // Calculate repeatQueryCount from messages (trim, lowercase, aggregate repeat counts)
+      const repeatQueryRaw = await this.messagesCollection.aggregate([
+        { $match: queryMatch },
+        ...userTypeLookupStages,
+        {
+          $group: {
+            _id: { $toLower: { $trim: { input: '$text' } } },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $match: { count: { $gt: 1 } }
+        },
+        {
+          $group: {
+            _id: null,
+            totalRepeats: { $sum: { $subtract: ['$count', 1] } }
+          }
+        }
+      ], { session }).toArray();
+      const repeatQueryCount = repeatQueryRaw[0]?.totalRepeats ?? 0;
+
+      // Count total queries to get percentage
+      const totalQueriesRaw = await this.messagesCollection.aggregate([
+        { $match: queryMatch },
+        ...userTypeLookupStages,
+        { $count: "count" }
+      ], { session }).toArray();
+      const totalQueries = totalQueriesRaw[0]?.count ?? 0;
+      const repeatQueryRatePct = totalQueries > 0
+        ? Math.round((repeatQueryCount / totalQueries) * 100 * 10) / 10
+        : 0;
+
+      // Avg questions per user per day over the filtered range (or default to last 30 days)
+      const avgQuestionsMatch: any = { 
+        isCreatedByUser: true, 
+        text: { $exists: true, $ne: null, $nin: ['', ' '] } 
+      };
+      if (startTime || endTime) {
+        avgQuestionsMatch.createdAt = {};
+        if (startTime) {
+          avgQuestionsMatch.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          avgQuestionsMatch.createdAt.$lte = new Date(endTime);
+        }
+      } else {
+        const since30Days = new Date();
+        since30Days.setDate(since30Days.getDate() - 30);
+        since30Days.setHours(0, 0, 0, 0);
+        avgQuestionsMatch.createdAt = { $gte: since30Days };
+      }
+
+      const avgQuestionsRaw = await this.messagesCollection.aggregate([
+        { $match: avgQuestionsMatch },
+        ...userTypeLookupStages,
+        {
+          $group: {
+            _id: {
+              day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+              user: '$user'
+            },
+            userDailyCount: { $sum: 1 }
+          }
+        },
+        {
+          $group: {
+            _id: '$_id.day',
+            dayTotalQuestions: { $sum: '$userDailyCount' },
+            dayUniqueUsers: { $sum: 1 }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            avgQuestionsPerUserDay: {
+              $avg: { $divide: ['$dayTotalQuestions', '$dayUniqueUsers'] }
+            }
+          }
+        }
+      ], { session }).toArray();
+      const avgQuestionsPerUserDay = avgQuestionsRaw[0]?.avgQuestionsPerUserDay ?? 0;
+
       return {
         dau: totalUsers,
         dauLastMonthPct,
         dailyQueries: todayQueryCount,
         avgSessionDurationMin: Math.round((avgMs / 60000) * 10) / 10,
         csatRating: 0,
-        repeatQueryRatePct: 0,
+        repeatQueryRatePct,
         voiceUsageSharePct: 0,
         totalAppInstalls,
         inactiveUsersLast3Days: Math.max(0, totalUsers - activeCount),
         duplicateQuestionsCount,
         lowFeedbackUsersCount: Math.max(0, totalUsers - feedbackCount),
+        avgQuestionsPerUserDay: Math.round(avgQuestionsPerUserDay * 100) / 100,
+        repeatQueryCount,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get KPI summary: ${error}`);
@@ -2275,6 +2377,222 @@ export class ChatbotRepository implements IChatbotRepository {
       return spikes.slice(0, 50);
     } catch (error) {
       throw new InternalServerError(`Failed to get domain spikes: ${error}`);
+    }
+  }
+
+  async getDailyQuestionTrends(
+    days = 30,
+    session?: ClientSession,
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>> {
+    try {
+      await this.initReviewSystem();
+
+      const matchQuery: any = {
+        source: 'AJRASAKHA',
+      };
+
+      if (startTime || endTime) {
+        matchQuery.createdAt = {};
+        if (startTime) {
+          matchQuery.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          matchQuery.createdAt.$lte = new Date(endTime);
+        }
+      } else {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+        since.setHours(0, 0, 0, 0);
+        matchQuery.createdAt = { $gte: since };
+      }
+
+      const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
+
+      const result = await this.QuestionCollection.aggregate([
+        {
+          $match: matchQuery,
+        },
+        ...userTypeLookupStages,
+        {
+          $group: {
+            _id: {
+              day: {
+                $dateToString: {
+                  format: '%Y-%m-%d',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+              isDuplicate: {
+                $cond: [
+                  { $eq: ['$status', 'duplicate'] },
+                  'duplicate',
+                  'unique',
+                ],
+              },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $group: {
+            _id: '$_id.day',
+            uniqueCount: {
+              $sum: {
+                $cond: [{ $eq: ['$_id.isDuplicate', 'unique'] }, '$count', 0],
+              },
+            },
+            duplicateCount: {
+              $sum: {
+                $cond: [{ $eq: ['$_id.isDuplicate', 'duplicate'] }, '$count', 0],
+              },
+            },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ], { session }).toArray();
+
+      return result.map((r) => ({
+        day: r._id,
+        uniqueCount: r.uniqueCount,
+        duplicateCount: r.duplicateCount,
+      }));
+    } catch (error) {
+      throw new InternalServerError(`Failed to get daily question trends: ${error}`);
+    }
+  }
+
+  async getTopFaqs(
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ question: string; count: number }>> {
+    try {
+      await this.init(source);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const queryMatch: any = {
+        isCreatedByUser: true,
+        text: { $exists: true, $ne: null, $nin: ['', ' '] }
+      };
+
+      if (startTime || endTime) {
+        queryMatch.createdAt = {};
+        if (startTime) {
+          queryMatch.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          queryMatch.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      const result = await this.messagesCollection.aggregate([
+        {
+          $match: queryMatch
+        },
+        ...userTypeLookupStages,
+        {
+          $group: {
+            _id: { $trim: { input: '$text' } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ], { session }).toArray();
+
+      return result.map(r => ({
+        question: r._id,
+        count: r.count
+      }));
+    } catch (error) {
+      throw new InternalServerError(`Failed to get top FAQs: ${error}`);
+    }
+  }
+
+  async getTopQuestionsFromCollection(
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ question: string; count: number }>> {
+    try {
+      await this.initReviewSystem();
+      
+      const matchQuery: any = {
+        source: 'AJRASAKHA',
+      };
+
+      if (startTime || endTime) {
+        matchQuery.createdAt = {};
+        if (startTime) {
+          matchQuery.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          matchQuery.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
+
+      const result = await this.QuestionCollection.aggregate([
+        {
+          $match: matchQuery,
+        },
+        ...userTypeLookupStages,
+        {
+          $project: {
+            resolvedId: { $ifNull: ['$referenceQuestionId', '$_id'] },
+            question: 1,
+          }
+        },
+        {
+          $group: {
+            _id: '$resolvedId',
+            count: { $sum: 1 },
+            firstQuestion: { $first: '$question' }
+          }
+        },
+        {
+          $lookup: {
+            from: 'questions',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'originalDoc'
+          }
+        },
+        {
+          $project: {
+            question: {
+              $ifNull: [
+                { $arrayElemAt: ['$originalDoc.question', 0] },
+                '$firstQuestion'
+              ]
+            },
+            count: 1
+          }
+        },
+        {
+          $match: {
+            question: { $exists: true, $ne: null, $nin: ['', ' '] }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ], { session }).toArray();
+
+      return result.map(r => ({
+        question: r.question,
+        count: r.count
+      }));
+    } catch (error) {
+      throw new InternalServerError(`Failed to get top questions from collection: ${error}`);
     }
   }
 }

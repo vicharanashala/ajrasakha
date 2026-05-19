@@ -19,6 +19,16 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsIn(['all', 'external', 'internal'])
   userType: 'all' | 'external' | 'internal' = 'all';
+
+  @JSONSchema({ example: '2026-05-18T10:00:00Z', description: 'Filter start time (ISO string)' })
+  @IsOptional()
+  @IsString()
+  startTime?: string;
+
+  @JSONSchema({ example: '2026-05-19T10:00:00Z', description: 'Filter end time (ISO string)' })
+  @IsOptional()
+  @IsString()
+  endTime?: string;
 }
 
 export class SourceQueryDto {
