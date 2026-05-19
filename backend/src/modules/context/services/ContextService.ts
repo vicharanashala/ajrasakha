@@ -2,11 +2,12 @@ import {IContextRepository} from '#root/shared/database/interfaces/IContextRepos
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
-import {ClientSession, ObjectId} from 'mongodb';
+import {ClientSession} from 'mongodb';
 import {IContext} from '#root/shared/interfaces/models.js';
 import {InternalServerError, BadRequestError} from 'routing-controllers';
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 import { IContextService } from '../interfaces/IContextService.js';
+import { appConfig } from '#root/config/app.js';
 
 @injectable()
 export class ContextService extends BaseService implements IContextService {
@@ -66,5 +67,53 @@ export class ContextService extends BaseService implements IContextService {
     } catch (error) {
       throw new InternalServerError(`Failed to get context: ${error}`);
     }
+  }
+
+  async translate(
+    text: string,
+    targetLang: string,
+    sourceLang?: string,
+  ): Promise<{ translated_text: string }> {
+    const apiKey = appConfig.sarvamAPI;
+    if (!apiKey) throw new BadRequestError('Sarvam API key not configured');
+    if (!text?.trim()) throw new BadRequestError('text is required');
+    if (!targetLang) throw new BadRequestError('targetLang is required');
+
+    // Languages exclusive to sarvam-translate:v1
+    const SARVAM_ONLY_LANGS = new Set([
+      'as-IN', 'brx-IN', 'doi-IN', 'kok-IN',
+      'ks-IN', 'mai-IN', 'mni-IN', 'ne-IN',
+      'sa-IN', 'sat-IN', 'sd-IN', 'ur-IN',
+    ]);
+
+    const useSarvamModel = SARVAM_ONLY_LANGS.has(targetLang);
+    const model = useSarvamModel ? 'sarvam-translate:v1' : 'mayura:v1';
+    const source_language_code = useSarvamModel ? (sourceLang ?? 'en-IN') : 'auto';
+
+    const response = await fetch('https://api.sarvam.ai/translate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-subscription-key': apiKey,
+      },
+      body: JSON.stringify({
+        input: text,
+        source_language_code,
+        target_language_code: targetLang,
+        model,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => response.statusText);
+      throw new InternalServerError(`Sarvam API error ${response.status}: ${body}`);
+    }
+
+    const data = await response.json() as { translated_text?: string };
+    if (!data?.translated_text) {
+      throw new InternalServerError('Sarvam API returned empty translation');
+    }
+
+    return { translated_text: data.translated_text };
   }
 }

@@ -9,6 +9,7 @@ import {
   Req,
   UploadedFile,
   UseBefore,
+  Get,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -69,5 +70,15 @@ export class ContextController {
     const {transcript} = body;
     const userId = user._id.toString();
     return this.contextService.addContext(userId, transcript);
+  }
+
+  @Post('/translate')
+  @HttpCode(200)
+  @Authorized()
+  async translate(
+    @Body() body: { text: string; targetLang: string; sourceLang?: string },
+  ): Promise<{ translated_text: string }> {
+    const { text, targetLang, sourceLang } = body;
+    return this.contextService.translate(text, targetLang, sourceLang);
   }
 }
