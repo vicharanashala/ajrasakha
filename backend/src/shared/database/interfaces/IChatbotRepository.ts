@@ -61,6 +61,11 @@ export interface WeeklySessionDurationEntry {
   avgSessionDurationMin: number;
 }
 
+export interface MonthlySessionDurationEntry {
+  month: string; // 'YYYY-MM'
+  avgSessionDurationMin: number;
+}
+
 export interface DailyQueryCountEntry {
   day: string; // 'YYYY-MM-DD'
   count: number;
@@ -232,6 +237,13 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<WeeklySessionDurationEntry[]>;
+
+  getMonthlyAvgSessionDuration(
+    weeks?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<MonthlySessionDurationEntry[]>;
 
   /** Get all users with their question counts, optionally filtered by date range, with server-side pagination. */
   getUserDetails(

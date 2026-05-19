@@ -24,6 +24,7 @@ import type {
   PlatformInstallEntry,
   DuplicateQuestionEntry,
   MonthlyQueryCountEntry,
+  MonthlySessionDurationEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -1560,6 +1561,182 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
+
+  async getMonthlyAvgSessionDuration(
+  months = 12,
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+): Promise<MonthlySessionDurationEntry[]> {
+  try {
+    await this.init(source);
+
+    const since = new Date();
+    since.setMonth(since.getMonth() - months);
+
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
+
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              createdAt: {$gte: since},
+            },
+          },
+
+          ...userTypeLookupStages,
+
+          {
+            $sort: {
+              conversationId: 1,
+              createdAt: 1,
+            },
+          },
+
+          {
+            $setWindowFields: {
+              partitionBy: '$conversationId',
+
+              sortBy: {
+                createdAt: 1,
+              },
+
+              output: {
+                prevCreatedAt: {
+                  $shift: {
+                    output: '$createdAt',
+                    by: -1,
+                  },
+                },
+
+                firstMsgInConv: {
+                  $first: '$createdAt',
+
+                  window: {
+                    documents: ['unbounded', 'current'],
+                  },
+                },
+              },
+            },
+          },
+
+          {
+            $addFields: {
+              gapMs: {
+                $cond: [
+                  {$ifNull: ['$prevCreatedAt', false]},
+
+                  {
+                    $subtract: [
+                      '$createdAt',
+                      '$prevCreatedAt',
+                    ],
+                  },
+
+                  0,
+                ],
+              },
+            },
+          },
+
+          // Ignore inactive gaps > 30 mins
+          {
+            $addFields: {
+              activeGapMs: {
+                $cond: [
+                  {$lte: ['$gapMs', 1800000]},
+                  '$gapMs',
+                  0,
+                ],
+              },
+            },
+          },
+
+          {
+            $group: {
+              _id: '$conversationId',
+
+              activeSessionMs: {
+                $sum: '$activeGapMs',
+              },
+
+              firstMsg: {
+                $min: '$firstMsgInConv',
+              },
+
+              msgCount: {
+                $sum: 1,
+              },
+            },
+          },
+
+          // Ignore single-message conversations
+          {
+            $match: {
+              msgCount: {$gt: 1},
+            },
+          },
+
+          // MONTH GROUPING
+          {
+            $addFields: {
+              month: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$firstMsg',
+                  timezone: '+05:30',
+                },
+              },
+            },
+          },
+
+          {
+            $group: {
+              _id: '$month',
+
+              avgDurationMs: {
+                $avg: '$activeSessionMs',
+              },
+            },
+          },
+
+          {
+            $project: {
+              month: '$_id',
+
+              avgSessionDurationMin: {
+                $round: [
+                  {
+                    $divide: ['$avgDurationMs', 60000],
+                  },
+                  1,
+                ],
+              },
+
+              _id: 0,
+            },
+          },
+
+          {
+            $sort: {
+              month: 1,
+            },
+          },
+        ],
+        {session},
+      )
+      .toArray();
+
+    return result as MonthlySessionDurationEntry[];
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get monthly avg session duration: ${error}`,
+    );
+  }
+}
+
 
   async getUserDemographics(
     source = 'vicharanashala',

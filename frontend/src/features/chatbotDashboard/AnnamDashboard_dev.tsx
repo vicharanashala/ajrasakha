@@ -50,6 +50,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters, source);
+
+  console.log("Dashboard data:", data);
   const {
     data: dauTrend,
     isLoading: dauLoading,

@@ -22,7 +22,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDashboard(days = 30, source = 'vicharanashala', userType = 'all'): Promise<DashboardResponse> {
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes] =
+      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, monthlySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes] =
         await Promise.all([
           this.chatbotRepository.getKpiSummary(source, undefined, userType),
           this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType),
@@ -36,6 +36,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getMonthlyQueryCounts(source, undefined, userType),
           this.chatbotRepository.getAvgSessionDurationV2(source, undefined, userType),
           this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source, undefined, userType),
+          this.chatbotRepository.getMonthlyAvgSessionDuration(Math.ceil(days / 30), source, undefined, userType),
           this.chatbotRepository.getUserDemographics(source, undefined, userType),
           this.chatbotRepository.getKccAndAgriAppStats(source, undefined, userType),
           this.chatbotRepository.getPlatformInstalls(source),
@@ -54,6 +55,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         dailyQueries,
         weeklyQueries,
         monthlyQueries: monthlyQueries,
+        monthlySessionDuration,
         ageGroups: demographics.ageGroups,
         genderSplit: demographics.genderSplit,
         farmingExperience: demographics.farmingExperience,

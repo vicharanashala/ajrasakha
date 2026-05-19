@@ -15,6 +15,7 @@ import type {
   DuplicateQuestionEntry,
   DomainSpikeEntry,
   MonthlyQueryCountEntry,
+  MonthlySessionDurationEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -26,6 +27,7 @@ export interface DashboardResponse {
   geo: GeoStateEntry[];
   queryCategories: QueryCategoryEntry[];
   weeklySessionDuration: WeeklySessionDurationEntry[];
+  monthlySessionDuration: MonthlySessionDurationEntry[];
   dailyQueries: DailyQueryCountEntry[];
   weeklyQueries: WeeklyQueryCountEntry[];
   monthlyQueries: MonthlyQueryCountEntry[];
