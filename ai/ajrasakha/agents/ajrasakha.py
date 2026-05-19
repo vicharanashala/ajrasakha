@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-from typing import Annotated, Optional
+from typing import Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -10,31 +10,34 @@ from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig, patch_config
-from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
-from langgraph.prebuilt import ToolNode
 from langgraph.store.base import BaseStore
 from pydantic import BaseModel
-from typing_extensions import TypedDict
 
 from ajrasakha.agents.answer_quality import (
+    _looks_like_government_scheme_answer,
     ensure_two_hour_disclaimer,
     is_no_database_match_answer,
+    is_official_government_sourced_answer,
     is_sufficient_expert_answer,
+    should_preserve_official_tool_answer,
     strip_two_hour_disclaimer,
 )
-from ajrasakha.agents.chemical_checker_agent import chemical_checker
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
-from ajrasakha.agents.gdb_agent import gdb
 from ajrasakha.agents.location_context import (
     extract_location_updates_from_new_tool_messages,
     main_agent_location_context_message,
     merge_location_dict,
     merge_location_from_ai_tool_calls,
 )
-from ajrasakha.agents.market_agent import market
+from ajrasakha.agents.memory import load_long_term_summary
+from ajrasakha.agents.plan_executor import (
+    ensure_location_node,
+    execute_plan_node,
+    route_after_execute,
+)
+from ajrasakha.agents.planner import clarify_node, planner_node, route_after_planner
 from ajrasakha.agents.prompts import (
     EMPTY_GDB_REPLY,
     LLM_FALLBACK_MSG,
@@ -42,24 +45,11 @@ from ajrasakha.agents.prompts import (
     WARNING_TEXT,
     WHATSAPP_SYSTEM_PROMPT,
 )
-from ajrasakha.agents.schemes_agent import schemes
-from ajrasakha.agents.soil_agent import soil
-from ajrasakha.agents.weather_agent import weather
+from ajrasakha.agents.state import AjraSakhaState, Location
+from ajrasakha.agents.synthesizer import synthesize_node
+from ajrasakha.agents.tool_registry import get_main_tool_node
 
 load_dotenv()
-
-
-class Location(TypedDict):
-    latitude: Optional[float]
-    longitude: Optional[float]
-    city: Optional[str]
-    state: Optional[str]
-    address: Optional[str]
-
-
-class AjraSakhaState(TypedDict):
-    messages: Annotated[list[BaseMessage], add_messages]
-    location: Annotated[Optional[Location], merge_location_dict]
 
 
 MCP_SERVERS = {
@@ -72,31 +62,15 @@ MCP_SERVERS = {
 }
 
 _tools_cache: list | None = None
-_main_tool_node: ToolNode | None = None
 
 
-async def _get_main_tools() -> list:
-    """Specialist + MCP tools bound on the main agent (cached after first load)."""
-    location_mcp = await _get_location_tool()
-    reviewer_mcp = await _get_reviewer_tool()
-    return [
-        gdb,
-        weather,
-        soil,
-        market,
-        location_mcp,
-        schemes,
-        chemical_checker,
-        reviewer_mcp,
-    ]
+def use_planner_graph() -> bool:
+    return os.getenv("USE_PLANNER_GRAPH", "true").lower() in ("true", "1", "yes")
 
 
-async def _get_main_tool_node() -> ToolNode:
-    """Shared ToolNode — runs all tool_calls in a turn concurrently (asyncio.gather)."""
-    global _main_tool_node
-    if _main_tool_node is None:
-        _main_tool_node = ToolNode(await _get_main_tools())
-    return _main_tool_node
+async def _get_main_tools_legacy() -> list:
+    from ajrasakha.agents.tool_registry import get_main_tools
+    return await get_main_tools()
 
 
 async def _get_tools() -> list:
@@ -116,25 +90,6 @@ async def _get_tools() -> list:
     return _tools_cache
 
 
-_location_tool = None
-_reviewer_tool = None
-
-async def _get_location_tool():
-    global _location_tool
-    if _location_tool is None:
-        client = MultiServerMCPClient({"location_server": {"url": MCP_URLS["location"], "transport": "http"}})
-        tools = await client.get_tools()
-        _location_tool = tools[0]  # only one tool
-    return _location_tool
-
-async def _get_reviewer_tool():
-    global _reviewer_tool
-    if _reviewer_tool is None:
-        client = MultiServerMCPClient({"reviewer_server": {"url": MCP_URLS["reviewer"], "transport": "http"}})
-        tools = await client.get_tools()
-        _reviewer_tool = tools[0]  # only one tool
-    return _reviewer_tool
-
 # Sentinel returned by the gdb sub-agent (see GDB_SYSTEM_PROMPT rule 4) when
 # every retrieval path comes back empty.
 _GDB_EMPTY_SENTINEL = "NO_RELEVANT_CONTENT"
@@ -148,74 +103,18 @@ class _RelevanceCheck(BaseModel):
 logger = logging.getLogger(__name__)
 
 
-def _coerce_store_text(value: object) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value.strip()
-    if isinstance(value, dict):
-        for k in ("summary", "text", "content", "value"):
-            if k in value and isinstance(value[k], str):
-                return value[k].strip()
-    return ""
-
-
-async def _load_long_term_summary(store: BaseStore | None, config: RunnableConfig) -> str:
-    if store is None:
-        return ""
-
-    configurable = config.get("configurable") or {}
-    thread_id = configurable.get("thread_id") or configurable.get("thread")
-    user_id = configurable.get("user_id") or configurable.get("phone_number")
-
-    namespace = ("ajrasakha", "daily_summaries", str(user_id or "unknown_user"))
-
-    summary_parts: list[str] = []
-
-    # Try key-based lookup first when thread_id is available.
-    if thread_id:
-        maybe_get = getattr(store, "aget", None)
-        if callable(maybe_get):
-            item = await maybe_get(namespace, str(thread_id))
-            text = _coerce_store_text(getattr(item, "value", item))
-            if text:
-                summary_parts.append(text)
-        else:
-            maybe_sync_get = getattr(store, "get", None)
-            if callable(maybe_sync_get):
-                item = maybe_sync_get(namespace, str(thread_id))
-                text = _coerce_store_text(getattr(item, "value", item))
-                if text:
-                    summary_parts.append(text)
-
-    # Fall back to recent stored memories.
-    if not summary_parts:
-        maybe_search = getattr(store, "asearch", None)
-        if callable(maybe_search):
-            results = await maybe_search(namespace, limit=5)
-        else:
-            maybe_sync_search = getattr(store, "search", None)
-            results = maybe_sync_search(namespace, limit=5) if callable(maybe_sync_search) else []
-        for item in results or []:
-            text = _coerce_store_text(getattr(item, "value", item))
-            if text:
-                summary_parts.append(text)
-
-    return "\n".join(summary_parts[:3]).strip()
-
-
 async def ajrasakha_node(
     state: AjraSakhaState,
     config: RunnableConfig,
     *,
     store: BaseStore | None = None,
 ) -> dict:
-    main_tools = await _get_main_tools()
+    main_tools = await _get_main_tools_legacy()
     merged_configurable = dict((config.get("configurable") or {}))
     merged_configurable["location"] = state.get("location")
     enriched_config = patch_config(config, configurable=merged_configurable)
     llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
-    long_term_summary = await _load_long_term_summary(store, config)
+    long_term_summary = await load_long_term_summary(store, config)
     summary_context = (
         f"Long-term memory from previous daily threads:\n{long_term_summary}"
         if long_term_summary
@@ -252,7 +151,7 @@ async def ajrasakha_node(
 
 
 async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
-    tool_node = await _get_main_tool_node()
+    tool_node = await get_main_tool_node()
 
     merged_configurable = dict((config.get("configurable") or {}))
     msgs = state.get("messages") or []
@@ -415,11 +314,19 @@ async def exact_search_node(state: AjraSakhaState, config: RunnableConfig) -> di
 def route_after_exact_search(state: AjraSakhaState) -> str:
     messages = state.get("messages", [])
     if not messages:
-        return "ajrasakha"
+        return "planner" if use_planner_graph() else "ajrasakha"
     last_message = messages[-1]
     if isinstance(last_message, AIMessage):
         return END
-    return "ajrasakha"
+    return "planner" if use_planner_graph() else "ajrasakha"
+
+
+def route_after_tools_planner(state: AjraSakhaState) -> str:
+    """After execute_plan: synthesize, empty gdb short-circuit, or END."""
+    routed = route_after_execute(state)
+    if routed == "end":
+        return END
+    return routed
 
 
 def _tool_message_text(message: ToolMessage) -> str:
@@ -549,15 +456,10 @@ def _is_unsourced_agricultural_advice(answer_text: str) -> bool:
     if len(stripped) < 150:
         return False
 
-    # Weather / market / soil / scheme answers with official source citations
-    # are legitimate even without expert names — skip them.
-    _OFFICIAL_SOURCES = re.compile(
-        r"IMD|eNAM|Agmarknet|soilhealth\.dac\.gov\.in|myscheme\.gov\.in|"
-        r"APMC|mandi|forecast|temperature|humidity|rainfall|"
-        r"₹/quintal|market price|modal price",
-        re.IGNORECASE,
-    )
-    if _OFFICIAL_SOURCES.search(stripped):
+    if is_official_government_sourced_answer(stripped):
+        return False
+
+    if _looks_like_government_scheme_answer(stripped):
         return False
 
     # Clarification requests and scope rejections are fine.
@@ -640,6 +542,13 @@ async def relevance_check_node(
     # Never second-guess the canned acknowledgement itself — it's already the
     # safe fallback we'd otherwise route to.
     if answer_text.startswith(EMPTY_GDB_REPLY[:80]):
+        return {}
+
+    if should_preserve_official_tool_answer(messages, question_text, answer_text):
+        logger.info(
+            "Official/tool-backed answer (schemes/soil/weather/market) — "
+            "skipping GDB-style relevance rejection"
+        )
         return {}
 
     # ── Heuristic pre-check: catch unsourced agricultural advice ──────────
@@ -751,32 +660,67 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
     }
 
 
-builder = StateGraph(AjraSakhaState)
-builder.add_node("exact_search", exact_search_node)
-builder.add_node("ajrasakha", ajrasakha_node)
-builder.add_node("tools", tools_node)
-builder.add_node("empty_gdb_reply", empty_gdb_reply_node)
-builder.add_node("relevance_check", relevance_check_node)
-builder.add_node("sanitize_answer", sanitize_answer_node)
+def _build_graph():
+    builder = StateGraph(AjraSakhaState)
+    builder.add_node("exact_search", exact_search_node)
+    builder.add_node("empty_gdb_reply", empty_gdb_reply_node)
+    builder.add_node("relevance_check", relevance_check_node)
+    builder.add_node("sanitize_answer", sanitize_answer_node)
+    builder.add_edge(START, "exact_search")
 
-builder.add_edge(START, "exact_search")
-builder.add_conditional_edges(
-    "exact_search", 
-    route_after_exact_search,
-    {END: END, "ajrasakha": "ajrasakha"}
-)
-builder.add_conditional_edges(
-    "ajrasakha",
-    route_after_ajrasakha,
-    {"tools": "tools", "relevance_check": "relevance_check"},
-)
-builder.add_conditional_edges(
-    "tools",
-    route_after_tools,
-    {"ajrasakha": "ajrasakha", "empty_gdb_reply": "empty_gdb_reply"},
-)
-builder.add_edge("empty_gdb_reply", END)
-builder.add_edge("relevance_check", "sanitize_answer")
-builder.add_edge("sanitize_answer", END)
+    if use_planner_graph():
+        builder.add_node("planner", planner_node)
+        builder.add_node("clarify", clarify_node)
+        builder.add_node("ensure_location", ensure_location_node)
+        builder.add_node("execute_plan", execute_plan_node)
+        builder.add_node("synthesize", synthesize_node)
 
-graph = builder.compile()
+        builder.add_conditional_edges(
+            "exact_search",
+            route_after_exact_search,
+            {END: END, "planner": "planner"},
+        )
+        builder.add_conditional_edges(
+            "planner",
+            route_after_planner,
+            {"clarify": "clarify", "ensure_location": "ensure_location"},
+        )
+        builder.add_edge("clarify", END)
+        builder.add_edge("ensure_location", "execute_plan")
+        builder.add_conditional_edges(
+            "execute_plan",
+            route_after_tools_planner,
+            {
+                END: END,
+                "synthesize": "synthesize",
+                "empty_gdb_reply": "empty_gdb_reply",
+            },
+        )
+        builder.add_edge("synthesize", "relevance_check")
+    else:
+        builder.add_node("ajrasakha", ajrasakha_node)
+        builder.add_node("tools", tools_node)
+
+        builder.add_conditional_edges(
+            "exact_search",
+            route_after_exact_search,
+            {END: END, "ajrasakha": "ajrasakha"},
+        )
+        builder.add_conditional_edges(
+            "ajrasakha",
+            route_after_ajrasakha,
+            {"tools": "tools", "relevance_check": "relevance_check"},
+        )
+        builder.add_conditional_edges(
+            "tools",
+            route_after_tools,
+            {"ajrasakha": "ajrasakha", "empty_gdb_reply": "empty_gdb_reply"},
+        )
+
+    builder.add_edge("empty_gdb_reply", END)
+    builder.add_edge("relevance_check", "sanitize_answer")
+    builder.add_edge("sanitize_answer", END)
+    return builder.compile()
+
+
+graph = _build_graph()

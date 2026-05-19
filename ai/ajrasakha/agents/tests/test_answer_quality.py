@@ -1,11 +1,30 @@
 """Unit tests for expert-answer quality heuristics and disclaimer stripping."""
 
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
 from ajrasakha.agents.answer_quality import (
     ensure_two_hour_disclaimer,
+    is_answer_supported_by_official_tools_in_turn,
     is_no_database_match_answer,
+    is_official_government_sourced_answer,
     is_sufficient_expert_answer,
+    should_preserve_official_tool_answer,
     strip_two_hour_disclaimer,
 )
+
+SOIL_HEALTH_ANSWER = """
+## Fertilizer Dosage Recommendation for Rice in Ropar, Punjab
+
+Based on your soil test results:
+- **Nitrogen (N)**: 120 kg/ha
+- **Phosphorus (P)**: 40 kg/ha
+- **Potassium (K)**: 30 kg/ha
+- **Organic Carbon (OC)**: 0.5%
+
+**Farm Yard Manure (FYM):** 6-8 Tonnes per Hectare
+
+**Source:** https://soilhealth.dac.gov.in/fertilizer-dosage
+""".strip()
 
 SUFFICIENT_ANSWER = """
 Tomato varieties suitable for Kathua include Pusa Ruby and Arka Vikas.
@@ -56,6 +75,47 @@ def test_no_database_match_not_treated_as_sufficient():
     )
     assert is_no_database_match_answer(no_match) is True
     assert is_sufficient_expert_answer(no_match) is False
+
+
+def test_soil_health_official_answer_recognized():
+    assert is_official_government_sourced_answer(SOIL_HEALTH_ANSWER) is True
+
+
+SCHEMES_ANSWER = """
+Here are government schemes you may apply for in Punjab:
+
+1. PM-KISAN — Income support for farmers
+**Benefit:** Rs 6000 per year in three installments
+**Eligibility:** All landholding farmer families
+**How to Apply:** Register on PM-KISAN portal or visit nearest CSC
+
+2. Agriculture Infrastructure Fund
+**Benefit:** Interest subvention on loans up to Rs 2 crore
+**Eligibility:** Farmers, FPOs, agri-entrepreneurs
+**How to Apply:** Apply through participating banks
+""".strip()
+
+
+def test_scheme_list_answer_recognized_without_url():
+    assert is_official_government_sourced_answer(SCHEMES_ANSWER) is True
+
+
+def test_tool_backed_schemes_in_turn():
+    scheme_tool_output = "PM-KISAN\nEligibility: farmers\nBenefit: 6000" * 5
+    messages = [
+        HumanMessage(
+            content=(
+                "I am 22 year, male general category farmer living in Ludhiana, Punjab. "
+                "Are there any government schemes I can apply for?"
+            )
+        ),
+        AIMessage(content="", tool_calls=[{"name": "schemes", "args": {}, "id": "1"}]),
+        ToolMessage(content=scheme_tool_output, tool_call_id="1", name="schemes"),
+        AIMessage(content=SCHEMES_ANSWER),
+    ]
+    question = messages[0].content
+    assert is_answer_supported_by_official_tools_in_turn(messages, question) is True
+    assert should_preserve_official_tool_answer(messages, question, SCHEMES_ANSWER) is True
 
 
 def test_ensure_disclaimer_appended_for_no_match():
