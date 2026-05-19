@@ -74,12 +74,17 @@ export class ContextService extends BaseService implements IContextService {
     targetLang: string,
     sourceLang?: string,
   ): Promise<{ translated_text: string }> {
+    const MAX_TOTAL_CHARS = 30_000;
+
     const apiKey = appConfig.sarvamAPI;
     if (!apiKey) throw new BadRequestError('Sarvam API key not configured');
     if (!text?.trim()) throw new BadRequestError('text is required');
     if (!targetLang) throw new BadRequestError('targetLang is required');
+    if (text.length > MAX_TOTAL_CHARS)
+      throw new BadRequestError(`Text exceeds maximum allowed length of ${MAX_TOTAL_CHARS} characters`);
 
-    // Languages exclusive to sarvam-translate:v1
+    // Languages exclusive to sarvam-translate:v1 (supports 22 languages)
+    // mayura:v1 supports only 11 languages but auto-detects source language
     const SARVAM_ONLY_LANGS = new Set([
       'as-IN', 'brx-IN', 'doi-IN', 'kok-IN',
       'ks-IN', 'mai-IN', 'mni-IN', 'ne-IN',
@@ -89,19 +94,73 @@ export class ContextService extends BaseService implements IContextService {
     const useSarvamModel = SARVAM_ONLY_LANGS.has(targetLang);
     const model = useSarvamModel ? 'sarvam-translate:v1' : 'mayura:v1';
     const source_language_code = useSarvamModel ? (sourceLang ?? 'en-IN') : 'auto';
+    // API character limits: mayura:v1 = 1000, sarvam-translate:v1 = 2000
+    const maxChars = useSarvamModel ? 1900 : 900;
 
+    const chunks = this._splitIntoChunks(text, maxChars);
+    const translatedChunks = await this._translateInBatches(
+      chunks, source_language_code, targetLang, model, apiKey,
+    );
+
+    return { translated_text: translatedChunks.join(' ') };
+  }
+
+  private async _translateInBatches(
+    chunks: string[],
+    source_language_code: string,
+    targetLang: string,
+    model: string,
+    apiKey: string,
+    batchSize = 3,
+  ): Promise<string[]> {
+    const results: string[] = [];
+
+    for (let i = 0; i < chunks.length; i += batchSize) {
+      const batch = chunks.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(chunk =>
+          this._callSarvamTranslate(chunk, source_language_code, targetLang, model, apiKey),
+        ),
+      );
+      results.push(...batchResults);
+    }
+
+    return results;
+  }
+
+  private _splitIntoChunks(text: string, maxChars: number): string[] {
+    if (text.length <= maxChars) return [text];
+
+    const chunks: string[] = [];
+    let remaining = text;
+
+    while (remaining.length > maxChars) {
+      let splitAt = remaining.lastIndexOf('\n', maxChars);
+      if (splitAt < maxChars / 2) splitAt = remaining.lastIndexOf('. ', maxChars);
+      if (splitAt < maxChars / 2) splitAt = maxChars;
+
+      chunks.push(remaining.slice(0, splitAt + 1));
+      remaining = remaining.slice(splitAt + 1);
+    }
+
+    if (remaining.length > 0) chunks.push(remaining);
+    return chunks;
+  }
+
+  private async _callSarvamTranslate(
+    input: string,
+    source_language_code: string,
+    target_language_code: string,
+    model: string,
+    apiKey: string,
+  ): Promise<string> {
     const response = await fetch('https://api.sarvam.ai/translate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'api-subscription-key': apiKey,
       },
-      body: JSON.stringify({
-        input: text,
-        source_language_code,
-        target_language_code: targetLang,
-        model,
-      }),
+      body: JSON.stringify({ input, source_language_code, target_language_code, model }),
     });
 
     if (!response.ok) {
@@ -114,6 +173,6 @@ export class ContextService extends BaseService implements IContextService {
       throw new InternalServerError('Sarvam API returned empty translation');
     }
 
-    return { translated_text: data.translated_text };
+    return data.translated_text;
   }
 }
