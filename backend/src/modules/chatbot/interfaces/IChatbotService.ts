@@ -16,6 +16,7 @@ import type {
   DomainSpikeEntry,
   MonthlyQueryCountEntry,
   MonthlySessionDurationEntry,
+  DistrictAnalyticsEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -61,5 +62,6 @@ export interface IChatbotService {
   getGrowth(range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
+  getDistrictAnalyticsByState(state: string, source?: string, userType?: string): Promise<DistrictAnalyticsEntry[]>;
 }
 

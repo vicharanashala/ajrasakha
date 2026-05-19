@@ -117,6 +117,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getDistrictAnalyticsByState(source = 'vicharanashala', state: string, userType = 'all') {
+    try {
+      return await this.chatbotRepository.getDistrictAnalyticsByState(state, source, undefined, userType);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch district analytics: ${error}`);
+    }
+  }
+
   async getTopCrops() {
     try {
       return await this.chatbotRepository.getTopCrops();

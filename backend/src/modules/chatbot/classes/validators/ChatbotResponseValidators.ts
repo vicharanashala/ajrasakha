@@ -539,6 +539,46 @@ export class TopCropsResponse {
   topCrops: TopCropEntryResponse[];
 }
 
+export class DistrictAnalyticsEntryResponse {
+  @JSONSchema({
+    description: 'District name',
+    example: 'Bengaluru Urban',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  district: string;
+
+  @JSONSchema({
+    description: 'Total number of questions from this district',
+    example: 523,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  totalQuestions: number;
+
+  @JSONSchema({
+    description: 'Number of unique (primary) questions from this district',
+    example: 412,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  uniqueQuestions: number;
+
+  @JSONSchema({
+    description: 'Number of duplicate questions from this district',
+    example: 111,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  duplicateQuestions: number;
+}
+
+
+
 // ─── Export all validators ────────────────────────────────────────────────────
 
 export const CHATBOT_RESPONSE_VALIDATORS = [
