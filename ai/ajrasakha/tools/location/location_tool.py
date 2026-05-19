@@ -1,7 +1,7 @@
 from typing import Dict, Any
 
 import aiohttp
-from langchain.tools import tool
+#from langchain.tools import tool
 from mcp.server import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
@@ -12,7 +12,8 @@ mcp=FastMCP(
     )
 )
 
-@tool
+@mcp.tool()
+#@tool
 async def location_information_tool(latitude: float, longitude: float) -> Dict[str, Any]:
     """
     Reverse geocode lat/lon to city, state, country
