@@ -4526,14 +4526,15 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const questionSource = questionData.source;
 
-    // =========================
-    // WHATSAPP FLOW
-    // =========================
-    // console.log('Question Data ====', questionData);
-    if (questionSource === 'WHATSAPP') {
-      if (!questionData.threadId) {
-        throw new Error('Thread id not found for WhatsApp question');
-      }
+    const isTimeBoundedQuestion = questionSource === 'WHATSAPP' || questionSource === 'AJRASAKHA';
+  
+    const isTimeBoudedQuestionHasThreadId = isTimeBoundedQuestion && questionData.threadId;
+
+    if (!questionData.threadId && questionSource === 'WHATSAPP') {
+      throw new Error('Thread id not found for WhatsApp question');
+    }
+
+    if (isTimeBoudedQuestionHasThreadId) {
 
       const response = await this.aiService.fetchWhatsAppMessage(
         questionData.threadId,
@@ -4567,6 +4568,10 @@ export class QuestionService extends BaseService implements IQuestionService {
     // =========================
 
     const {question, details, createdAt, messageId, userId} = questionData;
+
+    if(!messageId) {
+      throw new Error('Question does not have messageId, cannot reliably fetch matched message');
+    }
 
     const analyticsPromise = this.chatbotRepository.findMatchingMessages({
       question,
