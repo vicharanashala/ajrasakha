@@ -1917,6 +1917,9 @@ export class QuestionRepository implements IQuestionRepository {
                           {
                             $ne: ['$priority', 'critical'],
                           },
+                          {
+                            $in: ['$source', ['AJRASAKHA', 'WHATSAPP']],
+                          },
                         ],
                       },
                       'critical',
