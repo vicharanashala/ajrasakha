@@ -8,6 +8,9 @@ export interface PlivoTranscriptMessage {
   callId: string;
   text?: string;
   finalTranscript?: string;
+  originalText?: string;
+  translatedText?: string;
+  detectedLanguage?: string;
   timestamp: string;
   error?: string;
   data?: any;

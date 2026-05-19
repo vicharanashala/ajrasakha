@@ -9,6 +9,7 @@ import type { PlivoTranscriptMessage } from "@/hooks/services/plivoWebSocketServ
 import { env } from "@/config/env";
 import Plivo from 'plivo-browser-sdk';
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { FarmerDetails } from "./FarmerDetails";
 
 interface IncomingCall {
   uuid: string;
@@ -18,11 +19,15 @@ interface IncomingCall {
 
 interface CallTranscript {
   text: string;
+  originalText: string;
+  translatedText: string;
+  detectedLanguage: string;
   timestamp: string;
 }
 
 export interface IncomingCallBoxProps {
-  onTranscriptChange?: (transcript: string) => void;
+  onTranscriptChange?: (translatedTranscript: string) => void;
+  onOriginalTranscriptChange?: (originalTranscript: string) => void;
   onCallStateChange?: (isActive: boolean) => void;
 }
 
@@ -34,7 +39,7 @@ declare global {
 
 // things to do:- auth the websocket, call only for admin, and make transcript working, and make UI good,
 
-export const IncomingCallBox = ({ onTranscriptChange, onCallStateChange }: IncomingCallBoxProps) => {
+export const IncomingCallBox = ({ onTranscriptChange, onOriginalTranscriptChange, onCallStateChange }: IncomingCallBoxProps) => {
   console.log(' [IncomingCallBox] Component mounting...');
 
   const { data: currentUser, isLoading: isUserLoading } = useGetCurrentUser();
@@ -44,7 +49,6 @@ export const IncomingCallBox = ({ onTranscriptChange, onCallStateChange }: Incom
   const [callStatus, setCallStatus] = useState<'idle' | 'incoming' | 'connected' | 'held' | 'ended'>('idle');
   const [transcripts, setTranscripts] = useState<CallTranscript[]>([]);
   const [isMuted, setIsMuted] = useState(false);
-  const [isSDKLoaded] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
 
   const wsRef = useRef<PlivoWebSocketService | null>(null);
@@ -116,7 +120,7 @@ export const IncomingCallBox = ({ onTranscriptChange, onCallStateChange }: Incom
         }
       }
     };
-  // }, [isAdmin, isUserLoading]);
+    // }, [isAdmin, isUserLoading]);
   }, []);
 
   const initializePlivoClient = () => {
@@ -273,14 +277,19 @@ export const IncomingCallBox = ({ onTranscriptChange, onCallStateChange }: Incom
       if (message.text) {
         const newTranscript = {
           text: message.text,
+          originalText: message.originalText || message.text,
+          translatedText: message.translatedText || '',
+          detectedLanguage: message.detectedLanguage || 'unknown',
           timestamp: message.timestamp
         };
 
         setTranscripts(prev => {
           const updated = [...prev, newTranscript];
-          // Update parent component with full accumulated transcript
-          const fullTranscript = updated.map(t => t.text).join(' ');
-          onTranscriptChange?.(fullTranscript);
+          // Update parent component with full accumulated transcripts
+          const fullOriginalTranscript = updated.map(t => t.originalText || t.text).join(' ');
+          const fullTranslatedTranscript = updated.map(t => t.translatedText || t.text).join(' ');
+          onOriginalTranscriptChange?.(fullOriginalTranscript);
+          onTranscriptChange?.(fullTranslatedTranscript);
           return updated;
         });
       }
@@ -405,163 +414,167 @@ export const IncomingCallBox = ({ onTranscriptChange, onCallStateChange }: Incom
       "rounded-xl transition-all duration-300",
       callStatus === 'incoming' ? "p-[2px] from-white via-white to-white animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.5)]" : ""
     )}>
-    <Card className={cn(
-      "transition-all duration-300 p-2",
-      callStatus === 'incoming' ? "border-2 border-white" : "",
-      callStatus === 'connected' ? "border-green-200" : "",
-      callStatus === 'held' ? "border-yellow-200 bg-yellow-50/50" : ""
-    )}>
-      <CardHeader className="p-2 pb-1">
-        <CardTitle className="flex items-center justify-between gap-2 text-sm">
-          <div className="flex items-center gap-2">
-            <div className={cn(
-              "p-1.5 rounded-lg",
-              callStatus === 'incoming' ? "bg-orange-100" :
-                callStatus === 'connected' ? "bg-green-100" :
-                  callStatus === 'held' ? "bg-yellow-100" : "bg-gray-100"
-            )}>
-              <Phone className={cn(
-                "h-3.5 w-3.5",
-                callStatus === 'incoming' ? "text-orange-600" :
-                  callStatus === 'connected' ? "text-green-600" :
-                    callStatus === 'held' ? "text-yellow-600" : "text-gray-600"
-              )} />
-            </div>
-            <span className="text-sm">Incoming Call</span>
-          </div>
-          <Badge variant={callStatus === 'connected' ? 'default' : 'destructive'} className="text-xs px-1.5 py-0">
-            {callStatus.toUpperCase()}
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-
-      {isAdmin ? (
-        <CardContent>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Phone className="h-4 w-4" />
-            <span className="text-base">Admin access only</span>
-          </div>
-        </CardContent>
-      ) : ((callStatus === 'idle' || callStatus === 'ended') && !incomingCall) ? (
-        <CardContent>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Phone className="h-4 w-4" />
-            <span className="text-base">No active calls</span>
-          </div>
-        </CardContent>
-      ) : (
-        <CardContent className="space-y-2 flex flex-row gap-2 p-2 pt-1">
-          {/* Call Info */}
-          {incomingCall && (
-            <div className="text-sm">
-              <div className="font-medium">From: {incomingCall.number}</div>
-              <div className="text-xs text-muted-foreground">
-                {new Date(incomingCall.timestamp).toLocaleTimeString()}
+      <Card className={cn(
+        "transition-all duration-300 p-2",
+        callStatus === 'incoming' ? "border-2 border-white" : "",
+        callStatus === 'connected' ? "border-green-200" : "",
+        callStatus === 'held' ? "border-yellow-200 bg-yellow-50/50" : ""
+      )}>
+        <CardHeader className="p-2 pb-1">
+          <CardTitle className="flex items-center justify-between gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "p-1.5 rounded-lg",
+                callStatus === 'incoming' ? "bg-orange-100" :
+                  callStatus === 'connected' ? "bg-green-100" :
+                    callStatus === 'held' ? "bg-yellow-100" : "bg-gray-100"
+              )}>
+                <Phone className={cn(
+                  "h-3.5 w-3.5",
+                  callStatus === 'incoming' ? "text-orange-600" :
+                    callStatus === 'connected' ? "text-green-600" :
+                      callStatus === 'held' ? "text-yellow-600" : "text-gray-600"
+                )} />
               </div>
+              <span className="text-sm">Incoming Call</span>
             </div>
-          )}
+            <Badge variant={callStatus === 'connected' ? 'default' : 'destructive'} className="text-xs px-1.5 py-0">
+              {callStatus.toUpperCase()}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
 
-          {/* Call Controls */}
-          <div className="flex flex-wrap gap-2 justify-end w-full">
-            {callStatus === 'incoming' && (
-              <>
-                <Button
-                  onClick={handleAnswer}
-                  size="sm"
-                  className="flex items-center gap-1.5 bg-green-700 hover:bg-green-800 shadow-lg shadow-green-700/30 px-4 py-2 h-9"
-                >
-                  <Phone className="h-5 w-5" />
-                  <span className="font-semibold">Answer</span>
-                </Button>
-                <Button
-                  onClick={handleReject}
-                  size="sm"
-                  variant="destructive"
-                  className="flex items-center gap-1.5 px-4 py-2 h-9 shadow-lg shadow-red-600/30"
-                >
-                  <PhoneOff className="h-5 w-5" />
-                  <span className="font-semibold">Reject</span>
-                </Button>
-              </>
+        {isAdmin ? (
+          <CardContent>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Phone className="h-4 w-4" />
+              <span className="text-base">Admin access only</span>
+            </div>
+          </CardContent>
+        ) : ((callStatus === 'idle' || callStatus === 'ended') && !incomingCall) ? (
+          <CardContent>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Phone className="h-4 w-4" />
+              <span className="text-base">No active calls</span>
+            </div>
+          </CardContent>
+        ) : (
+          <CardContent className="space-y-3 p-2 pt-1">
+            {/* Call Info */}
+            {incomingCall && (
+              <div className="text-sm">
+                <div className="font-medium">From: {incomingCall.number}</div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(incomingCall.timestamp).toLocaleTimeString()}
+                </div>
+              </div>
             )}
 
-            {(callStatus === 'connected' || callStatus === 'held') && (
-              <>
-                <Button
-                  onClick={handleHangup}
-                  size="sm"
-                  variant="destructive"
-                  className="flex items-center gap-1.5 px-4 py-2 h-9 shadow-lg shadow-red-600/30"
-                >
-                  <PhoneOff className="h-5 w-5" />
-                  <span className="font-semibold">Hang Up</span>
-                </Button>
+            {/* Call Controls */}
+            <div className="flex flex-wrap gap-2 justify-end w-full">
+              {callStatus === 'incoming' && (
+                <>
+                  <Button
+                    onClick={handleAnswer}
+                    size="sm"
+                    className="flex items-center gap-1.5 bg-green-700 hover:bg-green-800 shadow-lg shadow-green-700/30 px-4 py-2 h-9"
+                  >
+                    <Phone className="h-5 w-5" />
+                    <span className="font-semibold">Answer</span>
+                  </Button>
+                  <Button
+                    onClick={handleReject}
+                    size="sm"
+                    variant="destructive"
+                    className="flex items-center gap-1.5 px-4 py-2 h-9 shadow-lg shadow-red-600/30"
+                  >
+                    <PhoneOff className="h-5 w-5" />
+                    <span className="font-semibold">Reject</span>
+                  </Button>
+                </>
+              )}
 
-                <Button
-                  onClick={handleToggleRecording}
-                  size="sm"
-                  variant={isRecording ? "destructive" : "default"}
-                  className={cn(
-                    "flex items-center gap-1.5 h-8",
-                    isRecording && "animate-pulse"
-                  )}
-                >
-                  {isRecording ? (
-                    <>
-                      <MicOff className="h-4 w-4" />
-                      <span>Stop</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="h-4 w-4" />
-                      <span>Record</span>
-                    </>
-                  )}
-                </Button>
+              {(callStatus === 'connected' || callStatus === 'held') && (
+                <>
+                  <Button
+                    onClick={handleHangup}
+                    size="sm"
+                    variant="destructive"
+                    className="flex items-center gap-1.5 px-4 py-2 h-9 shadow-lg shadow-red-600/30"
+                  >
+                    <PhoneOff className="h-5 w-5" />
+                    <span className="font-semibold">Hang Up</span>
+                  </Button>
 
-                <Button
-                  onClick={handleToggleHold}
-                  size="sm"
-                  variant="outline"
-                  className="flex items-center gap-1 h-8"
-                >
-                  {callStatus === 'held' ? (
-                    <>
-                      <Play className="h-4 w-4" />
-                      Unhold
-                    </>
-                  ) : (
-                    <>
-                      <Pause className="h-4 w-4" />
-                      Hold
-                    </>
-                  )}
-                </Button>
+                  <Button
+                    onClick={handleToggleRecording}
+                    size="sm"
+                    variant={isRecording ? "destructive" : "default"}
+                    className={cn(
+                      "flex items-center gap-1.5 h-8",
+                      isRecording && "animate-pulse"
+                    )}
+                  >
+                    {isRecording ? (
+                      <>
+                        <MicOff className="h-4 w-4" />
+                        <span>Stop</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="h-4 w-4" />
+                        <span>Record</span>
+                      </>
+                    )}
+                  </Button>
 
-                <Button
-                  onClick={handleToggleMute}
-                  size="sm"
-                  variant="outline"
-                  className="flex items-center gap-1 h-8"
-                >
-                  {isMuted ? (
-                    <>
-                      <VolumeX className="h-4 w-4" />
-                      Unmute
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="h-4 w-4" />
-                      Mute
-                    </>
-                  )}
-                </Button>
-              </>
+                  <Button
+                    onClick={handleToggleHold}
+                    size="sm"
+                    variant="outline"
+                    className="flex items-center gap-1 h-8"
+                  >
+                    {callStatus === 'held' ? (
+                      <>
+                        <Play className="h-4 w-4" />
+                        Unhold
+                      </>
+                    ) : (
+                      <>
+                        <Pause className="h-4 w-4" />
+                        Hold
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={handleToggleMute}
+                    size="sm"
+                    variant="outline"
+                    className="flex items-center gap-1 h-8"
+                  >
+                    {isMuted ? (
+                      <>
+                        <VolumeX className="h-4 w-4" />
+                        Unmute
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="h-4 w-4" />
+                        Mute
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+            </div>
+            {/* Farmer Details */}
+            {incomingCall && (
+              <FarmerDetails phoneNo={incomingCall.number} />
             )}
-          </div>
-        </CardContent>
-      )}
-    </Card>
+          </CardContent>
+        )}
+      </Card>
     </div>
   );
 };

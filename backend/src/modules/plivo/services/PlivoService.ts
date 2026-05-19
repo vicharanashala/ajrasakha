@@ -1,13 +1,15 @@
 import { injectable } from 'inversify';
 import { appConfig } from '../../../config/app.js';
-import * as fs from 'fs';
-import * as path from 'path';
+// import * as fs from 'fs';
+// import * as path from 'path';
 
 
 interface SarvamTranscribeResponse {
   transcript: string;
+  translated_text?: string;
   confidence?: number;
   language?: string;
+  language_code?: string;
 }
 
 interface WhisperTranscribeResponse {
@@ -28,11 +30,13 @@ interface WhisperTranscribeResponse {
 export class PlivoService {
   private sarvamApiKey: string;
   private activeTranscriptions: Map<string, string> = new Map();
+  private activeTranslations: Map<string, string> = new Map(); // Store English translations
+  private detectedLanguages: Map<string, string> = new Map(); // Store detected languages
   private audioBuffers: Map<string, Buffer[]> = new Map(); // Store audio chunks
   private readonly CHUNK_DURATION_MS = 5000; // 5 seconds of audio
   private readonly SAMPLE_RATE = 16000; // 16kHz Linear PCM
   private readonly CHUNK_SIZE = (this.SAMPLE_RATE * 2 * this.CHUNK_DURATION_MS) / 1000; // 160,000 bytes for 5 seconds (16-bit samples)
-  private readonly DEBUG_AUDIO_DIR = path.join(process.cwd(), 'debug_audio');
+  // private readonly DEBUG_AUDIO_DIR = path.join(process.cwd(), 'debug_audio');
 
   constructor() {
     this.sarvamApiKey = appConfig.sarvamAPI;
@@ -40,10 +44,10 @@ export class PlivoService {
   }
 
   private ensureDebugDir(): void {
-    if (!fs.existsSync(this.DEBUG_AUDIO_DIR)) {
-      fs.mkdirSync(this.DEBUG_AUDIO_DIR, { recursive: true });
-      console.log(`📁 [PLIVO-SERVICE] Created debug audio directory: ${this.DEBUG_AUDIO_DIR}`);
-    }
+    // if (!fs.existsSync(this.DEBUG_AUDIO_DIR)) {
+    //   fs.mkdirSync(this.DEBUG_AUDIO_DIR, { recursive: true });
+    //   console.log(`📁 [PLIVO-SERVICE] Created debug audio directory: ${this.DEBUG_AUDIO_DIR}`);
+    // }
   }
   /**
    * Convert 16kHz Linear PCM buffer to WAV format
@@ -91,7 +95,7 @@ export class PlivoService {
   /**
    * Add audio chunk to buffer and process when 3-second chunk is ready
    */
-  addAudioChunk(audioBuffer: Buffer, callId: string): Promise<string> {
+  addAudioChunk(audioBuffer: Buffer, callId: string): Promise<{ originalText: string, translatedText: string }> {
     return new Promise((resolve) => {
       // console.log(`� [PLIVO-SERVICE] Adding audio chunk for call ${callId}, size: ${audioBuffer.length} bytes`);
       
@@ -127,14 +131,14 @@ export class PlivoService {
         
         // Process the 3-second chunk
         this.transcribeChunk(chunkBuffer, callId)
-          .then(transcript => resolve(transcript))
+          .then(result => resolve(result))
           .catch(error => {
             // console.error('❌ [PLIVO-SERVICE] Chunk transcription failed:', error);
-            resolve(''); // Return empty on error
+            resolve({ originalText: '', translatedText: '' }); // Return empty on error
           });
       } else {
         // Not enough data yet, return empty
-        resolve('');
+        resolve({ originalText: '', translatedText: '' });
       }
     });
   }
@@ -142,7 +146,7 @@ export class PlivoService {
   /**
    * Transcribe a 3-second audio chunk using Sarvam AI API
    */
-  private async transcribeChunk(audioBuffer: Buffer, callId: string): Promise<string> {
+  private async transcribeChunk(audioBuffer: Buffer, callId: string): Promise<{ originalText: string, translatedText: string }> {
     try {
       // console.log(`🎙️ [PLIVO-SERVICE] Transcribing 3-second chunk for call ${callId}, size: ${audioBuffer.length} bytes`);
       
@@ -161,13 +165,13 @@ export class PlivoService {
       // console.log(`🔍 [PLIVO-SERVICE] First 5 PCM samples:`, pcmSamples);
       
       // Save WAV file for debugging
-      const debugDir = path.join(process.cwd(), 'debug_audio');
-      if (!fs.existsSync(debugDir)) {
-        fs.mkdirSync(debugDir);
-      }
-      const debugFilePath = path.join(debugDir, `debug_${callId}_${Date.now()}.wav`);
-      fs.writeFileSync(debugFilePath, wavBuffer);
-      console.log(`💾 [PLIVO-SERVICE] Saved debug WAV file: ${debugFilePath}`);
+      // const debugDir = path.join(process.cwd(), 'debug_audio');
+      // if (!fs.existsSync(debugDir)) {
+      //   fs.mkdirSync(debugDir);
+      // }
+      // const debugFilePath = path.join(debugDir, `debug_${callId}_${Date.now()}.wav`);
+      // fs.writeFileSync(debugFilePath, wavBuffer);
+      // console.log(`💾 [PLIVO-SERVICE] Saved debug WAV file: ${debugFilePath}`);
       
       const formData = new FormData();
       const audioFile = new File([wavBuffer], `audio_${Date.now()}.wav`, {
@@ -201,24 +205,73 @@ export class PlivoService {
       // // console.log(`📚 [PLIVO-SERVICE] Accumulated transcript for call ${callId}:`, this.activeTranscriptions.get(callId));
 
 
-       formData.append('file', audioFile);
+      formData.append('file', audioFile);
       const headers = {
         'api-subscription-key': this.sarvamApiKey,
       };
-        const response = await fetch('https://api.sarvam.ai/speech-to-text-translate', {
+
+      // First call: Get original language transcription using saaras:v3 with transcribe mode
+      const transcribeFormData = new FormData();
+      const audioFileForTranscribe = new File([wavBuffer], `audio_${Date.now()}.wav`, { type: 'audio/wav' });
+      transcribeFormData.append('file', audioFileForTranscribe);
+      transcribeFormData.append('model', 'saaras:v3');
+      transcribeFormData.append('mode', 'transcribe');
+      transcribeFormData.append('language_code', 'unknown'); // Auto-detect language
+
+      const transcribeResponse = await fetch('https://api.sarvam.ai/speech-to-text', {
         method: 'POST',
         headers,
-        body: formData,
+        body: transcribeFormData,
       });
-      console.log(`📥 [PLIVO-SERVICE] Whisper API response status: ${response.status}`);
-      if (!response.ok) {
-        const errorText = await response.text();
-      }
-      const result = await response.json() as SarvamTranscribeResponse;
-      console.log(`📝 [PLIVO-SERVICE] Sarvam API response:`, result);
-      const transcript = result.transcript || '';
 
-      return transcript;
+      console.log(`📥 [PLIVO-SERVICE] Transcribe API response status: ${transcribeResponse.status}`);
+      if (!transcribeResponse.ok) {
+        const errorText = await transcribeResponse.text();
+        console.error(`❌ [PLIVO-SERVICE] Transcribe API error ${transcribeResponse.status}:`, errorText);
+        throw new Error(`Transcribe API error: ${transcribeResponse.status}`);
+      }
+
+      const transcribeResult = await transcribeResponse.json() as SarvamTranscribeResponse;
+      console.log(`📝 [PLIVO-SERVICE] Transcribe API response:`, transcribeResult);
+      const originalText = transcribeResult.transcript || '';
+      const detectedLanguage = transcribeResult.language_code || 'unknown';
+
+      // Second call: Get English translation using saaras:v3 with translate mode
+      const translateFormData = new FormData();
+      const audioFileForTranslate = new File([wavBuffer], `audio_${Date.now()}.wav`, { type: 'audio/wav' });
+      translateFormData.append('file', audioFileForTranslate);
+      translateFormData.append('model', 'saaras:v3');
+      translateFormData.append('mode', 'translate');
+      translateFormData.append('language_code', 'unknown'); // Auto-detect language
+
+      const translateResponse = await fetch('https://api.sarvam.ai/speech-to-text', {
+        method: 'POST',
+        headers,
+        body: translateFormData,
+      });
+
+      console.log(`📥 [PLIVO-SERVICE] Translate API response status: ${translateResponse.status}`);
+      let translatedText = '';
+      if (translateResponse.ok) {
+        const translateResult = await translateResponse.json() as SarvamTranscribeResponse;
+        console.log(`📝 [PLIVO-SERVICE] Translate API response:`, translateResult);
+        translatedText = translateResult.transcript || '';
+      } else {
+        console.warn(`⚠️ [PLIVO-SERVICE] Translate API failed, using original text as fallback`);
+        translatedText = originalText; // Fallback to original text if translation fails
+      }
+
+      // Store both original and translated text
+      const currentTranscript = this.activeTranscriptions.get(callId) || '';
+      const currentTranslation = this.activeTranslations.get(callId) || '';
+      this.activeTranscriptions.set(callId, currentTranscript + ' ' + originalText);
+      this.activeTranslations.set(callId, currentTranslation + ' ' + translatedText);
+      this.detectedLanguages.set(callId, detectedLanguage);
+
+      console.log(`📝 [PLIVO-SERVICE] Original: "${originalText}", Translated: "${translatedText}", Language: ${detectedLanguage}`);
+
+      // Return the original and translated transcript chunks
+      return { originalText, translatedText };
     } catch (error) {
       console.error('❌ [PLIVO-SERVICE] Transcription error:', error);
       throw error;
@@ -228,7 +281,7 @@ export class PlivoService {
   /**
    * Transcribe audio using Sarvam AI API (legacy method for compatibility)
    */
-  async transcribeAudio(audioBuffer: Buffer, callId: string): Promise<string> {
+  async transcribeAudio(audioBuffer: Buffer, callId: string): Promise<{ originalText: string, translatedText: string }> {
     // Use new chunking method
     return this.addAudioChunk(audioBuffer, callId);
   }
@@ -241,17 +294,33 @@ export class PlivoService {
   }
 
   /**
+   * Get English translation for a call
+   */
+  getTranslation(callId: string): string {
+    return this.activeTranslations.get(callId) || '';
+  }
+
+  /**
+   * Get detected language for a call
+   */
+  getDetectedLanguage(callId: string): string {
+    return this.detectedLanguages.get(callId) || 'unknown';
+  }
+
+  /**
    * Clear transcript and audio buffers for a call
    */
   clearTranscript(callId: string): void {
     this.activeTranscriptions.delete(callId);
+    this.activeTranslations.delete(callId);
+    this.detectedLanguages.delete(callId);
     this.audioBuffers.delete(callId);
   }
 
   /**
    * Process any remaining audio chunks when call ends
    */
-  async processRemainingAudio(callId: string): Promise<string> {
+  async processRemainingAudio(callId: string): Promise<{ originalText: string, translatedText: string }> {
     const buffers = this.audioBuffers.get(callId);
     if (buffers && buffers.length > 0) {
       // console.log(`🔄 [PLIVO-SERVICE] Processing final audio chunk for call ${callId}`);
@@ -262,10 +331,10 @@ export class PlivoService {
         return await this.transcribeChunk(combinedBuffer, callId);
       } catch (error) {
         console.error('❌ [PLIVO-SERVICE] Final chunk transcription failed:', error);
-        return '';
+        return { originalText: '', translatedText: '' };
       }
     }
-    return '';
+    return { originalText: '', translatedText: '' };
   }
 
   /**
