@@ -72,6 +72,31 @@ MCP_SERVERS = {
 }
 
 _tools_cache: list | None = None
+_main_tool_node: ToolNode | None = None
+
+
+async def _get_main_tools() -> list:
+    """Specialist + MCP tools bound on the main agent (cached after first load)."""
+    location_mcp = await _get_location_tool()
+    reviewer_mcp = await _get_reviewer_tool()
+    return [
+        gdb,
+        weather,
+        soil,
+        market,
+        location_mcp,
+        schemes,
+        chemical_checker,
+        reviewer_mcp,
+    ]
+
+
+async def _get_main_tool_node() -> ToolNode:
+    """Shared ToolNode — runs all tool_calls in a turn concurrently (asyncio.gather)."""
+    global _main_tool_node
+    if _main_tool_node is None:
+        _main_tool_node = ToolNode(await _get_main_tools())
+    return _main_tool_node
 
 
 async def _get_tools() -> list:
@@ -185,12 +210,11 @@ async def ajrasakha_node(
     *,
     store: BaseStore | None = None,
 ) -> dict:
-    location = await _get_location_tool()
-    reviewer = await _get_reviewer_tool()
+    main_tools = await _get_main_tools()
     merged_configurable = dict((config.get("configurable") or {}))
     merged_configurable["location"] = state.get("location")
     enriched_config = patch_config(config, configurable=merged_configurable)
-    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer])
+    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
     long_term_summary = await _load_long_term_summary(store, config)
     summary_context = (
         f"Long-term memory from previous daily threads:\n{long_term_summary}"
@@ -228,8 +252,7 @@ async def ajrasakha_node(
 
 
 async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
-    location = await _get_location_tool()
-    reviewer = await _get_reviewer_tool()
+    tool_node = await _get_main_tool_node()
 
     merged_configurable = dict((config.get("configurable") or {}))
     msgs = state.get("messages") or []
@@ -244,7 +267,7 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
     enriched_config = patch_config(config, configurable=merged_configurable)
 
     try:
-        result = await ToolNode([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer]).ainvoke(state, config=enriched_config)
+        result = await tool_node.ainvoke(state, config=enriched_config)
         new_msgs = result.get("messages") or []
         base_loc = effective_location
         loc_updates = extract_location_updates_from_new_tool_messages(new_msgs, base_loc)
