@@ -234,11 +234,13 @@ const QaQuestionItem = ({
   selectedQuestion,
   onQuestionSelect,
   setQuestionRef,
+  hidePriority = false,
 }: {
   question: any;
   selectedQuestion: string | null;
   onQuestionSelect: (id: string) => void;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
+  hidePriority?: boolean;
 }) => {
 
  const sourceStyles = {
@@ -347,7 +349,7 @@ const currentStyle =
         </div>
         <div className="mt-1 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
           <div className="items-center gap-1.5 flex">
-            {question?.priority && (
+            {question?.priority && !hidePriority && (
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                   question.priority === "critical"
@@ -606,6 +608,7 @@ export const QaHeader=({ questions,
                       selectedQuestion={selectedQuestion}
                       onQuestionSelect={onQuestionSelect}
                       setQuestionRef={setQuestionRef}
+                      hidePriority={hideControls}
                     />
                   ))}
                 </RadioGroup>
