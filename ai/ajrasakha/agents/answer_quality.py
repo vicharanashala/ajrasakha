@@ -14,16 +14,45 @@ TWO_HOUR_DISCLAIMER = (
     "a detailed answer from our experts."
 )
 
-# LLM replies that admit no GDB hit — still need the 2-hour line for the farmer.
+# LLM replies that admit no GDB hit or partial/insufficient results —
+# still need the 2-hour line for the farmer.
 _NO_DATABASE_MATCH = re.compile(
     r"unable to find|could not find|couldn't find|was unable to find|"
     r"not find specific|not documented|does not appear in|"
     r"not (?:in|available in) (?:our |the )?(?:comprehensive )?"
     r"(?:agricultural )?database|"
     r"no (?:specific )?information(?: was)? found|"
-    r"not available in (?:our|the) (?:approved )?sources?",
+    r"not available in (?:our|the) (?:approved )?sources?|"
+    # Partial / insufficient / limited data admissions
+    r"(?:found |have )?limited (?:information|data|content|results)|"
+    r"insufficient (?:information|data|content)|"
+    r"(?:do not|don't) have (?:enough|sufficient|complete|detailed) (?:information|data)|"
+    r"(?:could not|couldn't) find (?:complete|detailed|comprehensive|specific)|"
+    r"(?:no |not enough )(?:relevant |specific )?(?:data|information|content) (?:available|found)|"
+    r"mainly focused on .{1,60} rather than|"
+    r"(?:not|no) (?:complete|comprehensive|detailed) (?:information|data|content)|"
+    r"we do not have .{0,40} for (?:your|this|the) (?:query|question)",
     re.IGNORECASE,
 )
+
+# ── Testing-version warning disclaimer ────────────────────────────────────
+# The testing disclaimer contains URLs, source names (Annam.ai, IMD, etc.)
+# and words like "expert-verified" that create false-positive attribution
+# signals. We must strip it before running source-attribution heuristics.
+_WARNING_DISCLAIMER_PATTERN = re.compile(
+    r"⚠️[^\n]*Important Notice[^\n]*⚠️.*$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def strip_warning_disclaimer(text: str) -> str:
+    """Remove the testing-version warning disclaimer from *text*.
+
+    This is essential before running source-attribution heuristics because
+    the disclaimer itself contains URLs, 'Annam.ai', 'sourced from IMD',
+    'Agmarknet', etc. which would create false positives.
+    """
+    return _WARNING_DISCLAIMER_PATTERN.sub("", text).strip()
 
 _EXPERT_INDICATORS = re.compile(
     r"expert|author|agri\s*specialist|agriexpert|specialist|reviewed\s+by",

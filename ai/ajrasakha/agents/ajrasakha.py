@@ -21,6 +21,7 @@ from typing_extensions import TypedDict
 
 from ajrasakha.agents.answer_quality import (
     ensure_two_hour_disclaimer,
+    is_no_database_match_answer,
     is_sufficient_expert_answer,
     strip_two_hour_disclaimer,
 )
@@ -71,6 +72,31 @@ MCP_SERVERS = {
 }
 
 _tools_cache: list | None = None
+_main_tool_node: ToolNode | None = None
+
+
+async def _get_main_tools() -> list:
+    """Specialist + MCP tools bound on the main agent (cached after first load)."""
+    location_mcp = await _get_location_tool()
+    reviewer_mcp = await _get_reviewer_tool()
+    return [
+        gdb,
+        weather,
+        soil,
+        market,
+        location_mcp,
+        schemes,
+        chemical_checker,
+        reviewer_mcp,
+    ]
+
+
+async def _get_main_tool_node() -> ToolNode:
+    """Shared ToolNode — runs all tool_calls in a turn concurrently (asyncio.gather)."""
+    global _main_tool_node
+    if _main_tool_node is None:
+        _main_tool_node = ToolNode(await _get_main_tools())
+    return _main_tool_node
 
 
 async def _get_tools() -> list:
@@ -184,12 +210,11 @@ async def ajrasakha_node(
     *,
     store: BaseStore | None = None,
 ) -> dict:
-    location = await _get_location_tool()
-    reviewer = await _get_reviewer_tool()
+    main_tools = await _get_main_tools()
     merged_configurable = dict((config.get("configurable") or {}))
     merged_configurable["location"] = state.get("location")
     enriched_config = patch_config(config, configurable=merged_configurable)
-    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer])
+    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
     long_term_summary = await _load_long_term_summary(store, config)
     summary_context = (
         f"Long-term memory from previous daily threads:\n{long_term_summary}"
@@ -227,8 +252,7 @@ async def ajrasakha_node(
 
 
 async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
-    location = await _get_location_tool()
-    reviewer = await _get_reviewer_tool()
+    tool_node = await _get_main_tool_node()
 
     merged_configurable = dict((config.get("configurable") or {}))
     msgs = state.get("messages") or []
@@ -243,7 +267,7 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
     enriched_config = patch_config(config, configurable=merged_configurable)
 
     try:
-        result = await ToolNode([gdb, weather, soil, market, location, schemes, chemical_checker, reviewer]).ainvoke(state, config=enriched_config)
+        result = await tool_node.ainvoke(state, config=enriched_config)
         new_msgs = result.get("messages") or []
         base_loc = effective_location
         loc_updates = extract_location_updates_from_new_tool_messages(new_msgs, base_loc)
@@ -498,15 +522,95 @@ def route_after_ajrasakha(state: AjraSakhaState) -> str:
     return "relevance_check"
 
 
+def _is_unsourced_agricultural_advice(answer_text: str) -> bool:
+    """Heuristic: True when the answer looks like substantive agricultural
+    advice but lacks ANY attribution to approved data sources.
+
+    This catches cases where the LLM generated a helpful-sounding answer
+    from its own training data instead of from GDB/Reviewer/POP tools.
+    Answers about weather, market prices, soil health, and government schemes
+    that cite their official sources are NOT flagged by this check.
+    """
+    import re
+    from ajrasakha.agents.answer_quality import strip_warning_disclaimer
+
+    # CRITICAL: Strip the testing disclaimer FIRST. It contains URLs,
+    # source names (Annam.ai, IMD, Agmarknet), and "expert-verified" which
+    # would create false-positive attribution signals.
+    stripped = strip_warning_disclaimer(answer_text.strip())
+
+    # Answers that admit no/limited DB match should be fully replaced with
+    # the canned EMPTY_GDB_REPLY — flag them as unsourced. Must check BEFORE
+    # the length filter so short "limited info" answers aren't skipped.
+    if is_no_database_match_answer(stripped):
+        return True
+
+    # Short answers (greetings, clarifications, scope rejections) are fine.
+    if len(stripped) < 150:
+        return False
+
+    # Weather / market / soil / scheme answers with official source citations
+    # are legitimate even without expert names — skip them.
+    _OFFICIAL_SOURCES = re.compile(
+        r"IMD|eNAM|Agmarknet|soilhealth\.dac\.gov\.in|myscheme\.gov\.in|"
+        r"APMC|mandi|forecast|temperature|humidity|rainfall|"
+        r"₹/quintal|market price|modal price",
+        re.IGNORECASE,
+    )
+    if _OFFICIAL_SOURCES.search(stripped):
+        return False
+
+    # Clarification requests and scope rejections are fine.
+    _CLARIFICATION = re.compile(
+        r"could you (?:please )?(?:tell|share|provide|specify)|"
+        r"which (?:crop|state|district)|"
+        r"please (?:share|provide|tell|specify)|"
+        r"what is your|"
+        r"I (?:am|'m) only designed to help|"
+        r"not (?:related to|about) agriculture",
+        re.IGNORECASE,
+    )
+    if _CLARIFICATION.search(stripped):
+        return False
+
+    # Now check for source-attribution signals. If NONE are present in the
+    # answer body (disclaimer already stripped), it was generated from LLM
+    # knowledge.
+    _EXPERT_INDICATORS = re.compile(
+        r"expert|author|agri\s*specialist|agriexpert|specialist|reviewed\s+by",
+        re.IGNORECASE,
+    )
+    _SOURCE_INDICATORS = re.compile(
+        r"source|reference|sourced\s+from|approved\s+materials|"
+        r"annam\.ai|golden\s*(?:data|db)|package\s+of\s+practices",
+        re.IGNORECASE,
+    )
+    _URL_PATTERN = re.compile(r"https?://|www\.", re.IGNORECASE)
+
+    has_expert = bool(_EXPERT_INDICATORS.search(stripped))
+    has_source = bool(_SOURCE_INDICATORS.search(stripped))
+    has_link   = bool(_URL_PATTERN.search(stripped))
+
+    # If none of the three attribution signals are present, it's unsourced.
+    if not has_expert and not has_source and not has_link:
+        return True
+
+    return False
+
+
 async def relevance_check_node(
     state: AjraSakhaState,
     config: RunnableConfig,
 ) -> dict:
-    """Verify the assistant's final answer is on-topic for the farmer's question.
+    """Verify the assistant's final answer is BOTH on-topic AND sourced from
+    approved data (GDB, Reviewer, POP, or official government APIs).
 
-    If it isn't (e.g. farmer asked about pest control but the answer only
-    discusses today's weather), we replace it with the canned reviewer-upload
-    acknowledgement so the farmer doesn't receive an irrelevant response.
+    Two checks are performed:
+    1. **Heuristic pre-check**: catches obvious cases where the LLM generated
+       agricultural advice from its own knowledge (no expert names, no source
+       links, no citation table). These are replaced immediately.
+    2. **LLM-based check**: for borderline cases, an LLM verifies both topic
+       relevance and source attribution.
     """
     messages = state.get("messages") or []
     if not messages:
@@ -538,6 +642,20 @@ async def relevance_check_node(
     if answer_text.startswith(EMPTY_GDB_REPLY[:80]):
         return {}
 
+    # ── Heuristic pre-check: catch unsourced agricultural advice ──────────
+    if _is_unsourced_agricultural_advice(answer_text):
+        logger.info(
+            "Heuristic pre-check: answer is agricultural advice with NO source "
+            "attribution (no expert, no source link, no citation) — replacing "
+            "with canned reviewer-upload acknowledgement (len=%d)",
+            len(answer_text),
+        )
+        return {
+            "messages": [AIMessage(content=EMPTY_GDB_REPLY, id=final_answer_msg.id)],
+            "location": state.get("location"),
+        }
+
+    # ── LLM-based relevance + source verification ────────────────────────
     try:
         checker = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(_RelevanceCheck)
         result = await checker.ainvoke(
@@ -555,13 +673,15 @@ async def relevance_check_node(
     except (asyncio.CancelledError, TimeoutError, APITimeoutError,
             APIConnectionError, APIStatusError) as exc:
         logger.warning(
-            "Relevance check failed (%s: %s) — passing original answer through",
+            "Relevance check failed (%s: %s) — falling back to heuristic "
+            "(answer already passed pre-check, allowing through)",
             type(exc).__name__, exc,
         )
         return {}
     except Exception as exc:
         logger.warning(
-            "Relevance check raised unexpectedly (%s: %s) — passing original answer through",
+            "Relevance check raised unexpectedly (%s: %s) — falling back to "
+            "heuristic (answer already passed pre-check, allowing through)",
             type(exc).__name__, exc,
         )
         return {}
@@ -570,8 +690,8 @@ async def relevance_check_node(
         return {}
 
     logger.info(
-        "Final answer flagged as not relevant (reason: %s) — replacing with "
-        "canned reviewer-upload acknowledgement",
+        "LLM relevance check flagged answer as not relevant (reason: %s) — "
+        "replacing with canned reviewer-upload acknowledgement",
         result.reasoning,
     )
     # Reuse the original message id so the `add_messages` reducer overwrites

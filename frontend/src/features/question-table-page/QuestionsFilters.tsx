@@ -81,6 +81,7 @@ import { UserCheck } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 
 import { TopRightBadge } from "@/components/NewBadge";
+import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -631,7 +632,7 @@ export const QuestionsFilters = ({
     };
   }, [isDragging]);
 
-  const handleClick = ()=>{
+  const handleClick = () => {
     navigate({ to: "/flags-reported" });
   }
 
@@ -1183,15 +1184,15 @@ export const QuestionsFilters = ({
                     onOpenDialog={() => setIsSidebarOpen(false)}
                   />
                 </div>
-              {userRole !== "moderator" && 
-              <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadFilteredReportButton
-                    onOpenDialog={() => setIsSidebarOpen(false)}
-                  />
-                   </div>
-              }
-                
-               
+                {userRole !== "moderator" &&
+                  <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                    <DownloadFilteredReportButton
+                      onOpenDialog={() => setIsSidebarOpen(false)}
+                    />
+                  </div>
+                }
+
+
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-teal-50 dark:hover:bg-teal-500/5 border border-gray-200 dark:border-gray-800 hover:border-teal-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadDuplicateReportButton
@@ -1202,6 +1203,13 @@ export const QuestionsFilters = ({
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadLevelWiseReportButton
                     closeSideBar={() => setIsSidebarOpen(false)}
+                  />
+                </div>
+
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-cyan-50 dark:hover:bg-cyan-500/5 border border-gray-200 dark:border-gray-800 hover:border-b-cyan-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <DownloadShiftWiseReportButton
+                    closeSideBar={() => setIsSidebarOpen(false)}
+                    userRole={userRole}
                   />
                 </div>
 
@@ -1234,29 +1242,29 @@ export const QuestionsFilters = ({
               System
             </h3>
 
-              {userRole !== "expert" && (
-                <button
-                  onClick={handleClick}
-                  className="relative w-full flex items-center justify-between p-4 mb-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
-                >
-                  <TopRightBadge label="new" left={0} />
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-500">
-                      <AlertTriangle size={20} />
-                    </div>
-                    <div className="text-left">
-                      <div className="flex items-center gap-2">
-                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
-                          Flags Reported
-                        </p>
-                      </div>
-                      <p className="text-[11px] text-gray-500">
-                        View flags reported
+            {userRole !== "expert" && (
+              <button
+                onClick={handleClick}
+                className="relative w-full flex items-center justify-between p-4 mb-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+              >
+                <TopRightBadge label="new" left={0} />
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-500">
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                        Flags Reported
                       </p>
                     </div>
+                    <p className="text-[11px] text-gray-500">
+                      View flags reported
+                    </p>
                   </div>
-                </button>
-              )}
+                </div>
+              </button>
+            )}
 
             <div className="flex gap-3 pb-5">
               <button
