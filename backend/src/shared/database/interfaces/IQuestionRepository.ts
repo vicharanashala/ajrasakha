@@ -20,7 +20,7 @@ import {
   ISimilarQuestion,
   ICheckStatusResponse
 } from '#root/shared/interfaces/models.js';
-import {ClientSession} from 'mongodb';
+import {ClientSession, ObjectId} from 'mongodb';
 
 /**
  * Interface representing a repository for question-related operations.
@@ -459,6 +459,11 @@ export interface IQuestionRepository {
     closed: number;
   }>;
 
+  getQuestionsWithEmptyEmbeddings(
+    limit?: number,
+  ): Promise<{ _id: ObjectId; question: string; text?: string }[]>;
+
+  updateQuestionEmbedding(questionId: string, embedding: number[]): Promise<void>;
   getShiftBasedMetrics(
     startDate:string,
     // endDate:string,

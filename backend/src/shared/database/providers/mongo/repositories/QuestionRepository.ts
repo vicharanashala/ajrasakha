@@ -4825,8 +4825,34 @@ export class QuestionRepository implements IQuestionRepository {
     return await this.QuestionCollection.countDocuments(filter);
   }
 
+  async getQuestionsWithEmptyEmbeddings(
+    limit = 50,
+  ): Promise<{ _id: ObjectId; question: string; text?: string }[]> {
+    await this.init();
 
+    return this.QuestionCollection.find(
+      {
+        $or: [
+          { embedding: { $exists: false } },
+          { embedding: null },
+          { embedding: { $size: 0 } },
+        ],
+      },
+      { projection: { _id: 1, question: 1, text: 1 }, limit },
+    ).toArray() as Promise<{ _id: ObjectId; question: string; text?: string }[]>;
+  }
 
+  async updateQuestionEmbedding(
+    questionId: string,
+    embedding: number[],
+  ): Promise<void> {
+    await this.init();
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { embedding, updatedAt: new Date() } },
+    );
+
+}
 
 
   async getShiftBasedMetrics(
