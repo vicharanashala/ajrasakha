@@ -196,7 +196,7 @@ const notificationService = new NotificationService(notificationRepo, database);
 
         // 3. Save updates to Submission
         await submissionRepo.updateById(job.submissionId, {
-          $set: { queue: newQueue, history: updatedHistory, updatedAt: now },
+          $set: { queue: newQueue, history: updatedHistory, updatedAt: now, reviewDelayNotificationSent:false },
         });
 
         // 4. Notify new expert

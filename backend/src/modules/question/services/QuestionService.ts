@@ -1,11 +1,11 @@
-import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
-import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { GLOBAL_TYPES } from '#root/types.js';
-import { inject, injectable } from 'inversify';
-import { ClientSession, ObjectId } from 'mongodb';
-import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
-import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js';
-import { startBulkDeleteWorker } from '#root/workers/bulkDelete.manager.js';
+import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
+import {BaseService, MongoDatabase} from '#root/shared/index.js';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {inject, injectable} from 'inversify';
+import {ClientSession, ObjectId} from 'mongodb';
+import {startBalanceWorkloadWorkers} from '#root/workers/balanceWorkload.manager.js';
+import {startPaeAllocationWorker} from '#root/workers/paeAllocation.manager.js';
+import {startBulkDeleteWorker} from '#root/workers/bulkDelete.manager.js';
 import {
   IQuestion,
   IQuestionSubmission,
@@ -17,7 +17,7 @@ import {
   AddQuestionResult,
   ICheckStatusResponse,
   IPreviousAllocations,
-  IAuthorsHistory
+  IAuthorsHistory,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -26,16 +26,16 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from 'routing-controllers';
-import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
-import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
-import { IRequestRepository } from '#root/shared/database/interfaces/IRequestRepository.js';
-import { IContextRepository } from '#root/shared/database/interfaces/IContextRepository.js';
-import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
-import { notifyUser } from '#root/utils/pushNotification.js';
-import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
-import { appConfig } from '#root/config/app.js';
-import { AiService } from '#root/modules/ai/services/AiService.js';
+import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
+import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
+import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
+import {notifyUser} from '#root/utils/pushNotification.js';
+import {normalizeKeysToLower} from '#root/utils/normalizeKeysToLower.js';
+import {appConfig} from '#root/config/app.js';
+import {AiService} from '#root/modules/ai/services/AiService.js';
 import {
   AddQuestionBodyDto,
   AllocatedQuestionsBodyDto,
@@ -44,26 +44,29 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
-import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
-import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
-import { CORE_TYPES } from '#root/modules/core/types.js';
-import { IQuestionService } from '../interfaces/IQuestionService.js';
-import { isToday } from '#root/utils/date.utils.js';
-import { UserService } from '#root/modules/user/services/UserService.js';
-import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
-import { sendEmailWithAttachment } from '#root/utils/mailer.js';
-import ExcelJS from 'exceljs'
-import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
-import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
-import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
-import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js'
-import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
-import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
-import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
-import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
-import { checkDuplicateQuestionHelper } from '../helpers/duplicateQuestionHelper.js';
-import { DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT, TOTAL_EXPERTS_LIMIT } from '#root/shared/constants/general.js';
+import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
+import {QuestionLevelResponse} from '#root/modules/question/classes/transformers/QuestionLevel.js';
+import {NotificationService} from '#root/modules/notification/services/NotificationService.js';
+import {CORE_TYPES} from '#root/modules/core/types.js';
+import {IQuestionService} from '../interfaces/IQuestionService.js';
+import {isToday} from '#root/utils/date.utils.js';
+import {UserService} from '#root/modules/user/services/UserService.js';
+import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
+import {sendEmailWithAttachment} from '#root/utils/mailer.js';
+import ExcelJS from 'exceljs';
+import {cosineSimilarity} from '../../../utils/cosine-similarity.js';
+import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
+import {chatbotSimilarityLogger} from '../logger/chatbot-similarity.logger.js';
+import {checkConceptDuplicate} from '#root/modules/question/aiservice/checkConceptDuplicate.js';
+import {ICropRepository} from '#root/shared/database/interfaces/ICropRepository.js';
+import {CHATBOT_TYPES} from '#root/modules/chatbot/types.js';
+import {IChatbotRepository} from '#root/shared/database/interfaces/IChatbotRepository.js';
+import {toObjectIdArray} from '#root/utils/normalizeToObjectIdArray.js';
+import {checkDuplicateQuestionHelper} from '../helpers/duplicateQuestionHelper.js';
+import {
+  DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
+  TOTAL_EXPERTS_LIMIT,
+} from '#root/shared/constants/general.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -119,7 +122,10 @@ export class QuestionService extends BaseService implements IQuestionService {
   /**
    * Helper function to truncate question text for notifications
    */
-  private truncateQuestionText(questionText: string, maxLength: number = 50): string {
+  private truncateQuestionText(
+    questionText: string,
+    maxLength: number = 50,
+  ): string {
     if (!questionText) return 'Question';
     if (questionText.length <= maxLength) return questionText;
     return questionText.substring(0, maxLength) + '...';
@@ -128,7 +134,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async createBulkQuestions(
     userId: string,
     questions: any[],
-    isOutreachQuestion?: boolean
+    isOutreachQuestion?: boolean,
   ): Promise<string[]> {
     if (!Array.isArray(questions) || questions.length === 0) {
       throw new BadRequestError('No questions provided for bulk insert');
@@ -159,7 +165,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           normalised_crop = cropCache.get(cacheKey)!;
         } else {
           try {
-            const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+            const existingCrop =
+              await this.cropRepository.findByNameOrAlias(rawCropName);
             if (existingCrop) {
               normalised_crop = existingCrop.name;
               cropCache.set(cacheKey, normalised_crop);
@@ -171,7 +178,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
       details.crop = rawCropName.trim();
-      if (normalised_crop !== undefined) details.normalised_crop = normalised_crop;
+      if (normalised_crop !== undefined)
+        details.normalised_crop = normalised_crop;
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
       const priorities = ['low', 'high', 'medium', 'critical'];
@@ -189,7 +197,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
         question: questionText,
         priority,
-        source: isOutreachQuestion ? "OUTREACH" : (low.source || 'AGRI_EXPERT') as IQuestion['source'],
+        source: isOutreachQuestion
+          ? 'OUTREACH'
+          : ((low.source || 'AGRI_EXPERT') as IQuestion['source']),
         status: 'open',
         totalAnswersCount: 0,
         contextId: null,
@@ -312,7 +322,12 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        return this.questionRepo.getAllocatedQuestions(userId, query, session, body);
+        return this.questionRepo.getAllocatedQuestions(
+          userId,
+          query,
+          session,
+          body,
+        );
       });
     } catch (error) {
       throw new InternalServerError(
@@ -324,8 +339,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
-  ): Promise<{ questions: IQuestion[]; totalPages: number }> {
-
+  ): Promise<{questions: IQuestion[]; totalPages: number}> {
     let searchEmbedding: number[] | null = null;
 
     if (query?.search) {
@@ -333,7 +347,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // const embedding=[]
         // const { embedding } = await this.aiService.getEmbedding(query.search);
         // searchEmbedding = embedding;
-        searchEmbedding = null
+        searchEmbedding = null;
       } catch (err) {
         console.error(
           'Embedding generation failed, falling back to normal search:',
@@ -343,10 +357,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
     }
 
-    return this.questionRepo.findDetailedQuestions({
-      ...query,
-      searchEmbedding,
-    }, body);
+    return this.questionRepo.findDetailedQuestions(
+      {
+        ...query,
+        searchEmbedding,
+      },
+      body,
+    );
   }
 
   async getQuestionFromRawContext(
@@ -419,22 +436,22 @@ export class QuestionService extends BaseService implements IQuestionService {
       ...(questions.reviewer || []).map((item: any) => ({
         question: item.question,
         answer: item.answer,
-        agri_specialist: item.source || "AGRI_EXPERT",
-        referenceSource: "reviewer",
+        agri_specialist: item.source || 'AGRI_EXPERT',
+        referenceSource: 'reviewer',
       })),
 
       ...(questions.golden || []).map((item: any) => ({
         question: item.question,
         answer: item.answer,
-        agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
-        referenceSource: "golden",
+        agri_specialist: item.metadata?.['Agri Specialist'] || 'Unknown',
+        referenceSource: 'golden',
       })),
 
       ...(questions.pop || []).map((item: any) => ({
-        question: "Reference Information",
+        question: 'Reference Information',
         answer: item.text,
-        agri_specialist: "POP_DOCUMENT",
-        referenceSource: "pop",
+        agri_specialist: 'POP_DOCUMENT',
+        referenceSource: 'pop',
       })),
     ];
     const uniqueQuestions = Array.from(
@@ -622,7 +639,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }*/
-
 
   /*async addQuestion(
     userId: string,
@@ -852,7 +868,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     details: IQuestion['details'],
     logData: Record<string, any>,
     session?: ClientSession,
-  ): Promise<{ isDuplicate: boolean; duplicateData?: any }> {
+  ): Promise<{isDuplicate: boolean; duplicateData?: any}> {
     return checkDuplicateQuestionHelper(
       baseQuestion,
       details,
@@ -862,8 +878,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       session,
     );
   }
-
-
 
   async addQuestion(
     userId: string,
@@ -887,7 +901,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         referenceQuestionDetails,
         popContext,
       } = body;
-      console.log("the body coming=====", body)
+      console.log('the body coming=====', body);
 
       if (!details) {
         const b: any = body;
@@ -905,7 +919,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!validPriorities.includes(priority)) {
         priority = 'medium';
       }
-      if(source === "AJRASAKHA" || source === "WHATSAPP"){
+      if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
         priority = 'high';
       }
 
@@ -914,7 +928,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       if (
-        !(typeof details.crop === 'string' ? details.crop.trim() : details.crop?.name?.trim()) ||
+        !(typeof details.crop === 'string'
+          ? details.crop.trim()
+          : details.crop?.name?.trim()) ||
         !details.district ||
         !details.domain ||
         !details.season ||
@@ -929,17 +945,31 @@ export class QuestionService extends BaseService implements IQuestionService {
       logData.source = source;
 
       // ─── Normalize crop against crop_master DB ───────────────────────────
-      const rawCropName = typeof details.crop === 'string' ? details.crop : details.crop?.name || '';
+      const rawCropName =
+        typeof details.crop === 'string'
+          ? details.crop
+          : details.crop?.name || '';
       let normalised_crop: string | undefined;
       if (rawCropName.trim()) {
         try {
-          const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+          const existingCrop =
+            await this.cropRepository.findByNameOrAlias(rawCropName);
           if (existingCrop) {
             normalised_crop = existingCrop.name;
-            logData.cropNormalization = { original: rawCropName, resolved: existingCrop.name, action: rawCropName.trim().toLowerCase() === existingCrop.name ? 'EXACT_MATCH' : 'ALIAS_RESOLVED' };
+            logData.cropNormalization = {
+              original: rawCropName,
+              resolved: existingCrop.name,
+              action:
+                rawCropName.trim().toLowerCase() === existingCrop.name
+                  ? 'EXACT_MATCH'
+                  : 'ALIAS_RESOLVED',
+            };
           } else {
             // Crop not found — omit normalised_crop; moderator must add it via Agri Tech Management.
-            logData.cropNormalization = { original: rawCropName, action: 'NOT_FOUND' };
+            logData.cropNormalization = {
+              original: rawCropName,
+              action: 'NOT_FOUND',
+            };
           }
         } catch (cropError: any) {
           console.error('Crop normalization warning:', cropError.message);
@@ -947,15 +977,15 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
       details.crop = rawCropName.trim();
-      if (normalised_crop !== undefined) details.normalised_crop = normalised_crop;
+      if (normalised_crop !== undefined)
+        details.normalised_crop = normalised_crop;
 
       // 🔹 Create Embedding — OUTSIDE transaction
       const text = `Question: ${question}`;
       let textEmbedding: number[] = [];
 
-
       if (appConfig.ENABLE_AI_SERVER) {
-        const { embedding } = await this.aiService.getEmbedding(text);
+        const {embedding} = await this.aiService.getEmbedding(text);
         textEmbedding = embedding;
       }
       logData.embeddingGenerated = textEmbedding.length > 0;
@@ -966,13 +996,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         let contextId: ObjectId | null = null;
 
         if (context) {
-          const { insertedId } = await this.contextRepo.addContext(context, session);
+          const {insertedId} = await this.contextRepo.addContext(
+            context,
+            session,
+          );
           contextId = new ObjectId(insertedId);
         }
 
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
-          userId: (bodyUserId?.trim() || userId?.trim()) ? new ObjectId(bodyUserId?.trim() || userId) : null,
+          userId:
+            bodyUserId?.trim() || userId?.trim()
+              ? new ObjectId(bodyUserId?.trim() || userId)
+              : null,
           question,
           priority,
           source,
@@ -980,23 +1016,26 @@ export class QuestionService extends BaseService implements IQuestionService {
           totalAnswersCount: 0,
           contextId,
           details,
-          isAutoAllocate: !(source === "AJRASAKHA" || source === "WHATSAPP"),
+          isAutoAllocate: !(source === 'AJRASAKHA' || source === 'WHATSAPP'),
           embedding: textEmbedding,
           metrics: null,
           aiInitialAnswer,
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
-          ...(source !== "AGRI_EXPERT" && { originalQuestion: originalquestion }),
-          ...(messageId && { messageId }),
-          ...(referenceQuestionDetails?.length && { referenceQuestionDetails }),
-          ...(popContext && { popContext }),
+          ...(source !== 'AGRI_EXPERT' && {originalQuestion: originalquestion}),
+          ...(messageId && {messageId}),
+          ...(referenceQuestionDetails?.length && {referenceQuestionDetails}),
+          ...(popContext && {popContext}),
         };
 
         // 🔹 Save question
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-        const savedQuestion = await this.questionRepo.addQuestion(baseQuestion, session);
+        const savedQuestion = await this.questionRepo.addQuestion(
+          baseQuestion,
+          session,
+        );
 
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
@@ -1011,15 +1050,26 @@ export class QuestionService extends BaseService implements IQuestionService {
           createdAt: new Date(),
           updatedAt: new Date(),
         };
-        await this.questionSubmissionRepo.addSubmission(submissionData, session);
+        await this.questionSubmissionRepo.addSubmission(
+          submissionData,
+          session,
+        );
 
         // 🔹 Kick off background processing (duplicate check, expert allocation, notifications)
         const questionId = savedQuestion._id.toString();
         setImmediate(() => {
-          this.processQuestionInBackground({ questionId, source, details, baseQuestion: { ...baseQuestion, _id: savedQuestion._id }, logData })
-            .catch((err: any) =>
-              console.error(`[addQuestion] Background processing failed for questionId=${questionId}:`, err?.message),
-            );
+          this.processQuestionInBackground({
+            questionId,
+            source,
+            details,
+            baseQuestion: {...baseQuestion, _id: savedQuestion._id},
+            logData,
+          }).catch((err: any) =>
+            console.error(
+              `[addQuestion] Background processing failed for questionId=${questionId}:`,
+              err?.message,
+            ),
+          );
         });
 
         return {
@@ -1049,18 +1099,28 @@ export class QuestionService extends BaseService implements IQuestionService {
     baseQuestion: IQuestion;
     logData: Record<string, any>;
   }): Promise<void> {
-    const { questionId, source, details, baseQuestion, logData } = params;
+    const {questionId, source, details, baseQuestion, logData} = params;
     try {
       if (source === 'AGRI_EXPERT') {
-        const users = await this.userRepo.findExpertsByPreference(details as PreferenceDto);
-        const initialUsersToAllocate = users.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
-        const queue: ObjectId[] = initialUsersToAllocate.map((u) => new ObjectId(u._id.toString()));
+        const users = await this.userRepo.findExpertsByPreference(
+          details as PreferenceDto,
+        );
+        const initialUsersToAllocate = users.slice(
+          0,
+          DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
+        );
+        const queue: ObjectId[] = initialUsersToAllocate.map(
+          u => new ObjectId(u._id.toString()),
+        );
 
         await this.questionSubmissionRepo.updateQueue(questionId, queue);
 
         if (initialUsersToAllocate[0]) {
           await Promise.all([
-            this.userRepo.updateReputationScore(initialUsersToAllocate[0]._id.toString(), true),
+            this.userRepo.updateReputationScore(
+              initialUsersToAllocate[0]._id.toString(),
+              true,
+            ),
             this.notificationService.saveTheNotifications(
               `A Question has been assigned for answering`,
               'Answer Creation Assigned',
@@ -1068,20 +1128,40 @@ export class QuestionService extends BaseService implements IQuestionService {
               initialUsersToAllocate[0]._id.toString(),
               'answer_creation',
             ),
-            this.questionRepo.updateQuestion(questionId, { firstAllocationAt: new Date() }),
+            this.questionRepo.updateQuestion(questionId, {
+              firstAllocationAt: new Date(),
+            }),
           ]);
         }
       } else {
         // AJRASAKHA / WHATSAPP — duplicate check then notify moderators
         try {
-          const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData);
+          const duplicateResult = await this.checkDuplicateQuestion(
+            baseQuestion,
+            details,
+            logData,
+          );
           if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
-            const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
-            await this.questionRepo.updateQuestion(questionId, { status: 'duplicate', similarityScore, referenceQuestionId, referenceQuestion, referenceSource });
+            const {
+              similarityScore,
+              referenceQuestionId,
+              referenceQuestion,
+              referenceSource,
+            } = duplicateResult.duplicateData as any;
+            await this.questionRepo.updateQuestion(questionId, {
+              status: 'duplicate',
+              similarityScore,
+              referenceQuestionId,
+              referenceQuestion,
+              referenceSource,
+            });
             return;
           }
         } catch (duplicateError: any) {
-          console.error('[processQuestionInBackground] Duplicate check failed, proceeding as open:', duplicateError.message);
+          console.error(
+            '[processQuestionInBackground] Duplicate check failed, proceeding as open:',
+            duplicateError.message,
+          );
         }
 
         const [allModerators, taskForceModerators] = await Promise.all([
@@ -1090,26 +1170,36 @@ export class QuestionService extends BaseService implements IQuestionService {
         ]);
         const sourceLabel = source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
         const message = `A new question has been received from ${sourceLabel} and needs your attention.`;
-        const notificationType = source === 'AJRASAKHA' ? 'question_from_ajrasakha' : 'question_from_whatsapp';
+        const notificationType =
+          source === 'AJRASAKHA'
+            ? 'question_from_ajrasakha'
+            : 'question_from_whatsapp';
 
         await Promise.all(
           [...allModerators, ...taskForceModerators].map((moderator: any) =>
-            this.notificationService.saveTheNotifications(message, 'New Question Received', questionId, moderator._id.toString(), notificationType),
+            this.notificationService.saveTheNotifications(
+              message,
+              'New Question Received',
+              questionId,
+              moderator._id.toString(),
+              notificationType,
+            ),
           ),
         );
       }
     } catch (error: any) {
-      console.error(`[processQuestionInBackground] Failed for questionId=${questionId}:`, error?.message);
+      console.error(
+        `[processQuestionInBackground] Failed for questionId=${questionId}:`,
+        error?.message,
+      );
     }
   }
-
-
 
   async getQuestionDataById(questionId: string): Promise<IQuestion | null> {
     try {
       const question = await this.questionRepo.getById(questionId);
       if (!question) return null;
-      return question
+      return question;
     } catch (error) {
       console.error(error);
       return null;
@@ -1203,19 +1293,21 @@ export class QuestionService extends BaseService implements IQuestionService {
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
-  ): Promise<{ modifiedCount: number }> {
+  ): Promise<{modifiedCount: number}> {
     try {
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
       // so they shouldn't inflate the transaction scope.
       if (updates.details?.crop) {
-        const rawCropName = typeof updates.details.crop === 'string'
-          ? updates.details.crop
-          : (updates.details.crop as any)?.name || '';
+        const rawCropName =
+          typeof updates.details.crop === 'string'
+            ? updates.details.crop
+            : (updates.details.crop as any)?.name || '';
         let normalised_crop = rawCropName.trim().toLowerCase();
         if (rawCropName.trim()) {
           try {
-            const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+            const existingCrop =
+              await this.cropRepository.findByNameOrAlias(rawCropName);
             if (existingCrop) {
               normalised_crop = existingCrop.name;
             } else {
@@ -1225,7 +1317,10 @@ export class QuestionService extends BaseService implements IQuestionService {
               normalised_crop = normalizedName;
             }
           } catch (cropError: any) {
-            console.error('Crop normalization warning (updateQuestion):', cropError.message);
+            console.error(
+              'Crop normalization warning (updateQuestion):',
+              cropError.message,
+            );
           }
         }
         updates.details.crop = rawCropName.trim();
@@ -1271,22 +1366,25 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionId: string,
     session?: ClientSession,
     BATCH_EXPECTED_TO_ADD: number = DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-  ): Promise<{ data?: ObjectId[], status: boolean }> {
+  ): Promise<{data?: ObjectId[]; status: boolean}> {
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
-    if (question.status === 'in-review' || question.status === "closed" || question.status == "pae_submitted") {
+    if (
+      question.status === 'in-review' ||
+      question.status === 'closed' ||
+      question.status == 'pae_submitted'
+    ) {
       console.log(
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
-      return { data: [], status: false };
+      return {data: [], status: false};
     }
-    if (question.status == "draft") {
+    if (question.status == 'draft') {
       await this.questionRepo.updateQuestion(
         questionId,
         {
-          status: "open",
-
+          status: 'open',
         },
         session,
       );
@@ -1303,8 +1401,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     // checking last submission in history to see if there is an expert who has not yet responded and if !lastSubmission.answer is added to ensure that we are not blocking the queue in case of reviewers who are just reviewing the answer without providing any answers
     const lastSubmission = questionSubmission.history.at(-1);
-    if (lastSubmission && lastSubmission.status === 'in-review' && !lastSubmission.answer) {
-      return { data: [], status: false };
+    if (
+      lastSubmission &&
+      lastSubmission.status === 'in-review' &&
+      !lastSubmission.answer
+    ) {
+      return {data: [], status: false};
     }
 
     const EXISTING_QUEUE_COUNT = questionSubmission.queue.length || 0;
@@ -1312,14 +1414,16 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     if (EXISTING_QUEUE_COUNT >= TOTAL_EXPERTS_LIMIT) {
       console.log('Cannot auto allocate as queue is full');
-      return { data: [], status: false };
+      return {data: [], status: false};
     }
 
-
     let allExpertIds: string[] = [];
-    const isAjrasakha = question.source == "AJRASAKHA" ? true : false
+    const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
     if (isAjrasakha) {
-      const users = await this.userRepo.getExpertsWithFallback(details, session);
+      const users = await this.userRepo.getExpertsWithFallback(
+        details,
+        session,
+      );
 
       allExpertIds = users.map(user => user._id.toString());
     } else {
@@ -1331,16 +1435,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       const expertIdsSet = new Set<string>();
 
       // Add preferred experts first to the set to ensure they get priority in allocation
-      preferredExperts.forEach(user =>
-        expertIdsSet.add(user._id.toString()),
-      );
+      preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
 
       // Add remaining
       users
         .filter(user => user.role === 'expert' && user.isBlocked !== true)
-        .forEach(user =>
-          expertIdsSet.add(user._id.toString()),
-        );
+        .forEach(user => expertIdsSet.add(user._id.toString()));
 
       allExpertIds = Array.from(expertIdsSet);
     }
@@ -1381,7 +1481,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filteredExperts.length === 0) {
         await this.questionRepo.updateQuestion(
           questionId,
-          { status: 'in-review' },
+          {status: 'in-review'},
           session,
         );
         const payload: Partial<IAnswer> = {
@@ -1432,7 +1532,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
           await this.questionRepo.updateQuestion(
             questionId,
-            { firstAllocationAt: new Date() },
+            {firstAllocationAt: new Date()},
             session,
           );
         }
@@ -1454,6 +1554,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           questionId,
           nextAllocatedSubmissionData,
           session,
+          false,
         );
         const IS_INCREMENT = true;
         await this.userRepo.updateReputationScore(
@@ -1474,10 +1575,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           type,
         );
       }
-      updatedQueue = [
-        ...questionSubmission.queue,
-        ...(expertsToAdd || []),
-      ]
+      updatedQueue = [...questionSubmission.queue, ...(expertsToAdd || [])]
         .slice(0, TOTAL_EXPERTS_LIMIT)
         .map(id => new ObjectId(id));
 
@@ -1489,22 +1587,23 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
     return {
       data: updatedQueue,
-      status: true
+      status: true,
     };
   }
 
-  async toggleAutoAllocate(questionId: string): Promise<{ message: string, data?: ObjectId[] }> {
+  async toggleAutoAllocate(
+    questionId: string,
+  ): Promise<{message: string; data?: ObjectId[]}> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-        if (question.status == "draft") {
+        if (question.status == 'draft') {
           await this.questionRepo.updateQuestion(
             questionId,
             {
-              status: "open",
-
+              status: 'open',
             },
             session,
           );
@@ -1518,24 +1617,29 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         const currentStatus = question.isAutoAllocate;
 
-
         // If currentStatus is false, then we need to set it to true and vice versa
         let out;
 
         if (!currentStatus) {
-
           const questionSubmission =
-            await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+            await this.questionSubmissionRepo.getByQuestionId(
+              questionId,
+              session,
+            );
 
           if (!questionSubmission)
-            await this.questionSubmissionRepo.addSubmission({
-              questionId: new ObjectId(questionId),
-              lastRespondedBy: null,
-              history: [],
-              queue: [],
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            }, session)
+            await this.questionSubmissionRepo.addSubmission(
+              {
+                questionId: new ObjectId(questionId),
+                lastRespondedBy: null,
+                history: [],
+                queue: [],
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                reviewDelayNotificationSent: false,
+              },
+              session,
+            );
 
           // const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
           // let BATCH_EXPECTED_TO_ADD = 6;
@@ -1553,14 +1657,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           if (!out.status) {
             return {
               message: 'Auto allocate toggled, but queue is already full',
-              data: out?.data
+              data: out?.data,
             };
           }
         }
 
         return {
           message: `Auto allocate is now set to ${updated.isAutoAllocate}`,
-          data: out?.data
+          data: out?.data,
         };
       });
     } catch (error) {
@@ -1586,24 +1690,30 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-        if (question.status === 'in-review' || question.status === "closed" || question.status == "pae_submitted") {
+        if (
+          question.status === 'in-review' ||
+          question.status === 'closed' ||
+          question.status == 'pae_submitted'
+        ) {
           console.log(
             'This question is currently being in reviewed or has been closed. Please check back later!',
           );
           return;
         }
-        if (question.status == "draft") {
+        if (question.status == 'draft') {
           // Check if any of the experts being allocated is a PAE expert
           const expertUsers = await Promise.all(
-            experts.map(id => this.userRepo.findById(id, session))
+            experts.map(id => this.userRepo.findById(id, session)),
           );
-          const isPaeAllocation = expertUsers.some(u => u?.role === 'pae_expert');
+          const isPaeAllocation = expertUsers.some(
+            u => u?.role === 'pae_expert',
+          );
 
           await this.questionRepo.updateQuestion(
             questionId,
             {
-              status: "open",
-              ...(isPaeAllocation && { pae_review: true }),
+              status: 'open',
+              ...(isPaeAllocation && {pae_review: true}),
             },
             session,
           );
@@ -1617,7 +1727,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         // let submission
         if (!questionSubmission) {
-          if (question.source == "WHATSAPP" || question.status === 'draft') {
+          if (question.source == 'WHATSAPP' || question.status === 'draft') {
             const newSubmission: IQuestionSubmission = {
               questionId: new ObjectId(questionId),
               lastRespondedBy: null,
@@ -1626,13 +1736,15 @@ export class QuestionService extends BaseService implements IQuestionService {
               createdAt: new Date(),
               updatedAt: new Date(),
             };
-            questionSubmission = await this.questionSubmissionRepo.addSubmission(newSubmission, session);
+            questionSubmission =
+              await this.questionSubmissionRepo.addSubmission(
+                newSubmission,
+                session,
+              );
           } else {
             throw new NotFoundError('Question submission not found');
           }
         }
-
-
 
         // 3. Validate if the queue is full
         if (questionSubmission.queue.length >= 10)
@@ -1695,7 +1807,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
           await this.questionRepo.updateQuestion(
             questionId,
-            { firstAllocationAt: new Date() },
+            {firstAllocationAt: new Date()},
             session,
           );
         }
@@ -1739,6 +1851,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionId,
             userSubmissionData,
             session,
+            false,
           );
         }
         //7. Update question submission with new experts
@@ -1764,12 +1877,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
     questionIds: string[],
     paeExpertId: string,
-  ): Promise<{ jobId: string; message: string }> {
+  ): Promise<{jobId: string; message: string}> {
     // Validate actor and PAE expert before handing off to worker
     const actor = await this.userRepo.findById(userId);
     if (!actor) throw new UnauthorizedError('Cannot find user, try relogin!');
     if (actor.role === 'expert')
-      throw new UnauthorizedError("You don't have permission to perform this operation");
+      throw new UnauthorizedError(
+        "You don't have permission to perform this operation",
+      );
 
     const paeUser = await this.userRepo.findById(paeExpertId);
     if (!paeUser) throw new BadRequestError('PAE expert not found');
@@ -2136,8 +2251,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     reasonForChange?: string,
   ): Promise<IQuestionSubmission> {
     return this._withTransaction(async (session: ClientSession) => {
-
-
       // 1. Validate question exists
       const question = await this.questionRepo.getById(questionId, session);
       if (!question) {
@@ -2146,22 +2259,23 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       // 2. Get question submission
-      const questionSubmission = await this.questionSubmissionRepo.getByQuestionId(
-        questionId,
-        session,
-      );
+      const questionSubmission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId, session);
       if (!questionSubmission) {
-        console.warn(`[replaceQueueExpert] Question submission not found: ${questionId}`);
+        console.warn(
+          `[replaceQueueExpert] Question submission not found: ${questionId}`,
+        );
         throw new NotFoundError('Question submission not found');
       }
 
       // Handle Author replacement (column 0)
       if (isAuthor) {
-
         // Validate new expert exists
         const newExpert = await this.userRepo.findById(newExpertId, session);
         if (!newExpert) {
-          console.warn(`[replaceQueueExpert] New expert not found: ${newExpertId}`);
+          console.warn(
+            `[replaceQueueExpert] New expert not found: ${newExpertId}`,
+          );
           throw new NotFoundError('New expert not found');
         }
 
@@ -2170,8 +2284,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         // Check if new expert is same as current author
         if (currentAuthorId === newExpertId) {
-          console.warn(`[replaceQueueExpert] Cannot replace - new expert is same as current author`);
-          throw new BadRequestError('The selected expert is already the author.');
+          console.warn(
+            `[replaceQueueExpert] Cannot replace - new expert is same as current author`,
+          );
+          throw new BadRequestError(
+            'The selected expert is already the author.',
+          );
         }
 
         // Validate reasonForChange is provided
@@ -2190,7 +2308,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           assignmentTime = authorsHistory[authorsHistory.length - 1].createdAt;
         }
 
-        const hoursSinceAssignment = (now.getTime() - new Date(assignmentTime).getTime()) / (1000 * 60 * 60);
+        const hoursSinceAssignment =
+          (now.getTime() - new Date(assignmentTime).getTime()) /
+          (1000 * 60 * 60);
 
         if (hoursSinceAssignment < 2) {
           const remainingMinutes = Math.ceil((2 - hoursSinceAssignment) * 60);
@@ -2209,7 +2329,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         };
 
         // Fetch current question to get existing authors_history
-        const currentQuestion = await this.questionRepo.getById(questionId, session);
+        const currentQuestion = await this.questionRepo.getById(
+          questionId,
+          session,
+        );
         const existingHistory = currentQuestion.authors_history || [];
 
         const questionUpdates: Partial<IQuestion> = {
@@ -2221,7 +2344,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           const prevAccum = question.accumulatedHoldMs ?? 0;
           let segmentMs = 0;
           if (question.holdAt) {
-            segmentMs = Math.max(0, now.getTime() - new Date(question.holdAt).getTime());
+            segmentMs = Math.max(
+              0,
+              now.getTime() - new Date(question.holdAt).getTime(),
+            );
           }
           questionUpdates.isOnHold = false;
           questionUpdates.status = 'open';
@@ -2233,7 +2359,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         await this.questionRepo.updateQuestion(
           questionId,
           questionUpdates,
-          session
+          session,
         );
 
         // ALSO update the queue[0] (author position in queue) - THIS WAS MISSING!
@@ -2241,10 +2367,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (questionSubmission.queue.length > 0) {
           const oldQueueAuthor = questionSubmission.queue[0]?.toString();
           updatedQueue = questionSubmission.queue.map((id, idx) =>
-            idx === 0 ? new ObjectId(newExpertId) : new ObjectId(id.toString())
+            idx === 0 ? new ObjectId(newExpertId) : new ObjectId(id.toString()),
           );
         } else {
-          console.warn(`[replaceQueueExpert] Queue is empty, cannot update queue[0]`);
+          console.warn(
+            `[replaceQueueExpert] Queue is empty, cannot update queue[0]`,
+          );
         }
 
         // Update the question submission with queue only (history unchanged for author replacement)
@@ -2261,20 +2389,26 @@ export class QuestionService extends BaseService implements IQuestionService {
         );
 
         // Also update the answer's authorId (the initial answer created with the question)
-        const answers = await this.answerRepo.getByQuestionId(questionId, session);
-        const initialAnswer = answers.find(a => a.answerIteration === 0 || a.isFinalAnswer === false);
+        const answers = await this.answerRepo.getByQuestionId(
+          questionId,
+          session,
+        );
+        const initialAnswer = answers.find(
+          a => a.answerIteration === 0 || a.isFinalAnswer === false,
+        );
         if (initialAnswer && initialAnswer._id) {
           await this.answerRepo.updateAnswer(
             initialAnswer._id.toString(),
-            { authorId: new ObjectId(newExpertId) },
-            session
+            {authorId: new ObjectId(newExpertId)},
+            session,
           );
         }
 
-
         try {
           // Prepare notification data
-          const truncatedQuestionText = this.truncateQuestionText(question.question);
+          const truncatedQuestionText = this.truncateQuestionText(
+            question.question,
+          );
           const entityId = questionId.toString();
           const type: INotificationType = 'expert_replacement';
 
@@ -2287,41 +2421,61 @@ export class QuestionService extends BaseService implements IQuestionService {
           // Execute all operations in parallel
           await Promise.all([
             // 1. Assign penalty to replaced expert
-            this.userService.updatePenaltyAndIncentive(currentAuthorId!.toString(), 'penalty'),
+            this.userService.updatePenaltyAndIncentive(
+              currentAuthorId!.toString(),
+              'penalty',
+            ),
 
             // 2. Assign incentive to new expert
-            this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
+            this.userService.updatePenaltyAndIncentive(
+              newExpertId,
+              'incentive',
+            ),
 
             // 3. Send notification to replaced expert (with error handling)
-            this.notificationService.saveTheNotifications(
-              replacedExpertMessage,
-              replacedExpertTitle,
-              entityId,
-              currentAuthorId!.toString(),
-              type,
-            ).catch(notificationError => {
-              console.error(`[replaceQueueExpert] ❌ Failed to send notification to replaced author: ${currentAuthorId}`, notificationError);
-              // Return resolved promise to not break Promise.all
-              return Promise.resolve();
-            }),
+            this.notificationService
+              .saveTheNotifications(
+                replacedExpertMessage,
+                replacedExpertTitle,
+                entityId,
+                currentAuthorId!.toString(),
+                type,
+              )
+              .catch(notificationError => {
+                console.error(
+                  `[replaceQueueExpert] ❌ Failed to send notification to replaced author: ${currentAuthorId}`,
+                  notificationError,
+                );
+                // Return resolved promise to not break Promise.all
+                return Promise.resolve();
+              }),
 
             // 4. Send notification to new expert (with error handling)
-            this.notificationService.saveTheNotifications(
-              newExpertMessage,
-              newExpertTitle,
-              entityId,
-              newExpertId,
-              type,
-            ).catch(notificationError => {
-              console.error(`[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`, notificationError);
-              // Return resolved promise to not break Promise.all
-              return Promise.resolve();
-            })
+            this.notificationService
+              .saveTheNotifications(
+                newExpertMessage,
+                newExpertTitle,
+                entityId,
+                newExpertId,
+                type,
+              )
+              .catch(notificationError => {
+                console.error(
+                  `[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`,
+                  notificationError,
+                );
+                // Return resolved promise to not break Promise.all
+                return Promise.resolve();
+              }),
           ]);
-
         } catch (penaltyError) {
-          console.error(`[replaceQueueExpert] Penalty/incentive update failed:`, penaltyError);
-          throw new InternalServerError('Failed to update penalty/incentive scores. Operation rolled back.');
+          console.error(
+            `[replaceQueueExpert] Penalty/incentive update failed:`,
+            penaltyError,
+          );
+          throw new InternalServerError(
+            'Failed to update penalty/incentive scores. Operation rolled back.',
+          );
         }
 
         // Return updated submission
@@ -2333,7 +2487,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const queueIndex = levelIndex;
       if (queueIndex < 0 || queueIndex >= questionSubmission.queue.length) {
         console.warn(
-          `[replaceQueueExpert] Invalid level index: ${levelIndex}, queue has ${questionSubmission.queue.length} experts`
+          `[replaceQueueExpert] Invalid level index: ${levelIndex}, queue has ${questionSubmission.queue.length} experts`,
         );
         throw new BadRequestError(
           `Invalid level index. Queue has ${questionSubmission.queue.length} experts.`,
@@ -2341,16 +2495,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       // Step 1: Identify Last Reviewer from history and validate queue ownership
-      const lastHistoryEntry = questionSubmission.history[questionSubmission.history.length - 1];
+      const lastHistoryEntry =
+        questionSubmission.history[questionSubmission.history.length - 1];
       const lastReviewerInQueue = lastHistoryEntry?.updatedBy?.toString();
       const currentExpertId = questionSubmission.queue[queueIndex]?.toString();
-
 
       // Validate that the reviewer to be replaced matches the current active reviewer
       // The last reviewer in queue must be the one being replaced (validation rule)
       if (currentExpertId !== lastReviewerInQueue) {
         console.warn(
-          `[replaceQueueExpert] Queue validation failed - current expert ${currentExpertId} does not match last reviewer ${lastReviewerInQueue}`
+          `[replaceQueueExpert] Queue validation failed - current expert ${currentExpertId} does not match last reviewer ${lastReviewerInQueue}`,
         );
         throw new BadRequestError(
           'Reallocation denied. The reviewer to be replaced must be the last assigned reviewer in the queue.',
@@ -2363,7 +2517,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       if (levelIndex !== currentActiveIndex) {
         console.warn(
-          `[replaceQueueExpert] Cannot replace - level ${levelIndex} is not active (active: ${currentActiveIndex})`
+          `[replaceQueueExpert] Cannot replace - level ${levelIndex} is not active (active: ${currentActiveIndex})`,
         );
         throw new BadRequestError(
           'Can only replace the expert at the current active level. This level has already been completed or is not yet active.',
@@ -2387,19 +2541,20 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
-
       // Use the found history entry or create a default one for validation
-      const validationHistoryEntry = currentExpertHistoryEntry || submissionHistory[submissionHistory.length - 1];
+      const validationHistoryEntry =
+        currentExpertHistoryEntry ||
+        submissionHistory[submissionHistory.length - 1];
 
       // Time Constraint Validation: At least 2 hours must have passed since assignment (if history exists)
       if (validationHistoryEntry) {
         const lastAssignmentTime = new Date(validationHistoryEntry.createdAt);
-        const hoursSinceAssignment = (now.getTime() - lastAssignmentTime.getTime()) / (1000 * 60 * 60);
-
+        const hoursSinceAssignment =
+          (now.getTime() - lastAssignmentTime.getTime()) / (1000 * 60 * 60);
 
         if (hoursSinceAssignment < 2) {
           console.warn(
-            `[replaceQueueExpert] Time constraint not met - only ${hoursSinceAssignment.toFixed(2)} hours since assignment (requires 2 hours)`
+            `[replaceQueueExpert] Time constraint not met - only ${hoursSinceAssignment.toFixed(2)} hours since assignment (requires 2 hours)`,
           );
           const remainingMinutes = Math.ceil((2 - hoursSinceAssignment) * 60);
           throw new BadRequestError(
@@ -2410,7 +2565,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Review Status Validation: The submission must still be in 'in-review' state
         if (validationHistoryEntry.status !== 'in-review') {
           console.warn(
-            `[replaceQueueExpert] Status validation failed - current status is ${validationHistoryEntry.status}, expected 'in-review'`
+            `[replaceQueueExpert] Status validation failed - current status is ${validationHistoryEntry.status}, expected 'in-review'`,
           );
           throw new BadRequestError(
             `Reallocation denied. The review status is '${validationHistoryEntry.status}'. Only reviews in 'in-review' status can be reallocated.`,
@@ -2427,13 +2582,19 @@ export class QuestionService extends BaseService implements IQuestionService {
       // 5. Validate new expert exists
       const newExpert = await this.userRepo.findById(newExpertId, session);
       if (!newExpert) {
-        console.warn(`[replaceQueueExpert] New expert not found: ${newExpertId}`);
+        console.warn(
+          `[replaceQueueExpert] New expert not found: ${newExpertId}`,
+        );
         throw new NotFoundError('New expert not found');
       }
       // 6. Check if new expert is already in queue
-      const existingQueueIds = questionSubmission.queue.map(id => id.toString());
+      const existingQueueIds = questionSubmission.queue.map(id =>
+        id.toString(),
+      );
       if (existingQueueIds.includes(newExpertId)) {
-        console.warn(`[replaceQueueExpert] Expert ${newExpertId} already in queue`);
+        console.warn(
+          `[replaceQueueExpert] Expert ${newExpertId} already in queue`,
+        );
         throw new BadRequestError(
           'The selected expert is already in the queue. Please choose another expert.',
         );
@@ -2447,13 +2608,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         updatedAt: now,
       };
 
-      // Step 4: Update Queue - Replace the expert at the specified index   
+      // Step 4: Update Queue - Replace the expert at the specified index
       const updatedQueue = questionSubmission.queue.map((id, idx) => {
-        const shouldReplace = idx === (queueIndex);
-        const resultId = shouldReplace ? new ObjectId(newExpertId) : new ObjectId(id.toString());
+        const shouldReplace = idx === queueIndex;
+        const resultId = shouldReplace
+          ? new ObjectId(newExpertId)
+          : new ObjectId(id.toString());
         return resultId;
       });
-
 
       // Step 5: Build updated history with previousAllocations
       const updatedHistory = [...submissionHistory];
@@ -2462,7 +2624,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Update existing history entry with previousAllocations
         const updatedPreviousAllocations = [
           ...(currentExpertHistoryEntry.previousAllocations || []),
-          previousAllocation
+          previousAllocation,
         ];
         const updatedExpertHistory: ISubmissionHistory = {
           ...currentExpertHistoryEntry,
@@ -2484,7 +2646,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         updatedHistory.push(newExpertHistoryEntry);
       }
 
-
       // Update database with queue and history changes
       const updateData: any = {
         $set: {
@@ -2498,7 +2659,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         const prevAccum = question.accumulatedHoldMs ?? 0;
         let segmentMs = 0;
         if (question.holdAt) {
-          segmentMs = Math.max(0, now.getTime() - new Date(question.holdAt).getTime());
+          segmentMs = Math.max(
+            0,
+            now.getTime() - new Date(question.holdAt).getTime(),
+          );
         }
         await this.questionRepo.updateQuestion(
           questionId,
@@ -2520,7 +2684,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       try {
         // Prepare notification data
-        const truncatedQuestionText = this.truncateQuestionText(question.question);
+        const truncatedQuestionText = this.truncateQuestionText(
+          question.question,
+        );
         const entityId = questionId.toString();
         const type: INotificationType = 'expert_replacement';
 
@@ -2533,43 +2699,59 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Execute all operations in parallel
         await Promise.all([
           // 1. Assign penalty to replaced expert
-          this.userService.updatePenaltyAndIncentive(currentExpertId, 'penalty'),
+          this.userService.updatePenaltyAndIncentive(
+            currentExpertId,
+            'penalty',
+          ),
 
           // 2. Assign incentive to new expert
           this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
 
           // 3. Send notification to replaced expert (with error handling)
-          this.notificationService.saveTheNotifications(
-            replacedExpertMessage,
-            replacedExpertTitle,
-            entityId,
-            currentExpertId,
-            type,
-          ).catch(notificationError => {
-            console.error(`[replaceQueueExpert] ❌ Failed to send notification to replaced expert: ${currentExpertId}`, notificationError);
-            // Return resolved promise to not break Promise.all
-            return Promise.resolve();
-          }),
+          this.notificationService
+            .saveTheNotifications(
+              replacedExpertMessage,
+              replacedExpertTitle,
+              entityId,
+              currentExpertId,
+              type,
+            )
+            .catch(notificationError => {
+              console.error(
+                `[replaceQueueExpert] ❌ Failed to send notification to replaced expert: ${currentExpertId}`,
+                notificationError,
+              );
+              // Return resolved promise to not break Promise.all
+              return Promise.resolve();
+            }),
 
           // 4. Send notification to new expert (with error handling)
-          this.notificationService.saveTheNotifications(
-            newExpertMessage,
-            newExpertTitle,
-            entityId,
-            newExpertId,
-            type,
-          ).catch(notificationError => {
-            console.error(`[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`, notificationError);
-            // Return resolved promise to not break Promise.all
-            return Promise.resolve();
-          })
+          this.notificationService
+            .saveTheNotifications(
+              newExpertMessage,
+              newExpertTitle,
+              entityId,
+              newExpertId,
+              type,
+            )
+            .catch(notificationError => {
+              console.error(
+                `[replaceQueueExpert] ❌ Failed to send notification to new expert: ${newExpertId}`,
+                notificationError,
+              );
+              // Return resolved promise to not break Promise.all
+              return Promise.resolve();
+            }),
         ]);
-
       } catch (penaltyError) {
-        console.error(`[replaceQueueExpert] Penalty/incentive update failed for queue expert:`, penaltyError);
-        throw new InternalServerError('Failed to update penalty/incentive scores. Operation rolled back.');
+        console.error(
+          `[replaceQueueExpert] Penalty/incentive update failed for queue expert:`,
+          penaltyError,
+        );
+        throw new InternalServerError(
+          'Failed to update penalty/incentive scores. Operation rolled back.',
+        );
       }
-
 
       return updated;
     });
@@ -2653,7 +2835,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async deleteQuestion(
     questionId: string,
     session?: ClientSession,
-  ): Promise<{ deletedCount: number }> {
+  ): Promise<{deletedCount: number}> {
     const execute = async (activeSession: ClientSession) => {
       const question = await this.questionRepo.getById(
         questionId,
@@ -2740,7 +2922,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       await this.requestRepository.deleteByEntityId(questionId, activeSession);
 
       // Delete duplicate question records referencing this question
-      await this.duplicateQuestionRepository.deleteByReferenceQuestionId(questionId, activeSession);
+      await this.duplicateQuestionRepository.deleteByReferenceQuestionId(
+        questionId,
+        activeSession,
+      );
 
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
@@ -2770,7 +2955,10 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQuestionFullData(
     questionId: string,
     userId: string,
-  ): Promise<{question: IQuestion | null; approved_moderator: {name: string; email: string}}> {
+  ): Promise<{
+    question: IQuestion | null;
+    approved_moderator: {name: string; email: string};
+  }> {
     try {
       const user = await this.userRepo.findById(userId);
       const isExpert = user.role == 'expert';
@@ -2790,7 +2978,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (question.status === 'closed') {
         const answers = await this.answerRepo.getByQuestionId(questionId);
         const finalizedAnswer = answers.find(answer => answer.isFinalAnswer);
-        
+
         if (finalizedAnswer?.approvedBy) {
           const moderator = await this.userRepo.findById(
             finalizedAnswer.approvedBy,
@@ -2833,7 +3021,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (query?.search) {
         try {
           // const embedding=[]
-          const { embedding } = await this.aiService.getEmbedding(query.search);
+          const {embedding} = await this.aiService.getEmbedding(query.search);
           searchEmbedding = embedding;
         } catch (err) {
           console.error(
@@ -2885,7 +3073,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       session,
     );
     for (const submission of submissions) {
-      const { questionId, queue = [], history = [] } = submission;
+      const {questionId, queue = [], history = []} = submission;
 
       if (!queue.length) continue;
       const indicesToRemove = new Set<number>();
@@ -2926,7 +3114,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           'system',
           questionId.toString(),
           index,
-          { skipAutoAllocate: true },
+          {skipAutoAllocate: true},
           session,
         );
       }
@@ -3235,11 +3423,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (type === 'inactive') {
       const lessWorkloadExperts =
         await this.userRepo.findActiveLowReputationExpertsToday(session);
-      console.log(`[QuestionService] [Path 1] Found ${lessWorkloadExperts.length} active experts for replacement`);
+      console.log(
+        `[QuestionService] [Path 1] Found ${lessWorkloadExperts.length} active experts for replacement`,
+      );
 
       if (!lessWorkloadExperts.length) {
         return {
-          message: 'No active experts with low workload available for balancing',
+          message:
+            'No active experts with low workload available for balancing',
           expertsInvolved: 0,
           submissionsProcessed: 0,
         };
@@ -3248,8 +3439,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       const inactiveExperts =
         await this.userRepo.findInactiveOrBlockedExperts(session);
       const inactiveExpertIds = inactiveExperts.map(u => u._id.toString());
-      
-      console.log(`[QuestionService] [Path 1] Found ${inactiveExpertIds.length} inactive/blocked experts to clean`);
+
+      console.log(
+        `[QuestionService] [Path 1] Found ${inactiveExpertIds.length} inactive/blocked experts to clean`,
+      );
 
       if (inactiveExpertIds.length === 0) {
         return {
@@ -3264,7 +3457,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           inactiveExpertIds,
           session,
         );
-      console.log(`[QuestionService] [Path 1] Found ${targetSubmissions.length} active tasks owned by inactive experts`);
+      console.log(
+        `[QuestionService] [Path 1] Found ${targetSubmissions.length} active tasks owned by inactive experts`,
+      );
 
       if (!targetSubmissions.length) {
         return {
@@ -3316,7 +3511,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
-      const flatAssignments: { submissionId: string; expertId: string }[] = [];
+      const flatAssignments: {submissionId: string; expertId: string}[] = [];
       for (const expertId in assignments) {
         for (const submission of assignments[expertId]) {
           flatAssignments.push({
@@ -3343,14 +3538,17 @@ export class QuestionService extends BaseService implements IQuestionService {
       const lessWorkloadExperts =
         await this.userRepo.findActiveLowReputationExpertsToday(session);
 
-      console.log(`[QuestionService] Found ${lessWorkloadExperts.length} active experts with low workload`);
+      console.log(
+        `[QuestionService] Found ${lessWorkloadExperts.length} active experts with low workload`,
+      );
 
       const MAX_PER_EXPERT = 5;
       const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
 
       if (!lessWorkloadExperts.length) {
         return {
-          message: 'No Expert Present To Reallocate Questions .No action needed.',
+          message:
+            'No Expert Present To Reallocate Questions .No action needed.',
           expertsInvolved: 0,
           submissionsProcessed: 0,
         };
@@ -3361,8 +3559,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           maxAssignments,
           session,
         );
-      
-      console.log(`[QuestionService] Found ${delayedSubmissions.length} delayed submissions needing escalation`);
+
+      console.log(
+        `[QuestionService] Found ${delayedSubmissions.length} delayed submissions needing escalation`,
+      );
 
       if (!delayedSubmissions.length) {
         return {
@@ -3434,7 +3634,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             expertLoad[expertId]++;
             assigned = true;
           } else {
-            console.log(`[QuestionService] Skipping expert ${expertId} for submission ${submission._id}: alreadyInHistory=${historyExpertIds.has(expertId)}, alreadyInQueue=${queueExpertIds.has(expertId)}, load=${expertLoad[expertId]}`);
+            console.log(
+              `[QuestionService] Skipping expert ${expertId} for submission ${submission._id}: alreadyInHistory=${historyExpertIds.has(expertId)}, alreadyInQueue=${queueExpertIds.has(expertId)}, load=${expertLoad[expertId]}`,
+            );
           }
 
           expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
@@ -3442,7 +3644,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
-      const flatAssignments: { submissionId: string; expertId: string }[] = [];
+      const flatAssignments: {submissionId: string; expertId: string}[] = [];
 
       for (const expertId in assignments) {
         for (const submission of assignments[expertId]) {
@@ -3452,9 +3654,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           });
         }
       }
-      
-      console.log(`[QuestionService] Created ${flatAssignments.length} reallocation assignments`);
-      
+
+      console.log(
+        `[QuestionService] Created ${flatAssignments.length} reallocation assignments`,
+      );
+
       if (flatAssignments.length > 0) {
         startBalanceWorkloadWorkers(flatAssignments);
       }
@@ -3467,125 +3671,156 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async getReallocationPreview(type: string): Promise<any> {
-    return this._withTransaction(async (session) => {
+    return this._withTransaction(async session => {
       let questions: any[] = [];
       let inactiveExpertIds: string[] = [];
-      const activeExperts = await this.userRepo.findActiveLowReputationExpertsToday(session);
+      const activeExperts =
+        await this.userRepo.findActiveLowReputationExpertsToday(session);
 
       if (type === 'inactive') {
-        const inactiveExperts = await this.userRepo.findInactiveOrBlockedExperts(session);
+        const inactiveExperts =
+          await this.userRepo.findInactiveOrBlockedExperts(session);
         inactiveExpertIds = inactiveExperts.map(e => e._id.toString());
-        
+
         if (inactiveExpertIds.length > 0) {
           const INACTIVE_PREVIEW_LIMIT = 50;
-          questions = await this.questionSubmissionRepo.findSubmissionsWithExpertsInQueue(
-            inactiveExpertIds,
-            session,
-            INACTIVE_PREVIEW_LIMIT,
-          );
+          questions =
+            await this.questionSubmissionRepo.findSubmissionsWithExpertsInQueue(
+              inactiveExpertIds,
+              session,
+              INACTIVE_PREVIEW_LIMIT,
+            );
         }
       } else {
         // escalation - show questions that are delayed (1+ hour)
         // We fetch a generous amount for the manual preview
-        const ESCALATION_LIMIT = 50; 
-        questions = await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
-          ESCALATION_LIMIT,
-          session,
-        );
+        const ESCALATION_LIMIT = 50;
+        questions =
+          await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
+            ESCALATION_LIMIT,
+            session,
+          );
       }
 
       // Identify experts name and status for display
-      const expertInfoMap = new Map<string, { name: string, status: string, isBlocked: boolean }>();
+      const expertInfoMap = new Map<
+        string,
+        {name: string; status: string; isBlocked: boolean}
+      >();
       if (questions.length > 0) {
         // Collect all expert IDs in queues
         const allExpertIdsInQueues = new Set<string>();
         questions.forEach(q => {
-          q.queue?.forEach((id: any) => allExpertIdsInQueues.add(id.toString()));
+          q.queue?.forEach((id: any) =>
+            allExpertIdsInQueues.add(id.toString()),
+          );
         });
-        
-        const experts = await this.userRepo.getUsersByIds(Array.from(allExpertIdsInQueues), session);
-        experts.forEach(e => expertInfoMap.set(e._id.toString(), {
-          name: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
-          status: e.status || 'unknown',
-          isBlocked: !!e.isBlocked
-        }));
+
+        const experts = await this.userRepo.getUsersByIds(
+          Array.from(allExpertIdsInQueues),
+          session,
+        );
+        experts.forEach(e =>
+          expertInfoMap.set(e._id.toString(), {
+            name: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
+            status: e.status || 'unknown',
+            isBlocked: !!e.isBlocked,
+          }),
+        );
       }
 
       // Populate question text and identify current "responsible" expert
-      const populatedQuestions = (await Promise.all(questions.map(async (submission) => {
-        let questionText = '';
-        try {
-          const question = await this.questionRepo.getById(submission.questionId.toString(), session);
-          if (!question) return null; // Skip if question document is deleted
-          questionText = question.question;
-        } catch (err) {
-          console.error(`[QuestionService] Failed to fetch question ${submission.questionId}:`, err);
-          return null; // Skip on error to avoid invalid entries
-        }
-        
-        let currentExpertId = null;
-        const targetExpertIdsSet = new Set(inactiveExpertIds);
-
-        if (type === 'inactive') {
-          // Identify which inactive expert is currently assigned
-          const historyLength = (submission.history || []).length;
-          const currentInQueue = submission.queue?.[historyLength];
-          
-          if (currentInQueue && targetExpertIdsSet.has(currentInQueue.toString())) {
-            currentExpertId = currentInQueue.toString();
-          } else {
-            // Fallback: search queue for any inactive/blocked expert
-            const targetInQueue = submission.queue?.find(id => targetExpertIdsSet.has(id.toString()));
-            if (targetInQueue) {
-              currentExpertId = targetInQueue.toString();
+      const populatedQuestions = (
+        await Promise.all(
+          questions.map(async submission => {
+            let questionText = '';
+            try {
+              const question = await this.questionRepo.getById(
+                submission.questionId.toString(),
+                session,
+              );
+              if (!question) return null; // Skip if question document is deleted
+              questionText = question.question;
+            } catch (err) {
+              console.error(
+                `[QuestionService] Failed to fetch question ${submission.questionId}:`,
+                err,
+              );
+              return null; // Skip on error to avoid invalid entries
             }
-          }
-        } else {
-          // Escalation - whoever is currently supposed to review
-          const historyLength = (submission.history || []).length;
-          currentExpertId = submission.queue?.[historyLength]?.toString();
-        }
 
-        const info = currentExpertId ? expertInfoMap.get(currentExpertId) : null;
-        const currentExpertName = info?.name || 'No Experts Assigned';
-        const currentExpertStatus = info?.status || 'unknown';
-        const isCurrentExpertBlocked = info?.isBlocked || false;
+            let currentExpertId = null;
+            const targetExpertIdsSet = new Set(inactiveExpertIds);
 
-        return {
-          submissionId: submission._id.toString(),
-          questionId: submission.questionId.toString(),
-          questionText: questionText,
-          currentExpertId,
-          currentExpertName,
-          currentExpertStatus,
-          isCurrentExpertBlocked,
-          queue: submission.queue?.map(id => id.toString()) || []
-        };
-      }))).filter(q => q !== null);
+            if (type === 'inactive') {
+              // Identify which inactive expert is currently assigned
+              const historyLength = (submission.history || []).length;
+              const currentInQueue = submission.queue?.[historyLength];
+
+              if (
+                currentInQueue &&
+                targetExpertIdsSet.has(currentInQueue.toString())
+              ) {
+                currentExpertId = currentInQueue.toString();
+              } else {
+                // Fallback: search queue for any inactive/blocked expert
+                const targetInQueue = submission.queue?.find(id =>
+                  targetExpertIdsSet.has(id.toString()),
+                );
+                if (targetInQueue) {
+                  currentExpertId = targetInQueue.toString();
+                }
+              }
+            } else {
+              // Escalation - whoever is currently supposed to review
+              const historyLength = (submission.history || []).length;
+              currentExpertId = submission.queue?.[historyLength]?.toString();
+            }
+
+            const info = currentExpertId
+              ? expertInfoMap.get(currentExpertId)
+              : null;
+            const currentExpertName = info?.name || 'No Experts Assigned';
+            const currentExpertStatus = info?.status || 'unknown';
+            const isCurrentExpertBlocked = info?.isBlocked || false;
+
+            return {
+              submissionId: submission._id.toString(),
+              questionId: submission.questionId.toString(),
+              questionText: questionText,
+              currentExpertId,
+              currentExpertName,
+              currentExpertStatus,
+              isCurrentExpertBlocked,
+              queue: submission.queue?.map(id => id.toString()) || [],
+            };
+          }),
+        )
+      ).filter(q => q !== null);
 
       // Get names for active experts
       const populatedActiveExperts = activeExperts.map(e => ({
         id: e._id.toString(),
         name: `${e.firstName} ${e.lastName || ''}`.trim(),
-        reputation_score: e.reputation_score || 0
+        reputation_score: e.reputation_score || 0,
       }));
 
       return {
         questions: populatedQuestions,
         activeExperts: populatedActiveExperts,
-        inactiveExpertIds: type === 'inactive' ? inactiveExpertIds : []
+        inactiveExpertIds: type === 'inactive' ? inactiveExpertIds : [],
       };
     });
   }
 
   async manualReallocate(
-    assignments: { submissionId: string; expertId: string }[],
+    assignments: {submissionId: string; expertId: string}[],
     inactiveExpertIds?: string[],
-  ): Promise<{ message: string; submissionsProcessed: number }> {
+  ): Promise<{message: string; submissionsProcessed: number}> {
     if (assignments.length > 0) {
       startBalanceWorkloadWorkers(assignments, inactiveExpertIds);
     }
-    
+
     return {
       message: 'Manual reallocation started in background',
       submissionsProcessed: assignments.length,
@@ -3617,7 +3852,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     startDate: string,
     endDate: string,
     emails: string | string[],
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{success: boolean; message: string}> {
     try {
       if (!startDate || !endDate) {
         throw new Error('startDate and endDate are required');
@@ -3632,16 +3867,20 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
 
       // const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
-      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end);
-      const combineQuestions = [...questions, ...duplicateQuestions]
+      const duplicateQuestions =
+        await this.duplicateQuestionRepository.findDuplicatesByDateRange(
+          start,
+          end,
+        );
+      const combineQuestions = [...questions, ...duplicateQuestions];
       const allQuestions = [
-        ...combineQuestions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-
+        ...combineQuestions.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        ),
       ];
 
-
       if (allQuestions.length === 0) {
-
         return {
           success: true,
           message: 'There are no Outreach questions in the selected time',
@@ -3665,7 +3904,11 @@ export class QuestionService extends BaseService implements IQuestionService {
       // );
 
       // NEW EXCEL IMPLEMENTATION
-      const excelBuffer = await this.convertQuestionsToExcel(allQuestions, startDate, endDate);
+      const excelBuffer = await this.convertQuestionsToExcel(
+        allQuestions,
+        startDate,
+        endDate,
+      );
 
       await sendEmailWithAttachment(
         emails,
@@ -3758,20 +4001,20 @@ export class QuestionService extends BaseService implements IQuestionService {
     endDate?: string,
   ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Outreach Questions");
+    const sheet = workbook.addWorksheet('Outreach Questions');
 
     // Add title and date range at the top
     sheet.mergeCells('A1:K1');
     const titleCell = sheet.getCell('A1');
     titleCell.value = 'Out Reach Data Report';
-    titleCell.font = { bold: true, size: 14 };
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.font = {bold: true, size: 14};
+    titleCell.alignment = {horizontal: 'center', vertical: 'middle'};
 
     sheet.mergeCells('A2:K2');
     const dateRangeCell = sheet.getCell('A2');
     dateRangeCell.value = `Date Range: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`;
-    dateRangeCell.font = { bold: true, size: 11 };
-    dateRangeCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    dateRangeCell.font = {bold: true, size: 11};
+    dateRangeCell.alignment = {horizontal: 'center', vertical: 'middle'};
 
     // Add empty row
     sheet.addRow([]);
@@ -3788,28 +4031,28 @@ export class QuestionService extends BaseService implements IQuestionService {
       'Season',
       'Domain',
       'Text',
-      'Created At'
+      'Created At',
     ]);
 
     // Style the header row
-    headerRow.font = { bold: true };
-    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    headerRow.font = {bold: true};
+    headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
     headerRow.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFD3D3D3' }
+      fgColor: {argb: 'FFD3D3D3'},
     };
 
     // Set column widths
-    sheet.getColumn(1).width = 50;  // Question
-    sheet.getColumn(2).width = 15;  // Status
-    sheet.getColumn(3).width = 15;  // Priority
-    sheet.getColumn(4).width = 15;  // Source
-    sheet.getColumn(5).width = 20;  // State
-    sheet.getColumn(6).width = 20;  // District
-    sheet.getColumn(7).width = 20;  // Crop
-    sheet.getColumn(8).width = 15;  // Season
-    sheet.getColumn(9).width = 25;  // Domain
+    sheet.getColumn(1).width = 50; // Question
+    sheet.getColumn(2).width = 15; // Status
+    sheet.getColumn(3).width = 15; // Priority
+    sheet.getColumn(4).width = 15; // Source
+    sheet.getColumn(5).width = 20; // State
+    sheet.getColumn(6).width = 20; // District
+    sheet.getColumn(7).width = 20; // Crop
+    sheet.getColumn(8).width = 15; // Season
+    sheet.getColumn(9).width = 25; // Domain
     sheet.getColumn(10).width = 50; // Text
     sheet.getColumn(11).width = 22; // Created At
 
@@ -3826,12 +4069,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         q.details?.season || '',
         q.details?.domain || '',
         q.text || '',
-        q.createdAt ? this.formatDate(q.createdAt) : ''
+        q.createdAt ? this.formatDate(q.createdAt) : '',
       ]);
 
       // Enable text wrapping for long content
-      row.getCell(1).alignment = { wrapText: true, vertical: 'top' }; // Question
-      row.getCell(10).alignment = { wrapText: true, vertical: 'top' }; // Text
+      row.getCell(1).alignment = {wrapText: true, vertical: 'top'}; // Question
+      row.getCell(10).alignment = {wrapText: true, vertical: 'top'}; // Text
     });
 
     // Generate buffer
@@ -3847,8 +4090,16 @@ export class QuestionService extends BaseService implements IQuestionService {
     return `"${String(value).replace(/"/g, '""')}"`;
   }
 
-  async generateQuestionReport(consecutiveApprovals?: number, startDate?: Date, endDate?: Date) {
-    const result = await this.answerRepo.groupbyquestion(consecutiveApprovals, startDate, endDate);
+  async generateQuestionReport(
+    consecutiveApprovals?: number,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    const result = await this.answerRepo.groupbyquestion(
+      consecutiveApprovals,
+      startDate,
+      endDate,
+    );
 
     // Check if there's any data with reasons
     const hasData = result.reasons.some(item => {
@@ -3863,13 +4114,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Question Reasons");
+    const sheet = workbook.addWorksheet('Question Reasons');
 
     sheet.columns = [
-      { header: "Created At", key: "createdAt", width: 22 },
-      { header: "Question", key: "question", width: 50 },
-      { header: "Reason For Modification", key: "mod", width: 50 },
-      { header: "Reason For Rejection", key: "rej", width: 50 }
+      {header: 'Created At', key: 'createdAt', width: 22},
+      {header: 'Question', key: 'question', width: 50},
+      {header: 'Reason For Modification', key: 'mod', width: 50},
+      {header: 'Reason For Rejection', key: 'rej', width: 50},
     ];
 
     let rowCount = 0;
@@ -3882,12 +4133,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       const row = sheet.addRow({
         createdAt: item.createdAt,
         question: item.question,
-        mod: modList.map((r, i) => `${i + 1}) ${r}`).join("\n"),
-        rej: rejList.map((r, i) => `${i + 1}) ${r}`).join("\n"),
+        mod: modList.map((r, i) => `${i + 1}) ${r}`).join('\n'),
+        rej: rejList.map((r, i) => `${i + 1}) ${r}`).join('\n'),
       });
 
-      row.getCell("mod").alignment = { wrapText: true };
-      row.getCell("rej").alignment = { wrapText: true };
+      row.getCell('mod').alignment = {wrapText: true};
+      row.getCell('rej').alignment = {wrapText: true};
       rowCount++;
     });
 
@@ -3895,10 +4146,17 @@ export class QuestionService extends BaseService implements IQuestionService {
     return data;
   }
 
-  async generateOverallQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null> {
-    return this._withTransaction(async (session) => {
+  async generateOverallQuestionReport(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<ArrayBuffer | null> {
+    return this._withTransaction(async session => {
       // Get monthly statistics from the repository
-      const stats = await this.questionRepo.getMonthlyQuestionStats(startDate, endDate, session);
+      const stats = await this.questionRepo.getMonthlyQuestionStats(
+        startDate,
+        endDate,
+        session,
+      );
 
       // Check if there's any data
       if (!stats || stats.length === 0) {
@@ -3907,16 +4165,16 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Create Excel workbook
       const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet("Overall Questions Report");
+      const sheet = workbook.addWorksheet('Overall Questions Report');
 
       // Define columns matching the template
       sheet.columns = [
-        { header: "Year", key: "year", width: 12 },
-        { header: "Month", key: "month", width: 15 },
-        { header: "Total No. of Q", key: "totalQuestions", width: 18 },
-        { header: "Modified Answ", key: "modifiedAnswers", width: 18 },
-        { header: "Rejected Answ", key: "rejectedAnswers", width: 18 },
-        { header: "Total (Modified + Rejected)", key: "total", width: 28 }
+        {header: 'Year', key: 'year', width: 12},
+        {header: 'Month', key: 'month', width: 15},
+        {header: 'Total No. of Q', key: 'totalQuestions', width: 18},
+        {header: 'Modified Answ', key: 'modifiedAnswers', width: 18},
+        {header: 'Rejected Answ', key: 'rejectedAnswers', width: 18},
+        {header: 'Total (Modified + Rejected)', key: 'total', width: 28},
       ];
 
       // Add data rows
@@ -3927,14 +4185,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           totalQuestions: stat.totalQuestions,
           modifiedAnswers: stat.modifiedAnswers,
           rejectedAnswers: stat.rejectedAnswers,
-          total: stat.modifiedAnswers + stat.rejectedAnswers
+          total: stat.modifiedAnswers + stat.rejectedAnswers,
         });
       });
 
       // Style the header row
       const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true };
-      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      headerRow.font = {bold: true};
+      headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
 
       // Generate buffer
       const buffer = await workbook.xlsx.writeBuffer();
@@ -3954,7 +4212,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     startDate?: string;
     endDate?: string;
   }): Promise<ArrayBuffer | null> {
-    return this._withTransaction(async (session) => {
+    return this._withTransaction(async session => {
       // Build filter query
       const query: any = {};
       if (filters.state && filters.state !== 'all') {
@@ -3966,12 +4224,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filters.normalised_crop && filters.normalised_crop !== 'all') {
         if (filters.normalised_crop === '__NOT_SET__') {
           query.$or = [
-            { 'details.normalised_crop': { $exists: false } },
-            { 'details.normalised_crop': null },
-            { 'details.normalised_crop': '' },
+            {'details.normalised_crop': {$exists: false}},
+            {'details.normalised_crop': null},
+            {'details.normalised_crop': ''},
           ];
         } else {
-          query['details.normalised_crop'] = { $regex: `^${filters.normalised_crop}$`, $options: 'i' };
+          query['details.normalised_crop'] = {
+            $regex: `^${filters.normalised_crop}$`,
+            $options: 'i',
+          };
         }
       }
       if (filters.season && filters.season !== 'all') {
@@ -3989,7 +4250,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
       if (filters.hiddenQuestions === 'true') {
-        query.isHidden = { $eq: true };
+        query.isHidden = {$eq: true};
       }
       if (filters.startDate || filters.endDate) {
         query.createdAt = {};
@@ -4011,26 +4272,26 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
 
       if (!questions || questions.length === 0) {
-        console.log("No questions found for given filters");
+        console.log('No questions found for given filters');
         return null;
       }
 
       // Create Excel workbook
       const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet("Questions");
+      const sheet = workbook.addWorksheet('Questions');
 
       // Define columns
       sheet.columns = [
-        { header: "Created At", key: "createdAt", width: 22 },
-        { header: "Question", key: "question", width: 60 },
-        { header: "State", key: "state", width: 20 },
-        { header: "District", key: "district", width: 20 },
-        { header: "Crop", key: "crop", width: 20 },
-        { header: "Season", key: "season", width: 20 },
-        { header: "Domain", key: "domain", width: 25 },
-        { header: "Status", key: "status", width: 15 },
-        { header: "Priority", key: "priority", width: 15 },
-        { header: "Source", key: "source", width: 15 },
+        {header: 'Created At', key: 'createdAt', width: 22},
+        {header: 'Question', key: 'question', width: 60},
+        {header: 'State', key: 'state', width: 20},
+        {header: 'District', key: 'district', width: 20},
+        {header: 'Crop', key: 'crop', width: 20},
+        {header: 'Season', key: 'season', width: 20},
+        {header: 'Domain', key: 'domain', width: 25},
+        {header: 'Status', key: 'status', width: 15},
+        {header: 'Priority', key: 'priority', width: 15},
+        {header: 'Source', key: 'source', width: 15},
       ];
 
       // Add data rows
@@ -4051,8 +4312,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Style the header row
       const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true };
-      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      headerRow.font = {bold: true};
+      headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
 
       // Generate buffer
       const buffer = await workbook.xlsx.writeBuffer();
@@ -4060,15 +4321,23 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-  async generateDuplicateQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null> {
-    return this._withTransaction(async (session) => {
+  async generateDuplicateQuestionReport(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<ArrayBuffer | null> {
+    return this._withTransaction(async session => {
       if (!startDate || !endDate) {
         throw new BadRequestError('startDate and endDate are required');
       }
 
       // Fetch duplicates using the repository
       // const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA', session);
-      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, session);
+      const duplicateQuestions =
+        await this.duplicateQuestionRepository.findDuplicatesByDateRange(
+          startDate,
+          endDate,
+          session,
+        );
 
       if (!duplicateQuestions || duplicateQuestions.length === 0) {
         return null;
@@ -4076,7 +4345,16 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Fetch reference question details for metadata
       // Use a Map to avoid duplicate fetches for the same reference question
-      const refDetailsMap = new Map<string, { state: string; district: string; crop: string | import('#root/shared/interfaces/models.js').ICropRef; season: string; domain: string } | null>();
+      const refDetailsMap = new Map<
+        string,
+        {
+          state: string;
+          district: string;
+          crop: string | import('#root/shared/interfaces/models.js').ICropRef;
+          season: string;
+          domain: string;
+        } | null
+      >();
 
       for (const q of duplicateQuestions) {
         const refId = q.referenceQuestionId?.toString();
@@ -4092,26 +4370,26 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Create Excel workbook
       const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet("Similar Questions");
+      const sheet = workbook.addWorksheet('Similar Questions');
 
       // Define columns with metadata for both question and reference question
       sheet.columns = [
-        { header: "createdAt", key: "createdAt", width: 22 },
-        { header: "question", key: "question", width: 60 },
-        { header: "q_state", key: "q_state", width: 18 },
-        { header: "q_district", key: "q_district", width: 20 },
-        { header: "q_crop", key: "q_crop", width: 18 },
-        { header: "q_season", key: "q_season", width: 18 },
-        { header: "q_domain", key: "q_domain", width: 22 },
-        { header: "source", key: "source", width: 15 },
-        { header: "similarityScore", key: "similarityScore", width: 18 },
-        { header: "referenceQuestion", key: "referenceQuestion", width: 60 },
-        { header: "referenceSource", key: "referenceSource", width: 20 },
-        { header: "ref_state", key: "ref_state", width: 18 },
-        { header: "ref_district", key: "ref_district", width: 20 },
-        { header: "ref_crop", key: "ref_crop", width: 18 },
-        { header: "ref_season", key: "ref_season", width: 18 },
-        { header: "ref_domain", key: "ref_domain", width: 22 },
+        {header: 'createdAt', key: 'createdAt', width: 22},
+        {header: 'question', key: 'question', width: 60},
+        {header: 'q_state', key: 'q_state', width: 18},
+        {header: 'q_district', key: 'q_district', width: 20},
+        {header: 'q_crop', key: 'q_crop', width: 18},
+        {header: 'q_season', key: 'q_season', width: 18},
+        {header: 'q_domain', key: 'q_domain', width: 22},
+        {header: 'source', key: 'source', width: 15},
+        {header: 'similarityScore', key: 'similarityScore', width: 18},
+        {header: 'referenceQuestion', key: 'referenceQuestion', width: 60},
+        {header: 'referenceSource', key: 'referenceSource', width: 20},
+        {header: 'ref_state', key: 'ref_state', width: 18},
+        {header: 'ref_district', key: 'ref_district', width: 20},
+        {header: 'ref_crop', key: 'ref_crop', width: 18},
+        {header: 'ref_season', key: 'ref_season', width: 18},
+        {header: 'ref_domain', key: 'ref_domain', width: 22},
       ];
 
       // Add data rows
@@ -4141,8 +4419,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Style the header row
       const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true };
-      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      headerRow.font = {bold: true};
+      headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
 
       // Generate buffer
       const buffer = await workbook.xlsx.writeBuffer();
@@ -4239,213 +4517,185 @@ export class QuestionService extends BaseService implements IQuestionService {
       content: message.content || [],
     };
   }*/
- async getMatchedQuestion(questionId: string) {
-  const questionData = await this.questionRepo.getById(questionId);
+  async getMatchedQuestion(questionId: string) {
+    const questionData = await this.questionRepo.getById(questionId);
 
-  if (!questionData) {
-    throw new Error('Question not found');
-  }
-
-  const questionSource = questionData.source;
-
-  // =========================
-  // WHATSAPP FLOW
-  // =========================
-  // console.log('Question Data ====', questionData);
-  if (questionSource === 'WHATSAPP') {
-    if (!questionData.threadId) {
-      throw new Error('Thread id not found for WhatsApp question');
+    if (!questionData) {
+      throw new Error('Question not found');
     }
 
-    const response = await this.aiService.fetchWhatsAppMessage(
-      questionData.threadId,
-      questionData._id.toString(),
-    );
+    const questionSource = questionData.source;
 
-    if (!response) {
-      throw new Error('No matching WhatsApp message found');
+    // =========================
+    // WHATSAPP FLOW
+    // =========================
+    // console.log('Question Data ====', questionData);
+    if (questionSource === 'WHATSAPP') {
+      if (!questionData.threadId) {
+        throw new Error('Thread id not found for WhatsApp question');
+      }
+
+      const response = await this.aiService.fetchWhatsAppMessage(
+        questionData.threadId,
+        questionData._id.toString(),
+      );
+
+      if (!response) {
+        throw new Error('No matching WhatsApp message found');
+      }
+
+      return {
+        messageId: response.messageId || '',
+        createdAt: response.createdAt
+          ? new Date(response.createdAt).toISOString()
+          : '',
+        updatedAt: response.updatedAt
+          ? new Date(response.updatedAt).toISOString()
+          : '',
+        user: {
+          username: response.userDetails?.username || 'N/A',
+          email: response.userDetails?.email || '',
+          emailVerified: response.userDetails?.emailVerified || false,
+          avatar: response.userDetails?.avatar || null,
+        },
+        content: response.content || [],
+      };
     }
 
-    return {
-      messageId: response.messageId || '',
-      createdAt: response.createdAt
-        ? new Date(response.createdAt).toISOString()
-        : '',
-      updatedAt: response.updatedAt
-        ? new Date(response.updatedAt).toISOString()
-        : '',
-      user: {
-        username: response.userDetails?.username || 'N/A',
-        email: response.userDetails?.email || '',
-        emailVerified: response.userDetails?.emailVerified || false,
-        avatar: response.userDetails?.avatar || null,
-      },
-      content: response.content || [],
-    };
-  }
+    // =========================
+    // NORMAL FLOW
+    // =========================
 
-  // =========================
-  // NORMAL FLOW
-  // =========================
+    const {question, details, createdAt, messageId, userId} = questionData;
 
-
-
-  const {
-    question,
-    details,
-    createdAt,
-    messageId,
-    userId,
-  } = questionData;
-
-  const analyticsPromise =
-    this.chatbotRepository.findMatchingMessages({
+    const analyticsPromise = this.chatbotRepository.findMatchingMessages({
       question,
       details,
       createdAt,
       questionId: questionId.toString(),
-      messageId: messageId
-        ? messageId.toString()
-        : undefined,
+      messageId: messageId ? messageId.toString() : undefined,
     });
 
-  const annamPromise =
-    this.chatbotRepository.findFromSecondDb({
+    const annamPromise = this.chatbotRepository.findFromSecondDb({
       question,
       details,
       createdAt,
       questionId: questionId.toString(),
-      messageId: messageId
-        ? messageId.toString()
-        : undefined,
+      messageId: messageId ? messageId.toString() : undefined,
     });
 
-  const [analyticsResult, annamResult] =
-    await Promise.allSettled([
+    const [analyticsResult, annamResult] = await Promise.allSettled([
       analyticsPromise,
       annamPromise,
     ]);
 
-  // =========================
-  // HANDLE RESULTS
-  // =========================
+    // =========================
+    // HANDLE RESULTS
+    // =========================
 
-  const analyticsMessages =
-    analyticsResult.status === 'fulfilled'
-      ? analyticsResult.value
-      : [];
+    const analyticsMessages =
+      analyticsResult.status === 'fulfilled' ? analyticsResult.value : [];
 
-  const annamMessages =
-    annamResult.status === 'fulfilled'
-      ? annamResult.value
-      : [];
+    const annamMessages =
+      annamResult.status === 'fulfilled' ? annamResult.value : [];
 
-  // =========================
-  // LOG FAILURES
-  // =========================
+    // =========================
+    // LOG FAILURES
+    // =========================
 
-  if (analyticsResult.status === 'rejected') {
-    console.error('Analytics DB failed:', {
-      error: analyticsResult.reason?.message,
-      stack: analyticsResult.reason?.stack,
-      questionId,
-      messageId,
-    });
-  }
-
-  if (annamResult.status === 'rejected') {
-    console.error('Second DB failed:', {
-      error: annamResult.reason?.message,
-      stack: annamResult.reason?.stack,
-      questionId,
-      messageId,
-    });
-  }
-// =========================
-  // MERGE RESULTS
-  // =========================
-
-  const allMessages = [
-    ...analyticsMessages,
-    ...annamMessages,
-  ];
-
-  const message = allMessages?.[0];
-
-  if (!message) {
-    throw new Error('No matching message found');
-  }
-
-  // =========================
-  // UPDATE USER ID IF NEEDED
-  // =========================
-
-  if (
-    message.userDetails?._id &&
-    message.userDetails._id !== userId?.toString() &&
-    !questionData.messageId
-  ) {
-    try {
-      await this.questionRepo.updateQuestion(
-        questionId.toString(),
-        {
-          userId: new ObjectId(message.userDetails._id),
-        },
-      );
-    } catch (updateError) {
-      console.error(
-        'Failed to update userId:',
-        updateError,
-      );
+    if (analyticsResult.status === 'rejected') {
+      console.error('Analytics DB failed:', {
+        error: analyticsResult.reason?.message,
+        stack: analyticsResult.reason?.stack,
+        questionId,
+        messageId,
+      });
     }
+
+    if (annamResult.status === 'rejected') {
+      console.error('Second DB failed:', {
+        error: annamResult.reason?.message,
+        stack: annamResult.reason?.stack,
+        questionId,
+        messageId,
+      });
+    }
+    // =========================
+    // MERGE RESULTS
+    // =========================
+
+    const allMessages = [...analyticsMessages, ...annamMessages];
+
+    const message = allMessages?.[0];
+
+    if (!message) {
+      throw new Error('No matching message found');
+    }
+
+    // =========================
+    // UPDATE USER ID IF NEEDED
+    // =========================
+
+    if (
+      message.userDetails?._id &&
+      message.userDetails._id !== userId?.toString() &&
+      !questionData.messageId
+    ) {
+      try {
+        await this.questionRepo.updateQuestion(questionId.toString(), {
+          userId: new ObjectId(message.userDetails._id),
+        });
+      } catch (updateError) {
+        console.error('Failed to update userId:', updateError);
+      }
+    }
+
+    // =========================
+    // FINAL RESPONSE
+    // =========================
+
+    return {
+      messageId: message.messageId || '',
+      createdAt: message.createdAt
+        ? new Date(message.createdAt).toISOString()
+        : '',
+      updatedAt: message.updatedAt
+        ? new Date(message.updatedAt).toISOString()
+        : '',
+      user: {
+        username: message?.userDetails?.username || 'N/A',
+        email: message?.userDetails?.email || '',
+        emailVerified: message?.userDetails?.emailVerified || false,
+        avatar: message?.userDetails?.avatar || null,
+      },
+      content: message.content || [],
+    };
   }
-
-  // =========================
-  // FINAL RESPONSE
-  // =========================
-
-  return {
-    messageId: message.messageId || '',
-    createdAt: message.createdAt
-      ? new Date(message.createdAt).toISOString()
-      : '',
-    updatedAt: message.updatedAt
-      ? new Date(message.updatedAt).toISOString()
-      : '',
-    user: {
-      username:
-        message?.userDetails?.username || 'N/A',
-      email: message?.userDetails?.email || '',
-      emailVerified:
-        message?.userDetails?.emailVerified || false,
-      avatar: message?.userDetails?.avatar || null,
-    },
-    content: message.content || [],
-  };
-}
-  async checkStatus(
-    questionIds: string[],
-  ): Promise<ICheckStatusResponse[]> {
-
-    const result = await this.questionRepo.getQuestionsWithAnswerDetails(questionIds)
+  async checkStatus(questionIds: string[]): Promise<ICheckStatusResponse[]> {
+    const result =
+      await this.questionRepo.getQuestionsWithAnswerDetails(questionIds);
 
     // 1. Fetch data
 
-    return result
-
-
+    return result;
   }
 
-  async holdQuestion(questionId: string, userId: string, action: "hold" | "unhold"): Promise<{ id: string }> {
+  async holdQuestion(
+    questionId: string,
+    userId: string,
+    action: 'hold' | 'unhold',
+  ): Promise<{id: string}> {
     return await this._withTransaction(async session => {
-      if (action === "unhold") {
+      if (action === 'unhold') {
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) {
           throw new NotFoundError('Question not found');
         }
         const user = await this.userRepo.findById(userId, session);
         if (!user || user.role == 'expert') {
-          throw new ForbiddenError('Only moderators or Admins can unhold questions');
+          throw new ForbiddenError(
+            'Only moderators or Admins can unhold questions',
+          );
         }
         if (!question.isOnHold) {
           throw new BadRequestError('Question is not on hold');
@@ -4453,7 +4703,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         const prevAccum = question.accumulatedHoldMs ?? 0;
         let segmentMs = 0;
         if (question.holdAt) {
-          segmentMs = Math.max(0, Date.now() - new Date(question.holdAt).getTime());
+          segmentMs = Math.max(
+            0,
+            Date.now() - new Date(question.holdAt).getTime(),
+          );
         }
         await this.questionRepo.updateQuestion(
           questionId,
@@ -4465,7 +4718,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           },
           session,
         );
-        return { id: questionId }
+        return {id: questionId};
       }
       const user = await this.userRepo.findById(userId, session);
       if (user.role == 'expert') {
@@ -4480,23 +4733,36 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (question.status === 'closed') {
         throw new BadRequestError('Question is already closed');
       }
-      const submission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+      const submission = await this.questionSubmissionRepo.getByQuestionId(
+        questionId,
+        session,
+      );
       if (!submission) {
         throw new NotFoundError('Question submission not found');
       }
       await this._handleSubmissionOnHold(submission, session);
-      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false, status: 'hold', holdAt: new Date() }, session)
-      return { id: questionId }
-    })
+      await this.questionRepo.updateQuestion(
+        questionId,
+        {
+          isOnHold: true,
+          isAutoAllocate: false,
+          status: 'hold',
+          holdAt: new Date(),
+        },
+        session,
+      );
+      return {id: questionId};
+    });
   }
   async checkSubmissionExists(questionId: string): Promise<boolean> {
-    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+    const submission =
+      await this.questionSubmissionRepo.getByQuestionId(questionId);
     return !!submission;
   }
 
   private async _handleSubmissionOnHold(
     submission: IQuestionSubmission,
-    session: ClientSession
+    session: ClientSession,
   ): Promise<void> {
     const questionId = submission.questionId.toString();
     if (!submission.history || submission.history.length === 0) {
@@ -4507,8 +4773,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       await this.questionSubmissionRepo.updateSubmissionState(
         questionId,
-        { queue: [] },
-        session
+        {queue: []},
+        session,
       );
 
       return;
@@ -4522,9 +4788,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     let newQueue = submission.queue;
 
-    const index = submission.queue.findIndex(
-      (q) => q.toString() === updatedById
-    );
+    const index = submission.queue.findIndex(q => q.toString() === updatedById);
 
     if (index !== -1) {
       newQueue = submission.queue.slice(0, index);
@@ -4539,77 +4803,99 @@ export class QuestionService extends BaseService implements IQuestionService {
         queue: toObjectIdArray(newQueue || []),
         popHistory: true,
       },
-      session
+      session,
     );
   }
 
-  async getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
+  async getQuestionStatusSummary(
+    query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
+  ): Promise<{
+    totalQuestions: number;
+    statuses: {status: string; count: number}[];
+  }> {
     return this.questionRepo.getQuestionStatusSummary(query, body);
   }
 
-  async getExprtIdByIndex(questionId: string, index: number): Promise<string | null> {
-    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+  async getExprtIdByIndex(
+    questionId: string,
+    index: number,
+  ): Promise<string | null> {
+    const submission =
+      await this.questionSubmissionRepo.getByQuestionId(questionId);
     if (!submission || !submission.queue || submission.queue.length <= index) {
       return null;
     }
     return submission.queue[index].toString();
   }
-  async generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer: string }> {
-    return this._withTransaction(async (session) => {
-
+  async generateAiInitialAnswer(
+    questionId: string,
+  ): Promise<{aiInitialAnswer: string}> {
+    return this._withTransaction(async session => {
       const question = await this.questionRepo.getById(questionId, session);
 
-      if (!question)
-        throw new NotFoundError("Question not found");
+      if (!question) throw new NotFoundError('Question not found');
 
       // if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
       //   throw new ForbiddenError("Source must be agri expert outreach")
 
-      const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const submissions =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
 
       if (submissions.history.length > 0)
-        throw new ForbiddenError("Cannot generate AI initial answer. Question already has submitted answers.")
+        throw new ForbiddenError(
+          'Cannot generate AI initial answer. Question already has submitted answers.',
+        );
 
       const res = await this.aiService.getAnswerByQuestionDetails(question);
 
       if (!res?.answer || !res.answer.trim()) {
-        throw new InternalServerError("AI failed to generate answer");
+        throw new InternalServerError('AI failed to generate answer');
       }
 
-      return { aiInitialAnswer: res.answer };
-    })
+      return {aiInitialAnswer: res.answer};
+    });
   }
 
   async approveAiInitialAnswer(questionId: string, answer: string) {
-    return this._withTransaction(async (session) => {
+    return this._withTransaction(async session => {
       const question = await this.questionRepo.getById(questionId, session);
 
-      if (!question)
-        throw new NotFoundError("Question not found");
+      if (!question) throw new NotFoundError('Question not found');
 
       // if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
       //   throw new ForbiddenError("Source must be agri expert or outreach");
 
-      if (!answer?.trim())
-        throw new BadRequestError("Answer is required");
+      if (!answer?.trim()) throw new BadRequestError('Answer is required');
 
-      const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const submissions =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
 
       if (submissions.history.length > 0)
-        throw new ForbiddenError("Cannot generate AI initial answer. Question already has submitted answers.")
+        throw new ForbiddenError(
+          'Cannot generate AI initial answer. Question already has submitted answers.',
+        );
 
       await this.questionRepo.updateQuestion(
         questionId,
-        { aiInitialAnswer: answer },
-        session
+        {aiInitialAnswer: answer},
+        session,
       );
 
-      return { success: true };
+      return {success: true};
     });
   }
 
   //balance workload to experts for selected questions
-  async balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number; questionsFiltered?: number; unallocatedQuestions?: number }> {
+  async balanceWorkloadSelectedQuestions(
+    questionIds: string[],
+  ): Promise<{
+    message: string;
+    expertsInvolved: number;
+    submissionsProcessed: number;
+    questionsFiltered?: number;
+    unallocatedQuestions?: number;
+  }> {
     const lessWorkloadExperts =
       await this.userRepo.findActiveLowReputationExpertsToday();
     const MAX_PER_EXPERT = 5;
@@ -4622,15 +4908,18 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
 
-    if(questionIds.length > lessWorkloadExperts.length * MAX_PER_EXPERT) {
+    if (questionIds.length > lessWorkloadExperts.length * MAX_PER_EXPERT) {
       return {
         message: `Too many questions selected. Only ${lessWorkloadExperts.length} experts are currently available for reallocation. The maximum allowed is ${lessWorkloadExperts.length * MAX_PER_EXPERT} questions based on the current expert capacity. Please reduce the number of selected questions or increase the number of available experts.`,
         expertsInvolved: lessWorkloadExperts.length,
         submissionsProcessed: 0,
-      }
+      };
     }
 
-    const questionSubmissionDetails = await this.questionSubmissionRepo.findReallocationQuestionsByIds(questionIds);
+    const questionSubmissionDetails =
+      await this.questionSubmissionRepo.findReallocationQuestionsByIds(
+        questionIds,
+      );
 
     if (!questionSubmissionDetails.length) {
       return {
@@ -4670,7 +4959,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     const assignments: Record<string, any[]> = {};
     const expertLoad: Record<string, number> = {};
 
-
     lessWorkloadExperts.forEach(e => {
       const id = e._id.toString();
       assignments[id] = [];
@@ -4691,9 +4979,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Get all experts already present in queue
       const queueExpertIds = new Set(
-        (submission.queue || []).map(id =>
-          id.toString(),
-        ),
+        (submission.queue || []).map(id => id.toString()),
       );
 
       while (attempts < lessWorkloadExperts.length && !assigned) {
@@ -4714,10 +5000,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
         attempts++;
       }
-      if(!assigned) unallocatedQuestionsCount++;
+      if (!assigned) unallocatedQuestionsCount++;
     }
 
-    const flatAssignments: { submissionId: string; expertId: string }[] = [];
+    const flatAssignments: {submissionId: string; expertId: string}[] = [];
 
     for (const expertId in assignments) {
       for (const submission of assignments[expertId]) {
@@ -4738,26 +5024,75 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
   }
 
+  //send notification to moderators for delayed questions
+  async sendDelayedNotifications(): Promise<void> {
+    await this._withTransaction(async session => {
+      const delayedReviews =
+        await this.questionSubmissionRepo.getDelayedReviews(session);
+      if (!delayedReviews.length) {
+        return;
+      }
+
+      const notifiedSubmissionIds: ObjectId[] = [];
+
+      const moderators = await this.userRepo.findModerators();
+
+      for (const item of delayedReviews) {
+        try {
+          await Promise.allSettled(
+            moderators.map(mod =>
+              this.notificationRepository.addNotification(
+                mod._id.toString(),
+                item.questionId.toString(),
+                'question_delayed',
+                'A question has been delayed for 45 minutes',
+                'Question Delayed',
+              ),
+            ),
+          );
+
+          notifiedSubmissionIds.push(item?._id);
+        } catch (error) {
+          console.error(
+            `Failed notification for question ${item?.questionId}`,
+            error,
+          );
+        }
+      }
+      if (notifiedSubmissionIds.length) {
+        await this.questionSubmissionRepo.markDelayedNotificationsSent(
+          notifiedSubmissionIds,
+          session,
+        );
+      }
+    });
+  }
+
   async backfillEmptyEmbeddings(batchLimit = 50): Promise<void> {
     if (!appConfig.ENABLE_AI_SERVER) {
       console.log('<<EMBEDDING_BACKFILL>> AI server disabled, skipping.');
       return;
     }
 
-    const questions = await this.questionRepo.getQuestionsWithEmptyEmbeddings(batchLimit);
+    const questions =
+      await this.questionRepo.getQuestionsWithEmptyEmbeddings(batchLimit);
 
     if (questions.length === 0) {
-      console.log('<<EMBEDDING_BACKFILL>> No questions with empty embeddings found.');
+      console.log(
+        '<<EMBEDDING_BACKFILL>> No questions with empty embeddings found.',
+      );
       return;
     }
 
-    console.log(`<<EMBEDDING_BACKFILL>> Processing ${questions.length} question(s)...`);
+    console.log(
+      `<<EMBEDDING_BACKFILL>> Processing ${questions.length} question(s)...`,
+    );
 
     let succeeded = 0;
     let failed = 0;
 
     for (const q of questions) {
-      const inputText = ( q.question || q.text ||'').trim();
+      const inputText = (q.question || q.text || '').trim();
 
       if (!inputText) {
         console.warn(`<<EMBEDDING_BACKFILL>> Skipping ${q._id} — no text`);
@@ -4766,8 +5101,11 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       try {
-        const { embedding } = await this.aiService.getEmbedding(inputText);
-        await this.questionRepo.updateQuestionEmbedding(q._id.toString(), embedding);
+        const {embedding} = await this.aiService.getEmbedding(inputText);
+        await this.questionRepo.updateQuestionEmbedding(
+          q._id.toString(),
+          embedding,
+        );
         succeeded++;
       } catch (err) {
         console.error(`<<EMBEDDING_BACKFILL>> Failed for ${q._id}:`, err);
@@ -4779,5 +5117,4 @@ export class QuestionService extends BaseService implements IQuestionService {
       `<<EMBEDDING_BACKFILL>> Done — ✅ ${succeeded} succeeded, ❌ ${failed} failed`,
     );
   }
-
 }

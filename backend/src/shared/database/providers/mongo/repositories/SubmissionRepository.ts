@@ -166,6 +166,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             queue: new ObjectId(expertId),
             history: { updatedBy: new ObjectId(expertId) },
           },
+          $set: {
+            reviewDelayNotificationSent: false,
+          },
         },
         { session },
       );
@@ -220,6 +223,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     questionId: string,
     userSubmissionData: ISubmissionHistory,
     session?: ClientSession,
+    reviewDelayNotificationSent?: boolean
   ): Promise<void> {
     try {
       await this.init();
@@ -238,6 +242,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         userSubmissionData.answer.toString().trim() !== ''
       ) {
         updateDoc.$set.lastRespondedBy = userSubmissionData.updatedBy;
+      }
+
+      if (
+        reviewDelayNotificationSent !== undefined
+      ) {
+        updateDoc.$set.reviewDelayNotificationSent =
+          reviewDelayNotificationSent;
       }
 
       const result = await this.QuestionSubmissionCollection.updateOne(
@@ -3740,4 +3751,189 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {session},
     ).toArray();
   }
+
+    //get delayed questions
+  async getDelayedReviews(session: ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]> {
+    try {
+      await this.init();
+
+      // for testing purpose
+      // const thirtySecondsAgo = new Date(
+      //   Date.now() - 30 * 1000,
+      // );
+
+      const thresholdTime = new Date(
+        Date.now() - 45 * 60 * 1000,
+      );
+
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const delayedReviews =
+        await this.QuestionSubmissionCollection.aggregate([
+          {
+            $match: {
+              createdAt: {
+                $gte: startOfDay,
+              },
+              reviewDelayNotificationSent: {
+                $ne: true,
+              },
+            },
+          },
+
+          {
+            $lookup: {
+              from: 'questions',
+              localField: 'questionId',
+              foreignField: '_id',
+              as: 'question',
+            },
+          },
+
+          {
+            $unwind: '$question',
+          },
+
+          {
+            $addFields: {
+              latestHistory: {
+                $arrayElemAt: [
+                  '$history',
+                  -1,
+                ],
+              },
+            },
+          },
+
+          {
+            $match: {
+              $or: [
+                /**
+                 * CASE 1
+                 * First reviewer
+                 */
+                {
+                  $and: [
+                    {
+                      history: {
+                        $size: 0,
+                      },
+                    },
+
+                    {
+                      'queue.0': {
+                        $exists: true,
+                      },
+                    },
+
+                    {
+                      'question.firstAllocationAt': {
+                        $lte: thresholdTime,
+                      },
+                    },
+                  ],
+                },
+
+                /**
+                 * CASE 2
+                 * Active reviewer
+                 */
+                {
+                  $and: [
+                    {
+                      history: {
+                        $not: {
+                          $size: 0,
+                        },
+                      },
+                    },
+
+                    {
+                      'latestHistory.status':
+                        'in-review',
+                    },
+
+                    {
+                      'latestHistory.createdAt':
+                      {
+                        $lte: thresholdTime,
+                      },
+                    },
+
+                    {
+                      'latestHistory.answer': {
+                        $exists: false,
+                      },
+                    },
+
+                  ],
+                },
+              ],
+            },
+          },
+
+          {
+            $project: {
+              _id: 1,
+
+              questionId: 1,
+
+              userId: '$question.userId',
+
+              currentReviewerId: {
+                $cond: [
+                  {
+                    $eq: [
+                      {
+                        $size: '$history',
+                      },
+                      0,
+                    ],
+                  },
+                  {
+                    $arrayElemAt: [
+                      '$queue',
+                      0,
+                    ],
+                  },
+                  '$latestHistory.updatedBy',
+                ],
+              },
+            },
+          },
+        ],
+          { session }
+        ).toArray();
+
+      return delayedReviews as { _id: ObjectId; questionId: ObjectId; userId: ObjectId; }[];
+
+    } catch (error) {
+      console.error('Error getting delayed questions', error);
+    }
+  }
+
+  //mark delayed notification sent
+  async markDelayedNotificationsSent(notifiedSubmissionIds: ObjectId[], session?: ClientSession): Promise<void> {
+    try {
+      await this.init();
+      await this.QuestionSubmissionCollection.updateMany(
+        {
+          _id: {
+            $in: notifiedSubmissionIds,
+          },
+        },
+        {
+          $set: {
+            reviewDelayNotificationSent: true,
+          },
+        },
+      );
+
+    }
+    catch (error) {
+      console.error('Error marking delayed notifications sent', error);
+    }
+  }
+
 }

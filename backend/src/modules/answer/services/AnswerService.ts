@@ -675,6 +675,7 @@ export class AnswerService extends BaseService implements IAnswerService {
               questionId,
               nextAllocatedSubmissionData,
               session,
+              false
             );
             // here i need to increment the workload of next expert
             const IS_INCREMENT = true;
