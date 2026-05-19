@@ -4738,5 +4738,46 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
   }
 
+  async backfillEmptyEmbeddings(batchLimit = 50): Promise<void> {
+    if (!appConfig.ENABLE_AI_SERVER) {
+      console.log('<<EMBEDDING_BACKFILL>> AI server disabled, skipping.');
+      return;
+    }
+
+    const questions = await this.questionRepo.getQuestionsWithEmptyEmbeddings(batchLimit);
+
+    if (questions.length === 0) {
+      console.log('<<EMBEDDING_BACKFILL>> No questions with empty embeddings found.');
+      return;
+    }
+
+    console.log(`<<EMBEDDING_BACKFILL>> Processing ${questions.length} question(s)...`);
+
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const q of questions) {
+      const inputText = ( q.question || q.text ||'').trim();
+
+      if (!inputText) {
+        console.warn(`<<EMBEDDING_BACKFILL>> Skipping ${q._id} — no text`);
+        failed++;
+        continue;
+      }
+
+      try {
+        const { embedding } = await this.aiService.getEmbedding(inputText);
+        await this.questionRepo.updateQuestionEmbedding(q._id.toString(), embedding);
+        succeeded++;
+      } catch (err) {
+        console.error(`<<EMBEDDING_BACKFILL>> Failed for ${q._id}:`, err);
+        failed++;
+      }
+    }
+
+    console.log(
+      `<<EMBEDDING_BACKFILL>> Done — ✅ ${succeeded} succeeded, ❌ ${failed} failed`,
+    );
+  }
 
 }
