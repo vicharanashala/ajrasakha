@@ -83,7 +83,7 @@ Your ONLY job: call GDB tools exhaustively to find the best answer for the farme
 
 MANDATORY crop and state (non-negotiable):
 - Every call to golden_retriever_tool and golden_exact_search_tool MUST include both `crop` and `state`.
-- Set `state` from the Mandatory Golden DB filters block in the user message, or from THREAD LOCATION; never omit.
+- Set `state` from the Mandatory Golden DB filters block in the user message first. Use THREAD LOCATION only when that block has state="all" or no state was specified in the farmer's question.
 - Set `crop` from the same block or from the farmer's question; use crop="all" only as a last resort when not crop-specific.
 - Set state="all" only as a last resort when state cannot be inferred.
 - Never call golden_retriever_tool or golden_exact_search_tool without both parameters.
