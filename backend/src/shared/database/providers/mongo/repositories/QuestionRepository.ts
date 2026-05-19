@@ -1892,6 +1892,7 @@ export class QuestionRepository implements IQuestionRepository {
             {
               status: { $in: ['open'] },
               isOnHold: { $ne: true },
+              pae_review:{$ne:true}
             },
             [
               {
