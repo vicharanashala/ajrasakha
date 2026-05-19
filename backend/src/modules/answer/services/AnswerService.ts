@@ -403,6 +403,8 @@ export class AnswerService extends BaseService implements IAnswerService {
               { status: 'pae_submitted' },
               session,
             );
+            // Decrement workload: PAE expert was incremented on allocation and is now done
+            await this.userRepo.updateReputationScore(userId, false, session);
             return;
           }
         }
