@@ -1,0 +1,56 @@
+"""Shared graph state types for AjraSakha."""
+
+from __future__ import annotations
+
+from typing import Annotated, Any, Optional
+
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
+from typing_extensions import TypedDict
+
+from ajrasakha.agents.location_context import merge_location_dict
+
+
+class Location(TypedDict, total=False):
+    latitude: Optional[float]
+    longitude: Optional[float]
+    city: Optional[str]
+    state: Optional[str]
+    address: Optional[str]
+
+
+class PlannerEntities(TypedDict, total=False):
+    crop: Optional[str]
+    state: Optional[str]
+    district: Optional[str]
+    chemicals: list[str]
+
+
+class PlannerPlan(TypedDict, total=False):
+    weather: bool
+    mandi: bool
+    soil: bool
+    schemes: bool
+    chemical_checker: bool
+    knowledge_base: bool
+    is_complete: bool
+    missing_info: list[str]
+    follow_up_question: Optional[str]
+    reasoning: Optional[str]
+    entities: PlannerEntities
+    skip_synthesize: bool
+
+
+def merge_plan(
+    left: Optional[PlannerPlan],
+    right: Optional[PlannerPlan],
+) -> Optional[PlannerPlan]:
+    if right is None:
+        return left
+    return right
+
+
+class AjraSakhaState(TypedDict):
+    messages: Annotated[list[BaseMessage], add_messages]
+    location: Annotated[Optional[Location], merge_location_dict]
+    plan: Annotated[Optional[PlannerPlan], merge_plan]
