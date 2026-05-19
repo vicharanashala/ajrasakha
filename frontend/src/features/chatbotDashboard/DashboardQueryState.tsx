@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from "react";
 
 import { ScrollArea } from "@/components/atoms/scroll-area";
@@ -6,6 +5,25 @@ import { ScrollArea } from "@/components/atoms/scroll-area";
 import { useStateWiseAnalytics } from "./hooks/useStateQueryData";
 
 import { STATES } from "@/components/MetaData";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/atoms/popover";
+
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/atoms/command";
+
+import { Button } from "@/components/atoms/button";
+
+import { ChevronsUpDown, Check } from "lucide-react";
 
 // ─── TYPES ─────────────────────────────────────────────
 
@@ -190,15 +208,15 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
 // ─── MAIN COMPONENT ────────────────────────────────────
 
-export const DashboardStateWiseAnalytics = (source: "annam" | "vicharanashala"| undefined, userType: "all" | "external" | "internal") => {
+export const DashboardStateWiseAnalytics = (
+  source: "annam" | "vicharanashala" | undefined,
+  userType: "all" | "external" | "internal",
+) => {
+  const [selectedState, setSelectedState] = useState("Punjab");
 
-  const [selectedState, setSelectedState] =
-    useState("Punjab");
+  const [open, setOpen] = useState(false);
 
-  const {
-    data,
-    isLoading,
-  } = useStateWiseAnalytics(
+  const { data, isLoading } = useStateWiseAnalytics(
     selectedState,
     source,
     userType,
@@ -206,16 +224,10 @@ export const DashboardStateWiseAnalytics = (source: "annam" | "vicharanashala"| 
 
   console.log("State-wise analytics data:", data);
 
-  const districts =
-    data ?? [];
+  const districts = data ?? [];
 
   const maxTotal = useMemo(() => {
-    return Math.max(
-      ...districts.map(
-        (d) => d.totalQuestions
-      ),
-      1,
-    );
+    return Math.max(...districts.map((d) => d.totalQuestions), 1);
   }, [districts]);
 
   return (
@@ -268,11 +280,9 @@ export const DashboardStateWiseAnalytics = (source: "annam" | "vicharanashala"| 
           </div>
         </div>
 
-        <select
+        {/* <select
           value={selectedState}
-          onChange={(e) =>
-            setSelectedState(e.target.value)
-          }
+          onChange={(e) => setSelectedState(e.target.value)}
           className="
             text-xs
             border
@@ -289,14 +299,85 @@ export const DashboardStateWiseAnalytics = (source: "annam" | "vicharanashala"| 
           "
         >
           {STATES.map((state) => (
-            <option
-              key={state}
-              value={state}
-            >
+            <option key={state} value={state}>
               {state}
             </option>
           ))}
-        </select>
+        </select> */}
+
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className="
+        h-8
+        w-[180px]
+        justify-between
+        text-xs
+        border-gray-200
+        dark:border-gray-700
+        bg-white
+        dark:bg-[#222]
+        text-gray-700
+        dark:text-gray-200
+      "
+            >
+              {selectedState || "Select state"}
+
+              <ChevronsUpDown
+                className="
+          ml-2
+          h-3.5
+          w-3.5
+          shrink-0
+          opacity-50
+        "
+              />
+            </Button>
+          </PopoverTrigger>
+
+          <PopoverContent
+            className="
+      w-[220px]
+      p-0
+    "
+          >
+            <Command>
+              <CommandInput placeholder="Search state..." className="h-9" />
+
+              <CommandList>
+                <CommandEmpty>No state found.</CommandEmpty>
+
+                <CommandGroup>
+                  {STATES.map((state) => (
+                    <CommandItem
+                      key={state}
+                      value={state}
+                      onSelect={(currentValue) => {
+                        setSelectedState(currentValue);
+
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={`
+                  mr-2
+                  h-4
+                  w-4
+                  ${selectedState === state ? "opacity-100" : "opacity-0"}
+                `}
+                      />
+
+                      {state}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* LOADING */}
@@ -318,10 +399,9 @@ export const DashboardStateWiseAnalytics = (source: "annam" | "vicharanashala"| 
 
       {/* EMPTY */}
 
-      {!isLoading &&
-        districts.length === 0 && (
-          <div
-            className="
+      {!isLoading && districts.length === 0 && (
+        <div
+          className="
               flex-1
               flex
               items-center
@@ -330,58 +410,38 @@ export const DashboardStateWiseAnalytics = (source: "annam" | "vicharanashala"| 
               text-gray-500
               dark:text-gray-400
             "
-          >
-            No district data found
-          </div>
-        )}
+        >
+          No district data found
+        </div>
+      )}
 
       {/* DATA */}
 
-      {!isLoading &&
-        districts.length > 0 && (
-          <ScrollArea
-            className="
+      {!isLoading && districts.length > 0 && (
+        <ScrollArea
+          className="
               flex-1
               max-h-[300px]
               pr-1
             "
-          >
-            {districts.map(
-              (district, index) => {
-                const pct =
-                  (
-                    district.totalQuestions
-                    / maxTotal
-                  ) * 100;
+        >
+          {districts.map((district, index) => {
+            const pct = (district.totalQuestions / maxTotal) * 100;
 
-                return (
-                  <ProgressBar
-                    key={district.district}
-                    district={
-                      district.district
-                    }
-                    totalQuestions={
-                      district.totalQuestions
-                    }
-                    uniqueQuestions={
-                      district.uniqueQuestions
-                    }
-                    duplicateQuestions={
-                      district.duplicateQuestions
-                    }
-                    pct={pct}
-                    color={
-                      PREMIUM_PALETTE[
-                        index
-                        % PREMIUM_PALETTE.length
-                      ]
-                    }
-                  />
-                );
-              },
-            )}
-          </ScrollArea>
-        )}
+            return (
+              <ProgressBar
+                key={district.district}
+                district={district.district}
+                totalQuestions={district.totalQuestions}
+                uniqueQuestions={district.uniqueQuestions}
+                duplicateQuestions={district.duplicateQuestions}
+                pct={pct}
+                color={PREMIUM_PALETTE[index % PREMIUM_PALETTE.length]}
+              />
+            );
+          })}
+        </ScrollArea>
+      )}
     </div>
   );
 };
