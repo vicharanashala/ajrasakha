@@ -223,8 +223,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     <button
                       onClick={() => onSourceChange?.('annam')}
                       className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'annam'
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         }`}
                     >
                       Annam
@@ -232,8 +232,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     <button
                       onClick={() => onSourceChange?.('vicharanashala')}
                       className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'vicharanashala'
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         }`}
                     >
                       Vicharanashala
@@ -935,7 +935,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                         )}
                     </>
                   </div>
-                  {/* <div
+                  <div
                     className="lg:col-span-2"
                     ref={(el) => {
                       sectionRefs.current["query-analysis"] = el;
@@ -945,17 +945,19 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                       categories={data.queryCategories}
                     />
                   </div>
+
                   <div
                     ref={(el) => {
                       sectionRefs.current["feedback-sentiment"] = el;
                     }}
                     className="lg:col-span-2"
                   >
-                    <ChannelSplitCard
-                      channelSplit={data.channelSplit}
-                      voiceAccuracy={data.voiceAccuracy}
+                    <TopCropsCard
+                      topCrops={topCrops}
+                      isLoadingTopCrops={isLoadingTopCrops}
+                      errorLoadingtopCrops={errorLoadingtopCrops}
                     />
-                  </div> */}
+                  </div>
                 </div>
 
                 {/* Geo + Health */}
@@ -965,11 +967,10 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   }}
                   className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
                 >
-                  <TopCropsCard
-                    topCrops={topCrops}
-                    isLoadingTopCrops={isLoadingTopCrops}
-                    errorLoadingtopCrops={errorLoadingtopCrops}
-                  />
+                  {/* <ChannelSplitCard
+                    channelSplit={data.channelSplit}
+                    voiceAccuracy={data.voiceAccuracy}
+                  /> */}
                   {/* <GeoCard states={data.geoStates} />
                   <div
                     ref={(el) => {
@@ -981,10 +982,10 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                 </div >
               </div >
             )
-}
+            }
           </div >
 
-{/* Commented out footer as requested:
+          {/* Commented out footer as requested:
           <StatusBar
             lastSync={data.meta.lastSync}
             datasetVersion={data.meta.datasetVersion}

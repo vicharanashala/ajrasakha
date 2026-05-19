@@ -81,6 +81,7 @@ import { UserCheck } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 
 import { TopRightBadge } from "@/components/NewBadge";
+import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -738,7 +739,6 @@ export const QuestionsFilters = ({
           <ViewDropdown view={view} setView={setView} />
         </div>
 
-
         {/* tools and filters */}
         <TooltipProvider>
           <Tooltip>
@@ -807,10 +807,11 @@ export const QuestionsFilters = ({
                   onClick={() => {
                     setIsReAllocateSelectedQuestionsOpen(true);
                   }}
-                  className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled
-                    ? "cursor-not-allowed text-green-600"
-                    : ""
-                    }`}
+                  className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${
+                    reAllocating || isReAllocateDisabled
+                      ? "cursor-not-allowed text-green-600"
+                      : ""
+                  }`}
                 >
                   <UserCheck className="h-4 w-4" />
                   {reAllocating
@@ -832,9 +833,11 @@ export const QuestionsFilters = ({
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${selectedQuestionIds.length
-                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
-                }? This action is irreversible.`}
+              description={`Are you sure you want to delete ${
+                selectedQuestionIds.length
+              } selected question${
+                selectedQuestionIds.length > 1 ? "s" : ""
+              }? This action is irreversible.`}
               confirmText="Delete"
               cancelText="Cancel"
               isLoading={bulkDeletingQuestions}
@@ -945,10 +948,11 @@ export const QuestionsFilters = ({
                       key={key}
                       onClick={() => toggleColumn(key)}
                       className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
-              ${isVisible
-                          ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
-                          : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
-                        }
+              ${
+                isVisible
+                  ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                  : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+              }
             `}
                     >
                       <span className="text-xs font-semibold tracking-wider capitalize">
@@ -1048,8 +1052,6 @@ export const QuestionsFilters = ({
                   </div>
                 </button>
               )}
-
-
 
               {/* update crops */}
               {userRole !== "expert" && (
@@ -1183,15 +1185,23 @@ export const QuestionsFilters = ({
                     onOpenDialog={() => setIsSidebarOpen(false)}
                   />
                 </div>
+<<<<<<< HEAD
                 {userRole !== "moderator" &&
+=======
+                {userRole !== "moderator" && (
+>>>>>>> 92a8936815d9c14325ea701fff68cc8ed59ba2c3
                   <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                     <DownloadFilteredReportButton
                       onOpenDialog={() => setIsSidebarOpen(false)}
                     />
                   </div>
+<<<<<<< HEAD
                 }
 
 
+=======
+                )}
+>>>>>>> 92a8936815d9c14325ea701fff68cc8ed59ba2c3
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-teal-50 dark:hover:bg-teal-500/5 border border-gray-200 dark:border-gray-800 hover:border-teal-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadDuplicateReportButton
@@ -1205,23 +1215,40 @@ export const QuestionsFilters = ({
                   />
                 </div>
 
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-cyan-50 dark:hover:bg-cyan-500/5 border border-gray-200 dark:border-gray-800 hover:border-b-cyan-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <DownloadShiftWiseReportButton
+                    closeSideBar={() => setIsSidebarOpen(false)}
+                    userRole={userRole}
+                  />
+                </div>
+
                 {/* Download Master Lists — Crops & Chemicals */}
                 <div className="flex gap-3">
                   <button
                     onClick={handleDownloadCrops}
                     disabled={isDownloadingCrops}
-                    className="flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-amber-600 dark:text-amber-500 disabled:opacity-50 text-xs font-medium"
+                    className="relative flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-amber-600 dark:text-amber-500 disabled:opacity-50 text-xs font-medium"
                   >
-                    {isDownloadingCrops ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    {isDownloadingCrops ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Download size={14} />
+                    )}
                     Crops List
+                    <TopRightBadge label="new" left={0} />
                   </button>
                   <button
                     onClick={handleDownloadChemicals}
                     disabled={isDownloadingChemicals}
-                    className="flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-purple-600 dark:text-purple-500 disabled:opacity-50 text-xs font-medium"
+                    className="relative flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-purple-600 dark:text-purple-500 disabled:opacity-50 text-xs font-medium"
                   >
-                    {isDownloadingChemicals ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    {isDownloadingChemicals ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Download size={14} />
+                    )}
                     Chemicals List
+                    <TopRightBadge label="new" left={0} />
                   </button>
                 </div>
               </div>
@@ -1282,10 +1309,11 @@ export const QuestionsFilters = ({
             setIsBadgeExpanded((prev) => !prev);
           }
         }}
-        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
-          ? "rounded-[16px] px-4 py-3 min-w-[220px]"
-          : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
-          } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
+        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+          isBadgeExpanded
+            ? "rounded-[16px] px-4 py-3 min-w-[220px]"
+            : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
+        } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
           left: `${safeX}px`,
           top: `${safeY}px`,
@@ -1306,8 +1334,9 @@ export const QuestionsFilters = ({
             </span>
           </span>
           <span
-            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded ? "rotate-180" : "rotate-0"
-              }`}
+            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+              isBadgeExpanded ? "rotate-180" : "rotate-0"
+            }`}
           >
             <ChevronDown size={14} />
           </span>
@@ -1315,8 +1344,11 @@ export const QuestionsFilters = ({
 
         {/* Expanded status breakdown */}
         <div
-          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-            }`}
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+            isBadgeExpanded
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0"
+          }`}
         >
           <div className="overflow-hidden">
             <div className="mt-3 space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
@@ -1354,8 +1386,12 @@ export const QuestionsFilters = ({
                       className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors cursor-pointer hover:opacity-80`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
-                        <span className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}>
+                        <span
+                          className={`w-2 h-2 rounded-full ${color.dot} shrink-0`}
+                        />
+                        <span
+                          className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}
+                        >
                           {s.status}
                         </span>
                       </div>

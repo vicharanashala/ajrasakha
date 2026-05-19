@@ -1,7 +1,7 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
 import { QuestionsTable } from "../features/question-table-page/questions-table";
 import { QuestionsFilters } from "../features/question-table-page/QuestionsFilters";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
 import type { IUser } from "@/types";
@@ -22,6 +22,7 @@ import Spinner from "./atoms/spinner";
 import { ReviewLevelsTable } from "@/features/questions/components/review-level/ReviewLevelsTable";
 import { useGetQuestionsAndLevel } from "@/features/questions/hooks/useGetQuestionsAndLevel";
 import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLevel";
+import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 
 export const QuestionsPage = ({
   currentUser,
@@ -30,6 +31,13 @@ export const QuestionsPage = ({
   currentUser?: IUser;
   autoOpenQuestionId?: string | null;
 }) => {
+  const {
+    selectedQuestionId: routeQuestionId,
+    selectedCommentId: routeCommentId,
+    setSelectedQuestionId: setRouteQuestionId,
+    setSelectedCommentId: setRouteCommentId,
+    setSelectedQuestionType,
+  } = useSelectedQuestion();
 
   const getInitialSource = (): QuestionSourceFilter => {
     const sourceFromUrl = new URLSearchParams(window.location.search).get(
@@ -93,6 +101,7 @@ export const QuestionsPage = ({
   const [reviewPage, setReviewPage] = useState(1);
   const [limit, setLimit] = useState(12);
   const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
+  const suppressAutoOpenRef = useRef(false);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -230,6 +239,14 @@ export const QuestionsPage = ({
     [reviewData],
   );
   useEffect(() => {
+    if (suppressAutoOpenRef.current) {
+      if (!autoOpenQuestionId) {
+        suppressAutoOpenRef.current = false;
+        setSelectedQuestionId("");
+      }
+      return;
+    }
+
     if (autoOpenQuestionId && autoOpenQuestionId !== selectedQuestionId) {
       setSelectedQuestionId(autoOpenQuestionId);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -394,12 +411,15 @@ export const QuestionsPage = ({
     setSelectedQuestionId(questoinId);
   };
   const goBack = () => {
-    const url = new URL(window.location.href);
-    if (url.searchParams.has("comment")) {
-      url.searchParams.delete("comment");
-      window.history.replaceState({}, "", url.toString());
-      setSelectedQuestionId("");
-      return;
+    if (routeCommentId || routeQuestionId) {
+      suppressAutoOpenRef.current = true;
+    }
+    if (routeCommentId) {
+      setRouteCommentId(null);
+    }
+    if (routeQuestionId) {
+      setRouteQuestionId(null);
+      setSelectedQuestionType(null);
     }
     setSelectedQuestionId("");
   };

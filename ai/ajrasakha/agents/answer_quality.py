@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 # Minimum body length (excluding disclaimer) to treat an answer as substantive.
 MIN_ANSWER_LENGTH = 150
@@ -45,6 +46,24 @@ _WARNING_DISCLAIMER_PATTERN = re.compile(
 )
 
 
+def _coerce_message_text(content: Any) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return "\n".join(parts).strip()
+    return str(content).strip()
+
+
 def strip_warning_disclaimer(text: str) -> str:
     """Remove the testing-version warning disclaimer from *text*.
 
@@ -61,6 +80,40 @@ _EXPERT_INDICATORS = re.compile(
 _URL_PATTERN = re.compile(r"https?://|www\.", re.IGNORECASE)
 _SOURCE_INDICATORS = re.compile(
     r"source|reference|sourced\s+from|approved\s+materials",
+    re.IGNORECASE,
+)
+
+# Official government APIs — answers citing these are tool-sourced (not LLM hallucination).
+_OFFICIAL_GOV_SOURCE = re.compile(
+    r"soilhealth\.dac\.gov\.in|"
+    r"mausam\.imd\.gov\.in|imd\.gov\.in|\bIMD\b|"
+    r"enam\.gov\.in|\bAgmarknet\b|\beNAM\b|"
+    r"myscheme\.gov\.in|"
+    r"APMC|mandi|modal\s+price",
+    re.IGNORECASE,
+)
+
+# Soil Health Card / fertilizer dosage replies from the soil MCP tool.
+_SOIL_HEALTH_ANSWER = re.compile(
+    r"soilhealth\.dac\.gov\.in|"
+    r"fertilizer[- ]?dosage|"
+    r"soil\s+test|"
+    r"organic\s+carbon|\bOC\b|"
+    r"farm\s+yard\s+manure|\bFYM\b|"
+    r"vermicompost|azospirillum|psb\s*@",
+    re.IGNORECASE,
+)
+
+_GOVT_SCHEME_ANSWER = re.compile(
+    r"government\s+scheme|welfare\s+scheme|central\s+scheme|state\s+scheme|"
+    r"pm[- ]?kisan|pm[- ]?fby|pm[- ]?kmy|"
+    r"subsidy|eligibility|how\s+to\s+apply|"
+    r"financial\s+assistance|benefit\s*[:\-]",
+    re.IGNORECASE,
+)
+
+_TOOL_FAILURE = re.compile(
+    r"temporarily unavailable|tool execution failed",
     re.IGNORECASE,
 )
 
@@ -89,6 +142,119 @@ _TWO_HOUR_DISCLAIMER_PATTERNS: list[re.Pattern[str]] = [
         re.IGNORECASE,
     ),
 ]
+
+
+def is_official_government_sourced_answer(text: str) -> bool:
+    """True when the answer cites official weather/market/soil/scheme government data.
+
+    These answers come from MCP tools (IMD, Agmarknet, Soil Health Card, myscheme)
+    and must NOT be rejected by the GDB-focused LLM relevance checker.
+    """
+    if not text:
+        return False
+    stripped = strip_warning_disclaimer(text.strip())
+    if not stripped:
+        return False
+    if _OFFICIAL_GOV_SOURCE.search(stripped):
+        return True
+    # Soil tool answers often label the portal without the full URL in every line.
+    if _SOIL_HEALTH_ANSWER.search(stripped) and (
+        "kg/ha" in stripped.lower()
+        or "tonnes" in stripped.lower()
+        or "hectare" in stripped.lower()
+    ):
+        return True
+    if _looks_like_government_scheme_answer(stripped):
+        return True
+    return False
+
+
+def _looks_like_government_scheme_answer(text: str) -> bool:
+    """Numbered scheme lists from myscheme tool often omit the URL in the body."""
+    if not text or len(text) < 80:
+        return False
+    if not _GOVT_SCHEME_ANSWER.search(text):
+        return False
+    numbered_items = re.findall(r"(?:^|\n)\s*\d+\.\s+\S", text)
+    return len(numbered_items) >= 1 or "myscheme" in text.lower()
+
+
+def is_answer_supported_by_official_tools_in_turn(
+    messages: list[Any],
+    question_text: str,
+) -> bool:
+    """True when this turn ran an official MCP tool (schemes/soil/weather/market) successfully."""
+    from langchain_core.messages import HumanMessage, ToolMessage
+
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+    if last_human_idx < 0:
+        return False
+
+    q = (question_text or "").lower()
+
+    for msg in messages[last_human_idx + 1 :]:
+        if not isinstance(msg, ToolMessage):
+            continue
+        name = (getattr(msg, "name", None) or "").lower()
+        text = _coerce_message_text(msg.content)
+        if len(text) < 80 or _TOOL_FAILURE.search(text):
+            continue
+
+        if "scheme" in name:
+            if any(
+                k in q
+                for k in (
+                    "scheme",
+                    "subsidy",
+                    "benefit",
+                    "yojana",
+                    "government",
+                    "apply for",
+                )
+            ):
+                return True
+        if name == "soil" or name.endswith("_soil") or name.startswith("soil"):
+            if any(
+                k in q
+                for k in (
+                    "soil",
+                    "fertilizer",
+                    "npk",
+                    "nitrogen",
+                    "phosphorus",
+                    "potassium",
+                    "organic carbon",
+                )
+            ):
+                return True
+        if "weather" in name:
+            if any(
+                k in q
+                for k in ("weather", "rain", "forecast", "temperature", "imd")
+            ):
+                return True
+        if name == "market" or "market" in name or "agmarknet" in name or "enam" in name:
+            if any(k in q for k in ("price", "mandi", "market", "quintal")):
+                return True
+
+    return False
+
+
+def should_preserve_official_tool_answer(
+    messages: list[Any],
+    question_text: str,
+    answer_text: str,
+) -> bool:
+    """Skip GDB-style relevance rejection for official API / tool-backed replies."""
+    if is_official_government_sourced_answer(answer_text):
+        return True
+    if is_answer_supported_by_official_tools_in_turn(messages, question_text):
+        return True
+    return False
 
 
 def is_no_database_match_answer(text: str) -> bool:

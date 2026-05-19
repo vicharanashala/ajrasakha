@@ -1,8 +1,21 @@
+"""
+Live routing tests for the legacy ajrasakha_node (bind_tools + WHATSAPP_SYSTEM_PROMPT).
+
+The default compiled graph uses the planner pipeline when USE_PLANNER_GRAPH=true.
+See test_planner.py for deterministic planner/executor unit tests.
+"""
+
 import pytest
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
-from ajrasakha.agents.ajrasakha import ajrasakha_node, AjraSakhaState
+from ajrasakha.agents.ajrasakha import ajrasakha_node, use_planner_graph
+from ajrasakha.agents.state import AjraSakhaState
+
+pytestmark = pytest.mark.skipif(
+    use_planner_graph(),
+    reason="Legacy ajrasakha_node tests; set USE_PLANNER_GRAPH=false to run",
+)
 
 
 @pytest.fixture
@@ -170,7 +183,9 @@ async def test_parallel_multiple_tool_calling(base_config):
     
     weather_called = any("weather" in name for name in tool_names)
     
-    farming_tool_called = any("upload_question" in name or "golden_retriever" in name for name in tool_names)
+    reviewer_called = any("upload_question" in name for name in tool_names)
+    gdb_called = any(name == "gdb" for name in tool_names)
     
     assert weather_called, f"Expected weather tool in parallel calls, but got: {tool_names}"
-    assert farming_tool_called, f"Expected farming tool (reviewer/gdb) in parallel calls, but got: {tool_names}"
+    assert reviewer_called, f"Expected reviewer upload in parallel batch, but got: {tool_names}"
+    assert gdb_called, f"Expected gdb in parallel batch with weather, but got: {tool_names}"

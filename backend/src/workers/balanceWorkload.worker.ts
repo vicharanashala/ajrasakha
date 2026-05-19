@@ -184,9 +184,11 @@ const notificationService = new NotificationService(notificationRepo, database);
         }
 
         // 2. Penalize the expert who was stuck (TYPE B logic from main)
+        // Only penalize 'in-review' experts — 'reviewed' experts already completed their work
+        // and were decremented by reviewAnswer; decrementing them again would be incorrect.
         if (history.length > 0) {
           const lastHistory = history[history.length - 1];
-          if (lastHistory?.status === 'in-review' || lastHistory?.status === 'reviewed') {
+          if (lastHistory?.status === 'in-review') {
             const stuckExpertId = lastHistory.updatedBy?.toString();
             if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
           }
@@ -194,7 +196,7 @@ const notificationService = new NotificationService(notificationRepo, database);
 
         // 3. Save updates to Submission
         await submissionRepo.updateById(job.submissionId, {
-          $set: { queue: newQueue, history: updatedHistory, updatedAt: now },
+          $set: { queue: newQueue, history: updatedHistory, updatedAt: now, reviewDelayNotificationSent:false },
         });
 
         // 4. Notify new expert

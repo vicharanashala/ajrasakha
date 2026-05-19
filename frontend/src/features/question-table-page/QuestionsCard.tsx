@@ -98,7 +98,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
   const statusBadge = useMemo(() => {
     // const status = q.status || "NIL";
     const effectiveStatus =
-      timer === "00:00:00" && q.status == "open"
+      timer === "00:00:00" && q.status == "open"&&q.pae_review!=true
         ? "delayed"
         : q.status || "NIL";
 
