@@ -23,6 +23,7 @@ import type {
   KccAndAgriAppStats,
   PlatformInstallEntry,
   DuplicateQuestionEntry,
+  MonthlyQueryCountEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -792,6 +793,70 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
+
+  async getMonthlyQueryCounts(
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+): Promise<MonthlyQueryCountEntry[]> {
+  try {
+    await this.init(source);
+
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
+
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              isCreatedByUser: true,
+            },
+          },
+
+          ...userTypeLookupStages,
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+
+              count: {
+                $sum: 1,
+              },
+            },
+          },
+
+          {
+            $project: {
+              month: '$_id',
+              count: 1,
+              _id: 0,
+            },
+          },
+
+          {
+            $sort: {
+              month: 1,
+            },
+          },
+        ],
+        {session},
+      )
+      .toArray();
+
+    return result as MonthlyQueryCountEntry[];
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get monthly query counts: ${error}`,
+    );
+  }
+}
 
   async getTodayQueryCount(
     source = 'vicharanashala',

@@ -71,6 +71,11 @@ export interface WeeklyQueryCountEntry {
   count: number;
 }
 
+export interface MonthlyQueryCountEntry {
+  month: string; // 'YYYY-MM'
+  count: number;
+}
+
 export interface FarmerProfile {
   farmerName?: string;
   age?: number;
@@ -200,6 +205,12 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<WeeklyQueryCountEntry[]>;
+
+  getMonthlyQueryCounts(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<MonthlyQueryCountEntry[]>;
 
   /** Daily user activity trend (users active per day) over the last `days` days, sorted ascending. */
   getDailyUserTrend(
