@@ -308,6 +308,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $match: {
                   createdAt: {$gte: threeDaysAgo},
                   isCreatedByUser: true,
+                  isDeleted: {$ne: true},
                 },
               },
               ...userTypeLookupStages,
@@ -322,7 +323,7 @@ export class ChatbotRepository implements IChatbotRepository {
         this.messagesCollection
           .aggregate(
             [
-              {$match: {feedback: {$exists: true}, isCreatedByUser: false}},
+              {$match: {feedback: {$exists: true}, isCreatedByUser: false,  isDeleted: {$ne: true},},},
               {$group: {_id: '$user'}},
               {$count: 'total'},
             ],
@@ -366,7 +367,7 @@ export class ChatbotRepository implements IChatbotRepository {
       let duplicateQuestionsCount = 0;
       if (dupeMsgIds.length > 0) {
         const existingMessages = await this.messagesCollection
-          .find({messageId: {$in: dupeMsgIds}})
+          .find({messageId: {$in: dupeMsgIds}, isDeleted: {$ne: true}})
           .project<{messageId: string}>({messageId: 1})
           .toArray();
         const existingMsgIdSet = new Set(
@@ -380,6 +381,7 @@ export class ChatbotRepository implements IChatbotRepository {
       // Construct matches based on startTime and endTime if provided
       const queryMatch: any = { 
         isCreatedByUser: true, 
+        isDeleted: {$ne: true},
         text: { $exists: true, $ne: null, $nin: ['', ' '] } 
       };
       if (startTime || endTime) {
@@ -428,6 +430,7 @@ export class ChatbotRepository implements IChatbotRepository {
       // Avg questions per user per day over the filtered range (or default to last 30 days)
       const avgQuestionsMatch: any = { 
         isCreatedByUser: true, 
+        isDeleted: {$ne: true},
         text: { $exists: true, $ne: null, $nin: ['', ' '] } 
       };
       if (startTime || endTime) {
@@ -510,7 +513,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
             ...userTypeLookupStages,
             // Deduplicate: one entry per (month, user) pair
             {
@@ -913,7 +916,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true},  },},
             ...userTypeLookupStages,
             {
               $group: {
@@ -955,7 +958,7 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate(
           [
             // Filter to last N days, user-sent messages only
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
             ...userTypeLookupStages,
             // Deduplicate: one entry per (day, user) pair
             {
@@ -1005,7 +1008,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {isCreatedByUser: true}},
+            {$match: {isCreatedByUser: true, isDeleted: {$ne: true}}},
             ...userTypeLookupStages,
             {
               $group: {
@@ -1050,6 +1053,7 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $match: {
                 isCreatedByUser: true,
+                isDeleted: {$ne: true},
               },
             },
 
@@ -1114,6 +1118,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $match: {
                 feedback: {$exists: true},
                 isCreatedByUser: false,
+                isDeleted: {$ne: true},
               },
             },
 
@@ -1249,7 +1254,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: today}, isCreatedByUser: true}},
+            {$match: {createdAt: {$gte: today}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
             ...userTypeLookupStages,
             {$count: 'total'},
           ],
@@ -1585,7 +1590,7 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
 
       // Build date match for messages (optional)
-      const dateMatch: Record<string, any> = {isCreatedByUser: true};
+      const dateMatch: Record<string, any> = {isCreatedByUser: true,  isDeleted: {$ne: true}, };
       if (startDate || endDate) {
         dateMatch.createdAt = {};
         if (startDate) dateMatch.createdAt.$gte = startDate;
@@ -1705,7 +1710,7 @@ export class ChatbotRepository implements IChatbotRepository {
       if (lowFeedbackOnly) {
         const feedbackDocs = await this.messagesCollection
           .aggregate([
-            {$match: {feedback: {$exists: true}, isCreatedByUser: false}},
+            {$match: {feedback: {$exists: true}, isCreatedByUser: false,  isDeleted: {$ne: true},  },},
             {$group: {_id: '$user'}},
           ])
           .toArray();
@@ -1777,6 +1782,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
+            {$match: {isDeleted: {$ne: true}}},
             ...userTypeLookupStages,
             {$sort: {conversationId: 1, createdAt: 1}},
             {
@@ -1852,7 +1858,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}}},
+            {$match: {createdAt: {$gte: since}, isDeleted: {$ne: true}}},
             ...userTypeLookupStages,
             {$sort: {conversationId: 1, createdAt: 1}},
             {
@@ -1956,6 +1962,7 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $match: {
                 createdAt: {$gte: since},
+                isDeleted: {$ne: true},
               },
             },
 
@@ -2431,6 +2438,7 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $match: {
                 createdAt: {$gte: startDate, $lte: endDate},
+                isDeleted: {$ne: true},
               },
             },
             {
@@ -2566,6 +2574,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               createdAt: {$gte: startDate, $lte: endDate},
+              isDeleted: {$ne: true},
             },
           },
           {
@@ -2674,7 +2683,7 @@ export class ChatbotRepository implements IChatbotRepository {
       // 3. Look up messages in annam analytics DB.
       // Questions whose messageId has no matching document are excluded entirely.
       const messages = await this.messagesCollection
-        .find({messageId: {$in: messageIds}})
+        .find({messageId: {$in: messageIds}, isDeleted: {$ne: true}})
         .project<{messageId: string; user: string}>({messageId: 1, user: 1})
         .toArray();
 
@@ -2978,6 +2987,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const queryMatch: any = {
         isCreatedByUser: true,
+        isDeleted: {$ne: true},
         text: { $exists: true, $ne: null, $nin: ['', ' '] }
       };
 
@@ -3099,6 +3109,10 @@ export class ChatbotRepository implements IChatbotRepository {
   async deleteUser(userId: string, source: string): Promise<boolean> {
     try {
       await this.init(source);
+      await this.messagesCollection.updateMany(
+        {user: userId},
+        {$set: {isDeleted: true}},
+      );
       const result = await this.users.deleteOne({ _id: new ObjectId(userId) });
       return result.deletedCount === 1;
     } catch (error) {
