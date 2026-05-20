@@ -33,6 +33,7 @@ import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import { Maximize2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
+import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -50,6 +51,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters, source);
+
+  console.log("Dashboard data:", data);
   const {
     data: dauTrend,
     isLoading: dauLoading,
@@ -971,6 +974,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     channelSplit={data.channelSplit}
                     voiceAccuracy={data.voiceAccuracy}
                   /> */}
+                  <DashboardStateWiseAnalytics source={source} userType={filters.userType}/>
                   {/* <GeoCard states={data.geoStates} />
                   <div
                     ref={(el) => {

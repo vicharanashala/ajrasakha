@@ -14,6 +14,9 @@ import type {
   PlatformInstallEntry,
   DuplicateQuestionEntry,
   DomainSpikeEntry,
+  MonthlyQueryCountEntry,
+  MonthlySessionDurationEntry,
+  DistrictAnalyticsEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -25,8 +28,10 @@ export interface DashboardResponse {
   geo: GeoStateEntry[];
   queryCategories: QueryCategoryEntry[];
   weeklySessionDuration: WeeklySessionDurationEntry[];
+  monthlySessionDuration: MonthlySessionDurationEntry[];
   dailyQueries: DailyQueryCountEntry[];
   weeklyQueries: WeeklyQueryCountEntry[];
+  monthlyQueries: MonthlyQueryCountEntry[];
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
@@ -57,5 +62,6 @@ export interface IChatbotService {
   getGrowth(range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
+  getDistrictAnalyticsByState(state: string, source?: string, userType?: string): Promise<DistrictAnalyticsEntry[]>;
 }
 
