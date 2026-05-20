@@ -40,6 +40,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popo
 import { Button } from "@/components/atoms/button";
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -71,6 +72,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
   const { data: qualityData, isLoading: qualityLoading } = useDashboardData(qualityFilters, source);
 
+  console.log("Dashboard data:", data);
   const {
     data: dauTrend,
     isLoading: dauLoading,
@@ -1066,6 +1068,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     channelSplit={data.channelSplit}
                     voiceAccuracy={data.voiceAccuracy}
                   /> */}
+                  <DashboardStateWiseAnalytics source={source} userType={filters.userType}/>
                   {/* <GeoCard states={data.geoStates} />
                   <div
                     ref={(el) => {

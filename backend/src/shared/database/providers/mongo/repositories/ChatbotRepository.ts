@@ -23,9 +23,13 @@ import type {
   KccAndAgriAppStats,
   PlatformInstallEntry,
   DuplicateQuestionEntry,
+  MonthlyQueryCountEntry,
+  MonthlySessionDurationEntry,
+  DistrictAnalyticsEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
+import {DISTRICTS} from '#root/utils/districts.js';
 
 interface IUser {
   _id?: any;
@@ -176,8 +180,8 @@ export class ChatbotRepository implements IChatbotRepository {
         $addFields: {
           _userOid: {
             $cond: [
-              { $and: [{ $ne: ['$userId', null] }, { $ne: ['$userId', ''] }] },
-              { $toObjectId: '$userId' },
+              {$and: [{$ne: ['$userId', null]}, {$ne: ['$userId', '']}]},
+              {$toObjectId: '$userId'},
               null,
             ],
           },
@@ -200,21 +204,17 @@ export class ChatbotRepository implements IChatbotRepository {
     }
 
     if (userType === 'external') {
-      stages.push(
-        { $unwind: '$_userDoc' },
-        { $match: transformedFilter }
-      );
+      stages.push({$unwind: '$_userDoc'}, {$match: transformedFilter});
     } else {
       stages.push(
-        { $unwind: { path: '$_userDoc', preserveNullAndEmptyArrays: true } },
-        { $match: transformedFilter }
+        {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: true}},
+        {$match: transformedFilter},
       );
     }
 
-    stages.push({ $unset: ['_userOid', '_userDoc'] });
+    stages.push({$unset: ['_userOid', '_userDoc']});
     return stages;
   }
-
 
   async getKpiSummary(
     source = 'vicharanashala',
@@ -588,7 +588,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: {
             source: 'AJRASAKHA',
-            'details.domain': { $exists: true, $nin: [null, ''] },
+            'details.domain': {$exists: true, $nin: [null, '']},
           },
         },
         ...lookupStages,
@@ -596,35 +596,33 @@ export class ChatbotRepository implements IChatbotRepository {
           $project: {
             domain: '$details.domain',
             isDuplicate: {
-              $cond: [
-                { $eq: ['$status', 'duplicate'] },
-                1,
-                0
-              ]
-            }
-          }
+              $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
+            },
+          },
         },
         {
           $group: {
             _id: '$domain',
-            totalCount: { $sum: 1 },
-            duplicateCount: { $sum: '$isDuplicate' },
+            totalCount: {$sum: 1},
+            duplicateCount: {$sum: '$isDuplicate'},
             uniqueCount: {
               $sum: {
-                $cond: [{ $eq: ['$isDuplicate', 0] }, 1, 0]
-              }
-            }
-          }
+                $cond: [{$eq: ['$isDuplicate', 0]}, 1, 0],
+              },
+            },
+          },
         },
         {
-          $sort: { totalCount: -1 }
+          $sort: {totalCount: -1},
         },
         {
-          $limit: 15
-        }
+          $limit: 15,
+        },
       ];
 
-      const raw = await this.QuestionCollection.aggregate(pipeline, { session }).toArray();
+      const raw = await this.QuestionCollection.aggregate(pipeline, {
+        session,
+      }).toArray();
 
       return raw.map(item => ({
         label: item._id,
@@ -633,6 +631,151 @@ export class ChatbotRepository implements IChatbotRepository {
       }));
     } catch (error) {
       throw new Error(`Failed to fetch query categories: ${error}`);
+    }
+  }
+
+  async getDistrictAnalyticsByState(
+    _source = 'vicharanashala',
+    state: string,
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<DistrictAnalyticsEntry[]> {
+    try {
+      await this.initReviewSystem();
+
+      const districts = DISTRICTS[state];
+
+      if (!districts || districts.length === 0) {
+        return [];
+      }
+
+      // Normalize district names
+      const normalizedDistricts = districts.map(d => d.toLowerCase().trim());
+
+      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
+
+      const pipeline = [
+        {
+          $match: {
+            source: 'AJRASAKHA',
+
+            'details.district': {
+              $exists: true,
+              $ne: null,
+            },
+          },
+        },
+
+        ...lookupStages,
+
+        // Normalize district from DB
+        {
+          $addFields: {
+            normalizedDistrict: {
+              $toLower: '$details.district',
+            },
+          },
+        },
+
+        // Keep only districts belonging to selected state
+        {
+          $match: {
+            normalizedDistrict: {
+              $in: normalizedDistricts,
+            },
+          },
+        },
+
+        {
+          $project: {
+            district: '$details.district',
+
+            isDuplicate: {
+              $cond: [
+                {
+                  $eq: ['$status', 'duplicate'],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+
+        {
+          $group: {
+            _id: '$district',
+
+            totalQuestions: {
+              $sum: 1,
+            },
+
+            duplicateQuestions: {
+              $sum: '$isDuplicate',
+            },
+
+            uniqueQuestions: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$isDuplicate', 0],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+
+        {
+          $sort: {
+            totalQuestions: -1,
+          },
+        },
+      ];
+
+      const raw = await this.QuestionCollection.aggregate(pipeline, {
+        session,
+      }).toArray();
+
+      const districtMap = new Map(
+        raw.map(item => [
+          item._id.toLowerCase().trim(),
+          {
+            district: item._id,
+            totalQuestions: item.totalQuestions,
+            uniqueQuestions: item.uniqueQuestions,
+            duplicateQuestions: item.duplicateQuestions,
+          },
+        ]),
+      );
+
+      const normalizedResult: DistrictAnalyticsEntry[] = districts.map(
+        district => {
+          const normalizedDistrict = district.toLowerCase().trim();
+
+          const existing = districtMap.get(normalizedDistrict);
+
+          return (
+            existing || {
+              district,
+
+              totalQuestions: 0,
+
+              uniqueQuestions: 0,
+
+              duplicateQuestions: 0,
+            }
+          );
+        },
+      );
+
+      return normalizedResult.sort(
+        (a, b) => b.totalQuestions - a.totalQuestions,
+      );
+    } catch (error) {
+      throw new Error(`Failed to fetch district analytics: ${error}`);
     }
   }
 
@@ -891,6 +1034,69 @@ export class ChatbotRepository implements IChatbotRepository {
     } catch (error) {
       throw new InternalServerError(
         `Failed to get weekly query counts: ${error}`,
+      );
+    }
+  }
+
+  async getMonthlyQueryCounts(
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<MonthlyQueryCountEntry[]> {
+    try {
+      await this.init(source);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                isCreatedByUser: true,
+              },
+            },
+
+            ...userTypeLookupStages,
+
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+
+                count: {
+                  $sum: 1,
+                },
+              },
+            },
+
+            {
+              $project: {
+                month: '$_id',
+                count: 1,
+                _id: 0,
+              },
+            },
+
+            {
+              $sort: {
+                month: 1,
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      return result as MonthlyQueryCountEntry[];
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get monthly query counts: ${error}`,
       );
     }
   }
@@ -1594,6 +1800,173 @@ export class ChatbotRepository implements IChatbotRepository {
     } catch (error) {
       throw new InternalServerError(
         `Failed to get weekly avg session duration v2: ${error}`,
+      );
+    }
+  }
+
+  async getMonthlyAvgSessionDuration(
+    months = 12,
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<MonthlySessionDurationEntry[]> {
+    try {
+      await this.init(source);
+
+      const since = new Date();
+      since.setMonth(since.getMonth() - months);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                createdAt: {$gte: since},
+              },
+            },
+
+            ...userTypeLookupStages,
+
+            {
+              $sort: {
+                conversationId: 1,
+                createdAt: 1,
+              },
+            },
+
+            {
+              $setWindowFields: {
+                partitionBy: '$conversationId',
+
+                sortBy: {
+                  createdAt: 1,
+                },
+
+                output: {
+                  prevCreatedAt: {
+                    $shift: {
+                      output: '$createdAt',
+                      by: -1,
+                    },
+                  },
+
+                  firstMsgInConv: {
+                    $first: '$createdAt',
+
+                    window: {
+                      documents: ['unbounded', 'current'],
+                    },
+                  },
+                },
+              },
+            },
+
+            {
+              $addFields: {
+                gapMs: {
+                  $cond: [
+                    {$ifNull: ['$prevCreatedAt', false]},
+
+                    {
+                      $subtract: ['$createdAt', '$prevCreatedAt'],
+                    },
+
+                    0,
+                  ],
+                },
+              },
+            },
+
+            // Ignore inactive gaps > 30 mins
+            {
+              $addFields: {
+                activeGapMs: {
+                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
+                },
+              },
+            },
+
+            {
+              $group: {
+                _id: '$conversationId',
+
+                activeSessionMs: {
+                  $sum: '$activeGapMs',
+                },
+
+                firstMsg: {
+                  $min: '$firstMsgInConv',
+                },
+
+                msgCount: {
+                  $sum: 1,
+                },
+              },
+            },
+
+            // Ignore single-message conversations
+            {
+              $match: {
+                msgCount: {$gt: 1},
+              },
+            },
+
+            // MONTH GROUPING
+            {
+              $addFields: {
+                month: {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$firstMsg',
+                    timezone: '+05:30',
+                  },
+                },
+              },
+            },
+
+            {
+              $group: {
+                _id: '$month',
+
+                avgDurationMs: {
+                  $avg: '$activeSessionMs',
+                },
+              },
+            },
+
+            {
+              $project: {
+                month: '$_id',
+
+                avgSessionDurationMin: {
+                  $round: [
+                    {
+                      $divide: ['$avgDurationMs', 60000],
+                    },
+                    1,
+                  ],
+                },
+
+                _id: 0,
+              },
+            },
+
+            {
+              $sort: {
+                month: 1,
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      return result as MonthlySessionDurationEntry[];
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get monthly avg session duration: ${error}`,
       );
     }
   }

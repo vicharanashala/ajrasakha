@@ -7,6 +7,7 @@ import {
   Authorized,
   ContentType,
   Res,
+  QueryParam,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -28,6 +29,7 @@ import {
   QueryCategoryEntryResponse,
   PaginatedUserDetailsResponse,
   TopCropsResponse,
+  DistrictAnalyticsEntryResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
 import { GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
 
@@ -71,6 +73,44 @@ export class ChatbotController {
       query.endTime,
     );
   }
+
+  @OpenAPI({
+  summary: 'Get district-wise analytics for a state',
+  description:
+    'Retrieves district-level question analytics including total, unique, and duplicate questions for the selected state.',
+})
+@ResponseSchema(DistrictAnalyticsEntryResponse, {
+  statusCode: 200,
+  description:
+    'District-wise analytics data retrieved successfully',
+})
+@ResponseSchema(ChatbotErrorResponse, {
+  statusCode: 401,
+  description: 'Unauthorized - Authentication required',
+})
+@ResponseSchema(ChatbotErrorResponse, {
+  statusCode: 500,
+  description:
+    'Internal server error - Failed to fetch district analytics',
+})
+@Get('/state-wise-analytics')
+@HttpCode(200)
+@Authorized()
+async getDistrictAnalyticsByState(
+  @QueryParam('state') state: string,
+
+  @QueryParam('source')
+  source: string,
+
+  @QueryParam('userType')
+  userType: string,
+) {
+  return this.chatbotService.getDistrictAnalyticsByState(
+    state,
+    source,
+    userType,
+  );
+}
 
   @OpenAPI({ 
     summary: 'Get KPI summary for today',
