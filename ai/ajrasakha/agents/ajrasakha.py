@@ -433,6 +433,16 @@ async def relevance_check_node(
         )
         return {}
 
+    # If GDB returned real expert data, the synthesizer used only that data.
+    # Skip relevance check — the answer is already sourced.
+    plan = state.get("plan") or {}
+    if plan.get("gdb_has_data", False):
+        logger.info(
+            "GDB returned real expert data (gdb_has_data=True) — "
+            "skipping relevance check"
+        )
+        return {}
+
     # ── Heuristic pre-check: catch unsourced agricultural advice ──────────
     if _is_unsourced_agricultural_advice(answer_text):
         logger.info(
@@ -496,6 +506,7 @@ async def relevance_check_node(
 def sanitize_answer_node(state: AjraSakhaState) -> dict:
     """Adjust the 2-hour reviewer disclaimer on the final farmer-facing answer.
 
+    - GDB returned real data (gdb_has_data=True): ALWAYS strip the 2-hour disclaimer.
     - Strong GDB-style answer (expert + sources + links): strip disclaimer if present.
     - Weak / no-database-match answer: append disclaimer if missing.
     """
@@ -512,6 +523,25 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
     answer_text = _message_to_text(final_answer_msg)
     if not answer_text or answer_text.startswith(EMPTY_GDB_REPLY[:80]):
         return {}
+
+    # Check if GDB returned real expert data
+    plan = state.get("plan") or {}
+    gdb_has_data = plan.get("gdb_has_data", False)
+
+    if gdb_has_data:
+        # GDB provided real data → ALWAYS strip the 2-hour disclaimer
+        cleaned = strip_two_hour_disclaimer(answer_text)
+        if cleaned == answer_text:
+            return {}
+        logger.info(
+            "Removing 2-hour disclaimer from GDB-sourced answer (gdb_has_data=True, len %d -> %d)",
+            len(answer_text),
+            len(cleaned),
+        )
+        return {
+            "messages": [AIMessage(content=cleaned, id=final_answer_msg.id)],
+            "location": state.get("location"),
+        }
 
     if is_sufficient_expert_answer(answer_text):
         cleaned = strip_two_hour_disclaimer(answer_text)
