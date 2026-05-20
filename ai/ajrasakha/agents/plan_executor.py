@@ -14,6 +14,8 @@ from langchain_core.runnables import RunnableConfig, patch_config
 from ajrasakha.agents.location_context import (
     extract_location_updates_from_new_tool_messages,
     extract_state_from_text,
+    gps_state_from_location,
+    has_gps_coordinates,
     merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
@@ -91,8 +93,15 @@ def _entity_str(
         extracted = extract_state_from_text(user_query)
         if extracted:
             return extracted
-    if loc and loc.get(key):
-        return str(loc[key]).strip()
+    if loc:
+        if key == "state":
+            gps_state = gps_state_from_location(loc)
+            if gps_state:
+                return gps_state
+        elif key == "district" and has_gps_coordinates(loc) and loc.get("city"):
+            return str(loc["city"]).strip()
+        elif loc.get(key):
+            return str(loc[key]).strip()
     return default
 
 
@@ -125,7 +134,7 @@ async def build_tool_calls_from_plan(
     entities = plan.get("entities") or {}
     state_name = _entity_str(plan, "state", loc, "Not specified", user_query=user_query)
     district = _entity_str(plan, "district", loc, "Not specified", user_query=user_query)
-    if district == "Not specified" and loc.get("city"):
+    if district == "Not specified" and has_gps_coordinates(loc) and loc.get("city"):
         district = str(loc["city"])
     crop = _entity_str(plan, "crop", loc, "General", user_query=user_query)
     domain = _reviewer_domain(plan)

@@ -690,14 +690,16 @@ Your job is to analyze the user's message and determine the correct execution pa
 
 **Completeness Check Rules (STRICT — avoid interview-style clarifications):**
 
-Read the **full conversation** in the user message, not only the latest line. Carry crop/state forward from earlier turns.
+Read the conversation for routing context, but **location entities follow strict turn scope**:
+- **State and district**: from the farmer's **latest message only**, or from **GPS lat/long on the thread** (metadata). Never reuse state/district from unrelated older questions.
+- **Crop**: may carry from the **last few clarify replies** (recent turns) when the farmer is answering a follow-up (e.g. "Cotton" after "which crop?").
 
 1. **Location** (only these cases block execution):
-   - **State in the farmer's text** but district missing and no GPS on thread → `is_complete=false`, ask **one** question: which district (do not re-ask state).
-   - **No state in text and no GPS** (no lat/long in metadata) → `is_complete=false`, ask **one** question: state and district together.
-   - **GPS present on thread** OR state+district known → location is complete; do **not** ask for location.
+   - **State in the latest farmer message** but district missing and no GPS on thread → `is_complete=false`, ask **one** question: which district (do not re-ask state).
+   - **No state in latest message and no GPS** (no lat/long in metadata) → `is_complete=false`, ask **one** question: state and district together.
+   - **GPS present on thread** OR state+district known for this turn → location is complete; do **not** ask for location.
 
-2. **Crop** — ask only when the query domain **requires** a named crop and none appears anywhere in the conversation:
+2. **Crop** — ask only when the query domain **requires** a named crop and none appears in the **latest message or recent clarify replies**:
    - Required for: crop insurance (when farmer wants insurance for a crop), pests/diseases, PoP, varieties, fertilizer for a specific crop, etc.
    - **NOT required** for: PM-KISAN, general government schemes, soil health card, livestock, weather, mandi (use crop="all" downstream).
    - Never ask "what would you like to know about X" or list multiple topics — that is forbidden.
@@ -710,7 +712,7 @@ Read the **full conversation** in the user message, not only the latest line. Ca
 
 5. **Follow-up format**: At most **one** short question. Never combine crop + location + symptom in one follow-up. Never ask meta questions like "are you asking about enrollment, claim, or eligibility?"
 
-**Entity extraction:** Also populate optional fields: crop, state, district (from query or metadata), and chemicals (list of agrochemical names mentioned).
+**Entity extraction:** Also populate optional fields: crop, state, district (from **latest message** or GPS metadata only for state/district), and chemicals (list of agrochemical names mentioned).
 
 **Follow-up language:** `follow_up_question` MUST be written in the same language as the farmer's message (English question → English follow-up; Hindi → Hindi).
 

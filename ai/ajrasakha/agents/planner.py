@@ -37,8 +37,11 @@ from ajrasakha.agents.config import CLAUDE_MODEL
 from ajrasakha.agents.domains import domain_requires_crop, ALLOWED_DOMAINS
 from ajrasakha.agents.language import detect_farmer_language
 from ajrasakha.agents.location_context import (
-    extract_state_from_text,
+    gps_state_from_location,
+    latest_human_text,
     main_agent_location_context_message,
+    recent_human_text,
+    resolve_state_for_turn,
 )
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
@@ -116,17 +119,6 @@ def _last_human_message(messages: list[BaseMessage]) -> HumanMessage | None:
     return None
 
 
-def _all_human_text(messages: list[BaseMessage]) -> str:
-    """Concatenate all human messages for entity extraction across turns."""
-    parts = []
-    for msg in messages:
-        if isinstance(msg, HumanMessage):
-            t = _message_to_text(msg)
-            if t:
-                parts.append(t)
-    return " ".join(parts)
-
-
 def is_greeting_message(text: str) -> bool:
     t = (text or "").strip()
     if not t or len(t) > 80:
@@ -186,34 +178,15 @@ def _resolve_state_deterministic(
     messages: list[BaseMessage],
     location: Optional[dict],
 ) -> Optional[str]:
-    """Deterministically resolve state: first from query text, then from lat/long location.
-
-    This is the core change — NO LLM is used for state resolution.
-    Priority:
-      1. State mentioned in query text (any human message in conversation)
-      2. State from GPS-resolved location (thread location state)
-    """
-    # 1. Check all human messages for state mention
-    all_text = _all_human_text(messages)
-    state_from_text = extract_state_from_text(all_text)
-    if state_from_text:
-        return state_from_text
-
-    # 2. Fall back to thread location (resolved from lat/long)
-    if location and location.get("state"):
-        state_val = str(location["state"]).strip()
-        if state_val.lower() not in {"", "unknown", "not specified", "all", "none"}:
-            return state_val
-
-    return None
+    """Deterministically resolve state: latest message text, then GPS thread location."""
+    return resolve_state_for_turn(latest_human_text(messages), location)
 
 
 def _resolve_crop_deterministic(
     messages: list[BaseMessage],
 ) -> Optional[str]:
-    """Deterministically resolve crop from conversation text. No LLM."""
-    all_text = _all_human_text(messages)
-    crop = extract_crop_from_text(all_text)
+    """Crop from recent clarify turns only (not full thread history)."""
+    crop = extract_crop_from_text(recent_human_text(messages, max_turns=5))
     if crop:
         return crop[0].upper() + crop[1:].lower()
     return None
@@ -345,10 +318,10 @@ async def planner_node(
         # State: deterministic resolution takes priority
         if state_resolved:
             entities["state"] = state_resolved
-        elif not entities.get("state") and location and location.get("state"):
-            loc_state = str(location["state"]).strip()
-            if loc_state.lower() not in {"", "unknown", "not specified", "all", "none"}:
-                entities["state"] = loc_state
+        elif not entities.get("state"):
+            gps_state = gps_state_from_location(location)
+            if gps_state:
+                entities["state"] = gps_state
 
         # Crop: deterministic extraction takes priority
         if crop_resolved:
@@ -357,9 +330,7 @@ async def planner_node(
         plan["entities"] = entities
 
         # ── Step 4: Determine domain and crop requirement ──────────────
-        from ajrasakha.agents.planner_rules import conversation_text_from_messages
-        conv_text = conversation_text_from_messages(messages)
-        domain = infer_domain_for_plan(plan, conv_text)
+        domain = infer_domain_for_plan(plan, user_text)
         crop_required = domain_requires_crop(domain)
 
         # If crop is NOT required for this domain, set crop = "All"

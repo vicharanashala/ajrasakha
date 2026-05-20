@@ -7,8 +7,8 @@ These choices extend the manager's `PLANNER_SYSTEM_PROMPT` with existing AjraSak
 ```
 Take input query
   → Check domain (LLM classifies tool flags)
-  → Check state (deterministic: from query text FIRST, then from GPS lat/long)
-  → Check crop (deterministic: from query text)
+  → Check state (deterministic: **latest message** text FIRST, then from GPS lat/long only)
+  → Check crop (deterministic: **recent clarify turns**, not full thread history)
   → Lookup table check (domains.py):
       crop_required=True  AND crop available   → pass
       crop_required=True  AND crop unavailable  → ask user for crop
@@ -42,10 +42,10 @@ GDB no longer overrides state from thread config — it uses what the planner pa
 ## Crop / non-crop classifier
 
 `domains.py` lists crop-required vs crop-all domains. `planner_rules.apply_planner_completeness_rules` enforces:
-- Location: state in text → resolved; GPS on thread → do not ask location; no GPS and no state → ask state+district once.
-- Crop: ask only when `domain_requires_crop` and crop not in full conversation. Otherwise set crop="All".
+- Location: state in **latest message** → resolved; else GPS on thread → use reverse-geocoded state; no GPS and no state in latest message → ask state+district once. District from GPS city only when lat/long present — never stale city from old turns without GPS.
+- Crop: ask only when `domain_requires_crop` and crop not in **recent** farmer replies (last ~3 turns). Otherwise set crop="All".
 - Schemes/insurance/PM-KISAN: `schemes=true`, block meta follow-ups ("what would you like to know…").
-- Planner reads full conversation (not only the latest line).
+- State/district must not leak from unrelated older questions in the thread.
 
 ## Feature flag
 
