@@ -29,6 +29,7 @@ import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import UserGrowthChart from "./components/UserGrowthChart";
 import { AlertCard } from "./AlertCard";
 import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
+import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 
 const VISIBLE_CROPS = 2;
 
@@ -122,9 +123,24 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
       const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
+  // const scrollToTable = () => {
+  //   setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  // };
+
   const scrollToTable = () => {
-    setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-  };
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      tableRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 300);
+  });
+};
+
+useEffect(() => {
+  scrollToTable();
+}, []);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard in overview)
   useEffect(() => {
@@ -167,6 +183,14 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   };
   const { data: dashboardData, isLoading: isDashboardLoading } = useDashboardData(dashboardFilters, source);
   const { data: topCrops, isLoading: isLoadingTopCrops, error: errorLoadingTopCrops } = useTopCrops();
+    const {
+      data: dauTrend,
+      isLoading: dauLoading,
+      error: dauError,
+    } = useDailyUserTrend(30, source, filters.userType);
+
+      const todayCount =
+      dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
 
   // Patch the DAU card to show "active today / total" instead of just total (same as dashboard)
   const patchedKpiRow1 = useMemo(() => {
@@ -177,7 +201,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
       if (card.id === 'dau') {
         return {
           ...card,
-          value: `${activeUsers.toLocaleString()} / ${totalUsers.toLocaleString()}`,
+          value: `${todayCount?.toLocaleString()} / ${Number(card.value).toLocaleString()}`,
         };
       }
       return card;
