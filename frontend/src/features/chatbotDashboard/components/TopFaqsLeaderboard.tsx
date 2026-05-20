@@ -2,7 +2,13 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { ScrollArea } from "@/components/atoms/scroll-area";
-import { MessageSquare, Award, MessageCircle, RefreshCw, BarChart2, Maximize2, X } from "lucide-react";
+import { MessageSquare, Award, MessageCircle, RefreshCw, BarChart2, Maximize2, X, CalendarIcon, RefreshCcw } from "lucide-react";
+import { Calendar } from "@/components/atoms/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
+import { Button } from "@/components/atoms/button";
+import { format } from "date-fns";
+import type { DateRange } from "react-day-picker";
+import { Spinner } from "@/components/atoms/spinner";
 
 interface TopFaqEntry {
   question: string;
@@ -15,6 +21,9 @@ interface TopFaqsLeaderboardProps {
   repeatQueryCount?: number;
   repeatQueryRatePct?: number;
   avgQuestionsPerUserDay?: number;
+  dateRange?: DateRange;
+  onDateRangeChange?: (range: DateRange | undefined) => void;
+  isLoading?: boolean;
 }
 
 export function TopFaqsLeaderboard({
@@ -23,6 +32,9 @@ export function TopFaqsLeaderboard({
   repeatQueryCount = 0,
   repeatQueryRatePct = 0,
   avgQuestionsPerUserDay = 0,
+  dateRange,
+  onDateRangeChange,
+  isLoading = false,
 }: TopFaqsLeaderboardProps) {
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
 
@@ -63,15 +75,64 @@ export function TopFaqsLeaderboard({
 
   return (
     <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-[900px]">
-      <CardHeader className="pb-3 border-b border-border/40 flex flex-row items-center gap-2.5 shrink-0">
-        <Award className="w-5 h-5 text-amber-500" />
-        <div>
-          <CardTitle className="text-base font-semibold tracking-wide text-foreground">
-            Top 10 FAQ Leaderboard
-          </CardTitle>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Most frequently asked questions from user chat messages
-          </p>
+      <CardHeader className="pb-3 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <Award className="w-5 h-5 text-amber-500 shrink-0" />
+          <div>
+            <CardTitle className="text-base font-semibold tracking-wide text-foreground">
+              Top 10 FAQ Leaderboard
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Most frequently asked questions from user chat messages
+            </p>
+          </div>
+        </div>
+
+        {/* Calendar Picker */}
+        <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 justify-start text-left font-normal bg-[#27272a]/10 border-border/40 text-gray-200 hover:bg-[#27272a]/20 w-full sm:w-[180px] shrink-0"
+              >
+                <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-[#3AAA5A]" />
+                <span className="truncate">
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
+                    ) : (
+                      format(dateRange.from, "MMM dd")
+                    )
+                  ) : (
+                    "All time"
+                  )}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 border-border bg-[#18181b]" align="end">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from ?? new Date()}
+                selected={dateRange}
+                onSelect={onDateRangeChange}
+                numberOfMonths={1}
+              />
+            </PopoverContent>
+          </Popover>
+          {dateRange && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onDateRangeChange?.(undefined)}
+              title="Clear date filter"
+              className="h-8 w-8 shrink-0 bg-[#27272a]/10 border-border/40 text-gray-200 hover:bg-[#27272a]/20"
+            >
+              <RefreshCcw className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </CardHeader>
 
@@ -130,7 +191,13 @@ export function TopFaqsLeaderboard({
         </div>
       </div>
 
-      <CardContent className="pt-4 flex-1 min-h-0 pr-1 pb-4">
+      <CardContent className="pt-4 flex-1 min-h-0 pr-1 pb-4 relative">
+        {isLoading && (
+          <div className="absolute inset-0 bg-[#121212]/50 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-b-xl">
+            <Spinner text="Updating leaderboard..." />
+          </div>
+        )}
+
         {leaderboardList.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
             <MessageCircle className="w-8 h-8 text-muted-foreground/30 mb-3" />
