@@ -185,7 +185,17 @@ def apply_planner_completeness_rules(
     *,
     farmer_language: str = "English",
 ) -> PlannerPlan:
-    """Post-process LLM planner output: merge thread context and enforce clarify policy."""
+    """Post-process planner output: merge entities, enforce scheme overrides.
+
+    Note: The primary completeness check (state + crop availability) is done
+    deterministically in planner_node BEFORE this function is called.
+    This function handles:
+      1. Entity merge (carry forward from conversation + location)
+      2. Scheme intent override (schemes=True, knowledge_base=False)
+      3. Domain annotation in reasoning
+      4. If planner already set is_complete=False, respect that decision
+      5. Only override to is_complete=False if rules find something new missing
+    """
     out: PlannerPlan = dict(plan)
     conv = conversation_text_from_messages(messages)
     entities = _merge_entities(out.get("entities") or {}, conv, location)
@@ -199,47 +209,58 @@ def apply_planner_completeness_rules(
         out["schemes"] = True
         out["knowledge_base"] = False
 
-    crop = entities.get("crop")
-    needs_crop = domain_requires_crop(domain) and not crop
-
-    missing: list[str] = []
-    follow_up: Optional[str] = None
-
-    if not has_state and not has_gps:
-        missing.append("location")
-        follow_up = (
-            "Which state and district are you in?"
-            if farmer_language == "English"
-            else "आप किस राज्य और जिले में हैं?"
-        )
-    elif has_state and not has_district and not has_gps:
-        missing.append("district")
-        state_name = entities.get("state") or "your state"
-        follow_up = (
-            f"Which district in {state_name}?"
-            if farmer_language == "English"
-            else f"{state_name} में आप किस जिले में हैं?"
-        )
-    elif needs_crop:
-        missing.append("crop")
-        follow_up = (
-            "Which crop are you growing?"
-            if farmer_language == "English"
-            else "आप कौन सी फसल उगा रहे हैं?"
-        )
-
-    llm_follow_up = (out.get("follow_up_question") or "").strip()
-    if _is_bad_follow_up(llm_follow_up):
-        llm_follow_up = ""
-
-    if missing:
-        out["is_complete"] = False
-        out["missing_info"] = missing
-        out["follow_up_question"] = follow_up or llm_follow_up
+    # If planner already marked incomplete, don't override to complete
+    if not out.get("is_complete", True):
+        # Validate the follow-up question isn't a bad one
+        llm_follow_up = (out.get("follow_up_question") or "").strip()
+        if _is_bad_follow_up(llm_follow_up):
+            # Replace with a deterministic follow-up based on missing_info
+            missing = out.get("missing_info") or []
+            if "crop" in missing:
+                out["follow_up_question"] = (
+                    "Which crop are you growing?"
+                    if farmer_language == "English"
+                    else "आप कौन सी फसल उगा रहे हैं?"
+                )
+            elif "location" in missing:
+                out["follow_up_question"] = (
+                    "Which state and district are you in?"
+                    if farmer_language == "English"
+                    else "आप किस राज्य और जिले में हैं?"
+                )
+            elif "district" in missing:
+                state_name = entities.get("state") or "your state"
+                out["follow_up_question"] = (
+                    f"Which district in {state_name}?"
+                    if farmer_language == "English"
+                    else f"{state_name} में आप किस जिले में हैं?"
+                )
     else:
-        out["is_complete"] = True
-        out["missing_info"] = []
-        out["follow_up_question"] = None
+        # Planner said complete — do a safety check for crop requirement
+        crop = entities.get("crop")
+        needs_crop = domain_requires_crop(domain) and not crop
+
+        if not has_state and not has_gps:
+            out["is_complete"] = False
+            out["missing_info"] = ["location"]
+            out["follow_up_question"] = (
+                "Which state and district are you in?"
+                if farmer_language == "English"
+                else "आप किस राज्य और जिले में हैं?"
+            )
+        elif needs_crop:
+            out["is_complete"] = False
+            out["missing_info"] = ["crop"]
+            out["follow_up_question"] = (
+                "Which crop are you growing?"
+                if farmer_language == "English"
+                else "आप कौन सी फसल उगा रहे हैं?"
+            )
+        else:
+            out["is_complete"] = True
+            out["missing_info"] = []
+            out["follow_up_question"] = None
 
     out["reasoning"] = (out.get("reasoning") or "") + f"; domain={domain}"
     return out
+

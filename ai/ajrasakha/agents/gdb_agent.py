@@ -61,8 +61,10 @@ async def gdb(
         return val.strip()
 
     resolved_crop = clean_fallback(crop)
-    injected: dict = (config.get("configurable") or {}).get("location") or {}
-    resolved_state = clean_fallback(injected.get("state") or state)
+    # State comes directly from the planner's deterministic resolution.
+    # We no longer override it from the thread's injected location config,
+    # because the planner already resolved state from query text or GPS.
+    resolved_state = clean_fallback(state)
     resolved_rephrased = (rephrased_query or "").strip() or query
 
     fallback_response = json.dumps({
