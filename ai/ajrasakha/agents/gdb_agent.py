@@ -85,6 +85,17 @@ async def gdb(
             logger.error("GDB_MCP_URL is not configured in .env or config!")
             return fallback_response
 
+        # Robust URL parsing to handle raw IP/port or Portainer "9005/tcp" formats
+        gdb_url = gdb_url.strip()
+        if not gdb_url.startswith(("http://", "https://")):
+            clean_url = gdb_url
+            if clean_url.endswith("/tcp"):
+                clean_url = clean_url[:-4]
+            # If it doesn't end with a path, append /mcp
+            if "/" not in clean_url.split(":")[-1]:
+                clean_url = clean_url.rstrip("/") + "/mcp"
+            gdb_url = f"http://{clean_url}"
+
         logger.info("Connecting to decoupled GDB MCP server at: %s", gdb_url)
         
         # Instantiate MultiServerMCPClient to invoke tool remotely
