@@ -438,11 +438,6 @@ export class ChatbotRepository implements IChatbotRepository {
         if (endTime) {
           avgQuestionsMatch.createdAt.$lte = new Date(endTime);
         }
-      } else {
-        const since30Days = new Date();
-        since30Days.setDate(since30Days.getDate() - 30);
-        since30Days.setHours(0, 0, 0, 0);
-        avgQuestionsMatch.createdAt = { $gte: since30Days };
       }
 
       const avgQuestionsRaw = await this.messagesCollection.aggregate([
@@ -2912,11 +2907,6 @@ export class ChatbotRepository implements IChatbotRepository {
         if (endTime) {
           matchQuery.createdAt.$lte = new Date(endTime);
         }
-      } else {
-        const since = new Date();
-        since.setDate(since.getDate() - days);
-        since.setHours(0, 0, 0, 0);
-        matchQuery.createdAt = { $gte: since };
       }
 
       const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
@@ -3103,6 +3093,16 @@ export class ChatbotRepository implements IChatbotRepository {
       }));
     } catch (error) {
       throw new InternalServerError(`Failed to get top questions from collection: ${error}`);
+    }
+  }
+
+  async deleteUser(userId: string, source: string): Promise<boolean> {
+    try {
+      await this.init(source);
+      const result = await this.users.deleteOne({ _id: new ObjectId(userId) });
+      return result.deletedCount === 1;
+    } catch (error) {
+      throw new InternalServerError(`Failed to delete user: ${error}`);
     }
   }
 }

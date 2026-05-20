@@ -885,8 +885,12 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<AddQuestionResult> {
     const logData: Record<string, any> = {};
     try {
-      // Extract aiInitialAnswer before normalizing keys to lowercase
+      // Extract fields before normalizing keys to lowercase
       const aiInitialAnswer = body.aiInitialAnswer || '';
+      const messageIdFromBody = body.messageId;
+      const userIdFromBody = body.userId;
+      const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
+      const popContextFromBody = body.popContext;
       body = normalizeKeysToLower(body);
 
       let {
@@ -896,11 +900,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         details,
         context,
         originalquestion = '',
-        messageId,
-        userId: bodyUserId,
-        referenceQuestionDetails,
-        popContext,
       } = body;
+      const messageId = messageIdFromBody;
+      const bodyUserId = userIdFromBody;
+      const referenceQuestionDetails = referenceQuestionDetailsFromBody;
+      const popContext = popContextFromBody;
       console.log('the body coming=====', body);
 
       if (!details) {
