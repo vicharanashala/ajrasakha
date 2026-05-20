@@ -1004,11 +1004,11 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
                   <FeedbackCard 
                     title="Feedback Data" 
-                    positiveFeedbacksCount={data.feedbackData.stats.positiveCount} 
-                    negativeFeedbacksCount={data.feedbackData.stats.negativeCount} 
-                    positiveFeedbacks={data.feedbackData.positiveFeedbacks} 
-                    negativeFeedbacks={data.feedbackData.negativeFeedbacks} 
-                    averageRating={data.feedbackData.stats.averageRating} 
+                    positiveFeedbacksCount={data?.feedbackData?.stats?.positiveCount} 
+                    negativeFeedbacksCount={data?.feedbackData?.stats?.negativeCount} 
+                    positiveFeedbacks={data?.feedbackData?.positiveFeedbacks} 
+                    negativeFeedbacks={data?.feedbackData?.negativeFeedbacks} 
+                    averageRating={data?.feedbackData?.stats?.averageRating} 
                   />
                 </div>
 
