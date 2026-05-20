@@ -8,6 +8,7 @@ from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
+from ajrasakha.agents.config import MCP_URLS
 logger = logging.getLogger(__name__)
 
 # Maximum number of similar pairs to return in the response.
@@ -178,26 +179,38 @@ async def gdb(
 
     try:
         # Load GDB MCP endpoint URL from the environment or config
-        gdb_url = os.getenv("GDB_MCP_URL")
-        if not gdb_url:
-            from ajrasakha.agents.config import MCP_URLS
-            gdb_url = MCP_URLS.get("gdb")
+        # gdb_url = os.getenv("GDB_MCP_URL")
 
-        if not gdb_url:
-            logger.error("GDB_MCP_URL is not configured in .env or config!")
-            return fallback_response
 
-        logger.info("Connecting to decoupled GDB MCP server at: %s", gdb_url)
+
+        # if not gdb_url:
+        #     from ajrasakha.agents.config import MCP_URLS
+        #     gdb_url = MCP_URLS.get("gdb")
+
+        # if not gdb_url:
+        #     logger.error("GDB_MCP_URL is not configured in .env or config!")
+        #     return fallback_response
+
+        # logger.info("Connecting to decoupled GDB MCP server at: %s", gdb_url)
         
         # Instantiate MultiServerMCPClient to invoke tool remotely
+        # client = MultiServerMCPClient(
+        #     {
+        #         "mcp_golden": {
+        #             "url": gdb_url,
+        #             "transport": "streamable_http",
+        #         }
+        #     }
+        # )
+
         client = MultiServerMCPClient(
-            {
-                "mcp_golden": {
-                    "url": gdb_url,
-                    "transport": "streamable_http",
+                {
+                    "mcp_golden": {
+                        "url": MCP_URLS["gdb"],
+                        "transport": "streamable_http",
+                    }
                 }
-            }
-        )
+            )
         
         tools = await client.get_tools()
         gdb_search_tool = next((t for t in tools if "gdb_search" in t.name), None)
