@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from typing import Optional
 
@@ -8,6 +9,9 @@ from pydantic import BaseModel, Field
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of similar pairs to return in the response.
+MAX_SIMILAR_PAIRS = 5
 
 
 class GDBInput(BaseModel):
@@ -35,6 +39,102 @@ class GDBInput(BaseModel):
     address: Optional[str] = None
 
 
+def _normalize_gdb_response(raw_json: dict, query: str, rephrased: str, crop: str, state: str) -> dict:
+    """Post-process the raw GDB MCP response into a structured format.
+
+    Output format:
+    {
+      "original_query": "...",
+      "rephrased_query": "...",
+      "state": "...",
+      "crop": "...",
+      "is_exact": true/false,
+      "is_similar": true/false,
+      "exact_match": { question, answer, details: [{source_name, source_link, author_name}] },
+      "similar_pair1": { question, answer, details: {source_name, source_link, author_name} },
+      "similar_pair2": { ... },
+      ...top 5 pairs
+    }
+    """
+    result: dict = {
+        "original_query": raw_json.get("original_query", query),
+        "rephrased_query": raw_json.get("rephrased_query", rephrased),
+        "state": raw_json.get("state", state),
+        "crop": raw_json.get("crop", crop),
+        "is_exact": False,
+        "is_similar": False,
+    }
+
+    # ── Exact match ──────────────────────────────────────────────────────
+    exact = raw_json.get("exact_match") or {}
+    if exact and (exact.get("answer") or exact.get("question")):
+        result["is_exact"] = True
+        # Normalize details to a single dict (take first entry if list)
+        raw_details = exact.get("details") or []
+        details_dict = {}
+        if isinstance(raw_details, list) and raw_details:
+            d = raw_details[0] if isinstance(raw_details[0], dict) else {}
+            details_dict = {
+                "source_name": d.get("source_name") or None,
+                "source_link": d.get("source_link") or None,
+                "author_name": d.get("author_name") or None,
+            }
+        elif isinstance(raw_details, dict):
+            details_dict = {
+                "source_name": raw_details.get("source_name") or None,
+                "source_link": raw_details.get("source_link") or None,
+                "author_name": raw_details.get("author_name") or None,
+            }
+        result["exact_match"] = {
+            "question": exact.get("question") or "",
+            "answer": exact.get("answer") or "",
+            "details": details_dict,
+        }
+    else:
+        result["exact_match"] = {}
+
+    # ── Similar matches (top 5) ──────────────────────────────────────────
+    similar_raw = raw_json.get("similar_match") or {}
+    if isinstance(similar_raw, dict) and similar_raw:
+        # Sort by pair key numerically (pair_1, pair_2, ...)
+        sorted_keys = sorted(
+            similar_raw.keys(),
+            key=lambda x: int("".join(filter(str.isdigit, x)) or "0"),
+        )
+        # Limit to top MAX_SIMILAR_PAIRS
+        top_keys = sorted_keys[:MAX_SIMILAR_PAIRS]
+
+        if top_keys:
+            result["is_similar"] = True
+
+        for idx, key in enumerate(top_keys, 1):
+            pair = similar_raw[key]
+            if not isinstance(pair, dict):
+                continue
+            raw_details = pair.get("details") or []
+            details_dict = {}
+            if isinstance(raw_details, list) and raw_details:
+                d = raw_details[0] if isinstance(raw_details[0], dict) else {}
+                details_dict = {
+                    "source_name": d.get("source_name") or None,
+                    "source_link": d.get("source_link") or None,
+                    "author_name": d.get("author_name") or None,
+                }
+            elif isinstance(raw_details, dict):
+                details_dict = {
+                    "source_name": raw_details.get("source_name") or None,
+                    "source_link": raw_details.get("source_link") or None,
+                    "author_name": raw_details.get("author_name") or None,
+                }
+            result[f"similar_pair{idx}"] = {
+                "question": pair.get("question") or "",
+                "answer": pair.get("answer") or "",
+                "details": details_dict,
+            }
+
+    return result
+
+
 @tool(args_schema=GDBInput)
 async def gdb(
     query: str,
@@ -52,7 +152,6 @@ async def gdb(
     crop and state are required. Pass them on every call (use thread location for state
     when available; use 'all' for crop or state only as a last resort when unknown).
     """
-    import json
 
     def clean_fallback(val: str) -> str:
         v = (val or "").strip().lower()
@@ -61,8 +160,10 @@ async def gdb(
         return val.strip()
 
     resolved_crop = clean_fallback(crop)
-    injected: dict = (config.get("configurable") or {}).get("location") or {}
-    resolved_state = clean_fallback(injected.get("state") or state)
+    # State comes directly from the planner's deterministic resolution.
+    # We no longer override it from the thread's injected location config,
+    # because the planner already resolved state from query text or GPS.
+    resolved_state = clean_fallback(state)
     resolved_rephrased = (rephrased_query or "").strip() or query
 
     fallback_response = json.dumps({
@@ -70,8 +171,9 @@ async def gdb(
         "rephrased_query": resolved_rephrased,
         "state": resolved_state,
         "crop": resolved_crop,
+        "is_exact": False,
+        "is_similar": False,
         "exact_match": {},
-        "similar_match": {}
     })
 
     try:
@@ -126,6 +228,24 @@ async def gdb(
         res_str = res_str.strip()
         if not res_str or res_str.upper() == "NO_RELEVANT_CONTENT":
             return fallback_response
+
+        # Post-process into structured format with is_exact/is_similar flags
+        try:
+            raw_data = json.loads(res_str)
+            if isinstance(raw_data, dict):
+                normalized = _normalize_gdb_response(
+                    raw_data, query, resolved_rephrased, resolved_crop, resolved_state
+                )
+                logger.info(
+                    "GDB response: is_exact=%s, is_similar=%s",
+                    normalized.get("is_exact"),
+                    normalized.get("is_similar"),
+                )
+                return json.dumps(normalized)
+        except json.JSONDecodeError:
+            pass
+
+        # If response isn't JSON, return as-is
         return res_str
 
     except Exception as exc:

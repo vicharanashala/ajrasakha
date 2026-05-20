@@ -423,10 +423,16 @@ def route_after_execute(state: AjraSakhaState) -> str:
             try:
                 data = json.loads(text)
                 if isinstance(data, dict):
-                    exact = data.get("exact_match") or {}
-                    similar = data.get("similar_match") or {}
-                    if not exact and not similar:
-                        return "empty_gdb_reply"
+                    is_exact = data.get("is_exact", False)
+                    is_similar = data.get("is_similar", False)
+                    # If neither exact nor similar match, it's empty
+                    if not is_exact and not is_similar:
+                        # Also check legacy format
+                        exact = data.get("exact_match") or {}
+                        similar = data.get("similar_match") or {}
+                        if not exact and not similar:
+                            return "empty_gdb_reply"
             except Exception:
                 pass
     return "synthesize"
+
