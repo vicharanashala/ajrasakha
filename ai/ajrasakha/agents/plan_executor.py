@@ -226,12 +226,17 @@ async def build_tool_calls_from_plan(
         })
 
     if plan.get("knowledge_base"):
+        gdb_query = plan.get("original_query_en") or user_query
+        rephrased = plan.get("rephrased_query") or gdb_query
+        resolved_crop = "all" if crop.lower() in {"general", "not specified", "none", "null", "all"} else crop
+        resolved_state = "all" if state_name.lower() in {"general", "not specified", "none", "null", "all"} else state_name
         calls.append({
             "name": "gdb",
             "args": {
-                "query": user_query,
-                "crop": crop if crop != "General" else "all",
-                "state": state_name if state_name != "Not specified" else "all",
+                "query": gdb_query,
+                "crop": resolved_crop,
+                "state": resolved_state,
+                "rephrased_query": rephrased,
                 "latitude": lat,
                 "longitude": lon,
                 "address": addr,
@@ -415,4 +420,13 @@ def route_after_execute(state: AjraSakhaState) -> str:
             text = _message_to_text(msg)
             if not text or text.upper() == "NO_RELEVANT_CONTENT" or text in {"[]", "{}"}:
                 return "empty_gdb_reply"
+            try:
+                data = json.loads(text)
+                if isinstance(data, dict):
+                    exact = data.get("exact_match") or {}
+                    similar = data.get("similar_match") or {}
+                    if not exact and not similar:
+                        return "empty_gdb_reply"
+            except Exception:
+                pass
     return "synthesize"
