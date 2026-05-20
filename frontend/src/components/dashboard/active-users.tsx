@@ -37,6 +37,13 @@ import {
   useMontlyActiveUsersTrend,
 } from "@/features/chatbotDashboard/hooks/useActiveUsersAnalytics";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
+
 const chartConfig = {
   value: {
     label: "Active Users",
@@ -111,11 +118,51 @@ export const ActiveUsersChart = () => {
     <Card className="pt-0">
       <CardHeader className="border-b py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="grid gap-1">
+          {/* <div className="grid gap-1">
             <CardTitle>{chartTitle} Trend</CardTitle>
 
             <CardDescription>
               Interactive analytics showing chatbot user activity trends
+            </CardDescription>
+          </div> */}
+
+          <div className="grid gap-1">
+            <div className="flex items-center gap-2">
+              <CardTitle>{chartTitle} Trend</CardTitle>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="
+              flex h-4 w-4 cursor-pointer
+              items-center justify-center
+              rounded-full border text-[10px]
+            "
+                    >
+                      i
+                    </span>
+                  </TooltipTrigger>
+
+                  <TooltipContent className="max-w-[260px]">
+                    <p>
+                      {type === "daily" &&
+                        "Shows unique users active each day based on their latest activity timestamp.)"}
+
+                      {type === "weekly" &&
+                        "Shows unique users active each ISO week based on their latest activity timestamp."}
+
+                      {type === "monthly" &&
+                        "Shows unique users active each month based on their latest activity timestamp."}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+
+            <CardDescription>
+              Interactive analytics showing chatbot user activity trends (Last
+              one year)
             </CardDescription>
           </div>
 
