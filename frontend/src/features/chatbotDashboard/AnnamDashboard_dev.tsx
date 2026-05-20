@@ -1010,7 +1010,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                               format(qualityDateRange.from, "MMM dd, yyyy")
                             )
                           ) : (
-                            "Select date range"
+                            "All data"
                           )}
                         </Button>
                       </PopoverTrigger>
@@ -1018,7 +1018,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                         <Calendar
                           initialFocus
                           mode="range"
-                          defaultMonth={qualityDateRange?.from}
+                          defaultMonth={qualityDateRange?.from ?? new Date()}
                           selected={qualityDateRange}
                           onSelect={setQualityDateRange}
                           numberOfMonths={1}
@@ -1028,11 +1028,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => setQualityDateRange({
-                        from: subDays(new Date(), 29),
-                        to: new Date(),
-                      })}
-                      title="Reset to last 30 days"
+                      onClick={() => setQualityDateRange(undefined)}
+                      title="Show all data"
                       className="shrink-0 bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222]"
                     >
                       <RefreshCcw className="h-4 w-4" />
