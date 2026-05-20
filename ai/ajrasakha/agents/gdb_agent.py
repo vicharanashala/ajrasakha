@@ -11,7 +11,10 @@ from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
 
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
-from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
+from ajrasakha.agents.location_context import (
+    resolve_location_field,
+    sub_agent_system_prompt_with_thread_location,
+)
 from ajrasakha.agents.prompts import GDB_SYSTEM_PROMPT
 
 
@@ -54,8 +57,8 @@ class GDBInput(BaseModel):
     state: str = Field(
         ...,
         description=(
-            "Indian state for Golden DB retrieval (required). Use thread location state "
-            "or the state in the farmer's message; use 'all' only as a last resort."
+            "Indian state for Golden DB retrieval (required). Use the state in the "
+            "farmer's message when mentioned; use thread GPS state only as fallback."
         ),
     )
     latitude: Optional[float] = None
@@ -75,8 +78,8 @@ async def gdb(
     """
     Query the golden database agent for crop/disease/pest/farming knowledge.
 
-    crop and state are required. Pass them on every call (use thread location for state
-    when available; use 'all' for crop or state only as a last resort when unknown).
+    crop and state are required. Pass state from the farmer's question when mentioned;
+    thread GPS state is used only when the question does not specify a state.
     """
     try:
         injected: dict = (config.get("configurable") or {}).get("location") or {}
@@ -84,8 +87,8 @@ async def gdb(
         lat  = injected.get("latitude")  or latitude
         lon  = injected.get("longitude") or longitude
         addr = injected.get("address")   or address
-        crop = (crop or "").strip() or "all"
-        state = (injected.get("state") or state or "").strip() or "all"
+        crop = resolve_location_field(crop, injected.get("crop"), default="all")
+        state = resolve_location_field(state, injected.get("state"), default="all")
 
         context = f"""
 Mandatory Golden DB filters (pass on every golden_retriever_tool / golden_exact_search_tool call):
@@ -101,6 +104,12 @@ Query: {query}
         """.strip()
 
         system_text = sub_agent_system_prompt_with_thread_location(GDB_SYSTEM_PROMPT, config)
+        if state.lower() != "all":
+            system_text += (
+                f"\n\nQUERY-SPECIFIED GOLDEN DB STATE: Use state=\"{state}\" on every "
+                "golden_retriever_tool and golden_exact_search_tool call. "
+                "Do not substitute THREAD LOCATION state when this block is set."
+            )
         agent = await _get_gdb_agent()
         result = await agent.ainvoke(
             {

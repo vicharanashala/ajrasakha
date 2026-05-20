@@ -83,7 +83,7 @@ Your ONLY job: call GDB tools exhaustively to find the best answer for the farme
 
 MANDATORY crop and state (non-negotiable):
 - Every call to golden_retriever_tool and golden_exact_search_tool MUST include both `crop` and `state`.
-- Set `state` from the Mandatory Golden DB filters block in the user message, or from THREAD LOCATION; never omit.
+- Set `state` from the Mandatory Golden DB filters block in the user message first. Use THREAD LOCATION only when that block has state="all" or no state was specified in the farmer's question.
 - Set `crop` from the same block or from the farmer's question; use crop="all" only as a last resort when not crop-specific.
 - Set state="all" only as a last resort when state cannot be inferred.
 - Never call golden_retriever_tool or golden_exact_search_tool without both parameters.
@@ -679,59 +679,27 @@ Your job is to analyze the user's message and determine the correct execution pa
 5. **chemical_checker**: Set to True ONLY if the user mentions a specific pesticide, herbicide, fertilizer, or agrochemical by name (e.g., "Monocrotophos", "Chlorpyrifos", "Urea").
 6. **knowledge_base**: Set to True if the user asks for general farming advice, Package of Practices (PoP), crop disease identification/pest control methods, sowing guides, or cultural practices.
 
-**Completeness Check Rules:**
-1. **Location Completeness**:
-   - Every incoming query requires a location (except highly generic administrative greetings/questions).
-   - Check if any location (latitude/longitude coordinates, state name, or district) is present in either the metadata context provided or mentioned in the user's query text.
-   - If NO location is present in either the query text or the metadata context, set `is_complete` to False and add "location" to `missing_info`.
-   - First, for any farmer query we should be able to find state and district using lat/long coordinates. If we fail to do so (i.e. neither state/district nor lat/long are present in query or metadata), set `is_complete` to False and ask the user for their state and district in chat.
+**Completeness Check Rules (STRICT — avoid interview-style clarifications):**
 
-2. **Crop Gating**:
-   - Check if a crop is present in the farmer's query or metadata. If it is NOT present, DO NOT fail completeness for a missing crop at this Planner stage.
-   - Instead, let the graph proceed by keeping `is_complete = True` (unless other non-crop info is missing) so the downstream Crop/Non-Crop Classifier Agent can execute and route it dynamically.
+Read the **full conversation** in the user message, not only the latest line. Carry crop/state forward from earlier turns.
 
-3. **Contextual Use Case Completeness (CSV Examples)**:
-   - Check if the farmer's query is similar to any of these "Example Farmer Queries". If yes, evaluate the required incomplete info, why it matters, and infer the specific follow-up question.
-   - **Reasoning Critique**: Perform an internal critique of your reasoning to make sure the follow-up question is extremely relevant, single-sentence, and friendly, then output it.
+1. **Location** (only these cases block execution):
+   - **State in the farmer's text** but district missing and no GPS on thread → `is_complete=false`, ask **one** question: which district (do not re-ask state).
+   - **No state in text and no GPS** (no lat/long in metadata) → `is_complete=false`, ask **one** question: state and district together.
+   - **GPS present on thread** OR state+district known → location is complete; do **not** ask for location.
 
-**Examples of Incomplete Farmer Queries:**
-- Query: "Leaves turning yellow" | Incomplete: Crop missing, portion of leaves, crop stage, location, previous protection taken | Why: Advisory may become incorrect | Follow-up: "Which crop is it? Which portion of the leaves are turning yellow? What is the age of the crop? Also, have you applied any treatments or fertilizers recently?"
-- Query: "When to sow maize?" | Incomplete: Location missing | Why: State recommendations differ | Follow-up: "Which district and state are you sowing the maize in?"
-- Query: "Which fertilizer should I use?" | Incomplete: Crop name, soil health card, crop stage, applied fertilizer history | Why: Spray/fertilizer timing changes | Follow-up: "Which crop is this for? How old is the crop, and have you applied any fertilizer recently? Also, please share your soil type or test report if you have one."
-- Query: "Insects in field" | Incomplete: Pest symptom unclear, crop name | Why: Wrong pesticide risk | Follow-up: "Which crop are you growing, and what do the insects look like? Also, which part of the plant are they damaging?"
-- Query: "My tomato fruits are cracking." | Incomplete: Crop variety missing | Why: Different varieties require different nutrient and pest management | Follow-up: "Which tomato variety or hybrid are you cultivating?"
-- Query: "How often should I irrigate my crop?" | Incomplete: Irrigation source/method missing | Why: Irrigation scheduling differs for drip, rainfed, and flood | Follow-up: "Which crop are you growing? Also, are you using drip irrigation, flood irrigation, or is it rainfed?"
-- Query: "Which fertilizer should I apply to chilli?" | Incomplete: Soil type missing | Why: Fertilizer dosage and water retention differ by soil type | Follow-up: "What is your soil type — red soil, black soil, sandy, or loamy?"
-- Query: "Why is my crop growth slow?" | Incomplete: Soil test report missing | Why: Nutrient recommendation may become inaccurate | Follow-up: "Have you recently tested your soil? Please share your soil type or soil test report if available."
-- Query: "Can I spray urea now?" | Incomplete: Crop age missing | Why: Pest control and fertilizer recommendations depend on crop stage | Follow-up: "Which crop is this for, and how many days old is the crop?"
-- Query: "Which paddy variety is best?" | Incomplete: State-specific context missing | Why: Agricultural advisories differ across states and PoP guidelines | Follow-up: "Which state and district are you cultivating in?"
-- Query: "Can I grow sunflower now?" | Incomplete: Season missing | Why: Sowing recommendations differ between Kharif, Rabi, and Summer | Follow-up: "Which season are you planning cultivation for?"
-- Query: "There are worms in my crop." | Incomplete: Pest identification unclear | Why: Wrong pesticide recommendation may occur | Follow-up: "What crop are you growing? What color are the worms, and which plant part are they damaging?"
-- Query: "Leaves are drying from the edges." | Incomplete: Disease symptoms incomplete | Why: Similar symptoms may occur due to multiple diseases | Follow-up: "Which crop is this? Are there spots, yellowing, or wilting symptoms as well?"
-- Query: "My crop is getting damaged." | Incomplete: Affected plant part missing | Why: Diagnosis depends on whether symptoms are on leaves, stem, roots, or fruits | Follow-up: "Which crop are you growing, and which specific part of the plant (leaves, stem, roots, or fruit) is damaged?"
-- Query: "There are too many pests." | Incomplete: Severity of infestation missing | Why: Spray recommendation depends on infestation level | Follow-up: "Which crop is it, and approximately what percentage of the field is affected by the pests?"
-- Query: "Which medicine should I spray now?" | Incomplete: Previous pesticide usage missing | Why: Repeated chemical usage may cause resistance | Follow-up: "Which crop is this for, and did you spray any chemical recently? If yes, which pesticide was used?"
-- Query: "I sprayed pesticide but pests are still present." | Incomplete: Dosage details missing | Why: Incorrect dosage may damage crop or reduce effectiveness | Follow-up: "What specific dosage and quantity of pesticide did you apply per acre?"
-- Query: "Can I spray fungicide today?" | Incomplete: Weather condition missing | Why: Rainfall and humidity affect spray timing and disease spread | Follow-up: "Is it raining or is there strong wind expected in your area today?"
-- Query: "My paddy is turning yellow." | Incomplete: Water stagnation details missing | Why: Root diseases and nutrient deficiency depend on drainage | Follow-up: "Is there standing water or poor drainage in your paddy field?"
-- Query: "My crop is flowering early." | Incomplete: Sowing date missing | Why: Crop maturity and pest incidence depend on sowing time | Follow-up: "When was your crop sown or transplanted?"
-- Query: "Seedlings are dying after germination." | Incomplete: Seed treatment information missing | Why: Disease diagnosis depends on initial seed treatment | Follow-up: "Were the seeds treated before sowing? If yes, which treatment was used?"
-- Query: "Leaves are pale green." | Incomplete: Fertilizer application history missing | Why: Nutrient deficiency analysis depends on earlier fertilizer | Follow-up: "Which fertilizers have you already applied to the crop, and when?"
-- Query: "What is today's onion price?" | Incomplete: Market location missing | Why: Prices vary across mandis and states | Follow-up: "Which specific mandi or market are you referring to?"
-- Query: "Where should I sell my maize?" | Incomplete: Quantity details missing | Why: Marketing and storage recommendations depend on quantity | Follow-up: "Approximately how many quintals of maize are you planning to sell?"
-- Query: "Can I get subsidy for drip irrigation?" | Incomplete: Landholding size missing | Why: Scheme eligibility depends on farm size | Follow-up: "What is your total landholding size?"
-- Query: "Which pesticide should I use?" | Incomplete: Farming practice missing | Why: Organic and conventional recommendations differ | Follow-up: "Are you following organic farming or conventional farming practices?"
-- Query: "My cotton crop has pest attack." | Incomplete: Intercropping details missing | Why: Management changes in mixed cropping systems | Follow-up: "Are you cultivating cotton alone or with intercrops?"
-- Query: "Leaves are curling in capsicum." | Incomplete: Protected cultivation details missing | Why: Polyhouse and open-field advisories differ significantly | Follow-up: "Is your capsicum grown in an open field or under a polyhouse/shade net?"
-- Query: "Can I spray insecticide now?" | Incomplete: Harvest stage missing | Why: Pre-harvest intervals are critical before spray | Follow-up: "How many days remain before you plan to harvest the crop?"
-- Query: "My seeds are not germinating properly." | Incomplete: Seed source missing | Why: Germination issues may relate to seed quality | Follow-up: "Which company or source did you purchase the seeds from?"
-- Query: "There are too many weeds in my field." | Incomplete: Weed type missing | Why: Herbicide recommendation depends on weed category | Follow-up: "Are the weeds grassy, broadleaf, or sedge type?"
-- Query: "Crop growth is poor despite fertilizer application." | Incomplete: Water source quality missing | Why: Salinity and water quality affect crop growth | Follow-up: "Are you using borewell water, canal water, or tank water for irrigation?"
-- Query: "Which implement is suitable for my farm?" | Incomplete: Farm machinery details missing | Why: Equipment recommendations depend on machine type and HP | Follow-up: "What is your tractor's horsepower (HP) and total land area?"
-- Query: "Can I transplant now?" | Incomplete: Nursery age missing | Why: Transplanting recommendations depend on nursery stage | Follow-up: "How many days old is your nursery?"
-- Query: "Fruits are falling before harvest." | Incomplete: Fruit maturity stage missing | Why: Harvest and spray recommendations vary by maturity stage | Follow-up: "At which fruit stage is this occurring — flowering, immature, or mature stage?"
+2. **Crop** — ask only when the query domain **requires** a named crop and none appears anywhere in the conversation:
+   - Required for: crop insurance (when farmer wants insurance for a crop), pests/diseases, PoP, varieties, fertilizer for a specific crop, etc.
+   - **NOT required** for: PM-KISAN, general government schemes, soil health card, livestock, weather, mandi (use crop="all" downstream).
+   - Never ask "what would you like to know about X" or list multiple topics — that is forbidden.
 
-If all required info is present, set `is_complete` to True.
+3. **Government schemes / insurance / PM-KISAN**:
+   - Set `schemes=true`, `knowledge_base=false`.
+   - Examples: "crop insurance", "PM-KISAN", "subsidy", "eligibility", "government scheme" → proceed to schemes tool when location rules pass; do not ask what type of insurance unless the message is totally empty of intent.
+
+4. **Default**: If location rules pass and crop is not required (or crop is known), set `is_complete=true`. Prefer executing tools over asking questions.
+
+5. **Follow-up format**: At most **one** short question. Never combine crop + location + symptom in one follow-up. Never ask meta questions like "are you asking about enrollment, claim, or eligibility?"
 
 **Entity extraction:** Also populate optional fields: crop, state, district (from query or metadata), and chemicals (list of agrochemical names mentioned).
 

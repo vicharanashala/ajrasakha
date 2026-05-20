@@ -186,8 +186,8 @@ function FeedbackCard({
               </div>
 
               {/* Legends */}
-              <div className="flex items-center justify-center gap-6 mt-6">
-                {/* Positive */}
+              {/* <div className="flex items-center justify-center gap-6 mt-6">
+               
                 <div className="flex items-center gap-2">
                   <div
                     className="w-3 h-3 rounded-full"
@@ -201,7 +201,7 @@ function FeedbackCard({
                   </span>
                 </div>
 
-                {/* Negative */}
+               
                 <div className="flex items-center gap-2">
                   <div
                     className="w-3 h-3 rounded-full"
@@ -214,7 +214,7 @@ function FeedbackCard({
                     Negative ({negativeFeedbacks.length})
                   </span>
                 </div>
-              </div>
+              </div> */}
 
               {/* Percentage */}
               <div className="flex justify-between text-xs text-gray-500">

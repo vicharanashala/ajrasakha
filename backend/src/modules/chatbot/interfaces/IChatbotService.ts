@@ -41,10 +41,19 @@ export interface DashboardResponse {
   platformInstalls: PlatformInstallEntry[];
   domainSpikes: DomainSpikeEntry[];
   feedbackData: FeedbackData;
+  dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;
+  topFaqs?: Array<{ question: string; count: number }>;
+  topQuestionsFromCollection?: Array<{ question: string; count: number }>;
 }
 
 export interface IChatbotService {
-  getDashboard(days: number, source?: string, userType?: string): Promise<DashboardResponse>;
+  getDashboard(
+    days: number,
+    source?: string,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<DashboardResponse>;
   getKpiSummary(source?: string, userType?: string): Promise<KpiSummary>;
   getDailyActiveUsers(days: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
   getChannelSplit(source?: string): Promise<ChannelSplitEntry[]>;
@@ -64,6 +73,8 @@ export interface IChatbotService {
   getGrowth(range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
+  getDailyQuestionTrends(days?: number, userType?: string): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
+  getTopFaqs(source?: string, userType?: string): Promise<Array<{ question: string; count: number }>>;
   getDistrictAnalyticsByState(state: string, source?: string, userType?: string): Promise<DistrictAnalyticsEntry[]>;
 }
 
