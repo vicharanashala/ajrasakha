@@ -195,7 +195,7 @@ export function TopFaqsLeaderboard({
                   </div>
                   <div>
                     <h3 className="text-base font-semibold text-gray-100">
-                      Frequently Asked Messages
+                      Frequently Asked Queries
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Top chatbot messages ranked by occurrence (Query Repeat Rate: {Number(repeatQueryRatePct).toFixed(1)}%)
