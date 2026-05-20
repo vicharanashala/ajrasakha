@@ -352,8 +352,7 @@ export interface IChatbotRepository {
     endTime?: string,
   ): Promise<Array<{ question: string; count: number }>>;
   getDistrictAnalyticsByState( state: string, source?: string, session?: ClientSession, userType?: string): Promise<DistrictAnalyticsEntry[]>;
-
-  
+  deleteUser(userId: string, source: string): Promise<boolean>;
 }
 
 export interface ChatbotConversationData {
