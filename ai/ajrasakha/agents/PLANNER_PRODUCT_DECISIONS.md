@@ -49,7 +49,7 @@ GDB no longer overrides state from thread config — it uses what the planner pa
 
 ## Feature flag
 
-- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → synthesize → relevance_check → sanitize.
+- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → synthesize → sanitize_answer.
 - `USE_PLANNER_GRAPH=false`: legacy single-LLM `ajrasakha` + `tools` loop.
 
 ## Synthesizer
