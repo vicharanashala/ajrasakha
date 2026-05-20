@@ -329,6 +329,7 @@ export class QuestionRepository implements IQuestionRepository {
         hiddenQuestions,
         duplicateQuestions,
         isOnHold,
+        unallocatedQuestions,
         pae_review
       } = query;
       //  const filter: any = {};
@@ -353,6 +354,61 @@ export class QuestionRepository implements IQuestionRepository {
 
       // --- on Hold question filter ---
       if (isOnHold === 'true') filter.isOnHold = { $eq: true }; // filter by on hold questions
+
+      // --- Unallocated questions filter ---
+      // Only considers questions with status 'open' or 'in-review',
+      // then checks question_submissions: empty queue OR last history status != 'in-review'
+      if (unallocatedQuestions === 'true') {
+        // First get all open/in-review question IDs
+        const eligibleQuestions = await this.QuestionCollection.find(
+          { status: { $in: ['open', 'delayed'] } },
+          { projection: { _id: 1 } }
+        ).toArray();
+
+        const eligibleIds = new Set(eligibleQuestions.map((q) => q._id.toString()));
+
+        const allSubmissions = await this.QuestionSubmissionCollection.find(
+          { questionId: { $in: eligibleQuestions.map((q) => q._id) } },
+          { projection: { questionId: 1, queue: 1, history: 1 } }
+        ).toArray();
+
+        const submissionQuestionIds = new Set(allSubmissions.map((s) => s.questionId.toString()));
+
+        const unallocatedIds: ObjectId[] = [];
+
+        // Questions with no submission at all are unallocated
+        for (const id of eligibleIds) {
+          if (!submissionQuestionIds.has(id)) {
+            unallocatedIds.push(new ObjectId(id));
+          }
+        }
+
+        // Questions whose submission has empty queue OR (queue not empty AND last history status != 'in-review')
+        for (const sub of allSubmissions) {
+          const queue = (sub as any).queue as any[] | undefined;
+          const history = (sub as any).history as any[] | undefined;
+
+          if (!queue || queue.length === 0) {
+            // No one assigned → unallocated
+            unallocatedIds.push(new ObjectId(sub.questionId.toString()));
+            continue;
+          }
+
+          // Queue is not empty → assigned but check if anyone is currently reviewing
+          // If history is empty it means assigned but not yet answered → NOT unallocated
+          if (!history || history.length === 0) {
+            continue;
+          }
+
+          const lastHistory = history[history.length - 1];
+          if (lastHistory?.status !== 'in-review') {
+            // Last reviewer has already responded, no one currently in-review → unallocated
+            unallocatedIds.push(new ObjectId(sub.questionId.toString()));
+          }
+        }
+
+        filter._id = { $in: unallocatedIds };
+      }
 
       //for duplicate questions.
       // duplicateQuestions === 'true'
