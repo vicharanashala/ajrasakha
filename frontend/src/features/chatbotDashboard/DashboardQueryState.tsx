@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 
 import { ScrollArea } from "@/components/atoms/scroll-area";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/atoms/card";
 
 import { useStateWiseAnalytics } from "./hooks/useStateQueryData";
 
@@ -94,7 +95,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         duration-300
       "
     >
-      <div className="flex justify-between items-center mb-1.5">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 mb-1.5">
         <span
           className="
             text-[12px]
@@ -109,6 +110,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         <div
           className="
             flex
+            flex-wrap
             items-center
             gap-1
             text-[11px]
@@ -177,31 +179,6 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
           </span>
         </div>
       </div>
-
-      <div
-        className="
-          w-full
-          h-[6px]
-          bg-gray-100
-          dark:bg-white/10
-          rounded-full
-          overflow-hidden
-        "
-      >
-        <div
-          className="
-            h-full
-            rounded-full
-            transition-all
-            duration-700
-            ease-out
-          "
-          style={{
-            width: `${pct}%`,
-            background: color,
-          }}
-        />
-      </div>
     </div>
   );
 };
@@ -231,53 +208,17 @@ export const DashboardStateWiseAnalytics = (
   }, [districts]);
 
   return (
-    <div
-      className="
-        bg-white
-        dark:bg-[#1a1a1a]
-        border
-        border-gray-200
-        dark:border-gray-800
-        rounded-xl
-        p-4
-        flex
-        flex-col
-        h-full
-      "
-    >
+    <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[500px]">
       {/* HEADER */}
-
-      <div
-        className="
-          flex
-          items-start
-          justify-between
-          gap-3
-          mb-4
-        "
-      >
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/40 shrink-0">
         <div>
-          <div
-            className="
-              text-[13px]
-              font-semibold
-              text-gray-900
-              dark:text-gray-100
-            "
-          >
+          <CardTitle className="text-base font-semibold tracking-wide text-foreground">
             District Analytics
-          </div>
+          </CardTitle>
 
-          <div
-            className="
-              text-[11px]
-              text-gray-500
-              dark:text-gray-400
-              mt-0.5
-            "
-          >
+          <p className="text-xs text-muted-foreground mt-0.5">
             State-wise district query activity
-          </div>
+          </p>
         </div>
 
         {/* <select
@@ -378,7 +319,10 @@ export const DashboardStateWiseAnalytics = (
             </Command>
           </PopoverContent>
         </Popover>
-      </div>
+      </CardHeader>
+
+      {/* CONTENT */}
+      <CardContent className="pt-4 flex-1 min-h-0 relative flex flex-col">
 
       {/* LOADING */}
 
@@ -418,13 +362,7 @@ export const DashboardStateWiseAnalytics = (
       {/* DATA */}
 
       {!isLoading && districts.length > 0 && (
-        <ScrollArea
-          className="
-              flex-1
-              max-h-[300px]
-              pr-1
-            "
-        >
+        <ScrollArea className="flex-1 pr-3 h-full w-full">
           {districts.map((district, index) => {
             const pct = (district.totalQuestions / maxTotal) * 100;
 
@@ -442,6 +380,7 @@ export const DashboardStateWiseAnalytics = (
           })}
         </ScrollArea>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 };
