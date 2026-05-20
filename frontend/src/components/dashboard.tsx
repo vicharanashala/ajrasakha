@@ -37,6 +37,8 @@ import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
 import { TopRightBadge } from "./NewBadge";
 import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
+import { RetentionMetricsChart } from "./dashboard/retention-metrics";
+import { ActiveUsersChart } from "./dashboard/active-users";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -291,6 +293,29 @@ export const Dashboard = () => {
             />
           </LoadingWrapper>
         </div>
+
+
+        <div className="mb-6">
+          <LoadingWrapper
+            loading={isStatusLoading}
+            text="Fetching status overview..."
+          >
+            <ActiveUsersChart
+            />
+          </LoadingWrapper>
+        </div> 
+
+
+        {/* <div className="mb-6">
+          <LoadingWrapper
+            loading={isStatusLoading}
+            text="Fetching status overview..."
+          >
+            <RetentionMetricsChart
+              // data={statusData ?? { questions: [], answers: [] }}
+            />
+          </LoadingWrapper>
+        </div>  */}
 
         {/* Analytics Row */}
         <div className="mb-6">

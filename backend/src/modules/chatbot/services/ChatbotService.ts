@@ -681,4 +681,36 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Failed to delete user: ${error}`);
     }
   }
+
+  async getDailyActiveUsersTrend(){
+    try {
+      return await this.chatbotRepository.getDailyActiveUsersTrend();
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch Daily Active Users Trend: ${error}`);
+    }
+  }
+
+  async getMonthlyActiveUsersTrend(){
+    try {
+      return await this.chatbotRepository.getMonthlyActiveUsersTrend();
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch Monthly Active Users Trend: ${error}`);
+    }
+  }
+
+  async getWeeklyActiveUsersTrend(){
+    try {
+      return await this.chatbotRepository.getWeeklyActiveUsersTrend();
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch Weekly Active Users Trend: ${error}`);
+    }
+  }
+
+  async getRetentionMetrics(){
+    try {
+      return await this.chatbotRepository.getRetentionMetrics();
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch Retention Metrics: ${error}`);
+    }
+  }
 }

@@ -77,5 +77,9 @@ export interface IChatbotService {
   getTopFaqs(source?: string, userType?: string): Promise<Array<{ question: string; count: number }>>;
   getDistrictAnalyticsByState(state: string, source?: string, userType?: string): Promise<DistrictAnalyticsEntry[]>;
   deleteUser(userId: string, source: string): Promise<boolean>;
+  getDailyActiveUsersTrend():Promise<any>;
+  getMonthlyActiveUsersTrend(): Promise<any>;
+  getWeeklyActiveUsersTrend(): Promise<any>;
+  getRetentionMetrics(): Promise<any>;
 }
 

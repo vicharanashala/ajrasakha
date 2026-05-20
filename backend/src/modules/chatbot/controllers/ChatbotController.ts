@@ -450,4 +450,33 @@ async getDistrictAnalyticsByState(
     const success = await this.chatbotService.deleteUser(userId, source);
     return { success, message: success ? 'User deleted successfully' : 'Failed to delete user' };
   }
+
+  @Get('/daily-active-users-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getDailyActiveUsersTrend(): Promise<any> {
+    return await this.chatbotService.getDailyActiveUsersTrend();
+  }
+
+  @Get('/monthly-active-users-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getMonthlyActiveUsersTrend(): Promise<any> {
+    return await this.chatbotService.getMonthlyActiveUsersTrend();
+  }
+
+  @Get('/weekly-active-users-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getWeeklyActiveUsersTrend(): Promise<any> {
+    return await this.chatbotService.getWeeklyActiveUsersTrend();
+  }
+
+  @Get('/retention-metrics')
+  @HttpCode(200)
+  @Authorized()
+  async getRetentionMetrics(): Promise<any> {
+    return await this.chatbotService.getRetentionMetrics();
+  }
+  
 }

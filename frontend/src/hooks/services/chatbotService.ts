@@ -52,4 +52,24 @@ export class ChatbotService {
 
     return apiFetch<GrowthResponse>(`${this._baseUrl}/user-growth?${params.toString()}`);
   }
+
+  async getDailyActiveUsersTrend(
+    ): Promise<any> {
+      return apiFetch<any>(`${this._baseUrl}/daily-active-users-trend`);
+  }
+
+  async getMonthlyActiveUsersTrend(
+    ): Promise<any> {
+      return apiFetch<any>(`${this._baseUrl}/monthly-active-users-trend`);
+  }
+
+  async getWeeklyActiveUsersTrend(
+    ): Promise<any> {
+      return apiFetch<any>(`${this._baseUrl}/weekly-active-users-trend`);
+  }
+
+  async getRetentionMetrics(
+    ): Promise<any> {
+      return apiFetch<any>(`${this._baseUrl}/retention-metrics`);
+  }
 }
