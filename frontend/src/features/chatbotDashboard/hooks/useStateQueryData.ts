@@ -1,0 +1,72 @@
+import { env } from "@/config/env";
+import { apiFetch } from "@/hooks/api/api-fetch";
+import { useQuery } from "@tanstack/react-query";
+
+interface DistrictAnalyticsEntry {
+  district: string;
+  totalQuestions: number;
+  uniqueQuestions: number;
+  duplicateQuestions: number;
+}
+
+export interface DistrictAnalyticsResponse {
+  state: string;
+  totalDistricts: number;
+
+  data: DistrictAnalyticsEntry[];
+}
+
+export function useStateWiseAnalytics(
+  state?: string,
+  source: "vicharanashala" | "annam" = "vicharanashala",
+  userType: "all" | "external" | "internal" = "all",
+) {
+  const { data, isLoading, error } = useQuery<
+    DistrictAnalyticsResponse,
+    Error
+  >({
+    queryKey: [
+      "state-wise-analytics",
+      state,
+      source,
+      userType,
+    ],
+
+    enabled: !!state,
+
+    placeholderData: (prev) => prev,
+
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+
+      const params = new URLSearchParams();
+
+      if (state) {
+        params.set("state", state);
+      }
+
+      params.set("source", source);
+
+      if (userType !== "all") {
+        params.set("userType", userType);
+      }
+
+      const queryString = params.toString();
+
+      const result =
+        await apiFetch<DistrictAnalyticsResponse>(
+          `${API_BASE_URL}/analytics/state-wise-analytics?${
+            queryString
+          }`,
+        );
+
+      return result;
+    },
+  });
+
+  return {
+    data,
+    isLoading,
+    error: error ?? null,
+  };
+}

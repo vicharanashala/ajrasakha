@@ -11,6 +11,8 @@ type KpiCardData = {
   value: string;
   delta: string;
   deltaDir: "up" | "down" | "neutral";
+  monthlyDelta?: string;
+  monthlyDeltaDir?: "up" | "down" | "neutral";
   accentColor: string;
   isDummy?: boolean; // Remove this field when data is dynamic
   valueColor?: string;
@@ -221,12 +223,31 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
   const [granularity, setGranularity] = useState<
     "weekly" | "daily" | "monthly"
   >("daily");
-  const deltaColor =
-    kpi.deltaDir === "up"
-      ? "#1E7A3C"
-      : kpi.deltaDir === "down"
-        ? "#A32D2D"
-        : "#888";
+  // const deltaColor =
+  //   kpi.deltaDir === "up"
+  //     ? "#1E7A3C"
+  //     : kpi.deltaDir === "down"
+  //       ? "#A32D2D"
+  //       : "#888";
+
+
+
+      const activeDelta =
+  granularity === "monthly"
+    ? kpi.monthlyDelta
+    : kpi.delta;
+
+const activeDeltaDir =
+  granularity === "monthly"
+    ? kpi.monthlyDeltaDir
+    : kpi.deltaDir;
+
+      const deltaColor =
+  activeDeltaDir === "up"
+    ? "#1E7A3C"
+    : activeDeltaDir === "down"
+      ? "#A32D2D"
+      : "#888";
 
   const activePoints =
     kpi.id === "queries"
@@ -290,7 +311,7 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
                 className="flex items-center gap-1 text-xs dark:text-gray-300"
                 style={{ color: deltaColor }}
               >
-                <DeltaIcon dir={kpi.deltaDir} /> {kpi.delta}
+                {granularity !== "daily" && <DeltaIcon dir={activeDeltaDir} />} {granularity !== "daily" && activeDelta}
               </div>
             </div>
           </div>
@@ -456,7 +477,7 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
                   className="flex items-center gap-1.5 text-sm dark:text-gray-300"
                   style={{ color: deltaColor }}
                 >
-                  <DeltaIcon dir={kpi.deltaDir} /> {kpi.delta}
+                     {granularity !== "daily" && <DeltaIcon dir={activeDeltaDir} />} {granularity !== "daily" && activeDelta}
                 </div>
               </div>
 

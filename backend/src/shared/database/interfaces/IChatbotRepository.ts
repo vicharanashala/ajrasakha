@@ -56,8 +56,20 @@ export interface QueryCategoryEntry {
   duplicateQuestionCount: number;
 }
 
+export interface DistrictAnalyticsEntry{
+  district: string;
+  totalQuestions: number;
+  uniqueQuestions: number;
+  duplicateQuestions: number;
+}
+
 export interface WeeklySessionDurationEntry {
   week: string; // ISO week string, e.g. '2025-W03'
+  avgSessionDurationMin: number;
+}
+
+export interface MonthlySessionDurationEntry {
+  month: string; // 'YYYY-MM'
   avgSessionDurationMin: number;
 }
 
@@ -233,6 +245,13 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<WeeklySessionDurationEntry[]>;
 
+  getMonthlyAvgSessionDuration(
+    weeks?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<MonthlySessionDurationEntry[]>;
+
   /** Get all users with their question counts, optionally filtered by date range, with server-side pagination. */
   getUserDetails(
     startDate?: Date,
@@ -278,6 +297,8 @@ export interface IChatbotRepository {
 
   /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
   getDomainSpikes(days?: number, session?: ClientSession): Promise<DomainSpikeEntry[]>;
+
+  getDistrictAnalyticsByState( state: string, source?: string, session?: ClientSession, userType?: string): Promise<DistrictAnalyticsEntry[]>;
 }
 
 export interface ChatbotConversationData {

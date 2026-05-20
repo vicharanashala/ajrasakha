@@ -3,7 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
 import { DASHBOARD_DATA } from "../mockData";
-import { formatIndian, calcWeeklyDelta } from "../utils/dashboardHelpers";
+import {
+  formatIndian,
+  calcWeeklyDelta,
+  calcMonthlyDelta,
+} from "../utils/dashboardHelpers";
 import type { DailyEntry } from "../utils/dashboardHelpers";
 import type { DashboardFilterValues } from "../DashboardFilters";
 import type { DemographicEntry } from "../types";
@@ -27,6 +31,10 @@ interface DashboardApiResponse {
   };
   dau: DailyEntry[];
   weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
+  monthlySessionDuration: Array<{
+    month: string;
+    avgSessionDurationMin: number;
+  }>;
   dailyQueries: DailyEntry[];
   weeklyQueries: Array<{ week: string; count: number }>;
   monthlyQueries: Array<{ month: string; count: number }>;
@@ -167,15 +175,65 @@ function transformApiResponse(
             return { text: `${pct}% vs last week`, dir: "down" as const };
           return { text: "Stable vs last week", dir: "neutral" as const };
         })();
+
+  const sessionMonthly = result.monthlySessionDuration ?? [];
+
+  const thisMonth = sessionMonthly.at(-1)?.avgSessionDurationMin ?? 0;
+
+  const lastMonth = sessionMonthly.at(-2)?.avgSessionDurationMin ?? 0;
+
+  const sessionMonthlyDelta: {
+    text: string;
+    dir: "up" | "down" | "neutral";
+  } =
+    lastMonth === 0 || sessionMonthly.length < 2
+      ? {
+          text: "Not enough data",
+          dir: "neutral",
+        }
+      : (() => {
+          const pct = Math.round(((thisMonth - lastMonth) / lastMonth) * 100);
+
+          if (pct > 0) {
+            return {
+              text: `+${pct}% vs last month`,
+              dir: "up" as const,
+            };
+          }
+
+          if (pct < 0) {
+            return {
+              text: `${pct}% vs last month`,
+              dir: "down" as const,
+            };
+          }
+
+          return {
+            text: "Stable vs last month",
+            dir: "neutral" as const,
+          };
+        })();
+
   const sessionSparkPoints =
     sessionWeekly.length > 0
       ? sessionWeekly.map((w) => w.avgSessionDurationMin)
       : (DASHBOARD_DATA.kpiRow1.find((c) => c.id === "session")?.sparkPoints ??
         []);
 
+  const monthlySessionSparkPoints =
+    sessionMonthly.length > 0
+      ? sessionMonthly.map((m) => m.avgSessionDurationMin)
+      : [];
+
+  const monthlySessionLabels = sessionMonthly.map((m) =>
+    fmtMonthLabel(m.month),
+  );
+
   // Daily queries: true week-over-week delta (last 7 days vs prior 7 days)
   const queryTrend = result.dailyQueries ?? [];
   const queryDelta = calcWeeklyDelta(queryTrend);
+  const monthQueryTrend = result.monthlyQueries ?? [];
+  const queryMonthlyDelta = calcMonthlyDelta(monthQueryTrend);
   // Sparkline: use all-time weekly totals as data points
   const weeklyQueryData = result.weeklyQueries ?? [];
   const querySparkPoints =
@@ -250,6 +308,8 @@ function transformApiResponse(
         value: formatIndian(result.kpi.dailyQueries),
         delta: queryDelta.text,
         deltaDir: queryDelta.dir,
+        monthlyDelta: queryMonthlyDelta.text,
+        monthlyDeltaDir: queryMonthlyDelta.dir,
         sparkPoints: querySparkPoints,
         sparkLabels: weeklyQueryData.map((w) => fmtWeekLabel(w.week)),
         dailySparkPoints: queryTrend.map((d) => d.count),
@@ -274,6 +334,8 @@ function transformApiResponse(
         sparkPoints: sessionSparkPoints,
         sparkLabels: sessionLabels,
         dateRange: sessionRange,
+        monthlySparkPoints: monthlySessionSparkPoints,
+        monthlySparkLabels: monthlySessionLabels,
       };
     }
     return card;

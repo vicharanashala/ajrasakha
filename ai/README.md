@@ -224,7 +224,19 @@ Both lookups should happen dynamically via a dedicated MCP tool after the answer
 | Feature | Status | Notes |
 |---|---|---|
 | Supervisor + subagent pattern | ✅ Done | Main agent orchestrates GDB subagent |
+| Planner orchestrator graph | ✅ Done | `USE_PLANNER_GRAPH=true` (default): planner → execute_plan → synthesize; see `ajrasakha/agents/PLANNER_PRODUCT_DECISIONS.md` |
 | Reduce LLM involvement for matched queries | ❌ Not started | For GDB queries where all metadata is present and an exact match is found, the answer should be returned directly without going through the full LLM synthesis pipeline |
+
+#### Running tests
+
+From the `ai/` directory:
+
+```bash
+python -m pytest ajrasakha/agents/tests/test_planner.py -v
+python -m pytest ajrasakha/agents/tests/ -v
+```
+
+Routing tests in `test_routing.py` call the legacy `ajrasakha_node` directly and require Anthropic API + MCP. Planner unit tests do not.
 
 ---
 
