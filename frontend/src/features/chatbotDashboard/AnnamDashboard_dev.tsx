@@ -988,37 +988,43 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
                 {/* Chatbot Quality & FAQ Analytics Section Header */}
                 {/* Daily Trends & FAQ Leaderboard Grid */}
+                {/* Row 1: Daily Trends & Feedback Data */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 mt-6">
+                  <DailyQuestionTrendsChart
+                    trends={(trendsData as any).dailyQuestionTrends}
+                    dateRange={trendsDateRange}
+                    onDateRangeChange={setTrendsDateRange}
+                    isLoading={trendsLoading}
+                  />
 
-  {/* LEFT COLUMN */}
-  <div className="flex flex-col gap-3">
-    <DailyQuestionTrendsChart
-      trends={(trendsData as any).dailyQuestionTrends}
-      dateRange={trendsDateRange}
-      onDateRangeChange={setTrendsDateRange}
-      isLoading={trendsLoading}
-    />
+                  <FeedbackCard 
+                    title="Feedback Data" 
+                    positiveFeedbacksCount={data.feedbackData.stats.positiveCount} 
+                    negativeFeedbacksCount={data.feedbackData.stats.negativeCount} 
+                    positiveFeedbacks={data.feedbackData.positiveFeedbacks} 
+                    negativeFeedbacks={data.feedbackData.negativeFeedbacks} 
+                    averageRating={data.feedbackData.stats.averageRating} 
+                  />
+                </div>
 
-    <DashboardStateWiseAnalytics
-      source={source}
-      userType={filters.userType}
-    />
-  </div>
+                {/* Row 2: State Analytics & FAQ Leaderboard */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                  <DashboardStateWiseAnalytics
+                    source={source}
+                    userType={filters.userType}
+                  />
 
-  {/* RIGHT COLUMN */}
-  <div className="h-full">
-    <TopFaqsLeaderboard
-      faqs={(faqsData as any).topFaqs}
-      topQuestionsFromCollection={(faqsData as any).topQuestionsFromCollection}
-      repeatQueryCount={(faqsData as any).repeatQueryCount}
-      repeatQueryRatePct={(faqsData as any).repeatQueryRatePct}
-      avgQuestionsPerUserDay={(faqsData as any).avgQuestionsPerUserDay}
-      dateRange={faqsDateRange}
-      onDateRangeChange={setFaqsDateRange}
-      isLoading={faqsLoading}
-    />
-  </div>
-</div>
+                  <TopFaqsLeaderboard
+                    faqs={(faqsData as any).topFaqs}
+                    topQuestionsFromCollection={(faqsData as any).topQuestionsFromCollection}
+                    repeatQueryCount={(faqsData as any).repeatQueryCount}
+                    repeatQueryRatePct={(faqsData as any).repeatQueryRatePct}
+                    avgQuestionsPerUserDay={(faqsData as any).avgQuestionsPerUserDay}
+                    dateRange={faqsDateRange}
+                    onDateRangeChange={setFaqsDateRange}
+                    isLoading={faqsLoading}
+                  />
+                </div>
 
                 {/* Geo + Health */}
                 <div
@@ -1038,7 +1044,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                       sectionRefs.current["app-health"] = el;
                     }}
                   >
-                    <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/>
+                    {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
                   </div>
                 </div >
               </div >

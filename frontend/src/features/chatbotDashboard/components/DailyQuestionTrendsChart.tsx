@@ -78,7 +78,7 @@ export function DailyQuestionTrendsChart({
   };
 
   return (
-    <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[440px]">
+    <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[400px]">
       <CardHeader className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 border-b border-border/40 gap-4 shrink-0">
         <div>
           <CardTitle className="text-base font-semibold tracking-wide text-foreground">
