@@ -40,6 +40,56 @@ def _message_to_text(message: BaseMessage) -> str:
     return str(content).strip()
 
 
+def _format_gdb_json(text: str) -> str:
+    import json
+    try:
+        data = json.loads(text)
+        if not isinstance(data, dict):
+            return text
+        
+        lines = []
+        lines.append(f"Original Farmer Query: {data.get('original_query', 'Not specified')}")
+        lines.append(f"Rephrased Query: {data.get('rephrased_query', 'Not specified')}")
+        lines.append(f"Location State Filter: {data.get('state', 'all')}")
+        lines.append(f"Crop Filter: {data.get('crop', 'all')}")
+        
+        exact = data.get("exact_match") or {}
+        if exact:
+            lines.append("\n=== STRICT EXACT MATCH FROM DATABASE ===")
+            lines.append(f"Question: {exact.get('question')}")
+            lines.append(f"Answer: {exact.get('answer')}")
+            details = exact.get("details") or []
+            if details:
+                lines.append("Sources:")
+                for d in details:
+                    lines.append(f" - Author/Expert: {d.get('author_name') or 'Unknown'}")
+                    lines.append(f" - Source: {d.get('source_name') or 'Database Document'}")
+                    lines.append(f" - Link: {d.get('source_link') or 'None'}")
+        
+        similar = data.get("similar_match") or {}
+        if similar:
+            lines.append("\n=== SIMILAR MATCHES FROM DATABASE ===")
+            for key in sorted(similar.keys(), key=lambda x: int(''.join(filter(str.isdigit, x)) or 0)):
+                pair = similar[key]
+                lines.append(f"\nMatch Pair ({key}):")
+                lines.append(f" Question: {pair.get('question')}")
+                lines.append(f" Answer: {pair.get('answer')}")
+                details = pair.get("details") or []
+                if details:
+                    lines.append(" Sources:")
+                    for d in details:
+                        lines.append(f"  - Author/Expert: {d.get('author_name') or 'Unknown'}")
+                        lines.append(f"  - Source: {d.get('source_name') or 'Database Document'}")
+                        lines.append(f"  - Link: {d.get('source_link') or 'None'}")
+                        
+        if not exact and not similar:
+            lines.append("\nNo relevant database matches found.")
+            
+        return "\n".join(lines)
+    except Exception:
+        return text
+
+
 def _format_tool_results_for_synthesizer(messages: list[BaseMessage]) -> str:
     """Collect all tool outputs since the farmer's latest message (this turn)."""
     last_human_idx = -1
@@ -56,7 +106,11 @@ def _format_tool_results_for_synthesizer(messages: list[BaseMessage]) -> str:
             name = getattr(msg, "name", "tool")
             text = _message_to_text(msg)
             if text:
-                blocks.append(f"### {name}\n{text}")
+                if name == "gdb":
+                    formatted_text = _format_gdb_json(text)
+                else:
+                    formatted_text = text
+                blocks.append(f"### {name}\n{formatted_text}")
     return "\n\n".join(blocks) if blocks else "(No tool results)"
 
 
