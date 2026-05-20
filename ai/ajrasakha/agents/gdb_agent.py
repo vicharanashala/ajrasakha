@@ -177,6 +177,8 @@ async def gdb(
         "exact_match": {},
     })
 
+    print("[gdb_agent] gdb() called — starting MCP connection", flush=True)
+
     try:
         # Load GDB MCP endpoint URL from the environment or config
         # gdb_url = os.getenv("GDB_MCP_URL")
@@ -203,21 +205,30 @@ async def gdb(
         #     }
         # )
 
+        mcp_url = MCP_URLS["gdb"]
+        print(f"[gdb_agent] Connecting MCP → {mcp_url}", flush=True)
+
         client = MultiServerMCPClient(
-                {
-                    "mcp_golden": {
-                        "url": MCP_URLS["gdb"],
-                        "transport": "streamable_http",
-                    }
+            {
+                "mcp_golden": {
+                    "url": mcp_url,
+                    "transport": "streamable_http",
                 }
-            )
-        
+            }
+        )
+        print("[gdb_agent] MultiServerMCPClient created OK", flush=True)
+
         tools = await client.get_tools()
+        print(f"[gdb_agent] MCP get_tools() OK — tools: {[t.name for t in tools]}", flush=True)
+
         gdb_search_tool = next((t for t in tools if "gdb_search" in t.name), None)
-        
+
         if not gdb_search_tool:
             logger.error("gdb_search tool not found on decoupled MCP server. Available tools: %s", [t.name for t in tools])
+            print("[gdb_agent] MCP FAILED — gdb_search tool not found on server", flush=True)
             return fallback_response
+
+        print(f"[gdb_agent] MCP connected — using tool: {gdb_search_tool.name}", flush=True)
 
         # Invoke the decoupled native RAG pipeline directly
         logger.info("Invoking decoupled native GDB search (query=%s, rephrased_query=%s, crop=%s, state=%s)", query, resolved_rephrased, resolved_crop, resolved_state)
@@ -263,4 +274,5 @@ async def gdb(
 
     except Exception as exc:
         logger.error("gdb query execution failed: %s", exc, exc_info=True)
+        print(f"[gdb_agent] MCP FAILED — {type(exc).__name__}: {exc}", flush=True)
         return fallback_response
