@@ -13,6 +13,24 @@ export interface UserDemographics {
   landHolding: DemographicEntry[];
 }
 
+export interface FeedbackEntry {
+  rating: string;
+  tag: string;
+}
+
+export interface FeedbackData{
+  positiveFeedbacks: FeedbackEntry[];
+  negativeFeedbacks: FeedbackEntry[];
+  stats: {
+    "_id"?: null | string,
+    positiveCount: number,
+    negativeCount: number,
+    averageRating: number,
+    totalFeedbacks: number
+  }
+}
+
+
 export interface IPlatformInstallEntry{
   platform: string;
   count: number;
