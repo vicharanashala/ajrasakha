@@ -1099,7 +1099,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     voiceAccuracy={data.voiceAccuracy}
                   /> */}
                   {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
-                  {/* <GeoCard states={data.geoStates} />
+                  {/* <GeoCard states={data.geoStates} />*/}
                   <div
                     ref={(el) => {
                       sectionRefs.current["app-health"] = el;
