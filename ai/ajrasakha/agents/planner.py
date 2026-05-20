@@ -16,7 +16,11 @@ from pydantic import BaseModel, Field
 from ajrasakha.agents.config import CLAUDE_MODEL
 from ajrasakha.agents.language import detect_farmer_language
 from ajrasakha.agents.location_context import main_agent_location_context_message
-from ajrasakha.agents.prompts import LLM_FALLBACK_MSG, PLANNER_SYSTEM_PROMPT
+from ajrasakha.agents.planner_rules import (
+    apply_planner_completeness_rules,
+    format_conversation_for_planner,
+)
+from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
 
 logger = logging.getLogger(__name__)
@@ -158,11 +162,12 @@ async def planner_node(
     if loc_ctx:
         llm_messages.append(loc_ctx)
     farmer_lang = detect_farmer_language(user_text)
+    conv_block = format_conversation_for_planner(messages) or user_text
     llm_messages.append(
         HumanMessage(
             content=(
-                f"Farmer message (language: {farmer_lang}):\n{user_text}\n\n"
-                f"Write follow_up_question in {farmer_lang} if needed.\n"
+                f"Farmer conversation (language: {farmer_lang}):\n{conv_block}\n\n"
+                f"Write follow_up_question in {farmer_lang} only when rules require it.\n"
                 "Return the routing plan only."
             )
         )
@@ -171,7 +176,12 @@ async def planner_node(
     try:
         llm = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=config)
-        plan = planner_output_to_plan(output)
+        plan = apply_planner_completeness_rules(
+            planner_output_to_plan(output),
+            messages,
+            state.get("location"),
+            farmer_language=farmer_lang,
+        )
         logger.info(
             "Planner: complete=%s flags=(w=%s m=%s s=%s sch=%s chem=%s kb=%s) missing=%s",
             plan.get("is_complete"),
@@ -197,11 +207,16 @@ async def planner_node(
 def clarify_node(state: AjraSakhaState) -> dict:
     plan = state.get("plan") or {}
     question = (plan.get("follow_up_question") or "").strip()
+    missing = plan.get("missing_info") or []
     if not question:
-        question = (
-            "Could you please share your state and district, and a few more details "
-            "about your crop and problem so I can help you better?"
-        )
+        if "district" in missing:
+            question = "Which district are you in?"
+        elif "location" in missing:
+            question = "Which state and district are you in?"
+        elif "crop" in missing:
+            question = "Which crop are you growing?"
+        else:
+            question = "Which state and district are you in?"
     return {"messages": [AIMessage(content=question)]}
 
 

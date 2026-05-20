@@ -1,4 +1,4 @@
-import type {ClientSession} from 'mongodb';
+import type {ClientSession, ObjectId} from 'mongodb';
 
 // ─── Shared return types ──────────────────────────────────────────────────────
 
@@ -88,6 +88,23 @@ export interface WeeklyQueryCountEntry {
 export interface MonthlyQueryCountEntry {
   month: string; // 'YYYY-MM'
   count: number;
+}
+
+export interface FeedbackEntry {
+  rating: string;
+  tag: string;
+}
+
+export interface FeedbackData{
+  positiveFeedbacks: FeedbackEntry[];
+  negativeFeedbacks: FeedbackEntry[];
+  stats: {
+    "_id"?: null | ObjectId,
+    positiveCount: number,
+    negativeCount: number,
+    averageRating: number,
+    totalFeedbacks: number
+  }
 }
 
 export interface FarmerProfile {
@@ -296,6 +313,8 @@ export interface IChatbotRepository {
   getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession)
   getInstalls(startDate:Date,endDate:Date, session?: ClientSession)
   getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession)
+
+  getFeedbackData(source?: string, session?: ClientSession, userType?: string): Promise<FeedbackData>;
 
   // get platform wise installs
   getPlatformInstalls(source: string, session?: ClientSession): Promise<PlatformInstallEntry[]>;

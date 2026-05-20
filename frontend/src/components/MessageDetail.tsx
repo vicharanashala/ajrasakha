@@ -197,27 +197,100 @@ const MessageDetail = ({
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
                                     Processing Steps ({msg.content.length})
                                 </p>
-                                {question.source === "WHATSAPP" ? (
+                                {
+                                    // question.source === "WHATSAPP" ? (
+                                    //     (() => {
+                                    //         const lastAiIndex = msg.content.map((item: any) => item.type).lastIndexOf("ai");
+                                    //         return msg.content.map((item: any, i: number) => {
+                                    //             if (item.type === "human") {
+                                    //                 return <ContentHuman key={i} text={item.text} />;
+                                    //             }
+
+                                    //             if (item.type === "ai") {
+                                    //                 if (i === lastAiIndex) {
+                                    //                     return (
+                                    //                         <ContentAnswer
+                                    //                             key={i}
+                                    //                             text={item.text}
+                                    //                             question={question}
+                                    //                             isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
+                                    //                             navigateToQuestionPage={navigateToQuestionPage}
+                                    //                         />
+                                    //                     );
+                                    //                 }
+                                    //                 return <ContentTextStep key={i} text={item.text} />;
+                                    //             }
+
+                                    //             if (item.type === "tool") {
+                                    //                 return (
+                                    //                     <ContentToolCall
+                                    //                         key={i}
+                                    //                         toolCall={{
+                                    //                             id: i.toString(),
+                                    //                             name: item.toolName || "tool",
+                                    //                             args: item.toolArgs || {},
+                                    //                             progress: item.toolResponse ? 1 : 0,
+                                    //                             output: item.toolResponse || "Calling tool..."
+                                    //                         }}
+                                    //                     />
+                                    //                 );
+                                    //             }
+
+                                    //             return null;
+                                    //         });
+                                    //     })()
+                                    // ) : (
+                                    // msg.content.map((item: any, i: number) => {
+                                    //     const isLastItem = i === msg.content.length - 1;
+
+                                    //     if (item.type === "think") {
+                                    //         const idx = thinkIndex++;
+                                    //         return <ContentThinkStep key={i} think={item.think} index={idx} />;
+                                    //     }
+
+                                    //     if (item.type === "tool_call") {
+                                    //         return <ContentToolCall key={i} toolCall={item.tool_call} />;
+                                    //     }
+
+                                    //     if (item.type === "text" && isLastItem) {
+                                    //         return (
+                                    //             <ContentAnswer
+                                    //                 key={i}
+                                    //                 text={item.text}
+                                    //                 question={question}
+                                    //                 isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
+                                    //                 navigateToQuestionPage={navigateToQuestionPage}
+                                    //             />
+                                    //         );
+                                    //     }
+
+                                    //     return null;
+                                    // })
+
                                     (() => {
-                                        const lastAiIndex = msg.content.map((item: any) => item.type).lastIndexOf("ai");
+                                        const lastAiIndex = msg.content
+                                            .map((item: any) => item.type)
+                                            .lastIndexOf("ai");
+
+                                        const lastTextIndex = msg.content
+                                            .map((item: any) => item.type)
+                                            .lastIndexOf("text");
+
                                         return msg.content.map((item: any, i: number) => {
+
                                             if (item.type === "human") {
                                                 return <ContentHuman key={i} text={item.text} />;
                                             }
 
-                                            if (item.type === "ai") {
-                                                if (i === lastAiIndex) {
-                                                    return (
-                                                        <ContentAnswer
-                                                            key={i}
-                                                            text={item.text}
-                                                            question={question}
-                                                            isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
-                                                            navigateToQuestionPage={navigateToQuestionPage}
-                                                        />
-                                                    );
-                                                }
-                                                return <ContentTextStep key={i} text={item.text} />;
+                                            if (item.type === "think") {
+                                                const idx = thinkIndex++;
+                                                return (
+                                                    <ContentThinkStep
+                                                        key={i}
+                                                        think={item.think}
+                                                        index={idx}
+                                                    />
+                                                );
                                             }
 
                                             if (item.type === "tool") {
@@ -235,37 +308,76 @@ const MessageDetail = ({
                                                 );
                                             }
 
+                                            // toolcall(old formt)
+                                            if (item.type === "tool_call") {
+                                                return (
+                                                    <ContentToolCall
+                                                        key={i}
+                                                        toolCall={item.tool_call}
+                                                    />
+                                                );
+                                            }
+
+                                            // AI
+                                            if (item.type === "ai") {
+
+                                                // final AI answer
+                                                if (i === lastAiIndex) {
+                                                    return (
+                                                        <ContentAnswer
+                                                            key={i}
+                                                            text={item.text}
+                                                            question={question}
+                                                            isQuestionAllocatedToExpert={
+                                                                isQuestionAllocatedToExpert
+                                                            }
+                                                            navigateToQuestionPage={
+                                                                navigateToQuestionPage
+                                                            }
+                                                        />
+                                                    );
+                                                }
+
+                                                return (
+                                                    <ContentTextStep
+                                                        key={i}
+                                                        text={item.text}
+                                                    />
+                                                );
+                                            }
+
+                                            // (Old format)
+                                            if (item.type === "text") {
+
+                                                if (i === lastTextIndex) {
+                                                    return (
+                                                        <ContentAnswer
+                                                            key={i}
+                                                            text={item.text}
+                                                            question={question}
+                                                            isQuestionAllocatedToExpert={
+                                                                isQuestionAllocatedToExpert
+                                                            }
+                                                            navigateToQuestionPage={
+                                                                navigateToQuestionPage
+                                                            }
+                                                        />
+                                                    );
+                                                }
+
+                                                return (
+                                                    <ContentTextStep
+                                                        key={i}
+                                                        text={item.text}
+                                                    />
+                                                );
+                                            }
+
                                             return null;
                                         });
                                     })()
-                                ) : (
-                                    msg.content.map((item: any, i: number) => {
-                                        const isLastItem = i === msg.content.length - 1;
-
-                                        if (item.type === "think") {
-                                            const idx = thinkIndex++;
-                                            return <ContentThinkStep key={i} think={item.think} index={idx} />;
-                                        }
-
-                                        if (item.type === "tool_call") {
-                                            return <ContentToolCall key={i} toolCall={item.tool_call} />;
-                                        }
-
-                                        if (item.type === "text" && isLastItem) {
-                                            return (
-                                                <ContentAnswer
-                                                    key={i}
-                                                    text={item.text}
-                                                    question={question}
-                                                    isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
-                                                    navigateToQuestionPage={navigateToQuestionPage}
-                                                />
-                                            );
-                                        }
-
-                                        return null;
-                                    })
-                                )}
+                                    // )
+                                }
                             </div>
                         </div>
                     )}
@@ -667,22 +779,22 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                             </Button>
 
                             {/*question.status == "duplicate" &&*/}
-                                <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={handlePushToGDB}
-                                    disabled={isUpdating || !editedAnswerBody.trim()}
-                                    className="gap-2 rounded-xl px-4"
-                                >
-                                    {isUpdating ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <CheckCircle className="h-4 w-4" />
-                                    )}
-                                    {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
-                                </Button>
-                            
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={handlePushToGDB}
+                                disabled={isUpdating || !editedAnswerBody.trim()}
+                                className="gap-2 rounded-xl px-4"
+                            >
+                                {isUpdating ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <CheckCircle className="h-4 w-4" />
+                                )}
+                                {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
+                            </Button>
+
                         </div>
                     </div>
                 )}

@@ -15,7 +15,11 @@ These choices extend the manager's `PLANNER_SYSTEM_PROMPT` with existing AjraSak
 
 ## Crop / non-crop classifier
 
-Deferred to Phase 2. When crop is missing, planner keeps `is_complete=true` and `gdb` is called with `crop="all"` as a last resort.
+`domains.py` lists crop-required vs crop-all domains. `planner_rules.apply_planner_completeness_rules` enforces:
+- Location: state in text → ask district only; GPS on thread → do not ask location; no GPS and no state → ask state+district once.
+- Crop: ask only when `domain_requires_crop` and crop not in full conversation.
+- Schemes/insurance/PM-KISAN: `schemes=true`, block meta follow-ups ("what would you like to know…").
+- Planner reads full conversation (not only the latest line).
 
 ## Feature flag
 

@@ -13,6 +13,7 @@ from langchain_core.runnables import RunnableConfig, patch_config
 
 from ajrasakha.agents.location_context import (
     extract_location_updates_from_new_tool_messages,
+    extract_state_from_text,
     merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
@@ -74,11 +75,22 @@ def _needs_location_resolve(loc: Optional[Location]) -> bool:
     return not _location_has_place(loc)
 
 
-def _entity_str(plan: PlannerPlan, key: str, loc: Optional[Location], default: str) -> str:
+def _entity_str(
+    plan: PlannerPlan,
+    key: str,
+    loc: Optional[Location],
+    default: str,
+    *,
+    user_query: str = "",
+) -> str:
     entities = plan.get("entities") or {}
     val = entities.get(key) if isinstance(entities, dict) else None
     if val:
         return str(val).strip()
+    if key == "state" and user_query:
+        extracted = extract_state_from_text(user_query)
+        if extracted:
+            return extracted
     if loc and loc.get(key):
         return str(loc[key]).strip()
     return default
@@ -111,11 +123,11 @@ async def build_tool_calls_from_plan(
     calls: list[dict[str, Any]] = []
     loc = location or {}
     entities = plan.get("entities") or {}
-    state_name = _entity_str(plan, "state", loc, "Not specified")
-    district = _entity_str(plan, "district", loc, "Not specified")
+    state_name = _entity_str(plan, "state", loc, "Not specified", user_query=user_query)
+    district = _entity_str(plan, "district", loc, "Not specified", user_query=user_query)
     if district == "Not specified" and loc.get("city"):
         district = str(loc["city"])
-    crop = _entity_str(plan, "crop", loc, "General")
+    crop = _entity_str(plan, "crop", loc, "General", user_query=user_query)
     domain = _reviewer_domain(plan)
 
     if _needs_location_resolve(loc):

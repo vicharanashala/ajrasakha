@@ -232,7 +232,22 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 
 
 
-      
+      const activeDelta =
+  granularity === "monthly"
+    ? kpi.monthlyDelta
+    : kpi.delta;
+
+const activeDeltaDir =
+  granularity === "monthly"
+    ? kpi.monthlyDeltaDir
+    : kpi.deltaDir;
+
+      const deltaColor =
+  activeDeltaDir === "up"
+    ? "#1E7A3C"
+    : activeDeltaDir === "down"
+      ? "#A32D2D"
+      : "#888";
 
   const activePoints =
     kpi.id === "queries"
@@ -251,23 +266,6 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
           ? kpi.monthlySparkLabels
           : kpi.sparkLabels
       : kpi.sparkLabels;
-
-      const activeDelta =
-  granularity === "monthly"
-    ? kpi.monthlyDelta
-    : kpi.delta;
-
-const activeDeltaDir =
-  granularity === "monthly"
-    ? kpi.monthlyDeltaDir
-    : kpi.deltaDir;
-
-      const deltaColor =
-  activeDeltaDir === "up"
-    ? "#1E7A3C"
-    : activeDeltaDir === "down"
-      ? "#A32D2D"
-      : "#888";
 
   return (
     <>
