@@ -39,6 +39,8 @@ class PlannerPlan(TypedDict, total=False):
     reasoning: Optional[str]
     entities: PlannerEntities
     skip_synthesize: bool
+    rephrased_query: Optional[str]
+    original_query_en: Optional[str]
 
 
 def merge_plan(

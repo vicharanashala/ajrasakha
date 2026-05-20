@@ -38,6 +38,11 @@ import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import FeedbackCard from "./FeedbackCard";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {

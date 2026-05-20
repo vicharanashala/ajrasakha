@@ -51,6 +51,17 @@ class PlannerOutput(BaseModel):
     follow_up_question: Optional[str] = None
     reasoning: Optional[str] = None
     entities: PlannerEntitiesOutput = Field(default_factory=PlannerEntitiesOutput)
+    original_query_en: Optional[str] = Field(
+        None,
+        description="If the user query is NOT in English, translate it exactly to English. If it is in English, set it to the original query."
+    )
+    rephrased_query: Optional[str] = Field(
+        None,
+        description=(
+            "English grammatically corrected query (if user's query is in another language, correct the English translation). "
+            "ONLY refine spelling, syntax, or grammar errors. Do NOT do any fancy rephrasing or search extensions."
+        )
+    )
 
 
 def _message_to_text(message: BaseMessage) -> str:
@@ -110,10 +121,12 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "reasoning": output.reasoning,
         "entities": entities,
         "skip_synthesize": False,
+        "rephrased_query": output.rephrased_query,
+        "original_query_en": output.original_query_en,
     }
 
 
-def _default_plan_for_agriculture() -> PlannerPlan:
+def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPlan:
     return {
         "weather": False,
         "mandi": False,
@@ -127,6 +140,8 @@ def _default_plan_for_agriculture() -> PlannerPlan:
         "reasoning": "fallback_default",
         "entities": {},
         "skip_synthesize": False,
+        "rephrased_query": user_query,
+        "original_query_en": user_query,
     }
 
 
@@ -137,7 +152,7 @@ async def planner_node(
     messages = state.get("messages") or []
     human = _last_human_message(messages)
     if human is None:
-        return {"plan": _default_plan_for_agriculture()}
+        return {"plan": _default_plan_for_agriculture(None)}
 
     user_text = _message_to_text(human)
     if is_greeting_message(user_text):
@@ -154,6 +169,8 @@ async def planner_node(
             "reasoning": "greeting",
             "entities": {},
             "skip_synthesize": False,
+            "rephrased_query": user_text,
+            "original_query_en": user_text,
         }
         return {"plan": plan}
 
@@ -182,8 +199,13 @@ async def planner_node(
             state.get("location"),
             farmer_language=farmer_lang,
         )
+        if not plan.get("rephrased_query"):
+            plan["rephrased_query"] = user_text
+        if not plan.get("original_query_en"):
+            plan["original_query_en"] = user_text
+
         logger.info(
-            "Planner: complete=%s flags=(w=%s m=%s s=%s sch=%s chem=%s kb=%s) missing=%s",
+            "Planner: complete=%s flags=(w=%s m=%s s=%s sch=%s chem=%s kb=%s) rephrased=%s missing=%s",
             plan.get("is_complete"),
             plan.get("weather"),
             plan.get("mandi"),
@@ -191,16 +213,17 @@ async def planner_node(
             plan.get("schemes"),
             plan.get("chemical_checker"),
             plan.get("knowledge_base"),
+            plan.get("rephrased_query"),
             plan.get("missing_info"),
         )
         return {"plan": plan}
     except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
         logger.warning("Planner failed (%s: %s) — using default knowledge_base plan", type(exc).__name__, exc)
-        return {"plan": _default_plan_for_agriculture()}
+        return {"plan": _default_plan_for_agriculture(user_text)}
     except APIStatusError as exc:
         if exc.status_code >= 500:
             logger.warning("Planner server error %s — using default plan", exc.status_code)
-            return {"plan": _default_plan_for_agriculture()}
+            return {"plan": _default_plan_for_agriculture(user_text)}
         raise
 
 

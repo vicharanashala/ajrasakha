@@ -1,48 +1,13 @@
+import os
+import logging
 from typing import Optional
 
-from langchain.agents import create_agent
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.constants import START
-from langgraph.graph import StateGraph
 from pydantic import BaseModel, Field
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
-from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
-from ajrasakha.agents.location_context import (
-    resolve_location_field,
-    sub_agent_system_prompt_with_thread_location,
-)
-from ajrasakha.agents.prompts import GDB_SYSTEM_PROMPT
-
-
-gdb_mcp = MultiServerMCPClient(
-    {
-        "gdb": {
-            "url": MCP_URLS["gdb"],
-            "transport": "streamable_http",
-        }
-    }
-)
-
-llm = ChatAnthropic(model=CLAUDE_MODEL)
-
-_gdb_agent_graph = None  # lazy init
-
-async def _get_gdb_agent():
-    global _gdb_agent_graph
-    if _gdb_agent_graph is None:
-        tools = await gdb_mcp.get_tools()
-        _gdb_agent_graph = create_agent(
-            name="gdb_agent",
-            model=llm,
-            tools=tools,
-            system_prompt=None,
-            checkpointer=False,
-        )
-    return _gdb_agent_graph
+logger = logging.getLogger(__name__)
 
 
 class GDBInput(BaseModel):
@@ -57,13 +22,18 @@ class GDBInput(BaseModel):
     state: str = Field(
         ...,
         description=(
-            "Indian state for Golden DB retrieval (required). Use the state in the "
-            "farmer's message when mentioned; use thread GPS state only as fallback."
+            "Indian state for Golden DB retrieval (required). Use thread location state "
+            "or the state in the farmer's message; use 'all' only as a last resort."
         ),
+    )
+    rephrased_query: Optional[str] = Field(
+        None,
+        description="The query refined by the planner agent (grammar/spelling corrected)."
     )
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     address: Optional[str] = None
+
 
 @tool(args_schema=GDBInput)
 async def gdb(
@@ -74,54 +44,90 @@ async def gdb(
     longitude: Optional[float],
     address: Optional[str],
     config: RunnableConfig,
+    rephrased_query: Optional[str] = None,
 ) -> str:
     """
-    Query the golden database agent for crop/disease/pest/farming knowledge.
+    Query the golden database directly for crop/disease/pest/farming knowledge.
 
-    crop and state are required. Pass state from the farmer's question when mentioned;
-    thread GPS state is used only when the question does not specify a state.
+    crop and state are required. Pass them on every call (use thread location for state
+    when available; use 'all' for crop or state only as a last resort when unknown).
     """
+    import json
+
+    def clean_fallback(val: str) -> str:
+        v = (val or "").strip().lower()
+        if not v or v in {"not specified", "general", "none", "null", "all"}:
+            return "all"
+        return val.strip()
+
+    resolved_crop = clean_fallback(crop)
+    injected: dict = (config.get("configurable") or {}).get("location") or {}
+    resolved_state = clean_fallback(injected.get("state") or state)
+    resolved_rephrased = (rephrased_query or "").strip() or query
+
+    fallback_response = json.dumps({
+        "original_query": query,
+        "rephrased_query": resolved_rephrased,
+        "state": resolved_state,
+        "crop": resolved_crop,
+        "exact_match": {},
+        "similar_match": {}
+    })
+
     try:
-        injected: dict = (config.get("configurable") or {}).get("location") or {}
+        # Load GDB MCP endpoint URL from the environment or config
+        gdb_url = os.getenv("GDB_MCP_URL")
+        if not gdb_url:
+            from ajrasakha.agents.config import MCP_URLS
+            gdb_url = MCP_URLS.get("gdb")
 
-        lat  = injected.get("latitude")  or latitude
-        lon  = injected.get("longitude") or longitude
-        addr = injected.get("address")   or address
-        crop = resolve_location_field(crop, injected.get("crop"), default="all")
-        state = resolve_location_field(state, injected.get("state"), default="all")
+        if not gdb_url:
+            logger.error("GDB_MCP_URL is not configured in .env or config!")
+            return fallback_response
 
-        context = f"""
-Mandatory Golden DB filters (pass on every golden_retriever_tool / golden_exact_search_tool call):
-- Crop : {crop}
-- State: {state}
-
-Location Context:
-- Address  : {addr or "unknown"}
-- Latitude : {lat or "unknown"}
-- Longitude: {lon or "unknown"}
-
-Query: {query}
-        """.strip()
-
-        system_text = sub_agent_system_prompt_with_thread_location(GDB_SYSTEM_PROMPT, config)
-        if state.lower() != "all":
-            system_text += (
-                f"\n\nQUERY-SPECIFIED GOLDEN DB STATE: Use state=\"{state}\" on every "
-                "golden_retriever_tool and golden_exact_search_tool call. "
-                "Do not substitute THREAD LOCATION state when this block is set."
-            )
-        agent = await _get_gdb_agent()
-        result = await agent.ainvoke(
+        logger.info("Connecting to decoupled GDB MCP server at: %s", gdb_url)
+        
+        # Instantiate MultiServerMCPClient to invoke tool remotely
+        client = MultiServerMCPClient(
             {
-                "messages": [
-                    SystemMessage(content=system_text),
-                    HumanMessage(content=context),
-                ]
-            },
-            config=config,
+                "mcp_golden": {
+                    "url": gdb_url,
+                    "transport": "streamable_http",
+                }
+            }
         )
-        return result["messages"][-1].content
+        
+        tools = await client.get_tools()
+        gdb_search_tool = next((t for t in tools if "gdb_search" in t.name), None)
+        
+        if not gdb_search_tool:
+            logger.error("gdb_search tool not found on decoupled MCP server. Available tools: %s", [t.name for t in tools])
+            return fallback_response
+
+        # Invoke the decoupled native RAG pipeline directly
+        logger.info("Invoking decoupled native GDB search (query=%s, rephrased_query=%s, crop=%s, state=%s)", query, resolved_rephrased, resolved_crop, resolved_state)
+        result = await gdb_search_tool.ainvoke({
+            "query": query,
+            "crop": resolved_crop,
+            "state": resolved_state,
+            "rephrased_query": resolved_rephrased
+        })
+        
+        # Parse and normalise the response
+        if isinstance(result, list):
+            res_str = "".join([
+                item.get("text", "") if isinstance(item, dict)
+                else str(item)
+                for item in result
+            ])
+        else:
+            res_str = str(result)
+            
+        res_str = res_str.strip()
+        if not res_str or res_str.upper() == "NO_RELEVANT_CONTENT":
+            return fallback_response
+        return res_str
+
     except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error("gdb sub-agent failed: %s", exc)
-        return f"⚠️ The database service is temporarily unavailable. Error: {type(exc).__name__}"
+        logger.error("gdb query execution failed: %s", exc, exc_info=True)
+        return fallback_response
