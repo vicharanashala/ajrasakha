@@ -65,7 +65,13 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getDashboard(@QueryParams() query: DashboardQueryDto) {
-    return this.chatbotService.getDashboard(query.days, query.source, query.userType);
+    return this.chatbotService.getDashboard(
+      query.days,
+      query.source,
+      query.userType,
+      query.startTime,
+      query.endTime,
+    );
   }
 
   @OpenAPI({

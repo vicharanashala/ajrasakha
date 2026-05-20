@@ -28,6 +28,8 @@ interface DashboardApiResponse {
     inactiveUsersLast3Days: number;
     duplicateQuestionsCount: number;
     lowFeedbackUsersCount: number;
+    repeatQueryCount?: number;
+    avgQuestionsPerUserDay?: number;
   };
   dau: DailyEntry[];
   weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
@@ -50,6 +52,8 @@ interface DashboardApiResponse {
   landHolding: DemographicEntry[];
   platformInstalls: IPlatformInstallEntry[];
   domainSpikes?: DomainSpikeEntry[];
+  dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;
+  topFaqs?: Array<{ question: string; count: number }>;
 }
 
 // ── Date range label helpers ──────────────────────────────────────────────────
@@ -342,6 +346,13 @@ function transformApiResponse(
   });
 
   updatedData.queryCategories = result.queryCategories ?? [];
+
+  (updatedData as any).dailyQuestionTrends = result.dailyQuestionTrends ?? [];
+  (updatedData as any).topFaqs = result.topFaqs ?? [];
+  (updatedData as any).topQuestionsFromCollection = (result as any).topQuestionsFromCollection ?? [];
+  (updatedData as any).repeatQueryCount = result.kpi.repeatQueryCount ?? 0;
+  (updatedData as any).repeatQueryRatePct = result.kpi.repeatQueryRatePct ?? 0;
+  (updatedData as any).avgQuestionsPerUserDay = result.kpi.avgQuestionsPerUserDay ?? 0;
 
   return updatedData;
 }
