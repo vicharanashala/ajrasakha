@@ -41,6 +41,11 @@ import { Button } from "@/components/atoms/button";
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import FeedbackCard from "./FeedbackCard";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
@@ -60,10 +65,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters, source);
 
-  const [qualityDateRange, setQualityDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 29),
-    to: new Date(),
-  });
+  const [qualityDateRange, setQualityDateRange] = useState<DateRange | undefined>(undefined);
 
   const qualityFilters = useMemo(() => ({
     ...filters,
@@ -997,63 +999,93 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
                   {/* Section-level Date Range Selector */}
                   <div className="flex items-center gap-2 w-full sm:w-auto sm:max-w-[420px]">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="justify-start text-left font-normal bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 max-w-full whitespace-normal h-auto min-h-10 flex-1 hover:bg-gray-50 dark:hover:bg-[#222]"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4 text-[#3AAA5A]" />
-                          {qualityDateRange?.from ? (
-                            qualityDateRange.to ? (
-                              `${format(qualityDateRange.from, "MMM dd, yyyy")} - ${format(qualityDateRange.to, "MMM dd, yyyy")}`
-                            ) : (
-                              format(qualityDateRange.from, "MMM dd, yyyy")
-                            )
-                          ) : (
-                            "All data"
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 border-gray-200 dark:border-[#2a2a2a]" align="end">
-                        <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={qualityDateRange?.from ?? new Date()}
-                          selected={qualityDateRange}
-                          onSelect={setQualityDateRange}
-                          numberOfMonths={1}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setQualityDateRange(undefined)}
-                      title="Show all data"
-                      className="shrink-0 bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222]"
-                    >
-                      <RefreshCcw className="h-4 w-4" />
-                    </Button>
-                  </div>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <div className="flex items-center gap-2 flex-1">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="justify-start text-left font-normal bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 max-w-full whitespace-normal h-auto min-h-10 flex-1 hover:bg-gray-50 dark:hover:bg-[#222]"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4 text-[#3AAA5A]" />
+              {qualityDateRange?.from ? (
+                qualityDateRange.to ? (
+                  `${format(qualityDateRange.from, "MMM dd, yyyy")} - ${format(qualityDateRange.to, "MMM dd, yyyy")}`
+                ) : (
+                  format(qualityDateRange.from, "MMM dd, yyyy")
+                )
+              ) : (
+                "All data"
+              )}
+            </Button>
+          </PopoverTrigger>
+
+          <PopoverContent
+            className="w-auto p-0 border-gray-200 dark:border-[#2a2a2a]"
+            align="end"
+          >
+            <Calendar
+              initialFocus
+              mode="range"
+              defaultMonth={qualityDateRange?.from ?? new Date()}
+              selected={qualityDateRange}
+              onSelect={setQualityDateRange}
+              numberOfMonths={1}
+            />
+          </PopoverContent>
+        </Popover>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setQualityDateRange(undefined)}
+          title="Show all data"
+          className="shrink-0 bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222]"
+        >
+          <RefreshCcw className="h-4 w-4" />
+        </Button>
+      </div>
+    </TooltipTrigger>
+
+    <TooltipContent>
+      Applies only to Top 10 FAQs and Daily Question Trends
+    </TooltipContent>
+  </Tooltip>
+</div>
                 </div>
 
                 {/* Daily Trends & FAQ Leaderboard Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 relative">
-                  {qualityLoading && (
-                    <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-xl">
-                      <Spinner text="Updating quality metrics..." />
-                    </div>
-                  )}
-                  <DailyQuestionTrendsChart trends={(qualityData as any).dailyQuestionTrends} />
-                  <TopFaqsLeaderboard
-                    faqs={(qualityData as any).topFaqs}
-                    topQuestionsFromCollection={(qualityData as any).topQuestionsFromCollection}
-                    repeatQueryCount={(qualityData as any).repeatQueryCount}
-                    repeatQueryRatePct={(qualityData as any).repeatQueryRatePct}
-                    avgQuestionsPerUserDay={(qualityData as any).avgQuestionsPerUserDay}
-                  />
-                </div>
+  {qualityLoading && (
+    <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-xl">
+      <Spinner text="Updating quality metrics..." />
+    </div>
+  )}
+
+  {/* LEFT COLUMN */}
+  <div className="flex flex-col gap-3">
+    <DailyQuestionTrendsChart
+      trends={(qualityData as any).dailyQuestionTrends}
+    />
+
+    <DashboardStateWiseAnalytics
+      source={source}
+      userType={filters.userType}
+    />
+  </div>
+
+  {/* RIGHT COLUMN */}
+  <div className="h-full">
+    <TopFaqsLeaderboard
+      faqs={(qualityData as any).topFaqs}
+      topQuestionsFromCollection={(qualityData as any).topQuestionsFromCollection}
+      repeatQueryCount={(qualityData as any).repeatQueryCount}
+      repeatQueryRatePct={(qualityData as any).repeatQueryRatePct}
+      avgQuestionsPerUserDay={(qualityData as any).avgQuestionsPerUserDay}
+    />
+  </div>
+</div>
 
                 {/* Geo + Health */}
                 <div
@@ -1066,8 +1098,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     channelSplit={data.channelSplit}
                     voiceAccuracy={data.voiceAccuracy}
                   /> */}
-                  <DashboardStateWiseAnalytics source={source} userType={filters.userType}/>
-                  {/* <GeoCard states={data.geoStates} /> */}
+                  {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
+                  {/* <GeoCard states={data.geoStates} />*/}
                   <div
                     ref={(el) => {
                       sectionRefs.current["app-health"] = el;

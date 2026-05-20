@@ -438,11 +438,6 @@ export class ChatbotRepository implements IChatbotRepository {
         if (endTime) {
           avgQuestionsMatch.createdAt.$lte = new Date(endTime);
         }
-      } else {
-        const since30Days = new Date();
-        since30Days.setDate(since30Days.getDate() - 30);
-        since30Days.setHours(0, 0, 0, 0);
-        avgQuestionsMatch.createdAt = { $gte: since30Days };
       }
 
       const avgQuestionsRaw = await this.messagesCollection.aggregate([
@@ -2912,11 +2907,6 @@ export class ChatbotRepository implements IChatbotRepository {
         if (endTime) {
           matchQuery.createdAt.$lte = new Date(endTime);
         }
-      } else {
-        const since = new Date();
-        since.setDate(since.getDate() - days);
-        since.setHours(0, 0, 0, 0);
-        matchQuery.createdAt = { $gte: since };
       }
 
       const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);

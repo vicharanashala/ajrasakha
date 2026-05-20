@@ -61,17 +61,8 @@ export function TopFaqsLeaderboard({
     }
   };
 
-  if (!faqs || faqs.length === 0) {
-    return (
-      <Card className="border border-border dark:bg-card/50 backdrop-blur-md rounded-xl shadow-lg p-6 flex flex-col justify-center items-center h-[440px]">
-        <MessageCircle className="w-8 h-8 text-muted-foreground/40 mb-2" />
-        <p className="text-muted-foreground text-sm">No FAQ queries recorded in messages.</p>
-      </Card>
-    );
-  }
-
   return (
-    <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-[440px]">
+    <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-[900px]">
       <CardHeader className="pb-3 border-b border-border/40 flex flex-row items-center gap-2.5 shrink-0">
         <Award className="w-5 h-5 text-amber-500" />
         <div>
@@ -86,7 +77,7 @@ export function TopFaqsLeaderboard({
 
       {/* Dynamic Summary Cards Row */}
       <div className="grid grid-cols-2 gap-2.5 px-6 py-2.5 border-b border-border/40 bg-muted/5 shrink-0">
-        <div className="relative group/repeat flex items-center gap-3 p-2 rounded-lg border border-border/30 bg-card/20 hover:bg-card/40 transition-all duration-200" title={`Total count: ${repeatQueryCount.toLocaleString()}`}>
+        <div className="relative group/repeat flex items-center gap-3 p-2 rounded-lg border border-border/30 bg-card/20 hover:bg-card/40 transition-all duration-200" title={repeatQueryRatePct > 0 ? `Total count: ${repeatQueryCount.toLocaleString()}` : "No data available"}>
           <div className="p-1.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 shrink-0">
             <RefreshCw className="w-3.5 h-3.5" />
           </div>
@@ -95,24 +86,27 @@ export function TopFaqsLeaderboard({
               Repeat Query Percentage
             </span>
             <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-base font-bold text-amber-400 leading-none">
-                {Number(repeatQueryRatePct).toFixed(1)}%
-              </span>
-              <span className="text-[9px] text-muted-foreground/80 font-normal leading-none truncate">
-                repeat questions from users
-              </span>
-            </div>
+  <span className={`text-base font-bold leading-tight ${repeatQueryRatePct > 0 ? 'text-amber-400' : 'text-muted-foreground/50'}`}>
+    {repeatQueryRatePct > 0 ? `${Number(repeatQueryRatePct).toFixed(1)}%` : '—'}
+  </span>
+
+  <span className={`text-[9px] font-normal leading-tight truncate ${repeatQueryRatePct > 0 ? 'text-muted-foreground/80' : 'text-muted-foreground/40'}`}>
+    {repeatQueryRatePct > 0 ? 'of queries asked more than once' : 'no data'}
+  </span>
+</div>
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsFaqModalOpen(true);
-            }}
-            className="absolute top-1 right-1 p-1 rounded bg-zinc-850 hover:bg-zinc-700 text-muted-foreground hover:text-amber-400 opacity-0 group-hover/repeat:opacity-100 transition-all duration-200"
-            title="Show Frequently Asked Messages"
-          >
-            <Maximize2 className="w-3 h-3" />
-          </button>
+          {repeatQueryRatePct > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsFaqModalOpen(true);
+              }}
+              className="absolute top-1 right-1 p-1 rounded bg-zinc-850 hover:bg-zinc-700 text-muted-foreground hover:text-amber-400 opacity-0 group-hover/repeat:opacity-100 transition-all duration-200"
+              title="Show Frequently Asked Messages"
+            >
+              <Maximize2 className="w-3 h-3" />
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3 p-2 rounded-lg border border-border/30 bg-card/20 hover:bg-card/40 transition-all duration-200">
@@ -124,13 +118,14 @@ export function TopFaqsLeaderboard({
               Average User Queries
             </span>
             <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-base font-bold text-emerald-400 leading-none">
-                {Math.round(Number(avgQuestionsPerUserDay))}
-              </span>
-              <span className="text-[9px] text-muted-foreground/80 font-normal leading-none truncate">
-                Messages per user each day
-              </span>
-            </div>
+  <span className={`text-base font-bold leading-tight ${avgQuestionsPerUserDay > 0 ? 'text-emerald-400' : 'text-muted-foreground/50'}`}>
+    {avgQuestionsPerUserDay > 0 ? Math.round(Number(avgQuestionsPerUserDay)) : '—'}
+  </span>
+
+  <span className={`text-[9px] font-normal leading-tight truncate ${avgQuestionsPerUserDay > 0 ? 'text-muted-foreground/80' : 'text-muted-foreground/40'}`}>
+    {avgQuestionsPerUserDay > 0 ? 'Messages per user each day' : 'no data'}
+  </span>
+</div>
           </div>
         </div>
       </div>
@@ -195,7 +190,7 @@ export function TopFaqsLeaderboard({
                   </div>
                   <div>
                     <h3 className="text-base font-semibold text-gray-100">
-                      Frequently Asked Messages
+                      Frequently Asked Queries
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Top chatbot messages ranked by occurrence (Query Repeat Rate: {Number(repeatQueryRatePct).toFixed(1)}%)
