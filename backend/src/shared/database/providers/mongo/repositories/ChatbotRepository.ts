@@ -26,6 +26,7 @@ import type {
   MonthlyQueryCountEntry,
   MonthlySessionDurationEntry,
   DistrictAnalyticsEntry,
+  FeedbackData,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -1093,6 +1094,142 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(
         `Failed to get monthly query counts: ${error}`,
       );
+    }
+  }
+
+  async getFeedbackData(
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<FeedbackData> {
+    try {
+      await this.init(source);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                feedback: {$exists: true},
+                isCreatedByUser: false,
+              },
+            },
+
+            ...userTypeLookupStages,
+
+            {
+              $addFields: {
+                numericRating: {
+                  $switch: {
+                    branches: [
+                      {
+                        case: {
+                          $eq: ['$feedback.rating', 'thumbsUp'],
+                        },
+                        then: 1,
+                      },
+                      {
+                        case: {
+                          $eq: ['$feedback.rating', 'thumbsDown'],
+                        },
+                        then: 0,
+                      },
+                    ],
+                    default: null,
+                  },
+                },
+              },
+            },
+
+            {
+              $facet: {
+                positiveFeedbacks: [
+                  {
+                    $match: {
+                      'feedback.rating': 'thumbsUp',
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      rating: '$feedback.rating',
+                      tag: '$feedback.tag',
+                    },
+                  },
+                ],
+
+                negativeFeedbacks: [
+                  {
+                    $match: {
+                      'feedback.rating': 'thumbsDown',
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      rating: '$feedback.rating',
+                      tag: '$feedback.tag',
+                    },
+                  },
+                ],
+
+                stats: [
+                  {
+                    $group: {
+                      _id: null,
+
+                      positiveCount: {
+                        $sum: {
+                          $cond: [
+                            {
+                              $eq: ['$feedback.rating', 'thumbsUp'],
+                            },
+                            1,
+                            0,
+                          ],
+                        },
+                      },
+
+                      negativeCount: {
+                        $sum: {
+                          $cond: [
+                            {
+                              $eq: ['$feedback.rating', 'thumbsDown'],
+                            },
+                            1,
+                            0,
+                          ],
+                        },
+                      },
+
+                      averageRating: {
+                        $avg: '$numericRating',
+                      },
+
+                      totalFeedbacks: {
+                        $sum: 1,
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      const data = result[0];
+
+      return {
+        positiveFeedbacks: data.positiveFeedbacks,
+        negativeFeedbacks: data.negativeFeedbacks,
+        stats: data.stats[0],
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get feedback data: ${error}`);
     }
   }
 

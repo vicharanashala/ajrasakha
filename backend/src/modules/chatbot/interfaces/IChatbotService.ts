@@ -17,6 +17,7 @@ import type {
   MonthlyQueryCountEntry,
   MonthlySessionDurationEntry,
   DistrictAnalyticsEntry,
+  FeedbackData,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -39,6 +40,7 @@ export interface DashboardResponse {
   agriAppUsage: DemographicEntry[];
   platformInstalls: PlatformInstallEntry[];
   domainSpikes: DomainSpikeEntry[];
+  feedbackData: FeedbackData;
   dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;
   topFaqs?: Array<{ question: string; count: number }>;
   topQuestionsFromCollection?: Array<{ question: string; count: number }>;

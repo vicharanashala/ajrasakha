@@ -46,6 +46,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
+import FeedbackCard from "./FeedbackCard";
+
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
   crop: "all",
@@ -1103,8 +1105,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                       sectionRefs.current["app-health"] = el;
                     }}
                   >
-                    <HealthScoreCard pillars={data.healthPillars} />
-                  </div> */}
+                    <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/>
+                  </div>
                 </div >
               </div >
             )
