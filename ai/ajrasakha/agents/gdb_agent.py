@@ -212,7 +212,7 @@ async def gdb(
             {
                 "mcp_golden": {
                     "url": mcp_url,
-                    "transport": "streamable_http",
+                    "transport": "streamable-http",
                 }
             }
         )
