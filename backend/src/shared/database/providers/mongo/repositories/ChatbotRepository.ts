@@ -2968,4 +2968,14 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(`Failed to get top questions from collection: ${error}`);
     }
   }
+
+  async deleteUser(userId: string, source: string): Promise<boolean> {
+    try {
+      await this.init(source);
+      const result = await this.users.deleteOne({ _id: new ObjectId(userId) });
+      return result.deletedCount === 1;
+    } catch (error) {
+      throw new InternalServerError(`Failed to delete user: ${error}`);
+    }
+  }
 }

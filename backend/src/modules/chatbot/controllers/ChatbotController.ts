@@ -8,6 +8,8 @@ import {
   ContentType,
   Res,
   QueryParam,
+  Delete,
+  Param,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -421,5 +423,31 @@ async getDistrictAnalyticsByState(
     const range = Number(query.range) || 30;
     const data = await this.chatbotService.getGrowth(range);
     return data
+  }
+
+  @OpenAPI({ 
+    summary: 'Delete a farmer',
+    description: 'Deletes a farmer from the specified source database.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to delete farmer',
+  })
+  @Delete('/users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async deleteUser(
+    @Param('userId') userId: string,
+    @QueryParam('source') source: string,
+  ) {
+    if (!source) {
+      source = 'vicharanashala';
+    }
+    const success = await this.chatbotService.deleteUser(userId, source);
+    return { success, message: success ? 'User deleted successfully' : 'Failed to delete user' };
   }
 }

@@ -671,4 +671,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
     }
   }
+
+  async deleteUser(userId: string, source: string): Promise<boolean> {
+    try {
+      return await this.chatbotRepository.deleteUser(userId, source);
+    } catch (error) {
+      throw new InternalServerError(`Failed to delete user: ${error}`);
+    }
+  }
 }
