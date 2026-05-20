@@ -22,7 +22,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDashboard(days = 30, source = 'vicharanashala', userType = 'all'): Promise<DashboardResponse> {
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, monthlySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes] =
+      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, monthlySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes, feedbackData] =
         await Promise.all([
           this.chatbotRepository.getKpiSummary(source, undefined, userType),
           this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType),
@@ -41,6 +41,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getKccAndAgriAppStats(source, undefined, userType),
           this.chatbotRepository.getPlatformInstalls(source),
           this.chatbotRepository.getDomainSpikes(60),
+          this.chatbotRepository.getFeedbackData(source, undefined, userType),
         ]);
 
       return {
@@ -63,6 +64,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         agriAppUsage: kccAndAgri.agriAppUsage,
         platformInstalls,
         domainSpikes,
+        feedbackData,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch dashboard data: ${error}`);

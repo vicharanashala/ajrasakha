@@ -17,6 +17,7 @@ import type {
   MonthlyQueryCountEntry,
   MonthlySessionDurationEntry,
   DistrictAnalyticsEntry,
+  FeedbackData,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -39,6 +40,7 @@ export interface DashboardResponse {
   agriAppUsage: DemographicEntry[];
   platformInstalls: PlatformInstallEntry[];
   domainSpikes: DomainSpikeEntry[];
+  feedbackData: FeedbackData;
 }
 
 export interface IChatbotService {

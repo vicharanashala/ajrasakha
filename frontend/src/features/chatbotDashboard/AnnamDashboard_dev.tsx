@@ -34,6 +34,7 @@ import { Maximize2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
+import FeedbackCard from "./FeedbackCard";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -975,14 +976,14 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     voiceAccuracy={data.voiceAccuracy}
                   /> */}
                   <DashboardStateWiseAnalytics source={source} userType={filters.userType}/>
-                  {/* <GeoCard states={data.geoStates} />
+                  {/* <GeoCard states={data.geoStates} /> */}
                   <div
                     ref={(el) => {
                       sectionRefs.current["app-health"] = el;
                     }}
                   >
-                    <HealthScoreCard pillars={data.healthPillars} />
-                  </div> */}
+                    <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/>
+                  </div>
                 </div >
               </div >
             )

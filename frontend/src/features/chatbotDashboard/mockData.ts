@@ -1,4 +1,4 @@
-import type { Segment, KpiCard, DemographicEntry, IPlatformInstallEntry } from "./types";
+import type { Segment, KpiCard, DemographicEntry, IPlatformInstallEntry, FeedbackData } from "./types";
 import type { DomainSpikeEntry } from "./components/DomainSpikesModal";
 
 export const DASHBOARD_DATA = {
@@ -98,4 +98,25 @@ export const DASHBOARD_DATA = {
     { domain: "Soil Health and Nutrient Management", date: "2026-05-02", count: 520, baseline: 280, spikePct: 86, location: "Guntur, Andhra Pradesh" },
     { domain: "Seed and Variety Selection", date: "2026-05-01", count: 430, baseline: 210, spikePct: 105, location: "Warangal, Telangana" },
   ] as DomainSpikeEntry[],
+  feedbackData: {
+  "positiveFeedbacks": [
+    {
+      "rating": "thumbsUp",
+      "tag": "accurate_reliable"
+    }
+  ],
+  "negativeFeedbacks": [
+    {
+      "rating": "thumbsDown",
+      "tag": "incorrect"
+    }
+  ],
+  "stats": {
+    "_id": null,
+    "positiveCount": 12,
+    "negativeCount": 3,
+    "averageRating": 0.8,
+    "totalFeedbacks": 15
+  }
+} as FeedbackData,
 };

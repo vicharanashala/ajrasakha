@@ -10,7 +10,7 @@ import {
 } from "../utils/dashboardHelpers";
 import type { DailyEntry } from "../utils/dashboardHelpers";
 import type { DashboardFilterValues } from "../DashboardFilters";
-import type { DemographicEntry } from "../types";
+import type { DemographicEntry, FeedbackData } from "../types";
 import type { IPlatformInstallEntry } from "../types";
 import type { DomainSpikeEntry } from "../components/DomainSpikesModal";
 export type DashboardDataType = typeof DASHBOARD_DATA;
@@ -50,6 +50,7 @@ interface DashboardApiResponse {
   landHolding: DemographicEntry[];
   platformInstalls: IPlatformInstallEntry[];
   domainSpikes?: DomainSpikeEntry[];
+  feedbackData: FeedbackData;
 }
 
 // ── Date range label helpers ──────────────────────────────────────────────────
@@ -342,6 +343,17 @@ function transformApiResponse(
   });
 
   updatedData.queryCategories = result.queryCategories ?? [];
+  updatedData.feedbackData = result.feedbackData ?? {
+    positiveFeedbacks: [],
+    negativeFeedbacks: [],
+    stats: {
+      _id: null,
+      positiveCount: 0,
+      negativeCount: 0,
+      averageRating: 0,
+      totalFeedbacks: 0
+    }
+  };
 
   return updatedData;
 }
