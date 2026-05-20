@@ -1,11 +1,10 @@
 import os
 import asyncio
 import json
-from typing import List, Optional
+from typing import Optional
 from mcp.server.fastmcp import FastMCP
 
 from bson import ObjectId
-from langchain.tools import tool
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient
@@ -46,7 +45,7 @@ class QuestionAnswerPair(BaseModel):
     question_text: str
     answer_text: str
     author: Optional[str]
-    sources: List
+    sources: list
     similarity_score: Optional[float] = None
 
 
@@ -87,7 +86,7 @@ async def golden_retriever_tool(
         state: str,
         season: str | None = None,
         domain: str | None = None,
-) -> list:
+) -> list[dict]:
     """Retrieve relevant documents from the Golden dataset.
 
     crop and state are required on every call. Use the farmer's crop and state when known;
@@ -125,7 +124,7 @@ async def golden_retriever_tool(
             sources=sources,
             similarity_score=score,
         )
-        result.append(question_answer_pair)
+        result.append(question_answer_pair.model_dump())
     return result
 
 
@@ -184,13 +183,16 @@ async def golden_strict_exact_search_tool(
         query: str,
         crop: str,
         state: str,
-) -> list:
+) -> list[dict]:
     """
     Search the Golden dataset for a strict character-by-character exact match on 'question'
     or 'text' fields after applying strict state and crop filters only.
 
     crop and state are required.
     """
+    import string
+    import re
+
     crop, state = _normalize_crop_state(crop, state)
     meta_filter: dict = {
         "status": "closed",
@@ -223,14 +225,12 @@ async def golden_strict_exact_search_tool(
         },
     ]
 
-    cursor = await questions_collection.aggregate(pipeline)
+    cursor = questions_collection.aggregate(pipeline)
     raw_results = await cursor.to_list(length=10)
 
     if not raw_results:
         return []
 
-    import string
-    import re
     def normalize(t: str) -> str:
         return re.sub(r'\s+', ' ', t.translate(str.maketrans('', '', string.punctuation)).lower()).strip()
 
@@ -254,7 +254,7 @@ async def golden_strict_exact_search_tool(
                 author=author_name,
                 sources=sources,
             )
-            result.append(question_answer_pair)
+            result.append(question_answer_pair.model_dump())
             break  # Return only the first matching exact pair
 
     return result
@@ -268,7 +268,7 @@ async def golden_exact_search_tool(
         season: str | None = None,
         domain: str | None = None,
         min_score: float = 1.0,
-) -> list:
+) -> list[dict]:
     """
     Search the Golden dataset using full-text keyword matching on the 'question'
     and 'text' fields via MongoDB Atlas Search ($search).
@@ -335,7 +335,7 @@ async def golden_exact_search_tool(
             }
         },
     ]
-    cursor = await questions_collection.aggregate(pipeline)
+    cursor = questions_collection.aggregate(pipeline)
     raw_results = await cursor.to_list(length=5)
 
     if not raw_results:
@@ -360,7 +360,7 @@ async def golden_exact_search_tool(
             sources=sources,
             similarity_score=doc.get("search_score"),
         )
-        result.append(question_answer_pair)
+        result.append(question_answer_pair.model_dump())
 
     return result
 
