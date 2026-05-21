@@ -32,12 +32,9 @@ import { DailyQuestionTrendsChart } from "./components/DailyQuestionTrendsChart"
 import { TopFaqsLeaderboard } from "./components/TopFaqsLeaderboard";
 import { useInView } from "@/hooks/useInView";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
-import { Maximize2, X, CalendarIcon, RefreshCcw } from "lucide-react";
+import { Maximize2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
-import { Calendar } from "@/components/atoms/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { Button } from "@/components/atoms/button";
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
@@ -66,15 +63,23 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters, source);
 
-  const [qualityDateRange, setQualityDateRange] = useState<DateRange | undefined>(undefined);
+  const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
+  const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
 
-  const qualityFilters = useMemo(() => ({
+  const trendsFilters = useMemo(() => ({
     ...filters,
-    startTime: qualityDateRange?.from,
-    endTime: qualityDateRange?.to,
-  }), [filters, qualityDateRange]);
+    startTime: trendsDateRange?.from,
+    endTime: trendsDateRange?.to,
+  }), [filters, trendsDateRange]);
 
-  const { data: qualityData, isLoading: qualityLoading } = useDashboardData(qualityFilters, source);
+  const faqsFilters = useMemo(() => ({
+    ...filters,
+    startTime: faqsDateRange?.from,
+    endTime: faqsDateRange?.to,
+  }), [filters, faqsDateRange]);
+
+  const { data: trendsData, isLoading: trendsLoading } = useDashboardData(trendsFilters, source);
+  const { data: faqsData, isLoading: faqsLoading } = useDashboardData(faqsFilters, source);
 
   // console.log("Dashboard data:", data);
   const {
@@ -988,105 +993,44 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                 </div>
 
                 {/* Chatbot Quality & FAQ Analytics Section Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 mt-6">
-                  <div>
-                    <h2 className="text-[#1a1a1a] dark:text-white text-sm font-semibold tracking-wide uppercase text-muted-foreground m-0">
-                      Chatbot Quality & FAQ Analytics
-                    </h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Analyze query repetition, daily unique trends, and FAQ leaderboard metrics
-                    </p>
-                  </div>
+                {/* Daily Trends & FAQ Leaderboard Grid */}
+                {/* Row 1: Daily Trends & Feedback Data */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 mt-6">
+                  <DailyQuestionTrendsChart
+                    trends={(trendsData as any).dailyQuestionTrends}
+                    dateRange={trendsDateRange}
+                    onDateRangeChange={setTrendsDateRange}
+                    isLoading={trendsLoading}
+                  />
 
-                  {/* Section-level Date Range Selector */}
-                  <div className="flex items-center gap-2 w-full sm:w-auto sm:max-w-[420px]">
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <div className="flex items-center gap-2 flex-1">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="justify-start text-left font-normal bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 max-w-full whitespace-normal h-auto min-h-10 flex-1 hover:bg-gray-50 dark:hover:bg-[#222]"
-            >
-              <CalendarIcon className="mr-2 h-4 w-4 text-[#3AAA5A]" />
-              {qualityDateRange?.from ? (
-                qualityDateRange.to ? (
-                  `${format(qualityDateRange.from, "MMM dd, yyyy")} - ${format(qualityDateRange.to, "MMM dd, yyyy")}`
-                ) : (
-                  format(qualityDateRange.from, "MMM dd, yyyy")
-                )
-              ) : (
-                "All data"
-              )}
-            </Button>
-          </PopoverTrigger>
-
-          <PopoverContent
-            className="w-auto p-0 border-gray-200 dark:border-[#2a2a2a]"
-            align="end"
-          >
-            <Calendar
-              initialFocus
-              mode="range"
-              defaultMonth={qualityDateRange?.from ?? new Date()}
-              selected={qualityDateRange}
-              onSelect={setQualityDateRange}
-              numberOfMonths={1}
-            />
-          </PopoverContent>
-        </Popover>
-
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setQualityDateRange(undefined)}
-          title="Show all data"
-          className="shrink-0 bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222]"
-        >
-          <RefreshCcw className="h-4 w-4" />
-        </Button>
-      </div>
-    </TooltipTrigger>
-
-    <TooltipContent>
-      Applies only to Top 10 FAQs and Daily Question Trends
-    </TooltipContent>
-  </Tooltip>
-</div>
+                  <FeedbackCard 
+                    title="Feedback Data" 
+                    positiveFeedbacksCount={data?.feedbackData?.stats?.positiveCount} 
+                    negativeFeedbacksCount={data?.feedbackData?.stats?.negativeCount} 
+                    positiveFeedbacks={data?.feedbackData?.positiveFeedbacks} 
+                    negativeFeedbacks={data?.feedbackData?.negativeFeedbacks} 
+                    averageRating={data?.feedbackData?.stats?.averageRating} 
+                  />
                 </div>
 
-                {/* Daily Trends & FAQ Leaderboard Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 relative">
-  {qualityLoading && (
-    <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-xl">
-      <Spinner text="Updating quality metrics..." />
-    </div>
-  )}
+                {/* Row 2: State Analytics & FAQ Leaderboard */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                  <DashboardStateWiseAnalytics
+                    source={source}
+                    userType={filters.userType}
+                  />
 
-  {/* LEFT COLUMN */}
-  <div className="flex flex-col gap-3">
-    <DailyQuestionTrendsChart
-      trends={(qualityData as any).dailyQuestionTrends}
-    />
-
-    <DashboardStateWiseAnalytics
-      source={source}
-      userType={filters.userType}
-    />
-  </div>
-
-  {/* RIGHT COLUMN */}
-  <div className="h-full">
-    <TopFaqsLeaderboard
-      faqs={(qualityData as any).topFaqs}
-      topQuestionsFromCollection={(qualityData as any).topQuestionsFromCollection}
-      repeatQueryCount={(qualityData as any).repeatQueryCount}
-      repeatQueryRatePct={(qualityData as any).repeatQueryRatePct}
-      avgQuestionsPerUserDay={(qualityData as any).avgQuestionsPerUserDay}
-    />
-  </div>
-</div>
+                  <TopFaqsLeaderboard
+                    faqs={(faqsData as any).topFaqs}
+                    topQuestionsFromCollection={(faqsData as any).topQuestionsFromCollection}
+                    repeatQueryCount={(faqsData as any).repeatQueryCount}
+                    repeatQueryRatePct={(faqsData as any).repeatQueryRatePct}
+                    avgQuestionsPerUserDay={(faqsData as any).avgQuestionsPerUserDay}
+                    dateRange={faqsDateRange}
+                    onDateRangeChange={setFaqsDateRange}
+                    isLoading={faqsLoading}
+                  />
+                </div>
 
                 {/* Geo + Health */}
                 <div
@@ -1106,7 +1050,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                       sectionRefs.current["app-health"] = el;
                     }}
                   >
-                    <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/>
+                    {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
                   </div>
                 </div >
 

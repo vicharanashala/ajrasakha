@@ -4573,9 +4573,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const {question, details, createdAt, messageId, userId} = questionData;
 
-    if(!messageId) {
+   /* if(!messageId) {
       throw new Error('Question does not have messageId, cannot reliably fetch matched message');
-    }
+    }*/
 
     const analyticsPromise = this.chatbotRepository.findMatchingMessages({
       question,

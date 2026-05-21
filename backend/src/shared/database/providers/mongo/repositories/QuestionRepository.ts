@@ -329,6 +329,7 @@ export class QuestionRepository implements IQuestionRepository {
         hiddenQuestions,
         duplicateQuestions,
         isOnHold,
+        unallocatedQuestions,
         pae_review
       } = query;
       //  const filter: any = {};
@@ -353,6 +354,53 @@ export class QuestionRepository implements IQuestionRepository {
 
       // --- on Hold question filter ---
       if (isOnHold === 'true') filter.isOnHold = { $eq: true }; // filter by on hold questions
+
+      // --- Unallocated questions filter ---
+      // Single aggregation: join questions (open/delayed) with question_submissions,
+      // then match: no submission, OR empty queue, OR last history status != 'in-review' with non-empty queue
+      if (unallocatedQuestions === 'true') {
+        const unallocatedDocs = await this.QuestionCollection.aggregate([
+          { $match: { status: { $in: ['open', 'delayed'] } } },
+          {
+            $lookup: {
+              from: 'question_submissions',
+              let: { qId: '$_id' },
+              pipeline: [
+                { $match: { $expr: { $eq: ['$questionId', '$$qId'] } } },
+                { $project: { queue: 1, history: 1 } },
+              ],
+              as: 'sub',
+            },
+          },
+          { $addFields: { sub: { $arrayElemAt: ['$sub', 0] } } },
+          {
+            $match: {
+              $or: [
+                // No submission OR empty queue
+                { $expr: { $eq: [{ $size: { $ifNull: ['$sub.queue', []] } }, 0] } },
+                // Queue not empty + history not empty + last history status != 'in-review'
+                {
+                  $and: [
+                    { $expr: { $gt: [{ $size: { $ifNull: ['$sub.queue', []] } }, 0] } },
+                    { $expr: { $gt: [{ $size: { $ifNull: ['$sub.history', []] } }, 0] } },
+                    {
+                      $expr: {
+                        $ne: [
+                          { $arrayElemAt: [{ $map: { input: { $ifNull: ['$sub.history', []] }, as: 'h', in: '$$h.status' } }, -1] },
+                          'in-review',
+                        ],
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          { $project: { _id: 1 } },
+        ]).toArray();
+
+        filter._id = { $in: unallocatedDocs.map((d) => d._id) };
+      }
 
       //for duplicate questions.
       // duplicateQuestions === 'true'

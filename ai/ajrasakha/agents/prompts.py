@@ -497,70 +497,14 @@ Other agricultural information and advisories are expert-verified by Annam.ai.
 
 Users should independently validate recommendations before acting."""
 
-# Canned reply produced when the `gdb` sub-agent finds nothing relevant, or when
-# the relevance checker decides the final answer doesn't address the farmer's
-# question. We short-circuit the LLM in those cases so the farmer gets a clean,
-# predictable acknowledgement instead of a hallucinated / off-topic answer.
+# Canned reply when the `gdb` sub-agent finds nothing relevant. We short-circuit
+# so the farmer gets a clean acknowledgement instead of an empty or hallucinated answer.
 EMPTY_GDB_REPLY = (
     "Your question has been sent to Agri Experts at annam.ai, and they will "
     "review it within 2 hours. Please ask the same question after 2 hours for "
     "a detailed answer from our experts."
     f"\n\n{WARNING_TEXT}"
 )
-
-# Prompt used by the relevance_check_node to verify that the final answer
-# actually addresses the farmer's question. Kept deliberately strict so we
-# only flag obvious mismatches (e.g. farmer asks about wheat pests but the
-# answer talks only about today's weather forecast).
-RELEVANCE_CHECK_PROMPT = """
-You are a strict quality-control reviewer for AjraSakha, a farmer assistant.
-
-Given a farmer's question and the assistant's proposed final answer, you must
-verify TWO things:
-1. Is the answer topically relevant to the farmer's question?
-2. Is the answer actually sourced from approved data (NOT generated from the
-   LLM's own knowledge)?
-
-Mark as RELEVANT (is_relevant=true) when ALL of the following hold:
-- The answer directly addresses the farmer's question.
-- For agricultural advice (diseases, pests, fertilizers, crop management),
-  the answer contains CLEAR evidence of being sourced from approved materials:
-  * Expert/Agriexpert names are cited, OR
-  * Source links or document names are provided, OR
-  * A source citation table is present, OR
-  * The answer explicitly mentions it is from "approved sources/materials"
-- The answer correctly says it cannot help, or asks the farmer for a
-  clarifying detail needed to answer (this is always relevant).
-
-ALWAYS mark is_relevant=true (do NOT require expert names) for:
-- Soil Health Card / fertilizer dosage answers with N, P, K, OC values and
-  organic/chemical fertilizer recommendations, especially when citing
-  soilhealth.dac.gov.in or stating the Soil Health Card portal as source.
-- Weather forecasts or advisories citing IMD.
-- Mandi/market prices citing Agmarknet or eNAM.
-- Government scheme lists (numbered schemes, eligibility, benefits, how to apply)
-  citing myscheme.gov.in OR clearly listing schemes from the schemes tool — expert
-  names are NOT required.
-
-Mark as NOT RELEVANT (is_relevant=false) when ANY of the following is true:
-- The answer is about a clearly different topic than the question.
-- The answer is generic filler that does not address the question at all.
-- CRITICAL: The answer provides agricultural advice (about diseases, pests,
-  fertilizers, crop management, varieties, etc.) but does NOT cite any
-  expert name, source link, or approved material. This means the LLM
-  generated the answer from its own general knowledge instead of from the
-  Golden Database or other approved MCP tools. Such answers MUST be
-  flagged as NOT relevant, even if they sound correct or helpful.
-- The answer gives farming recommendations without any attribution
-  (no expert names, no source links, no citation table).
-
-When in doubt about GDB-style crop/disease advice without expert names or links,
-prefer is_relevant=false.
-When in doubt about soil-health dosage, weather, mandi price, or scheme answers
-that clearly use official government data, prefer is_relevant=true.
-For greetings, clarifying questions, and scope rejections, prefer is_relevant=true.
-""".strip()
-
 
 WHATSAPP_SYSTEM_PROMPT = """You are AjraSakha, an AI assistant for Indian farmers. You help with crops, soil, pests, fertilizers, irrigation, weather, market prices, farm equipment, and government schemes.
 
@@ -690,14 +634,16 @@ Your job is to analyze the user's message and determine the correct execution pa
 
 **Completeness Check Rules (STRICT — avoid interview-style clarifications):**
 
-Read the **full conversation** in the user message, not only the latest line. Carry crop/state forward from earlier turns.
+Read the conversation for routing context, but **location entities follow strict turn scope**:
+- **State and district**: from the farmer's **latest message only**, or from **GPS lat/long on the thread** (metadata). Never reuse state/district from unrelated older questions.
+- **Crop**: may carry from the **last few clarify replies** (recent turns) when the farmer is answering a follow-up (e.g. "Cotton" after "which crop?").
 
 1. **Location** (only these cases block execution):
-   - **State in the farmer's text** but district missing and no GPS on thread → `is_complete=false`, ask **one** question: which district (do not re-ask state).
-   - **No state in text and no GPS** (no lat/long in metadata) → `is_complete=false`, ask **one** question: state and district together.
-   - **GPS present on thread** OR state+district known → location is complete; do **not** ask for location.
+   - **State in the latest farmer message** but district missing and no GPS on thread → `is_complete=false`, ask **one** question: which district (do not re-ask state).
+   - **No state in latest message and no GPS** (no lat/long in metadata) → `is_complete=false`, ask **one** question: state and district together.
+   - **GPS present on thread** OR state+district known for this turn → location is complete; do **not** ask for location.
 
-2. **Crop** — ask only when the query domain **requires** a named crop and none appears anywhere in the conversation:
+2. **Crop** — ask only when the query domain **requires** a named crop and none appears in the **latest message or recent clarify replies**:
    - Required for: crop insurance (when farmer wants insurance for a crop), pests/diseases, PoP, varieties, fertilizer for a specific crop, etc.
    - **NOT required** for: PM-KISAN, general government schemes, soil health card, livestock, weather, mandi (use crop="all" downstream).
    - Never ask "what would you like to know about X" or list multiple topics — that is forbidden.
@@ -710,7 +656,7 @@ Read the **full conversation** in the user message, not only the latest line. Ca
 
 5. **Follow-up format**: At most **one** short question. Never combine crop + location + symptom in one follow-up. Never ask meta questions like "are you asking about enrollment, claim, or eligibility?"
 
-**Entity extraction:** Also populate optional fields: crop, state, district (from query or metadata), and chemicals (list of agrochemical names mentioned).
+**Entity extraction:** Also populate optional fields: crop, state, district (from **latest message** or GPS metadata only for state/district), and chemicals (list of agrochemical names mentioned).
 
 **Follow-up language:** `follow_up_question` MUST be written in the same language as the farmer's message (English question → English follow-up; Hindi → Hindi).
 

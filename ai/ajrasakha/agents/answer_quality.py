@@ -147,8 +147,7 @@ _TWO_HOUR_DISCLAIMER_PATTERNS: list[re.Pattern[str]] = [
 def is_official_government_sourced_answer(text: str) -> bool:
     """True when the answer cites official weather/market/soil/scheme government data.
 
-    These answers come from MCP tools (IMD, Agmarknet, Soil Health Card, myscheme)
-    and must NOT be rejected by the GDB-focused LLM relevance checker.
+    These answers come from official MCP tools (IMD, Agmarknet, Soil Health Card, myscheme).
     """
     if not text:
         return False
@@ -177,84 +176,6 @@ def _looks_like_government_scheme_answer(text: str) -> bool:
         return False
     numbered_items = re.findall(r"(?:^|\n)\s*\d+\.\s+\S", text)
     return len(numbered_items) >= 1 or "myscheme" in text.lower()
-
-
-def is_answer_supported_by_official_tools_in_turn(
-    messages: list[Any],
-    question_text: str,
-) -> bool:
-    """True when this turn ran an official MCP tool (schemes/soil/weather/market) successfully."""
-    from langchain_core.messages import HumanMessage, ToolMessage
-
-    last_human_idx = -1
-    for i in range(len(messages) - 1, -1, -1):
-        if isinstance(messages[i], HumanMessage):
-            last_human_idx = i
-            break
-    if last_human_idx < 0:
-        return False
-
-    q = (question_text or "").lower()
-
-    for msg in messages[last_human_idx + 1 :]:
-        if not isinstance(msg, ToolMessage):
-            continue
-        name = (getattr(msg, "name", None) or "").lower()
-        text = _coerce_message_text(msg.content)
-        if len(text) < 80 or _TOOL_FAILURE.search(text):
-            continue
-
-        if "scheme" in name:
-            if any(
-                k in q
-                for k in (
-                    "scheme",
-                    "subsidy",
-                    "benefit",
-                    "yojana",
-                    "government",
-                    "apply for",
-                )
-            ):
-                return True
-        if name == "soil" or name.endswith("_soil") or name.startswith("soil"):
-            if any(
-                k in q
-                for k in (
-                    "soil",
-                    "fertilizer",
-                    "npk",
-                    "nitrogen",
-                    "phosphorus",
-                    "potassium",
-                    "organic carbon",
-                )
-            ):
-                return True
-        if "weather" in name:
-            if any(
-                k in q
-                for k in ("weather", "rain", "forecast", "temperature", "imd")
-            ):
-                return True
-        if name == "market" or "market" in name or "agmarknet" in name or "enam" in name:
-            if any(k in q for k in ("price", "mandi", "market", "quintal")):
-                return True
-
-    return False
-
-
-def should_preserve_official_tool_answer(
-    messages: list[Any],
-    question_text: str,
-    answer_text: str,
-) -> bool:
-    """Skip GDB-style relevance rejection for official API / tool-backed replies."""
-    if is_official_government_sourced_answer(answer_text):
-        return True
-    if is_answer_supported_by_official_tools_in_turn(messages, question_text):
-        return True
-    return False
 
 
 def is_no_database_match_answer(text: str) -> bool:

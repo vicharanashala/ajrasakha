@@ -78,7 +78,7 @@ function FeedbackCard({
 
   return (
     <>
-      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
+      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden h-full flex flex-col">
         {/* Maximize Button */}
         {total > 0 && (
           <button
@@ -94,7 +94,7 @@ function FeedbackCard({
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="flex-1 flex flex-col justify-center">
           {total > 0 ? (
             <div className="space-y-5">
               {/* Summary */}
