@@ -20,6 +20,7 @@ import { auth } from "@/config/firebase";
 import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
+const INTERNAL_API_KEY = env.internalApiKey();
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
   private _reRouteUrl = `${API_BASE_URL}/reroute`;
@@ -235,8 +236,8 @@ export class QuestionService {
       method: "POST",
       body,
       headers: isFormData
-        ? undefined // Let browser set multipart boundary automatically
-        : { "Content-Type": "application/json" },
+        ? { "x-internal-api-key": INTERNAL_API_KEY } // Let browser set multipart boundary automatically
+        : { "x-internal-api-key": INTERNAL_API_KEY, "Content-Type": "application/json" },
     });
   }
 
@@ -247,6 +248,7 @@ export class QuestionService {
     return apiFetch<IDetailedQuestion>(`${this._baseUrl}/${questionId}`, {
       method: "PUT",
       body: JSON.stringify(updatedData),
+      headers: { "x-internal-api-key": INTERNAL_API_KEY, "Content-Type": "application/json" },
     });
   }
 
