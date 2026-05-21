@@ -3119,4 +3119,632 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(`Failed to delete user: ${error}`);
     }
   }
+
+  async getDailyActiveUsersTrend(
+    startDate: Date, endDate: Date, source: string, userType: string,
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(userType);
+
+      /**
+       * Last 365 days
+       */
+      // const endDate = new Date();
+      // const startDate = new Date();
+      // startDate.setDate(startDate.getDate() - 365);
+
+      const matchStage: any = {
+        lastActiveAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+
+      /**
+       * External Users
+       */
+      if (source === "external") {
+        matchStage.email = {
+          $regex: "^rup",
+          $options: "i",
+        };
+      }
+
+      /**
+       * Internal Users
+       */
+      if (source === "internal") {
+        matchStage.email = {
+          $not: {
+            $regex: "^rup",
+            $options: "i",
+          },
+        };
+      }
+
+      /**
+       * DAU Trend
+       */
+      const result = await this.users
+        .aggregate(
+          [
+          {
+            $match: matchStage,
+          },
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: "%Y-%m-%d",
+                    date: "$lastActiveAt",
+                  },
+                },
+                dau: {
+                  $sum: 1,
+                },
+              },
+            },
+            {
+              $sort: {
+                _id: 1,
+              },
+            },
+          ],
+          {
+            session,
+          },
+        )
+        .toArray();
+
+      return result;
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get daily active users trend: ${error}`,
+      );
+    }
+  }
+
+
+  async getWeeklyActiveUsersTrend(
+    startDate: Date, endDate: Date, source: string, userType: string,
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(userType);
+
+      /**
+       * Last 12 weeks
+       */
+      // const endDate = new Date();
+      // const startDate = new Date();
+
+      // const DAYS_IN_WEEK = 7;
+      // const TOTAL_WEEKS = 52;
+
+      // startDate.setDate(
+      //   startDate.getDate() - (DAYS_IN_WEEK * TOTAL_WEEKS),
+      // );
+
+      const matchStage: any = {
+        lastActiveAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+
+      /**
+       * External Users
+       */
+      if (source === "external") {
+        matchStage.email = {
+          $regex: "^rup",
+          $options: "i",
+        };
+      }
+
+      /**
+       * Internal Users
+       */
+      if (source === "internal") {
+        matchStage.email = {
+          $not: {
+            $regex: "^rup",
+            $options: "i",
+          },
+        };
+      }
+
+      /**
+       * WAU Trend
+       */
+      const result = await this.users
+        .aggregate(
+          [
+            {
+              $match: matchStage,
+            },
+            {
+              $group: {
+                _id: {
+                  year: {
+                    $isoWeekYear: "$lastActiveAt",
+                  },
+
+                  week: {
+                    $isoWeek: "$lastActiveAt",
+                  },
+                },
+
+                wau: {
+                  $sum: 1,
+                },
+              },
+            },
+            {
+              $sort: {
+                "_id.year": 1,
+                "_id.week": 1,
+              },
+            },
+            {
+              $project: {
+                _id: {
+                  $concat: [
+                    {
+                      $toString: "$_id.year",
+                    },
+                    "-W",
+                    {
+                      $cond: [
+                        {
+                          $lt: ["$_id.week", 10],
+                        },
+                        {
+                          $concat: [
+                            "0",
+                            {
+                              $toString: "$_id.week",
+                            },
+                          ],
+                        },
+                        {
+                          $toString: "$_id.week",
+                        },
+                      ],
+                    },
+                  ],
+                },
+
+                wau: 1,
+              },
+            },
+          ],
+          {
+            session,
+          },
+        )
+        .toArray();
+
+      return result;
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get weekly active users trend: ${error}`,
+      );
+    }
+  }
+
+  async getMonthlyActiveUsersTrend(
+    startDate: Date, endDate: Date, source: string, userType: string,
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(userType);
+
+      /**
+       * Last 12 months
+       */
+      // const endDate = new Date();
+      // const startDate = new Date();
+      // startDate.setMonth(startDate.getMonth() - 12);
+
+      const matchStage: any = {
+        lastActiveAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+
+      /**
+       * External Users
+       */
+      if (source === "external") {
+        matchStage.email = {
+          $regex: "^rup",
+          $options: "i",
+        };
+      }
+
+      /**
+       * Internal Users
+       */
+      if (source === "internal") {
+        matchStage.email = {
+          $not: {
+            $regex: "^rup",
+            $options: "i",
+          },
+        };
+      }
+      /**
+       * MAU Trend
+       */
+      const result = await this.users
+        .aggregate(
+          [
+            {
+              $match: matchStage,
+            },
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: "%Y-%m",
+                    date: "$lastActiveAt",
+                  },
+                },
+                mau: {
+                  $sum: 1,
+                },
+              },
+            },
+            {
+              $sort: {
+                _id: 1,
+              },
+            },
+          ],
+          {
+            session,
+          },
+        )
+        .toArray();
+
+        return result;
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get monthly active users trend: ${error}`,
+      );
+    }
+  }
+
+  async getRetentionMetrics(
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init();
+
+      /**
+       * Last 3 months cohorts
+       */
+      const endDate = new Date();
+      const startDate = new Date();
+
+      startDate.setMonth(
+        startDate.getMonth() - 3,
+      );
+
+      const result = await this.users
+        .aggregate(
+          [
+            /**
+             * Users created in last 1 year
+             */
+            {
+              $match: {
+                createdAt: {
+                  $gte: startDate,
+                  $lte: endDate,
+                },
+              },
+            },
+
+            /**
+             * Cohort projection
+             */
+            {
+              $project: {
+                userId: "$_id",
+                signupDate: "$createdAt",
+                cohortDate: {
+                  $dateToString: {
+                    // format: "%Y-%m-%d",
+                    format: "%Y-W%V",
+                    date: "$createdAt",
+                  },
+                },
+              },
+            },
+
+            /**
+             * Lookup user activities/messages
+             */
+            {
+              $lookup: {
+                from: "messages",
+                let: {
+                  userId: "$userId",
+                  signupDate: "$signupDate",
+                },
+                pipeline: [
+                  /**
+                   * Match user messages
+                   */
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: [
+                          "$user",
+                          {
+                            $toString: "$$userId",
+                          },
+                        ],
+                      },
+                    },
+                  },
+
+                  /**
+                   * Calculate days after signup
+                   */
+                  {
+                    $project: {
+                      createdAt: 1,
+
+                      daysAfterSignup: {
+                        $dateDiff: {
+                          startDate: {
+                            $dateTrunc: {
+                              date: "$$signupDate",
+                              unit: "day",
+                            },
+                          },
+
+                          endDate: {
+                            $dateTrunc: {
+                              date: "$createdAt",
+                              unit: "day",
+                            },
+                          },
+
+                          unit: "day",
+                        },
+                      },
+                    },
+                  },
+
+                  /**
+                   * Ignore signup-day activity
+                   */
+                  {
+                    $match: {
+                      daysAfterSignup: {
+                        $gt: 0,
+                      },
+                    },
+                  },
+                ],
+
+                as: "activities",
+              },
+            },
+
+            /**
+             * Retention flags
+             */
+            {
+              $project: {
+                cohortDate: 1,
+
+                retainedD1: {
+                  $gt: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: "$activities",
+
+                          as: "activity",
+
+                          cond: {
+                            $eq: [
+                              "$$activity.daysAfterSignup",
+                              1,
+                            ],
+                          },
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+
+                retainedD7: {
+                  $gt: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: "$activities",
+
+                          as: "activity",
+
+                          cond: {
+                            $eq: [
+                              "$$activity.daysAfterSignup",
+                              7,
+                            ],
+                          },
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+
+                retainedD30: {
+                  $gt: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: "$activities",
+
+                          as: "activity",
+
+                          cond: {
+                            $eq: [
+                              "$$activity.daysAfterSignup",
+                              30,
+                            ],
+                          },
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+
+            /**
+             * Group by cohort date
+             */
+            {
+              $group: {
+                _id: "$cohortDate",
+
+                totalUsers: {
+                  $sum: 1,
+                },
+
+                d1Users: {
+                  $sum: {
+                    $cond: [
+                      "$retainedD1",
+                      1,
+                      0,
+                    ],
+                  },
+                },
+
+                d7Users: {
+                  $sum: {
+                    $cond: [
+                      "$retainedD7",
+                      1,
+                      0,
+                    ],
+                  },
+                },
+
+                d30Users: {
+                  $sum: {
+                    $cond: [
+                      "$retainedD30",
+                      1,
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+
+            /**
+             * Retention percentages
+             */
+            {
+              $project: {
+                _id: 0,
+
+                cohortDate: "$_id",
+
+                totalUsers: 1,
+
+                d1Retention: {
+                  $round: [
+                    {
+                      $multiply: [
+                        {
+                          $divide: [
+                            "$d1Users",
+                            "$totalUsers",
+                          ],
+                        },
+                        100,
+                      ],
+                    },
+                    2,
+                  ],
+                },
+
+                d7Retention: {
+                  $round: [
+                    {
+                      $multiply: [
+                        {
+                          $divide: [
+                            "$d7Users",
+                            "$totalUsers",
+                          ],
+                        },
+                        100,
+                      ],
+                    },
+                    2,
+                  ],
+                },
+
+                d30Retention: {
+                  $round: [
+                    {
+                      $multiply: [
+                        {
+                          $divide: [
+                            "$d30Users",
+                            "$totalUsers",
+                          ],
+                        },
+                        100,
+                      ],
+                    },
+                    2,
+                  ],
+                },
+              },
+            },
+
+            /**
+             * Sort chronologically
+             */
+            {
+              $sort: {
+                cohortDate: 1,
+              },
+            },
+          ],
+          {
+            session,
+          },
+        )
+        .toArray();
+
+      return result;
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get retention metrics: ${error}`,
+      );
+    }
+  }
+
 }
