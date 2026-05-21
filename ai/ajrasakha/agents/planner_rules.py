@@ -5,9 +5,14 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
-from ajrasakha.agents.domains import domain_requires_crop
+from ajrasakha.agents.domains import (
+    crop_counts_as_resolved,
+    domain_requires_crop,
+    is_crop_placeholder,
+    normalize_domain,
+)
 from ajrasakha.agents.location_context import (
     extract_state_from_text,
     gps_state_from_location,
@@ -31,6 +36,10 @@ _PM_KISAN_RE = re.compile(r"\b(pm[\s-]?kisan|pmkisan)\b", re.I)
 _META_CLARIFY_RE = re.compile(
     r"what would you like to know|something else|are you asking about|"
     r"which type of|cultivation practices, pest|checking eligibility for\?",
+    re.I,
+)
+_CROP_CLARIFY_RE = re.compile(
+    r"which crop|what crop|कौन सी फसल|कौनसी फसल",
     re.I,
 )
 
@@ -86,20 +95,35 @@ def conversation_text_from_messages(messages: list[BaseMessage], *, max_turns: i
 
 
 def format_conversation_for_planner(messages: list[BaseMessage]) -> str:
-    human_lines: list[str] = []
-    for msg in messages:
-        if isinstance(msg, HumanMessage):
-            text = _message_to_text(msg)
-            if text:
-                human_lines.append(text)
-    if len(human_lines) > 8:
-        human_lines = human_lines[-8:]
-    if not human_lines:
-        return ""
-    if len(human_lines) == 1:
-        return human_lines[0]
-    numbered = "\n".join(f"{i}. {t}" for i, t in enumerate(human_lines, 1))
-    return f"Conversation so far:\n{numbered}\n\nLatest message: {human_lines[-1]}"
+    """Latest farmer message only — domain must not bleed from older thread topics."""
+    return latest_human_text(messages)
+
+
+def is_crop_clarify_turn(messages: list[BaseMessage]) -> bool:
+    """True when the farmer's latest reply follows an AI crop clarify question."""
+    last_human_idx: int | None = None
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+    if last_human_idx is None or last_human_idx == 0:
+        return False
+    prev = messages[last_human_idx - 1]
+    if isinstance(prev, AIMessage):
+        return bool(_CROP_CLARIFY_RE.search(_message_to_text(prev)))
+    return False
+
+
+def resolve_crop_for_turn(messages: list[BaseMessage]) -> Optional[str]:
+    """Crop from latest message, or last few human lines only during crop clarify."""
+    if is_crop_clarify_turn(messages):
+        text = recent_human_text(messages, max_turns=3)
+    else:
+        text = latest_human_text(messages)
+    crop = extract_crop_from_text(text)
+    if crop:
+        return crop[0].upper() + crop[1:].lower()
+    return None
 
 
 def extract_crop_from_text(text: str) -> Optional[str]:
@@ -141,12 +165,16 @@ def _merge_entities(
 ) -> PlannerEntities:
     merged: PlannerEntities = dict(plan_entities or {})
     latest = latest_human_text(messages)
-    recent = recent_human_text(messages, max_turns=5)
     has_gps = has_gps_coordinates(location)
 
-    crop = merged.get("crop") or extract_crop_from_text(recent)
-    if crop:
-        merged["crop"] = crop[0].upper() + crop[1:].lower()
+    if not merged.get("crop") or is_crop_placeholder(merged.get("crop")):
+        turn_crop = resolve_crop_for_turn(messages)
+        if turn_crop:
+            merged["crop"] = turn_crop
+    else:
+        c = merged["crop"]
+        if c:
+            merged["crop"] = c[0].upper() + c[1:].lower()
 
     state = merged.get("state") or extract_state_from_text(latest)
     if not state:
@@ -199,7 +227,8 @@ def _finalize_location_and_crop_completeness(
 ) -> PlannerPlan:
     """Single completeness pass: state (or GPS) required; district defaults to all."""
     crop = entities.get("crop")
-    needs_crop = domain_requires_crop(domain) and not crop
+    domain = normalize_domain(domain)
+    needs_crop = domain_requires_crop(domain) and not crop_counts_as_resolved(crop)
 
     if not has_state and not has_gps:
         out["is_complete"] = False
@@ -244,19 +273,18 @@ def apply_planner_completeness_rules(
     """
     out: PlannerPlan = dict(plan)
     latest = latest_human_text(messages)
-    recent = recent_human_text(messages, max_turns=5)
     entities = _merge_entities(out.get("entities") or {}, messages, location)
     out["entities"] = entities
 
     has_state, _, has_gps = _location_status(entities, location)
-    domain = infer_domain_for_plan(out, recent)
-    schemes = (
-        bool(out.get("schemes"))
-        or is_schemes_intent(latest)
-        or is_schemes_intent(recent)
-    )
+    domain = normalize_domain(out.get("domain") or "General")
 
-    if schemes:
+    if is_schemes_intent(latest) and domain in {
+        "Government Schemes",
+        "Financial & Institutional Services",
+        "Crop Insurance",
+        "General",
+    }:
         out["schemes"] = True
         out["knowledge_base"] = False
 

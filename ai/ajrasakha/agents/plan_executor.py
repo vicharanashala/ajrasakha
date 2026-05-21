@@ -19,6 +19,7 @@ from ajrasakha.agents.location_context import (
     merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
+from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
 from ajrasakha.agents.retrieval_sanitizer import should_skip_sanitizer_for_gdb
 from ajrasakha.agents.tool_registry import get_location_tool, get_main_tool_node, get_reviewer_tool
@@ -107,17 +108,7 @@ def _entity_str(
 
 
 def _reviewer_domain(plan: PlannerPlan) -> str:
-    if plan.get("weather"):
-        return "Weather"
-    if plan.get("mandi"):
-        return "Market Prices"
-    if plan.get("soil"):
-        return "Soil Health"
-    if plan.get("schemes"):
-        return "Government Schemes"
-    if plan.get("knowledge_base"):
-        return "Crop Protection"
-    return "General"
+    return reviewer_upload_domain(plan.get("domain") or "General")
 
 
 async def build_tool_calls_from_plan(

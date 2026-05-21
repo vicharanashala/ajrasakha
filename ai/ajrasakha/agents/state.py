@@ -49,6 +49,7 @@ class RetrievalSanitizerAudit(TypedDict, total=False):
 
 
 class PlannerPlan(TypedDict, total=False):
+    domain: Optional[str]
     weather: bool
     mandi: bool
     soil: bool
