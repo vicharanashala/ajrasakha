@@ -31,10 +31,12 @@ from ajrasakha.agents.plan_executor import (
     ensure_location_node,
     execute_plan_node,
     route_after_execute,
+    route_after_sanitizer,
 )
 from ajrasakha.agents.planner import clarify_node, planner_node, route_after_planner
 from ajrasakha.agents.prompts import (
     EMPTY_GDB_REPLY,
+    EXPERT_QUEUE_REPLY_MARKER,
     LLM_FALLBACK_MSG,
     WARNING_TEXT,
     WHATSAPP_SYSTEM_PROMPT,
@@ -302,6 +304,9 @@ def route_after_ajrasakha(state: AjraSakhaState) -> str:
 def sanitize_answer_node(state: AjraSakhaState) -> dict:
     """Adjust the 2-hour reviewer disclaimer on the final farmer-facing answer.
 
+    Disabled in _build_graph() (synthesize goes directly to END). Re-enable by
+    uncommenting the sanitize_answer node and edges below.
+
     - GDB returned real data (gdb_has_data=True): ALWAYS strip the 2-hour disclaimer.
     - Strong GDB-style answer (expert + sources + links): strip disclaimer if present.
     - Weak / no-database-match answer: append disclaimer if missing.
@@ -317,7 +322,7 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
         return {}
 
     answer_text = _message_to_text(final_answer_msg)
-    if not answer_text or answer_text.startswith(EMPTY_GDB_REPLY[:80]):
+    if not answer_text or EXPERT_QUEUE_REPLY_MARKER in answer_text:
         return {}
 
     # Check if GDB returned real expert data
@@ -371,7 +376,7 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
 def _build_graph():
     builder = StateGraph(AjraSakhaState)
     builder.add_node("empty_gdb_reply", empty_gdb_reply_node)
-    builder.add_node("sanitize_answer", sanitize_answer_node)
+    # builder.add_node("sanitize_answer", sanitize_answer_node)  # disabled: 2-hour disclaimer post-process
 
     if use_planner_graph():
         builder.add_node("planner", planner_node)
@@ -399,12 +404,19 @@ def _build_graph():
                 "empty_gdb_reply": "empty_gdb_reply",
             },
         )
-        builder.add_edge("retrieval_sanitizer", "synthesize")
-        builder.add_edge("synthesize", "sanitize_answer")
-
+        builder.add_conditional_edges(
+            "retrieval_sanitizer",
+            route_after_sanitizer,
+            {
+                "empty_gdb_reply": "empty_gdb_reply",
+                "synthesize": "synthesize",
+            },
+        )
+        builder.add_edge("synthesize", END)
+        # builder.add_edge("synthesize", "sanitize_answer")
 
     builder.add_edge("empty_gdb_reply", END)
-    builder.add_edge("sanitize_answer", END)
+    # builder.add_edge("sanitize_answer", END)
     return builder.compile()
 
 

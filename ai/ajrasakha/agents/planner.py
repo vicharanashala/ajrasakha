@@ -2,22 +2,10 @@
 
 Flow:
   1. Take input query
-  2. Check domain (via LLM classification)
-  3. Check state (from query text first, then from lat/long)
-  4. Check crop (from query text)
-  5. Lookup table: is crop required for this domain?
-     - crop_required=True  AND crop available   → pass
-     - crop_required=True  AND crop unavailable  → ask user for crop
-     - crop_required=False                       → crop = "All"
-  6. State resolution:
-     - state in query   → state = query_state
-     - state not in query → state = from lat/long
-  7. Completeness check:
-     - state=True AND crop_required=True  AND crop=True  → is_question_complete=True
-     - state=True AND crop_required=True  AND crop=False → is_question_complete=False
-  8. If is_question_complete=True → determine tools to call
-  9. Final output to main agent:
-     {original_query, rephrased_query, state, crop, tools: [list]}
+  2. LLM picks domain from domains.py ALLOWED_DOMAINS (latest message)
+  3. Derive tool flags from domain; resolve state (latest + GPS)
+  4. CROP_ALL_DOMAINS -> crop=all; CROP_REQUIRED -> extract + LLM classifier
+  5. Completeness check -> clarify or execute
 """
 
 from __future__ import annotations
@@ -34,20 +22,25 @@ from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
 
 from ajrasakha.agents.config import CLAUDE_MODEL
-from ajrasakha.agents.domains import domain_requires_crop, ALLOWED_DOMAINS
+from ajrasakha.agents.crop_requirement import is_crop_specific_question
+from ajrasakha.agents.domains import (
+    CROP_ALL_DOMAINS,
+    CROP_REQUIRED_DOMAINS,
+    apply_tool_flags_from_domain,
+    crop_counts_as_resolved,
+    normalize_domain,
+)
 from ajrasakha.agents.language import detect_farmer_language
 from ajrasakha.agents.location_context import (
     gps_state_from_location,
     latest_human_text,
     main_agent_location_context_message,
-    recent_human_text,
     resolve_state_for_turn,
 )
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
-    extract_crop_from_text,
     format_conversation_for_planner,
-    infer_domain_for_plan,
+    resolve_crop_for_turn,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
@@ -69,6 +62,10 @@ class PlannerEntitiesOutput(BaseModel):
 
 
 class PlannerOutput(BaseModel):
+    domain: str = Field(
+        default="General",
+        description="Exactly one value from ALLOWED_DOMAINS in ajrasakha.agents.domains",
+    )
     weather: bool = False
     mandi: bool = False
     soil: bool = False
@@ -138,6 +135,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         entities["chemicals"] = list(output.entities.chemicals)
 
     return {
+        "domain": normalize_domain(output.domain),
         "weather": output.weather,
         "mandi": output.mandi,
         "soil": output.soil,
@@ -157,6 +155,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
 
 def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPlan:
     return {
+        "domain": "General",
         "weather": False,
         "mandi": False,
         "soil": False,
@@ -182,14 +181,53 @@ def _resolve_state_deterministic(
     return resolve_state_for_turn(latest_human_text(messages), location)
 
 
-def _resolve_crop_deterministic(
+async def _apply_domain_and_crop_async(
+    plan: PlannerPlan,
     messages: list[BaseMessage],
-) -> Optional[str]:
-    """Crop from recent clarify turns only (not full thread history)."""
-    crop = extract_crop_from_text(recent_human_text(messages, max_turns=5))
-    if crop:
-        return crop[0].upper() + crop[1:].lower()
-    return None
+    *,
+    crop_prefilled: Optional[str],
+    config: RunnableConfig,
+) -> tuple[PlannerPlan, str, bool]:
+    """Normalize domain, derive flags, apply CROP_ALL / CROP_REQUIRED crop rules."""
+    domain = normalize_domain(plan.get("domain") or "General")
+    plan["domain"] = domain
+
+    tool_flags = apply_tool_flags_from_domain(domain)
+    chemical_checker = plan.get("chemical_checker", False)
+    plan.update(tool_flags)
+    if chemical_checker:
+        plan["chemical_checker"] = True
+
+    entities: PlannerEntities = dict(plan.get("entities") or {})
+    user_text = latest_human_text(messages)
+    question = plan.get("rephrased_query") or user_text
+    original = plan.get("original_query_en") or user_text
+
+    crop_required = False
+
+    if domain in CROP_ALL_DOMAINS:
+        entities["crop"] = "all"
+        crop_required = False
+    elif domain in CROP_REQUIRED_DOMAINS:
+        crop = crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
+        if crop and crop_counts_as_resolved(crop):
+            entities["crop"] = (
+                "all" if crop.lower() == "all"
+                else crop[0].upper() + crop[1:].lower()
+            )
+            crop_required = False
+        else:
+            crop_required = await is_crop_specific_question(
+                question, original, domain, config=config
+            )
+            if not crop_required:
+                entities["crop"] = "all"
+    else:
+        entities["crop"] = "all"
+        crop_required = False
+
+    plan["entities"] = entities
+    return plan, domain, crop_required
 
 
 def _check_question_completeness(
@@ -199,19 +237,10 @@ def _check_question_completeness(
     has_gps: bool,
     farmer_language: str = "English",
 ) -> tuple[bool, list[str], Optional[str]]:
-    """Deterministic completeness check following the specified flow.
-
-    Returns (is_complete, missing_info, follow_up_question).
-
-    Logic:
-      - State must be known (from text or GPS)
-      - If crop_required and crop not available → incomplete, ask for crop
-      - If crop_required=False → crop = "All" (handled by caller)
-    """
+    """Deterministic completeness check following the specified flow."""
     missing: list[str] = []
     follow_up: Optional[str] = None
 
-    # State check: either from text or GPS must be available
     has_state = bool(state_resolved) or has_gps
     if not has_state:
         missing.append("location")
@@ -222,8 +251,7 @@ def _check_question_completeness(
         )
         return False, missing, follow_up
 
-    # Crop check: only when domain requires it
-    if crop_required and not crop_resolved:
+    if crop_required and not crop_counts_as_resolved(crop_resolved):
         missing.append("crop")
         follow_up = (
             "Which crop are you growing?"
@@ -247,6 +275,7 @@ async def planner_node(
     user_text = _message_to_text(human)
     if is_greeting_message(user_text):
         plan: PlannerPlan = {
+            "domain": "General",
             "weather": False,
             "mandi": False,
             "soil": False,
@@ -257,39 +286,31 @@ async def planner_node(
             "missing_info": [],
             "follow_up_question": None,
             "reasoning": "greeting",
-            "entities": {},
+            "entities": {"crop": "all"},
             "skip_synthesize": False,
             "rephrased_query": user_text,
             "original_query_en": user_text,
         }
         return {"plan": plan}
 
-    # ── Step 1: Deterministic entity extraction (NO LLM for state/crop) ────
     location = state.get("location")
     farmer_lang = detect_farmer_language(user_text)
 
-    # Resolve state: text first, then GPS location
     state_resolved = _resolve_state_deterministic(messages, location)
+    crop_resolved = resolve_crop_for_turn(messages)
 
-    # Resolve crop: from conversation text
-    crop_resolved = _resolve_crop_deterministic(messages)
-
-    # Check if GPS exists on thread
     has_gps = bool(
         location
         and location.get("latitude") is not None
         and location.get("longitude") is not None
     )
 
-    # ── Step 2: Use LLM ONLY for domain/tool classification + translation ──
     llm_messages: list[BaseMessage] = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
     loc_ctx = main_agent_location_context_message(location)
     if loc_ctx:
         llm_messages.append(loc_ctx)
     conv_block = format_conversation_for_planner(messages) or user_text
 
-    # Inject deterministically extracted entities so the LLM doesn't
-    # re-derive them (and potentially get them wrong)
     deterministic_context = (
         f"PRE-EXTRACTED ENTITIES (use these, do not override):\n"
         f"- state: {state_resolved or 'NOT RESOLVED'}\n"
@@ -300,7 +321,8 @@ async def planner_node(
         HumanMessage(
             content=(
                 f"{deterministic_context}\n"
-                f"Farmer conversation (language: {farmer_lang}):\n{conv_block}\n\n"
+                f"Latest farmer message (language: {farmer_lang}):\n{conv_block}\n\n"
+                f"Pick `domain` from the allowed list using this latest message only.\n"
                 f"Write follow_up_question in {farmer_lang} only when rules require it.\n"
                 "Return the routing plan only."
             )
@@ -312,10 +334,8 @@ async def planner_node(
         output = await llm.ainvoke(llm_messages, config=config)
         plan = planner_output_to_plan(output)
 
-        # ── Step 3: Override LLM entities with deterministic values ─────
         entities = plan.get("entities") or {}
 
-        # State: deterministic resolution takes priority
         if state_resolved:
             entities["state"] = state_resolved
         elif not entities.get("state"):
@@ -323,24 +343,20 @@ async def planner_node(
             if gps_state:
                 entities["state"] = gps_state
 
-        # Crop: deterministic extraction takes priority
         if crop_resolved:
             entities["crop"] = crop_resolved
 
         plan["entities"] = entities
 
-        # ── Step 4: Determine domain and crop requirement ──────────────
-        domain = infer_domain_for_plan(plan, user_text)
-        crop_required = domain_requires_crop(domain)
+        plan, domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            messages,
+            crop_prefilled=crop_resolved,
+            config=config,
+        )
 
-        # If crop is NOT required for this domain, set crop = "All"
+        entities = plan.get("entities") or {}
         effective_crop = entities.get("crop")
-        if not crop_required:
-            effective_crop = "All"
-            entities["crop"] = "All"
-            plan["entities"] = entities
-
-        # ── Step 5: Deterministic completeness check ───────────────────
         final_state = entities.get("state") or state_resolved
         is_complete, missing, follow_up = _check_question_completeness(
             state_resolved=final_state,
@@ -354,7 +370,6 @@ async def planner_node(
         plan["missing_info"] = missing
         plan["follow_up_question"] = follow_up
 
-        # Apply remaining post-processing rules (schemes override, etc.)
         plan = apply_planner_completeness_rules(
             plan,
             messages,
@@ -366,6 +381,7 @@ async def planner_node(
             plan["rephrased_query"] = user_text
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
+        plan["knowledge_base"] = True
 
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "
@@ -373,7 +389,7 @@ async def planner_node(
             "flags=(w=%s m=%s s=%s sch=%s chem=%s kb=%s) "
             "rephrased=%s missing=%s",
             plan.get("is_complete"),
-            domain,
+            plan.get("domain"),
             crop_required,
             entities.get("state"),
             entities.get("crop"),
