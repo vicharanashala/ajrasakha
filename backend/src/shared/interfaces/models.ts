@@ -206,6 +206,14 @@ export interface IQuestionSubmission {
   history: ISubmissionHistory[];
   queue: (string | ObjectId)[];
   reviewDelayNotificationSent?: boolean;
+  /** Timestamp when the current expert first opened/clicked this time-bound question.
+   *  Set via POST /questions/:id/mark-opened. Cleared on each reallocation.
+   *  When set → question is "active" → blocked from 45-min auto-reallocation. */
+  currentExpertOpenedAt?: Date | null;
+  /** Timestamp when the current expert was allocated to this question.
+   *  Set on initial allocation and reset on every reallocation.
+   *  Used to compute the 45-minute reallocation window for time-bound questions. */
+  currentExpertAllocatedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -906,7 +906,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const referenceQuestionDetails = referenceQuestionDetailsFromBody;
       const popContext = popContextFromBody;
       console.log('the body coming=====', body);
-
+      
       if (!details) {
         const b: any = body;
         details = {
@@ -917,7 +917,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           domain: b?.domain || '',
         };
       }
-
+      
       const validPriorities = ['low', 'medium', 'high', 'critical'];
       priority = priority?.toLowerCase() as IQuestion['priority'];
       if (!validPriorities.includes(priority)) {
@@ -1006,7 +1006,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
           contextId = new ObjectId(insertedId);
         }
-
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
           userId:
@@ -1190,6 +1189,46 @@ export class QuestionService extends BaseService implements IQuestionService {
             ),
           ),
         );
+
+        // Auto-allocate time-bound questions to the expert with the lowest
+        // time-bound workload who has fewer than 3 active time-bound questions.
+        try {
+          const MAX_TIME_BOUND = 1;
+          const [allExperts, timeBoundCounts] = await Promise.all([
+            this.userRepo.findExpertsByReputationScore(details as PreferenceDto),
+            this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(),
+          ]);
+
+          const eligibleExpert = allExperts.find(e => {
+            const count = timeBoundCounts.get(e._id.toString()) ?? 0;
+            return count < MAX_TIME_BOUND;
+          });
+
+          if (eligibleExpert) {
+            const expertId = eligibleExpert._id.toString();
+            await Promise.all([
+              this.questionSubmissionRepo.updateQueue(questionId, [new ObjectId(expertId)]),
+              this.userRepo.updateReputationScore(expertId, true),
+              this.questionRepo.updateQuestion(questionId, {
+                isAutoAllocate: true,
+                firstAllocationAt: new Date(),
+              }),
+              this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date()),
+              this.notificationService.saveTheNotifications(
+                `A time-bound question from ${sourceLabel} has been assigned to you`,
+                'Answer Creation Assigned',
+                questionId,
+                expertId,
+                'answer_creation',
+              ),
+            ]);
+            console.log(`[processQuestionInBackground] Time-bound question ${questionId} auto-allocated to expert ${expertId}`);
+          } else {
+            console.log(`[processQuestionInBackground] No eligible expert found for time-bound question ${questionId} (all at cap)`);
+          }
+        } catch (allocErr: any) {
+          console.error(`[processQuestionInBackground] Time-bound auto-allocation failed for ${questionId}:`, allocErr?.message);
+        }
       }
     } catch (error: any) {
       console.error(
@@ -1383,6 +1422,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
       return {data: [], status: false};
+    }
+    const isTimeBound = question.source === 'AJRASAKHA' || question.source === 'WHATSAPP';
+    if (isTimeBound && (question.status === 'open' || question.status === 'delayed')) {
+      const reason = `Auto-allocation is disabled for time-bound questions (source: ${question.source})`;
+      console.log(`[autoAllocateExperts] ${reason} — questionId: ${questionId}`);
+      return {data: [], status: false,};
     }
     if (question.status == 'draft') {
       await this.questionRepo.updateQuestion(
@@ -1865,7 +1910,24 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-        //8. Return updated question submission
+        //8. For time-bound questions: start the 45-min clock and enable auto-reallocation
+        if (question.source === 'WHATSAPP' || question.source === 'AJRASAKHA') {
+          // Run outside transaction (non-critical, fire-and-forget style)
+          setImmediate(async () => {
+            try {
+              await Promise.all([
+                this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date()),
+                ...(question.isAutoAllocate === false
+                  ? [this.questionRepo.updateQuestion(questionId, { isAutoAllocate: true })]
+                  : []),
+              ]);
+            } catch (err: any) {
+              console.error(`[allocateExperts] Failed to set time-bound fields for ${questionId}:`, err?.message);
+            }
+          });
+        }
+
+        //9. Return updated question submission
         return updated;
       });
     } catch (error) {
@@ -5125,5 +5187,165 @@ export class QuestionService extends BaseService implements IQuestionService {
     console.log(
       `<<EMBEDDING_BACKFILL>> Done — ✅ ${succeeded} succeeded, ❌ ${failed} failed`,
     );
+  }
+
+  // ─── Time-bound question tracking ───────────────────────────────────────────
+
+  /** Called when an expert opens/clicks a time-bound question in the UI.
+   *  Sets currentExpertOpenedAt on the submission, blocking 45-min auto-reallocation. */
+  async markQuestionOpened(questionId: string, userId: string): Promise<void> {
+    try {
+      const question = await this.questionRepo.getById(questionId);
+      if (!question) return;
+      // Only applies to time-bound questions
+      if (question.source !== 'WHATSAPP' && question.source !== 'AJRASAKHA') return;
+      await this.questionSubmissionRepo.markQuestionOpenedByExpert(questionId, userId);
+    } catch (error) {
+      // Non-fatal — log and swallow so the UI is never blocked by this
+      console.error(`[markQuestionOpened] Failed for questionId=${questionId}:`, error);
+    }
+  }
+
+  /** Periodic job (every 5 min) — reallocates time-bound questions pending > 45 min
+   *  without being opened, AND allocates time-bound questions that were never assigned. */
+  async reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }> {
+    console.log('[TimeBound] Starting reallocation + initial-allocation check...');
+    try {
+      // 1. Fetch stuck (>45 min, not opened) AND never-allocated in parallel
+      const [stuckSubmissions, unallocatedSubmissions] = await Promise.all([
+        this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
+        this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
+      ]);
+
+      const totalWork = stuckSubmissions.length + unallocatedSubmissions.length;
+      if (!totalWork) {
+        return { message: 'No time-bound questions need attention', reallocated: 0, skipped: 0 };
+      }
+      console.log(`[TimeBound] Stuck: ${stuckSubmissions.length}, Never-allocated: ${unallocatedSubmissions.length}`);
+
+      // 2. Get all non-blocked experts ordered by workload (lowest first)
+      const allExperts = await this.userRepo.findExpertsByReputationScore({} as any);
+      if (!allExperts.length) {
+        return { message: 'No experts available', reallocated: 0, skipped: totalWork };
+      }
+
+      // 3. Get current time-bound workload per expert (single DB call)
+      const timeBoundCounts = await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert();
+      const MAX_TIME_BOUND = 3;
+      // Track provisional additions during this run to respect cap within batch
+      const provisionalCounts = new Map<string, number>(timeBoundCounts);
+
+      // ── Part A: Stuck submissions → reallocation via worker (penalises stuck expert) ──
+      const flatAssignments: { submissionId: string; expertId: string }[] = [];
+      let skipped = 0;
+
+      for (const submission of stuckSubmissions as any[]) {
+        const queue: any[] = submission.queue || [];
+        const history: any[] = submission.history || [];
+
+        // Determine current stuck expert
+        let currentExpertId: string | null = null;
+        if (history.length === 0) {
+          currentExpertId = queue[0]?.toString() ?? null;
+        } else {
+          const lastH = history[history.length - 1];
+          if (lastH.status === 'in-review') {
+            currentExpertId = lastH.updatedBy?.toString() ?? null;
+          } else {
+            currentExpertId = queue[history.length]?.toString() ?? null;
+          }
+        }
+
+        const historyExpertIds = new Set(history.map((h: any) => h.updatedBy?.toString()));
+        const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
+
+        let assignedExpert: string | null = null;
+        for (const expert of allExperts) {
+          const expertId = expert._id.toString();
+          if (expertId === currentExpertId) continue;
+          if (historyExpertIds.has(expertId)) continue;
+          if (queueExpertIds.has(expertId)) continue;
+          const currentCount = provisionalCounts.get(expertId) ?? 0;
+          if (currentCount >= MAX_TIME_BOUND) continue;
+
+          assignedExpert = expertId;
+          provisionalCounts.set(expertId, currentCount + 1);
+          break;
+        }
+
+        if (!assignedExpert) {
+          console.log(`[TimeBound] No eligible expert for stuck submission ${submission._id} — skipping`);
+          skipped++;
+          continue;
+        }
+
+        flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert });
+      }
+
+      if (flatAssignments.length) {
+        startBalanceWorkloadWorkers(flatAssignments);
+        console.log(`[TimeBound] Triggered reallocation for ${flatAssignments.length} stuck submission(s)`);
+      }
+
+      // ── Part B: Never-allocated submissions → direct initial allocation ──
+      let initialAllocated = 0;
+      for (const submission of unallocatedSubmissions as any[]) {
+        const questionId = submission.questionId?.toString();
+        const question = (submission as any).question;
+        const sourceLabel = question?.source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
+
+        // Find first eligible expert (no history/queue constraints since queue was empty)
+        let assignedExpert: string | null = null;
+        for (const expert of allExperts) {
+          const expertId = expert._id.toString();
+          const currentCount = provisionalCounts.get(expertId) ?? 0;
+          if (currentCount >= MAX_TIME_BOUND) continue;
+
+          assignedExpert = expertId;
+          provisionalCounts.set(expertId, currentCount + 1);
+          break;
+        }
+
+        if (!assignedExpert) {
+          console.log(`[TimeBound] No eligible expert for unallocated question ${questionId} — skipping`);
+          skipped++;
+          continue;
+        }
+
+        try {
+          await Promise.all([
+            this.questionSubmissionRepo.updateQueue(questionId, [new ObjectId(assignedExpert)]),
+            this.userRepo.updateReputationScore(assignedExpert, true),
+            this.questionRepo.updateQuestion(questionId, {
+              isAutoAllocate: true,
+              firstAllocationAt: new Date(),
+            }),
+            this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date()),
+            this.notificationService.saveTheNotifications(
+              `A time-bound question from ${sourceLabel} has been assigned to you`,
+              'Answer Creation Assigned',
+              questionId,
+              assignedExpert,
+              'answer_creation',
+            ),
+          ]);
+          console.log(`[TimeBound] Initially allocated question ${questionId} to expert ${assignedExpert}`);
+          initialAllocated++;
+        } catch (allocErr: any) {
+          console.error(`[TimeBound] Failed to initially allocate question ${questionId}:`, allocErr?.message);
+          skipped++;
+        }
+      }
+
+      const totalReallocated = flatAssignments.length + initialAllocated;
+      return {
+        message: `Time-bound: reallocated=${flatAssignments.length}, initially-allocated=${initialAllocated}`,
+        reallocated: totalReallocated,
+        skipped,
+      };
+    } catch (error: any) {
+      console.error('[TimeBound] reallocateTimeBoundQuestions failed:', error?.message);
+      throw new InternalServerError(`Failed to reallocate time-bound questions: ${error?.message}`);
+    }
   }
 }

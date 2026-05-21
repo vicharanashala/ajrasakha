@@ -195,8 +195,16 @@ const notificationService = new NotificationService(notificationRepo, database);
         }
 
         // 3. Save updates to Submission
+        // Reset time-bound tracking: start the 45-min clock for the new expert
         await submissionRepo.updateById(job.submissionId, {
-          $set: { queue: newQueue, history: updatedHistory, updatedAt: now, reviewDelayNotificationSent:false },
+          $set: {
+            queue: newQueue,
+            history: updatedHistory,
+            updatedAt: now,
+            reviewDelayNotificationSent: false,
+            currentExpertAllocatedAt: now,
+            currentExpertOpenedAt: null,
+          },
         });
 
         // 4. Notify new expert

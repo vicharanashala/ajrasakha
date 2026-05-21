@@ -702,7 +702,11 @@ export class AnswerService extends BaseService implements IAnswerService {
           }
 
           // Case 2: Current user is the last in the queue but the queue isn't full
+          // Time-bound questions (AJRASAKHA/WHATSAPP) are managed by their own
+          // cron — do NOT auto-expand the queue when an expert submits.
+          const isTimeBound = question.source === 'AJRASAKHA' || question.source === 'WHATSAPP';
           if (
+            !isTimeBound &&
             currentUserIndexInQueue === currentSumbmissionQueue.length - 1 &&
             currentSumbmissionQueue.length < 10 &&
             question.isAutoAllocate
@@ -1911,64 +1915,65 @@ answer: ${updates.answer}`;
         isAddTextRequired,
       );
 
-      let queue: ObjectId[] = [];
-      let initialExpert: any = null;
+      if (question.status !== 'open' && question.status !== 'delayed') {
+        let queue: ObjectId[] = [];
+        let initialExpert: any = null;
 
-      if (isAjrasakha) {
-        // Special Task Force allocation for Ajrasakha (4 experts)
-        const taskForceExperts = await this.userRepo.getExpertsWithFallback(question.details, session);
-        const expertsToAllocate = taskForceExperts.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
-        queue = expertsToAllocate.map(u => new ObjectId(u._id.toString()));
-        initialExpert = expertsToAllocate[0];
-      } else if (isWhatsApp) {
-        // Normal expert allocation for WhatsApp (3 experts based on preference)
-        const experts = await this.userRepo.findExpertsByPreference(question.details as PreferenceDto, session);
-        const expertsToAllocate = experts.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
-        queue = expertsToAllocate.map(u => new ObjectId(u._id.toString()));
-        initialExpert = expertsToAllocate[0];
-      }
-
-
-      let submission = await this.questionSubmissionRepo.getByQuestionId(
-        updates.questionId,
-        session,
-      );
-
-      if (!submission) {
-        const submissionData: IQuestionSubmission = {
-          questionId: new ObjectId(updates.questionId.toString()),
-          lastRespondedBy: new ObjectId(userId),
-          history: [],
-          queue,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        await this.questionSubmissionRepo.addSubmission(submissionData, session);
-      } else {
-        if (submission.history.length > 0) {
-          throw new BadRequestError('Cannot approve AI answer after expert reviews have started');
+        if (isAjrasakha) {
+          // Special Task Force allocation for Ajrasakha (4 experts)
+          const taskForceExperts = await this.userRepo.getExpertsWithFallback(question.details, session);
+          const expertsToAllocate = taskForceExperts.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
+          queue = expertsToAllocate.map(u => new ObjectId(u._id.toString()));
+          initialExpert = expertsToAllocate[0];
+        } else if (isWhatsApp) {
+          // Normal expert allocation for WhatsApp (3 experts based on preference)
+          const experts = await this.userRepo.findExpertsByPreference(question.details as PreferenceDto, session);
+          const expertsToAllocate = experts.slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
+          queue = expertsToAllocate.map(u => new ObjectId(u._id.toString()));
+          initialExpert = expertsToAllocate[0];
         }
-        await this.questionSubmissionRepo.updateQueue(
-          updates.questionId.toString(),
-          queue,
-          session,
-        );
-      }
 
-      if (initialExpert) {
-        await this.userRepo.updateReputationScore(
-          initialExpert._id.toString(),
-          true,
+        let submission = await this.questionSubmissionRepo.getByQuestionId(
+          updates.questionId,
           session,
         );
-        await this.notificationService.saveTheNotifications(
-          `A Question has been assigned for answering`,
-          'Answer Creation Assigned',
-          updates.questionId.toString(),
-          initialExpert._id.toString(),
-          'answer_creation',
-          session
-        );
+
+        if (!submission) {
+          const submissionData: IQuestionSubmission = {
+            questionId: new ObjectId(updates.questionId.toString()),
+            lastRespondedBy: new ObjectId(userId),
+            history: [],
+            queue,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          await this.questionSubmissionRepo.addSubmission(submissionData, session);
+        } else {
+          if (submission.history.length > 0) {
+            throw new BadRequestError('Cannot approve AI answer after expert reviews have started');
+          }
+          await this.questionSubmissionRepo.updateQueue(
+            updates.questionId.toString(),
+            queue,
+            session,
+          );
+        }
+
+        if (initialExpert) {
+          await this.userRepo.updateReputationScore(
+            initialExpert._id.toString(),
+            true,
+            session,
+          );
+          await this.notificationService.saveTheNotifications(
+            `A Question has been assigned for answering`,
+            'Answer Creation Assigned',
+            updates.questionId.toString(),
+            initialExpert._id.toString(),
+            'answer_creation',
+            session
+          );
+        }
       }
 
       return { modifiedCount: 1 };

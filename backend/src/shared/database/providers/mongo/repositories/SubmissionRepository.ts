@@ -3255,6 +3255,180 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     return result; // contains the updated document
   }
 
+  // ─── Time-bound allocation tracking ───────────────────────────────────────
+
+  async markQuestionOpenedByExpert(questionId: string, expertId: string): Promise<void> {
+    await this.init();
+    const submission = await this.QuestionSubmissionCollection.findOne({
+      questionId: new ObjectId(questionId),
+    });
+    if (!submission) return;
+    if (submission.currentExpertOpenedAt) return; // already marked
+
+    const history = submission.history || [];
+    const queue = submission.queue || [];
+
+    // Determine who the current expert is
+    let currentExpertId: string | null = null;
+    if (history.length === 0) {
+      currentExpertId = queue[0]?.toString() ?? null;
+    } else {
+      const lastHistory = history[history.length - 1];
+      if (lastHistory.status === 'in-review') {
+        currentExpertId = lastHistory.updatedBy?.toString() ?? null;
+      } else {
+        currentExpertId = queue[history.length]?.toString() ?? null;
+      }
+    }
+
+    // Only mark opened if the calling expert is the current assignee
+    if (!currentExpertId || currentExpertId !== expertId.toString()) return;
+
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: new ObjectId(questionId) },
+      { $set: { currentExpertOpenedAt: new Date(), updatedAt: new Date() } },
+    );
+  }
+
+  async setCurrentExpertAllocatedAt(questionId: string, allocatedAt: Date): Promise<void> {
+    await this.init();
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: new ObjectId(questionId) },
+      {
+        $set: {
+          currentExpertAllocatedAt: allocatedAt,
+          currentExpertOpenedAt: null,
+          updatedAt: new Date(),
+        },
+      },
+    );
+  }
+
+  async findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]> {
+    await this.init();
+    const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
+
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+      {
+        $match: {
+          currentExpertAllocatedAt: { $exists: true, $ne: null, $lte: fortyFiveMinAgo },
+          $or: [
+            { currentExpertOpenedAt: { $exists: false } },
+            { currentExpertOpenedAt: null },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      { $unwind: '$question' },
+      {
+        $match: {
+          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft'] },
+          'question.isOnHold': { $ne: true },
+        },
+      },
+    ]).toArray();
+  }
+
+  async findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
+    await this.init();
+
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+      {
+        $match: {
+          queue: { $size: 0 },
+          $or: [
+            { currentExpertAllocatedAt: { $exists: false } },
+            { currentExpertAllocatedAt: null },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      { $unwind: '$question' },
+      {
+        $match: {
+          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft'] },
+          'question.isOnHold': { $ne: true },
+        },
+      },
+    ]).toArray();
+  }
+
+  async getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>> {
+    await this.init();
+    // Single pipeline: join with questions, filter to time-bound, compute current expert per submission
+    const result = await this.QuestionSubmissionCollection.aggregate<{ _id: string; count: number }>([
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'q',
+        },
+      },
+      { $unwind: '$q' },
+      {
+        $match: {
+          'q.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'q.status': { $in: ['open', 'delayed'] },
+        },
+      },
+      {
+        $addFields: {
+          historyCount: { $size: { $ifNull: ['$history', []] } },
+          lastHistoryStatus: { $arrayElemAt: ['$history.status', -1] },
+          lastHistoryUpdatedBy: { $arrayElemAt: ['$history.updatedBy', -1] },
+          firstInQueue: { $arrayElemAt: ['$queue', 0] },
+        },
+      },
+      {
+        $addFields: {
+          currentExpert: {
+            $cond: {
+              if: { $eq: ['$historyCount', 0] },
+              then: '$firstInQueue',
+              else: {
+                $cond: {
+                  if: { $eq: ['$lastHistoryStatus', 'in-review'] },
+                  then: '$lastHistoryUpdatedBy',
+                  else: { $arrayElemAt: ['$queue', '$historyCount'] },
+                },
+              },
+            },
+          },
+        },
+      },
+      { $match: { currentExpert: { $ne: null } } },
+      {
+        $group: {
+          _id: '$currentExpert',
+          count: { $sum: 1 },
+        },
+      },
+    ]).toArray();
+
+    const map = new Map<string, number>();
+    for (const r of result) {
+      if (r._id) map.set(r._id.toString(), r.count);
+    }
+    return map;
+  }
+
   //get level wise answer submission percentage report
   async getLevelWiseReport(
     startDate: string,

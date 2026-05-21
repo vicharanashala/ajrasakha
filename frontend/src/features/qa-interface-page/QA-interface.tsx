@@ -10,6 +10,7 @@ import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
+import { QuestionService } from "@/hooks/services/questionService";
 import { toast } from "sonner";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import {
@@ -77,6 +78,7 @@ export const QAInterface = ({
   }, [selectQuestionType])
 
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
+  const questionServiceRef = useRef(new QuestionService());
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
   const [filter, setFilter] = useState<QuestionFilter>("newest");
@@ -530,6 +532,18 @@ export const QAInterface = ({
       onManualSelectQuestionType?.(null)
     }
     handleReset();
+
+    // Mark time-bound questions as opened so the 45-min reallocation is blocked.
+    // Only applies when the expert is viewing their own allocated questions.
+    if (actionType === "allocated") {
+      const clickedQuestion = questions.find((q) => q.id === id);
+      if (
+        clickedQuestion?.source === "WHATSAPP" ||
+        clickedQuestion?.source === "AJRASAKHA"
+      ) {
+        questionServiceRef.current.markQuestionOpened(id);
+      }
+    }
   };
 
 
