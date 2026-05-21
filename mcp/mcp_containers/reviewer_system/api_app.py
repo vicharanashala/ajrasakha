@@ -9,8 +9,8 @@ from fastapi import Body, FastAPI, Query
 from pydantic import BaseModel, Field
 
 from reviewer_mcp import (
+    _retrieve_reviewer_context,
     get_available_states_for_reviewer_dataset,
-    get_context_from_reviewer_dataset,
     get_crops_by_state_for_reviwer_dataset,
     upload_question_to_reviewer_system,
 )
@@ -86,13 +86,13 @@ async def reviewer_context_get(
     state: Optional[str] = Query(None),
     crop: Optional[str] = Query(None),
 ):
-    return await _mcp_fn(get_context_from_reviewer_dataset)(
-        query=query, state=state, crop=crop
+    return await _retrieve_reviewer_context(
+        query=query, state=state, crop=crop, use_classification=False
     )
 
 
 @app.post("/reviewer/context", tags=["reviewer"])
 async def reviewer_context_post(body: ReviewerContextRequest = Body(...)):
-    return await _mcp_fn(get_context_from_reviewer_dataset)(
-        query=body.query, state=body.state, crop=body.crop
+    return await _retrieve_reviewer_context(
+        query=body.query, state=body.state, crop=body.crop, use_classification=False
     )

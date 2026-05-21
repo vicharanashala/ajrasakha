@@ -2,7 +2,7 @@
 Expand a validated crop name into all equivalent spellings stored for a state.
 
 Uses reviewer_values.state_crops_reviewer_dataset plus plural/singular normalization
-so vectorSearch filters can use details.crop $in [...] across Potato/POTATO/potato etc.
+so vectorSearch filters can use details.normalised_crop $in [...] across Potato/POTATO/potato etc.
 """
 
 from __future__ import annotations

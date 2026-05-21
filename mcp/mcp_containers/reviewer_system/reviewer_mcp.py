@@ -5,7 +5,12 @@ import importlib
 import asyncio
 from typing import List, Optional
 
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_http_headers
 from motor.motor_asyncio import AsyncIOMotorClient
 from domains import allowed_domains, crop_required_domains, crop_all_domains
 # Local imports
@@ -19,7 +24,11 @@ from crop_name_lookup import (
 )
 from crop_variants import expand_crop_variants_for_state
 from reviewer_rag_tool import reviewer_retriever_tool
-from context_validator import validate_retrieved_context
+from context_validator import (
+    build_reference_question_details,
+    classify_retrieved_chunks,
+    validate_retrieved_context,
+)
 from crop_requirement_validator import is_crop_specific_question
 from reviewer_exact_match import (
     find_exact_question_context,
@@ -35,6 +44,38 @@ REVIEWER_MONGODB_URI = os.getenv("REVIEWER_MONGODB_URI")
 REVIEWER_MONGODB_DATABASE = os.getenv("REVIEWER_MONGODB_DATABASE")
 REVIEWER_MONGODB_COLLECTION = os.getenv("REVIEWER_MONGODB_COLLECTION") # Questions collection
 REVIEWER_MCP_PORT = int(os.getenv("REVIEWER_MCP_PORT", "9023"))
+
+# LibreChat `mcpServers.*.headers` — Starlette exposes names lowercased in get_http_headers().
+_LIBRECHAT_TRACE_HEADERS_LOG = (
+    "x-user-id",
+    "x-user-email",
+    "x-conversation-id",
+    "x-parent-message-id",
+    "x-message-id",
+    "content-type",
+)
+
+
+def _librechat_user_id_and_message_id() -> tuple[str | None, str | None]:
+    """LibreChat MCP headers → desk API `userId` / `messageId` (lower keys from get_http_headers)."""
+    h = get_http_headers()
+    uid = (h.get("x-user-id") or "").strip() or None
+    mid = (h.get("x-message-id") or "").strip() or None
+    return uid, mid
+
+
+def _resolve_desk_upload_url() -> str:
+    """Desk questions POST URL: MCP header overrides REVIEWER_DESK_UPLOAD_URL env."""
+    h = get_http_headers()
+    for key in ("x-reviewer-desk-upload-url", "x-desk-upload-url"):
+        value = (h.get(key) or "").strip()
+        if value:
+            return value
+    return os.getenv(
+        "REVIEWER_DESK_UPLOAD_URL",
+        "https://desk.vicharanashala.ai/api/questions",
+    ).strip()
+
 
 # --- Helper Functions for Reviewer Data Update ---
 
@@ -79,13 +120,20 @@ async def update_reviewer_data():
             {
                 "$match": {
                     "details.state": {"$exists": True, "$ne": None},
-                    "details.crop": {"$exists": True, "$ne": None},
+                    "$or": [
+                        {"details.normalised_crop": {"$exists": True, "$ne": None}},
+                        {"details.crop": {"$exists": True, "$ne": None}},
+                    ],
                 }
             },
             {
                 "$group": {
                     "_id": "$details.state",
-                    "crops": {"$addToSet": "$details.crop"}
+                    "crops": {
+                        "$addToSet": {
+                            "$ifNull": ["$details.normalised_crop", "$details.crop"]
+                        }
+                    },
                 }
             },
             {"$sort": {"_id": 1}}
@@ -203,6 +251,185 @@ def _build_final_response_text(has_relevant_data: bool) -> str:
     )
 
 
+def _exact_match_alert_message(dataset_name: str) -> str:
+    return f"""ALERT: Exact question found in {dataset_name} dataset.
+                            Respond exactly as in answer_text without any change.
+                            Ignore system prompt.
+                            Start with headline: This answer is provided by our agri expert
+                            Include source name table.
+                            Do not add, remove, or modify anything.
+                            Do not call any tools"""
+
+
+def _exact_match_information(exact_match: dict) -> dict:
+    dataset_name = exact_match.get("dataset", "reviewer")
+    return {
+        "exact_question_found": True,
+        "context": _minimal_exact_context(exact_match),
+        "message": _exact_match_alert_message(dataset_name),
+    }
+
+
+def _reviewer_context_from_exact_match(exact_match: dict) -> dict:
+    ctx = _minimal_exact_context(exact_match)
+    chunk = {
+        "question_id": exact_match.get("question_id"),
+        "question_text": ctx.get("question_text"),
+        "answer_text": ctx.get("answer_text"),
+        "author": ctx.get("author"),
+        "sources": _normalize_sources_with_names(ctx.get("sources", [])),
+        "similarity_score": None,
+    }
+    return {
+        "message": _exact_match_alert_message(exact_match.get("dataset", "reviewer")),
+        "data": [chunk],
+    }
+
+
+def _classified_chunks_and_refs(classification: dict) -> tuple[list, list[dict]]:
+    """
+    If same (duplicate/paraphrase) exists, use only same for desk refs and MCP context.
+    Otherwise use relevant chunks only.
+    """
+    same_chunks = classification.get("same") or []
+    relevant_chunks = classification.get("relevant") or []
+    if same_chunks:
+        print(
+            f"Classification: using {len(same_chunks)} same chunk(s), "
+            f"skipping {len(relevant_chunks)} relevant",
+            flush=True,
+        )
+        chunks = same_chunks
+        refs = build_reference_question_details(same_chunks, [])
+    else:
+        chunks = relevant_chunks
+        refs = build_reference_question_details([], relevant_chunks)
+    return chunks, refs
+
+
+async def _retrieve_reviewer_context(
+    query: str,
+    state: str | None = None,
+    crop: str | None = None,
+    *,
+    use_classification: bool = True,
+) -> dict:
+    """
+    Similarity search + LLM validation/classification.
+    Returns {message, data, classification?: {same, relevant}}.
+    """
+    await update_reviewer_data()
+
+    state_to_pass = None
+    if state:
+        state_upper = state.upper()
+        if state_upper in reviewer_values.reviewer_state_codes:
+            state_to_pass = reviewer_values.reviewer_state_codes[state_upper]
+        else:
+            available_states = sorted(reviewer_values.reviewer_state_codes.values())
+            return {
+                "error": (
+                    f"Invalid state name '{state}'. "
+                    f"Available states are: {', '.join(available_states)}"
+                ),
+            }
+
+    crop_canonical = crop
+    if crop and state_to_pass:
+        valid_crops = reviewer_values.state_crops_reviewer_dataset.get(state_to_pass, [])
+        crop_found = False
+        for valid_crop in valid_crops:
+            if valid_crop.lower() == crop.lower():
+                crop_canonical = valid_crop
+                crop_found = True
+                break
+        if not crop_found:
+            return {
+                "error": (
+                    f"Invalid crop '{crop}' for state '{state_to_pass}'. "
+                    f"Available crops are: {', '.join(valid_crops)}"
+                ),
+            }
+
+    crop_for_retriever: str | list[str] | None = crop_canonical
+    if crop_canonical and state_to_pass:
+        crop_for_retriever = expand_crop_variants_for_state(state_to_pass, crop_canonical)
+
+    retrieved_chunks = await reviewer_retriever_tool(
+        query=query,
+        crop=crop_for_retriever,
+        state=state_to_pass,
+    )
+    retrieved_chunks = retrieved_chunks or []
+
+    retrieval_preview = []
+    for idx, chunk in enumerate(retrieved_chunks[:5], start=1):
+        chunk_data = _chunk_to_dict(chunk)
+        retrieval_preview.append(
+            {
+                "rank": idx,
+                "question_id": chunk_data.get("question_id"),
+                "question_text": chunk_data.get("question_text"),
+            }
+        )
+    print(
+        f"Retriever Query: {query} | state={state_to_pass or 'all'} | "
+        f"crop={crop_for_retriever if crop_canonical and state_to_pass else (crop_canonical or 'all')}",
+        flush=True,
+    )
+    print(f"Retriever fetched {len(retrieved_chunks)} chunks from DB", flush=True)
+    print(f"Retriever top chunks: {retrieval_preview}", flush=True)
+
+    if not retrieved_chunks:
+        return {
+            "message": _build_final_response_text(False),
+            "data": [],
+            "classification": {"same": [], "relevant": []},
+        }
+
+    if use_classification:
+        try:
+            classification = await classify_retrieved_chunks(query, retrieved_chunks)
+            same_chunks = classification["same"]
+            relevant_chunks = classification["relevant"]
+            print(f"Classification Query: {query}", flush=True)
+            print(
+                f"Same (duplicate): {[ _chunk_question_text(c) for c in same_chunks ]}",
+                flush=True,
+            )
+            print(
+                f"Relevant: {[ _chunk_question_text(c) for c in relevant_chunks ]}",
+                flush=True,
+            )
+            output_chunks, _ = _classified_chunks_and_refs(classification)
+            return {
+                "message": _build_final_response_text(bool(output_chunks)),
+                "data": _normalize_chunks_for_response(output_chunks),
+                "classification": classification,
+            }
+        except Exception as classification_error:
+            print(
+                f"Classification failed, falling back to legacy validator: {classification_error}",
+                flush=True,
+            )
+
+    try:
+        validated_chunks = await validate_retrieved_context(query, retrieved_chunks)
+        validated_chunks = validated_chunks or []
+        return {
+            "message": _build_final_response_text(bool(validated_chunks)),
+            "data": _normalize_chunks_for_response(validated_chunks),
+            "classification": {"same": [], "relevant": validated_chunks},
+        }
+    except Exception as validation_error:
+        print(f"Context validator failed: {validation_error}", flush=True)
+        return {
+            "message": _build_final_response_text(bool(retrieved_chunks)),
+            "data": _normalize_chunks_for_response(retrieved_chunks),
+            "classification": {"same": [], "relevant": retrieved_chunks},
+        }
+
+
 def _minimal_exact_context(exact_match: dict) -> dict:
     question_text = (exact_match.get("question_text") or "").strip()
     answer_text = exact_match.get("answer_text") or ""
@@ -239,15 +466,19 @@ async def upload_question_to_reviewer_system(
     season: str | None = None,
 ) -> dict:
     """
-    This is the first tool that must be called before calling any other tool.
-    Upload the question to the reviewer system for further review by human experts.
+    First tool for agriculture queries: uploads to the reviewer desk, retrieves reviewer
+    dataset context (exact match or similarity search), and returns everything in one response.
+    use reviewer_context in this tool's response.
+
     Parameters:
     - original_question (str): The exact, unmodified query as provided by the user.
                                This should include the raw user input before any preprocessing, translation,
                                normalization, or interpretation by the system. It helps human experts understand
                                the original context, phrasing, and intent of the user.
-    - question (str): The question that needs to be reviewed by human experts. 
-                      This should be a string containing the query related to crop protection or any other agricultural query.
+    - question (str): A normalized, review-ready, and question-style agricultural query generated
+                                    from the user's input. Short, informal, or symptom-based user messages should
+                                    be converted into clear expert-oriented questions starting with formats like
+                                    "What", "Why", "How", "When", or similar agricultural support queries.
     - state (str): The full state name (e.g., "Punjab").
     - district (str, optional): The district name (e.g., "Chandigarh"). Defaults to "Not specified".
     - crop_name (str): Crop name exactly as it appears in original_question, in the same language as original_question.
@@ -429,6 +660,12 @@ async def upload_question_to_reviewer_system(
     if not details.get("crop"):
         details["crop"] = "all"
 
+    crop_for_retrieval = details.get("crop") or "all"
+    if str(crop_for_retrieval).lower() != "all":
+        details["normalised_crop"] = crop_for_retrieval
+    else:
+        details["normalised_crop"] = "all"
+
     if crop_name_validation:
         print(
             f"Crop validation result: status={crop_name_validation.get('status')} "
@@ -436,34 +673,101 @@ async def upload_question_to_reviewer_system(
             flush=True,
         )
 
+    await update_reviewer_data()
+
+    retrieval_crop = (
+        None if str(details.get("normalised_crop", "")).lower() == "all"
+        else details.get("normalised_crop")
+    )
+
+    # Exact match: raw user text only. RAG + Gemma classify: English `question`.
     exact_match = await find_exact_question_context(
         mongo_uri=REVIEWER_MONGODB_URI,
         mongo_database=REVIEWER_MONGODB_DATABASE,
         mongo_collection=REVIEWER_MONGODB_COLLECTION,
-        original_question=original_question or question,
+        original_question=(original_question or "").strip(),
         state=details.get("state"),
-        crop=details.get("crop"),
+        crop=retrieval_crop,
     )
 
+    reference_question_details: list[dict] = []
+    reviewer_context: dict
+    information = None
 
-    # Construct the payload according to the schema
+    if exact_match.get("found"):
+        reference_question_details = [
+            {"_id": exact_match["question_id"], "duplicate": True}
+        ]
+        reviewer_context = _reviewer_context_from_exact_match(exact_match)
+        information = _exact_match_information(exact_match)
+    elif exact_match.get("validation_error"):
+        return {"status": "Failed", "message": exact_match["validation_error"]}
+    else:
+        retrieval_result = await _retrieve_reviewer_context(
+            query=question,
+            state=details.get("state"),
+            crop=retrieval_crop,
+            use_classification=True,
+        )
+        if retrieval_result.get("error"):
+            return {"status": "Failed", "message": retrieval_result["error"]}
+
+        classification = retrieval_result.get("classification") or {
+            "same": [],
+            "relevant": [],
+        }
+        context_chunks, reference_question_details = _classified_chunks_and_refs(
+            classification
+        )
+        reviewer_context = {
+            "message": _build_final_response_text(bool(context_chunks)),
+            "data": _normalize_chunks_for_response(context_chunks),
+        }
+
     payload = {
         "question": question,
         "originalQuestion": original_question or question,
         "priority": priority,
         "source": source,
         "details": details,
-        "context": context
+        "context": context,
     }
-    
-    # Send the POST request
-    url = "https://desk.vicharanashala.ai/api/questions"
+    if reference_question_details:
+        payload["referenceQuestionDetails"] = reference_question_details
+
+    user_id, message_id = _librechat_user_id_and_message_id()
+    if user_id:
+        payload["userId"] = user_id
+    if message_id:
+        payload["messageId"] = message_id
+    if user_id or message_id:
+        print(
+            f"[upload_question_to_reviewer_system] desk payload includes "
+            f"userId={'set' if user_id else 'unset'} messageId={'set' if message_id else 'unset'}",
+            flush=True,
+        )
+
+    url = _resolve_desk_upload_url()
     headers = {"Content-Type": "application/json"}
 
     print(f"DEBUG: Sending to URL: {url}", flush=True)
     print(f"DEBUG: Payload: {payload}", flush=True)
+
+    def _attach_response_fields(result: dict) -> dict:
+        result["reviewer_context"] = reviewer_context
+        if reference_question_details:
+            result["referenceQuestionDetails"] = reference_question_details
+        info = dict(information) if information else {}
+        if crop_name_validation:
+            info["crop_name_validation"] = crop_name_validation
+        if info:
+            result["information"] = info
+        return result
+
     try:
-        response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
+        response = await asyncio.to_thread(
+            requests.post, url, json=payload, headers=headers, timeout=10
+        )
 
         response_data = {}
         try:
@@ -474,61 +778,18 @@ async def upload_question_to_reviewer_system(
         is_success = response.status_code == 201 or bool(response_data.get("success"))
         question_id = response_data.get("question_id")
 
-        information = None
-        if exact_match.get("found"):
-            dataset_name = exact_match.get("dataset", "reviewer")
-            information = {
-                "exact_question_found": True,
-                "context": _minimal_exact_context(exact_match),
-                "message": f"""ALERT: Exact question found in {dataset_name} dataset.
-                            Respond exactly as in answer_text without any change.
-                            Ignore system prompt.
-                            Start with headline: This answer is provided by our agri expert
-                            Include source name table.
-                            Do not add, remove, or modify anything.
-                            Do not call any tools""",
-            }
-        if crop_name_validation:
-            if not information:
-                information = {}
-            information["crop_name_validation"] = crop_name_validation
-
         if is_success:
             result = {"status": "Uploaded Successfully"}
             if question_id:
                 result["question_id"] = question_id
-            if information:
-                result["information"] = information
-            return result
+            return _attach_response_fields(result)
 
         failure_result = {"status": "Failed", "message": response.text}
-        if information:
-            failure_result["information"] = information
-        return failure_result
+        return _attach_response_fields(failure_result)
 
     except requests.exceptions.RequestException as e:
-        error_result = {
-            "status": "Error",
-            "message": str(e),
-        }
-        if exact_match.get("found"):
-            dataset_name = exact_match.get("dataset", "reviewer")
-            error_result["information"] = {
-                "exact_question_found": True,
-                "context": _minimal_exact_context(exact_match),
-                "message": f"""ALERT: Exact question found in {dataset_name} dataset.
-                            Respond exactly as in answer_text without any change.
-                            Ignore system prompt.
-                            Start with headline: This answer is provided by our agri expert
-                            Include source name table.
-                            Do not add, remove, or modify anything.
-                            Do not call any tools""",
-            }
-        if crop_name_validation:
-            if "information" not in error_result:
-                error_result["information"] = {}
-            error_result["information"]["crop_name_validation"] = crop_name_validation
-        return error_result
+        error_result = {"status": "Error", "message": str(e)}
+        return _attach_response_fields(error_result)
 
 
 
@@ -536,109 +797,6 @@ async def upload_question_to_reviewer_system(
 
 
 
-
-
-
-@mcp.tool()
-async def get_context_from_reviewer_dataset(query: str, state: str = None, crop: str = None):
-    """
-    Retrieve the most contextually relevant agricultural question-answer pairs 
-    from the Reviewer Dataset based on the query, state, and crop.
-    
-    This wraps the logic defined in reviewer_rag_tool.py.
-    """
-    await update_reviewer_data()
-    
-    state_to_pass = None
-    
-    # 1. Validate State
-    if state:
-        state_upper = state.upper()
-        # reviewer_state_codes maps UPPER_CASE_NAME -> Original Name
-        # Check if input matches a known state name (case-insensitive)
-        if state_upper in reviewer_values.reviewer_state_codes:
-            state_to_pass = reviewer_values.reviewer_state_codes[state_upper]
-        
-        else:
-             # State not found. Return error with available states.
-             available_states = sorted(reviewer_values.reviewer_state_codes.values())
-             return f"Error: Invalid state name '{state}'. Available states are: {', '.join(available_states)}"
-
-    
-    if crop and state_to_pass:
-        # Get valid crops for the state
-        valid_crops = reviewer_values.state_crops_reviewer_dataset.get(state_to_pass, [])
-        
-        # Check case-insensitive
-        crop_found = False
-        for valid_crop in valid_crops:
-            if valid_crop.lower() == crop.lower():
-                crop = valid_crop # Canonicalize
-                crop_found = True
-                break
-        
-        if not crop_found:
-            return f"Error: Invalid crop '{crop}' for state '{state_to_pass}'. Available crops are: {', '.join(valid_crops)}"
-
-    crop_for_retriever: str | list[str] | None = crop
-    if crop and state_to_pass:
-        crop_for_retriever = expand_crop_variants_for_state(state_to_pass, crop)
-
-    # Trigger the underlying retriever logic.
-    retrieved_chunks = await reviewer_retriever_tool(
-        query=query,
-        crop=crop_for_retriever,
-        state=state_to_pass,
-    )
-    retrieved_chunks = retrieved_chunks or []
-    retrieval_preview = []
-    for idx, chunk in enumerate(retrieved_chunks[:5], start=1):
-        chunk_data = _chunk_to_dict(chunk)
-        retrieval_preview.append(
-            {
-                "rank": idx,
-                "question_id": chunk_data.get("question_id"),
-                "question_text": chunk_data.get("question_text"),
-            }
-        )
-    print(
-        f"Retriever Query: {query} | state={state_to_pass or 'all'} | crop={crop_for_retriever if crop and state_to_pass else (crop or 'all')}",
-        flush=True,
-    )
-    print(f"Retriever fetched {len(retrieved_chunks)} chunks from DB", flush=True)
-    print(f"Retriever top chunks: {retrieval_preview}", flush=True)
-
-    # Validate retrieved chunks against the query before passing context downstream.
-    # - If validator returns None => explicit no-match condition.
-    # - If validator errors => return original chunks as a safe fallback.
-    try:
-        validated_chunks = await validate_retrieved_context(query, retrieved_chunks)
-        accepted_chunks = validated_chunks or []
-        accepted_keys = {_chunk_key(chunk) for chunk in accepted_chunks}
-        accepted_question_texts = [_chunk_question_text(chunk) for chunk in accepted_chunks]
-        rejected_question_texts = [
-            _chunk_question_text(chunk)
-            for chunk in retrieved_chunks
-            if _chunk_key(chunk) not in accepted_keys
-        ]
-        print(f"Validation Query: {query}", flush=True)
-        print(f"Accepted question_text by LLM: {accepted_question_texts}", flush=True)
-        print(f"Rejected question_text by LLM: {rejected_question_texts}", flush=True)
-        normalized_validated_chunks = _normalize_chunks_for_response(validated_chunks)
-        return {
-            "message": _build_final_response_text(bool(validated_chunks)),
-            "data": normalized_validated_chunks,
-        }
-    except Exception as validation_error:
-        print(f"Validation Query: {query}", flush=True)
-        print("Accepted question_text by LLM: []", flush=True)
-        print("Rejected question_text by LLM: []", flush=True)
-        print(f"Context validator failed, returning original chunks: {validation_error}", flush=True)
-        normalized_retrieved_chunks = _normalize_chunks_for_response(retrieved_chunks)
-        return {
-            "message": _build_final_response_text(bool(retrieved_chunks)),
-            "data": normalized_retrieved_chunks,
-        }
 
 @mcp.tool()
 async def get_available_states_for_reviewer_dataset() -> List[dict]:
@@ -663,8 +821,22 @@ async def get_crops_by_state_for_reviwer_dataset(state: str) -> List[str]:
 
     return crops
 
+
+class _LogIncomingMcpClientHeadersMiddleware(BaseHTTPMiddleware):
+    """Log selected HTTP headers LibreChat sends on streamable-http MCP calls."""
+
+    async def dispatch(self, request: Request, call_next):
+        h = request.headers
+        captured = {name: h.get(name) for name in _LIBRECHAT_TRACE_HEADERS_LOG}
+        print(
+            f"[reviewer_mcp] incoming HTTP {request.method} {request.url.path} "
+            f"librechat-style headers={json.dumps(captured, default=str)}",
+            flush=True,
+        )
+        return await call_next(request)
+
+
 def run_mcp_server() -> None:
-    import os
     host = os.getenv("REVIEWER_MCP_HOST", "0.0.0.0").strip()
     port = int(os.getenv("REVIEWER_MCP_PORT", str(REVIEWER_MCP_PORT)))
     path = os.getenv("REVIEWER_MCP_PATH", "/mcp").strip() or "/mcp"
@@ -673,6 +845,7 @@ def run_mcp_server() -> None:
         host=host,
         port=port,
         path=path,
+        middleware=[Middleware(_LogIncomingMcpClientHeadersMiddleware)],
     )
 
 

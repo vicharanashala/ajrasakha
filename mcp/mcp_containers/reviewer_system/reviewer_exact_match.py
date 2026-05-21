@@ -173,7 +173,12 @@ async def find_exact_question_context(
         )
     if crop_to_filter:
         query_filter["$and"].append(
-            {"details.crop": {"$regex": _escape_exact_regex(crop_to_filter), "$options": "i"}}
+            {
+                "details.normalised_crop": {
+                    "$regex": _escape_exact_regex(crop_to_filter),
+                    "$options": "i",
+                }
+            }
         )
 
     matched_question = await questions_collection.find_one(query_filter, sort=[("updatedAt", -1), ("_id", -1)])

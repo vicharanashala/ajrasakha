@@ -100,7 +100,7 @@ async def _similarity_search_merge_variants(
     index_name = MONGODB_INDEX
     for c in crop_variants:
         fl = dict(base_filters)
-        fl["details.crop"] = c
+        fl["details.normalised_crop"] = c
         batch = await vector_search_with_prefetched_embedding(
             coll, index_name, embedding, fl, k
         )
@@ -128,9 +128,9 @@ async def reviewer_retriever_tool(
     crop_variants = _crop_filter_values(crop)
     if crop_variants:
         if len(crop_variants) == 1:
-            filters["details.crop"] = crop_variants[0]
+            filters["details.normalised_crop"] = crop_variants[0]
         else:
-            filters["details.crop"] = {"$in": crop_variants}
+            filters["details.normalised_crop"] = {"$in": crop_variants}
     if season:
         filters["details.season"] = season
     if state:
@@ -146,7 +146,7 @@ async def reviewer_retriever_tool(
         )
     except Exception:
         if crop_variants and len(crop_variants) > 1:
-            base = {k: v for k, v in filters.items() if k != "details.crop"}
+            base = {k: v for k, v in filters.items() if k != "details.normalised_crop"}
             docs = await _similarity_search_merge_variants(query, 5, base, crop_variants)
         else:
             raise
