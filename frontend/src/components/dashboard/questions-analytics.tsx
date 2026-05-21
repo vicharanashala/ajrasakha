@@ -656,8 +656,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
             sg.totalRows += 1;
           }
 
-          /* helper: show "—" for zero counts so the table looks cleaner */
-          const fmt = (n: number) => (n > 0 ? n : <span className="text-muted-foreground/40">—</span>);
+          const fmt = (n: number) => (n > 0 ? n : 0);
 
           return (
             <div className="mt-8">
