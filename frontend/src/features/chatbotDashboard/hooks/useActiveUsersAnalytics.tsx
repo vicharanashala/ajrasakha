@@ -3,31 +3,46 @@ import { ChatbotService } from "@/hooks/services/chatbotService";
 
 const chatbotService = new ChatbotService();
 
-export const useDailyActiveUsersTrend = (enabled: boolean = true) => {
+export const useDailyActiveUsersTrend = (startDate: Date, endDate:Date, source: string, enabled: boolean = true) => {
   return useQuery({
-    queryKey: ["daily_user_growth"],
+    queryKey: [
+      "daily_user_growth",
+      startDate?.toISOString(),
+      endDate?.toISOString(),
+      source,
+    ],
     queryFn: () => {
-      return chatbotService.getDailyActiveUsersTrend();
+      return chatbotService.getDailyActiveUsersTrend(startDate.toString(), endDate.toString(), source);
     },
     enabled,
   });
 };
 
-export const useMontlyActiveUsersTrend = (enabled: boolean = true) => {
+export const useMontlyActiveUsersTrend = (startDate: Date, endDate:Date, source: string, enabled: boolean = true) => {
   return useQuery({
-    queryKey: ["monthly_user_growth"],
+    queryKey: [
+      "monthly_user_growth",
+      startDate?.toISOString(),
+      endDate?.toISOString(),
+      source,
+    ],
     queryFn: () => {
-      return chatbotService.getMonthlyActiveUsersTrend();
+      return chatbotService.getMonthlyActiveUsersTrend(startDate.toString(), endDate.toString(), source);
     },
     enabled,
   });
 };
 
-export const useWeeklyActiveUsersTrend = (enabled: boolean = true) => {
+export const useWeeklyActiveUsersTrend = (startDate: Date, endDate:Date, source: string, enabled: boolean = true) => {
   return useQuery({
-    queryKey: ["weekly_user_growth"],
+    queryKey: [
+      "weekly_user_growth",
+      startDate?.toISOString(),
+      endDate?.toISOString(),
+      source,
+    ],
     queryFn: () => {
-      return chatbotService.getWeeklyActiveUsersTrend();
+      return chatbotService.getWeeklyActiveUsersTrend(startDate.toString(), endDate.toString(), source);
     },
     enabled,
   });

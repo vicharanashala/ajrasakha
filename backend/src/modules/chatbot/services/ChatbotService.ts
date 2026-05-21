@@ -682,25 +682,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyActiveUsersTrend(){
+  async getDailyActiveUsersTrend(startDate: Date, endDate: Date, source: string){
     try {
-      return await this.chatbotRepository.getDailyActiveUsersTrend();
+      return await this.chatbotRepository.getDailyActiveUsersTrend(startDate, endDate, source);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch Daily Active Users Trend: ${error}`);
     }
   }
 
-  async getMonthlyActiveUsersTrend(){
+  async getMonthlyActiveUsersTrend(startDate: Date, endDate: Date, source: string){
     try {
-      return await this.chatbotRepository.getMonthlyActiveUsersTrend();
+      return await this.chatbotRepository.getMonthlyActiveUsersTrend(startDate, endDate, source);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch Monthly Active Users Trend: ${error}`);
     }
   }
 
-  async getWeeklyActiveUsersTrend(){
+  async getWeeklyActiveUsersTrend(startDate: Date, endDate: Date, source: string){
     try {
-      return await this.chatbotRepository.getWeeklyActiveUsersTrend();
+      return await this.chatbotRepository.getWeeklyActiveUsersTrend(startDate, endDate, source);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch Weekly Active Users Trend: ${error}`);
     }

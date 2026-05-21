@@ -47,6 +47,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import FeedbackCard from "./FeedbackCard";
+import { ActiveUsersChart } from "./active-users";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -75,7 +76,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
   const { data: qualityData, isLoading: qualityLoading } = useDashboardData(qualityFilters, source);
 
-  console.log("Dashboard data:", data);
+  // console.log("Dashboard data:", data);
   const {
     data: dauTrend,
     isLoading: dauLoading,
@@ -1108,6 +1109,12 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/>
                   </div>
                 </div >
+
+                <div className="mb-6">
+                    <ActiveUsersChart
+                    source={source}
+                    />
+                </div> 
               </div >
             )
             }

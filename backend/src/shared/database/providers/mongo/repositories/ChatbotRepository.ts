@@ -3107,17 +3107,18 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getDailyActiveUsersTrend(
+    startDate: Date, endDate: Date, source: string,
     session?: ClientSession,
   ) {
     try {
-      await this.init();
+      await this.init(source);
 
       /**
        * Last 365 days
        */
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 365);
+      // const endDate = new Date();
+      // const startDate = new Date();
+      // startDate.setDate(startDate.getDate() - 365);
 
       /**
        * DAU Trend
@@ -3169,23 +3170,24 @@ export class ChatbotRepository implements IChatbotRepository {
 
 
   async getWeeklyActiveUsersTrend(
+    startDate: Date, endDate: Date, source: string,
     session?: ClientSession,
   ) {
     try {
-      await this.init();
+      await this.init(source);
 
       /**
        * Last 12 weeks
        */
-      const endDate = new Date();
-      const startDate = new Date();
+      // const endDate = new Date();
+      // const startDate = new Date();
 
-      const DAYS_IN_WEEK = 7;
-      const TOTAL_WEEKS = 52;
+      // const DAYS_IN_WEEK = 7;
+      // const TOTAL_WEEKS = 52;
 
-      startDate.setDate(
-        startDate.getDate() - (DAYS_IN_WEEK * TOTAL_WEEKS),
-      );
+      // startDate.setDate(
+      //   startDate.getDate() - (DAYS_IN_WEEK * TOTAL_WEEKS),
+      // );
 
       /**
        * WAU Trend
@@ -3273,17 +3275,18 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyActiveUsersTrend(
+    startDate: Date, endDate: Date, source: string,
     session?: ClientSession,
   ) {
     try {
-      await this.init();
+      await this.init(source);
 
       /**
        * Last 12 months
        */
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - 12);
+      // const endDate = new Date();
+      // const startDate = new Date();
+      // startDate.setMonth(startDate.getMonth() - 12);
 
       /**
        * MAU Trend

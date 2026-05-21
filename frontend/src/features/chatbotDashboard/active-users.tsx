@@ -1,9 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
-
 import {
   Card,
   CardContent,
@@ -11,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-
 import {
   ChartContainer,
   ChartLegend,
@@ -20,7 +17,6 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/atoms/chart";
-
 import {
   Select,
   SelectContent,
@@ -28,42 +24,59 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-
 import { Loader2 } from "lucide-react";
-
 import {
   useDailyActiveUsersTrend,
   useWeeklyActiveUsersTrend,
   useMontlyActiveUsersTrend,
 } from "@/features/chatbotDashboard/hooks/useActiveUsersAnalytics";
-
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
+import type { DateRange } from "react-day-picker";
 
+import { Calendar } from "@/components/atoms/calendar";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/atoms/popover";
+
+import { Button } from "@/components/atoms/button";
+
+import { CalendarIcon, Loader, RefreshCcw } from "lucide-react";
+
+import { format, subDays } from "date-fns";
 const chartConfig = {
   value: {
     label: "Active Users",
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
+const defaultDateRange: DateRange = {
+  from: subDays(new Date(), 90),
+  to: new Date(),
+};
 
 type ActiveUserType = "daily" | "weekly" | "monthly";
 
-export const ActiveUsersChart = () => {
+export const ActiveUsersChart = (source: string) => {
   const [type, setType] = useState<ActiveUserType>("daily");
-
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(
+    defaultDateRange,
+  );
   const { data: dailyData, isFetching: dailyLoading } =
-    useDailyActiveUsersTrend();
+    useDailyActiveUsersTrend(dateRange?.from, dateRange?.to, source);
 
   const { data: weeklyData, isFetching: weeklyLoading } =
-    useWeeklyActiveUsersTrend();
+    useWeeklyActiveUsersTrend(dateRange?.from, dateRange?.to, source);
 
   const { data: monthlyData, isFetching: monthlyLoading } =
-    useMontlyActiveUsersTrend();
+    useMontlyActiveUsersTrend(dateRange?.from, dateRange?.to, source);
 
   const isFetching = dailyLoading || weeklyLoading || monthlyLoading;
 
@@ -114,6 +127,66 @@ export const ActiveUsersChart = () => {
     }
   }, [type]);
 
+  const resetDateRange = () => {
+    setDateRange({
+      from: subDays(new Date(), 90),
+      to: new Date(),
+    });
+  };
+
+  const renderDateRangePicker = () => (
+    <div className="flex items-center gap-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="
+            justify-start text-left font-normal
+            bg-gray-100 dark:bg-[#2a2a2a]
+            border-gray-300 dark:border-[#3a3a3a]
+            text-gray-700 dark:text-gray-200
+            max-w-full whitespace-normal
+            h-auto min-h-10 flex-1
+          "
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+
+            {dateRange?.from
+              ? dateRange.to
+                ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`
+                : format(dateRange.from, "MMM dd, yyyy")
+              : "Select date range"}
+          </Button>
+        </PopoverTrigger>
+
+        <PopoverContent className="w-auto p-0" align="end">
+          <Calendar
+            initialFocus
+            mode="range"
+            defaultMonth={dateRange?.from}
+            selected={dateRange}
+            onSelect={setDateRange}
+            numberOfMonths={1}
+          />
+        </PopoverContent>
+      </Popover>
+
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={resetDateRange}
+        title="Reset to last 30 days"
+        className="
+        shrink-0
+        bg-gray-100 dark:bg-[#2a2a2a]
+        border-gray-300 dark:border-[#3a3a3a]
+        text-gray-700 dark:text-gray-200
+      "
+      >
+        <RefreshCcw className="h-4 w-4" />
+      </Button>
+    </div>
+  );
   return (
     <Card className="pt-0">
       <CardHeader className="border-b py-5">
@@ -166,7 +239,7 @@ export const ActiveUsersChart = () => {
             </CardDescription>
           </div>
 
-          <Select
+          {/* <Select
             value={type}
             onValueChange={(value) => setType(value as ActiveUserType)}
           >
@@ -181,7 +254,28 @@ export const ActiveUsersChart = () => {
 
               <SelectItem value="monthly">Monthly Active Users</SelectItem>
             </SelectContent>
-          </Select>
+          </Select> */}
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {renderDateRangePicker()}
+
+            <Select
+              value={type}
+              onValueChange={(value) => setType(value as ActiveUserType)}
+            >
+              <SelectTrigger className="w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="daily">Daily Active Users</SelectItem>
+
+                <SelectItem value="weekly">Weekly Active Users</SelectItem>
+
+                <SelectItem value="monthly">Monthly Active Users</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </CardHeader>
 

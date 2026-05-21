@@ -33,7 +33,7 @@ import {
   TopCropsResponse,
   DistrictAnalyticsEntryResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
-import { GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
+import { ActiveUsersQuery, GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -454,22 +454,56 @@ async getDistrictAnalyticsByState(
   @Get('/daily-active-users-trend')
   @HttpCode(200)
   @Authorized()
-  async getDailyActiveUsersTrend(): Promise<any> {
-    return await this.chatbotService.getDailyActiveUsersTrend();
+  async getDailyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = new Date(query.startDate!);
+    const endDate = new Date(query.endDate!);
+    const source = query.source;
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new Error('Invalid startDate or endDate.');
+    }
+
+    if (startDate > endDate) {
+      throw new Error('startDate cannot be after endDate.');
+    }
+
+    return await this.chatbotService.getDailyActiveUsersTrend(startDate, endDate, source);
   }
 
   @Get('/monthly-active-users-trend')
   @HttpCode(200)
   @Authorized()
-  async getMonthlyActiveUsersTrend(): Promise<any> {
-    return await this.chatbotService.getMonthlyActiveUsersTrend();
+  async getMonthlyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = new Date(query.startDate!);
+    const endDate = new Date(query.endDate!);
+    const source = query.source;
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new Error('Invalid startDate or endDate.');
+    }
+
+    if (startDate > endDate) {
+      throw new Error('startDate cannot be after endDate.');
+    }
+    return await this.chatbotService.getMonthlyActiveUsersTrend(startDate, endDate, source);
   }
 
   @Get('/weekly-active-users-trend')
   @HttpCode(200)
   @Authorized()
-  async getWeeklyActiveUsersTrend(): Promise<any> {
-    return await this.chatbotService.getWeeklyActiveUsersTrend();
+  async getWeeklyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = new Date(query.startDate!);
+    const endDate = new Date(query.endDate!);
+    const source = query.source;
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new Error('Invalid startDate or endDate.');
+    }
+
+    if (startDate > endDate) {
+      throw new Error('startDate cannot be after endDate.');
+    }
+    return await this.chatbotService.getWeeklyActiveUsersTrend(startDate, endDate, source);
   }
 
   @Get('/retention-metrics')

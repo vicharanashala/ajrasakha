@@ -54,22 +54,48 @@ export class ChatbotService {
   }
 
   async getDailyActiveUsersTrend(
-    ): Promise<any> {
-      return apiFetch<any>(`${this._baseUrl}/daily-active-users-trend`);
+    startDate: string,
+    endDate: string,
+    source: string
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append("startDate", startDate);
+    params.append("endDate", endDate);
+    params.append("source", source);
+      return apiFetch<any>(
+      `${this._baseUrl}/daily-active-users-trend?${params.toString()}`,
+    );
   }
 
   async getMonthlyActiveUsersTrend(
-    ): Promise<any> {
-      return apiFetch<any>(`${this._baseUrl}/monthly-active-users-trend`);
+    startDate: string,
+    endDate: string,
+    source: string
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append("startDate", startDate);
+    params.append("endDate", endDate);
+      params.append("source", source);
+    return apiFetch<any>(
+      `${this._baseUrl}/monthly-active-users-trend?${params.toString()}`,
+    );
   }
 
   async getWeeklyActiveUsersTrend(
-    ): Promise<any> {
-      return apiFetch<any>(`${this._baseUrl}/weekly-active-users-trend`);
+    startDate: string,
+    endDate: string,
+    source: string
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append("startDate", startDate);
+    params.append("endDate", endDate);
+      params.append("source", source);
+    return apiFetch<any>(
+      `${this._baseUrl}/weekly-active-users-trend?${params.toString()}`,
+    );
   }
 
-  async getRetentionMetrics(
-    ): Promise<any> {
-      return apiFetch<any>(`${this._baseUrl}/retention-metrics`);
+  async getRetentionMetrics(): Promise<any> {
+    return apiFetch<any>(`${this._baseUrl}/retention-metrics`);
   }
 }
