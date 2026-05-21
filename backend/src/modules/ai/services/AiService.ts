@@ -120,7 +120,6 @@ export class AiService {
   async getEmbedding(text: string): Promise<{ embedding: number[] }> {
     try {
       const fullUrl = `${this._aiServerUrl}/embed`;
-      console.log("FULL FETCH URL:", fullUrl);
       const response = await fetch(fullUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -316,7 +315,6 @@ export class AiService {
       }
 
       const fullUrl = `${this._whatsAppServerUrl}/threads/${threadId}/state`;
-      console.log("Fetching WhatsApp state from:", fullUrl);
 
       const response = await fetch(fullUrl);
 
@@ -326,14 +324,12 @@ export class AiService {
       }
 
       const data = (await response.json()) as AgriFlowResponse;
-
       if (!data?.values || !Array.isArray(data.values.messages)) {
         console.warn("Invalid API response", data);
         return null;
       }
 
       const messages = data.values.messages;
-
       const extractId = (id: any): string | null => {
         if (typeof id === 'string') return id;
         if (!id) return null;
@@ -436,7 +432,7 @@ export class AiService {
           }
 
           //  AI text answer
-          if (typeof msg.content === "string") {
+          if (typeof msg.content === "string" && !msg.content.startsWith("THIS IS AN AGRI EXPERT GENERATED MESSAGE")) {
             structuredContent.push({
               type: "ai",
               text: msg.content,

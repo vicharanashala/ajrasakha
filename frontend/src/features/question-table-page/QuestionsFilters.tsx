@@ -509,6 +509,7 @@ export const QuestionsFilters = ({
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,
+      unallocatedQuestions: advanceFilter?.unallocatedQuestions,
     });
   };
 
@@ -807,11 +808,10 @@ export const QuestionsFilters = ({
                   onClick={() => {
                     setIsReAllocateSelectedQuestionsOpen(true);
                   }}
-                  className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${
-                    reAllocating || isReAllocateDisabled
+                  className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled
                       ? "cursor-not-allowed text-green-600"
                       : ""
-                  }`}
+                    }`}
                 >
                   <UserCheck className="h-4 w-4" />
                   {reAllocating
@@ -833,11 +833,9 @@ export const QuestionsFilters = ({
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${
-                selectedQuestionIds.length
-              } selected question${
-                selectedQuestionIds.length > 1 ? "s" : ""
-              }? This action is irreversible.`}
+              description={`Are you sure you want to delete ${selectedQuestionIds.length
+                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
+                }? This action is irreversible.`}
               confirmText="Delete"
               cancelText="Cancel"
               isLoading={bulkDeletingQuestions}
@@ -948,11 +946,10 @@ export const QuestionsFilters = ({
                       key={key}
                       onClick={() => toggleColumn(key)}
                       className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
-              ${
-                isVisible
-                  ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
-                  : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
-              }
+              ${isVisible
+                          ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                          : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+                        }
             `}
                     >
                       <span className="text-xs font-semibold tracking-wider capitalize">
@@ -1309,11 +1306,10 @@ export const QuestionsFilters = ({
             setIsBadgeExpanded((prev) => !prev);
           }
         }}
-        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-          isBadgeExpanded
+        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
             ? "rounded-[16px] px-4 py-3 min-w-[220px]"
             : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
-        } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
+          } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
           left: `${safeX}px`,
           top: `${safeY}px`,
@@ -1334,9 +1330,8 @@ export const QuestionsFilters = ({
             </span>
           </span>
           <span
-            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-              isBadgeExpanded ? "rotate-180" : "rotate-0"
-            }`}
+            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded ? "rotate-180" : "rotate-0"
+              }`}
           >
             <ChevronDown size={14} />
           </span>
@@ -1344,11 +1339,10 @@ export const QuestionsFilters = ({
 
         {/* Expanded status breakdown */}
         <div
-          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-            isBadgeExpanded
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
               ? "grid-rows-[1fr] opacity-100"
               : "grid-rows-[0fr] opacity-0"
-          }`}
+            }`}
         >
           <div className="overflow-hidden">
             <div className="mt-3 space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">

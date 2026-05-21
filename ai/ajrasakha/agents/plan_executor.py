@@ -13,6 +13,9 @@ from langchain_core.runnables import RunnableConfig, patch_config
 
 from ajrasakha.agents.location_context import (
     extract_location_updates_from_new_tool_messages,
+    extract_state_from_text,
+    gps_state_from_location,
+    has_gps_coordinates,
     merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
@@ -74,13 +77,31 @@ def _needs_location_resolve(loc: Optional[Location]) -> bool:
     return not _location_has_place(loc)
 
 
-def _entity_str(plan: PlannerPlan, key: str, loc: Optional[Location], default: str) -> str:
+def _entity_str(
+    plan: PlannerPlan,
+    key: str,
+    loc: Optional[Location],
+    default: str,
+    *,
+    user_query: str = "",
+) -> str:
     entities = plan.get("entities") or {}
     val = entities.get(key) if isinstance(entities, dict) else None
     if val:
         return str(val).strip()
-    if loc and loc.get(key):
-        return str(loc[key]).strip()
+    if key == "state" and user_query:
+        extracted = extract_state_from_text(user_query)
+        if extracted:
+            return extracted
+    if loc:
+        if key == "state":
+            gps_state = gps_state_from_location(loc)
+            if gps_state:
+                return gps_state
+        elif key == "district" and has_gps_coordinates(loc) and loc.get("city"):
+            return str(loc["city"]).strip()
+        elif loc.get(key):
+            return str(loc[key]).strip()
     return default
 
 
@@ -111,11 +132,11 @@ async def build_tool_calls_from_plan(
     calls: list[dict[str, Any]] = []
     loc = location or {}
     entities = plan.get("entities") or {}
-    state_name = _entity_str(plan, "state", loc, "Not specified")
-    district = _entity_str(plan, "district", loc, "Not specified")
-    if district == "Not specified" and loc.get("city"):
+    state_name = _entity_str(plan, "state", loc, "Not specified", user_query=user_query)
+    district = _entity_str(plan, "district", loc, "Not specified", user_query=user_query)
+    if district == "Not specified" and has_gps_coordinates(loc) and loc.get("city"):
         district = str(loc["city"])
-    crop = _entity_str(plan, "crop", loc, "General")
+    crop = _entity_str(plan, "crop", loc, "General", user_query=user_query)
     domain = _reviewer_domain(plan)
 
     if _needs_location_resolve(loc):
@@ -214,12 +235,17 @@ async def build_tool_calls_from_plan(
         })
 
     if plan.get("knowledge_base"):
+        gdb_query = plan.get("original_query_en") or user_query
+        rephrased = plan.get("rephrased_query") or gdb_query
+        resolved_crop = "all" if crop.lower() in {"general", "not specified", "none", "null", "all"} else crop
+        resolved_state = "all" if state_name.lower() in {"general", "not specified", "none", "null", "all"} else state_name
         calls.append({
             "name": "gdb",
             "args": {
-                "query": user_query,
-                "crop": crop if crop != "General" else "all",
-                "state": state_name if state_name != "Not specified" else "all",
+                "query": gdb_query,
+                "crop": resolved_crop,
+                "state": resolved_state,
+                "rephrased_query": rephrased,
                 "latitude": lat,
                 "longitude": lon,
                 "address": addr,
@@ -403,4 +429,19 @@ def route_after_execute(state: AjraSakhaState) -> str:
             text = _message_to_text(msg)
             if not text or text.upper() == "NO_RELEVANT_CONTENT" or text in {"[]", "{}"}:
                 return "empty_gdb_reply"
+            try:
+                data = json.loads(text)
+                if isinstance(data, dict):
+                    is_exact = data.get("is_exact", False)
+                    is_similar = data.get("is_similar", False)
+                    # If neither exact nor similar match, it's empty
+                    if not is_exact and not is_similar:
+                        # Also check legacy format
+                        exact = data.get("exact_match") or {}
+                        similar = data.get("similar_match") or {}
+                        if not exact and not similar:
+                            return "empty_gdb_reply"
+            except Exception:
+                pass
     return "synthesize"
+

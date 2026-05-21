@@ -14,6 +14,10 @@ import type {
   PlatformInstallEntry,
   DuplicateQuestionEntry,
   DomainSpikeEntry,
+  MonthlyQueryCountEntry,
+  MonthlySessionDurationEntry,
+  DistrictAnalyticsEntry,
+  FeedbackData,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -25,8 +29,10 @@ export interface DashboardResponse {
   geo: GeoStateEntry[];
   queryCategories: QueryCategoryEntry[];
   weeklySessionDuration: WeeklySessionDurationEntry[];
+  monthlySessionDuration: MonthlySessionDurationEntry[];
   dailyQueries: DailyQueryCountEntry[];
   weeklyQueries: WeeklyQueryCountEntry[];
+  monthlyQueries: MonthlyQueryCountEntry[];
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
@@ -34,10 +40,20 @@ export interface DashboardResponse {
   agriAppUsage: DemographicEntry[];
   platformInstalls: PlatformInstallEntry[];
   domainSpikes: DomainSpikeEntry[];
+  feedbackData: FeedbackData;
+  dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;
+  topFaqs?: Array<{ question: string; count: number }>;
+  topQuestionsFromCollection?: Array<{ question: string; count: number }>;
 }
 
 export interface IChatbotService {
-  getDashboard(days: number, source?: string, userType?: string): Promise<DashboardResponse>;
+  getDashboard(
+    days: number,
+    source?: string,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<DashboardResponse>;
   getKpiSummary(source?: string, userType?: string): Promise<KpiSummary>;
   getDailyActiveUsers(days: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
   getChannelSplit(source?: string): Promise<ChannelSplitEntry[]>;
@@ -57,5 +73,13 @@ export interface IChatbotService {
   getGrowth(range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
+  getDailyQuestionTrends(days?: number, userType?: string): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
+  getTopFaqs(source?: string, userType?: string): Promise<Array<{ question: string; count: number }>>;
+  getDistrictAnalyticsByState(state: string, source?: string, userType?: string): Promise<DistrictAnalyticsEntry[]>;
+  deleteUser(userId: string, source: string): Promise<boolean>;
+  getDailyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string):Promise<any>;
+  getMonthlyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string): Promise<any>;
+  getWeeklyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string): Promise<any>;
+  getRetentionMetrics(): Promise<any>;
 }
 

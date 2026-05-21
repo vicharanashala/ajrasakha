@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { X, MapPin, Maximize2 } from "lucide-react";
+import { X, MapPin, Maximize2, Trash2 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
@@ -8,6 +8,25 @@ import { useDashboardData } from "./hooks/useDashboardData";
 import { BarGraph } from "./components/shared/BarGrapgh";
 import { Pagination } from "@/components/pagination";
 import { createPortal } from "react-dom";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+} from "@/components/atoms/context-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/atoms/alert-dialog";
+import { Input } from "@/components/atoms/input";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { useDeleteUser } from "./hooks/useDeleteUser";
 import {
   Table,
   TableBody,
@@ -107,6 +126,9 @@ interface UserDetailsViewProps {
 }
 
 export function UserDetailsView({ source = 'vicharanashala', initialFilters, userType = 'all' }: UserDetailsViewProps) {
+  const { data: currentUser } = useGetCurrentUser({});
+  const isAdmin = currentUser?.role === "admin";
+  const deleteUserMutation = useDeleteUser();
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
     ...initialFilters,
@@ -118,7 +140,9 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
-    const [hovered, setHovered] = useState<string | null>(null);
+  const [userToDelete, setUserToDelete] = useState<{ userId: string; source: string; email: string } | null>(null);
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [hovered, setHovered] = useState<string | null>(null);
       const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
@@ -1129,7 +1153,9 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                     users.map((user, idx) => {
                       const fp = user.farmerProfile;
                       return (
-                        <TableRow key={user.userId} className="text-center">
+                        <ContextMenu key={user.userId}>
+                          <ContextMenuTrigger asChild>
+                        <TableRow className="text-center">
                           <TableCell className="align-middle">
                             {(currentPage - 1) * pageSize + idx + 1}
                           </TableCell>
@@ -1254,6 +1280,23 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                             )}
                           </TableCell>
                         </TableRow>
+                      </ContextMenuTrigger>
+                      {isAdmin && (
+                        <ContextMenuContent>
+                          <ContextMenuItem 
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmEmail("");
+                              setUserToDelete({ userId: user.userId, source, email: user.email });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                            Delete
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      )}
+                      </ContextMenu>
                       );
                     })
                   )}
@@ -1284,6 +1327,40 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
         </CardContent>
       </Card>
       </div>
+
+      <AlertDialog open={!!userToDelete} onOpenChange={(open) => { if (!open) { setUserToDelete(null);  setConfirmEmail("");  }  }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the farmer and remove their data.
+              To confirm this action, enter the email address{" "}
+              <strong>{userToDelete?.email}</strong> in the box below.
+            </AlertDialogDescription>
+            <Input
+              value={confirmEmail}
+              onChange={(e) => setConfirmEmail(e.target.value)}
+              placeholder="Enter email to confirm"
+            />
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={confirmEmail !== userToDelete?.email}
+              onClick={() => {
+                if (userToDelete) {
+                  deleteUserMutation.mutate(userToDelete);
+                  setUserToDelete(null);
+                  setConfirmEmail("");
+                }
+              }}
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type {ClientSession} from 'mongodb';
+import type {ClientSession, ObjectId} from 'mongodb';
 
 // ─── Shared return types ──────────────────────────────────────────────────────
 
@@ -14,6 +14,8 @@ export interface KpiSummary {
   inactiveUsersLast3Days: number; // users with zero messages in the last 3 days
   duplicateQuestionsCount: number; // questions with a similarityScore field
   lowFeedbackUsersCount: number; // users who have never given any feedback (no feedback object in messages)
+  avgQuestionsPerUserDay?: number;
+  repeatQueryCount?: number;
 }
 
 export interface DuplicateQuestionEntry {
@@ -56,8 +58,20 @@ export interface QueryCategoryEntry {
   duplicateQuestionCount: number;
 }
 
+export interface DistrictAnalyticsEntry{
+  district: string;
+  totalQuestions: number;
+  uniqueQuestions: number;
+  duplicateQuestions: number;
+}
+
 export interface WeeklySessionDurationEntry {
   week: string; // ISO week string, e.g. '2025-W03'
+  avgSessionDurationMin: number;
+}
+
+export interface MonthlySessionDurationEntry {
+  month: string; // 'YYYY-MM'
   avgSessionDurationMin: number;
 }
 
@@ -69,6 +83,28 @@ export interface DailyQueryCountEntry {
 export interface WeeklyQueryCountEntry {
   week: string; // ISO week string, e.g. '2025-W03'
   count: number;
+}
+
+export interface MonthlyQueryCountEntry {
+  month: string; // 'YYYY-MM'
+  count: number;
+}
+
+export interface FeedbackEntry {
+  rating: string;
+  tag: string;
+}
+
+export interface FeedbackData{
+  positiveFeedbacks: FeedbackEntry[];
+  negativeFeedbacks: FeedbackEntry[];
+  stats: {
+    "_id"?: null | ObjectId,
+    positiveCount: number,
+    negativeCount: number,
+    averageRating: number,
+    totalFeedbacks: number
+  }
 }
 
 export interface FarmerProfile {
@@ -149,7 +185,13 @@ export interface DomainSpikeEntry {
 
 export interface IChatbotRepository {
   /** Aggregated KPI summary for the current day. */
-  getKpiSummary(source?: string, session?: ClientSession, userType?: string): Promise<KpiSummary>;
+  getKpiSummary(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<KpiSummary>;
 
   /** Daily unique active users over the last `days` days. */
   getDailyActiveUsers(
@@ -201,6 +243,12 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<WeeklyQueryCountEntry[]>;
 
+  getMonthlyQueryCounts(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<MonthlyQueryCountEntry[]>;
+
   /** Daily user activity trend (users active per day) over the last `days` days, sorted ascending. */
   getDailyUserTrend(
     days?: number,
@@ -221,6 +269,13 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<WeeklySessionDurationEntry[]>;
+
+  getMonthlyAvgSessionDuration(
+    weeks?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<MonthlySessionDurationEntry[]>;
 
   /** Get all users with their question counts, optionally filtered by date range, with server-side pagination. */
   getUserDetails(
@@ -259,6 +314,8 @@ export interface IChatbotRepository {
   getInstalls(startDate:Date,endDate:Date, session?: ClientSession)
   getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession)
 
+  getFeedbackData(source?: string, session?: ClientSession, userType?: string): Promise<FeedbackData>;
+
   // get platform wise installs
   getPlatformInstalls(source: string, session?: ClientSession): Promise<PlatformInstallEntry[]>;
 
@@ -267,6 +324,43 @@ export interface IChatbotRepository {
 
   /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
   getDomainSpikes(days?: number, session?: ClientSession): Promise<DomainSpikeEntry[]>;
+
+  /** Daily unique vs duplicate questions asked on the review system (source AJRASAKHA). */
+  getDailyQuestionTrends(
+    days?: number,
+    session?: ClientSession,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
+
+  /** 10 most frequently asked questions from the messages collection. */
+  getTopFaqs(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ question: string; count: number }>>;
+
+  /** 10 most frequently asked questions from the questions collection. */
+  getTopQuestionsFromCollection(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ question: string; count: number }>>;
+  getDistrictAnalyticsByState( state: string, source?: string, session?: ClientSession, userType?: string): Promise<DistrictAnalyticsEntry[]>;
+  deleteUser(userId: string, source: string): Promise<boolean>;
+
+  getDailyActiveUsersTrend  (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession):Promise<any>
+
+  getMonthlyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
+
+  getWeeklyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
+
+  getRetentionMetrics (session?: ClientSession): Promise<any>
 }
 
 export interface ChatbotConversationData {

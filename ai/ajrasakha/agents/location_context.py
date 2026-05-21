@@ -3,10 +3,158 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Optional
 
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
+
+# Canonical state names and common spellings in farmer queries (longest match first).
+_STATE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    ("Andaman and Nicobar Islands", re.compile(r"\bandaman\b", re.I)),
+    ("Andhra Pradesh", re.compile(r"\bandhra\s+pradesh\b", re.I)),
+    ("Arunachal Pradesh", re.compile(r"\barunachal\b", re.I)),
+    ("Dadra and Nagar Haveli and Daman and Diu", re.compile(r"\bdadra\b|\bdaman\s+and\s+diu\b", re.I)),
+    ("Himachal Pradesh", re.compile(r"\bhimachal\b", re.I)),
+    ("Jammu and Kashmir", re.compile(r"\bjammu\b", re.I)),
+    ("Madhya Pradesh", re.compile(r"\bmadhya\s+pradesh\b", re.I)),
+    ("Tamil Nadu", re.compile(r"\btamil\s+nadu\b", re.I)),
+    ("Uttar Pradesh", re.compile(r"\buttar\s+pradesh\b", re.I)),
+    ("West Bengal", re.compile(r"\bwest\s+bengal\b", re.I)),
+    ("Assam", re.compile(r"\bassam\b", re.I)),
+    ("Bihar", re.compile(r"\bbihar\b", re.I)),
+    ("Chhattisgarh", re.compile(r"\bchhattisgarh\b", re.I)),
+    ("Goa", re.compile(r"\bgoa\b", re.I)),
+    ("Gujarat", re.compile(r"\bgujarat\b", re.I)),
+    ("Haryana", re.compile(r"\bharyana\b", re.I)),
+    ("Jharkhand", re.compile(r"\bjharkhand\b", re.I)),
+    ("Karnataka", re.compile(r"\bkarnataka\b", re.I)),
+    ("Kerala", re.compile(r"\b(kerala|kerla|kerela|keral)\b", re.I)),
+    ("Maharashtra", re.compile(r"\bmaharashtra\b", re.I)),
+    ("Manipur", re.compile(r"\bmanipur\b", re.I)),
+    ("Meghalaya", re.compile(r"\bmeghalaya\b", re.I)),
+    ("Mizoram", re.compile(r"\bmizoram\b", re.I)),
+    ("Nagaland", re.compile(r"\bnagaland\b", re.I)),
+    ("Odisha", re.compile(r"\b(odisha|orissa)\b", re.I)),
+    ("Punjab", re.compile(r"\bpunjab\b", re.I)),
+    ("Rajasthan", re.compile(r"\brajasthan\b", re.I)),
+    ("Sikkim", re.compile(r"\bsikkim\b", re.I)),
+    ("Telangana", re.compile(r"\btelangana\b", re.I)),
+    ("Tripura", re.compile(r"\btripura\b", re.I)),
+    ("Uttarakhand", re.compile(r"\b(uttarakhand|uttaranchal)\b", re.I)),
+    ("Delhi", re.compile(r"\b(delhi|nct\s+delhi)\b", re.I)),
+    ("Ladakh", re.compile(r"\bladakh\b", re.I)),
+    ("Puducherry", re.compile(r"\b(puducherry|pondicherry)\b", re.I)),
+    ("Chandigarh", re.compile(r"\bchandigarh\b", re.I)),
+]
+
+_PLACEHOLDER_LOCATION_VALUES = frozenset({
+    "",
+    "all",
+    "general",
+    "not specified",
+    "unknown",
+    "unspecified",
+    "n/a",
+})
+
+
+def resolve_location_field(
+    explicit: str | None,
+    thread_value: str | None,
+    *,
+    default: str = "all",
+) -> str:
+    """Prefer an explicit tool/plan value; fall back to thread GPS location."""
+    explicit_norm = (explicit or "").strip()
+    if explicit_norm and explicit_norm.lower() not in _PLACEHOLDER_LOCATION_VALUES:
+        return explicit_norm
+    thread_norm = (thread_value or "").strip()
+    if thread_norm and thread_norm.lower() not in _PLACEHOLDER_LOCATION_VALUES:
+        return thread_norm
+    return default
+
+
+def extract_state_from_text(text: str) -> Optional[str]:
+    """Return canonical Indian state name if mentioned in farmer text."""
+    if not text:
+        return None
+    for name, pattern in _STATE_PATTERNS:
+        if pattern.search(text):
+            return name
+    return None
+
+
+def _message_to_text(message: BaseMessage) -> str:
+    content = message.content
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return " ".join(parts).strip()
+    return str(content).strip()
+
+
+def latest_human_text(messages: list[BaseMessage]) -> str:
+    """Text from the most recent farmer message only (no thread history bleed)."""
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            return _message_to_text(msg)
+    return ""
+
+
+def recent_human_text(messages: list[BaseMessage], *, max_turns: int = 3) -> str:
+    """Last N farmer lines — for crop carry-over during clarify, not full thread state."""
+    lines: list[str] = []
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            text = _message_to_text(msg)
+            if text:
+                lines.append(text)
+    if len(lines) > max_turns:
+        lines = lines[-max_turns:]
+    return " ".join(lines)
+
+
+def has_gps_coordinates(location: Optional[dict[str, Any]]) -> bool:
+    if not location:
+        return False
+    return location.get("latitude") is not None and location.get("longitude") is not None
+
+
+def gps_state_from_location(location: Optional[dict[str, Any]]) -> Optional[str]:
+    """State from thread GPS reverse-geocode only (not from old query text)."""
+    if not has_gps_coordinates(location):
+        return None
+    if not location:
+        return None
+    state_val = location.get("state")
+    if state_val is None:
+        return None
+    normalized = str(state_val).strip()
+    if normalized.lower() in {"", "unknown", "not specified", "all", "none"}:
+        return None
+    return normalized
+
+
+def resolve_state_for_turn(
+    latest_text: str,
+    location: Optional[dict[str, Any]],
+) -> Optional[str]:
+    """Current message state first, then GPS-resolved thread state — never old messages."""
+    state_from_text = extract_state_from_text(latest_text)
+    if state_from_text:
+        return state_from_text
+    return gps_state_from_location(location)
 
 
 def merge_location_dict(

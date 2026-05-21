@@ -23,9 +23,14 @@ import type {
   KccAndAgriAppStats,
   PlatformInstallEntry,
   DuplicateQuestionEntry,
+  MonthlyQueryCountEntry,
+  MonthlySessionDurationEntry,
+  DistrictAnalyticsEntry,
+  FeedbackData,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
+import {DISTRICTS} from '#root/utils/districts.js';
 
 interface IUser {
   _id?: any;
@@ -176,8 +181,8 @@ export class ChatbotRepository implements IChatbotRepository {
         $addFields: {
           _userOid: {
             $cond: [
-              { $and: [{ $ne: ['$userId', null] }, { $ne: ['$userId', ''] }] },
-              { $toObjectId: '$userId' },
+              {$and: [{$ne: ['$userId', null]}, {$ne: ['$userId', '']}]},
+              {$toObjectId: '$userId'},
               null,
             ],
           },
@@ -200,26 +205,24 @@ export class ChatbotRepository implements IChatbotRepository {
     }
 
     if (userType === 'external') {
-      stages.push(
-        { $unwind: '$_userDoc' },
-        { $match: transformedFilter }
-      );
+      stages.push({$unwind: '$_userDoc'}, {$match: transformedFilter});
     } else {
       stages.push(
-        { $unwind: { path: '$_userDoc', preserveNullAndEmptyArrays: true } },
-        { $match: transformedFilter }
+        {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: true}},
+        {$match: transformedFilter},
       );
     }
 
-    stages.push({ $unset: ['_userOid', '_userDoc'] });
+    stages.push({$unset: ['_userOid', '_userDoc']});
     return stages;
   }
-
 
   async getKpiSummary(
     source = 'vicharanashala',
     session?: ClientSession,
     userType = 'all',
+    startTime?: string,
+    endTime?: string,
   ): Promise<KpiSummary> {
     try {
       await this.init(source);
@@ -305,6 +308,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $match: {
                   createdAt: {$gte: threeDaysAgo},
                   isCreatedByUser: true,
+                  isDeleted: {$ne: true},
                 },
               },
               ...userTypeLookupStages,
@@ -319,7 +323,7 @@ export class ChatbotRepository implements IChatbotRepository {
         this.messagesCollection
           .aggregate(
             [
-              {$match: {feedback: {$exists: true}, isCreatedByUser: false}},
+              {$match: {feedback: {$exists: true}, isCreatedByUser: false,  isDeleted: {$ne: true},},},
               {$group: {_id: '$user'}},
               {$count: 'total'},
             ],
@@ -363,7 +367,7 @@ export class ChatbotRepository implements IChatbotRepository {
       let duplicateQuestionsCount = 0;
       if (dupeMsgIds.length > 0) {
         const existingMessages = await this.messagesCollection
-          .find({messageId: {$in: dupeMsgIds}})
+          .find({messageId: {$in: dupeMsgIds}, isDeleted: {$ne: true}})
           .project<{messageId: string}>({messageId: 1})
           .toArray();
         const existingMsgIdSet = new Set(
@@ -374,18 +378,115 @@ export class ChatbotRepository implements IChatbotRepository {
         ).length;
       }
 
+      // Construct matches based on startTime and endTime if provided
+      const queryMatch: any = { 
+        isCreatedByUser: true, 
+        isDeleted: {$ne: true},
+        text: { $exists: true, $ne: null, $nin: ['', ' '] } 
+      };
+      if (startTime || endTime) {
+        queryMatch.createdAt = {};
+        if (startTime) {
+          queryMatch.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          queryMatch.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      // Calculate repeatQueryCount from messages (trim, lowercase, aggregate repeat counts)
+      const repeatQueryRaw = await this.messagesCollection.aggregate([
+        { $match: queryMatch },
+        ...userTypeLookupStages,
+        {
+          $group: {
+            _id: { $toLower: { $trim: { input: '$text' } } },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $match: { count: { $gt: 1 } }
+        },
+        {
+          $group: {
+            _id: null,
+            totalRepeats: { $sum: { $subtract: ['$count', 1] } }
+          }
+        }
+      ], { session }).toArray();
+      const repeatQueryCount = repeatQueryRaw[0]?.totalRepeats ?? 0;
+
+      // Count total queries to get percentage
+      const totalQueriesRaw = await this.messagesCollection.aggregate([
+        { $match: queryMatch },
+        ...userTypeLookupStages,
+        { $count: "count" }
+      ], { session }).toArray();
+      const totalQueries = totalQueriesRaw[0]?.count ?? 0;
+      const repeatQueryRatePct = totalQueries > 0
+        ? Math.round((repeatQueryCount / totalQueries) * 100 * 10) / 10
+        : 0;
+
+      // Avg questions per user per day over the filtered range (or default to last 30 days)
+      const avgQuestionsMatch: any = { 
+        isCreatedByUser: true, 
+        isDeleted: {$ne: true},
+        text: { $exists: true, $ne: null, $nin: ['', ' '] } 
+      };
+      if (startTime || endTime) {
+        avgQuestionsMatch.createdAt = {};
+        if (startTime) {
+          avgQuestionsMatch.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          avgQuestionsMatch.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      const avgQuestionsRaw = await this.messagesCollection.aggregate([
+        { $match: avgQuestionsMatch },
+        ...userTypeLookupStages,
+        {
+          $group: {
+            _id: {
+              day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+              user: '$user'
+            },
+            userDailyCount: { $sum: 1 }
+          }
+        },
+        {
+          $group: {
+            _id: '$_id.day',
+            dayTotalQuestions: { $sum: '$userDailyCount' },
+            dayUniqueUsers: { $sum: 1 }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            avgQuestionsPerUserDay: {
+              $avg: { $divide: ['$dayTotalQuestions', '$dayUniqueUsers'] }
+            }
+          }
+        }
+      ], { session }).toArray();
+      const avgQuestionsPerUserDay = avgQuestionsRaw[0]?.avgQuestionsPerUserDay ?? 0;
+
       return {
         dau: totalUsers,
         dauLastMonthPct,
         dailyQueries: todayQueryCount,
         avgSessionDurationMin: Math.round((avgMs / 60000) * 10) / 10,
         csatRating: 0,
-        repeatQueryRatePct: 0,
+        repeatQueryRatePct,
         voiceUsageSharePct: 0,
         totalAppInstalls,
         inactiveUsersLast3Days: Math.max(0, totalUsers - activeCount),
         duplicateQuestionsCount,
         lowFeedbackUsersCount: Math.max(0, totalUsers - feedbackCount),
+        avgQuestionsPerUserDay: Math.round(avgQuestionsPerUserDay * 100) / 100,
+        repeatQueryCount,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get KPI summary: ${error}`);
@@ -412,7 +513,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
             ...userTypeLookupStages,
             // Deduplicate: one entry per (month, user) pair
             {
@@ -486,7 +587,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: {
             source: 'AJRASAKHA',
-            'details.domain': { $exists: true, $nin: [null, ''] },
+            'details.domain': {$exists: true, $nin: [null, '']},
           },
         },
         ...lookupStages,
@@ -494,35 +595,33 @@ export class ChatbotRepository implements IChatbotRepository {
           $project: {
             domain: '$details.domain',
             isDuplicate: {
-              $cond: [
-                { $eq: ['$status', 'duplicate'] },
-                1,
-                0
-              ]
-            }
-          }
+              $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
+            },
+          },
         },
         {
           $group: {
             _id: '$domain',
-            totalCount: { $sum: 1 },
-            duplicateCount: { $sum: '$isDuplicate' },
+            totalCount: {$sum: 1},
+            duplicateCount: {$sum: '$isDuplicate'},
             uniqueCount: {
               $sum: {
-                $cond: [{ $eq: ['$isDuplicate', 0] }, 1, 0]
-              }
-            }
-          }
+                $cond: [{$eq: ['$isDuplicate', 0]}, 1, 0],
+              },
+            },
+          },
         },
         {
-          $sort: { totalCount: -1 }
+          $sort: {totalCount: -1},
         },
         {
-          $limit: 15
-        }
+          $limit: 15,
+        },
       ];
 
-      const raw = await this.QuestionCollection.aggregate(pipeline, { session }).toArray();
+      const raw = await this.QuestionCollection.aggregate(pipeline, {
+        session,
+      }).toArray();
 
       return raw.map(item => ({
         label: item._id,
@@ -531,6 +630,151 @@ export class ChatbotRepository implements IChatbotRepository {
       }));
     } catch (error) {
       throw new Error(`Failed to fetch query categories: ${error}`);
+    }
+  }
+
+  async getDistrictAnalyticsByState(
+    _source = 'vicharanashala',
+    state: string,
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<DistrictAnalyticsEntry[]> {
+    try {
+      await this.initReviewSystem();
+
+      const districts = DISTRICTS[state];
+
+      if (!districts || districts.length === 0) {
+        return [];
+      }
+
+      // Normalize district names
+      const normalizedDistricts = districts.map(d => d.toLowerCase().trim());
+
+      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
+
+      const pipeline = [
+        {
+          $match: {
+            source: 'AJRASAKHA',
+
+            'details.district': {
+              $exists: true,
+              $ne: null,
+            },
+          },
+        },
+
+        ...lookupStages,
+
+        // Normalize district from DB
+        {
+          $addFields: {
+            normalizedDistrict: {
+              $toLower: '$details.district',
+            },
+          },
+        },
+
+        // Keep only districts belonging to selected state
+        {
+          $match: {
+            normalizedDistrict: {
+              $in: normalizedDistricts,
+            },
+          },
+        },
+
+        {
+          $project: {
+            district: '$details.district',
+
+            isDuplicate: {
+              $cond: [
+                {
+                  $eq: ['$status', 'duplicate'],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+
+        {
+          $group: {
+            _id: '$district',
+
+            totalQuestions: {
+              $sum: 1,
+            },
+
+            duplicateQuestions: {
+              $sum: '$isDuplicate',
+            },
+
+            uniqueQuestions: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$isDuplicate', 0],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+
+        {
+          $sort: {
+            totalQuestions: -1,
+          },
+        },
+      ];
+
+      const raw = await this.QuestionCollection.aggregate(pipeline, {
+        session,
+      }).toArray();
+
+      const districtMap = new Map(
+        raw.map(item => [
+          item._id.toLowerCase().trim(),
+          {
+            district: item._id,
+            totalQuestions: item.totalQuestions,
+            uniqueQuestions: item.uniqueQuestions,
+            duplicateQuestions: item.duplicateQuestions,
+          },
+        ]),
+      );
+
+      const normalizedResult: DistrictAnalyticsEntry[] = districts.map(
+        district => {
+          const normalizedDistrict = district.toLowerCase().trim();
+
+          const existing = districtMap.get(normalizedDistrict);
+
+          return (
+            existing || {
+              district,
+
+              totalQuestions: 0,
+
+              uniqueQuestions: 0,
+
+              duplicateQuestions: 0,
+            }
+          );
+        },
+      );
+
+      return normalizedResult.sort(
+        (a, b) => b.totalQuestions - a.totalQuestions,
+      );
+    } catch (error) {
+      throw new Error(`Failed to fetch district analytics: ${error}`);
     }
   }
 
@@ -672,7 +916,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true},  },},
             ...userTypeLookupStages,
             {
               $group: {
@@ -714,7 +958,7 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate(
           [
             // Filter to last N days, user-sent messages only
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true}},
+            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
             ...userTypeLookupStages,
             // Deduplicate: one entry per (day, user) pair
             {
@@ -764,7 +1008,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {isCreatedByUser: true}},
+            {$match: {isCreatedByUser: true, isDeleted: {$ne: true}}},
             ...userTypeLookupStages,
             {
               $group: {
@@ -793,6 +1037,207 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getMonthlyQueryCounts(
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<MonthlyQueryCountEntry[]> {
+    try {
+      await this.init(source);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                isCreatedByUser: true,
+                isDeleted: {$ne: true},
+              },
+            },
+
+            ...userTypeLookupStages,
+
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+
+                count: {
+                  $sum: 1,
+                },
+              },
+            },
+
+            {
+              $project: {
+                month: '$_id',
+                count: 1,
+                _id: 0,
+              },
+            },
+
+            {
+              $sort: {
+                month: 1,
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      return result as MonthlyQueryCountEntry[];
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get monthly query counts: ${error}`,
+      );
+    }
+  }
+
+  async getFeedbackData(
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<FeedbackData> {
+    try {
+      await this.init(source);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                feedback: {$exists: true},
+                isCreatedByUser: false,
+                isDeleted: {$ne: true},
+              },
+            },
+
+            ...userTypeLookupStages,
+
+            {
+              $addFields: {
+                numericRating: {
+                  $switch: {
+                    branches: [
+                      {
+                        case: {
+                          $eq: ['$feedback.rating', 'thumbsUp'],
+                        },
+                        then: 1,
+                      },
+                      {
+                        case: {
+                          $eq: ['$feedback.rating', 'thumbsDown'],
+                        },
+                        then: 0,
+                      },
+                    ],
+                    default: null,
+                  },
+                },
+              },
+            },
+
+            {
+              $facet: {
+                positiveFeedbacks: [
+                  {
+                    $match: {
+                      'feedback.rating': 'thumbsUp',
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      rating: '$feedback.rating',
+                      tag: '$feedback.tag',
+                    },
+                  },
+                ],
+
+                negativeFeedbacks: [
+                  {
+                    $match: {
+                      'feedback.rating': 'thumbsDown',
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      rating: '$feedback.rating',
+                      tag: '$feedback.tag',
+                    },
+                  },
+                ],
+
+                stats: [
+                  {
+                    $group: {
+                      _id: null,
+
+                      positiveCount: {
+                        $sum: {
+                          $cond: [
+                            {
+                              $eq: ['$feedback.rating', 'thumbsUp'],
+                            },
+                            1,
+                            0,
+                          ],
+                        },
+                      },
+
+                      negativeCount: {
+                        $sum: {
+                          $cond: [
+                            {
+                              $eq: ['$feedback.rating', 'thumbsDown'],
+                            },
+                            1,
+                            0,
+                          ],
+                        },
+                      },
+
+                      averageRating: {
+                        $avg: '$numericRating',
+                      },
+
+                      totalFeedbacks: {
+                        $sum: 1,
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      const data = result[0];
+
+      return {
+        positiveFeedbacks: data.positiveFeedbacks,
+        negativeFeedbacks: data.negativeFeedbacks,
+        stats: data.stats[0],
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get feedback data: ${error}`);
+    }
+  }
+
   async getTodayQueryCount(
     source = 'vicharanashala',
     session?: ClientSession,
@@ -809,7 +1254,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: today}, isCreatedByUser: true}},
+            {$match: {createdAt: {$gte: today}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
             ...userTypeLookupStages,
             {$count: 'total'},
           ],
@@ -1145,7 +1590,7 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
 
       // Build date match for messages (optional)
-      const dateMatch: Record<string, any> = {isCreatedByUser: true};
+      const dateMatch: Record<string, any> = {isCreatedByUser: true,  isDeleted: {$ne: true}, };
       if (startDate || endDate) {
         dateMatch.createdAt = {};
         if (startDate) dateMatch.createdAt.$gte = startDate;
@@ -1265,7 +1710,7 @@ export class ChatbotRepository implements IChatbotRepository {
       if (lowFeedbackOnly) {
         const feedbackDocs = await this.messagesCollection
           .aggregate([
-            {$match: {feedback: {$exists: true}, isCreatedByUser: false}},
+            {$match: {feedback: {$exists: true}, isCreatedByUser: false,  isDeleted: {$ne: true},  },},
             {$group: {_id: '$user'}},
           ])
           .toArray();
@@ -1337,6 +1782,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
+            {$match: {isDeleted: {$ne: true}}},
             ...userTypeLookupStages,
             {$sort: {conversationId: 1, createdAt: 1}},
             {
@@ -1412,7 +1858,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}}},
+            {$match: {createdAt: {$gte: since}, isDeleted: {$ne: true}}},
             ...userTypeLookupStages,
             {$sort: {conversationId: 1, createdAt: 1}},
             {
@@ -1492,6 +1938,174 @@ export class ChatbotRepository implements IChatbotRepository {
     } catch (error) {
       throw new InternalServerError(
         `Failed to get weekly avg session duration v2: ${error}`,
+      );
+    }
+  }
+
+  async getMonthlyAvgSessionDuration(
+    months = 12,
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<MonthlySessionDurationEntry[]> {
+    try {
+      await this.init(source);
+
+      const since = new Date();
+      since.setMonth(since.getMonth() - months);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                createdAt: {$gte: since},
+                isDeleted: {$ne: true},
+              },
+            },
+
+            ...userTypeLookupStages,
+
+            {
+              $sort: {
+                conversationId: 1,
+                createdAt: 1,
+              },
+            },
+
+            {
+              $setWindowFields: {
+                partitionBy: '$conversationId',
+
+                sortBy: {
+                  createdAt: 1,
+                },
+
+                output: {
+                  prevCreatedAt: {
+                    $shift: {
+                      output: '$createdAt',
+                      by: -1,
+                    },
+                  },
+
+                  firstMsgInConv: {
+                    $first: '$createdAt',
+
+                    window: {
+                      documents: ['unbounded', 'current'],
+                    },
+                  },
+                },
+              },
+            },
+
+            {
+              $addFields: {
+                gapMs: {
+                  $cond: [
+                    {$ifNull: ['$prevCreatedAt', false]},
+
+                    {
+                      $subtract: ['$createdAt', '$prevCreatedAt'],
+                    },
+
+                    0,
+                  ],
+                },
+              },
+            },
+
+            // Ignore inactive gaps > 30 mins
+            {
+              $addFields: {
+                activeGapMs: {
+                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
+                },
+              },
+            },
+
+            {
+              $group: {
+                _id: '$conversationId',
+
+                activeSessionMs: {
+                  $sum: '$activeGapMs',
+                },
+
+                firstMsg: {
+                  $min: '$firstMsgInConv',
+                },
+
+                msgCount: {
+                  $sum: 1,
+                },
+              },
+            },
+
+            // Ignore single-message conversations
+            {
+              $match: {
+                msgCount: {$gt: 1},
+              },
+            },
+
+            // MONTH GROUPING
+            {
+              $addFields: {
+                month: {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$firstMsg',
+                    timezone: '+05:30',
+                  },
+                },
+              },
+            },
+
+            {
+              $group: {
+                _id: '$month',
+
+                avgDurationMs: {
+                  $avg: '$activeSessionMs',
+                },
+              },
+            },
+
+            {
+              $project: {
+                month: '$_id',
+
+                avgSessionDurationMin: {
+                  $round: [
+                    {
+                      $divide: ['$avgDurationMs', 60000],
+                    },
+                    1,
+                  ],
+                },
+
+                _id: 0,
+              },
+            },
+
+            {
+              $sort: {
+                month: 1,
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      return result as MonthlySessionDurationEntry[];
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get monthly avg session duration: ${error}`,
       );
     }
   }
@@ -1824,6 +2438,7 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $match: {
                 createdAt: {$gte: startDate, $lte: endDate},
+                isDeleted: {$ne: true},
               },
             },
             {
@@ -1959,6 +2574,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               createdAt: {$gte: startDate, $lte: endDate},
+              isDeleted: {$ne: true},
             },
           },
           {
@@ -2067,7 +2683,7 @@ export class ChatbotRepository implements IChatbotRepository {
       // 3. Look up messages in annam analytics DB.
       // Questions whose messageId has no matching document are excluded entirely.
       const messages = await this.messagesCollection
-        .find({messageId: {$in: messageIds}})
+        .find({messageId: {$in: messageIds}, isDeleted: {$ne: true}})
         .project<{messageId: string; user: string}>({messageId: 1, user: 1})
         .toArray();
 
@@ -2277,4 +2893,858 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(`Failed to get domain spikes: ${error}`);
     }
   }
+
+  async getDailyQuestionTrends(
+    days = 30,
+    session?: ClientSession,
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>> {
+    try {
+      await this.initReviewSystem();
+
+      const matchQuery: any = {
+        source: 'AJRASAKHA',
+      };
+
+      if (startTime || endTime) {
+        matchQuery.createdAt = {};
+        if (startTime) {
+          matchQuery.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          matchQuery.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
+
+      const result = await this.QuestionCollection.aggregate([
+        {
+          $match: matchQuery,
+        },
+        ...userTypeLookupStages,
+        {
+          $group: {
+            _id: {
+              day: {
+                $dateToString: {
+                  format: '%Y-%m-%d',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+              isDuplicate: {
+                $cond: [
+                  { $eq: ['$status', 'duplicate'] },
+                  'duplicate',
+                  'unique',
+                ],
+              },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $group: {
+            _id: '$_id.day',
+            uniqueCount: {
+              $sum: {
+                $cond: [{ $eq: ['$_id.isDuplicate', 'unique'] }, '$count', 0],
+              },
+            },
+            duplicateCount: {
+              $sum: {
+                $cond: [{ $eq: ['$_id.isDuplicate', 'duplicate'] }, '$count', 0],
+              },
+            },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ], { session }).toArray();
+
+      return result.map((r) => ({
+        day: r._id,
+        uniqueCount: r.uniqueCount,
+        duplicateCount: r.duplicateCount,
+      }));
+    } catch (error) {
+      throw new InternalServerError(`Failed to get daily question trends: ${error}`);
+    }
+  }
+
+  async getTopFaqs(
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ question: string; count: number }>> {
+    try {
+      await this.init(source);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const queryMatch: any = {
+        isCreatedByUser: true,
+        isDeleted: {$ne: true},
+        text: { $exists: true, $ne: null, $nin: ['', ' '] }
+      };
+
+      if (startTime || endTime) {
+        queryMatch.createdAt = {};
+        if (startTime) {
+          queryMatch.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          queryMatch.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      const result = await this.messagesCollection.aggregate([
+        {
+          $match: queryMatch
+        },
+        ...userTypeLookupStages,
+        {
+          $group: {
+            _id: { $trim: { input: '$text' } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ], { session }).toArray();
+
+      return result.map(r => ({
+        question: r._id,
+        count: r.count
+      }));
+    } catch (error) {
+      throw new InternalServerError(`Failed to get top FAQs: ${error}`);
+    }
+  }
+
+  async getTopQuestionsFromCollection(
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+  ): Promise<Array<{ question: string; count: number }>> {
+    try {
+      await this.initReviewSystem();
+      
+      const matchQuery: any = {
+        source: 'AJRASAKHA',
+      };
+
+      if (startTime || endTime) {
+        matchQuery.createdAt = {};
+        if (startTime) {
+          matchQuery.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          matchQuery.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
+
+      const result = await this.QuestionCollection.aggregate([
+        {
+          $match: matchQuery,
+        },
+        ...userTypeLookupStages,
+        {
+          $project: {
+            resolvedId: { $ifNull: ['$referenceQuestionId', '$_id'] },
+            question: 1,
+          }
+        },
+        {
+          $group: {
+            _id: '$resolvedId',
+            count: { $sum: 1 },
+            firstQuestion: { $first: '$question' }
+          }
+        },
+        {
+          $lookup: {
+            from: 'questions',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'originalDoc'
+          }
+        },
+        {
+          $project: {
+            question: {
+              $ifNull: [
+                { $arrayElemAt: ['$originalDoc.question', 0] },
+                '$firstQuestion'
+              ]
+            },
+            count: 1
+          }
+        },
+        {
+          $match: {
+            question: { $exists: true, $ne: null, $nin: ['', ' '] }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ], { session }).toArray();
+
+      return result.map(r => ({
+        question: r.question,
+        count: r.count
+      }));
+    } catch (error) {
+      throw new InternalServerError(`Failed to get top questions from collection: ${error}`);
+    }
+  }
+
+  async deleteUser(userId: string, source: string): Promise<boolean> {
+    try {
+      await this.init(source);
+      await this.messagesCollection.updateMany(
+        {user: userId},
+        {$set: {isDeleted: true}},
+      );
+      const result = await this.users.deleteOne({ _id: new ObjectId(userId) });
+      return result.deletedCount === 1;
+    } catch (error) {
+      throw new InternalServerError(`Failed to delete user: ${error}`);
+    }
+  }
+
+  async getDailyActiveUsersTrend(
+    startDate: Date, endDate: Date, source: string, userType: string,
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(userType);
+
+      /**
+       * Last 365 days
+       */
+      // const endDate = new Date();
+      // const startDate = new Date();
+      // startDate.setDate(startDate.getDate() - 365);
+
+      const matchStage: any = {
+        lastActiveAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+
+      /**
+       * External Users
+       */
+      if (source === "external") {
+        matchStage.email = {
+          $regex: "^rup",
+          $options: "i",
+        };
+      }
+
+      /**
+       * Internal Users
+       */
+      if (source === "internal") {
+        matchStage.email = {
+          $not: {
+            $regex: "^rup",
+            $options: "i",
+          },
+        };
+      }
+
+      /**
+       * DAU Trend
+       */
+      const result = await this.users
+        .aggregate(
+          [
+          {
+            $match: matchStage,
+          },
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: "%Y-%m-%d",
+                    date: "$lastActiveAt",
+                  },
+                },
+                dau: {
+                  $sum: 1,
+                },
+              },
+            },
+            {
+              $sort: {
+                _id: 1,
+              },
+            },
+          ],
+          {
+            session,
+          },
+        )
+        .toArray();
+
+      return result;
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get daily active users trend: ${error}`,
+      );
+    }
+  }
+
+
+  async getWeeklyActiveUsersTrend(
+    startDate: Date, endDate: Date, source: string, userType: string,
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(userType);
+
+      /**
+       * Last 12 weeks
+       */
+      // const endDate = new Date();
+      // const startDate = new Date();
+
+      // const DAYS_IN_WEEK = 7;
+      // const TOTAL_WEEKS = 52;
+
+      // startDate.setDate(
+      //   startDate.getDate() - (DAYS_IN_WEEK * TOTAL_WEEKS),
+      // );
+
+      const matchStage: any = {
+        lastActiveAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+
+      /**
+       * External Users
+       */
+      if (source === "external") {
+        matchStage.email = {
+          $regex: "^rup",
+          $options: "i",
+        };
+      }
+
+      /**
+       * Internal Users
+       */
+      if (source === "internal") {
+        matchStage.email = {
+          $not: {
+            $regex: "^rup",
+            $options: "i",
+          },
+        };
+      }
+
+      /**
+       * WAU Trend
+       */
+      const result = await this.users
+        .aggregate(
+          [
+            {
+              $match: matchStage,
+            },
+            {
+              $group: {
+                _id: {
+                  year: {
+                    $isoWeekYear: "$lastActiveAt",
+                  },
+
+                  week: {
+                    $isoWeek: "$lastActiveAt",
+                  },
+                },
+
+                wau: {
+                  $sum: 1,
+                },
+              },
+            },
+            {
+              $sort: {
+                "_id.year": 1,
+                "_id.week": 1,
+              },
+            },
+            {
+              $project: {
+                _id: {
+                  $concat: [
+                    {
+                      $toString: "$_id.year",
+                    },
+                    "-W",
+                    {
+                      $cond: [
+                        {
+                          $lt: ["$_id.week", 10],
+                        },
+                        {
+                          $concat: [
+                            "0",
+                            {
+                              $toString: "$_id.week",
+                            },
+                          ],
+                        },
+                        {
+                          $toString: "$_id.week",
+                        },
+                      ],
+                    },
+                  ],
+                },
+
+                wau: 1,
+              },
+            },
+          ],
+          {
+            session,
+          },
+        )
+        .toArray();
+
+      return result;
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get weekly active users trend: ${error}`,
+      );
+    }
+  }
+
+  async getMonthlyActiveUsersTrend(
+    startDate: Date, endDate: Date, source: string, userType: string,
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(userType);
+
+      /**
+       * Last 12 months
+       */
+      // const endDate = new Date();
+      // const startDate = new Date();
+      // startDate.setMonth(startDate.getMonth() - 12);
+
+      const matchStage: any = {
+        lastActiveAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+
+      /**
+       * External Users
+       */
+      if (source === "external") {
+        matchStage.email = {
+          $regex: "^rup",
+          $options: "i",
+        };
+      }
+
+      /**
+       * Internal Users
+       */
+      if (source === "internal") {
+        matchStage.email = {
+          $not: {
+            $regex: "^rup",
+            $options: "i",
+          },
+        };
+      }
+      /**
+       * MAU Trend
+       */
+      const result = await this.users
+        .aggregate(
+          [
+            {
+              $match: matchStage,
+            },
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: "%Y-%m",
+                    date: "$lastActiveAt",
+                  },
+                },
+                mau: {
+                  $sum: 1,
+                },
+              },
+            },
+            {
+              $sort: {
+                _id: 1,
+              },
+            },
+          ],
+          {
+            session,
+          },
+        )
+        .toArray();
+
+        return result;
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get monthly active users trend: ${error}`,
+      );
+    }
+  }
+
+  async getRetentionMetrics(
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init();
+
+      /**
+       * Last 3 months cohorts
+       */
+      const endDate = new Date();
+      const startDate = new Date();
+
+      startDate.setMonth(
+        startDate.getMonth() - 3,
+      );
+
+      const result = await this.users
+        .aggregate(
+          [
+            /**
+             * Users created in last 1 year
+             */
+            {
+              $match: {
+                createdAt: {
+                  $gte: startDate,
+                  $lte: endDate,
+                },
+              },
+            },
+
+            /**
+             * Cohort projection
+             */
+            {
+              $project: {
+                userId: "$_id",
+                signupDate: "$createdAt",
+                cohortDate: {
+                  $dateToString: {
+                    // format: "%Y-%m-%d",
+                    format: "%Y-W%V",
+                    date: "$createdAt",
+                  },
+                },
+              },
+            },
+
+            /**
+             * Lookup user activities/messages
+             */
+            {
+              $lookup: {
+                from: "messages",
+                let: {
+                  userId: "$userId",
+                  signupDate: "$signupDate",
+                },
+                pipeline: [
+                  /**
+                   * Match user messages
+                   */
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: [
+                          "$user",
+                          {
+                            $toString: "$$userId",
+                          },
+                        ],
+                      },
+                    },
+                  },
+
+                  /**
+                   * Calculate days after signup
+                   */
+                  {
+                    $project: {
+                      createdAt: 1,
+
+                      daysAfterSignup: {
+                        $dateDiff: {
+                          startDate: {
+                            $dateTrunc: {
+                              date: "$$signupDate",
+                              unit: "day",
+                            },
+                          },
+
+                          endDate: {
+                            $dateTrunc: {
+                              date: "$createdAt",
+                              unit: "day",
+                            },
+                          },
+
+                          unit: "day",
+                        },
+                      },
+                    },
+                  },
+
+                  /**
+                   * Ignore signup-day activity
+                   */
+                  {
+                    $match: {
+                      daysAfterSignup: {
+                        $gt: 0,
+                      },
+                    },
+                  },
+                ],
+
+                as: "activities",
+              },
+            },
+
+            /**
+             * Retention flags
+             */
+            {
+              $project: {
+                cohortDate: 1,
+
+                retainedD1: {
+                  $gt: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: "$activities",
+
+                          as: "activity",
+
+                          cond: {
+                            $eq: [
+                              "$$activity.daysAfterSignup",
+                              1,
+                            ],
+                          },
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+
+                retainedD7: {
+                  $gt: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: "$activities",
+
+                          as: "activity",
+
+                          cond: {
+                            $eq: [
+                              "$$activity.daysAfterSignup",
+                              7,
+                            ],
+                          },
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+
+                retainedD30: {
+                  $gt: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: "$activities",
+
+                          as: "activity",
+
+                          cond: {
+                            $eq: [
+                              "$$activity.daysAfterSignup",
+                              30,
+                            ],
+                          },
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+
+            /**
+             * Group by cohort date
+             */
+            {
+              $group: {
+                _id: "$cohortDate",
+
+                totalUsers: {
+                  $sum: 1,
+                },
+
+                d1Users: {
+                  $sum: {
+                    $cond: [
+                      "$retainedD1",
+                      1,
+                      0,
+                    ],
+                  },
+                },
+
+                d7Users: {
+                  $sum: {
+                    $cond: [
+                      "$retainedD7",
+                      1,
+                      0,
+                    ],
+                  },
+                },
+
+                d30Users: {
+                  $sum: {
+                    $cond: [
+                      "$retainedD30",
+                      1,
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+
+            /**
+             * Retention percentages
+             */
+            {
+              $project: {
+                _id: 0,
+
+                cohortDate: "$_id",
+
+                totalUsers: 1,
+
+                d1Retention: {
+                  $round: [
+                    {
+                      $multiply: [
+                        {
+                          $divide: [
+                            "$d1Users",
+                            "$totalUsers",
+                          ],
+                        },
+                        100,
+                      ],
+                    },
+                    2,
+                  ],
+                },
+
+                d7Retention: {
+                  $round: [
+                    {
+                      $multiply: [
+                        {
+                          $divide: [
+                            "$d7Users",
+                            "$totalUsers",
+                          ],
+                        },
+                        100,
+                      ],
+                    },
+                    2,
+                  ],
+                },
+
+                d30Retention: {
+                  $round: [
+                    {
+                      $multiply: [
+                        {
+                          $divide: [
+                            "$d30Users",
+                            "$totalUsers",
+                          ],
+                        },
+                        100,
+                      ],
+                    },
+                    2,
+                  ],
+                },
+              },
+            },
+
+            /**
+             * Sort chronologically
+             */
+            {
+              $sort: {
+                cohortDate: 1,
+              },
+            },
+          ],
+          {
+            session,
+          },
+        )
+        .toArray();
+
+      return result;
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get retention metrics: ${error}`,
+      );
+    }
+  }
+
 }

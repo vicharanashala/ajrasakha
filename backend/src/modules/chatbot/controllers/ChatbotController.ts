@@ -7,6 +7,9 @@ import {
   Authorized,
   ContentType,
   Res,
+  QueryParam,
+  Delete,
+  Param,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -28,8 +31,9 @@ import {
   QueryCategoryEntryResponse,
   PaginatedUserDetailsResponse,
   TopCropsResponse,
+  DistrictAnalyticsEntryResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
-import { GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
+import { ActiveUsersQuery, GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -63,8 +67,52 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getDashboard(@QueryParams() query: DashboardQueryDto) {
-    return this.chatbotService.getDashboard(query.days, query.source, query.userType);
+    return this.chatbotService.getDashboard(
+      query.days,
+      query.source,
+      query.userType,
+      query.startTime,
+      query.endTime,
+    );
   }
+
+  @OpenAPI({
+  summary: 'Get district-wise analytics for a state',
+  description:
+    'Retrieves district-level question analytics including total, unique, and duplicate questions for the selected state.',
+})
+@ResponseSchema(DistrictAnalyticsEntryResponse, {
+  statusCode: 200,
+  description:
+    'District-wise analytics data retrieved successfully',
+})
+@ResponseSchema(ChatbotErrorResponse, {
+  statusCode: 401,
+  description: 'Unauthorized - Authentication required',
+})
+@ResponseSchema(ChatbotErrorResponse, {
+  statusCode: 500,
+  description:
+    'Internal server error - Failed to fetch district analytics',
+})
+@Get('/state-wise-analytics')
+@HttpCode(200)
+@Authorized()
+async getDistrictAnalyticsByState(
+  @QueryParam('state') state: string,
+
+  @QueryParam('source')
+  source: string,
+
+  @QueryParam('userType')
+  userType: string,
+) {
+  return this.chatbotService.getDistrictAnalyticsByState(
+    state,
+    source,
+    userType,
+  );
+}
 
   @OpenAPI({ 
     summary: 'Get KPI summary for today',
@@ -376,4 +424,95 @@ export class ChatbotController {
     const data = await this.chatbotService.getGrowth(range);
     return data
   }
+
+  @OpenAPI({ 
+    summary: 'Delete a farmer',
+    description: 'Deletes a farmer from the specified source database.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to delete farmer',
+  })
+  @Delete('/users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async deleteUser(
+    @Param('userId') userId: string,
+    @QueryParam('source') source: string,
+  ) {
+    if (!source) {
+      source = 'vicharanashala';
+    }
+    const success = await this.chatbotService.deleteUser(userId, source);
+    return { success, message: success ? 'User deleted successfully' : 'Failed to delete user' };
+  }
+
+  @Get('/daily-active-users-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getDailyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = new Date(query.startDate!);
+    const endDate = new Date(query.endDate!);
+    const source = query.source;
+    const userType = query.userType;
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new Error('Invalid startDate or endDate.');
+    }
+
+    if (startDate > endDate) {
+      throw new Error('startDate cannot be after endDate.');
+    }
+
+    return await this.chatbotService.getDailyActiveUsersTrend(startDate, endDate, source, userType);
+  }
+
+  @Get('/monthly-active-users-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getMonthlyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = new Date(query.startDate!);
+    const endDate = new Date(query.endDate!);
+    const source = query.source;
+    const userType = query.userType;
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new Error('Invalid startDate or endDate.');
+    }
+
+    if (startDate > endDate) {
+      throw new Error('startDate cannot be after endDate.');
+    }
+    return await this.chatbotService.getMonthlyActiveUsersTrend(startDate, endDate, source, userType);
+  }
+
+  @Get('/weekly-active-users-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getWeeklyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = new Date(query.startDate!);
+    const endDate = new Date(query.endDate!);
+    const source = query.source;
+    const userType = query.userType;
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new Error('Invalid startDate or endDate.');
+    }
+
+    if (startDate > endDate) {
+      throw new Error('startDate cannot be after endDate.');
+    }
+    return await this.chatbotService.getWeeklyActiveUsersTrend(startDate, endDate, source, userType);
+  }
+
+  @Get('/retention-metrics')
+  @HttpCode(200)
+  @Authorized()
+  async getRetentionMetrics(): Promise<any> {
+    return await this.chatbotService.getRetentionMetrics();
+  }
+  
 }
