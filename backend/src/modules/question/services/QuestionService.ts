@@ -1193,7 +1193,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Auto-allocate time-bound questions to the expert with the lowest
         // time-bound workload who has fewer than 3 active time-bound questions.
         try {
-          const MAX_TIME_BOUND = 3;
+          const MAX_TIME_BOUND = 1;
           const [allExperts, timeBoundCounts] = await Promise.all([
             this.userRepo.findExpertsByReputationScore(details as PreferenceDto),
             this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(),
