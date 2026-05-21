@@ -10,6 +10,9 @@ from bson import ObjectId
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from ajrasakha.utils import get_mongodb_vector_store, get_huggingface_embedding_model
 
