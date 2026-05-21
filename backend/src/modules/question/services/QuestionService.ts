@@ -1423,6 +1423,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       return {data: [], status: false};
     }
+    const isTimeBound = question.source === 'AJRASAKHA' || question.source === 'WHATSAPP';
+    if (isTimeBound && (question.status === 'open' || question.status === 'delayed')) {
+      const reason = `Auto-allocation is disabled for time-bound questions (source: ${question.source})`;
+      console.log(`[autoAllocateExperts] ${reason} — questionId: ${questionId}`);
+      return {data: [], status: false,};
+    }
     if (question.status == 'draft') {
       await this.questionRepo.updateQuestion(
         questionId,
