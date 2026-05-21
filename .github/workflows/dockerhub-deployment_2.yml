@@ -15,6 +15,7 @@ on:
           - agriculture
           - reviewer
           - llm_cache_proxy
+          - langgraph_openai_adapter
 
 permissions:
   contents: read
@@ -69,6 +70,11 @@ jobs:
           # LLM Cache Proxy
           if [[ "$TARGET" == "all" || "$TARGET" == "llm_cache_proxy" ]]; then
             add_entry "llm_cache_proxy" "./mcp/proxy_api/llm_cache_proxy" "./mcp/proxy_api/llm_cache_proxy/Dockerfile"
+          fi
+
+          # LangGraph OpenAI Adapter
+          if [[ "$TARGET" == "all" || "$TARGET" == "langgraph_openai_adapter" ]]; then
+            add_entry "langgraph_openai_adapter" "./mcp/langgraph-openai-adapter" "./mcp/langgraph-openai-adapter/Dockerfile"
           fi
 
           # Compact the JSON to single line to avoid issues with GHA outputs

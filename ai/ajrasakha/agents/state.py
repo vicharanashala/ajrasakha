@@ -39,6 +39,9 @@ class PlannerPlan(TypedDict, total=False):
     reasoning: Optional[str]
     entities: PlannerEntities
     skip_synthesize: bool
+    rephrased_query: Optional[str]
+    original_query_en: Optional[str]
+    gdb_has_data: bool  # True when GDB returned exact or similar matches
 
 
 def merge_plan(

@@ -28,12 +28,23 @@ const LazyUserGrowthChart = React.lazy(
 import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
 import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
+import { DailyQuestionTrendsChart } from "./components/DailyQuestionTrendsChart";
+import { TopFaqsLeaderboard } from "./components/TopFaqsLeaderboard";
 import { useInView } from "@/hooks/useInView";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import { Maximize2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
+import { format, subDays } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
+import FeedbackCard from "./FeedbackCard";
+import { ActiveUsersChart } from "./active-users";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -52,7 +63,25 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters, source);
 
-  console.log("Dashboard data:", data);
+  const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
+  const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
+
+  const trendsFilters = useMemo(() => ({
+    ...filters,
+    startTime: trendsDateRange?.from,
+    endTime: trendsDateRange?.to,
+  }), [filters, trendsDateRange]);
+
+  const faqsFilters = useMemo(() => ({
+    ...filters,
+    startTime: faqsDateRange?.from,
+    endTime: faqsDateRange?.to,
+  }), [filters, faqsDateRange]);
+
+  const { data: trendsData, isLoading: trendsLoading } = useDashboardData(trendsFilters, source);
+  const { data: faqsData, isLoading: faqsLoading } = useDashboardData(faqsFilters, source);
+
+  // console.log("Dashboard data:", data);
   const {
     data: dauTrend,
     isLoading: dauLoading,
@@ -963,6 +992,46 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   </div>
                 </div>
 
+                {/* Chatbot Quality & FAQ Analytics Section Header */}
+                {/* Daily Trends & FAQ Leaderboard Grid */}
+                {/* Row 1: Daily Trends & Feedback Data */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 mt-6">
+                  <DailyQuestionTrendsChart
+                    trends={(trendsData as any).dailyQuestionTrends}
+                    dateRange={trendsDateRange}
+                    onDateRangeChange={setTrendsDateRange}
+                    isLoading={trendsLoading}
+                  />
+
+                  <FeedbackCard 
+                    title="Feedback Data" 
+                    positiveFeedbacksCount={data?.feedbackData?.stats?.positiveCount} 
+                    negativeFeedbacksCount={data?.feedbackData?.stats?.negativeCount} 
+                    positiveFeedbacks={data?.feedbackData?.positiveFeedbacks} 
+                    negativeFeedbacks={data?.feedbackData?.negativeFeedbacks} 
+                    averageRating={data?.feedbackData?.stats?.averageRating} 
+                  />
+                </div>
+
+                {/* Row 2: State Analytics & FAQ Leaderboard */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                  <DashboardStateWiseAnalytics
+                    source={source}
+                    userType={filters.userType}
+                  />
+
+                  <TopFaqsLeaderboard
+                    faqs={(faqsData as any).topFaqs}
+                    topQuestionsFromCollection={(faqsData as any).topQuestionsFromCollection}
+                    repeatQueryCount={(faqsData as any).repeatQueryCount}
+                    repeatQueryRatePct={(faqsData as any).repeatQueryRatePct}
+                    avgQuestionsPerUserDay={(faqsData as any).avgQuestionsPerUserDay}
+                    dateRange={faqsDateRange}
+                    onDateRangeChange={setFaqsDateRange}
+                    isLoading={faqsLoading}
+                  />
+                </div>
+
                 {/* Geo + Health */}
                 <div
                   ref={(el) => {
@@ -974,16 +1043,23 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     channelSplit={data.channelSplit}
                     voiceAccuracy={data.voiceAccuracy}
                   /> */}
-                  <DashboardStateWiseAnalytics source={source} userType={filters.userType}/>
-                  {/* <GeoCard states={data.geoStates} />
+                  {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
+                  {/* <GeoCard states={data.geoStates} />*/}
                   <div
                     ref={(el) => {
                       sectionRefs.current["app-health"] = el;
                     }}
                   >
-                    <HealthScoreCard pillars={data.healthPillars} />
-                  </div> */}
+                    {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
+                  </div>
                 </div >
+
+                <div className="mb-6">
+                    <ActiveUsersChart
+                    source={source}
+                    userType = {filters.userType}
+                    />
+                </div> 
               </div >
             )
             }

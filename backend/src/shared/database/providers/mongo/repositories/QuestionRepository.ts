@@ -25,6 +25,7 @@ import { detailsArray, dummyEmbeddings, priorities, questionStatus, sources } fr
 import {
   Analytics,
   AnalyticsItem,
+  AnalyticsTableRow,
   DashboardResponse,
   GoldenDatasetEntry,
   GoldenDataViewType,
@@ -329,6 +330,7 @@ export class QuestionRepository implements IQuestionRepository {
         hiddenQuestions,
         duplicateQuestions,
         isOnHold,
+        unallocatedQuestions,
         pae_review
       } = query;
       //  const filter: any = {};
@@ -353,6 +355,53 @@ export class QuestionRepository implements IQuestionRepository {
 
       // --- on Hold question filter ---
       if (isOnHold === 'true') filter.isOnHold = { $eq: true }; // filter by on hold questions
+
+      // --- Unallocated questions filter ---
+      // Single aggregation: join questions (open/delayed) with question_submissions,
+      // then match: no submission, OR empty queue, OR last history status != 'in-review' with non-empty queue
+      if (unallocatedQuestions === 'true') {
+        const unallocatedDocs = await this.QuestionCollection.aggregate([
+          { $match: { status: { $in: ['open', 'delayed'] } } },
+          {
+            $lookup: {
+              from: 'question_submissions',
+              let: { qId: '$_id' },
+              pipeline: [
+                { $match: { $expr: { $eq: ['$questionId', '$$qId'] } } },
+                { $project: { queue: 1, history: 1 } },
+              ],
+              as: 'sub',
+            },
+          },
+          { $addFields: { sub: { $arrayElemAt: ['$sub', 0] } } },
+          {
+            $match: {
+              $or: [
+                // No submission OR empty queue
+                { $expr: { $eq: [{ $size: { $ifNull: ['$sub.queue', []] } }, 0] } },
+                // Queue not empty + history not empty + last history status != 'in-review'
+                {
+                  $and: [
+                    { $expr: { $gt: [{ $size: { $ifNull: ['$sub.queue', []] } }, 0] } },
+                    { $expr: { $gt: [{ $size: { $ifNull: ['$sub.history', []] } }, 0] } },
+                    {
+                      $expr: {
+                        $ne: [
+                          { $arrayElemAt: [{ $map: { input: { $ifNull: ['$sub.history', []] }, as: 'h', in: '$$h.status' } }, -1] },
+                          'in-review',
+                        ],
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          { $project: { _id: 1 } },
+        ]).toArray();
+
+        filter._id = { $in: unallocatedDocs.map((d) => d._id) };
+      }
 
       //for duplicate questions.
       // duplicateQuestions === 'true'
@@ -629,8 +678,13 @@ export class QuestionRepository implements IQuestionRepository {
       let result = [];
 
       const isSearchTermObjectId = isValidObjectId(search);
+      // Use vector search only for longer natural-language queries (>= 4 words or > 30 chars).
+      // Short/literal strings like "question q33" should use text search for exact matching.
+      const searchWordCount = search ? search.trim().split(/\s+/).length : 0;
+      const isSemanticQuery = searchWordCount >= 4 || (search?.trim().length ?? 0) > 30;
       if (
         !isSearchTermObjectId &&
+        isSemanticQuery &&
         searchEmbedding &&
         searchEmbedding.length > 0
       ) {
@@ -832,22 +886,35 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       if (search && search.trim() !== '') {
-        filter.$or = [
-          { _id: { $regex: search, $options: 'i' } },
-          { question: { $regex: search, $options: 'i' } },
-          { 'details.crop': { $regex: search, $options: 'i' } },
-          { 'details.state': { $regex: search, $options: 'i' } },
-          { 'details.domain': { $regex: search, $options: 'i' } },
+        // Escape special regex characters so literal strings like "How to control weeds?"
+        // are matched as-is rather than being interpreted as regex patterns.
+        const escapedSearch = escapeRegex(search.trim());
+        const searchConditions = [
+          { question: { $regex: escapedSearch, $options: 'i' } },
+          { 'details.crop': { $regex: escapedSearch, $options: 'i' } },
+          { 'details.state': { $regex: escapedSearch, $options: 'i' } },
+          { 'details.domain': { $regex: escapedSearch, $options: 'i' } },
           {
             $expr: {
               $regexMatch: {
                 input: { $toString: '$_id' },
-                regex: search,
+                regex: escapedSearch,
                 options: 'i',
               },
             },
           },
         ];
+
+        // If filter.$or already exists (e.g. from pae_review), combine using $and
+        // to avoid overwriting the existing $or condition
+        if (filter.$or) {
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({ $or: filter.$or });
+          filter.$and.push({ $or: searchConditions });
+          delete filter.$or;
+        } else {
+          filter.$or = searchConditions;
+        }
       }
 
       totalCount = await questionsCollection.countDocuments(filter);
@@ -3502,7 +3569,9 @@ export class QuestionRepository implements IQuestionRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
-    status?: string,
+    status?: string[],
+    state?: string[],
+    source?: string[],
   ): Promise<{ analytics: Analytics }> {
     await this.init();
 
@@ -3511,11 +3580,17 @@ export class QuestionRepository implements IQuestionRepository {
     if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
 
     const matchStage: any = { status: { $ne: 'pass' } };
-    if (status && status !== 'all') {
-      matchStage.status = status;
+    if (status?.length) {
+      matchStage.status = { $in: status };
     }
     if (Object.keys(filterDate).length > 0) {
       matchStage.createdAt = filterDate;
+    }
+    if (state?.length) {
+      matchStage['details.state'] = { $in: state };
+    }
+    if (source?.length) {
+      matchStage.source = { $in: source };
     }
 
     const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
@@ -3560,11 +3635,46 @@ export class QuestionRepository implements IQuestionRepository {
       { session },
     ).toArray()) as AnalyticsItem[];
 
+    // Table: group by state × crop × source, pivot status counts
+    const tableData = await this.QuestionCollection.aggregate(
+      [
+        {$match: matchStage},
+        {
+          $group: {
+            _id: {state: '$details.state', crop: '$details.crop', source: '$source'},
+            open:         {$sum: {$cond: [{$eq: ['$status', 'open']}, 1, 0]}},
+            closed:       {$sum: {$cond: [{$eq: ['$status', 'closed']}, 1, 0]}},
+            inReview:     {$sum: {$cond: [{$eq: ['$status', 'in-review']}, 1, 0]}},
+            delayed:      {$sum: {$cond: [{$eq: ['$status', 'delayed']}, 1, 0]}},
+            reRouted:     {$sum: {$cond: [{$eq: ['$status', 're-routed']}, 1, 0]}},
+            hold:         {$sum: {$cond: [{$eq: ['$status', 'hold']}, 1, 0]}},
+            paeSubmitted: {$sum: {$cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0]}},
+            draft:        {$sum: {$cond: [{$eq: ['$status', 'draft']}, 1, 0]}},
+            duplicate:    {$sum: {$cond: [{$eq: ['$status', 'duplicate']}, 1, 0]}},
+            total:        {$sum: 1},
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            state: '$_id.state',
+            crop: '$_id.crop',
+            source: '$_id.source',
+            open: 1, closed: 1, inReview: 1, delayed: 1, reRouted: 1,
+            hold: 1, paeSubmitted: 1, draft: 1, duplicate: 1, total: 1,
+          },
+        },
+        {$sort: {state: 1, crop: 1, source: 1}},
+      ],
+      {session},
+    ).toArray() as AnalyticsTableRow[];
+
     return {
       analytics: {
         cropData: getTopTenWithOthers(cropDataRaw),
         stateData: stateDataRaw,
         domainData: getTopTenWithOthers(domainDataRaw),
+        tableData,
       },
     };
   }
