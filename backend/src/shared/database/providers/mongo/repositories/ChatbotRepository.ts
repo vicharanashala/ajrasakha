@@ -292,10 +292,18 @@ export class ChatbotRepository implements IChatbotRepository {
         // Today's query count from messages
         this.getTodayQueryCount(source, session, userType),
 
+        // this.users.countDocuments(
+        //   {
+        //     ...userDocFilter,
+        //     'farmerProfile.farmerName': {$exists: true, $nin: [null, '']},
+        //   },
+        //   {session},
+        // ),
+
         this.users.countDocuments(
           {
             ...userDocFilter,
-            'farmerProfile.farmerName': {$exists: true, $nin: [null, '']},
+            farmerProfile: {$exists: true, $ne: null},
           },
           {session},
         ),
@@ -378,9 +386,9 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       // Construct matches based on startTime and endTime if provided
-      const queryMatch: any = { 
-        isCreatedByUser: true, 
-        text: { $exists: true, $ne: null, $nin: ['', ' '] } 
+      const queryMatch: any = {
+        isCreatedByUser: true,
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
       if (startTime || endTime) {
         queryMatch.createdAt = {};
@@ -393,42 +401,49 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       // Calculate repeatQueryCount from messages (trim, lowercase, aggregate repeat counts)
-      const repeatQueryRaw = await this.messagesCollection.aggregate([
-        { $match: queryMatch },
-        ...userTypeLookupStages,
-        {
-          $group: {
-            _id: { $toLower: { $trim: { input: '$text' } } },
-            count: { $sum: 1 }
-          }
-        },
-        {
-          $match: { count: { $gt: 1 } }
-        },
-        {
-          $group: {
-            _id: null,
-            totalRepeats: { $sum: { $subtract: ['$count', 1] } }
-          }
-        }
-      ], { session }).toArray();
+      const repeatQueryRaw = await this.messagesCollection
+        .aggregate(
+          [
+            {$match: queryMatch},
+            ...userTypeLookupStages,
+            {
+              $group: {
+                _id: {$toLower: {$trim: {input: '$text'}}},
+                count: {$sum: 1},
+              },
+            },
+            {
+              $match: {count: {$gt: 1}},
+            },
+            {
+              $group: {
+                _id: null,
+                totalRepeats: {$sum: {$subtract: ['$count', 1]}},
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
       const repeatQueryCount = repeatQueryRaw[0]?.totalRepeats ?? 0;
 
       // Count total queries to get percentage
-      const totalQueriesRaw = await this.messagesCollection.aggregate([
-        { $match: queryMatch },
-        ...userTypeLookupStages,
-        { $count: "count" }
-      ], { session }).toArray();
+      const totalQueriesRaw = await this.messagesCollection
+        .aggregate(
+          [{$match: queryMatch}, ...userTypeLookupStages, {$count: 'count'}],
+          {session},
+        )
+        .toArray();
       const totalQueries = totalQueriesRaw[0]?.count ?? 0;
-      const repeatQueryRatePct = totalQueries > 0
-        ? Math.round((repeatQueryCount / totalQueries) * 100 * 10) / 10
-        : 0;
+      const repeatQueryRatePct =
+        totalQueries > 0
+          ? Math.round((repeatQueryCount / totalQueries) * 100 * 10) / 10
+          : 0;
 
       // Avg questions per user per day over the filtered range (or default to last 30 days)
-      const avgQuestionsMatch: any = { 
-        isCreatedByUser: true, 
-        text: { $exists: true, $ne: null, $nin: ['', ' '] } 
+      const avgQuestionsMatch: any = {
+        isCreatedByUser: true,
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
       if (startTime || endTime) {
         avgQuestionsMatch.createdAt = {};
@@ -440,35 +455,47 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-      const avgQuestionsRaw = await this.messagesCollection.aggregate([
-        { $match: avgQuestionsMatch },
-        ...userTypeLookupStages,
-        {
-          $group: {
-            _id: {
-              day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
-              user: '$user'
+      const avgQuestionsRaw = await this.messagesCollection
+        .aggregate(
+          [
+            {$match: avgQuestionsMatch},
+            ...userTypeLookupStages,
+            {
+              $group: {
+                _id: {
+                  day: {
+                    $dateToString: {
+                      format: '%Y-%m-%d',
+                      date: '$createdAt',
+                      timezone: '+05:30',
+                    },
+                  },
+                  user: '$user',
+                },
+                userDailyCount: {$sum: 1},
+              },
             },
-            userDailyCount: { $sum: 1 }
-          }
-        },
-        {
-          $group: {
-            _id: '$_id.day',
-            dayTotalQuestions: { $sum: '$userDailyCount' },
-            dayUniqueUsers: { $sum: 1 }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            avgQuestionsPerUserDay: {
-              $avg: { $divide: ['$dayTotalQuestions', '$dayUniqueUsers'] }
-            }
-          }
-        }
-      ], { session }).toArray();
-      const avgQuestionsPerUserDay = avgQuestionsRaw[0]?.avgQuestionsPerUserDay ?? 0;
+            {
+              $group: {
+                _id: '$_id.day',
+                dayTotalQuestions: {$sum: '$userDailyCount'},
+                dayUniqueUsers: {$sum: 1},
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                avgQuestionsPerUserDay: {
+                  $avg: {$divide: ['$dayTotalQuestions', '$dayUniqueUsers']},
+                },
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+      const avgQuestionsPerUserDay =
+        avgQuestionsRaw[0]?.avgQuestionsPerUserDay ?? 0;
 
       return {
         dau: totalUsers,
@@ -2891,7 +2918,9 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>> {
+  ): Promise<
+    Array<{day: string; uniqueCount: number; duplicateCount: number}>
+  > {
     try {
       await this.initReviewSystem();
 
@@ -2909,59 +2938,69 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-      const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
+      const userTypeLookupStages =
+        this.buildQuestionUserTypeLookupStages(userType);
 
-      const result = await this.QuestionCollection.aggregate([
-        {
-          $match: matchQuery,
-        },
-        ...userTypeLookupStages,
-        {
-          $group: {
-            _id: {
-              day: {
-                $dateToString: {
-                  format: '%Y-%m-%d',
-                  date: '$createdAt',
-                  timezone: '+05:30',
+      const result = await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: matchQuery,
+          },
+          ...userTypeLookupStages,
+          {
+            $group: {
+              _id: {
+                day: {
+                  $dateToString: {
+                    format: '%Y-%m-%d',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+                isDuplicate: {
+                  $cond: [
+                    {$eq: ['$status', 'duplicate']},
+                    'duplicate',
+                    'unique',
+                  ],
                 },
               },
-              isDuplicate: {
-                $cond: [
-                  { $eq: ['$status', 'duplicate'] },
-                  'duplicate',
-                  'unique',
-                ],
-              },
+              count: {$sum: 1},
             },
-            count: { $sum: 1 },
           },
-        },
-        {
-          $group: {
-            _id: '$_id.day',
-            uniqueCount: {
-              $sum: {
-                $cond: [{ $eq: ['$_id.isDuplicate', 'unique'] }, '$count', 0],
+          {
+            $group: {
+              _id: '$_id.day',
+              uniqueCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_id.isDuplicate', 'unique']}, '$count', 0],
+                },
               },
-            },
-            duplicateCount: {
-              $sum: {
-                $cond: [{ $eq: ['$_id.isDuplicate', 'duplicate'] }, '$count', 0],
+              duplicateCount: {
+                $sum: {
+                  $cond: [
+                    {$eq: ['$_id.isDuplicate', 'duplicate']},
+                    '$count',
+                    0,
+                  ],
+                },
               },
             },
           },
-        },
-        { $sort: { _id: 1 } },
-      ], { session }).toArray();
+          {$sort: {_id: 1}},
+        ],
+        {session},
+      ).toArray();
 
-      return result.map((r) => ({
+      return result.map(r => ({
         day: r._id,
         uniqueCount: r.uniqueCount,
         duplicateCount: r.duplicateCount,
       }));
     } catch (error) {
-      throw new InternalServerError(`Failed to get daily question trends: ${error}`);
+      throw new InternalServerError(
+        `Failed to get daily question trends: ${error}`,
+      );
     }
   }
 
@@ -2971,14 +3010,14 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{ question: string; count: number }>> {
+  ): Promise<Array<{question: string; count: number}>> {
     try {
       await this.init(source);
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const queryMatch: any = {
         isCreatedByUser: true,
-        text: { $exists: true, $ne: null, $nin: ['', ' '] }
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
 
       if (startTime || endTime) {
@@ -2991,24 +3030,29 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-      const result = await this.messagesCollection.aggregate([
-        {
-          $match: queryMatch
-        },
-        ...userTypeLookupStages,
-        {
-          $group: {
-            _id: { $trim: { input: '$text' } },
-            count: { $sum: 1 }
-          }
-        },
-        { $sort: { count: -1 } },
-        { $limit: 10 }
-      ], { session }).toArray();
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: queryMatch,
+            },
+            ...userTypeLookupStages,
+            {
+              $group: {
+                _id: {$trim: {input: '$text'}},
+                count: {$sum: 1},
+              },
+            },
+            {$sort: {count: -1}},
+            {$limit: 10},
+          ],
+          {session},
+        )
+        .toArray();
 
       return result.map(r => ({
         question: r._id,
-        count: r.count
+        count: r.count,
       }));
     } catch (error) {
       throw new InternalServerError(`Failed to get top FAQs: ${error}`);
@@ -3021,10 +3065,10 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{ question: string; count: number }>> {
+  ): Promise<Array<{question: string; count: number}>> {
     try {
       await this.initReviewSystem();
-      
+
       const matchQuery: any = {
         source: 'AJRASAKHA',
       };
@@ -3039,67 +3083,73 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-      const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
+      const userTypeLookupStages =
+        this.buildQuestionUserTypeLookupStages(userType);
 
-      const result = await this.QuestionCollection.aggregate([
-        {
-          $match: matchQuery,
-        },
-        ...userTypeLookupStages,
-        {
-          $project: {
-            resolvedId: { $ifNull: ['$referenceQuestionId', '$_id'] },
-            question: 1,
-          }
-        },
-        {
-          $group: {
-            _id: '$resolvedId',
-            count: { $sum: 1 },
-            firstQuestion: { $first: '$question' }
-          }
-        },
-        {
-          $lookup: {
-            from: 'questions',
-            localField: '_id',
-            foreignField: '_id',
-            as: 'originalDoc'
-          }
-        },
-        {
-          $project: {
-            question: {
-              $ifNull: [
-                { $arrayElemAt: ['$originalDoc.question', 0] },
-                '$firstQuestion'
-              ]
+      const result = await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: matchQuery,
+          },
+          ...userTypeLookupStages,
+          {
+            $project: {
+              resolvedId: {$ifNull: ['$referenceQuestionId', '$_id']},
+              question: 1,
             },
-            count: 1
-          }
-        },
-        {
-          $match: {
-            question: { $exists: true, $ne: null, $nin: ['', ' '] }
-          }
-        },
-        { $sort: { count: -1 } },
-        { $limit: 10 }
-      ], { session }).toArray();
+          },
+          {
+            $group: {
+              _id: '$resolvedId',
+              count: {$sum: 1},
+              firstQuestion: {$first: '$question'},
+            },
+          },
+          {
+            $lookup: {
+              from: 'questions',
+              localField: '_id',
+              foreignField: '_id',
+              as: 'originalDoc',
+            },
+          },
+          {
+            $project: {
+              question: {
+                $ifNull: [
+                  {$arrayElemAt: ['$originalDoc.question', 0]},
+                  '$firstQuestion',
+                ],
+              },
+              count: 1,
+            },
+          },
+          {
+            $match: {
+              question: {$exists: true, $ne: null, $nin: ['', ' ']},
+            },
+          },
+          {$sort: {count: -1}},
+          {$limit: 10},
+        ],
+        {session},
+      ).toArray();
 
       return result.map(r => ({
         question: r.question,
-        count: r.count
+        count: r.count,
       }));
     } catch (error) {
-      throw new InternalServerError(`Failed to get top questions from collection: ${error}`);
+      throw new InternalServerError(
+        `Failed to get top questions from collection: ${error}`,
+      );
     }
   }
 
   async deleteUser(userId: string, source: string): Promise<boolean> {
     try {
       await this.init(source);
-      const result = await this.users.deleteOne({ _id: new ObjectId(userId) });
+      const result = await this.users.deleteOne({_id: new ObjectId(userId)});
       return result.deletedCount === 1;
     } catch (error) {
       throw new InternalServerError(`Failed to delete user: ${error}`);

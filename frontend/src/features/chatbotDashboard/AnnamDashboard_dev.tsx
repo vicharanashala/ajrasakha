@@ -1098,7 +1098,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     channelSplit={data.channelSplit}
                     voiceAccuracy={data.voiceAccuracy}
                   /> */}
-                  <DashboardStateWiseAnalytics source={source} userType={filters.userType}/>
+                  {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
                   {/* <GeoCard states={data.geoStates} />*/}
                   <div
                     ref={(el) => {

@@ -211,6 +211,10 @@ useEffect(() => {
       error: dauError,
     } = useDailyUserTrend(30, source, filters.userType);
 
+    console.log("DAU Trend data:", dauTrend, "Loading:", dauLoading, "Error:", dauError);
+
+    console.log("Dashboard data in UserDetailsView:", dashboardData, "Loading:", isDashboardLoading, "Error:", error);
+
       const todayCount =
       dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
 
