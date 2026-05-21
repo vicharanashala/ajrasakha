@@ -33,14 +33,14 @@ import {
   SelectValue,
 } from "../atoms/select";
 import { Label } from "../atoms/label";
-import { Activity, Filter, MapPin } from "lucide-react";
+import { Activity, AlertTriangle, CalendarIcon, Filter, MapPin } from "lucide-react";
 import { STATES, SOURCES } from "../MetaData";
 import { ScrollArea } from "../atoms/scroll-area";
-import { DateRangeFilter } from "../DateRangeFilter";
+import { Calendar } from "../atoms/calendar";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import CountUp from "react-countup";
 import React, { useState } from "react";
-import { differenceInCalendarDays } from "date-fns";
+import { differenceInCalendarDays, format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -236,22 +236,11 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 
   const MAX_RANGE_DAYS = 30;
   const [openFilter, setOpenFilter] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [rangeWarning, setRangeWarning] = useState(false);
   const [draftFilters, setDraftFilters] = useState<DraftFilters>(() =>
     defaultDraft(analyticsStatus, analyticsType, date, analyticsState, analyticsSource),
   );
-
-  const handleDraftDateChange = (dateKey: string, value?: Date) => {
-    const next = { ...draftFilters.dateRange, [dateKey]: value };
-    setDraftFilters((prev) => ({ ...prev, dateRange: next }));
-
-    if (next.startTime && next.endTime) {
-      const diff = differenceInCalendarDays(next.endTime, next.startTime);
-      setRangeWarning(diff > MAX_RANGE_DAYS);
-    } else {
-      setRangeWarning(false);
-    }
-  };
 
   const handleApplyFilters = () => {
     if (rangeWarning) return;
@@ -278,6 +267,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
     if (open) {
       setDraftFilters(defaultDraft(analyticsStatus, analyticsType, date, analyticsState, analyticsSource));
       setRangeWarning(false);
+      setShowCalendar(false);
     }
     setOpenFilter(open);
   };
@@ -309,92 +299,143 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
               Preferences
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-xl max-w-[95vw] max-h-[90vh] overflow-y-auto min-h-[420px]">
             <DialogHeader>
               <DialogTitle>Analytics Preferences</DialogTitle>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-4">
-              {/* Status */}
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-primary" />
-                  Status
-                </Label>
-                <MultiSelect
-                  items={STATUS_OPTIONS}
-                  selected={draftFilters.status}
-                  onChange={(val) => setDraftFilters((prev) => ({ ...prev, status: val }))}
-                  placeholder="All Statuses"
-                />
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
+                {/* Status */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-primary" />
+                    Status
+                  </Label>
+                  <MultiSelect
+                    items={STATUS_OPTIONS}
+                    selected={draftFilters.status}
+                    onChange={(val) => setDraftFilters((prev) => ({ ...prev, status: val }))}
+                    placeholder="All Statuses"
+                  />
+                </div>
 
-              {/* Analytics Type */}
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-primary" />
-                  Analytics Type
-                </Label>
-                <Select
-                  value={draftFilters.analyticsType}
-                  onValueChange={(value) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      analyticsType: value as "question" | "answer",
-                    }))
-                  }
-                >
-                  <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
-                    <SelectValue placeholder="Select Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="question">Question</SelectItem>
-                    <SelectItem value="answer">Answer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                {/* Analytics Type */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-primary" />
+                    Analytics Type
+                  </Label>
+                  <Select
+                    value={draftFilters.analyticsType}
+                    onValueChange={(value) =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        analyticsType: value as "question" | "answer",
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
+                      <SelectValue placeholder="Select Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="question">Question</SelectItem>
+                      <SelectItem value="answer">Answer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* State */}
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  State
-                </Label>
-                <MultiSelect
-                  items={STATE_OPTIONS}
-                  selected={draftFilters.state}
-                  onChange={(val) => setDraftFilters((prev) => ({ ...prev, state: val }))}
-                  placeholder="All States"
-                />
-              </div>
+                {/* State */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    State
+                  </Label>
+                  <MultiSelect
+                    items={STATE_OPTIONS}
+                    selected={draftFilters.state}
+                    onChange={(val) => setDraftFilters((prev) => ({ ...prev, state: val }))}
+                    placeholder="All States"
+                  />
+                </div>
 
-              {/* Source */}
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-primary" />
-                  Source
-                </Label>
-                <MultiSelect
-                  items={SOURCE_OPTIONS}
-                  selected={draftFilters.source}
-                  onChange={(val) => setDraftFilters((prev) => ({ ...prev, source: val }))}
-                  placeholder="All Sources"
-                />
-              </div>
+                {/* Source */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-primary" />
+                    Source
+                  </Label>
+                  <MultiSelect
+                    items={SOURCE_OPTIONS}
+                    selected={draftFilters.source}
+                    onChange={(val) => setDraftFilters((prev) => ({ ...prev, source: val }))}
+                    placeholder="All Sources"
+                  />
+                </div>
 
-              {/* Date Range — full width */}
-              <div className="sm:col-span-2">
-                <DateRangeFilter
-                  advanceFilter={draftFilters.dateRange}
-                  handleDialogChange={handleDraftDateChange}
-                  helperText="You can select up to 1 month of data at a time"
-                  showWarning={rangeWarning}
-                  warningMessage={`Range exceeds ${MAX_RANGE_DAYS} days. Please pick an end date within ${MAX_RANGE_DAYS} days of the start.`}
-                />
-              </div>
-            </div>
+                {/* Date Range — toggle trigger + inline calendar */}
+                <div className="sm:col-span-2 space-y-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4 text-primary" />
+                    Date Range
+                  </Label>
 
-            <DialogFooter className="gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    onClick={() => setShowCalendar((v) => !v)}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {draftFilters.dateRange.startTime ? (
+                      draftFilters.dateRange.endTime ? (
+                        <span>
+                          {format(draftFilters.dateRange.startTime, "MMM d, yyyy")}
+                          {" – "}
+                          {format(draftFilters.dateRange.endTime, "MMM d, yyyy")}
+                        </span>
+                      ) : (
+                        <span>{format(draftFilters.dateRange.startTime, "MMM d, yyyy")} – pick end</span>
+                      )
+                    ) : (
+                      <span className="text-muted-foreground">Select date range</span>
+                    )}
+                  </Button>
+
+                  {showCalendar && (
+                    <>
+                      {rangeWarning && (
+                        <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300">
+                          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                          <p className="text-xs leading-snug">
+                            Range exceeds {MAX_RANGE_DAYS} days. Please pick an end date within {MAX_RANGE_DAYS} days of the start.
+                          </p>
+                        </div>
+                      )}
+                      <Calendar
+                        mode="range"
+                        selected={{
+                          from: draftFilters.dateRange.startTime,
+                          to: draftFilters.dateRange.endTime,
+                        }}
+                        onSelect={(range) => {
+                          const next = { startTime: range?.from, endTime: range?.to };
+                          setDraftFilters((prev) => ({ ...prev, dateRange: next }));
+                          if (next.startTime && next.endTime) {
+                            setRangeWarning(differenceInCalendarDays(next.endTime, next.startTime) > MAX_RANGE_DAYS);
+                            setShowCalendar(false);
+                          } else {
+                            setRangeWarning(false);
+                          }
+                        }}
+                        numberOfMonths={1}
+                        className="rounded-md border"
+                      />
+                      <p className="text-xs text-muted-foreground">Select up to {MAX_RANGE_DAYS} days at a time</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            <DialogFooter className="gap-2 pt-2 border-t">
               <Button variant="outline" onClick={handleClearFilters}>
                 Clear
               </Button>
@@ -587,62 +628,95 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
           </TabsContent>
         </Tabs>
 
-        {/* Status breakdown table */}
-        <div className="mt-8">
-          <h3 className="text-sm font-semibold text-foreground mb-3">
-            Status Breakdown by State, Crop & Source
-          </h3>
-          <div className="rounded-md border">
-            <div className="overflow-auto max-h-[420px]">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted hover:bg-muted">
-                    <TableHead className="sticky left-0 bg-muted min-w-[140px]">State</TableHead>
-                    <TableHead className="min-w-[140px]">Crop</TableHead>
-                    <TableHead className="min-w-[120px]">Source</TableHead>
-                    <TableHead className="text-center min-w-[80px]">Open</TableHead>
-                    <TableHead className="text-center min-w-[90px]">In Review</TableHead>
-                    <TableHead className="text-center min-w-[80px]">Closed</TableHead>
-                    <TableHead className="text-center min-w-[80px]">Delayed</TableHead>
-                    <TableHead className="text-center min-w-[90px]">Re-routed</TableHead>
-                    <TableHead className="text-center min-w-[70px]">Hold</TableHead>
-                    <TableHead className="text-center min-w-[120px]">PAE Submitted</TableHead>
-                    <TableHead className="text-center min-w-[70px]">Draft</TableHead>
-                    <TableHead className="text-center min-w-[90px]">Duplicate</TableHead>
-                    <TableHead className="text-center min-w-[70px] font-bold">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(data.tableData ?? []).length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
-                        No data available. Apply filters and try again.
-                      </TableCell>
+        {/* Status breakdown table — State & Crop shown once per group, sources as sub-rows */}
+        {(() => {
+          const tableData = data.tableData ?? [];
+
+          // Group rows by state+crop
+          const groups: { state: string; crop: string; rows: AnalyticsTableRow[] }[] = [];
+          for (const row of tableData) {
+            const key = `${row.state ?? ""}||${row.crop ?? ""}`;
+            const existing = groups.find((g) => `${g.state}||${g.crop}` === key);
+            if (existing) {
+              existing.rows.push(row);
+            } else {
+              groups.push({ state: row.state ?? "—", crop: row.crop ?? "—", rows: [row] });
+            }
+          }
+
+          return (
+            <div className="mt-8">
+              <h3 className="text-sm font-semibold text-foreground mb-3">
+                Status Breakdown by State, Crop & Source
+              </h3>
+              <div className="rounded-md border overflow-auto max-h-[420px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted hover:bg-muted">
+                      <TableHead className="min-w-[140px]">State</TableHead>
+                      <TableHead className="min-w-[140px]">Crop</TableHead>
+                      <TableHead className="min-w-[120px]">Source</TableHead>
+                      <TableHead className="text-center min-w-[70px]">Open</TableHead>
+                      <TableHead className="text-center min-w-[85px]">In Review</TableHead>
+                      <TableHead className="text-center min-w-[70px]">Closed</TableHead>
+                      <TableHead className="text-center min-w-[70px]">Delayed</TableHead>
+                      <TableHead className="text-center min-w-[85px]">Re-routed</TableHead>
+                      <TableHead className="text-center min-w-[60px]">Hold</TableHead>
+                      <TableHead className="text-center min-w-[110px]">PAE Submitted</TableHead>
+                      <TableHead className="text-center min-w-[60px]">Draft</TableHead>
+                      <TableHead className="text-center min-w-[80px]">Duplicate</TableHead>
+                      <TableHead className="text-center min-w-[60px] font-bold">Total</TableHead>
                     </TableRow>
-                  ) : (
-                    (data.tableData ?? []).map((row, i) => (
-                      <TableRow key={i} className="hover:bg-muted/50">
-                        <TableCell className="text-sm sticky left-0 bg-background">{row.state || "—"}</TableCell>
-                        <TableCell className="text-sm">{row.crop || "—"}</TableCell>
-                        <TableCell className="text-sm">{row.source || "—"}</TableCell>
-                        <TableCell className="text-center text-sm">{row.open || 0}</TableCell>
-                        <TableCell className="text-center text-sm">{row.inReview || 0}</TableCell>
-                        <TableCell className="text-center text-sm">{row.closed || 0}</TableCell>
-                        <TableCell className="text-center text-sm">{row.delayed || 0}</TableCell>
-                        <TableCell className="text-center text-sm">{row.reRouted || 0}</TableCell>
-                        <TableCell className="text-center text-sm">{row.hold || 0}</TableCell>
-                        <TableCell className="text-center text-sm">{row.paeSubmitted || 0}</TableCell>
-                        <TableCell className="text-center text-sm">{row.draft || 0}</TableCell>
-                        <TableCell className="text-center text-sm">{row.duplicate || 0}</TableCell>
-                        <TableCell className="text-center text-sm font-semibold">{row.total}</TableCell>
+                  </TableHeader>
+                  <TableBody>
+                    {groups.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                          No data available. Apply filters and try again.
+                        </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      groups.map((group) =>
+                        group.rows.map((row, rowIdx) => (
+                          <TableRow key={`${group.state}-${group.crop}-${rowIdx}`} className="hover:bg-muted/50">
+                            {/* State & Crop only on first source row */}
+                            {rowIdx === 0 && (
+                              <>
+                                <TableCell
+                                  rowSpan={group.rows.length}
+                                  className="text-sm font-medium align-top border-r"
+                                >
+                                  {group.state}
+                                </TableCell>
+                                <TableCell
+                                  rowSpan={group.rows.length}
+                                  className="text-sm align-top border-r"
+                                >
+                                  {group.crop}
+                                </TableCell>
+                              </>
+                            )}
+                            <TableCell className="text-sm text-muted-foreground">{row.source || "—"}</TableCell>
+                            <TableCell className="text-center text-sm">{row.open || 0}</TableCell>
+                            <TableCell className="text-center text-sm">{row.inReview || 0}</TableCell>
+                            <TableCell className="text-center text-sm">{row.closed || 0}</TableCell>
+                            <TableCell className="text-center text-sm">{row.delayed || 0}</TableCell>
+                            <TableCell className="text-center text-sm">{row.reRouted || 0}</TableCell>
+                            <TableCell className="text-center text-sm">{row.hold || 0}</TableCell>
+                            <TableCell className="text-center text-sm">{row.paeSubmitted || 0}</TableCell>
+                            <TableCell className="text-center text-sm">{row.draft || 0}</TableCell>
+                            <TableCell className="text-center text-sm">{row.duplicate || 0}</TableCell>
+                            <TableCell className="text-center text-sm font-semibold">{row.total}</TableCell>
+                          </TableRow>
+                        ))
+                      )
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );
