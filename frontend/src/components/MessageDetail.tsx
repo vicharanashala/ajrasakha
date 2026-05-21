@@ -451,109 +451,130 @@ interface ParsedChatbotText {
 }
 
 // --- Parser function ---
+// const parseChatbotText = (text: string): ParsedChatbotText => {
+//     let workingText = text;
+//     // const noticeIdx = workingText.indexOf('\u26A0\uFE0F');
+//     // if (noticeIdx !== -1) workingText = workingText.substring(0, noticeIdx).trim();
+//     const testingNoticeIndex = workingText.indexOf(
+//         "⚠️ *Important Notice (Testing)*"
+//     );
+
+//     if (testingNoticeIndex !== -1) {
+//         workingText = workingText.substring(0, testingNoticeIndex).trim();
+//     }
+
+//     let answerBody = workingText;
+//     let sourcesSection = '';
+//     const parts = workingText.split(/\n---\n/);
+//     if (parts.length > 1) {
+//         const lastPart = parts[parts.length - 1].trim();
+//         const looksLikeSources = /\|\s*(?:Agri Specialist Name|Source\/PDF Link)/i.test(lastPart);
+//         if (looksLikeSources) {
+//             answerBody = parts[0].trim();
+//             sourcesSection = parts.slice(1).join('\n---\n').trim();
+//         }
+//     }
+//     if (!sourcesSection) {
+//         const sourceMarker = workingText.match(/\*?\*?The answer I provided[^*\n]*/i);
+//         if (sourceMarker && sourceMarker.index !== undefined) {
+//             answerBody = workingText.substring(0, sourceMarker.index).trim();
+//             sourcesSection = workingText.substring(sourceMarker.index).trim();
+//         }
+//     }
+//     answerBody = answerBody.replace(/\n---\s*$/, '').trim();
+
+//     const agriSpecialists: AgriSpecialist[] = [];
+//     const agriRows = sourcesSection.match(/\|\s*Agri Specialist Name\s*\|\s*Source Link\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n\s*\|[^|]*Source\/PDF|$)/i);
+//     if (agriRows) {
+//         for (const row of agriRows[1].trim().split('\n').filter((r: string) => r.startsWith('|'))) {
+//             const cells = row.split('|').filter((c: string) => c.trim() !== '');
+//             if (cells.length >= 2) {
+//                 const name = cells[0].trim();
+//                 const raw = cells[1].trim();
+//                 const links = [...raw.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
+//                 if (links.length > 0) {
+//                     for (const link of links) {
+//                         agriSpecialists.push({ name, sourceType: 'other', sourceLink: link[2] });
+//                     }
+//                 } else {
+//                     // plain URL(s), possibly semicolon-separated
+//                     for (const url of raw.split(';').map(s => s.trim()).filter(Boolean)) {
+//                         agriSpecialists.push({ name, sourceType: 'other', sourceLink: url });
+//                     }
+//                 }
+//             }
+//         }
+//     }
+
+//     const pdfSources: PdfSource[] = [];
+//     const pdfRows = sourcesSection.match(/\|\s*Source\/PDF Link\s*\|\s*Page Number\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n---|\n\u26A0|$)/i);
+//     if (pdfRows) {
+//         for (const row of pdfRows[1].trim().split('\n').filter((r: string) => r.startsWith('|'))) {
+//             const cells = row.split('|').filter((c: string) => c.trim() !== '');
+//             if (cells.length >= 2) {
+//                 const lm = cells[0].trim().match(/\[([^\]]+)\]\(([^)]+)\)/);
+//                 if (lm) {
+//                     pdfSources.push({ name: lm[1], link: lm[2], pages: cells[1].trim(), sourceType: 'other' });
+//                 } else {
+//                     const raw = cells[0].trim();
+//                     const isUrl = /^https?:\/\//.test(raw);
+//                     pdfSources.push({
+//                         name: isUrl ? cells[1].trim() : raw,
+//                         link: isUrl ? raw : '',
+//                         pages: isUrl ? '' : cells[1].trim(),
+//                         sourceType: 'other',
+//                     });
+//                 }
+//             }
+//         }
+//     }
+
+//     for (const line of sourcesSection.split('\n')) {
+//         if (!line.includes('📺')) continue;
+//         const lm = line.match(/\[([^\]]+)\]\(([^)]+)\)/);
+//         if (lm) pdfSources.push({ name: lm[1], link: lm[2], pages: '', sourceType: 'other' });
+//     }
+
+//     // Extract from tables where cells[1] is entirely a markdown link (e.g. Video Resources table)
+//     for (const line of workingText.split('\n')) {
+//         if (!line.startsWith('|')) continue;
+//         const cells = line.split('|').filter(c => c.trim() !== '');
+//         if (cells.length < 2) continue;
+//         const lm = cells[1].trim().match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+//         if (!lm) continue;
+//         const url = lm[2];
+//         if (pdfSources.some(s => s.link === url) || agriSpecialists.some(s => s.sourceLink === url)) continue;
+//         pdfSources.push({
+//             name: cells[0].trim(),
+//             link: url,
+//             pages: cells.length > 2 ? cells[2].trim() : '',
+//             sourceType: 'other',
+//         });
+//     }
+
+//     return { answerBody, agriSpecialists, pdfSources };
+// }
+
 const parseChatbotText = (text: string): ParsedChatbotText => {
     let workingText = text;
-    // const noticeIdx = workingText.indexOf('\u26A0\uFE0F');
-    // if (noticeIdx !== -1) workingText = workingText.substring(0, noticeIdx).trim();
-    const testingNoticeIndex = workingText.indexOf(
-        "⚠️ *Important Notice (Testing)*"
-    );
 
-    if (testingNoticeIndex !== -1) {
-        workingText = workingText.substring(0, testingNoticeIndex).trim();
-    }
+    // Remove the entire "Important Notice (Testing)" section
+    // Handles:
+    // - ⚠️ on same line
+    // - ⚠️ on separate lines
+    // - extra spaces/newlines
+    // - multiline content after the heading
+    workingText = workingText.replace(
+        /\n*\s*⚠️?\s*\*?\s*Important\s+Notice\s*\(Testing\)\s*\*?\s*⚠️?[\s\S]*$/i,
+        ''
+    ).trim();
 
-    let answerBody = workingText;
-    let sourcesSection = '';
-    const parts = workingText.split(/\n---\n/);
-    if (parts.length > 1) {
-        const lastPart = parts[parts.length - 1].trim();
-        const looksLikeSources = /\|\s*(?:Agri Specialist Name|Source\/PDF Link)/i.test(lastPart);
-        if (looksLikeSources) {
-            answerBody = parts[0].trim();
-            sourcesSection = parts.slice(1).join('\n---\n').trim();
-        }
-    }
-    if (!sourcesSection) {
-        const sourceMarker = workingText.match(/\*?\*?The answer I provided[^*\n]*/i);
-        if (sourceMarker && sourceMarker.index !== undefined) {
-            answerBody = workingText.substring(0, sourceMarker.index).trim();
-            sourcesSection = workingText.substring(sourceMarker.index).trim();
-        }
-    }
-    answerBody = answerBody.replace(/\n---\s*$/, '').trim();
-
-    const agriSpecialists: AgriSpecialist[] = [];
-    const agriRows = sourcesSection.match(/\|\s*Agri Specialist Name\s*\|\s*Source Link\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n\s*\|[^|]*Source\/PDF|$)/i);
-    if (agriRows) {
-        for (const row of agriRows[1].trim().split('\n').filter((r: string) => r.startsWith('|'))) {
-            const cells = row.split('|').filter((c: string) => c.trim() !== '');
-            if (cells.length >= 2) {
-                const name = cells[0].trim();
-                const raw = cells[1].trim();
-                const links = [...raw.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
-                if (links.length > 0) {
-                    for (const link of links) {
-                        agriSpecialists.push({ name, sourceType: 'other', sourceLink: link[2] });
-                    }
-                } else {
-                    // plain URL(s), possibly semicolon-separated
-                    for (const url of raw.split(';').map(s => s.trim()).filter(Boolean)) {
-                        agriSpecialists.push({ name, sourceType: 'other', sourceLink: url });
-                    }
-                }
-            }
-        }
-    }
-
-    const pdfSources: PdfSource[] = [];
-    const pdfRows = sourcesSection.match(/\|\s*Source\/PDF Link\s*\|\s*Page Number\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n---|\n\u26A0|$)/i);
-    if (pdfRows) {
-        for (const row of pdfRows[1].trim().split('\n').filter((r: string) => r.startsWith('|'))) {
-            const cells = row.split('|').filter((c: string) => c.trim() !== '');
-            if (cells.length >= 2) {
-                const lm = cells[0].trim().match(/\[([^\]]+)\]\(([^)]+)\)/);
-                if (lm) {
-                    pdfSources.push({ name: lm[1], link: lm[2], pages: cells[1].trim(), sourceType: 'other' });
-                } else {
-                    const raw = cells[0].trim();
-                    const isUrl = /^https?:\/\//.test(raw);
-                    pdfSources.push({
-                        name: isUrl ? cells[1].trim() : raw,
-                        link: isUrl ? raw : '',
-                        pages: isUrl ? '' : cells[1].trim(),
-                        sourceType: 'other',
-                    });
-                }
-            }
-        }
-    }
-
-    for (const line of sourcesSection.split('\n')) {
-        if (!line.includes('📺')) continue;
-        const lm = line.match(/\[([^\]]+)\]\(([^)]+)\)/);
-        if (lm) pdfSources.push({ name: lm[1], link: lm[2], pages: '', sourceType: 'other' });
-    }
-
-    // Extract from tables where cells[1] is entirely a markdown link (e.g. Video Resources table)
-    for (const line of workingText.split('\n')) {
-        if (!line.startsWith('|')) continue;
-        const cells = line.split('|').filter(c => c.trim() !== '');
-        if (cells.length < 2) continue;
-        const lm = cells[1].trim().match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-        if (!lm) continue;
-        const url = lm[2];
-        if (pdfSources.some(s => s.link === url) || agriSpecialists.some(s => s.sourceLink === url)) continue;
-        pdfSources.push({
-            name: cells[0].trim(),
-            link: url,
-            pages: cells.length > 2 ? cells[2].trim() : '',
-            sourceType: 'other',
-        });
-    }
-
-    return { answerBody, agriSpecialists, pdfSources };
-};
+    return {
+        answerBody: workingText,
+        agriSpecialists: [],
+        pdfSources: [],
+    };
+};;
 
 interface ContentAnswerProps {
     text: string;
