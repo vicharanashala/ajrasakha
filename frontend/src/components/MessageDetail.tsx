@@ -557,13 +557,6 @@ interface ParsedChatbotText {
 
 const parseChatbotText = (text: string): ParsedChatbotText => {
     let workingText = text;
-
-    // Remove the entire "Important Notice (Testing)" section
-    // Handles:
-    // - ⚠️ on same line
-    // - ⚠️ on separate lines
-    // - extra spaces/newlines
-    // - multiline content after the heading
     workingText = workingText.replace(
         /\n*\s*⚠️?\s*\*?\s*Important\s+Notice\s*\(Testing\)\s*\*?\s*⚠️?[\s\S]*$/i,
         ''
