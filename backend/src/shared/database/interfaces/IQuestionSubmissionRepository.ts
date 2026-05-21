@@ -194,4 +194,28 @@ export interface IQuestionSubmissionRepository {
 
   getDelayedReviews(session?: ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]>;
   markDelayedNotificationsSent(notifiedSubmissionIds: ObjectId[], session?: ClientSession): Promise<void>;
+
+  /** Mark that the current expert has opened a time-bound question.
+   *  Sets currentExpertOpenedAt if not already set and expertId is the current assignee.
+   *  Once set, the question is excluded from 45-min auto-reallocation. */
+  markQuestionOpenedByExpert(questionId: string, expertId: string): Promise<void>;
+
+  /** Reset the 45-min allocation clock for the current expert.
+   *  Called on initial allocation and on every reallocation. Clears currentExpertOpenedAt. */
+  setCurrentExpertAllocatedAt(questionId: string, allocatedAt: Date): Promise<void>;
+
+  /** Find all time-bound (WHATSAPP/AJRASAKHA) submissions where:
+   *  - currentExpertAllocatedAt > 45 min ago
+   *  - currentExpertOpenedAt is null (expert has NOT opened the question)
+   *  - question is not on hold, not closed/pass/duplicate/draft */
+  findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]>;
+
+  /** Find all time-bound (WHATSAPP/AJRASAKHA) submissions that were never
+   *  allocated — queue is empty and currentExpertAllocatedAt is null/missing.
+   *  question is not on hold, not closed/pass/duplicate/draft */
+  findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]>;
+
+  /** Single aggregation: returns a Map<expertId, count> of active time-bound
+   *  questions per expert. Used to enforce the 3-question hard cap. */
+  getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>>;
 }
