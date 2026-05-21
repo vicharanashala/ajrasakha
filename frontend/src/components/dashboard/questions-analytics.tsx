@@ -628,11 +628,10 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
           </TabsContent>
         </Tabs>
 
-        {/* Status breakdown table — State & Crop shown once per group, sources as sub-rows */}
+        {/* ── Status Breakdown Table ──────────────────────────────────── */}
         {(() => {
           const tableData = data.tableData ?? [];
 
-          // 3-level grouping: State → Crop → Source rows
           type CropGroup = { crop: string; rows: AnalyticsTableRow[] };
           type StateGroup = { state: string; crops: CropGroup[]; totalRows: number };
 
@@ -657,71 +656,82 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
             sg.totalRows += 1;
           }
 
+          /* helper: show "—" for zero counts so the table looks cleaner */
+          const fmt = (n: number) => (n > 0 ? n : <span className="text-muted-foreground/40">—</span>);
+
           return (
             <div className="mt-8">
               <h3 className="text-sm font-semibold text-foreground mb-3">
                 Status Breakdown by State, Crop & Source
               </h3>
-              <div className="rounded-md border overflow-auto max-h-[420px]">
+              <div className="rounded-lg border overflow-auto max-h-[480px]">
                 <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted hover:bg-muted">
-                      <TableHead className="min-w-[140px]">State</TableHead>
-                      <TableHead className="min-w-[140px]">Crop</TableHead>
-                      <TableHead className="min-w-[120px]">Source</TableHead>
-                      <TableHead className="text-center min-w-[70px]">Open</TableHead>
-                      <TableHead className="text-center min-w-[85px]">In Review</TableHead>
-                      <TableHead className="text-center min-w-[70px]">Closed</TableHead>
-                      <TableHead className="text-center min-w-[70px]">Delayed</TableHead>
-                      <TableHead className="text-center min-w-[85px]">Re-routed</TableHead>
-                      <TableHead className="text-center min-w-[60px]">Hold</TableHead>
-                      <TableHead className="text-center min-w-[110px]">PAE Submitted</TableHead>
-                      <TableHead className="text-center min-w-[60px]">Draft</TableHead>
-                      <TableHead className="text-center min-w-[80px]">Duplicate</TableHead>
+                  <TableHeader className="sticky top-0 z-10">
+                    <TableRow className="bg-muted/80 backdrop-blur-sm hover:bg-muted/80">
+                      <TableHead className="min-w-[130px] font-semibold">State</TableHead>
+                      <TableHead className="min-w-[130px] font-semibold">Crop</TableHead>
+                      <TableHead className="min-w-[110px] font-semibold">Source</TableHead>
+                      <TableHead className="text-center min-w-[60px] text-emerald-600 dark:text-emerald-400 font-semibold">Open</TableHead>
+                      <TableHead className="text-center min-w-[80px] text-sky-600 dark:text-sky-400 font-semibold">In Review</TableHead>
+                      <TableHead className="text-center min-w-[60px] text-rose-600 dark:text-rose-400 font-semibold">Closed</TableHead>
+                      <TableHead className="text-center min-w-[70px] text-amber-600 dark:text-amber-400 font-semibold">Delayed</TableHead>
+                      <TableHead className="text-center min-w-[80px] text-violet-600 dark:text-violet-400 font-semibold">Re-routed</TableHead>
+                      <TableHead className="text-center min-w-[55px] text-slate-600 dark:text-slate-400 font-semibold">Hold</TableHead>
+                      <TableHead className="text-center min-w-[100px] text-indigo-600 dark:text-indigo-400 font-semibold">PAE Submitted</TableHead>
+                      <TableHead className="text-center min-w-[55px] text-gray-500 dark:text-gray-400 font-semibold">Draft</TableHead>
+                      <TableHead className="text-center min-w-[75px] text-orange-600 dark:text-orange-400 font-semibold">Duplicate</TableHead>
                       <TableHead className="text-center min-w-[60px] font-bold">Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {stateGroups.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={13} className="text-center text-muted-foreground py-10">
                           No data available. Apply filters and try again.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      stateGroups.map((sg) =>
+                      stateGroups.map((sg, stateIdx) =>
                         sg.crops.map((cg, cropIdx) =>
                           cg.rows.map((row, rowIdx) => (
-                            <TableRow key={`${sg.state}-${cg.crop}-${rowIdx}`} className="hover:bg-muted/50">
-                              {/* State cell — only on the very first row of this state */}
+                            <TableRow
+                              key={`${sg.state}-${cg.crop}-${rowIdx}`}
+                              className={`transition-colors hover:bg-muted/60 ${
+                                stateIdx % 2 === 0 ? "bg-transparent" : "bg-muted/25"
+                              }`}
+                            >
+                              {/* State — first row of group */}
                               {cropIdx === 0 && rowIdx === 0 && (
                                 <TableCell
                                   rowSpan={sg.totalRows}
-                                  className="text-sm font-medium align-top border-r"
+                                  className="text-sm font-semibold align-top border-r border-border/50 bg-muted/30"
                                 >
-                                  {sg.state}
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                                    {sg.state}
+                                  </div>
                                 </TableCell>
                               )}
-                              {/* Crop cell — only on the first source row of each crop */}
+                              {/* Crop — first row of sub-group */}
                               {rowIdx === 0 && (
                                 <TableCell
                                   rowSpan={cg.rows.length}
-                                  className="text-sm align-top border-r"
+                                  className="text-sm font-medium align-top border-r border-border/40"
                                 >
                                   {cg.crop}
                                 </TableCell>
                               )}
                               <TableCell className="text-sm text-muted-foreground">{row.source || "—"}</TableCell>
-                              <TableCell className="text-center text-sm">{row.open || 0}</TableCell>
-                              <TableCell className="text-center text-sm">{row.inReview || 0}</TableCell>
-                              <TableCell className="text-center text-sm">{row.closed || 0}</TableCell>
-                              <TableCell className="text-center text-sm">{row.delayed || 0}</TableCell>
-                              <TableCell className="text-center text-sm">{row.reRouted || 0}</TableCell>
-                              <TableCell className="text-center text-sm">{row.hold || 0}</TableCell>
-                              <TableCell className="text-center text-sm">{row.paeSubmitted || 0}</TableCell>
-                              <TableCell className="text-center text-sm">{row.draft || 0}</TableCell>
-                              <TableCell className="text-center text-sm">{row.duplicate || 0}</TableCell>
-                              <TableCell className="text-center text-sm font-semibold">{row.total}</TableCell>
+                              <TableCell className="text-center text-sm">{fmt(row.open)}</TableCell>
+                              <TableCell className="text-center text-sm">{fmt(row.inReview)}</TableCell>
+                              <TableCell className="text-center text-sm">{fmt(row.closed)}</TableCell>
+                              <TableCell className="text-center text-sm">{fmt(row.delayed)}</TableCell>
+                              <TableCell className="text-center text-sm">{fmt(row.reRouted)}</TableCell>
+                              <TableCell className="text-center text-sm">{fmt(row.hold)}</TableCell>
+                              <TableCell className="text-center text-sm">{fmt(row.paeSubmitted)}</TableCell>
+                              <TableCell className="text-center text-sm">{fmt(row.draft)}</TableCell>
+                              <TableCell className="text-center text-sm">{fmt(row.duplicate)}</TableCell>
+                              <TableCell className="text-center text-sm font-bold">{row.total}</TableCell>
                             </TableRow>
                           ))
                         )
