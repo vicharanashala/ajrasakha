@@ -33,13 +33,32 @@ import {
   SelectValue,
 } from "../atoms/select";
 import { Label } from "../atoms/label";
-import { Activity, Filter } from "lucide-react";
+import { Activity, Filter, MapPin } from "lucide-react";
+import { STATES, SOURCES } from "../MetaData";
 import { ScrollArea } from "../atoms/scroll-area";
 import { DateRangeFilter } from "../DateRangeFilter";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import CountUp from "react-countup";
-import React from "react";
+import React, { useState } from "react";
 import { differenceInCalendarDays } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../atoms/dialog";
+import { Button } from "../atoms/button";
+import { MultiSelect } from "../atoms/MultiSelect";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../atoms/table";
 
 export interface DateRange {
   startTime?: Date;
@@ -52,8 +71,12 @@ interface QuestionsAnalyticsProps {
   data: QuestionsAnalytics;
   setAnalyticsType: (value: "question" | "answer") => void;
   analyticsType: "question" | "answer";
-  analyticsStatus: string;
-  setAnalyticsStatus: (value: string) => void;
+  analyticsStatus: string[];
+  setAnalyticsStatus: (value: string[]) => void;
+  analyticsState: string[];
+  setAnalyticsState: (value: string[]) => void;
+  analyticsSource: string[];
+  setAnalyticsSource: (value: string[]) => void;
 }
 const colors = [
   "var(--color-chart-1)",
@@ -135,11 +158,65 @@ export interface AnalyticsItem {
   otherItems?: { name: string; count: number }[];
 }
 
+export interface AnalyticsTableRow {
+  state?: string;
+  crop?: string;
+  source?: string;
+  open: number;
+  closed: number;
+  inReview: number;
+  delayed: number;
+  reRouted: number;
+  hold: number;
+  paeSubmitted: number;
+  draft: number;
+  duplicate: number;
+  total: number;
+}
+
 export interface QuestionsAnalytics {
   cropData: AnalyticsItem[];
   stateData: AnalyticsItem[];
   domainData: AnalyticsItem[];
+  tableData: AnalyticsTableRow[];
 }
+
+// Module-level constants — computed once, never recreated on render
+const STATUS_OPTIONS = [
+  { value: "open", label: "Open" },
+  { value: "in-review", label: "In Review" },
+  { value: "closed", label: "Closed" },
+  { value: "delayed", label: "Delayed" },
+  { value: "re-routed", label: "Re-routed" },
+  { value: "hold", label: "Hold" },
+  { value: "pae_submitted", label: "PAE Submitted" },
+  { value: "draft", label: "Draft" },
+  { value: "duplicate", label: "Duplicate" },
+];
+const STATE_OPTIONS = STATES.map((s) => ({ value: s, label: s }));
+const SOURCE_OPTIONS = SOURCES.map((src) => ({ value: src, label: src }));
+
+type DraftFilters = {
+  status: string[];
+  analyticsType: "question" | "answer";
+  dateRange: { startTime?: Date; endTime?: Date };
+  state: string[];
+  source: string[];
+};
+
+const defaultDraft = (
+  status: string[],
+  analyticsType: "question" | "answer",
+  date: DateRange,
+  state: string[],
+  source: string[],
+): DraftFilters => ({
+  status,
+  analyticsType,
+  dateRange: { startTime: date.startTime, endTime: date.endTime },
+  state,
+  source,
+});
 
 export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   date,
@@ -149,39 +226,61 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   analyticsType,
   analyticsStatus,
   setAnalyticsStatus,
+  analyticsState,
+  setAnalyticsState,
+  analyticsSource,
+  setAnalyticsSource,
 }) => {
 
-  const { ref, key,} = useRestartOnView()
+  const { ref, key } = useRestartOnView();
 
-  // ── Analytics-specific date range logic (max 30 days) ──────────────────────
   const MAX_RANGE_DAYS = 30;
-  const [rangeWarning, setRangeWarning] = React.useState(false);
-  // pendingRange tracks what the calendar shows; only committed to parent when valid
-  const [pendingRange, setPendingRange] = React.useState<{ startTime?: Date; endTime?: Date }>({
-    startTime: date.startTime,
-    endTime: date.endTime,
-  });
+  const [openFilter, setOpenFilter] = useState(false);
+  const [rangeWarning, setRangeWarning] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<DraftFilters>(() =>
+    defaultDraft(analyticsStatus, analyticsType, date, analyticsState, analyticsSource),
+  );
 
-  const handleDateChange = (key: string, value?: Date) => {
-    const next = { ...pendingRange, [key]: value };
-    setPendingRange(next);
+  const handleDraftDateChange = (dateKey: string, value?: Date) => {
+    const next = { ...draftFilters.dateRange, [dateKey]: value };
+    setDraftFilters((prev) => ({ ...prev, dateRange: next }));
 
-    const { startTime, endTime } = next;
-
-    if (startTime && endTime) {
-      const diff = differenceInCalendarDays(endTime, startTime);
-      if (diff > MAX_RANGE_DAYS) {
-        setRangeWarning(true);
-        // Do NOT commit to parent — invalid range
-        return;
-      }
+    if (next.startTime && next.endTime) {
+      const diff = differenceInCalendarDays(next.endTime, next.startTime);
+      setRangeWarning(diff > MAX_RANGE_DAYS);
+    } else {
+      setRangeWarning(false);
     }
-
-    // Valid — commit to parent and clear warning
-    setRangeWarning(false);
-    setDate((prev) => ({ ...prev, [key]: value }));
   };
-  // ───────────────────────────────────────────────────────────────────────────
+
+  const handleApplyFilters = () => {
+    if (rangeWarning) return;
+    setAnalyticsStatus(draftFilters.status);
+    setAnalyticsType(draftFilters.analyticsType);
+    setDate(draftFilters.dateRange);
+    setAnalyticsState(draftFilters.state);
+    setAnalyticsSource(draftFilters.source);
+    setOpenFilter(false);
+  };
+
+  const handleClearFilters = () => {
+    const defaults = defaultDraft([], "question", {}, [], []);
+    setDraftFilters(defaults);
+    setRangeWarning(false);
+    setAnalyticsStatus(defaults.status);
+    setAnalyticsType(defaults.analyticsType);
+    setDate(defaults.dateRange);
+    setAnalyticsState(defaults.state);
+    setAnalyticsSource(defaults.source);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setDraftFilters(defaultDraft(analyticsStatus, analyticsType, date, analyticsState, analyticsSource));
+      setRangeWarning(false);
+    }
+    setOpenFilter(open);
+  };
 
   const processedCropWithColors = data.cropData.map((item, index) => ({
     ...item,
@@ -203,71 +302,108 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
           </CardDescription>
         </div>
 
-        <div className=" flex justify-center items-center gap-6">
-          <div className="w-[140px] flex flex-col">
-            <Label
-              htmlFor="analyticsStatus"
-              className="mb-2 text-sm font-medium flex items-center gap-1"
-            >
-              <Filter className="w-4 h-4 text-primary" />
-              Status
-            </Label>
-            <Select
-              value={analyticsStatus}
-              onValueChange={(value) => setAnalyticsStatus(value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="in-review">In Review</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-                <SelectItem value="delayed">Delayed</SelectItem>
-                <SelectItem value="re-routed">Re-routed</SelectItem>
-                <SelectItem value="hold">Hold</SelectItem>
-                <SelectItem value="pae_submitted">PAE Submitted</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="duplicate">Duplicate</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <Dialog open={openFilter} onOpenChange={handleOpenChange}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <Filter className="h-4 w-4 text-primary" />
+              Preferences
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Analytics Preferences</DialogTitle>
+            </DialogHeader>
 
-          <div className="w-[120px] flex flex-col">
-            <Label
-              htmlFor="analyticsType"
-              className="mb-2 text-sm font-medium flex items-center gap-1"
-            >
-              <Activity className="w-4 h-4 text-primary" />
-              Analytics Type
-            </Label>
-            <Select
-              value={analyticsType}
-              onValueChange={(value) =>
-                setAnalyticsType(value as "question" | "answer")
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="question">Question</SelectItem>
-                <SelectItem value="answer">Answer</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-4">
+              {/* Status */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-primary" />
+                  Status
+                </Label>
+                <MultiSelect
+                  items={STATUS_OPTIONS}
+                  selected={draftFilters.status}
+                  onChange={(val) => setDraftFilters((prev) => ({ ...prev, status: val }))}
+                  placeholder="All Statuses"
+                />
+              </div>
 
-          <div className="min-w-[220px]">
-            <DateRangeFilter
-              advanceFilter={pendingRange}
-              handleDialogChange={handleDateChange}
-              helperText="You can select up to 1 month of data at a time"
-              showWarning={rangeWarning}
-              warningMessage={`Range exceeds ${MAX_RANGE_DAYS} days. Please pick an end date within ${MAX_RANGE_DAYS} days of the start.`}
-            />
-          </div>
-        </div>
+              {/* Analytics Type */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-primary" />
+                  Analytics Type
+                </Label>
+                <Select
+                  value={draftFilters.analyticsType}
+                  onValueChange={(value) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      analyticsType: value as "question" | "answer",
+                    }))
+                  }
+                >
+                  <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
+                    <SelectValue placeholder="Select Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="question">Question</SelectItem>
+                    <SelectItem value="answer">Answer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* State */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  State
+                </Label>
+                <MultiSelect
+                  items={STATE_OPTIONS}
+                  selected={draftFilters.state}
+                  onChange={(val) => setDraftFilters((prev) => ({ ...prev, state: val }))}
+                  placeholder="All States"
+                />
+              </div>
+
+              {/* Source */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-primary" />
+                  Source
+                </Label>
+                <MultiSelect
+                  items={SOURCE_OPTIONS}
+                  selected={draftFilters.source}
+                  onChange={(val) => setDraftFilters((prev) => ({ ...prev, source: val }))}
+                  placeholder="All Sources"
+                />
+              </div>
+
+              {/* Date Range — full width */}
+              <div className="sm:col-span-2">
+                <DateRangeFilter
+                  advanceFilter={draftFilters.dateRange}
+                  handleDialogChange={handleDraftDateChange}
+                  helperText="You can select up to 1 month of data at a time"
+                  showWarning={rangeWarning}
+                  warningMessage={`Range exceeds ${MAX_RANGE_DAYS} days. Please pick an end date within ${MAX_RANGE_DAYS} days of the start.`}
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={handleClearFilters}>
+                Clear
+              </Button>
+              <Button onClick={handleApplyFilters} disabled={rangeWarning}>
+                Apply Filters
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="crop" className="w-full">
@@ -450,6 +586,63 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Status breakdown table */}
+        <div className="mt-8">
+          <h3 className="text-sm font-semibold text-foreground mb-3">
+            Status Breakdown by State, Crop & Source
+          </h3>
+          <div className="rounded-md border">
+            <div className="overflow-auto max-h-[420px]">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted hover:bg-muted">
+                    <TableHead className="sticky left-0 bg-muted min-w-[140px]">State</TableHead>
+                    <TableHead className="min-w-[140px]">Crop</TableHead>
+                    <TableHead className="min-w-[120px]">Source</TableHead>
+                    <TableHead className="text-center min-w-[80px]">Open</TableHead>
+                    <TableHead className="text-center min-w-[90px]">In Review</TableHead>
+                    <TableHead className="text-center min-w-[80px]">Closed</TableHead>
+                    <TableHead className="text-center min-w-[80px]">Delayed</TableHead>
+                    <TableHead className="text-center min-w-[90px]">Re-routed</TableHead>
+                    <TableHead className="text-center min-w-[70px]">Hold</TableHead>
+                    <TableHead className="text-center min-w-[120px]">PAE Submitted</TableHead>
+                    <TableHead className="text-center min-w-[70px]">Draft</TableHead>
+                    <TableHead className="text-center min-w-[90px]">Duplicate</TableHead>
+                    <TableHead className="text-center min-w-[70px] font-bold">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(data.tableData ?? []).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                        No data available. Apply filters and try again.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    (data.tableData ?? []).map((row, i) => (
+                      <TableRow key={i} className="hover:bg-muted/50">
+                        <TableCell className="text-sm sticky left-0 bg-background">{row.state || "—"}</TableCell>
+                        <TableCell className="text-sm">{row.crop || "—"}</TableCell>
+                        <TableCell className="text-sm">{row.source || "—"}</TableCell>
+                        <TableCell className="text-center text-sm">{row.open || 0}</TableCell>
+                        <TableCell className="text-center text-sm">{row.inReview || 0}</TableCell>
+                        <TableCell className="text-center text-sm">{row.closed || 0}</TableCell>
+                        <TableCell className="text-center text-sm">{row.delayed || 0}</TableCell>
+                        <TableCell className="text-center text-sm">{row.reRouted || 0}</TableCell>
+                        <TableCell className="text-center text-sm">{row.hold || 0}</TableCell>
+                        <TableCell className="text-center text-sm">{row.paeSubmitted || 0}</TableCell>
+                        <TableCell className="text-center text-sm">{row.draft || 0}</TableCell>
+                        <TableCell className="text-center text-sm">{row.duplicate || 0}</TableCell>
+                        <TableCell className="text-center text-sm font-semibold">{row.total}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

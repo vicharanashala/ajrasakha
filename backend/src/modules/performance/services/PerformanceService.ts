@@ -147,12 +147,12 @@ export class PerformanceService extends BaseService implements IPerformanceServi
 
   async getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
     return await this._withTransaction(async (session: ClientSession) => {
-      const { type, startTime, endTime, status } = query;
+      const { type, startTime, endTime, status, state, source } = query;
       if (type === 'question') {
-        const result = await this.questionRepo.getQuestionAnalytics(startTime, endTime, session, status);
+        const result = await this.questionRepo.getQuestionAnalytics(startTime, endTime, session, status, state, source);
         return result.analytics;
       } else {
-        const result = await this.answerRepo.getAnswerAnalytics(startTime, endTime, session);
+        const result = await this.answerRepo.getAnswerAnalytics(startTime, endTime, session, state, source, status);
         return result.analytics;
       }
     });
