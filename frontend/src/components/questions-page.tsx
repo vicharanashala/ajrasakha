@@ -78,6 +78,7 @@ export const QuestionsPage = ({
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
+  const [unallocatedQuestions, setUnallocatedQuestions] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
@@ -176,6 +177,7 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      unallocatedQuestions,
       pae_review: paeReview,
     }),
     [
@@ -202,6 +204,7 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      unallocatedQuestions,
       paeReview,
     ],
   );
@@ -334,6 +337,7 @@ export const QuestionsPage = ({
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     isOnHold?: boolean;
+    unallocatedQuestions?: boolean;
     pae_review?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
@@ -365,6 +369,8 @@ export const QuestionsPage = ({
       setDuplicateQuestions(next.duplicateQuestions);
     if (next.isOnHold !== undefined)
       setIsOnHold(next.isOnHold);
+    if (next.unallocatedQuestions !== undefined)
+      setUnallocatedQuestions(next.unallocatedQuestions);
     if ("pae_review" in next)
       setPaeReview(next.pae_review);
     // Reset pagination to page 1 when filters are applied

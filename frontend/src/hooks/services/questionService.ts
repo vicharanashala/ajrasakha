@@ -83,6 +83,7 @@ export class QuestionService {
     params.append("duplicateQuestions", String(filter.duplicateQuestions));
 
     params.append("isOnHold", String(filter.isOnHold));
+    params.append("unallocatedQuestions", String(filter.unallocatedQuestions));
 
     if (filter.pae_review === true) {
       params.append("pae_review", "true");
@@ -744,6 +745,7 @@ export class QuestionService {
     params.append("hiddenQuestions", String(filter.hiddenQuestions));
     params.append("duplicateQuestions", String(filter.duplicateQuestions));
     params.append("isOnHold", String(filter.isOnHold));
+    params.append("unallocatedQuestions", String(filter.unallocatedQuestions));
 
     if (filter.pae_review === true) {
       params.append("pae_review", "true");
