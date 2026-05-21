@@ -133,9 +133,17 @@ async def build_tool_calls_from_plan(
     loc = location or {}
     entities = plan.get("entities") or {}
     state_name = _entity_str(plan, "state", loc, "Not specified", user_query=user_query)
-    district = _entity_str(plan, "district", loc, "Not specified", user_query=user_query)
-    if district == "Not specified" and has_gps_coordinates(loc) and loc.get("city"):
+    district = _entity_str(plan, "district", loc, "all", user_query=user_query)
+    if district in {"", "Not specified", "unknown"} and has_gps_coordinates(loc) and loc.get("city"):
         district = str(loc["city"])
+    elif district in {"", "Not specified", "unknown"} and state_name.lower() not in {
+        "",
+        "not specified",
+        "unknown",
+        "all",
+        "none",
+    }:
+        district = "all"
     crop = _entity_str(plan, "crop", loc, "General", user_query=user_query)
     domain = _reviewer_domain(plan)
 
