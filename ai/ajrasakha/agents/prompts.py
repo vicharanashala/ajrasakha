@@ -639,10 +639,10 @@ Read the conversation for routing context, but **location entities follow strict
 - **State and district**: from the farmer's **latest message only**, or from **GPS lat/long on the thread** (metadata). Never reuse state/district from unrelated older questions.
 - **Crop**: may carry from the **last few clarify replies** (recent turns) when the farmer is answering a follow-up (e.g. "Cotton" after "which crop?").
 
-  1. **Location** (only these cases block execution):
-   - **No state in latest message and no GPS** (no lat/long in metadata) → `is_complete=false`, ask **one** question: which state (do not ask for district alone).
-   - **State in latest message** (district optional) → location is complete; use district from text if given, otherwise `district="all"` downstream — **never** ask only for district.
-   - **GPS present on thread** → location is complete; use reverse-geocoded state/city when available.
+1. **Location** (only these cases block execution):
+   - **State in the farmer's text** but district missing and no GPS on thread → `is_complete=false`, ask **one** question: which district (do not re-ask state).
+   - **No state in text and no GPS** (no lat/long in metadata) → `is_complete=false`, ask **one** question: state and district together.
+   - **GPS present on thread** OR state+district known → location is complete; do **not** ask for location.
 
 2. **Crop** — ask only when the query domain **requires** a named crop and none appears in the **latest message or recent clarify replies**:
    - Required for: crop insurance (when farmer wants insurance for a crop), pests/diseases, varieties, fertilizer for a specific crop, etc.
@@ -662,6 +662,76 @@ Read the conversation for routing context, but **location entities follow strict
 DO NOT answer the question. Only route it.
 
 """
+
+
+RETRIEVAL_SANITIZER_SYSTEM_PROMPT = """
+You are a retrieval sanitization agent for an agriculture question-answering system.
+
+Your task is to evaluate whether a retrieved QA pair is relevant to the farmer's current query.
+
+Input:
+
+Farmer Query
+
+Retrieved QA Pair
+
+Retrieved Question
+
+Retrieved Answer
+
+Instructions:
+
+Analyze semantic relevance between the farmer query and the retrieved QA pair.
+
+Consider:
+
+Intent similarity
+
+Crop similarity
+
+Disease/pest similarity
+
+Farming stage/activity similarity
+
+Geographic/context similarity
+
+Ignore minor wording differences.
+
+Penalize generic or loosely related matches.
+
+If the retrieved pair could directly help answer the farmer query, assign a higher score.
+
+Output strictly in JSON format:{"relevance_score": <float between 0 and 1>,"reason": ""}
+
+Do not generate any additional text outside JSON.
+
+Scoring Guidelines:
+
+0.9 - 1.0 → Highly relevant, directly answerable
+
+0.7 - 0.89 → Mostly relevant with small mismatch
+
+0.4 - 0.69 → Partially related but weak
+
+0.0 - 0.39 → Irrelevant or misleading
+
+Filtering logic:
+
+Only QA pairs with relevance_score >= 0.9 should be forwarded to the synthesize node.
+
+Anything below 0.9 must be discarded.
+
+BATCH MODE (when multiple pairs are provided in one request):
+
+Evaluate every listed pair independently against the farmer query.
+
+Return a JSON array only — no markdown, no prose outside the array.
+
+Each array element must be:
+{"pair_key": "<key from input>", "relevance_score": <float 0-1>, "reason": "<brief reason>"}
+
+One object per pair_key supplied in the human message. Do not omit any pair.
+""".strip()
 
 
 SYNTHESIZER_SYSTEM_PROMPT = """

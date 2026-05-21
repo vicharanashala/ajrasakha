@@ -20,6 +20,7 @@ from ajrasakha.agents.location_context import (
 )
 from ajrasakha.agents.language import text_matches_user_language
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
+from ajrasakha.agents.retrieval_sanitizer import should_skip_sanitizer_for_gdb
 from ajrasakha.agents.tool_registry import get_location_tool, get_main_tool_node, get_reviewer_tool
 
 logger = logging.getLogger(__name__)
@@ -440,6 +441,8 @@ def route_after_execute(state: AjraSakhaState) -> str:
             try:
                 data = json.loads(text)
                 if isinstance(data, dict):
+                    if should_skip_sanitizer_for_gdb(data):
+                        return "synthesize"
                     is_exact = data.get("is_exact", False)
                     is_similar = data.get("is_similar", False)
                     # If neither exact nor similar match, it's empty
@@ -451,5 +454,6 @@ def route_after_execute(state: AjraSakhaState) -> str:
                             return "empty_gdb_reply"
             except Exception:
                 pass
-    return "synthesize"
+            return "retrieval_sanitizer"
+    return "retrieval_sanitizer"
 

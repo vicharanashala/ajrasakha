@@ -40,6 +40,7 @@ from ajrasakha.agents.prompts import (
     WHATSAPP_SYSTEM_PROMPT,
 )
 from ajrasakha.agents.state import AjraSakhaState, Location
+from ajrasakha.agents.retrieval_sanitizer import retrieval_sanitizer_node
 from ajrasakha.agents.synthesizer import synthesize_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
@@ -377,6 +378,7 @@ def _build_graph():
         builder.add_node("clarify", clarify_node)
         builder.add_node("ensure_location", ensure_location_node)
         builder.add_node("execute_plan", execute_plan_node)
+        builder.add_node("retrieval_sanitizer", retrieval_sanitizer_node)
         builder.add_node("synthesize", synthesize_node)
 
         builder.add_edge(START, "planner")
@@ -393,9 +395,11 @@ def _build_graph():
             {
                 END: END,
                 "synthesize": "synthesize",
+                "retrieval_sanitizer": "retrieval_sanitizer",
                 "empty_gdb_reply": "empty_gdb_reply",
             },
         )
+        builder.add_edge("retrieval_sanitizer", "synthesize")
         builder.add_edge("synthesize", "sanitize_answer")
 
 
