@@ -17,4 +17,5 @@ export type ActiveUsersQuery = {
   startDate?: string;
   endDate?: string;
   source?: string;
+  userType?: string;
 };

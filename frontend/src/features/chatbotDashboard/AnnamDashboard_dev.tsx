@@ -1057,6 +1057,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                 <div className="mb-6">
                     <ActiveUsersChart
                     source={source}
+                    userType = {filters.userType}
                     />
                 </div> 
               </div >

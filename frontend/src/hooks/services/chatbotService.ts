@@ -56,12 +56,14 @@ export class ChatbotService {
   async getDailyActiveUsersTrend(
     startDate: string,
     endDate: string,
-    source: string
+    source: string,
+    userType: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     params.append("startDate", startDate);
     params.append("endDate", endDate);
     params.append("source", source);
+    params.append("userType", userType);
       return apiFetch<any>(
       `${this._baseUrl}/daily-active-users-trend?${params.toString()}`,
     );
@@ -70,12 +72,14 @@ export class ChatbotService {
   async getMonthlyActiveUsersTrend(
     startDate: string,
     endDate: string,
-    source: string
+    source: string,
+    userType: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     params.append("startDate", startDate);
     params.append("endDate", endDate);
       params.append("source", source);
+      params.append("userType", userType);
     return apiFetch<any>(
       `${this._baseUrl}/monthly-active-users-trend?${params.toString()}`,
     );
@@ -84,12 +88,14 @@ export class ChatbotService {
   async getWeeklyActiveUsersTrend(
     startDate: string,
     endDate: string,
-    source: string
+    source: string,
+    userType: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     params.append("startDate", startDate);
     params.append("endDate", endDate);
       params.append("source", source);
+      params.append("userType", userType);
     return apiFetch<any>(
       `${this._baseUrl}/weekly-active-users-trend?${params.toString()}`,
     );

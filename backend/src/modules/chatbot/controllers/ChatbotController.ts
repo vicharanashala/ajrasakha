@@ -458,7 +458,7 @@ async getDistrictAnalyticsByState(
     const startDate = new Date(query.startDate!);
     const endDate = new Date(query.endDate!);
     const source = query.source;
-
+    const userType = query.userType;
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
       throw new Error('Invalid startDate or endDate.');
     }
@@ -467,7 +467,7 @@ async getDistrictAnalyticsByState(
       throw new Error('startDate cannot be after endDate.');
     }
 
-    return await this.chatbotService.getDailyActiveUsersTrend(startDate, endDate, source);
+    return await this.chatbotService.getDailyActiveUsersTrend(startDate, endDate, source, userType);
   }
 
   @Get('/monthly-active-users-trend')
@@ -477,6 +477,7 @@ async getDistrictAnalyticsByState(
     const startDate = new Date(query.startDate!);
     const endDate = new Date(query.endDate!);
     const source = query.source;
+    const userType = query.userType;
 
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
       throw new Error('Invalid startDate or endDate.');
@@ -485,7 +486,7 @@ async getDistrictAnalyticsByState(
     if (startDate > endDate) {
       throw new Error('startDate cannot be after endDate.');
     }
-    return await this.chatbotService.getMonthlyActiveUsersTrend(startDate, endDate, source);
+    return await this.chatbotService.getMonthlyActiveUsersTrend(startDate, endDate, source, userType);
   }
 
   @Get('/weekly-active-users-trend')
@@ -495,6 +496,7 @@ async getDistrictAnalyticsByState(
     const startDate = new Date(query.startDate!);
     const endDate = new Date(query.endDate!);
     const source = query.source;
+    const userType = query.userType;
 
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
       throw new Error('Invalid startDate or endDate.');
@@ -503,7 +505,7 @@ async getDistrictAnalyticsByState(
     if (startDate > endDate) {
       throw new Error('startDate cannot be after endDate.');
     }
-    return await this.chatbotService.getWeeklyActiveUsersTrend(startDate, endDate, source);
+    return await this.chatbotService.getWeeklyActiveUsersTrend(startDate, endDate, source, userType);
   }
 
   @Get('/retention-metrics')

@@ -64,19 +64,24 @@ const defaultDateRange: DateRange = {
 
 type ActiveUserType = "daily" | "weekly" | "monthly";
 
-export const ActiveUsersChart = (source: string) => {
+type ActiveUsersChartProps = {
+  source: "vicharanashala" | "annam";
+  userType: string;
+};
+
+export const ActiveUsersChart = ({ source, userType }: ActiveUsersChartProps) => {
   const [type, setType] = useState<ActiveUserType>("daily");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(
     defaultDateRange,
   );
   const { data: dailyData, isFetching: dailyLoading } =
-    useDailyActiveUsersTrend(dateRange?.from, dateRange?.to, source);
+    useDailyActiveUsersTrend(dateRange?.from, dateRange?.to, source, userType);
 
   const { data: weeklyData, isFetching: weeklyLoading } =
-    useWeeklyActiveUsersTrend(dateRange?.from, dateRange?.to, source);
+    useWeeklyActiveUsersTrend(dateRange?.from, dateRange?.to, source, userType);
 
   const { data: monthlyData, isFetching: monthlyLoading } =
-    useMontlyActiveUsersTrend(dateRange?.from, dateRange?.to, source);
+    useMontlyActiveUsersTrend(dateRange?.from, dateRange?.to, source, userType);
 
   const isFetching = dailyLoading || weeklyLoading || monthlyLoading;
 

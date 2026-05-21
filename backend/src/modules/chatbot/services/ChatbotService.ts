@@ -682,25 +682,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyActiveUsersTrend(startDate: Date, endDate: Date, source: string){
+  async getDailyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string){
     try {
-      return await this.chatbotRepository.getDailyActiveUsersTrend(startDate, endDate, source);
+      return await this.chatbotRepository.getDailyActiveUsersTrend(startDate, endDate, source, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch Daily Active Users Trend: ${error}`);
     }
   }
 
-  async getMonthlyActiveUsersTrend(startDate: Date, endDate: Date, source: string){
+  async getMonthlyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string){
     try {
-      return await this.chatbotRepository.getMonthlyActiveUsersTrend(startDate, endDate, source);
+      return await this.chatbotRepository.getMonthlyActiveUsersTrend(startDate, endDate, source, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch Monthly Active Users Trend: ${error}`);
     }
   }
 
-  async getWeeklyActiveUsersTrend(startDate: Date, endDate: Date, source: string){
+  async getWeeklyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string){
     try {
-      return await this.chatbotRepository.getWeeklyActiveUsersTrend(startDate, endDate, source);
+      return await this.chatbotRepository.getWeeklyActiveUsersTrend(startDate, endDate, source, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch Weekly Active Users Trend: ${error}`);
     }

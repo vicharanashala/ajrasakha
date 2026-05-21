@@ -3121,11 +3121,11 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getDailyActiveUsersTrend(
-    startDate: Date, endDate: Date, source: string,
+    startDate: Date, endDate: Date, source: string, userType: string,
     session?: ClientSession,
   ) {
     try {
-      await this.init(source);
+      await this.init(userType);
 
       /**
        * Last 365 days
@@ -3134,20 +3134,44 @@ export class ChatbotRepository implements IChatbotRepository {
       // const startDate = new Date();
       // startDate.setDate(startDate.getDate() - 365);
 
+      const matchStage: any = {
+        lastActiveAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+
+      /**
+       * External Users
+       */
+      if (source === "external") {
+        matchStage.email = {
+          $regex: "^rup",
+          $options: "i",
+        };
+      }
+
+      /**
+       * Internal Users
+       */
+      if (source === "internal") {
+        matchStage.email = {
+          $not: {
+            $regex: "^rup",
+            $options: "i",
+          },
+        };
+      }
+
       /**
        * DAU Trend
        */
       const result = await this.users
         .aggregate(
           [
-            {
-              $match: {
-                lastActiveAt: {
-                  $gte: startDate,
-                  $lte: endDate,
-                },
-              },
-            },
+          {
+            $match: matchStage,
+          },
             {
               $group: {
                 _id: {
@@ -3184,11 +3208,11 @@ export class ChatbotRepository implements IChatbotRepository {
 
 
   async getWeeklyActiveUsersTrend(
-    startDate: Date, endDate: Date, source: string,
+    startDate: Date, endDate: Date, source: string, userType: string,
     session?: ClientSession,
   ) {
     try {
-      await this.init(source);
+      await this.init(userType);
 
       /**
        * Last 12 weeks
@@ -3203,6 +3227,35 @@ export class ChatbotRepository implements IChatbotRepository {
       //   startDate.getDate() - (DAYS_IN_WEEK * TOTAL_WEEKS),
       // );
 
+      const matchStage: any = {
+        lastActiveAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+
+      /**
+       * External Users
+       */
+      if (source === "external") {
+        matchStage.email = {
+          $regex: "^rup",
+          $options: "i",
+        };
+      }
+
+      /**
+       * Internal Users
+       */
+      if (source === "internal") {
+        matchStage.email = {
+          $not: {
+            $regex: "^rup",
+            $options: "i",
+          },
+        };
+      }
+
       /**
        * WAU Trend
        */
@@ -3210,12 +3263,7 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate(
           [
             {
-              $match: {
-                lastActiveAt: {
-                  $gte: startDate,
-                  $lte: endDate,
-                },
-              },
+              $match: matchStage,
             },
             {
               $group: {
@@ -3289,11 +3337,11 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyActiveUsersTrend(
-    startDate: Date, endDate: Date, source: string,
+    startDate: Date, endDate: Date, source: string, userType: string,
     session?: ClientSession,
   ) {
     try {
-      await this.init(source);
+      await this.init(userType);
 
       /**
        * Last 12 months
@@ -3302,6 +3350,34 @@ export class ChatbotRepository implements IChatbotRepository {
       // const startDate = new Date();
       // startDate.setMonth(startDate.getMonth() - 12);
 
+      const matchStage: any = {
+        lastActiveAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+
+      /**
+       * External Users
+       */
+      if (source === "external") {
+        matchStage.email = {
+          $regex: "^rup",
+          $options: "i",
+        };
+      }
+
+      /**
+       * Internal Users
+       */
+      if (source === "internal") {
+        matchStage.email = {
+          $not: {
+            $regex: "^rup",
+            $options: "i",
+          },
+        };
+      }
       /**
        * MAU Trend
        */
@@ -3309,12 +3385,7 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate(
           [
             {
-              $match: {
-                lastActiveAt: {
-                  $gte: startDate,
-                  $lte: endDate,
-                },
-              },
+              $match: matchStage,
             },
             {
               $group: {
