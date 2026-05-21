@@ -453,8 +453,15 @@ interface ParsedChatbotText {
 // --- Parser function ---
 const parseChatbotText = (text: string): ParsedChatbotText => {
     let workingText = text;
-    const noticeIdx = workingText.indexOf('\u26A0\uFE0F');
-    if (noticeIdx !== -1) workingText = workingText.substring(0, noticeIdx).trim();
+    // const noticeIdx = workingText.indexOf('\u26A0\uFE0F');
+    // if (noticeIdx !== -1) workingText = workingText.substring(0, noticeIdx).trim();
+    const testingNoticeIndex = workingText.indexOf(
+        "⚠️ *Important Notice (Testing)*"
+    );
+
+    if (testingNoticeIndex !== -1) {
+        workingText = workingText.substring(0, testingNoticeIndex).trim();
+    }
 
     let answerBody = workingText;
     let sourcesSection = '';
