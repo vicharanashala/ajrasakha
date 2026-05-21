@@ -274,10 +274,10 @@ export const IncomingCallBox = ({ onTranscriptChange, onOriginalTranscriptChange
     // Setup message handlers
     ws.onMessage('transcript', (message: PlivoTranscriptMessage) => {
       // console.log('📝 [IncomingCallBox] Received transcript:', message);
-      if (message.text) {
+      if (message.originalText || message.translatedText) {
         const newTranscript = {
-          text: message.text,
-          originalText: message.originalText || message.text,
+          text: message.text || '',
+          originalText: message.originalText || '',
           translatedText: message.translatedText || '',
           detectedLanguage: message.detectedLanguage || 'unknown',
           timestamp: message.timestamp
@@ -286,8 +286,8 @@ export const IncomingCallBox = ({ onTranscriptChange, onOriginalTranscriptChange
         setTranscripts(prev => {
           const updated = [...prev, newTranscript];
           // Update parent component with full accumulated transcripts
-          const fullOriginalTranscript = updated.map(t => t.originalText || t.text).join(' ');
-          const fullTranslatedTranscript = updated.map(t => t.translatedText || t.text).join(' ');
+          const fullOriginalTranscript = updated.map(t => t.originalText).filter(Boolean).join(' ');
+          const fullTranslatedTranscript = updated.map(t => t.translatedText).filter(Boolean).join(' ');
           onOriginalTranscriptChange?.(fullOriginalTranscript);
           onTranscriptChange?.(fullTranslatedTranscript);
           return updated;
@@ -297,6 +297,10 @@ export const IncomingCallBox = ({ onTranscriptChange, onOriginalTranscriptChange
 
     ws.onMessage('call_end', (message: PlivoTranscriptMessage) => {
       // console.log('📴 Call ended from WebSocket:', message);
+      if (message.originalText || message.translatedText) {
+        onOriginalTranscriptChange?.(message.originalText || '');
+        onTranscriptChange?.(message.translatedText || '');
+      }
       setCallStatus('ended');
       setIncomingCall(null);
       onCallStateChange?.(false);

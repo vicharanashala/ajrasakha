@@ -29,6 +29,32 @@ const plivoService = new PlivoService();
 
         if (msg.event === 'start') {
           console.log('📞 Call started:', msg.start);
+          
+          // Initialize Sarvam WebSocket streams for this call
+          plivoService.initializeStreams(callId, (result) => {
+            const transcriptMessage = {
+              type: 'transcript',
+              callId,
+              text: result.originalText || result.translatedText || '',
+              originalText: result.originalText,
+              translatedText: result.translatedText,
+              detectedLanguage: result.detectedLanguage,
+              timestamp: new Date().toISOString()
+            };
+
+            console.log(`📤 [BACKEND] Full message being sent:`, JSON.stringify(transcriptMessage, null, 2));
+
+            // Broadcast transcript to frontend clients
+            let clientCount = 0;
+            Array.from(wss.clients).forEach((client: any) => {
+              if (client.readyState === 1) {
+                clientCount++;
+                client.send(JSON.stringify(transcriptMessage));
+              }
+            });
+            console.log(`📤 [BACKEND] Transcript sent to ${clientCount} frontend clients`);
+          });
+
           // Broadcast call start to frontend
           Array.from(wss.clients).forEach((client: any) => {
             if (client !== ws && client.readyState === 1) {
@@ -43,47 +69,9 @@ const plivoService = new PlivoService();
 
         if (msg.event === 'media') {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
-          // console.log('🎧 Audio chunk received, size:', audioBuffer.length);
-          // fileStream.write(audioBuffer);
           audioChunks.push(audioBuffer);
-          try {
-            // Transcribe audio chunk continuously
-            const result = await plivoService.transcribeAudio(audioBuffer, callId);
-            const transcript = result.originalText;
-            const chunkTranslation = result.translatedText;
-
-
-            if (transcript.trim() || chunkTranslation.trim()) {
-              // console.log(`📤 [BACKEND] Sending transcript for call ${callId}:`, transcript);
-
-              // Get translation and detected language
-              const detectedLanguage = plivoService.getDetectedLanguage(callId.toString());
-
-              const transcriptMessage = {
-                type: 'transcript',
-                callId,
-                text: transcript,
-                originalText: transcript,
-                translatedText: chunkTranslation,
-                detectedLanguage: detectedLanguage,
-                timestamp: new Date().toISOString()
-              };
-
-              console.log(`📤 [BACKEND] Full message being sent:`, JSON.stringify(transcriptMessage, null, 2));
-
-              // Broadcast transcript to frontend clients
-              let clientCount = 0;
-              Array.from(wss.clients).forEach((client: any) => {
-                if (client.readyState === 1) {
-                  clientCount++;
-                  client.send(JSON.stringify(transcriptMessage));
-                }
-              });
-
-              console.log(`📤 [BACKEND] Transcript sent to ${clientCount} frontend clients`);
-            }
-          } catch (transcribeError) {
-            console.error('❌ [BACKEND] Transcription failed:', transcribeError);
+          plivoService.transcribeAudio(audioBuffer, callId).catch((transcribeError) => {
+            console.error('❌ [BACKEND] transcribeAudio failed:', transcribeError);
             // Broadcast error to frontend
             Array.from(wss.clients).forEach((client: any) => {
               if (client.readyState === 1) {
@@ -94,7 +82,7 @@ const plivoService = new PlivoService();
                 }));
               }
             });
-          }
+          });
         }
 
         if (msg.event === 'stop') {
@@ -110,7 +98,7 @@ const plivoService = new PlivoService();
                   client.send(JSON.stringify({
                     type: 'transcript',
                     callId,
-                    text: finalChunkResult.originalText,
+                    text: finalChunkResult.originalText || finalChunkResult.translatedText || '',
                     originalText: finalChunkResult.originalText,
                     translatedText: finalChunkResult.translatedText,
                     timestamp: new Date().toISOString()
