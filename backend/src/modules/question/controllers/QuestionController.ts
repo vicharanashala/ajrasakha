@@ -1577,18 +1577,6 @@ export class QuestionController {
 
   // ─── Time-bound question endpoints ──────────────────────────────────────────
 
-  @Post('/:questionId/mark-opened')
-  @HttpCode(200)
-  @Authorized()
-  @OpenAPI({ summary: 'Mark that the current expert has opened a time-bound question (blocks 45-min auto-reallocation)' })
-  async markQuestionOpened(
-    @Param('questionId') questionId: string,
-    @CurrentUser() user: IUser,
-  ) {
-    await this.questionService.markQuestionOpened(questionId, user._id.toString());
-    return { success: true };
-  }
-
   @Post('/reallocate-timebound')
   @HttpCode(200)
   @Authorized(['admin', 'moderator'])
@@ -1610,5 +1598,17 @@ export class QuestionController {
       createdAt: new Date(),
     });
     return result;
+  }
+
+  @Post('/:questionId/mark-opened')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Mark that the current expert has opened a time-bound question (blocks 45-min auto-reallocation)' })
+  async markQuestionOpened(
+    @Param('questionId') questionId: string,
+    @CurrentUser() user: IUser,
+  ) {
+    await this.questionService.markQuestionOpened(questionId, user._id.toString());
+    return { success: true };
   }
 }
