@@ -216,9 +216,9 @@ def _check_question_completeness(
     if not has_state:
         missing.append("location")
         follow_up = (
-            "Which state and district are you in?"
+            "Which state are you in?"
             if farmer_language == "English"
-            else "आप किस राज्य और जिले में हैं?"
+            else "आप किस राज्य में हैं?"
         )
         return False, missing, follow_up
 
@@ -402,14 +402,12 @@ def clarify_node(state: AjraSakhaState) -> dict:
     question = (plan.get("follow_up_question") or "").strip()
     missing = plan.get("missing_info") or []
     if not question:
-        if "district" in missing:
-            question = "Which district are you in?"
-        elif "location" in missing:
-            question = "Which state and district are you in?"
+        if "location" in missing:
+            question = "Which state are you in?"
         elif "crop" in missing:
             question = "Which crop are you growing?"
         else:
-            question = "Which state and district are you in?"
+            question = "Which state are you in?"
     return {"messages": [AIMessage(content=question)]}
 
 

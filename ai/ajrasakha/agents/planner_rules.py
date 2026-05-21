@@ -157,6 +157,8 @@ def _merge_entities(
     district = merged.get("district")
     if not district and has_gps and location and location.get("city"):
         merged["district"] = str(location["city"])
+    elif not district and merged.get("state"):
+        merged["district"] = "all"
     return merged
 
 
@@ -192,22 +194,20 @@ def _finalize_location_and_crop_completeness(
     entities: PlannerEntities,
     domain: str,
     has_state: bool,
-    has_district: bool,
     has_gps: bool,
     farmer_language: str,
 ) -> PlannerPlan:
-    """Single completeness pass: location, district (when state in text), crop."""
+    """Single completeness pass: state (or GPS) required; district defaults to all."""
     crop = entities.get("crop")
     needs_crop = domain_requires_crop(domain) and not crop
-    state_named_in_turn = bool(entities.get("state"))
 
     if not has_state and not has_gps:
         out["is_complete"] = False
         out["missing_info"] = ["location"]
         out["follow_up_question"] = (
-            "Which state and district are you in?"
+            "Which state are you in?"
             if farmer_language == "English"
-            else "आप किस राज्य और जिले में हैं?"
+            else "आप किस राज्य में हैं?"
         )
     elif needs_crop:
         out["is_complete"] = False
@@ -216,15 +216,6 @@ def _finalize_location_and_crop_completeness(
             "Which crop are you growing?"
             if farmer_language == "English"
             else "आप कौन सी फसल उगा रहे हैं?"
-        )
-    elif state_named_in_turn and not has_district and not has_gps:
-        out["is_complete"] = False
-        out["missing_info"] = ["district"]
-        state_name = entities.get("state") or "your state"
-        out["follow_up_question"] = (
-            f"Which district in {state_name}?"
-            if farmer_language == "English"
-            else f"{state_name} में आप किस जिले में हैं?"
         )
     else:
         out["is_complete"] = True
@@ -257,7 +248,7 @@ def apply_planner_completeness_rules(
     entities = _merge_entities(out.get("entities") or {}, messages, location)
     out["entities"] = entities
 
-    has_state, has_district, has_gps = _location_status(entities, location)
+    has_state, _, has_gps = _location_status(entities, location)
     domain = infer_domain_for_plan(out, recent)
     schemes = (
         bool(out.get("schemes"))
@@ -281,16 +272,9 @@ def apply_planner_completeness_rules(
                 )
             elif "location" in missing:
                 out["follow_up_question"] = (
-                    "Which state and district are you in?"
+                    "Which state are you in?"
                     if farmer_language == "English"
-                    else "आप किस राज्य और जिले में हैं?"
-                )
-            elif "district" in missing:
-                state_name = entities.get("state") or "your state"
-                out["follow_up_question"] = (
-                    f"Which district in {state_name}?"
-                    if farmer_language == "English"
-                    else f"{state_name} में आप किस जिले में हैं?"
+                    else "आप किस राज्य में हैं?"
                 )
 
     out = _finalize_location_and_crop_completeness(
@@ -298,7 +282,6 @@ def apply_planner_completeness_rules(
         entities=entities,
         domain=domain,
         has_state=has_state,
-        has_district=has_district,
         has_gps=has_gps,
         farmer_language=farmer_language,
     )

@@ -93,14 +93,14 @@ def test_pm_kisan_complete_with_gps_no_crop_needed():
     assert plan.get("follow_up_question") is None
 
 
-def test_state_in_question_asks_only_district():
+def test_state_only_sets_district_all_without_follow_up():
     messages = [HumanMessage(content="PM-KISAN in Kerala")]
     plan = apply_planner_completeness_rules(
         {"schemes": True, "is_complete": True, "entities": {}},
         messages,
         None,
     )
-    assert plan["is_complete"] is False
-    assert plan["missing_info"] == ["district"]
-    assert "district" in (plan.get("follow_up_question") or "").lower()
+    assert plan["is_complete"] is True
+    assert plan.get("follow_up_question") is None
     assert plan["entities"]["state"] == "Kerala"
+    assert plan["entities"]["district"] == "all"
