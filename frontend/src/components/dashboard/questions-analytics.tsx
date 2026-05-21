@@ -632,16 +632,29 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
         {(() => {
           const tableData = data.tableData ?? [];
 
-          // Group rows by state+crop
-          const groups: { state: string; crop: string; rows: AnalyticsTableRow[] }[] = [];
+          // 3-level grouping: State → Crop → Source rows
+          type CropGroup = { crop: string; rows: AnalyticsTableRow[] };
+          type StateGroup = { state: string; crops: CropGroup[]; totalRows: number };
+
+          const stateGroups: StateGroup[] = [];
           for (const row of tableData) {
-            const key = `${row.state ?? ""}||${row.crop ?? ""}`;
-            const existing = groups.find((g) => `${g.state}||${g.crop}` === key);
-            if (existing) {
-              existing.rows.push(row);
-            } else {
-              groups.push({ state: row.state ?? "—", crop: row.crop ?? "—", rows: [row] });
+            const stateName = row.state ?? "—";
+            const cropName = row.crop ?? "—";
+
+            let sg = stateGroups.find((s) => s.state === stateName);
+            if (!sg) {
+              sg = { state: stateName, crops: [], totalRows: 0 };
+              stateGroups.push(sg);
             }
+
+            let cg = sg.crops.find((c) => c.crop === cropName);
+            if (!cg) {
+              cg = { crop: cropName, rows: [] };
+              sg.crops.push(cg);
+            }
+
+            cg.rows.push(row);
+            sg.totalRows += 1;
           }
 
           return (
@@ -669,46 +682,49 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {groups.length === 0 ? (
+                    {stateGroups.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                           No data available. Apply filters and try again.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      groups.map((group) =>
-                        group.rows.map((row, rowIdx) => (
-                          <TableRow key={`${group.state}-${group.crop}-${rowIdx}`} className="hover:bg-muted/50">
-                            {/* State & Crop only on first source row */}
-                            {rowIdx === 0 && (
-                              <>
+                      stateGroups.map((sg) =>
+                        sg.crops.map((cg, cropIdx) =>
+                          cg.rows.map((row, rowIdx) => (
+                            <TableRow key={`${sg.state}-${cg.crop}-${rowIdx}`} className="hover:bg-muted/50">
+                              {/* State cell — only on the very first row of this state */}
+                              {cropIdx === 0 && rowIdx === 0 && (
                                 <TableCell
-                                  rowSpan={group.rows.length}
+                                  rowSpan={sg.totalRows}
                                   className="text-sm font-medium align-top border-r"
                                 >
-                                  {group.state}
+                                  {sg.state}
                                 </TableCell>
+                              )}
+                              {/* Crop cell — only on the first source row of each crop */}
+                              {rowIdx === 0 && (
                                 <TableCell
-                                  rowSpan={group.rows.length}
+                                  rowSpan={cg.rows.length}
                                   className="text-sm align-top border-r"
                                 >
-                                  {group.crop}
+                                  {cg.crop}
                                 </TableCell>
-                              </>
-                            )}
-                            <TableCell className="text-sm text-muted-foreground">{row.source || "—"}</TableCell>
-                            <TableCell className="text-center text-sm">{row.open || 0}</TableCell>
-                            <TableCell className="text-center text-sm">{row.inReview || 0}</TableCell>
-                            <TableCell className="text-center text-sm">{row.closed || 0}</TableCell>
-                            <TableCell className="text-center text-sm">{row.delayed || 0}</TableCell>
-                            <TableCell className="text-center text-sm">{row.reRouted || 0}</TableCell>
-                            <TableCell className="text-center text-sm">{row.hold || 0}</TableCell>
-                            <TableCell className="text-center text-sm">{row.paeSubmitted || 0}</TableCell>
-                            <TableCell className="text-center text-sm">{row.draft || 0}</TableCell>
-                            <TableCell className="text-center text-sm">{row.duplicate || 0}</TableCell>
-                            <TableCell className="text-center text-sm font-semibold">{row.total}</TableCell>
-                          </TableRow>
-                        ))
+                              )}
+                              <TableCell className="text-sm text-muted-foreground">{row.source || "—"}</TableCell>
+                              <TableCell className="text-center text-sm">{row.open || 0}</TableCell>
+                              <TableCell className="text-center text-sm">{row.inReview || 0}</TableCell>
+                              <TableCell className="text-center text-sm">{row.closed || 0}</TableCell>
+                              <TableCell className="text-center text-sm">{row.delayed || 0}</TableCell>
+                              <TableCell className="text-center text-sm">{row.reRouted || 0}</TableCell>
+                              <TableCell className="text-center text-sm">{row.hold || 0}</TableCell>
+                              <TableCell className="text-center text-sm">{row.paeSubmitted || 0}</TableCell>
+                              <TableCell className="text-center text-sm">{row.draft || 0}</TableCell>
+                              <TableCell className="text-center text-sm">{row.duplicate || 0}</TableCell>
+                              <TableCell className="text-center text-sm font-semibold">{row.total}</TableCell>
+                            </TableRow>
+                          ))
+                        )
                       )
                     )}
                   </TableBody>
