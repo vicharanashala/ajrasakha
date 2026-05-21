@@ -44,6 +44,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import FeedbackCard from "./FeedbackCard";
+import { ResponseAdherenceTableCard } from "./components/ResponseAdherenceTableCard";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -315,6 +316,10 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   <EightCardsComponent
                     kpiRow1={kpiRow1WithOverlay}
                     kpiRow2={kpiRow2WithOverlay}
+                  />
+
+                  <ResponseAdherenceTableCard
+                    data={(data as any).responseAdherenceTable}
                   />
                 </div>
 

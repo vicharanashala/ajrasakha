@@ -465,6 +465,48 @@ export class TopFaqEntryResponse {
   count: number;
 }
 
+export class ResponseAdherenceTableResponse {
+  @JSONSchema({ description: 'Total WhatsApp questions asked in the filtered range', example: 46, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappQuestionAsked: number;
+
+  @JSONSchema({ description: 'Total Ajrasakha questions asked in the filtered range', example: 47, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaQuestionAsked: number;
+
+  @JSONSchema({ description: 'WhatsApp questions answered within 120 minutes', example: 37, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappAnsweredWithin120Min: number;
+
+  @JSONSchema({ description: 'Ajrasakha questions answered within 120 minutes', example: 41, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaAnsweredWithin120Min: number;
+
+  @JSONSchema({ description: 'Average WhatsApp response time in minutes', example: 102, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappAverageResponseMinutes: number;
+
+  @JSONSchema({ description: 'Average Ajrasakha response time in minutes', example: 102, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaAverageResponseMinutes: number;
+
+  @JSONSchema({ description: 'WhatsApp questions still in process', example: 9, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappInProcessCount: number;
+
+  @JSONSchema({ description: 'Ajrasakha questions still in process', example: 6, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaInProcessCount: number;
+
+  @JSONSchema({ description: 'WhatsApp adherence percentage', example: 80.43, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappAdherencePct: number;
+
+  @JSONSchema({ description: 'Ajrasakha adherence percentage', example: 87.23, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaAdherencePct: number;
+}
+
 // ─── Dashboard Response ─────────────────────────────────────────────────────────
 
 export class DashboardResponseSchema {
@@ -597,6 +639,15 @@ export class DashboardResponseSchema {
   @ValidateNested({ each: true })
   @Type(() => TopFaqEntryResponse)
   topQuestionsFromCollection: TopFaqEntryResponse[];
+
+  @JSONSchema({
+    description: 'Source-wise response adherence metrics table',
+    type: 'object',
+    readOnly: true,
+  })
+  @ValidateNested()
+  @Type(() => ResponseAdherenceTableResponse)
+  responseAdherenceTable?: ResponseAdherenceTableResponse;
 }
 
 // ─── Top Crops Response ───────────────────────────────────────────────────────
@@ -703,4 +754,5 @@ export const CHATBOT_RESPONSE_VALIDATORS = [
   TopCropsResponse,
   DailyQuestionTrendEntryResponse,
   TopFaqEntryResponse,
+  ResponseAdherenceTableResponse,
 ];
