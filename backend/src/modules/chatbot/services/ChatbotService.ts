@@ -26,7 +26,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    month?: string,
   ): Promise<DashboardResponse> {
+    const currentMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     try {
       const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, monthlySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes, feedbackData, dailyQuestionTrends, topFaqs, topQuestionsFromCollection] =
         await Promise.all([
@@ -36,10 +38,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getVoiceAccuracyByLanguage(source),
           this.chatbotRepository.getGeoDistribution(source),
           this.chatbotRepository.getQueryCategories(source, undefined, userType),
-          this.chatbotRepository.getDailyQueryCounts(days, source, undefined, userType),
+          this.chatbotRepository.getDailyAnalytics(currentMonth, source, undefined, userType),
           this.chatbotRepository.getTodayQueryCount(source, undefined, userType),
-          this.chatbotRepository.getWeeklyQueryCounts(source, undefined, userType),
-          this.chatbotRepository.getMonthlyQueryCounts(source, undefined, userType),
+          this.chatbotRepository.getWeeklyAnalytics(currentMonth, source, undefined, userType),
+          this.chatbotRepository.getMonthlyAnalytics(source, undefined, userType),
           this.chatbotRepository.getAvgSessionDurationV2(source, undefined, userType),
           this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source, undefined, userType),
           this.chatbotRepository.getMonthlyAvgSessionDuration(Math.ceil(days / 30), source, undefined, userType),
@@ -155,11 +157,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyQueryCounts(days = 30, source = 'vicharanashala', userType = 'all') {
+  async getDailyAnalytics(month: string, source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getDailyQueryCounts(days, source, undefined, userType);
+      return await this.chatbotRepository.getDailyAnalytics(month, source, undefined, userType);
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch daily query counts: ${error}`);
+      throw new InternalServerError(`Failed to fetch daily analytics: ${error}`);
     }
   }
 
@@ -179,11 +181,19 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getWeeklyQueryCounts(source = 'vicharanashala', userType = 'all') {
+  async getWeeklyAnalytics(month: string, source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getWeeklyQueryCounts(source, undefined, userType);
+      return await this.chatbotRepository.getWeeklyAnalytics(month, source, undefined, userType);
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch weekly query counts: ${error}`);
+      throw new InternalServerError(`Failed to fetch weekly analytics: ${error}`);
+    }
+  }
+
+  async getMonthlyAnalytics(source = 'vicharanashala', userType = 'all') {
+    try {
+      return await this.chatbotRepository.getMonthlyAnalytics(source, undefined, userType);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch monthly analytics: ${error}`);
     }
   }
 

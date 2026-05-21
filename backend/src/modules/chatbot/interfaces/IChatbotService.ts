@@ -6,15 +6,11 @@ import type {
   GeoStateEntry,
   QueryCategoryEntry,
   WeeklySessionDurationEntry,
-  DailyQueryCountEntry,
-  WeeklyQueryCountEntry,
-  UserDetailEntry,
   PaginatedUserDetails,
   DemographicEntry,
   PlatformInstallEntry,
   DuplicateQuestionEntry,
   DomainSpikeEntry,
-  MonthlyQueryCountEntry,
   MonthlySessionDurationEntry,
   DistrictAnalyticsEntry,
   FeedbackData,
@@ -30,9 +26,9 @@ export interface DashboardResponse {
   queryCategories: QueryCategoryEntry[];
   weeklySessionDuration: WeeklySessionDurationEntry[];
   monthlySessionDuration: MonthlySessionDurationEntry[];
-  dailyQueries: DailyQueryCountEntry[];
-  weeklyQueries: WeeklyQueryCountEntry[];
-  monthlyQueries: MonthlyQueryCountEntry[];
+  dailyQueries: any[];
+  weeklyQueries: any[];
+  monthlyQueries: any[];
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
@@ -62,9 +58,10 @@ export interface IChatbotService {
   getQueryCategories(source?: string, userType?: string): Promise<QueryCategoryEntry[]>;
   getTopCrops(): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
-  getDailyQueryCounts(days?: number, source?: string, userType?: string): Promise<DailyQueryCountEntry[]>;
+  getDailyAnalytics(month: string, source?: string, userType?: string): Promise<any[]>;
   getTodayQueryCount(source?: string, userType?: string): Promise<number>;
-  getWeeklyQueryCounts(source?: string, userType?: string): Promise<WeeklyQueryCountEntry[]>;
+  getWeeklyAnalytics(month: string, source?: string, userType?: string): Promise<any[]>;
+  getMonthlyAnalytics(source?: string, userType?: string): Promise<any[]>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
   getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string,sortBy?:string, sortOrder?:string): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string, userType?: string): Promise<number>;
