@@ -497,13 +497,15 @@ Other agricultural information and advisories are expert-verified by Annam.ai.
 
 Users should independently validate recommendations before acting."""
 
-# Canned reply when the `gdb` sub-agent finds nothing relevant. We short-circuit
-# so the farmer gets a clean acknowledgement instead of an empty or hallucinated answer.
+# Marker for sanitize_answer to skip re-processing deterministic canned replies.
+EXPERT_QUEUE_REPLY_MARKER = "Your question has been shared with our agri expert at annam.ai"
+
+# Canned reply when GDB has no usable data and no specialist tools ran this turn.
 EMPTY_GDB_REPLY = (
-    "Your question has been sent to Agri Experts at annam.ai, and they will "
-    "review it within 2 hours. Please ask the same question after 2 hours for "
-    "a detailed answer from our experts."
-    f"\n\n{WARNING_TEXT}"
+    "Your question has been shared with our agri expert at annam.ai. "
+    "You will get the answer within 2 hours.\n"
+    "Thank You.\n\n"
+    f"{WARNING_TEXT}"
 )
 
 WHATSAPP_SYSTEM_PROMPT = """You are AjraSakha, an AI assistant for Indian farmers. You help with crops, soil, pests, fertilizers, irrigation, weather, market prices, farm equipment, and government schemes.
