@@ -245,23 +245,23 @@ export function UserDetailsView({
 
     // console.log("Dashboard data in UserDetailsView:", dashboardData, "Loading:", isDashboardLoading, "Error:", error);
 
-  console.log(
-    "DAU Trend data:",
-    dauTrend,
-    "Loading:",
-    dauLoading,
-    "Error:",
-    dauError,
-  );
+  // console.log(
+  //   "DAU Trend data:",
+  //   dauTrend,
+  //   "Loading:",
+  //   dauLoading,
+  //   "Error:",
+  //   dauError,
+  // );
 
-  console.log(
-    "Dashboard data in UserDetailsView:",
-    dashboardData,
-    "Loading:",
-    isDashboardLoading,
-    "Error:",
-    error,
-  );
+  // console.log(
+  //   "Dashboard data in UserDetailsView:",
+  //   dashboardData,
+  //   "Loading:",
+  //   isDashboardLoading,
+  //   "Error:",
+  //   error,
+  // );
 
   const todayCount =
     dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
@@ -1076,13 +1076,7 @@ export function UserDetailsView({
                       })
                     )}
                   </TableBody>
-                  <UserQuestionsModal
-                    open={questionModalOpen}
-                    onOpenChange={setQuestionModalOpen}
-                    user={selectedUser}
-                    source={source}
-                    userType={userType}
-                  />
+                
                 </Table>
                 {/* Pagination footer */}
                 {totalPages > 0 && (
@@ -1108,6 +1102,14 @@ export function UserDetailsView({
                 )}
               </div>
             )}
+              <UserQuestionsModal
+                    open={questionModalOpen}
+                    onOpenChange={setQuestionModalOpen}
+                    user={selectedUser}
+                    source={source}
+                    userType={userType}
+                  />
+                
           </CardContent>
         </Card>
       </div>

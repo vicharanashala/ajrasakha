@@ -50,7 +50,6 @@ const UserQuestionsModal = ({
     currentPage,
     10,
   );
-  console.log("UserQuestionsModal data:", fullData);
   const activeData = useMemo(() => {
     return viewType === "questions"
       ? fullData?.questions
@@ -73,7 +72,7 @@ const UserQuestionsModal = ({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
+     <DialogContent className="!max-w-6xl w-[80vw] max-h-[85vh] overflow-hidden flex flex-col">
 
         {/* Header */}
 
@@ -234,14 +233,14 @@ const UserQuestionsModal = ({
                       : "—"}
                   </div>
 
-                  <div>
+                  {/* <div>
                     Updated:{" "}
                     {item.updatedAt
                       ? new Date(
                           item.updatedAt,
                         ).toLocaleString()
                       : "—"}
-                  </div>
+                  </div> */}
 
                 </div>
 

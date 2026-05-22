@@ -403,7 +403,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     page = 1,
     limit = 10,
   ) {
-    const user = await this.userRepository.findByEmail(userEmail);
+    const user = await this.chatbotRepository.getUserData(userEmail, source);
 
     // Always fetch messages
     const messages = await this.chatbotRepository.getUsersMessages(
@@ -415,25 +415,42 @@ export class ChatbotService extends BaseService implements IChatbotService {
       limit,
     );
 
-    // If user does not exist in review DB
-    // return only messages
+    // No user found
     if (!user) {
       return {
         questions: {
-          totalQuestions: 0,
+          total: 0,
           totalPages: 0,
           currentPage: page,
           limit,
-          questions: [],
+          items: [],
         },
 
         messages,
       };
     }
 
-    // Fetch questions only if user exists
+    // Extract messageIds
+    const messageIds = messages.messages.map((msg: any) => msg.messageId);
+
+    // No linked messages
+    if (!messageIds.length) {
+      return {
+        questions: {
+          total: 0,
+          totalPages: 0,
+          currentPage: page,
+          limit,
+          items: [],
+        },
+
+        messages,
+      };
+    }
+
+    // Fetch questions using messageIds
     const questions = await this.chatbotRepository.getUserQuestionsData(
-      user._id.toString(),
+      messageIds,
       source,
       userType,
       page,

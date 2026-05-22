@@ -1829,7 +1829,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getUserQuestionsData(
-    userId: string,
+    messageIds: string[],
     source: string,
     userType = 'all',
     page = 1,
@@ -1837,23 +1837,25 @@ export class ChatbotRepository implements IChatbotRepository {
   ) {
     try {
       await this.initReviewSystem();
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-      const objectId = new ObjectId(userId);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const skip = (page - 1) * limit;
 
       const pipeline = [
         {
           $match: {
-            userId: objectId,
+            messageId: {
+              $in: messageIds,
+            },
+
             source: 'AJRASAKHA',
           },
         },
 
         ...userTypeLookupStages,
 
-        // Sort first so latest record becomes first inside group
+        // Newest first
         {
           $sort: {
             createdAt: -1,
@@ -1869,20 +1871,43 @@ export class ChatbotRepository implements IChatbotRepository {
 
             totalRepeated: {
               $sum: {
-                $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
+                $cond: [
+                  {
+                    $eq: ['$status', 'duplicate'],
+                  },
+                  1,
+                  0,
+                ],
               },
             },
 
-            latestQuestion: {$first: '$question'},
-            latestStatus: {$first: '$status'},
-            latestCreatedAt: {$first: '$createdAt'},
-            latestUpdatedAt: {$first: '$updatedAt'},
+            latestQuestion: {
+              $first: '$question',
+            },
+
+            latestStatus: {
+              $first: '$status',
+            },
+
+            latestCreatedAt: {
+              $first: '$createdAt',
+            },
+
+            latestUpdatedAt: {
+              $first: '$updatedAt',
+            },
+
+            latestMessageId: {
+              $first: '$messageId',
+            },
           },
         },
 
         {
           $project: {
             _id: 0,
+
+            messageId: '$latestMessageId',
 
             question: '$latestQuestion',
 
@@ -1894,8 +1919,14 @@ export class ChatbotRepository implements IChatbotRepository {
 
             repeatedCount: {
               $cond: [
-                {$gt: ['$totalRepeated', 0]},
-                {$add: ['$totalRepeated', 1]},
+                {
+                  $gt: ['$totalRepeated', 0],
+                },
+
+                {
+                  $add: ['$totalRepeated', 1],
+                },
+
                 1,
               ],
             },
@@ -1911,39 +1942,48 @@ export class ChatbotRepository implements IChatbotRepository {
             createdAt: -1,
           },
         },
+
+        // Better optimization
+        {
+          $facet: {
+            metadata: [
+              {
+                $count: 'total',
+              },
+            ],
+
+            data: [
+              {
+                $skip: skip,
+              },
+
+              {
+                $limit: limit,
+              },
+            ],
+          },
+        },
       ];
 
-      // Get total count
-      const totalResult = await this.QuestionCollection.aggregate([
-        ...pipeline,
-        {
-          $count: 'total',
-        },
-      ]).toArray();
+      const result =
+        await this.QuestionCollection.aggregate(pipeline).toArray();
 
-      const totalQuestions = totalResult[0]?.total || 0;
+      const totalQuestions = result[0]?.metadata?.[0]?.total || 0;
+
+      const questions = result[0]?.data || [];
 
       const totalPages = Math.ceil(totalQuestions / limit);
 
-      // Paginated data
-      const questions = await this.QuestionCollection.aggregate([
-        ...pipeline,
-
-        {
-          $skip: skip,
-        },
-
-        {
-          $limit: limit,
-        },
-      ]).toArray();
-
       return {
-        totalQuestions,
+        total: totalQuestions,
+
         totalPages,
+
         currentPage: page,
+
         limit,
-        questions,
+
+        items: questions,
       };
     } catch (err) {
       throw new InternalServerError(`Failed to get question data: ${err}`);
@@ -1958,7 +1998,6 @@ export class ChatbotRepository implements IChatbotRepository {
     page = 1,
     limit = 10,
   ) {
-    console.log(`getUsersMessages called with email=${email}, source=${source}, userType=${userType}, page=${page}, limit=${limit}`);
     try {
       await this.init(source);
 
@@ -2013,6 +2052,10 @@ export class ChatbotRepository implements IChatbotRepository {
             latestUpdatedAt: {
               $first: '$updatedAt',
             },
+
+            latestMessageId: {
+              $first: '$messageId',
+            },
           },
         },
 
@@ -2025,6 +2068,8 @@ export class ChatbotRepository implements IChatbotRepository {
             createdAt: '$latestCreatedAt',
 
             updatedAt: '$latestUpdatedAt',
+
+            messageId: '$latestMessageId',
 
             repeatedCount: 1,
 
@@ -2085,6 +2130,26 @@ export class ChatbotRepository implements IChatbotRepository {
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get users messages: ${error}`);
+    }
+  }
+
+  async getUserData(
+    userEmail: string,
+    source: string,
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(source);
+      const user = await this.users.findOne({email: userEmail}, {session});
+      if (!user) {
+        throw new Error('User not found');
+      }
+      return {
+        userId: String(user._id),
+        name: user.name || user.username || 'Unknown',
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get user data: ${error}`);
     }
   }
   // ── NEW: Inactivity-gap based avg session duration (KPI number) ──────────────
