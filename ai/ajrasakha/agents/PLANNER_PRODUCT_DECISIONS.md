@@ -34,9 +34,11 @@ GDB no longer overrides state from thread config — it uses what the planner pa
 - **Reviewer upload** (`upload_question_to_reviewer_system`): runs on every complete turn via `execute_plan`, before specialist tools.
 - **Location resolve**: if thread GPS exists but state/district are missing, `ensure_location` / executor calls `location_information_tool` before other tools.
 
-## Chemical checker — dual trigger
+## Chemical checker — dual trigger (disabled by default)
 
-1. Planner sets `chemical_checker=true` when the farmer names a chemical in the query.
+Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
+
+1. Planner sets `chemical_checker=true` when the farmer names a chemical in the query (forced off while disabled).
 2. After `gdb` returns, executor scans tool text for known chemical tokens and may run a **second parallel batch** with `chemical_checker` only.
 
 ## Crop / non-crop classifier

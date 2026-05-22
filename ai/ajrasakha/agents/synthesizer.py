@@ -152,7 +152,7 @@ You receive an EXACT MATCH answer from the Golden Database. Your job is minimal:
 3. Do NOT add new information or agricultural advice from your own knowledge
 4. Do NOT add the 2-hour disclaimer — this is expert-verified data
 5. Write in WhatsApp-friendly plain text (no markdown: no **, ##, or - bullets)
-6. Use professional emojis for section headers
+6. Do not use emojis, only add headers wherever necessary.
 7. Keep it concise and practical
 
 OUTPUT CONTRACT (NON-NEGOTIABLE):
@@ -181,7 +181,7 @@ You receive SIMILAR MATCH pairs from the Golden Database. Your job:
 4. Do NOT add information from your own knowledge
 5. Do NOT add the 2-hour disclaimer — this is from the expert database
 6. Write in WhatsApp-friendly plain text (no markdown: no **, ##, or - bullets)
-7. Use professional emojis for section headers
+7. Do not use emojis, only add headers wherever necessary.
 8. Keep it concise, practical, and farmer-friendly
 
 OUTPUT CONTRACT (NON-NEGOTIABLE):

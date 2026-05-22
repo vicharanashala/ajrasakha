@@ -26,6 +26,9 @@ from ajrasakha.agents.tool_registry import get_location_tool, get_main_tool_node
 
 logger = logging.getLogger(__name__)
 
+# Set True to run chemical_checker (planner flag + post-gdb regex follow-up batch).
+ENABLE_CHEMICAL_CHECKER = False
+
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
 
@@ -264,7 +267,7 @@ async def build_tool_calls_from_plan(
         chemicals.extend(extra_chemicals)
     chemicals = list(dict.fromkeys(c for c in chemicals if c))
 
-    if plan.get("chemical_checker") and chemicals:
+    if ENABLE_CHEMICAL_CHECKER and plan.get("chemical_checker") and chemicals:
         calls.append({
             "name": "chemical_checker",
             "args": {
@@ -398,7 +401,12 @@ async def execute_plan_node(
         )
 
     extra_chems = extract_chemicals_from_tool_messages(new_msgs)
-    if extra_chems and plan.get("knowledge_base") and not plan.get("chemical_checker"):
+    if (
+        ENABLE_CHEMICAL_CHECKER
+        and extra_chems
+        and plan.get("knowledge_base")
+        and not plan.get("chemical_checker")
+    ):
         second_calls = await build_tool_calls_from_plan(
             {**plan, "chemical_checker": True},
             user_query,
