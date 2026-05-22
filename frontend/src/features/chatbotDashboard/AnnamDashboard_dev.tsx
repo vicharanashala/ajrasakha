@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo, Suspense } from "react";
+import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
@@ -56,7 +56,7 @@ const DEFAULT_FILTERS: DashboardFilterValues = {
   userType: "all",
 };
 
-export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam'; onSourceChange?: (source: 'vicharanashala' | 'annam') => void }) {
+export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam' | 'whatsapp'; onSourceChange?: (source: 'vicharanashala' | 'annam' | 'whatsapp') => void }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [filters, setFilters] =
@@ -254,29 +254,23 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
               activeView={activeView}
               onViewChange={(view) => {
                 setActiveView(view);
+                scrollTo(view);
                 // Clear AlertCard's pre-set filters when navigating via sidebar
-                if (view === "user-details")
-                  setUserDetailsInitialFilters(undefined);
-                if (view !== "user-details") scrollTo(view);
+                // if (view === "user-details")
+                //   setUserDetailsInitialFilters(undefined);
+                // if (view !== "user-details") scrollTo(view);
               }}
               healthScore={70}
               healthLabel="Moderate · needs improvement"
               source={source}
             />
 
-            {activeView === "user-details" ? (
-              <UserDetailsView
-                source={source}
-                initialFilters={userDetailsInitialFilters}
-                userType={filters.userType}
-              />
-            ) : (
-              <div className="flex-1 overflow-y-auto px-5 pb-5">
+              <div className="flex-1 overflow-y-auto px-5 pb-5"  >
                 {/* Source Selection Tabs & All Users Filter */}
                 <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
 
                   {/* Top Level Tabs */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" >
                       {/* Application Tab */}
                       <button
                         onClick={() =>
@@ -338,7 +332,12 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   onFilterChange={setFilters}
                 />
             {(source === "annam" || source === "vicharanashala") && (
-              <div>
+              <div
+                ref={(el) => {
+                  sectionRefs.current["overview"] = el;
+                }}
+                className="relative"
+              >
                 {activeSegment && (
                   <SegmentDetailBanner
                     seg={activeSegment}
@@ -1156,10 +1155,20 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     userType={filters.userType}
                   />
                 </div>
+                <div
+                  ref={(el) => {
+                    sectionRefs.current["user-details"] = el;
+                  }}
+                >
+                  <UserDetailsView
+                    source={source}
+                    initialFilters={userDetailsInitialFilters}
+                    userType={filters.userType}
+                  />
+                </div>  
               </div>
             )}
           </div>
-            )}
           </div>
 
           {/* Commented out footer as requested:

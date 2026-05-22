@@ -373,7 +373,7 @@ function transformApiResponse(
 
 export function useDashboardData(
   filters?: DashboardFilterValues,
-  source: "vicharanashala" | "annam" = "vicharanashala",
+  source: "vicharanashala" | "annam" | "whatsapp"= "vicharanashala",
   enabled?: boolean
 ) {
   const startISO = filters?.startTime?.toISOString();

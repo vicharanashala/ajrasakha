@@ -40,14 +40,8 @@ import {
   type UserDetailsFilters,
 } from "./components/UserDetailsPreferenceFilter";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
-import { EightCardsComponent } from "./MetricCard ";
 import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
-import { UserDemographicsSection } from "./components/UserDemographicsSection";
-import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
-import UserGrowthChart from "./components/UserGrowthChart";
-import { AlertCard } from "./AlertCard";
-import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 
 const VISIBLE_CROPS = 2;
@@ -162,9 +156,9 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   });
 };
 
-useEffect(() => {
-  scrollToTable();
-}, []);
+// useEffect(() => {
+//   scrollToTable();
+// }, []);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard in overview)
   useEffect(() => {
@@ -213,9 +207,9 @@ useEffect(() => {
       error: dauError,
     } = useDailyUserTrend(30, source, filters.userType);
 
-    console.log("DAU Trend data:", dauTrend, "Loading:", dauLoading, "Error:", dauError);
+    // console.log("DAU Trend data:", dauTrend, "Loading:", dauLoading, "Error:", dauError);
 
-    console.log("Dashboard data in UserDetailsView:", dashboardData, "Loading:", isDashboardLoading, "Error:", error);
+    // console.log("Dashboard data in UserDetailsView:", dashboardData, "Loading:", isDashboardLoading, "Error:", error);
 
       const todayCount =
       dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
@@ -287,364 +281,26 @@ useEffect(() => {
     : "All time";
 
   return (
-    <div className="flex-1 overflow-y-auto px-5 pb-5 min-w-0">
-      {/* Header */}
-      <div className="mb-5">
-        <h2 className="text-base font-semibold text-(--foreground) m-0">
-          User Details
-        </h2>
-        <p className="text-xs text-(--muted-foreground) mt-1">
-          {dateLabel} · {totalUsers} users
-        </p>
-      </div>
+    <div className="flex-1 overflow-y-auto pb-5 min-w-0">
 
       {/* Dashboard Charts Section */}
       <div className="mb-6">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-          Overview Analytics
-        </h3>
-        
+     
         {isDashboardLoading ? (
           <div className="py-8">
             <Spinner text="Loading analytics..." fullScreen={false} />
           </div>
         ) : dashboardData ? (
           <>
-            {/* KPI Cards */}
-            <EightCardsComponent 
-              kpiRow1={kpiRow1WithOverlay} 
-              kpiRow2={kpiRow2WithOverlay} 
-            />
-
-            {/* User Growth Trend + Alerts & Notifications */}
-            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch">
-              <UserGrowthChart />
-              <AlertCard
-                alerts={dashboardData.alerts}
-                inactiveUsersLast3Days={(dashboardData as any).inactiveUsersLast3Days ?? 0}
-                onInactiveClick={() => {
-                  const threeDaysAgo = new Date();
-                  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-                  threeDaysAgo.setHours(0, 0, 0, 0);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  setFilters(prev => ({
-                    ...prev,
-                    startTime: threeDaysAgo,
-                    endTime: today,
-                    inactiveOnly: true,
-                    lowFeedbackOnly: false,
-                  }));
-                  setCurrentPage(1);
-                  scrollToTable();
-                }}
-                duplicateQuestionsCount={isDashboardLoading ? undefined : (dashboardData as any).duplicateQuestionsCount ?? 0}
-                onDuplicateClick={() => setIsDuplicateModalOpen(true)}
-                lowFeedbackUsersCount={isDashboardLoading ? null : (dashboardData as any).lowFeedbackUsersCount ?? null}
-                onLowFeedbackClick={() => {
-                  setFilters(prev => ({
-                    ...prev,
-                    lowFeedbackOnly: true,
-                    inactiveOnly: false,
-                  }));
-                  setCurrentPage(1);
-                  scrollToTable();
-                }}
-              />
-              {isDuplicateModalOpen && (
-                <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} source={source} />
-              )}
-            </div>
-
-            {/* Demographics */}
-            <div className="mb-4">
-              <UserDemographicsSection 
-                data={{
-                  ageGroups: dashboardData.ageGroups || [],
-                  genderSplit: dashboardData.genderSplit || [],
-                  farmingExperience: dashboardData.farmingExperience || [],
-                  landHolding: dashboardData.landHolding || [],
-                }}
-              />
-            </div>
-
-            {/* Platform Installations & Knowledge Awareness */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-              {/* Platform Installations */}
-              <PlatformDonutSegments rawData={dashboardData.platformInstalls || []} />
-
-              {/* Knowledge & Awareness */}
-              <div className="rounded-xl border border-gray-200 bg-white dark:border-[#2a2a2a] dark:bg-[#1a1a1a] p-4 relative min-h-[240px] flex flex-col">
-                <button
-                  onClick={() => setIsKnowledgeMaximized(true)}
-                  className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
-                  title="Maximize chart"
-                >
-                  <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                </button>
-
-                <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-6">
-                  Knowledge & Awareness
-                </div>
-                <div className="flex gap-8 justify-center items-center flex-1 py-4">
-                  {/* KCC Awareness Circle */}
-                  {/* {(() => {
-                    const pct = dashboardData.kccAwareness?.[0]?.pct ?? 0;
-                    const r = 45, cx = 60, cy = 60, circ = 2 * Math.PI * r;
-                    const dash = (pct / 100) * circ;
-                    return (
-                      <div className="flex flex-col items-center gap-3">
-                        <svg viewBox="0 0 120 120" className="w-[120px] h-[120px]">
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={10} />
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#3AAA5A" strokeWidth={10}
-                            strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
-                            transform={`rotate(-90 ${cx} ${cy})`} />
-                          <text x={cx} y={cy + 6} textAnchor="middle" fontSize={16} fontWeight={600} fill="#3AAA5A">
-                            {pct.toFixed(2)}%
-                          </text>
-                        </svg>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">KCC Awareness</span>
-                      </div>
-                    );
-                  })()} */}
-
-                  {(() => {
-                            const pct =
-                              dashboardData.kccAwareness?.[0]?.count +
-                                dashboardData.kccAwareness?.[1]?.count || 0;
-                            const r = 45,
-                              cx = 60,
-                              cy = 60,
-                              circ = 2 * Math.PI * r;
-                            // const dash = (pct / 100) * circ;
-                            const yesDash =
-                              (dashboardData.kccAwareness?.[0]?.count / pct) * circ;
-                            const noDash =
-                              (dashboardData.kccAwareness?.[1]?.count / pct) * circ;
-                            return (
-                              <div className="flex flex-col items-center gap-3">
-
-                                <svg
-                                  viewBox="0 0 120 120"
-                                  className="w-[110px] h-[110px]"
-                                >
-                                  {/* Background Ring */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#2f3542"
-                                    strokeWidth={10}
-                                  />
-
-                                  {/* YES SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#22c55e"
-                                    strokeWidth={hovered === "yes" ? 14 : 10}
-                                    strokeDasharray={`${yesDash} ${circ}`}
-                                    strokeDashoffset={0}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setHovered("yes")}
-                                    onMouseLeave={() => setHovered(null)}
-                                  />
-
-                                  {/* NO SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#6b7280"
-                                    strokeWidth={hovered === "no" ? 14 : 10}
-                                    strokeDasharray={`${noDash} ${circ}`}
-                                    strokeDashoffset={-yesDash}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setHovered("no")}
-                                    onMouseLeave={() => setHovered(null)}
-                                  />
-
-                                  {/* CENTER TEXT */}
-                                  <text
-                                    x={cx}
-                                    y={cy - 2}
-                                    textAnchor="middle"
-                                    fontSize={hovered ? 16 : 18}
-                                    fontWeight={700}
-                                    fill="#ffffff"
-                                  >
-                                    {hovered === "yes"
-                                      ? `${dashboardData.kccAwareness?.[0]?.count ?? 0}`
-                                      : hovered === "no"
-                                        ? `${dashboardData.kccAwareness?.[1]?.count ?? 0}`
-                                        : pct}
-                                  </text>
-
-                                  <text
-                                    x={cx}
-                                    y={cy + 18}
-                                    textAnchor="middle"
-                                    fontSize={11}
-                                    fill="#9ca3af"
-                                  >
-                                    {hovered === "yes"
-                                      ? "Aware"
-                                      : hovered === "no"
-                                        ? "Unaware"
-                                        : "TOTAL"}
-                                  </text>
-                                </svg>
-
-                                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                  KCC Awareness
-                                </span>
-                              </div>
-                            );
-                          })()}
-
-                  {/* Agri Apps Usage Circle */}
-                  {/* {(() => {
-                    const pct = dashboardData.agriAppUsage?.[0]?.pct ?? 0;
-                    const r = 45, cx = 60, cy = 60, circ = 2 * Math.PI * r;
-                    const dash = (pct / 100) * circ;
-                    return (
-                      <div className="flex flex-col items-center gap-3">
-                        <svg viewBox="0 0 120 120" className="w-[120px] h-[120px]">
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={10} />
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#378ADD" strokeWidth={10}
-                            strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
-                            transform={`rotate(-90 ${cx} ${cy})`} />
-                          <text x={cx} y={cy + 6} textAnchor="middle" fontSize={16} fontWeight={600} fill="#378ADD">
-                            {pct.toFixed(2)}%
-                          </text>
-                        </svg>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">Uses Agri Apps</span>
-                      </div>
-                    );
-                  })()} */}
-                  {(() => {
-                            const pct =
-                              dashboardData.agriAppUsage?.[0]?.count +
-                                dashboardData.agriAppUsage?.[1]?.count || 0;
-                            const r = 45,
-                              cx = 60,
-                              cy = 60,
-                              circ = 2 * Math.PI * r;
-                            // const dash = (pct / 100) * circ;
-                            const yesDash =
-                              (dashboardData.agriAppUsage?.[0]?.count / pct) * circ;
-                            const noDash =
-                              (dashboardData.agriAppUsage?.[1]?.count / pct) * circ;
-                            return (
-                              <div className="flex flex-col items-center gap-3">
-
-                                <svg
-                                  viewBox="0 0 120 120"
-                                  className="w-[110px] h-[110px]"
-                                >
-                                  {/* Background Ring */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#2f3542"
-                                    strokeWidth={10}
-                                  />
-
-                                  {/* YES SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="blue"
-                                    strokeWidth={
-                                      agriHovered === "yes" ? 14 : 10
-                                    }
-                                    strokeDasharray={`${yesDash} ${circ}`}
-                                    strokeDashoffset={0}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setAgriHovered("yes")}
-                                    onMouseLeave={() => setAgriHovered(null)}
-                                  />
-
-                                  {/* NO SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#ffff"
-                                    strokeWidth={agriHovered === "no" ? 14 : 10}
-                                    strokeDasharray={`${noDash} ${circ}`}
-                                    strokeDashoffset={-yesDash}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setAgriHovered("no")}
-                                    onMouseLeave={() => setAgriHovered(null)}
-                                  />
-
-                                  {/* CENTER TEXT */}
-                                  <text
-                                    x={cx}
-                                    y={cy - 2}
-                                    textAnchor="middle"
-                                    fontSize={agriHovered ? 16 : 18}
-                                    fontWeight={700}
-                                    fill="#ffffff"
-                                  >
-                                    {agriHovered === "yes"
-                                      ? `${dashboardData.agriAppUsage?.[0]?.count ?? 0}`
-                                      : agriHovered === "no"
-                                        ? `${dashboardData.agriAppUsage?.[1]?.count ?? 0}`
-                                        : pct}
-                                  </text>
-
-                                  <text
-                                    x={cx}
-                                    y={cy + 18}
-                                    textAnchor="middle"
-                                    fontSize={11}
-                                    fill="#9ca3af"
-                                  >
-                                    {agriHovered === "yes"
-                                      ? "Aware"
-                                      : agriHovered === "no"
-                                        ? "Unaware"
-                                        : "TOTAL"}
-                                  </text>
-                                </svg>
-
-                                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                  Uses Agri Apps
-                                </span>
-                              </div>
-                            );
-                          })()}
-                </div>
-              </div>
-            </div>
 
             {/* Top Crops - Full Width */}
-            <div className="grid grid-cols-1 gap-4 mb-4">
+            {/* <div className="grid grid-cols-1 gap-4 mb-4">
               <TopCropsCard
                 topCrops={topCrops}
                 isLoadingTopCrops={isLoadingTopCrops}
                 errorLoadingtopCrops={errorLoadingTopCrops}
               />
-            </div>
+            </div> */}
 
             {/* Knowledge & Awareness Maximized Modal */}
             {isKnowledgeMaximized && createPortal(
@@ -934,9 +590,9 @@ useEffect(() => {
       </div>
 
       {/* Summary cards + graphs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-5">
         {/* Active Users — col 1 row 1 */}
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
           <div className="absolute inset-x-0 top-0 h-1 bg-[#3B82F6]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -949,7 +605,7 @@ useEffect(() => {
         </Card>
 
         {/* Inactive Users — col 2 row 1 */}
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
           <div className="absolute inset-x-0 top-0 h-1 bg-[#EF4444]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -962,7 +618,7 @@ useEffect(() => {
         </Card>
 
         {/* Total Questions — col 3 row 1 */}
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
           <div className="absolute inset-x-0 top-0 h-1 bg-[#EF9F27]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -977,7 +633,8 @@ useEffect(() => {
         {/* Bar graph — col 1 row 2 on sm+, after all 3 cards on mobile */}
         {!isLoading && !error && users.length > 0 && !filters.inactiveOnly && (
           <>
-            <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2 relative">
+            {/* <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2 relative"> */}
+            {/* <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative h-full">
               <button
                 onClick={() => setIsBarGraphMaximized(true)}
                 className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
@@ -995,7 +652,7 @@ useEffect(() => {
                   showMaximize={false}
                 />
               </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Maximized Bar Graph Modal */}
             {isBarGraphMaximized && createPortal(
