@@ -24,6 +24,7 @@ from ajrasakha.agents.language import detect_farmer_language, language_directive
 from ajrasakha.agents.memory import load_long_term_summary
 from ajrasakha.agents.location_context import main_agent_location_context_message
 from ajrasakha.agents.plan_executor import should_expert_queue_reply
+from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.prompts import EMPTY_GDB_REPLY, LLM_FALLBACK_MSG, SYNTHESIZER_SYSTEM_PROMPT, WARNING_TEXT
 from ajrasakha.agents.state import AjraSakhaState
 
@@ -119,15 +120,19 @@ def _collect_all_sources(gdb_data: dict) -> str:
         if line:
             attribution_lines.append(line)
 
-    # Exact match details
+    # Exact match details (only when there is an expert answer to cite)
     exact = gdb_data.get("exact_match") or {}
-    if exact:
+    if (exact.get("answer") or "").strip():
         _add_details(exact.get("details") or {})
 
-    # Similar pair details
+    # Similar pair details (only pairs with non-empty answers — sanitizer-kept content)
     for i in range(1, 6):  # similar_pair1 through similar_pair5
         pair = gdb_data.get(f"similar_pair{i}")
-        if pair and isinstance(pair, dict):
+        if (
+            pair
+            and isinstance(pair, dict)
+            and (pair.get("answer") or "").strip()
+        ):
             _add_details(pair.get("details") or {})
 
     if not attribution_lines:
@@ -135,6 +140,32 @@ def _collect_all_sources(gdb_data: dict) -> str:
 
     header = "\nThe answer I provided is sourced only from the following approved materials.\n"
     return header + "\n\n".join(attribution_lines)
+
+
+def _append_sources_and_warning(answer_text: str, gdb_data: Optional[dict]) -> str:
+    """Append source block and mandatory WARNING_TEXT when there is a body and GDB data."""
+    body = (answer_text or "").strip()
+    if not body:
+        return answer_text or ""
+    if gdb_data:
+        source_block = _collect_all_sources(gdb_data)
+        if source_block:
+            answer_text = f"{answer_text}\n{source_block}"
+    return f"{answer_text}\n\n{WARNING_TEXT}"
+
+
+def _empty_gdb_synthesis_result(
+    state: AjraSakhaState,
+    *,
+    plan: dict | None = None,
+) -> dict:
+    out: dict = {
+        "messages": [AIMessage(content=EMPTY_GDB_REPLY)],
+        "location": state.get("location"),
+    }
+    if plan is not None:
+        out["plan"] = plan
+    return out
 
 
 # ── Synthesizer prompts for exact vs similar ──────────────────────────────
@@ -327,10 +358,7 @@ async def synthesize_node(
 
     if should_expert_queue_reply(state):
         logger.info("GDB empty with no specialist tools — returning expert-queue canned reply")
-        return {
-            "messages": [AIMessage(content=EMPTY_GDB_REPLY)],
-            "location": state.get("location"),
-        }
+        return _empty_gdb_synthesis_result(state)
 
     user_text = _message_to_text(human)
     output_lang = detect_farmer_language(user_text)
@@ -343,13 +371,19 @@ async def synthesize_node(
 
     # Parse GDB response to determine exact vs similar
     gdb_data = _extract_gdb_from_messages(messages)
-    is_exact = gdb_data.get("is_exact", False) if gdb_data else False
-    is_similar = gdb_data.get("is_similar", False) if gdb_data else False
-    gdb_has_data = is_exact or is_similar
-
     plan = state.get("plan") or {}
 
-    if is_exact:
+    if gdb_data and not gdb_has_usable_answers(gdb_data):
+        logger.info("GDB has no usable expert answers — returning expert-queue canned reply")
+        return _empty_gdb_synthesis_result(state, plan=plan)
+
+    if gdb_data and gdb_has_usable_answers(gdb_data):
+        exact = gdb_data.get("exact_match") or {}
+        is_exact = gdb_data.get("is_exact", False) and bool(
+            (exact.get("answer") or "").strip()
+        )
+
+    if gdb_data and gdb_has_usable_answers(gdb_data) and is_exact:
         # ── EXACT MATCH: Rephrase only ────────────────────────────────
         exact = gdb_data.get("exact_match") or {}
         exact_answer = exact.get("answer", "")
@@ -385,14 +419,11 @@ async def synthesize_node(
             llm = ChatAnthropic(model=CLAUDE_MODEL)
             response = await llm.ainvoke(llm_messages, config=config)
             answer_text = _message_to_text(response)
+            if not (answer_text or "").strip():
+                logger.info("Exact match LLM returned empty body — expert-queue canned reply")
+                return _empty_gdb_synthesis_result(state, plan={**plan, "gdb_has_data": False})
 
-            # Append source attribution
-            source_block = _collect_all_sources(gdb_data)
-            if source_block:
-                answer_text = f"{answer_text}\n{source_block}"
-
-            # Append mandatory testing disclaimer (without 2-hour part)
-            answer_text = f"{answer_text}\n\n{WARNING_TEXT}"
+            answer_text = _append_sources_and_warning(answer_text, gdb_data)
 
             logger.info("Exact match synthesis complete (len=%d)", len(answer_text))
             return {
@@ -403,11 +434,7 @@ async def synthesize_node(
         except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
             logger.warning("Exact match synthesizer failed (%s: %s)", type(exc).__name__, exc)
             # Fall back: use exact answer as-is + sources
-            answer_text = exact_answer
-            source_block = _collect_all_sources(gdb_data)
-            if source_block:
-                answer_text = f"{answer_text}\n{source_block}"
-            answer_text = f"{answer_text}\n\n{WARNING_TEXT}"
+            answer_text = _append_sources_and_warning(exact_answer, gdb_data)
             return {
                 "messages": [AIMessage(content=answer_text)],
                 "location": state.get("location"),
@@ -415,11 +442,7 @@ async def synthesize_node(
             }
         except APIStatusError as exc:
             if exc.status_code >= 500:
-                answer_text = exact_answer
-                source_block = _collect_all_sources(gdb_data)
-                if source_block:
-                    answer_text = f"{answer_text}\n{source_block}"
-                answer_text = f"{answer_text}\n\n{WARNING_TEXT}"
+                answer_text = _append_sources_and_warning(exact_answer, gdb_data)
                 return {
                     "messages": [AIMessage(content=answer_text)],
                     "location": state.get("location"),
@@ -427,7 +450,7 @@ async def synthesize_node(
                 }
             raise
 
-    elif is_similar:
+    elif gdb_data and gdb_has_usable_answers(gdb_data):
         # ── SIMILAR MATCH: Full synthesis ─────────────────────────────
         llm_messages: list[BaseMessage] = [
             SystemMessage(content=SIMILAR_MATCH_SYNTHESIS_PROMPT),
@@ -453,6 +476,12 @@ async def synthesize_node(
         other_tools = _format_non_gdb_tool_results(messages)
         other_tools_section = f"\n\nOther tool results:\n{other_tools}" if other_tools else ""
 
+        if not pairs_text.strip():
+            logger.info(
+                "Similar match path has no pair answers after sanitizer — expert-queue canned reply"
+            )
+            return _empty_gdb_synthesis_result(state, plan=plan)
+
         llm_messages.append(
             HumanMessage(
                 content=(
@@ -469,14 +498,11 @@ async def synthesize_node(
             llm = ChatAnthropic(model=CLAUDE_MODEL)
             response = await llm.ainvoke(llm_messages, config=config)
             answer_text = _message_to_text(response)
+            if not (answer_text or "").strip():
+                logger.info("Similar match LLM returned empty body — expert-queue canned reply")
+                return _empty_gdb_synthesis_result(state, plan={**plan, "gdb_has_data": False})
 
-            # Append source attribution
-            source_block = _collect_all_sources(gdb_data)
-            if source_block:
-                answer_text = f"{answer_text}\n{source_block}"
-
-            # Append mandatory testing disclaimer (without 2-hour part)
-            answer_text = f"{answer_text}\n\n{WARNING_TEXT}"
+            answer_text = _append_sources_and_warning(answer_text, gdb_data)
 
             logger.info("Similar match synthesis complete (len=%d)", len(answer_text))
             return {
@@ -504,11 +530,8 @@ async def synthesize_node(
         
         if not other_tools.strip():
             # No tools have data at all
-            logger.info("No GDB data and no other specialist tools — returning canned reply")
-            return {
-                "messages": [AIMessage(content=EMPTY_GDB_REPLY)],
-                "location": state.get("location"),
-            }
+            logger.info("No GDB data and no other specialist tools — returning expert-queue canned reply")
+            return _empty_gdb_synthesis_result(state, plan=plan)
         
         # Other tools have data → synthesize from them
         logger.info("No GDB data but other tools available — synthesizing from tools")

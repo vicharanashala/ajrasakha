@@ -21,7 +21,10 @@ from ajrasakha.agents.location_context import (
 from ajrasakha.agents.language import text_matches_user_language
 from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
-from ajrasakha.agents.retrieval_sanitizer import should_skip_sanitizer_for_gdb
+from ajrasakha.agents.retrieval_sanitizer import (
+    gdb_has_usable_answers,
+    should_skip_sanitizer_for_gdb,
+)
 from ajrasakha.agents.tool_registry import get_location_tool, get_main_tool_node, get_reviewer_tool
 
 logger = logging.getLogger(__name__)
@@ -453,31 +456,11 @@ def _latest_turn_gdb_payload(messages: list[BaseMessage]) -> Optional[dict]:
 
 
 def _gdb_has_usable_data(messages: list[BaseMessage]) -> bool:
-    """True when GDB has an exact answer or at least one similar pair with content."""
+    """True when GDB has an exact or similar pair with a non-empty expert answer."""
     data = _latest_turn_gdb_payload(messages)
     if not data:
         return False
-    if data.get("is_exact"):
-        exact = data.get("exact_match") or {}
-        if (exact.get("answer") or "").strip():
-            return True
-    if data.get("is_similar"):
-        for key in _SIMILAR_PAIR_KEYS:
-            pair = data.get(key)
-            if isinstance(pair, dict) and (
-                (pair.get("question") or "").strip() or (pair.get("answer") or "").strip()
-            ):
-                return True
-    exact = data.get("exact_match") or {}
-    if (exact.get("answer") or "").strip():
-        return True
-    for key in _SIMILAR_PAIR_KEYS:
-        pair = data.get(key)
-        if isinstance(pair, dict) and (
-            (pair.get("question") or "").strip() or (pair.get("answer") or "").strip()
-        ):
-            return True
-    return False
+    return gdb_has_usable_answers(data)
 
 
 _SPECIALIST_TOOL_NAMES = frozenset({"weather", "market", "soil", "schemes", "chemical_checker"})
@@ -523,7 +506,10 @@ def should_expert_queue_reply(state: AjraSakhaState) -> bool:
 
 
 def route_after_sanitizer(state: AjraSakhaState) -> str:
-    if should_expert_queue_reply(state):
+    """After sanitizer: no usable GDB answers → canned reply only (never synthesize)."""
+    messages = state.get("messages") or []
+    data = _latest_turn_gdb_payload(messages)
+    if not data or not gdb_has_usable_answers(data):
         return "empty_gdb_reply"
     return "synthesize"
 
