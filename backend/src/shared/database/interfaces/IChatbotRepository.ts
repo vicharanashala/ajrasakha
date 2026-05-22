@@ -225,29 +225,28 @@ export interface IChatbotRepository {
     session?: ClientSession,
   ): Promise<WeeklySessionDurationEntry[]>;
 
-  /** Daily user-message counts from the messages collection over the last `days` days, sorted ascending. */
-  getDailyQueryCounts(
-    days?: number,
+  getDailyAnalytics(
+    month: string,
     source?: string,
     session?: ClientSession,
     userType?: string,
-  ): Promise<DailyQueryCountEntry[]>;
+  ): Promise<any[]>;
 
   /** Count of user messages created today from the messages collection. */
   getTodayQueryCount(source?: string, session?: ClientSession, userType?: string): Promise<number>;
 
-  /** Weekly query totals (all-time) from the messages collection, sorted ascending by ISO week. */
-  getWeeklyQueryCounts(
+  getWeeklyAnalytics(
+    month: string,
     source?: string,
     session?: ClientSession,
     userType?: string,
-  ): Promise<WeeklyQueryCountEntry[]>;
+  ): Promise<any[]>;
 
-  getMonthlyQueryCounts(
+  getMonthlyAnalytics(
     source?: string,
     session?: ClientSession,
     userType?: string,
-  ): Promise<MonthlyQueryCountEntry[]>;
+  ): Promise<any[]>;
 
   /** Daily user activity trend (users active per day) over the last `days` days, sorted ascending. */
   getDailyUserTrend(
@@ -363,6 +362,13 @@ export interface IChatbotRepository {
   getWeeklyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
 
   getRetentionMetrics (session?: ClientSession): Promise<any>
+
+  getQuerySummaryByPeriod(
+    period: 'daily' | 'weekly' | 'monthly',
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<{ label: string; totalQueries: number }>;
 }
 
 export interface ChatbotConversationData {
