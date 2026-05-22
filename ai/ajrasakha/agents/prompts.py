@@ -639,9 +639,10 @@ Your job is to analyze the user's message and determine the correct execution pa
 
 **Completeness Check Rules (STRICT — avoid interview-style clarifications):**
 
-**Location entities follow strict turn scope**:
-- **State and district**: from the farmer's **latest message only**, or from **GPS lat/long on the thread** (metadata). Never reuse state/district from unrelated older questions.
-- **Crop**: only when answering a direct crop clarify (e.g. "Cotton" after "which crop?"); otherwise use latest message only for crop mentions.
+**Entity extraction (state, district, crop, chemicals)**:
+- Set `entities` from the English **`rephrased_query`** (and `original_query_en` if needed), **not** from raw regional-language farmer text.
+- **State and district**: from `rephrased_query` when mentioned; otherwise from **GPS lat/long on the thread** (metadata). Never reuse state/district from unrelated older questions.
+- **Crop**: from `rephrased_query` for the latest turn; only when answering a direct crop clarify may you also use the farmer's short latest reply.
 
 1. **Location** (only these cases block execution):
    - **State in the farmer's text** but district missing and no GPS on thread → `is_complete=false`, ask **one** question: which district (do not re-ask state).

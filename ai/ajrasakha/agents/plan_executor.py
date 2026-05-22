@@ -94,14 +94,14 @@ def _entity_str(
     loc: Optional[Location],
     default: str,
     *,
-    user_query: str = "",
+    entity_text: str = "",
 ) -> str:
     entities = plan.get("entities") or {}
     val = entities.get(key) if isinstance(entities, dict) else None
     if val:
         return str(val).strip()
-    if key == "state" and user_query:
-        extracted = extract_state_from_text(user_query)
+    if key == "state" and entity_text:
+        extracted = extract_state_from_text(entity_text)
         if extracted:
             return extracted
     if loc:
@@ -133,8 +133,9 @@ async def build_tool_calls_from_plan(
     calls: list[dict[str, Any]] = []
     loc = location or {}
     entities = plan.get("entities") or {}
-    state_name = _entity_str(plan, "state", loc, "Not specified", user_query=user_query)
-    district = _entity_str(plan, "district", loc, "all", user_query=user_query)
+    entity_text = (plan.get("rephrased_query") or "").strip() or user_query
+    state_name = _entity_str(plan, "state", loc, "Not specified", entity_text=entity_text)
+    district = _entity_str(plan, "district", loc, "all", entity_text=entity_text)
     if district in {"", "Not specified", "unknown"} and has_gps_coordinates(loc) and loc.get("city"):
         district = str(loc["city"])
     elif district in {"", "Not specified", "unknown"} and state_name.lower() not in {
@@ -145,7 +146,7 @@ async def build_tool_calls_from_plan(
         "none",
     }:
         district = "all"
-    crop = _entity_str(plan, "crop", loc, "General", user_query=user_query)
+    crop = _entity_str(plan, "crop", loc, "General", entity_text=entity_text)
     domain = _reviewer_domain(plan)
     reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
 
@@ -467,17 +468,6 @@ def _gdb_has_usable_data(messages: list[BaseMessage]) -> bool:
 _SPECIALIST_TOOL_NAMES = frozenset({"weather", "market", "soil", "schemes", "chemical_checker"})
 
 
-def _plan_used_specialist_tools(plan: PlannerPlan) -> bool:
-    """True when weather/mandi/soil/schemes/chemical_checker were requested this turn."""
-    return bool(
-        plan.get("weather")
-        or plan.get("mandi")
-        or plan.get("soil")
-        or plan.get("schemes")
-        or plan.get("chemical_checker")
-    )
-
-
 def _turn_has_specialist_tool_message(messages: list[BaseMessage]) -> bool:
     """True when a specialist ToolMessage exists in the current turn."""
     last_human_idx = -1
@@ -497,20 +487,15 @@ def _turn_has_specialist_tool_message(messages: list[BaseMessage]) -> bool:
 
 
 def should_expert_queue_reply(state: AjraSakhaState) -> bool:
-    """GDB empty after retrieval + no specialist tools → canned expert-queue message."""
-    plan = state.get("plan") or {}
+    """GDB empty after retrieval + no non-empty specialist ToolMessage this turn."""
     messages = state.get("messages") or []
-    used_specialists = _plan_used_specialist_tools(plan) or _turn_has_specialist_tool_message(
-        messages
-    )
-    return not _gdb_has_usable_data(messages) and not used_specialists
+    has_specialist_content = _turn_has_specialist_tool_message(messages)
+    return not _gdb_has_usable_data(messages) and not has_specialist_content
 
 
 def route_after_sanitizer(state: AjraSakhaState) -> str:
-    """After sanitizer: no usable GDB answers → canned reply only (never synthesize)."""
-    messages = state.get("messages") or []
-    data = _latest_turn_gdb_payload(messages)
-    if not data or not gdb_has_usable_answers(data):
+    """After sanitizer: expert-queue only when GDB empty and no specialist tool content."""
+    if should_expert_queue_reply(state):
         return "empty_gdb_reply"
     return "synthesize"
 
