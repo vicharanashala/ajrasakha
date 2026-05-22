@@ -9,6 +9,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ajrasakha.agents.plan_executor import route_after_execute
+from ajrasakha.agents.prompts import RETRIEVAL_SANITIZER_SYSTEM_PROMPT
 from ajrasakha.agents.retrieval_sanitizer import (
     RELEVANCE_THRESHOLD,
     _apply_scores,
@@ -54,6 +55,18 @@ def _state_with_gdb(gdb_data: dict, user_query: str = "गेहूं कैस
         "plan": {"rephrased_query": "How to grow wheat in Punjab?"},
         "location": {"state": "Punjab"},
     }
+
+
+# ── Prompt contract ───────────────────────────────────────────────────────
+
+
+def test_sanitizer_prompt_scores_only_not_routing():
+    p = RETRIEVAL_SANITIZER_SYSTEM_PROMPT
+    assert "score only" in p.lower()
+    assert "python applies" in p.lower() or "python" in p.lower()
+    assert "pair_key" in p
+    assert "forwarded to the synthesize" not in p.lower()
+    assert "must be discarded" not in p.lower()
 
 
 # ── Routing ───────────────────────────────────────────────────────────────
