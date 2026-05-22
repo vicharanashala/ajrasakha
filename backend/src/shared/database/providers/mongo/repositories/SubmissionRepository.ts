@@ -3384,51 +3384,62 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
    *  has completed their turn (submitted an answer OR finished a review) but no
    *  new reviewer has been assigned — question is still open/delayed.
    *
-   *  "Needs a reviewer" = lastHistory exists AND is NOT a pending in-review entry
-   *  (i.e. last action was either: answer submitted, review accepted/rejected/modified).
-   *
-   *  Guard: currentExpertOpenedAt must be set — ensures the expert engaged with the
-   *  question (prevents overlap with Part A's 45-min-not-opened reallocation). */
+   *  Condition: history.length >= queue.length (all assigned experts have entries)
+   *  AND the last expert completed their work:
+   *    - Position 0 (author): history[0].answer exists (submitted their answer)
+   *    - Position >= 1 (reviewer): last history status !== 'in-review' (completed review) */
   async findAnsweredQuestionsNeedingReviewer(): Promise<IQuestionSubmission[]> {
     await this.init();
-   // return [];
-     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
-       {
-         $addFields: {
-           lastHistory: { $arrayElemAt: ['$history', -1] },
-         },
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+      {
+        $addFields: {
+          histLen: { $size: { $ifNull: ['$history', []] } },
+          queueLen: { $size: { $ifNull: ['$queue', []] } },
+          lastHistory: { $arrayElemAt: ['$history', -1] },
+        },
       },
-       {
-         $match: {
-           // Expert must have opened the question — prevents conflict with Part A
-           currentExpertOpenedAt: { $exists: true, $ne: null },
-           // History must be non-empty
-           lastHistory: { $ne: null },
+      {
+        $match: {
+          // Queue must not be empty
+          queueLen: { $gt: 0 },
+          // All queue members must have a history entry (everyone has done their part)
+          $expr: { $gte: ['$histLen', '$queueLen'] },
+          // The last history entry must indicate completed work
           $or: [
-            // Expert submitted their own answer (initial answer)
-             { 'lastHistory.answer': { $exists: true, $ne: null } },
-             // Expert completed a review (accepted/rejected/modified) — status no longer 'in-review'
-             { 'lastHistory.status': { $nin: ['in-review'] } },
-           ],
-         },
-       },
-       {
-         $lookup: {
-           from: 'questions',
-           localField: 'questionId',
-           foreignField: '_id',
-           as: 'question',
-         },
-       },
-       { $unwind: '$question' },
-       {
-         $match: {
-           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-           'question.status': { $in: ['open', 'delayed'] },
-           'question.isOnHold': { $ne: true },
-         },
-       },
-     ]).toArray();
+            // Author (queue has 1 member) submitted their answer
+            {
+              $and: [
+                { queueLen: 1 },
+                { 'lastHistory.answer': { $exists: true, $ne: null } },
+              ],
+            },
+            // Reviewer (queue has >1 members) completed their review (status != 'in-review')
+            {
+              $and: [
+                { queueLen: { $gt: 1 } },
+                { 'lastHistory.status': { $nin: ['in-review'] } },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      { $unwind: '$question' },
+      {
+        $match: {
+          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'question.status': { $in: ['open', 'delayed'] },
+          'question.isOnHold': { $ne: true },
+        },
+      },
+    ]).toArray();
   }
 
   /** Atomically add a reviewer to a time-bound question:
