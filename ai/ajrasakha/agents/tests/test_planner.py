@@ -72,6 +72,57 @@ async def test_build_tool_calls_location_when_gps_unresolved():
     assert names[0] == "location_information_tool"
 
 
+@pytest.mark.asyncio
+async def test_reviewer_upload_uses_rephrased_query_not_raw_user_text():
+    rephrased = "How to control yellow rust on wheat in Punjab?"
+    plan = {
+        "weather": False,
+        "mandi": False,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": True,
+        "is_complete": True,
+        "rephrased_query": rephrased,
+        "entities": {"crop": "wheat", "state": "Punjab", "district": "Ropar"},
+    }
+    raw_user = "ਪੰਜਾਬ ਵਿੱਚ ਕਣਕ ਤੇ ਪੀਲਾ ਜੰਗ ਨਿਵਾਰਣ?"
+    calls = await build_tool_calls_from_plan(
+        plan,
+        raw_user,
+        {"state": "Punjab", "city": "Ropar"},
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+    )
+    reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
+    assert reviewer["args"]["question"] == rephrased
+    assert reviewer["args"]["question"] != raw_user
+
+
+@pytest.mark.asyncio
+async def test_reviewer_upload_falls_back_to_user_query_without_rephrased():
+    user_text = "Weather in Ropar and yellow rust on wheat"
+    plan = {
+        "weather": True,
+        "mandi": False,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": False,
+        "is_complete": True,
+        "entities": {"crop": "wheat", "state": "Punjab", "district": "Ropar"},
+    }
+    calls = await build_tool_calls_from_plan(
+        plan,
+        user_text,
+        {"state": "Punjab", "city": "Ropar"},
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+    )
+    reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
+    assert reviewer["args"]["question"] == user_text
+
+
 def test_planner_output_to_plan():
     out = PlannerOutput(
         weather=True,

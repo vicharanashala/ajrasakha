@@ -147,6 +147,7 @@ async def build_tool_calls_from_plan(
         district = "all"
     crop = _entity_str(plan, "crop", loc, "General", user_query=user_query)
     domain = _reviewer_domain(plan)
+    reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
 
     if _needs_location_resolve(loc):
         calls.append({
@@ -159,7 +160,7 @@ async def build_tool_calls_from_plan(
     calls.append({
         "name": reviewer_tool_name,
         "args": {
-            "question": user_query,
+            "question": reviewer_question,
             "state_name": state_name,
             "crop": crop,
             "details": {
