@@ -30,7 +30,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   ): Promise<DashboardResponse> {
     const currentMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, monthlySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes, feedbackData, dailyQuestionTrends, topFaqs, topQuestionsFromCollection] =
+      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, monthlySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes, feedbackData, dailyQuestionTrends, topFaqs, topQuestionsFromCollection, dailySummary, weeklySummary, monthlySummary] =
         await Promise.all([
           this.chatbotRepository.getKpiSummary(source, undefined, userType, startTime, endTime),
           this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType),
@@ -53,6 +53,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getDailyQuestionTrends(days, undefined, userType, startTime, endTime),
           this.chatbotRepository.getTopFaqs(source, undefined, userType, startTime, endTime),
           this.chatbotRepository.getTopQuestionsFromCollection(source, undefined, userType, startTime, endTime),
+          this.chatbotRepository.getQuerySummaryByPeriod('daily', source, undefined, userType),
+          this.chatbotRepository.getQuerySummaryByPeriod('weekly', source, undefined, userType),
+          this.chatbotRepository.getQuerySummaryByPeriod('monthly', source, undefined, userType),
         ]);
 
       return {
@@ -79,6 +82,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
         dailyQuestionTrends,
         topFaqs,
         topQuestionsFromCollection,
+        querySummaries: {
+          daily: dailySummary,
+          weekly: weeklySummary,
+          monthly: monthlySummary,
+        },
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch dashboard data: ${error}`);

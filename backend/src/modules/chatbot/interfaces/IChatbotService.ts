@@ -40,6 +40,11 @@ export interface DashboardResponse {
   dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;
   topFaqs?: Array<{ question: string; count: number }>;
   topQuestionsFromCollection?: Array<{ question: string; count: number }>;
+  querySummaries?: {
+    daily: { label: string; totalQueries: number };
+    weekly: { label: string; totalQueries: number };
+    monthly: { label: string; totalQueries: number };
+  };
 }
 
 export interface IChatbotService {

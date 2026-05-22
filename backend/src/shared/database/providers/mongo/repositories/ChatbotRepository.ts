@@ -1128,6 +1128,78 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+async getQuerySummaryByPeriod(
+  period: 'daily' | 'weekly' | 'monthly',
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+) {
+  try {
+    await this.init(source);
+
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
+
+    const now = new Date();
+
+    let startDate = new Date();
+    let label = '';
+
+    switch (period) {
+      case 'daily':
+        startDate.setHours(0, 0, 0, 0);
+        label = 'Today Queries';
+        break;
+
+      case 'weekly':
+        startDate.setDate(now.getDate() - 7);
+        label = 'Last 7 Days Queries';
+        break;
+
+      case 'monthly':
+        startDate.setDate(now.getDate() - 30);
+        label = 'Last 30 Days Queries';
+        break;
+    }
+
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              createdAt: {
+                $gte: startDate,
+              },
+
+              isCreatedByUser: true,
+
+              isDeleted: {
+                $ne: true,
+              },
+            },
+          },
+
+          ...userTypeLookupStages,
+
+          {
+            $count: 'total',
+          },
+        ],
+        { session },
+      )
+      .toArray();
+
+    return {
+      label,
+      totalQueries: result[0]?.total || 0,
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get query summary: ${error}`,
+    );
+  }
+}
+
   // ============================================
 // HELPER
 // ============================================

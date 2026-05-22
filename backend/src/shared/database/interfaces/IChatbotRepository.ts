@@ -362,6 +362,13 @@ export interface IChatbotRepository {
   getWeeklyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
 
   getRetentionMetrics (session?: ClientSession): Promise<any>
+
+  getQuerySummaryByPeriod(
+    period: 'daily' | 'weekly' | 'monthly',
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<{ label: string; totalQueries: number }>;
 }
 
 export interface ChatbotConversationData {
