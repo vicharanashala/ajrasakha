@@ -3,7 +3,7 @@ import { Button } from "@/components/atoms/button";
 import { useState } from "react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, ClipboardCheck, Download } from "lucide-react";
 import { format } from "date-fns";
 
 type ResponseAdherenceTableData = {
@@ -214,7 +214,7 @@ export function ResponseAdherenceTableCard({
       type="checkbox"
       checked={!!checkedRows[rowId]}
       onChange={() => toggleRow(rowId)}
-      className="h-5 w-5 cursor-pointer accent-[#0d72b9]"
+      className="h-5 w-5 cursor-pointer accent-primary"
     />
   );
 
@@ -222,10 +222,10 @@ export function ResponseAdherenceTableCard({
     <Card className="mb-4 rounded-2xl border border-border/70 bg-muted/10">
       <CardHeader className="pb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <CardTitle className="text-base">Response Adherence Summary</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Source-wise question handling performance
-          </p>
+          <CardTitle className="flex items-center gap-2 text-base text-primary">
+            <ClipboardCheck className="w-5 h-5" />
+            Response Adherence Summary
+          </CardTitle>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Popover>
@@ -235,7 +235,10 @@ export function ResponseAdherenceTableCard({
                 className="h-11 min-w-[220px] justify-start border-border/80 bg-background text-sm font-normal"
               >
                 <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                {format(parseInputDateToLocalDate(effectiveDate), "MMM dd, yyyy")}
+                {format(
+                  parseInputDateToLocalDate(effectiveDate),
+                  "MMM dd, yyyy",
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
@@ -251,15 +254,16 @@ export function ResponseAdherenceTableCard({
               />
             </PopoverContent>
           </Popover>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleDownloadSelectedFields}
-              disabled={!hasSelectedRows}
-              className="h-11 px-5 text-base"
-            >
-              Download Selected Fields
-            </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDownloadSelectedFields}
+            disabled={!hasSelectedRows}
+            className="h-11 px-5 text-base"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download Selected Fields (.xlsx)
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -272,105 +276,233 @@ export function ResponseAdherenceTableCard({
           <table className="w-full min-w-[860px] border-collapse text-sm">
             <tbody>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("date")}</td>
-                <td className="border border-border/70 px-3 py-2 font-medium">Date</td>
-                <td className="border border-border/70 px-3 py-2">{d.date || effectiveDate}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("date")}
+                </td>
+                <td className="border border-border/70 px-3 py-2 font-medium">
+                  Date
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.date || effectiveDate}
+                </td>
                 <td className="border border-border/70 px-3 py-2"></td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("time")}</td>
-                <td className="border border-border/70 px-3 py-2 font-medium">Time</td>
-                <td colSpan={2} className="border border-border/70 px-3 py-2">{d.timeWindow}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("time")}
+                </td>
+                <td className="border border-border/70 px-3 py-2 font-medium">
+                  Time
+                </td>
+                <td colSpan={2} className="border border-border/70 px-3 py-2">
+                  {d.timeWindow}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("header")}</td>
-                <td className="border border-border/70 px-3 py-2 font-medium">Source</td>
-                <td className="border border-border/70 px-3 py-2 font-semibold">Whatsapp</td>
-                <td className="border border-border/70 px-3 py-2 font-semibold">AjraSakha</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("header")}
+                </td>
+                <td className="border border-border/70 px-3 py-2 font-medium">
+                  Source
+                </td>
+                <td className="border border-border/70 px-3 py-2 font-semibold">
+                  Whatsapp
+                </td>
+                <td className="border border-border/70 px-3 py-2 font-semibold">
+                  AjraSakha
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("queriesAsked")}</td>
-                <td className="border border-border/70 px-3 py-2">Queries Asked</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappQueriesAsked}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaQueriesAsked}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("queriesAsked")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Queries Asked
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappQueriesAsked}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaQueriesAsked}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("pushedReviewer")}</td>
-                <td className="border border-border/70 px-3 py-2">Question Pushed into Reviewer System</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappPushedToReviewer}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaPushedToReviewer}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("pushedReviewer")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Question Pushed into Reviewer System
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappPushedToReviewer}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaPushedToReviewer}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("answered120")}</td>
-                <td className="border border-border/70 px-3 py-2">Question Answered within 120 Min</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappAnsweredWithin120Min}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaAnsweredWithin120Min}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("answered120")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Question Answered within 120 Min
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappAnsweredWithin120Min}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaAnsweredWithin120Min}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("duplicate")}</td>
-                <td className="border border-border/70 px-3 py-2">Marked Duplicate (Fetched from GDB)</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappMarkedDuplicate}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaMarkedDuplicate}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("duplicate")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Marked Duplicate (Fetched from GDB)
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappMarkedDuplicate}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaMarkedDuplicate}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("dynamicWeather")}</td>
-                <td className="border border-border/70 px-3 py-2">Dynamic - Weather</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappDynamicWeather}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaDynamicWeather}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("dynamicWeather")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Dynamic - Weather
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappDynamicWeather}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaDynamicWeather}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("dynamicMarket")}</td>
-                <td className="border border-border/70 px-3 py-2">Dynamic - Market</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappDynamicMarket}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaDynamicMarket}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("dynamicMarket")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Dynamic - Market
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappDynamicMarket}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaDynamicMarket}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("dynamicSchemes")}</td>
-                <td className="border border-border/70 px-3 py-2">Dynamic - Schemes</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappDynamicSchemes}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaDynamicSchemes}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("dynamicSchemes")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Dynamic - Schemes
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappDynamicSchemes}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaDynamicSchemes}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("nonGdb")}</td>
-                <td className="border border-border/70 px-3 py-2">Non GDB Questions - Answer prepared in 120 Min by AEs</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappNonGdbWithin120}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaNonGdbWithin120}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("nonGdb")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Non GDB Questions - Answer prepared in 120 Min by AEs
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappNonGdbWithin120}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaNonGdbWithin120}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("inReview")}</td>
-                <td className="border border-border/70 px-3 py-2">Question in Review</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappInReview}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaInReview}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("inReview")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Question in Review
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappInReview}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaInReview}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("open")}</td>
-                <td className="border border-border/70 px-3 py-2">Questions are Open</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappOpen}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaOpen}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("open")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Questions are Open
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappOpen}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaOpen}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("delayed")}</td>
-                <td className="border border-border/70 px-3 py-2">Questions are delayed</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappDelayed}</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaDelayed}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("delayed")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Questions are delayed
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappDelayed}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaDelayed}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("summaryDelayReason")}</td>
-                <td className="border border-border/70 px-3 py-2">Summary of the reason for delaying</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("summaryDelayReason")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Summary of the reason for delaying
+                </td>
                 <td className="border border-border/70 px-3 py-2"></td>
                 <td className="border border-border/70 px-3 py-2"></td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("avgResponse")}</td>
-                <td className="border border-border/70 px-3 py-2">Average time for Response</td>
-                <td className="border border-border/70 px-3 py-2">{formatMinutes(d.whatsappAverageResponseMinutes)}</td>
-                <td className="border border-border/70 px-3 py-2">{formatMinutes(d.ajrasakhaAverageResponseMinutes)}</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("avgResponse")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Average time for Response
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {formatMinutes(d.whatsappAverageResponseMinutes)}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {formatMinutes(d.ajrasakhaAverageResponseMinutes)}
+                </td>
               </tr>
               <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("adherencePct")}</td>
-                <td className="border border-border/70 px-3 py-2">Percentage of questions completed within 120 min</td>
-                <td className="border border-border/70 px-3 py-2">{d.whatsappAdherencePct.toFixed(2)}%</td>
-                <td className="border border-border/70 px-3 py-2">{d.ajrasakhaAdherencePct.toFixed(2)}%</td>
+                <td className="border border-border/70 px-2 py-2 text-center">
+                  {rowCheck("adherencePct")}
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  Percentage of questions completed within 120 min
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.whatsappAdherencePct.toFixed(2)}%
+                </td>
+                <td className="border border-border/70 px-3 py-2">
+                  {d.ajrasakhaAdherencePct.toFixed(2)}%
+                </td>
               </tr>
             </tbody>
           </table>
