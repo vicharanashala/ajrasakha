@@ -1190,45 +1190,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           ),
         );
 
-        // Auto-allocate time-bound questions to the expert with the lowest
-        // time-bound workload who has fewer than 3 active time-bound questions.
-        try {
-          const MAX_TIME_BOUND = 1;
-          const [allExperts, timeBoundCounts] = await Promise.all([
-            this.userRepo.findExpertsByReputationScore(details as PreferenceDto),
-            this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(),
-          ]);
-
-          const eligibleExpert = allExperts.find(e => {
-            const count = timeBoundCounts.get(e._id.toString()) ?? 0;
-            return count < MAX_TIME_BOUND;
-          });
-
-          if (eligibleExpert) {
-            const expertId = eligibleExpert._id.toString();
-            await Promise.all([
-              this.questionSubmissionRepo.updateQueue(questionId, [new ObjectId(expertId)]),
-              this.userRepo.updateReputationScore(expertId, true),
-              this.questionRepo.updateQuestion(questionId, {
-                isAutoAllocate: true,
-                firstAllocationAt: new Date(),
-              }),
-              this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date()),
-              this.notificationService.saveTheNotifications(
-                `A time-bound question from ${sourceLabel} has been assigned to you`,
-                'Answer Creation Assigned',
-                questionId,
-                expertId,
-                'answer_creation',
-              ),
-            ]);
-            console.log(`[processQuestionInBackground] Time-bound question ${questionId} auto-allocated to expert ${expertId}`);
-          } else {
-            console.log(`[processQuestionInBackground] No eligible expert found for time-bound question ${questionId} (all at cap)`);
-          }
-        } catch (allocErr: any) {
-          console.error(`[processQuestionInBackground] Time-bound auto-allocation failed for ${questionId}:`, allocErr?.message);
-        }
+        // Time-bound expert allocation is handled exclusively by the
+        // reallocateTimeBoundQuestions cron to avoid double-allocation races.
       }
     } catch (error: any) {
       console.error(
@@ -5249,158 +5212,152 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Track provisional additions during this run to respect cap within batch
       const provisionalCounts = new Map<string, number>(timeBoundCounts);
 
-      // ── Part A: Stuck submissions → reallocation via worker (penalises stuck expert) ──
+      // ── Merge all three lists into one priority queue ordered by question.createdAt ──
+      type WorkType = 'stuck' | 'unallocated' | 'needsReviewer';
+      const workQueue: { type: WorkType; submission: any }[] = [
+        ...stuckSubmissions.map((s: any) => ({ type: 'stuck' as WorkType, submission: s })),
+        ...unallocatedSubmissions.map((s: any) => ({ type: 'unallocated' as WorkType, submission: s })),
+        ...answeredNeedingReviewer.map((s: any) => ({ type: 'needsReviewer' as WorkType, submission: s })),
+      ];
+
+      workQueue.sort((a, b) => {
+        const aTime = new Date((a.submission.question?.createdAt ?? a.submission.createdAt) as string).getTime();
+        const bTime = new Date((b.submission.question?.createdAt ?? b.submission.createdAt) as string).getTime();
+        return aTime - bTime;
+      });
+
       const flatAssignments: { submissionId: string; expertId: string; appendExpert?: boolean }[] = [];
       let skipped = 0;
+      let initialAllocated = 0;
+      let reviewersAssigned = 0;
 
-      for (const submission of stuckSubmissions as any[]) {
-        const queue: any[] = submission.queue || [];
+      for (const { type, submission } of workQueue) {
+        const questionId = submission.questionId?.toString();
+        const question = submission.question;
+        const sourceLabel = question?.source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
         const history: any[] = submission.history || [];
+        const queue: any[] = submission.queue || [];
 
-        // Determine current stuck expert
-        let currentExpertId: string | null = null;
-        if (history.length === 0) {
-          currentExpertId = queue[0]?.toString() ?? null;
-        } else {
-          const lastH = history[history.length - 1];
-          if (lastH.status === 'in-review') {
-            currentExpertId = lastH.updatedBy?.toString() ?? null;
+        if (type === 'stuck') {
+          // Determine current stuck expert
+          let currentExpertId: string | null = null;
+          if (history.length === 0) {
+            currentExpertId = queue[0]?.toString() ?? null;
           } else {
-            currentExpertId = queue[history.length]?.toString() ?? null;
+            const lastH = history[history.length - 1];
+            currentExpertId = lastH.status === 'in-review'
+              ? lastH.updatedBy?.toString() ?? null
+              : queue[history.length]?.toString() ?? null;
+          }
+
+          const historyExpertIds = new Set(history.map((h: any) => h.updatedBy?.toString()));
+          const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
+
+          let assignedExpert: string | null = null;
+          for (const expert of allExperts) {
+            const expertId = expert._id.toString();
+            if (expertId === currentExpertId) continue;
+            if (historyExpertIds.has(expertId)) continue;
+            if (queueExpertIds.has(expertId)) continue;
+            const currentCount = provisionalCounts.get(expertId) ?? 0;
+            if (currentCount >= MAX_TIME_BOUND) continue;
+            assignedExpert = expertId;
+            provisionalCounts.set(expertId, currentCount + 1);
+            break;
+          }
+
+          if (!assignedExpert) {
+            console.log(`[TimeBound] No eligible expert for stuck submission ${submission._id} — skipping`);
+            skipped++;
+            continue;
+          }
+          flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert, appendExpert: true });
+
+        } else if (type === 'unallocated') {
+          let assignedExpert: string | null = null;
+          for (const expert of allExperts) {
+            const expertId = expert._id.toString();
+            const currentCount = provisionalCounts.get(expertId) ?? 0;
+            if (currentCount >= MAX_TIME_BOUND) continue;
+            assignedExpert = expertId;
+            provisionalCounts.set(expertId, currentCount + 1);
+            break;
+          }
+
+          if (!assignedExpert) {
+            console.log(`[TimeBound] No eligible expert for unallocated question ${questionId} — skipping`);
+            skipped++;
+            continue;
+          }
+
+          try {
+            await Promise.all([
+              this.questionSubmissionRepo.updateQueue(questionId, [new ObjectId(assignedExpert)]),
+              this.userRepo.updateReputationScore(assignedExpert, true),
+              this.questionRepo.updateQuestion(questionId, { isAutoAllocate: true, firstAllocationAt: new Date() }),
+              this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date()),
+              this.notificationService.saveTheNotifications(
+                `A time-bound question from ${sourceLabel} has been assigned to you`,
+                'Answer Creation Assigned',
+                questionId,
+                assignedExpert,
+                'answer_creation',
+              ),
+            ]);
+            console.log(`[TimeBound] Initially allocated question ${questionId} to expert ${assignedExpert}`);
+            initialAllocated++;
+          } catch (allocErr: any) {
+            console.error(`[TimeBound] Failed to initially allocate question ${questionId}:`, allocErr?.message);
+            skipped++;
+          }
+
+        } else {
+          // needsReviewer
+          const historyExpertIds = new Set(history.map((h: any) => h.updatedBy?.toString()));
+          const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
+
+          let assignedReviewer: string | null = null;
+          for (const expert of allExperts) {
+            const expertId = expert._id.toString();
+            if (historyExpertIds.has(expertId)) continue;
+            if (queueExpertIds.has(expertId)) continue;
+            const currentCount = provisionalCounts.get(expertId) ?? 0;
+            if (currentCount >= MAX_TIME_BOUND) continue;
+            assignedReviewer = expertId;
+            provisionalCounts.set(expertId, currentCount + 1);
+            break;
+          }
+
+          if (!assignedReviewer) {
+            console.log(`[TimeBound] No eligible reviewer for question ${questionId} — skipping`);
+            skipped++;
+            continue;
+          }
+
+          try {
+            await Promise.all([
+              this.questionSubmissionRepo.assignTimeBoundReviewer(questionId, assignedReviewer, new Date()),
+              this.userRepo.updateReputationScore(assignedReviewer, true),
+              this.notificationService.saveTheNotifications(
+                `A time-bound question from ${sourceLabel} needs your review`,
+                'New Review Assigned',
+                questionId,
+                assignedReviewer,
+                'peer_review',
+              ),
+            ]);
+            console.log(`[TimeBound] Assigned reviewer ${assignedReviewer} for question ${questionId}`);
+            reviewersAssigned++;
+          } catch (err: any) {
+            console.error(`[TimeBound] Failed to assign reviewer for question ${questionId}:`, err?.message);
+            skipped++;
           }
         }
-
-        const historyExpertIds = new Set(history.map((h: any) => h.updatedBy?.toString()));
-        const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
-
-        let assignedExpert: string | null = null;
-        for (const expert of allExperts) {
-          const expertId = expert._id.toString();
-          if (expertId === currentExpertId) continue;
-          if (historyExpertIds.has(expertId)) continue;
-          if (queueExpertIds.has(expertId)) continue;
-          const currentCount = provisionalCounts.get(expertId) ?? 0;
-          if (currentCount >= MAX_TIME_BOUND) continue;
-
-          assignedExpert = expertId;
-          provisionalCounts.set(expertId, currentCount + 1);
-          break;
-        }
-
-        if (!assignedExpert) {
-          console.log(`[TimeBound] No eligible expert for stuck submission ${submission._id} — skipping`);
-          skipped++;
-          continue;
-        }
-
-        flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert, appendExpert: true });
       }
 
       if (flatAssignments.length) {
         startBalanceWorkloadWorkers(flatAssignments);
         console.log(`[TimeBound] Triggered reallocation for ${flatAssignments.length} stuck submission(s)`);
-      }
-
-      // ── Part B: Never-allocated submissions → direct initial allocation ──
-      let initialAllocated = 0;
-      for (const submission of unallocatedSubmissions as any[]) {
-        const questionId = submission.questionId?.toString();
-        const question = (submission as any).question;
-        const sourceLabel = question?.source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
-
-        // Find first eligible expert (no history/queue constraints since queue was empty)
-        let assignedExpert: string | null = null;
-        for (const expert of allExperts) {
-          const expertId = expert._id.toString();
-          const currentCount = provisionalCounts.get(expertId) ?? 0;
-          if (currentCount >= MAX_TIME_BOUND) continue;
-
-          assignedExpert = expertId;
-          provisionalCounts.set(expertId, currentCount + 1);
-          break;
-        }
-
-        if (!assignedExpert) {
-          console.log(`[TimeBound] No eligible expert for unallocated question ${questionId} — skipping`);
-          skipped++;
-          continue;
-        }
-
-        try {
-          await Promise.all([
-            this.questionSubmissionRepo.updateQueue(questionId, [new ObjectId(assignedExpert)]),
-            this.userRepo.updateReputationScore(assignedExpert, true),
-            this.questionRepo.updateQuestion(questionId, {
-              isAutoAllocate: true,
-              firstAllocationAt: new Date(),
-            }),
-            this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date()),
-            this.notificationService.saveTheNotifications(
-              `A time-bound question from ${sourceLabel} has been assigned to you`,
-              'Answer Creation Assigned',
-              questionId,
-              assignedExpert,
-              'answer_creation',
-            ),
-          ]);
-          console.log(`[TimeBound] Initially allocated question ${questionId} to expert ${assignedExpert}`);
-          initialAllocated++;
-        } catch (allocErr: any) {
-          console.error(`[TimeBound] Failed to initially allocate question ${questionId}:`, allocErr?.message);
-          skipped++;
-        }
-      }
-
-      // ── Part C: Answered questions needing a reviewer ──
-      let reviewersAssigned = 0;
-      for (const submission of answeredNeedingReviewer as any[]) {
-        const questionId = submission.questionId?.toString();
-        const question = (submission as any).question;
-        const sourceLabel = question?.source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
-        const history: any[] = submission.history || [];
-        const queue: any[] = submission.queue || [];
-
-        const historyExpertIds = new Set(history.map((h: any) => h.updatedBy?.toString()));
-        const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
-
-        let assignedReviewer: string | null = null;
-        for (const expert of allExperts) {
-          const expertId = expert._id.toString();
-          if (historyExpertIds.has(expertId)) continue;
-          if (queueExpertIds.has(expertId)) continue;
-          const currentCount = provisionalCounts.get(expertId) ?? 0;
-          if (currentCount >= MAX_TIME_BOUND) continue;
-
-          assignedReviewer = expertId;
-          provisionalCounts.set(expertId, currentCount + 1);
-          break;
-        }
-
-        if (!assignedReviewer) {
-          console.log(`[TimeBound] No eligible reviewer for question ${questionId} — skipping`);
-          skipped++;
-          continue;
-        }
-
-        try {
-          const now = new Date();
-          await Promise.all([
-            this.questionSubmissionRepo.assignTimeBoundReviewer(questionId, assignedReviewer, now),
-            this.userRepo.updateReputationScore(assignedReviewer, true),
-            this.notificationService.saveTheNotifications(
-              `A time-bound question from ${sourceLabel} needs your review`,
-              'New Review Assigned',
-              questionId,
-              assignedReviewer,
-              'peer_review',
-            ),
-          ]);
-          console.log(`[TimeBound] Assigned reviewer ${assignedReviewer} for question ${questionId}`);
-          reviewersAssigned++;
-        } catch (err: any) {
-          console.error(`[TimeBound] Failed to assign reviewer for question ${questionId}:`, err?.message);
-          skipped++;
-        }
       }
 
       const totalReallocated = flatAssignments.length + initialAllocated + reviewersAssigned;
