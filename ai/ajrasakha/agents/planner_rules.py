@@ -135,6 +135,44 @@ def extract_crop_from_text(text: str) -> Optional[str]:
     return None
 
 
+def entity_text_from_plan(plan: PlannerPlan, messages: list[BaseMessage]) -> str:
+    """English text used for state/crop extraction — rephrased query first."""
+    text = (plan.get("rephrased_query") or plan.get("original_query_en") or "").strip()
+    return text or latest_human_text(messages)
+
+
+def merge_entities_from_rephrased_query(
+    plan: PlannerPlan,
+    messages: list[BaseMessage],
+    location: Optional[Location],
+) -> PlannerEntities:
+    """Resolve state/crop/district from rephrased English, not raw regional text."""
+    merged: PlannerEntities = dict(plan.get("entities") or {})
+    text = entity_text_from_plan(plan, messages)
+    has_gps = has_gps_coordinates(location)
+
+    if is_crop_clarify_turn(messages):
+        turn_crop = extract_crop_from_text(text) or resolve_crop_for_turn(messages)
+    else:
+        turn_crop = extract_crop_from_text(text)
+    if turn_crop:
+        merged["crop"] = turn_crop[0].upper() + turn_crop[1:].lower()
+    elif merged.get("crop") and not is_crop_placeholder(merged.get("crop")):
+        c = str(merged["crop"])
+        merged["crop"] = c[0].upper() + c[1:].lower()
+
+    state = extract_state_from_text(text) or gps_state_from_location(location)
+    if state:
+        merged["state"] = state
+
+    district = merged.get("district")
+    if not district and has_gps and location and location.get("city"):
+        merged["district"] = str(location["city"])
+    elif not district and merged.get("state"):
+        merged["district"] = "all"
+    return merged
+
+
 def is_schemes_intent(text: str) -> bool:
     return bool(_SCHEMES_RE.search(text or ""))
 
@@ -159,35 +197,11 @@ def infer_domain_for_plan(plan: PlannerPlan, conversation_text: str) -> str:
 
 
 def _merge_entities(
-    plan_entities: PlannerEntities,
+    plan: PlannerPlan,
     messages: list[BaseMessage],
     location: Optional[Location],
 ) -> PlannerEntities:
-    merged: PlannerEntities = dict(plan_entities or {})
-    latest = latest_human_text(messages)
-    has_gps = has_gps_coordinates(location)
-
-    if not merged.get("crop") or is_crop_placeholder(merged.get("crop")):
-        turn_crop = resolve_crop_for_turn(messages)
-        if turn_crop:
-            merged["crop"] = turn_crop
-    else:
-        c = merged["crop"]
-        if c:
-            merged["crop"] = c[0].upper() + c[1:].lower()
-
-    state = merged.get("state") or extract_state_from_text(latest)
-    if not state:
-        state = gps_state_from_location(location)
-    if state:
-        merged["state"] = state
-
-    district = merged.get("district")
-    if not district and has_gps and location and location.get("city"):
-        merged["district"] = str(location["city"])
-    elif not district and merged.get("state"):
-        merged["district"] = "all"
-    return merged
+    return merge_entities_from_rephrased_query(plan, messages, location)
 
 
 def _location_status(
@@ -273,7 +287,7 @@ def apply_planner_completeness_rules(
     """
     out: PlannerPlan = dict(plan)
     latest = latest_human_text(messages)
-    entities = _merge_entities(out.get("entities") or {}, messages, location)
+    entities = _merge_entities(out, messages, location)
     out["entities"] = entities
 
     has_state, _, has_gps = _location_status(entities, location)

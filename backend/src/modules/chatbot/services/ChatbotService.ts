@@ -30,7 +30,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   ): Promise<DashboardResponse> {
     const currentMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, monthlySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes, feedbackData, dailyQuestionTrends, topFaqs, topQuestionsFromCollection, dailySummary, weeklySummary, monthlySummary] =
+      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, monthlySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes, feedbackData, dailyQuestionTrends, topFaqs, topQuestionsFromCollection,responseAdherenceTable, dailySummary, weeklySummary, monthlySummary] =
         await Promise.all([
           this.chatbotRepository.getKpiSummary(source, undefined, userType, startTime, endTime),
           this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType),
@@ -53,6 +53,39 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getDailyQuestionTrends(days, undefined, userType, startTime, endTime),
           this.chatbotRepository.getTopFaqs(source, undefined, userType, startTime, endTime),
           this.chatbotRepository.getTopQuestionsFromCollection(source, undefined, userType, startTime, endTime),
+          this.chatbotRepository
+            .getResponseAdherenceTable(undefined, userType, startTime, endTime, source)
+            .catch(() => ({
+              date: '',
+              time: '',
+              timeWindow: '',
+              whatsappQueriesAsked: 0,
+              ajrasakhaQueriesAsked: 0,
+              whatsappPushedToReviewer: 0,
+              ajrasakhaPushedToReviewer: 0,
+              whatsappAnsweredWithin120Min: 0,
+              ajrasakhaAnsweredWithin120Min: 0,
+              whatsappMarkedDuplicate: 0,
+              ajrasakhaMarkedDuplicate: 0,
+              whatsappDynamicWeather: 0,
+              ajrasakhaDynamicWeather: 0,
+              whatsappDynamicMarket: 0,
+              ajrasakhaDynamicMarket: 0,
+              whatsappDynamicSchemes: 0,
+              ajrasakhaDynamicSchemes: 0,
+              whatsappNonGdbWithin120: 0,
+              ajrasakhaNonGdbWithin120: 0,
+              whatsappInReview: 0,
+              ajrasakhaInReview: 0,
+              whatsappOpen: 0,
+              ajrasakhaOpen: 0,
+              whatsappDelayed: 0,
+              ajrasakhaDelayed: 0,
+              whatsappAverageResponseMinutes: 0,
+              ajrasakhaAverageResponseMinutes: 0,
+              whatsappAdherencePct: 0,
+              ajrasakhaAdherencePct: 0,
+            })),
           this.chatbotRepository.getQuerySummaryByPeriod('daily', source, undefined, userType),
           this.chatbotRepository.getQuerySummaryByPeriod('weekly', source, undefined, userType),
           this.chatbotRepository.getQuerySummaryByPeriod('monthly', source, undefined, userType),
@@ -82,6 +115,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         dailyQuestionTrends,
         topFaqs,
         topQuestionsFromCollection,
+        responseAdherenceTable,
         querySummaries: {
           daily: dailySummary,
           weekly: weeklySummary,
