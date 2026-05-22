@@ -4,8 +4,7 @@ import { useState } from "react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
 import { CalendarIcon } from "lucide-react";
-import { format, subDays } from "date-fns";
-import type { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 
 type ResponseAdherenceTableData = {
   date: string;
@@ -108,21 +107,10 @@ const todayAsInputDate = (now: Date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-const formatRangeLabel = (range: DateRange | undefined): string => {
-  if (range?.from && range?.to) {
-    return `${format(range.from, "MMM dd, yyyy")} - ${format(range.to, "MMM dd, yyyy")}`;
-  }
-  if (range?.from) {
-    return `${format(range.from, "MMM dd, yyyy")} - Not selected`;
-  }
-  return "Not selected";
-};
-
-const formatRangeAsInputValue = (range: DateRange | undefined): string => {
-  const start = range?.from ? todayAsInputDate(range.from) : "";
-  const end = range?.to ? todayAsInputDate(range.to) : "";
-  if (start && end) return `${start}_to_${end}`;
-  return start || todayAsInputDate();
+const parseInputDateToLocalDate = (value: string): Date => {
+  if (!value) return new Date();
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
 };
 
 function formatMinutes(minutes: number): string {
@@ -137,80 +125,34 @@ function formatMinutes(minutes: number): string {
 
 export function ResponseAdherenceTableCard({
   data,
-  selectedDateRange,
-  onSelectedDateRangeChange,
+  selectedDate,
+  onSelectedDateChange,
   isLoading = false,
 }: {
   data?: Partial<ResponseAdherenceTableData> | null;
-  selectedDateRange?: DateRange;
-  onSelectedDateRangeChange?: (range: DateRange | undefined) => void;
+  selectedDate?: string;
+  onSelectedDateChange?: (date: string) => void;
   isLoading?: boolean;
 }) {
   const d = { ...DEFAULT_DATA, ...(data ?? {}) };
-  const [internalDateRange, setInternalDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 29),
-    to: new Date(),
-  });
-  const [dateValidationError, setDateValidationError] = useState<string>("");
+  const [internalDate, setInternalDate] = useState<string>(todayAsInputDate());
   const [checkedRows, setCheckedRows] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
       ALL_ROW_IDS.map((rowId) => [rowId, DEFAULT_SELECTED_ROW_IDS.has(rowId)]),
     ),
   );
 
-  const effectiveDateRange = selectedDateRange ?? internalDateRange;
+  const effectiveDate = selectedDate ?? internalDate;
 
   const toggleRow = (rowId: string) =>
     setCheckedRows((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
 
-  const atStartOfDay = (date: Date): number => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  };
-
-  const updateDateRange = (nextRange: DateRange | undefined) => {
-    if (onSelectedDateRangeChange) {
-      onSelectedDateRangeChange(nextRange);
+  const handleDateChange = (nextDate: string) => {
+    if (onSelectedDateChange) {
+      onSelectedDateChange(nextDate);
       return;
     }
-    setInternalDateRange(nextRange);
-  };
-
-  const handleStartDateChange = (nextStart?: Date) => {
-    if (!nextStart) {
-      updateDateRange(undefined);
-      setDateValidationError("");
-      return;
-    }
-
-    const currentEnd = effectiveDateRange?.to;
-    if (currentEnd && atStartOfDay(currentEnd) < atStartOfDay(nextStart)) {
-      updateDateRange({ from: nextStart, to: undefined });
-      setDateValidationError("End date cannot be before start date. Please choose a valid end date.");
-      return;
-    }
-
-    updateDateRange({ from: nextStart, to: currentEnd });
-    setDateValidationError("");
-  };
-
-  const handleEndDateChange = (nextEnd?: Date) => {
-    const currentStart = effectiveDateRange?.from;
-
-    if (!nextEnd) {
-      updateDateRange({ from: currentStart, to: undefined });
-      setDateValidationError("");
-      return;
-    }
-
-    if (currentStart && atStartOfDay(nextEnd) < atStartOfDay(currentStart)) {
-      setDateValidationError("End date cannot be before start date. Please choose a valid end date.");
-      return;
-    }
-
-    updateDateRange({ from: currentStart, to: nextEnd });
-    setDateValidationError("");
+    setInternalDate(nextDate);
   };
 
   const csvEscape = (value: string | number) => {
@@ -220,8 +162,8 @@ export function ResponseAdherenceTableCard({
   };
 
   const rowExportData = [
-    { id: "date", field: "Date", whatsapp: d.date || formatRangeLabel(effectiveDateRange), ajraSakha: "", notes: "" },
-    { id: "time", field: "Time", whatsapp: d.time, ajraSakha: "", notes: d.timeWindow },
+    { id: "date", field: "Date", whatsapp: d.date || effectiveDate || "", ajraSakha: "", notes: "" },
+    { id: "time", field: "Time", whatsapp: d.timeWindow, ajraSakha: "", notes: "" },
     { id: "header", field: "Source", whatsapp: "Whatsapp", ajraSakha: "AjraSakha", notes: "" },
     { id: "queriesAsked", field: "Queries Asked", whatsapp: d.whatsappQueriesAsked, ajraSakha: d.ajrasakhaQueriesAsked, notes: "" },
     { id: "pushedReviewer", field: "Questions pushed into the review system", whatsapp: d.whatsappPushedToReviewer, ajraSakha: d.ajrasakhaPushedToReviewer, notes: "" },
@@ -260,7 +202,7 @@ export function ResponseAdherenceTableCard({
     const downloadUrl = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = downloadUrl;
-    anchor.download = `response-adherence-selected-fields-${formatRangeAsInputValue(effectiveDateRange)}.csv`;
+    anchor.download = `response-adherence-selected-fields-${effectiveDate || todayAsInputDate()}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -285,62 +227,30 @@ export function ResponseAdherenceTableCard({
             Source-wise question handling performance
           </p>
         </div>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Start Date</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="h-11 min-w-[220px] justify-start border-border/80 bg-background text-sm font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    {effectiveDateRange?.from ? format(effectiveDateRange.from, "MMM dd, yyyy") : "Select start date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    initialFocus
-                    mode="single"
-                    selected={effectiveDateRange?.from}
-                    onSelect={handleStartDateChange}
-                    disabled={{ after: new Date() }}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">End Date</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="h-11 min-w-[220px] justify-start border-border/80 bg-background text-sm font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    {effectiveDateRange?.to ? format(effectiveDateRange.to, "MMM dd, yyyy") : "Select end date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    initialFocus
-                    mode="single"
-                    selected={effectiveDateRange?.to}
-                    onSelect={handleEndDateChange}
-                    disabled={(date) => {
-                      const isFuture = atStartOfDay(date) > atStartOfDay(new Date());
-                      const isBeforeStart =
-                        !!effectiveDateRange?.from &&
-                        atStartOfDay(date) < atStartOfDay(effectiveDateRange.from);
-                      return isFuture || isBeforeStart;
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-11 min-w-[220px] justify-start border-border/80 bg-background text-sm font-normal"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                {format(parseInputDateToLocalDate(effectiveDate), "MMM dd, yyyy")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                initialFocus
+                mode="single"
+                selected={parseInputDateToLocalDate(effectiveDate)}
+                onSelect={(date) => {
+                  if (!date) return;
+                  handleDateChange(todayAsInputDate(date));
+                }}
+                disabled={{ after: new Date() }}
+              />
+            </PopoverContent>
+          </Popover>
             <Button
               type="button"
               variant="outline"
@@ -350,17 +260,12 @@ export function ResponseAdherenceTableCard({
             >
               Download Selected Fields
             </Button>
-          </div>
-
-          {dateValidationError ? (
-            <p className="text-xs text-destructive">{dateValidationError}</p>
-          ) : null}
         </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <div className="mb-3 text-xs text-muted-foreground">
-            Fetching selected date range data...
+            Fetching selected date data...
           </div>
         ) : null}
         <div className="overflow-x-auto">
@@ -369,14 +274,13 @@ export function ResponseAdherenceTableCard({
               <tr>
                 <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("date")}</td>
                 <td className="border border-border/70 px-3 py-2 font-medium">Date</td>
-                <td className="border border-border/70 px-3 py-2">{d.date || formatRangeLabel(effectiveDateRange)}</td>
+                <td className="border border-border/70 px-3 py-2">{d.date || effectiveDate}</td>
                 <td className="border border-border/70 px-3 py-2"></td>
               </tr>
               <tr>
                 <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("time")}</td>
                 <td className="border border-border/70 px-3 py-2 font-medium">Time</td>
-                <td className="border border-border/70 px-3 py-2">{d.time}</td>
-                <td className="border border-border/70 px-3 py-2">{d.timeWindow}</td>
+                <td colSpan={2} className="border border-border/70 px-3 py-2">{d.timeWindow}</td>
               </tr>
               <tr>
                 <td className="border border-border/70 px-2 py-2 text-center">{rowCheck("header")}</td>

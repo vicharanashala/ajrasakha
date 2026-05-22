@@ -125,6 +125,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
   ): Promise<{
     questionAsked: number;
+    closedQuestionsCount: number;
     answeredWithin120Min: number;
     averageResponseMinutes: number;
     inReviewCount: number;
@@ -151,6 +152,14 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $facet: {
             questionAsked: [{$count: 'count'}],
+            closedQuestions: [
+              {
+                $match: {
+                  status: 'closed',
+                },
+              },
+              {$count: 'count'},
+            ],
             answeredWithin120Min: [
               {
                 $match: {
@@ -203,30 +212,6 @@ export class ChatbotRepository implements IChatbotRepository {
               {$match: {status: 'delayed'}},
               {$count: 'count'},
             ],
-            dynamicWeather: [
-              {
-                $match: {
-                  'details.domain': {$regex: '^weather$', $options: 'i'},
-                },
-              },
-              {$count: 'count'},
-            ],
-            dynamicMarket: [
-              {
-                $match: {
-                  'details.domain': {$regex: '^market$', $options: 'i'},
-                },
-              },
-              {$count: 'count'},
-            ],
-            dynamicSchemes: [
-              {
-                $match: {
-                  'details.domain': {$regex: '^schemes$', $options: 'i'},
-                },
-              },
-              {$count: 'count'},
-            ],
             markedDuplicateGdb: [
               {
                 $match: {
@@ -245,14 +230,15 @@ export class ChatbotRepository implements IChatbotRepository {
     const row = result[0] ?? {};
     return {
       questionAsked: row.questionAsked?.[0]?.count ?? 0,
+      closedQuestionsCount: row.closedQuestions?.[0]?.count ?? 0,
       answeredWithin120Min: row.answeredWithin120Min?.[0]?.count ?? 0,
       averageResponseMinutes: row.averageResponse?.[0]?.avgMinutes ?? 0,
       inReviewCount: row.inReview?.[0]?.count ?? 0,
       openCount: row.open?.[0]?.count ?? 0,
       delayedCount: row.delayed?.[0]?.count ?? 0,
-      dynamicWeatherCount: row.dynamicWeather?.[0]?.count ?? 0,
-      dynamicMarketCount: row.dynamicMarket?.[0]?.count ?? 0,
-      dynamicSchemesCount: row.dynamicSchemes?.[0]?.count ?? 0,
+      dynamicWeatherCount: 0,
+      dynamicMarketCount: 0,
+      dynamicSchemesCount: 0,
       markedDuplicateGdbCount: row.markedDuplicateGdb?.[0]?.count ?? 0,
     };
   }
@@ -273,7 +259,7 @@ export class ChatbotRepository implements IChatbotRepository {
         this.getSourceAdherenceStats('AJRASAKHA', userType, startTime, endTime, session),
       ]);
 
-      const messageMatch: any = {isCreatedByUser: true, isDeleted: {$ne: true}};
+      const messageMatch: any = {isDeleted: {$ne: true}};
       if (startTime || endTime) {
         messageMatch.createdAt = {};
         if (startTime) messageMatch.createdAt.$gte = new Date(startTime);
@@ -285,8 +271,45 @@ export class ChatbotRepository implements IChatbotRepository {
             {$match: messageMatch},
             ...this.buildUserTypeLookupStages(userType),
             {
+              $addFields: {
+                _sourceHint: {
+                  $toUpper: {
+                    $concat: [
+                      {$ifNull: ['$source', '']},
+                      ' ',
+                      {$ifNull: ['$endpoint', '']},
+                    ],
+                  },
+                },
+              },
+            },
+            {
               $group: {
-                _id: {$toUpper: {$ifNull: ['$source', 'AJRASAKHA']}},
+                _id: {
+                  $switch: {
+                    branches: [
+                      {
+                        case: {
+                          $regexMatch: {
+                            input: '$_sourceHint',
+                            regex: 'WHATSAPP',
+                          },
+                        },
+                        then: 'WHATSAPP',
+                      },
+                      {
+                        case: {
+                          $regexMatch: {
+                            input: '$_sourceHint',
+                            regex: 'WA\\b',
+                          },
+                        },
+                        then: 'WHATSAPP',
+                      },
+                    ],
+                    default: 'AJRASAKHA',
+                  },
+                },
                 count: {$sum: 1},
               },
             },
@@ -298,34 +321,27 @@ export class ChatbotRepository implements IChatbotRepository {
       const ajrasakhaQueriesAsked = queryCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
 
       const whatsappAdherencePct =
-        whatsappQueriesAsked > 0
-          ? Math.round((whatsapp.answeredWithin120Min / whatsappQueriesAsked) * 100 * 100) / 100
+        whatsapp.questionAsked > 0
+          ? Math.round((whatsapp.answeredWithin120Min / whatsapp.questionAsked) * 100 * 100) / 100
           : 0;
       const ajrasakhaAdherencePct =
-        ajrasakhaQueriesAsked > 0
-          ? Math.round((ajrasakha.answeredWithin120Min / ajrasakhaQueriesAsked) * 100 * 100) / 100
+        ajrasakha.questionAsked > 0
+          ? Math.round((ajrasakha.answeredWithin120Min / ajrasakha.questionAsked) * 100 * 100) / 100
           : 0;
 
-      const nowIst = new Date(new Date().toLocaleString('en-US', {timeZone: 'Asia/Kolkata'}));
-      const hh = String(nowIst.getHours()).padStart(2, '0');
-      const mm = String(nowIst.getMinutes()).padStart(2, '0');
-      const date = nowIst.toLocaleDateString('en-GB').split('/').join('-');
-      const whatsappNonGdbWithin120 = Math.max(
-        whatsapp.answeredWithin120Min -
-          whatsapp.markedDuplicateGdbCount -
-          whatsapp.dynamicWeatherCount -
-          whatsapp.dynamicMarketCount -
-          whatsapp.dynamicSchemesCount,
-        0,
+      const startReference = startTime ? new Date(startTime) : new Date();
+      const endReference = endTime ? new Date(endTime) : new Date();
+      const startIst = new Date(
+        startReference.toLocaleString('en-US', {timeZone: 'Asia/Kolkata'}),
       );
-      const ajrasakhaNonGdbWithin120 = Math.max(
-        ajrasakha.answeredWithin120Min -
-          ajrasakha.markedDuplicateGdbCount -
-          ajrasakha.dynamicWeatherCount -
-          ajrasakha.dynamicMarketCount -
-          ajrasakha.dynamicSchemesCount,
-        0,
+      const endIst = new Date(
+        endReference.toLocaleString('en-US', {timeZone: 'Asia/Kolkata'}),
       );
+      const hh = String(endIst.getHours()).padStart(2, '0');
+      const mm = String(endIst.getMinutes()).padStart(2, '0');
+      const date = startIst.toLocaleDateString('en-GB').split('/').join('-');
+      const whatsappNonGdbWithin120 = whatsapp.closedQuestionsCount;
+      const ajrasakhaNonGdbWithin120 = ajrasakha.closedQuestionsCount;
 
       return {
         date,
