@@ -66,7 +66,9 @@ export const Dashboard = () => {
   const [analyticsType, setAnalyticsType] = useState<"question" | "answer">(
     "question"
   );
-  const [analyticsStatus, setAnalyticsStatus] = useState<string>("all");
+  const [analyticsStatus, setAnalyticsStatus] = useState<string[]>([]);
+  const [analyticsState, setAnalyticsState] = useState<string[]>([]);
+  const [analyticsSource, setAnalyticsSource] = useState<string[]>([]);
 
   // ---- Heat map state filters ----- //
   const [heatMapDate, setHeatMapDate] = useState<DateRange>({
@@ -95,7 +97,10 @@ export const Dashboard = () => {
     startTime: date.startTime,
     endTime: date.endTime,
     status: analyticsStatus,
+    state: analyticsState,
+    source: analyticsSource,
   });
+
 
   const handleHeatMapDateChange = (key: string, value?: Date) => {
     setHeatMapDate((prev) => ({
@@ -305,8 +310,12 @@ export const Dashboard = () => {
               setAnalyticsType={setAnalyticsType}
               analyticsStatus={analyticsStatus}
               setAnalyticsStatus={setAnalyticsStatus}
+              analyticsState={analyticsState}
+              setAnalyticsState={setAnalyticsState}
+              analyticsSource={analyticsSource}
+              setAnalyticsSource={setAnalyticsSource}
               data={
-                analyticsData ?? { cropData: [], stateData: [], domainData: [] }
+                analyticsData ?? { cropData: [], stateData: [], domainData: [], tableData: [] }
               }
             />
           </LoadingWrapper>

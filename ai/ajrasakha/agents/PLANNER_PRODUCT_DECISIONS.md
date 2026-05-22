@@ -42,14 +42,14 @@ GDB no longer overrides state from thread config — it uses what the planner pa
 ## Crop / non-crop classifier
 
 `domains.py` lists crop-required vs crop-all domains. `planner_rules.apply_planner_completeness_rules` enforces:
-- Location: state in **latest message** → resolved; else GPS on thread → use reverse-geocoded state; no GPS and no state in latest message → ask state+district once. District from GPS city only when lat/long present — never stale city from old turns without GPS.
+- Location: state in **latest message** → resolved (district defaults to `all` if not in text); else GPS on thread → use reverse-geocoded state/city; no GPS and no state → ask **state only** (never district-only follow-up). District from GPS city only when lat/long present.
 - Crop: ask only when `domain_requires_crop` and crop not in **recent** farmer replies (last ~3 turns). Otherwise set crop="All".
 - Schemes/insurance/PM-KISAN: `schemes=true`, block meta follow-ups ("what would you like to know…").
 - State/district must not leak from unrelated older questions in the thread.
 
 ## Feature flag
 
-- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → synthesize → sanitize_answer.
+- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → retrieval_sanitizer (when applicable) → synthesize → END. (`sanitize_answer` is commented out in the graph.)
 - `USE_PLANNER_GRAPH=false`: legacy single-LLM `ajrasakha` + `tools` loop.
 
 ## Synthesizer
