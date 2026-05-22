@@ -127,6 +127,7 @@ async def build_tool_calls_from_plan(
     *,
     location_tool_name: str,
     reviewer_tool_name: str,
+    question_source: str | None = None,
     extra_chemicals: Optional[list[str]] = None,
 ) -> list[dict[str, Any]]:
     """Build LangChain tool_call dicts for one parallel batch."""
@@ -158,23 +159,30 @@ async def build_tool_calls_from_plan(
             "type": "tool_call",
         })
 
-    calls.append({
-        "name": reviewer_tool_name,
-        "args": {
-            "question": reviewer_question,
-            "state_name": state_name,
-            "crop": crop,
-            "details": {
-                "state": state_name,
-                "district": district,
+    if question_source and str(question_source).strip():
+        calls.append({
+            "name": reviewer_tool_name,
+            "args": {
+                "question": reviewer_question,
+                "state_name": state_name,
                 "crop": crop,
-                "season": "General",
-                "domain": domain,
+                "details": {
+                    "state": state_name,
+                    "district": district,
+                    "crop": crop,
+                    "season": "General",
+                    "domain": domain,
+                },
+                "source": str(question_source).strip(),
             },
-        },
-        "id": _new_tool_call_id(),
-        "type": "tool_call",
-    })
+            "id": _new_tool_call_id(),
+            "type": "tool_call",
+        })
+    else:
+        logger.warning(
+            "Skipping %s: configurable.question_source not set",
+            reviewer_tool_name,
+        )
 
     lat = loc.get("latitude")
     lon = loc.get("longitude")
@@ -370,12 +378,14 @@ async def execute_plan_node(
 
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
+    question_source = (config.get("configurable") or {}).get("question_source")
     tool_calls = await build_tool_calls_from_plan(
         plan,
         user_query,
         loc,
         location_tool_name=location_tool.name,
         reviewer_tool_name=reviewer_tool.name,
+        question_source=question_source,
     )
     if not tool_calls:
         return {}
@@ -418,6 +428,7 @@ async def execute_plan_node(
             merged_loc,
             location_tool_name=location_tool.name,
             reviewer_tool_name=reviewer_tool.name,
+            question_source=question_source,
             extra_chemicals=extra_chems,
         )
         chem_only = [c for c in second_calls if c.get("name") == "chemical_checker"]

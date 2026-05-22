@@ -91,6 +91,7 @@ async def test_gdb_uses_kerala_from_rephrased_plan_not_stale_gps_punjab():
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
         location_tool_name="location_information_tool",
         reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
     )
     gdb = next(c for c in calls if c["name"] == "gdb")
     assert gdb["args"]["state"] == "Kerala"

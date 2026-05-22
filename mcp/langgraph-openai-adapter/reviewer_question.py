@@ -13,7 +13,6 @@ from config import REQUEST_TIMEOUT, REVIEWER_DESK_API_BASE_URL
 logger = logging.getLogger("langgraph-openai-adapter")
 
 UPLOAD_TOOL_NAME = "upload_question_to_reviewer_system"
-DESK_QUESTION_SOURCE = "AJRASAKHA"
 
 
 def _header_value(request_headers: dict[str, str], *keys: str) -> str | None:
@@ -145,7 +144,6 @@ async def update_desk_question(
         "userId": user_id,
         "messageId": message_id,
         "threadId": thread_id,
-        "source": DESK_QUESTION_SOURCE,
     }
 
     timeout = httpx.Timeout(REQUEST_TIMEOUT, connect=10.0)
@@ -154,12 +152,11 @@ async def update_desk_question(
 
     if response.is_success:
         logger.info(
-            "Linked desk question %s with userId=%s messageId=%s threadId=%s source=%s",
+            "Linked desk question %s with userId=%s messageId=%s threadId=%s",
             question_id,
             user_id,
             message_id,
             thread_id,
-            DESK_QUESTION_SOURCE,
         )
         return True
 
@@ -184,7 +181,8 @@ async def link_reviewer_question_after_run(
 ) -> str | None:
     """
     Fetch thread state, extract question_id from current-turn upload tool,
-    and PUT userId, messageId, threadId, and source=AJRASAKHA to desk. Returns question_id when linked.
+    and PUT userId, messageId, threadId to desk (source is set only on create via reviewer MCP).
+    Returns question_id when linked.
     """
     if not user_id or not message_id:
         logger.warning(
