@@ -592,7 +592,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
       {/* Summary cards + graphs */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-5">
         {/* Active Users — col 1 row 1 */}
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
+        {/* <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
           <div className="absolute inset-x-0 top-0 h-1 bg-[#3B82F6]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -602,10 +602,10 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               {isLoading ? "—" : activeUsers.toLocaleString()}
             </span>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Inactive Users — col 2 row 1 */}
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
+        {/* <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
           <div className="absolute inset-x-0 top-0 h-1 bg-[#EF4444]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -615,10 +615,10 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               {isLoading ? "—" : inactiveUsers.toLocaleString()}
             </span>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Total Questions — col 3 row 1 */}
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
+        {/* <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
           <div className="absolute inset-x-0 top-0 h-1 bg-[#EF9F27]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -628,7 +628,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
               {isLoading ? "—" : totalQuestions.toLocaleString()}
             </span>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Bar graph — col 1 row 2 on sm+, after all 3 cards on mobile */}
         {!isLoading && !error && users.length > 0 && !filters.inactiveOnly && (
