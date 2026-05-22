@@ -52,7 +52,7 @@ export const PlaygroundPage = () => {
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
   const [chatbotSource, setChatbotSource] = useState<
-    "vicharanashala" | "annam"
+    "vicharanashala" | "annam" | "whatsapp"
   >("annam");
   const getStorageKey = (user?: { email?: string }) => {
     if (!user?.email) return null;
