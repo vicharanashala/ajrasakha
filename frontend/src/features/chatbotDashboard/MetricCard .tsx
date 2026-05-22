@@ -25,6 +25,14 @@ type KpiCardData = {
   dateRange?: string;
   badges?: { label: string; variant: BadgeVariant }[];
   icon?: string;
+  dailyAnalytics?: any[];
+  weeklyAnalytics?: any[];
+  monthlyAnalytics?: any[];
+  querySummaries?: {
+    daily: { label: string; totalQueries: number };
+    weekly: { label: string; totalQueries: number };
+    monthly: { label: string; totalQueries: number };
+  };
 };
 
 const badgeStyles: Record<BadgeVariant, { bg: string; text: string }> = {
@@ -267,6 +275,17 @@ const activeDeltaDir =
           : kpi.sparkLabels
       : kpi.sparkLabels;
 
+  // Dynamic label and value based on granularity tab (queries card only)
+  const activeCardLabel =
+    kpi.id === "queries" && kpi.querySummaries
+      ? kpi.querySummaries[granularity]?.label ?? kpi.label
+      : kpi.label;
+
+  const activeCardValue =
+    kpi.id === "queries" && kpi.querySummaries
+      ? kpi.querySummaries[granularity]?.totalQueries?.toLocaleString() ?? kpi.value
+      : kpi.value;
+
   return (
     <>
       <Card className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]">
@@ -299,20 +318,20 @@ const activeDeltaDir =
             )}
             <div className="flex flex-col gap-0.5">
               <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {kpi.label}
+                {activeCardLabel}
               </div>
               <div
                 className="text-2xl font-semibold dark:text-slate-100"
                 style={{ color: kpi.valueColor }}
               >
-                {kpi.value}
+                {activeCardValue}
               </div>
-              <div
+              {/* <div
                 className="flex items-center gap-1 text-xs dark:text-gray-300"
                 style={{ color: deltaColor }}
               >
                 {granularity !== "daily" && <DeltaIcon dir={activeDeltaDir} />} {granularity !== "daily" && activeDelta}
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -421,13 +440,13 @@ const activeDeltaDir =
                     )}
                     <div className="min-w-0">
                       <div className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {kpi.label}
+                        {activeCardLabel}
                       </div>
                       <div
                         className="text-4xl font-semibold dark:text-slate-100"
                         style={{ color: kpi.valueColor }}
                       >
-                        {kpi.value}
+                        {activeCardValue}
                       </div>
                     </div>
                   </div>
@@ -469,39 +488,21 @@ const activeDeltaDir =
                     </div>
                   )}
                 </div>
-                <div
+                {/* <div
                   className="flex items-center gap-1.5 text-sm dark:text-gray-300"
                   style={{ color: deltaColor }}
                 >
                      {granularity !== "daily" && <DeltaIcon dir={activeDeltaDir} />} {granularity !== "daily" && activeDelta}
-                </div>
+                </div> */}
               </div>
 
-              {/* Chart (left) + Table (right) */}
-              <div className="flex gap-4 items-start">
-                {/* Sparkline — 65% */}
-                <div className="flex-[65] min-w-0">
+              {/* Chart (left/top) + Table (right/bottom) */}
+              <div className={`flex gap-4 items-start ${kpi.id === "queries" ? "flex-col" : ""}`}>
+                {/* Sparkline */}
+                <div className={`${kpi.id === "queries" ? "w-full" : "flex-[65]"} min-w-0`}>
                   <div className="h-48 relative">
                     <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700" />
                     <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700" />
-                    {/* <Sparkline
-                      points={
-                        kpi.id === "queries" &&
-                        granularity === "daily" &&
-                        kpi.dailySparkPoints?.length
-                          ? kpi.dailySparkPoints
-                          : kpi.sparkPoints
-                      }
-                      color={kpi.accentColor}
-                      labels={
-                        kpi.id === "queries" &&
-                        granularity === "daily" &&
-                        kpi.dailySparkLabels?.length
-                          ? kpi.dailySparkLabels
-                          : kpi.sparkLabels
-                      }
-                    /> */}
-
                     <Sparkline
                       points={activePoints || []}
                       color={kpi.accentColor}
@@ -521,64 +522,75 @@ const activeDeltaDir =
                   )}
                 </div>
 
-                {/* Table — 35% */}
-                <div className="flex-[35] min-w-0 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                {/* Table */}
+                <div className={`${kpi.id === "queries" ? "w-full mt-2" : "flex-[35]"} min-w-0 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg`}>
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">
-                          Date
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                          {kpi.id === "queries" ? "Period" : "Date"}
                         </th>
-                        <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
-                          Value
+                        <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                          {kpi.id === "queries" ? "Total Queries" : "Value"}
                         </th>
+                        {kpi.id === "queries" && (
+                          <>
+                            <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Total Questions</th>
+                            <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Closed Questions</th>
+                            <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Avg. Closing Time</th>
+                          </>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
-                      {/* {(kpi.id === "queries" &&
-                      granularity === "daily" &&
-                      kpi.dailySparkPoints?.length
-                        ? kpi.dailySparkPoints
-                        : kpi.sparkPoints
-                      ).map((value, idx) => {
-                        const label =
-                          (kpi.id === "queries" &&
-                          granularity === "daily" &&
-                          kpi.dailySparkLabels?.length
-                            ? kpi.dailySparkLabels
-                            : kpi.sparkLabels)?.[idx] || `Point ${idx + 1}`;
-                        return (
-                          <tr
-                            key={idx}
-                            className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                          >
-                            <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                              {label}
-                            </td>
-                            <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                              {value.toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      })} */}
-                      {(activePoints || []).map((value, idx) => {
-                        const label = activeLabels?.[idx] || `Point ${idx + 1}`;
-
-                        return (
-                          <tr
-                            key={idx}
-                            className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                          >
-                            <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                              {label}
-                            </td>
-
-                            <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                              {value.toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {kpi.id === "queries" ? (
+                        (
+                          (granularity === "daily" ? kpi.dailyAnalytics :
+                           granularity === "weekly" ? kpi.weeklyAnalytics :
+                           kpi.monthlyAnalytics) || []
+                        ).map((entry, idx) => {
+                          const label = activeLabels?.[idx] || entry.period;
+                          return (
+                            <tr
+                              key={idx}
+                              className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                            >
+                              <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                                {label}
+                              </td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                                {entry.queryCount.toLocaleString()}
+                              </td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                                {entry.totalQuestions.toLocaleString()}
+                              </td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                                {entry.closedQuestions.toLocaleString()}
+                              </td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                                {entry.averageCloseTimeMinutes} min
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        (activePoints || []).map((value, idx) => {
+                          const label = activeLabels?.[idx] || `Point ${idx + 1}`;
+                          return (
+                            <tr
+                              key={idx}
+                              className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                            >
+                              <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                                {label}
+                              </td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                                {value.toLocaleString()}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>

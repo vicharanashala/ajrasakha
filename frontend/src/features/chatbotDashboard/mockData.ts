@@ -5,7 +5,7 @@ export const DASHBOARD_DATA = {
   meta: { season: "Kharif 2025", lastSync: "2 min ago", datasetVersion: "GD-2025-Q3.14", llmVersion: "v2.4.1", p0Bugs: 3 },
   kpiRow1: [
     { id: "dau", label: "Active farmers (DAU)", value: "4.82 L", delta: "+18% vs last month", deltaDir: "up" as const, accentColor: "#3AAA5A", sparkPoints: [22,20,22,18,19,15,13,14,10,11,8,7,5] },
-    { id: "queries", label: "Daily queries", value: "1.24 L", delta: "+31% week-on-week", deltaDir: "up" as const, accentColor: "#378ADD", sparkPoints: [24,22,20,22,18,20,16,18,14,12,10,8,6] },
+    { id: "queries", label: "Daily queries", value: "1.24 L", delta: "+31% week-on-week", deltaDir: "up" as const, accentColor: "#378ADD", sparkPoints: [24,22,20,22,18,20,16,18,14,12,10,8,6], dailyAnalytics: [], weeklyAnalytics: [], monthlyAnalytics: [] },
     { id: "session", label: "Avg session duration", value: "6.4 min", delta: "Stable this week", deltaDir: "neutral" as const, accentColor: "#EF9F27", sparkPoints: [14,12,15,13,12,14,13,14,12,13,14,12,13] },
     // { id: "bugs", label: "Critical bugs open", value: "7", delta: "Needs immediate action", deltaDir: "down" as const, accentColor: "#E24B4A", badges: [{ label: "3 P0", variant: "red" as const }, { label: "4 P1", variant: "amber" as const }] },
   ] as KpiCard[],
