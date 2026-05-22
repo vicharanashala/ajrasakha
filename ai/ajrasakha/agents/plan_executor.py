@@ -21,10 +21,16 @@ from ajrasakha.agents.location_context import (
 from ajrasakha.agents.language import text_matches_user_language
 from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
-from ajrasakha.agents.retrieval_sanitizer import should_skip_sanitizer_for_gdb
+from ajrasakha.agents.retrieval_sanitizer import (
+    gdb_has_usable_answers,
+    should_skip_sanitizer_for_gdb,
+)
 from ajrasakha.agents.tool_registry import get_location_tool, get_main_tool_node, get_reviewer_tool
 
 logger = logging.getLogger(__name__)
+
+# Set True to run chemical_checker (planner flag + post-gdb regex follow-up batch).
+ENABLE_CHEMICAL_CHECKER = False
 
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
@@ -141,6 +147,7 @@ async def build_tool_calls_from_plan(
         district = "all"
     crop = _entity_str(plan, "crop", loc, "General", user_query=user_query)
     domain = _reviewer_domain(plan)
+    reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
 
     if _needs_location_resolve(loc):
         calls.append({
@@ -153,7 +160,7 @@ async def build_tool_calls_from_plan(
     calls.append({
         "name": reviewer_tool_name,
         "args": {
-            "question": user_query,
+            "question": reviewer_question,
             "state_name": state_name,
             "crop": crop,
             "details": {
@@ -264,7 +271,7 @@ async def build_tool_calls_from_plan(
         chemicals.extend(extra_chemicals)
     chemicals = list(dict.fromkeys(c for c in chemicals if c))
 
-    if plan.get("chemical_checker") and chemicals:
+    if ENABLE_CHEMICAL_CHECKER and plan.get("chemical_checker") and chemicals:
         calls.append({
             "name": "chemical_checker",
             "args": {
@@ -398,7 +405,12 @@ async def execute_plan_node(
         )
 
     extra_chems = extract_chemicals_from_tool_messages(new_msgs)
-    if extra_chems and plan.get("knowledge_base") and not plan.get("chemical_checker"):
+    if (
+        ENABLE_CHEMICAL_CHECKER
+        and extra_chems
+        and plan.get("knowledge_base")
+        and not plan.get("chemical_checker")
+    ):
         second_calls = await build_tool_calls_from_plan(
             {**plan, "chemical_checker": True},
             user_query,
@@ -445,31 +457,11 @@ def _latest_turn_gdb_payload(messages: list[BaseMessage]) -> Optional[dict]:
 
 
 def _gdb_has_usable_data(messages: list[BaseMessage]) -> bool:
-    """True when GDB has an exact answer or at least one similar pair with content."""
+    """True when GDB has an exact or similar pair with a non-empty expert answer."""
     data = _latest_turn_gdb_payload(messages)
     if not data:
         return False
-    if data.get("is_exact"):
-        exact = data.get("exact_match") or {}
-        if (exact.get("answer") or "").strip():
-            return True
-    if data.get("is_similar"):
-        for key in _SIMILAR_PAIR_KEYS:
-            pair = data.get(key)
-            if isinstance(pair, dict) and (
-                (pair.get("question") or "").strip() or (pair.get("answer") or "").strip()
-            ):
-                return True
-    exact = data.get("exact_match") or {}
-    if (exact.get("answer") or "").strip():
-        return True
-    for key in _SIMILAR_PAIR_KEYS:
-        pair = data.get(key)
-        if isinstance(pair, dict) and (
-            (pair.get("question") or "").strip() or (pair.get("answer") or "").strip()
-        ):
-            return True
-    return False
+    return gdb_has_usable_answers(data)
 
 
 _SPECIALIST_TOOL_NAMES = frozenset({"weather", "market", "soil", "schemes", "chemical_checker"})
@@ -515,7 +507,10 @@ def should_expert_queue_reply(state: AjraSakhaState) -> bool:
 
 
 def route_after_sanitizer(state: AjraSakhaState) -> str:
-    if should_expert_queue_reply(state):
+    """After sanitizer: no usable GDB answers → canned reply only (never synthesize)."""
+    messages = state.get("messages") or []
+    data = _latest_turn_gdb_payload(messages)
+    if not data or not gdb_has_usable_answers(data):
         return "empty_gdb_reply"
     return "synthesize"
 

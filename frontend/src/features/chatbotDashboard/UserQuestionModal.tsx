@@ -66,7 +66,7 @@ const UserQuestionsModal = ({
   const totalCount =
     viewType === "questions"
       ? fullData?.questions?.totalQuestions ?? 0
-      : user.totalQuestions.toLocaleString() ?? 0;
+      : user?.totalQuestions?.toLocaleString() ?? 0;
 
   return (
     <Dialog

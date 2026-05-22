@@ -373,7 +373,8 @@ function transformApiResponse(
 
 export function useDashboardData(
   filters?: DashboardFilterValues,
-  source: "vicharanashala" | "annam" = "vicharanashala",
+  source: "vicharanashala" | "annam" | "whatsapp"= "vicharanashala",
+  enabled?: boolean
 ) {
   const startISO = filters?.startTime?.toISOString();
   const endISO = filters?.endTime?.toISOString();
@@ -390,6 +391,7 @@ export function useDashboardData(
       source,
       userType,
     ],
+    enabled,
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();

@@ -48,7 +48,7 @@ import {
 
 import { Button } from "@/components/atoms/button";
 
-import { CalendarIcon, Loader, RefreshCcw } from "lucide-react";
+import { CalendarIcon, RefreshCcw } from "lucide-react";
 
 import { format, subDays } from "date-fns";
 const chartConfig = {
@@ -69,7 +69,10 @@ type ActiveUsersChartProps = {
   userType: string;
 };
 
-export const ActiveUsersChart = ({ source, userType }: ActiveUsersChartProps) => {
+export const ActiveUsersChart = ({
+  source,
+  userType,
+}: ActiveUsersChartProps) => {
   const [type, setType] = useState<ActiveUserType>("daily");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(
     defaultDateRange,
@@ -196,14 +199,6 @@ export const ActiveUsersChart = ({ source, userType }: ActiveUsersChartProps) =>
     <Card className="pt-0">
       <CardHeader className="border-b py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          {/* <div className="grid gap-1">
-            <CardTitle>{chartTitle} Trend</CardTitle>
-
-            <CardDescription>
-              Interactive analytics showing chatbot user activity trends
-            </CardDescription>
-          </div> */}
-
           <div className="grid gap-1">
             <div className="flex items-center gap-2">
               <CardTitle>{chartTitle} Trend</CardTitle>
@@ -239,27 +234,9 @@ export const ActiveUsersChart = ({ source, userType }: ActiveUsersChartProps) =>
             </div>
 
             <CardDescription>
-              Interactive analytics showing chatbot user activity trends (Last
-              one year)
+              Interactive analytics showing chatbot user activity trends
             </CardDescription>
           </div>
-
-          {/* <Select
-            value={type}
-            onValueChange={(value) => setType(value as ActiveUserType)}
-          >
-            <SelectTrigger className="w-[220px]">
-              <SelectValue />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value="daily">Daily Active Users</SelectItem>
-
-              <SelectItem value="weekly">Weekly Active Users</SelectItem>
-
-              <SelectItem value="monthly">Monthly Active Users</SelectItem>
-            </SelectContent>
-          </Select> */}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {renderDateRangePicker()}
