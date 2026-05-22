@@ -45,6 +45,7 @@ import {
 } from "@/components/atoms/tooltip";
 import FeedbackCard from "./FeedbackCard";
 import { ActiveUsersChart } from "./active-users";
+import NewFilters, { type Filters } from "./NewFilters";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -61,7 +62,11 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-  const { data, isLoading, error } = useDashboardData(filters, source);
+  const { data, isLoading, error } = useDashboardData(
+    filters,
+    source,
+    source === "annam" || source === "vicharanashala",
+  );
 
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
   const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
@@ -78,15 +83,28 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     endTime: faqsDateRange?.to,
   }), [filters, faqsDateRange]);
 
-  const { data: trendsData, isLoading: trendsLoading } = useDashboardData(trendsFilters, source);
-  const { data: faqsData, isLoading: faqsLoading } = useDashboardData(faqsFilters, source);
+  const { data: trendsData, isLoading: trendsLoading } = useDashboardData(
+    trendsFilters,
+    source,
+    source === "annam" || source === "vicharanashala",
+  );
+  const { data: faqsData, isLoading: faqsLoading } = useDashboardData(
+    faqsFilters,
+    source,
+    source === "annam" || source === "vicharanashala",
+  );
 
   // console.log("Dashboard data:", data);
   const {
     data: dauTrend,
     isLoading: dauLoading,
     error: dauError,
-  } = useDailyUserTrend(30, source, filters.userType);
+  } = useDailyUserTrend(
+    30,
+    source,
+    filters.userType,
+    source === "annam" || source === "vicharanashala",
+  );
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
   >(undefined);
@@ -195,19 +213,24 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
   // Remove these two variables when data is dynamic
   const kpiRow1WithOverlay = patchedKpiRow1
-    .filter(card => dynamicIds.includes(card.id)) // Commented out dummy cards: filter only dynamic ones
-    .map(card => ({
+    .filter((card) => dynamicIds.includes(card.id)) // Commented out dummy cards: filter only dynamic ones
+    .map((card) => ({
       ...card,
       isDummy: !dynamicIds.includes(card.id),
     }));
 
   const kpiRow2WithOverlay = data.kpiRow2
-    .filter(card => card.id === "totalInstalls") // Commented out dummy cards: filter only totalInstalls
+    .filter((card) => card.id === "totalInstalls") // Commented out dummy cards: filter only totalInstalls
     .map((card) => ({
       ...card,
       // isDummy: false, // temporarily disabled for testing
       isDummy: card.id !== "totalInstalls",
     }));
+
+  const [newFilters, setNewFilters] = useState<Filters>({
+    sourceType: "application",
+    application: "annam",
+  });
 
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
@@ -251,37 +274,58 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
               <div className="flex-1 overflow-y-auto px-5 pb-5">
                 {/* Source Selection Tabs & All Users Filter */}
                 <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onSourceChange?.('annam')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'annam'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+
+                  {/* Top Level Tabs */}
+                    <div className="flex items-center gap-2">
+                      {/* Application Tab */}
+                      <button
+                        onClick={() =>
+                          setNewFilters((prev) => ({
+                            ...prev,
+                            sourceType: "application",
+                          }))
+                        }
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                          newFilters.sourceType === "application"
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                         }`}
-                    >
-                      Annam
-                    </button>
-                    <button
-                      onClick={() => onSourceChange?.('vicharanashala')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'vicharanashala'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                        }`}
-                    >
-                      Vicharanashala
-                    </button>
-                    <button
-                      disabled
-                      className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
-                    >
-                      Outreach
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
+                      >
+                        Application
+                      </button>
+
+                      {/* Manual Tab (Muted/Disabled) */}
+                      <button
+                        disabled
+                        className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
+                      >
+                        Manual
+                      </button>
+                    </div>
+
+                    <div className="flex items-center ml-auto gap-1">
+                      <NewFilters
+                        filters={newFilters}
+                        onChange={setNewFilters}
+                        onSourceChange={onSourceChange}
+                      />
+
                     <SearchableSelect
-                      options={['External', 'Internal']}
-                      value={filters.userType === 'all' ? 'all' : filters.userType.charAt(0).toUpperCase() + filters.userType.slice(1)}
-                      onChange={(v) => setFilters(prev => ({ ...prev, userType: (v === 'all' ? 'all' : v.toLowerCase()) as DashboardFilterValues['userType'] }))}
+                      options={["External", "Internal"]}
+                      value={
+                          filters.userType === "all"
+                            ? "all"
+                            : filters.userType.charAt(0).toUpperCase() +
+                              filters.userType.slice(1)
+                        }
+                        onChange={(v) =>
+                          setFilters((prev) => ({
+                            ...prev,
+                            userType: (v === "all"
+                              ? "all"
+                              : v.toLowerCase()) as DashboardFilterValues["userType"],
+                          }))
+                        }
                       placeholder="All Users"
                       className="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
                       activeClassName="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
@@ -293,7 +337,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   filters={filters}
                   onFilterChange={setFilters}
                 />
-
+            {(source === "annam" || source === "vicharanashala") && (
+              <div>
                 {activeSegment && (
                   <SegmentDetailBanner
                     seg={activeSegment}
@@ -308,7 +353,10 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   className="relative"
                 >
                   {isLoading && (
-                    <Spinner text="Fetching metrics..." fullScreen={false} />
+                    <Spinner
+                      text="Fetching metrics..."
+                      fullScreen={false}
+                    />
                   )}
 
                   {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
@@ -390,7 +438,9 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                 {/* 2-col row */}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4 items-stretch">
                   <div className="lg:col-span-2">
-                    <PlatformDonutSegments rawData={data.platformInstalls} />
+                    <PlatformDonutSegments
+                          rawData={data.platformInstalls}
+                        />
                   </div>
                   <div
                     className="lg:col-span-2"
@@ -418,7 +468,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                           {(() => {
                             const pct =
                               data.kccAwareness?.[0]?.count +
-                              data.kccAwareness?.[1]?.count || 0;
+                                data.kccAwareness?.[1]?.count || 0;
                             const r = 45,
                               cx = 60,
                               cy = 60,
@@ -486,7 +536,9 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                                     r={r}
                                     fill="none"
                                     stroke="#22c55e"
-                                    strokeWidth={hovered === "yes" ? 14 : 10}
+                                    strokeWidth={
+                                      hovered === "yes" ? 14 : 10
+                                    }
                                     strokeDasharray={`${yesDash} ${circ}`}
                                     strokeDashoffset={0}
                                     transform={`rotate(-90 ${cx} ${cy})`}
@@ -554,7 +606,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                           {(() => {
                             const pct =
                               data.agriAppUsage?.[0]?.count +
-                              data.agriAppUsage?.[1]?.count || 0;
+                             data.agriAppUsage?.[1]?.count || 0;
                             const r = 45,
                               cx = 60,
                               cy = 60,
@@ -630,8 +682,12 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                                     transform={`rotate(-90 ${cx} ${cy})`}
                                     strokeLinecap="butt"
                                     className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setAgriHovered("yes")}
-                                    onMouseLeave={() => setAgriHovered(null)}
+                                    onMouseEnter={() =>
+                                      setAgriHovered("yes")
+                                    }
+                                    onMouseLeave={() =>
+                                      setAgriHovered(null)
+                                    }
                                   />
 
                                   {/* NO SEGMENT */}
@@ -641,14 +697,20 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                                     r={r}
                                     fill="none"
                                     stroke="#ffff"
-                                    strokeWidth={agriHovered === "no" ? 14 : 10}
+                                    strokeWidth={
+                                      agriHovered === "no" ? 14 : 10
+                                    }
                                     strokeDasharray={`${noDash} ${circ}`}
                                     strokeDashoffset={-yesDash}
                                     transform={`rotate(-90 ${cx} ${cy})`}
                                     strokeLinecap="butt"
                                     className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setAgriHovered("no")}
-                                    onMouseLeave={() => setAgriHovered(null)}
+                                    onMouseEnter={() =>
+                                      setAgriHovered("no")
+                                    }
+                                    onMouseLeave={() =>
+                                      setAgriHovered(null)
+                                    }
                                   />
 
                                   {/* CENTER TEXT */}
@@ -703,7 +765,9 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                               onClick={(e) => e.stopPropagation()}
                             >
                               <button
-                                onClick={() => setIsKnowledgeMaximized(false)}
+                                onClick={() =>
+                                  setIsKnowledgeMaximized(false)
+                                }
                                 className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                                 title="Close"
                               >
@@ -720,7 +784,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                                 {(() => {
                                   const pct =
                                     data.kccAwareness?.[0]?.count +
-                                    data.kccAwareness?.[1]?.count || 0;
+                                      data.kccAwareness?.[1]?.count || 0;
                                   const circ = 2 * Math.PI * 90;
                                   // const dash = (pct / 100) * circ;
                                   const yesDash =
@@ -798,8 +862,12 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                                           transform={`rotate(-90 ${cx} ${cy})`}
                                           strokeLinecap="butt"
                                           className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() => setHovered("yes")}
-                                          onMouseLeave={() => setHovered(null)}
+                                          onMouseEnter={() =>
+                                            setHovered("yes")
+                                          }
+                                          onMouseLeave={() =>
+                                            setHovered(null)
+                                          }
                                         />
 
                                         {/* NO SEGMENT */}
@@ -817,8 +885,12 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                                           transform={`rotate(-90 ${cx} ${cy})`}
                                           strokeLinecap="butt"
                                           className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() => setHovered("no")}
-                                          onMouseLeave={() => setHovered(null)}
+                                          onMouseEnter={() =>
+                                            setHovered("no")
+                                          }
+                                          onMouseLeave={() =>
+                                            setHovered(null)
+                                          }
                                         />
 
                                         {/* CENTER TEXT */}
@@ -861,7 +933,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                                 {(() => {
                                   const pct =
                                     data.agriAppUsage?.[0]?.count +
-                                    data.agriAppUsage?.[1]?.count || 0;
+                                      data.agriAppUsage?.[1]?.count || 0;
                                   const circ = 2 * Math.PI * 90;
                                   // const dash = (pct / 100) * circ;
                                   const yesDash =
@@ -903,8 +975,12 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                                           transform={`rotate(-90 ${cx} ${cy})`}
                                           strokeLinecap="butt"
                                           className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() => setAgriHovered("yes")}
-                                          onMouseLeave={() => setAgriHovered(null)}
+                                          onMouseEnter={() =>
+                                            setAgriHovered("yes")
+                                          }
+                                          onMouseLeave={() =>
+                                            setAgriHovered(null)
+                                          }
                                         />
 
                                         {/* NO SEGMENT */}
@@ -914,14 +990,20 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                                           r={r}
                                           fill="none"
                                           stroke="#ffff"
-                                          strokeWidth={agriHovered === "no" ? 14 : 10}
+                                          strokeWidth={
+                                            agriHovered === "no" ? 14 : 10
+                                          }
                                           strokeDasharray={`${noDash} ${circ}`}
                                           strokeDashoffset={-yesDash}
                                           transform={`rotate(-90 ${cx} ${cy})`}
                                           strokeLinecap="butt"
                                           className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() => setAgriHovered("no")}
-                                          onMouseLeave={() => setAgriHovered(null)}
+                                          onMouseEnter={() =>
+                                            setAgriHovered("no")
+                                          }
+                                          onMouseLeave={() =>
+                                            setAgriHovered(null)
+                                          }
                                         />
 
                                         {/* CENTER TEXT */}
@@ -1003,13 +1085,21 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     isLoading={trendsLoading}
                   />
 
-                  <FeedbackCard 
-                    title="Feedback Data" 
-                    positiveFeedbacksCount={data?.feedbackData?.stats?.positiveCount} 
-                    negativeFeedbacksCount={data?.feedbackData?.stats?.negativeCount} 
-                    positiveFeedbacks={data?.feedbackData?.positiveFeedbacks} 
-                    negativeFeedbacks={data?.feedbackData?.negativeFeedbacks} 
-                    averageRating={data?.feedbackData?.stats?.averageRating} 
+                  <FeedbackCard
+                    title="Feedback Data"
+                    positiveFeedbacksCount={
+                      data?.feedbackData?.stats?.positiveCount
+                    }
+                    negativeFeedbacksCount={
+                      data?.feedbackData?.stats?.negativeCount
+                    }
+                    positiveFeedbacks={
+                      data?.feedbackData?.positiveFeedbacks
+                    }
+                    negativeFeedbacks={
+                      data?.feedbackData?.negativeFeedbacks
+                    }
+                    averageRating={data?.feedbackData?.stats?.averageRating}
                   />
                 </div>
 
@@ -1022,10 +1112,16 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
                   <TopFaqsLeaderboard
                     faqs={(faqsData as any).topFaqs}
-                    topQuestionsFromCollection={(faqsData as any).topQuestionsFromCollection}
+                    topQuestionsFromCollection={
+                      (faqsData as any).topQuestionsFromCollection
+                    }
                     repeatQueryCount={(faqsData as any).repeatQueryCount}
-                    repeatQueryRatePct={(faqsData as any).repeatQueryRatePct}
-                    avgQuestionsPerUserDay={(faqsData as any).avgQuestionsPerUserDay}
+                    repeatQueryRatePct={
+                      (faqsData as any).repeatQueryRatePct
+                    }
+                    avgQuestionsPerUserDay={
+                      (faqsData as any).avgQuestionsPerUserDay
+                    }
                     dateRange={faqsDateRange}
                     onDateRangeChange={setFaqsDateRange}
                     isLoading={faqsLoading}
@@ -1040,9 +1136,9 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
                 >
                   {/* <ChannelSplitCard
-                    channelSplit={data.channelSplit}
-                    voiceAccuracy={data.voiceAccuracy}
-                  /> */}
+                channelSplit={data.channelSplit}
+                voiceAccuracy={data.voiceAccuracy}
+              /> */}
                   {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
                   {/* <GeoCard states={data.geoStates} />*/}
                   <div
@@ -1052,18 +1148,19 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   >
                     {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
                   </div>
-                </div >
+                </div>
 
                 <div className="mb-6">
-                    <ActiveUsersChart
+                  <ActiveUsersChart
                     source={source}
-                    userType = {filters.userType}
-                    />
-                </div> 
-              </div >
-            )
-            }
-          </div >
+                    userType={filters.userType}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+            )}
+          </div>
 
           {/* Commented out footer as requested:
           <StatusBar
@@ -1075,6 +1172,6 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
           */}
         </>
       )}
-    </div >
+    </div>
   );
 }
