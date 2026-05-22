@@ -1372,6 +1372,13 @@ export class QuestionRepository implements IQuestionRepository {
           },
         },
       ]).toArray();
+      const reviewLevelByQuestionId = new Map(
+        submissions.map((sub: any) => {
+          const historyCount = sub?.historyCount ?? 0;
+          const reviewLevelNumber = historyCount <= 1 ? 'Author' : historyCount - 1;
+          return [sub?.questionId?.toString(), reviewLevelNumber];
+        }),
+      );
 
       const questionIdsToAttempt = submissions.map(
         sub => new ObjectId(sub?.questionId),
@@ -1448,8 +1455,10 @@ export class QuestionRepository implements IQuestionRepository {
         pipeline,
         { session },
       ).toArray();
-
-      return results;
+      return results.map((q: any) => ({
+        ...q,
+        review_level_number: reviewLevelByQuestionId.get(q.id) ?? 'Author',
+      }));
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch unanswered questions: ${error}`,
