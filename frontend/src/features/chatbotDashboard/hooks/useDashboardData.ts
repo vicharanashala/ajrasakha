@@ -55,6 +55,18 @@ interface DashboardApiResponse {
   feedbackData: FeedbackData;
   dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;
   topFaqs?: Array<{ question: string; count: number }>;
+  responseAdherenceTable?: {
+    whatsappQuestionAsked: number;
+    ajrasakhaQuestionAsked: number;
+    whatsappAnsweredWithin120Min: number;
+    ajrasakhaAnsweredWithin120Min: number;
+    whatsappAverageResponseMinutes: number;
+    ajrasakhaAverageResponseMinutes: number;
+    whatsappInProcessCount: number;
+    ajrasakhaInProcessCount: number;
+    whatsappAdherencePct: number;
+    ajrasakhaAdherencePct: number;
+  };
 }
 
 // ── Date range label helpers ──────────────────────────────────────────────────
@@ -365,6 +377,18 @@ function transformApiResponse(
   (updatedData as any).repeatQueryCount = result.kpi.repeatQueryCount ?? 0;
   (updatedData as any).repeatQueryRatePct = result.kpi.repeatQueryRatePct ?? 0;
   (updatedData as any).avgQuestionsPerUserDay = result.kpi.avgQuestionsPerUserDay ?? 0;
+  (updatedData as any).responseAdherenceTable = result.responseAdherenceTable ?? {
+    whatsappQuestionAsked: 0,
+    ajrasakhaQuestionAsked: 0,
+    whatsappAnsweredWithin120Min: 0,
+    ajrasakhaAnsweredWithin120Min: 0,
+    whatsappAverageResponseMinutes: 0,
+    ajrasakhaAverageResponseMinutes: 0,
+    whatsappInProcessCount: 0,
+    ajrasakhaInProcessCount: 0,
+    whatsappAdherencePct: 0,
+    ajrasakhaAdherencePct: 0,
+  };
 
   return updatedData;
 }

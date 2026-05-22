@@ -123,6 +123,23 @@ def _pair_has_content(pair: dict) -> bool:
     return bool((pair.get("question") or "").strip() or (pair.get("answer") or "").strip())
 
 
+def _pair_has_answer(pair: dict) -> bool:
+    return bool((pair.get("answer") or "").strip())
+
+
+def gdb_has_usable_answers(gdb_data: dict) -> bool:
+    """True when GDB has an exact or similar pair with a non-empty expert answer."""
+    if gdb_data.get("is_exact"):
+        exact = gdb_data.get("exact_match") or {}
+        if (exact.get("answer") or "").strip():
+            return True
+    for key in SIMILAR_PAIR_KEYS:
+        pair = gdb_data.get(key)
+        if isinstance(pair, dict) and _pair_has_answer(pair):
+            return True
+    return False
+
+
 def _collect_similar_pairs(gdb_data: dict) -> list[tuple[str, dict]]:
     pairs: list[tuple[str, dict]] = []
     for key in SIMILAR_PAIR_KEYS:
@@ -141,7 +158,7 @@ def _has_exact_match(gdb_data: dict) -> bool:
 
 def _recompute_is_similar(gdb_data: dict) -> None:
     gdb_data["is_similar"] = any(
-        isinstance(gdb_data.get(key), dict) and _pair_has_content(gdb_data[key])
+        isinstance(gdb_data.get(key), dict) and _pair_has_answer(gdb_data[key])
         for key in SIMILAR_PAIR_KEYS
     )
 
@@ -419,15 +436,13 @@ async def retrieval_sanitizer_node(
     }
 
     updated_content = json.dumps(gdb_data, ensure_ascii=False)
-    kwargs: dict[str, Any] = {
-        "content": updated_content,
-        "tool_call_id": gdb_msg.tool_call_id,
-        "name": "gdb",
-    }
-    if getattr(gdb_msg, "id", None):
-        kwargs["id"] = gdb_msg.id
-
-    updated_msg = ToolMessage(**kwargs)
+    stable_id = getattr(gdb_msg, "id", None) or f"gdb-{gdb_msg.tool_call_id}"
+    updated_msg = ToolMessage(
+        content=updated_content,
+        tool_call_id=gdb_msg.tool_call_id,
+        name="gdb",
+        id=stable_id,
+    )
     return _audit_response(
         state,
         audit,
