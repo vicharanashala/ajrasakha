@@ -9,11 +9,13 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ajrasakha.agents.plan_executor import route_after_execute
+from ajrasakha.agents.prompts import RETRIEVAL_SANITIZER_SYSTEM_PROMPT
 from ajrasakha.agents.retrieval_sanitizer import (
     RELEVANCE_THRESHOLD,
     _apply_scores,
     _collect_similar_pairs,
     _parse_batch_results,
+    gdb_has_usable_answers,
     retrieval_sanitizer_node,
     should_skip_sanitizer_for_gdb,
 )
@@ -54,6 +56,18 @@ def _state_with_gdb(gdb_data: dict, user_query: str = "गेहूं कैस
         "plan": {"rephrased_query": "How to grow wheat in Punjab?"},
         "location": {"state": "Punjab"},
     }
+
+
+# ── Prompt contract ───────────────────────────────────────────────────────
+
+
+def test_sanitizer_prompt_scores_only_not_routing():
+    p = RETRIEVAL_SANITIZER_SYSTEM_PROMPT
+    assert "score only" in p.lower()
+    assert "python applies" in p.lower() or "python" in p.lower()
+    assert "pair_key" in p
+    assert "forwarded to the synthesize" not in p.lower()
+    assert "must be discarded" not in p.lower()
 
 
 # ── Routing ───────────────────────────────────────────────────────────────
@@ -158,6 +172,18 @@ def test_apply_scores_fail_open_none_scores():
     assert "similar_pair2" in data
 
 
+def test_sanitizer_stable_gdb_tool_message_id_when_missing():
+    """New GDB ToolMessage uses gdb-{tool_call_id} for in-place graph updates."""
+    data = _gdb_payload()
+    msg = ToolMessage(
+        content=json.dumps(data),
+        tool_call_id="call_xyz",
+        name="gdb",
+    )
+    stable_id = getattr(msg, "id", None) or f"gdb-{msg.tool_call_id}"
+    assert stable_id == "gdb-call_xyz"
+
+
 def test_apply_scores_all_dropped_sets_is_similar_false():
     data = _gdb_payload()
     pairs = _collect_similar_pairs(data)
@@ -169,6 +195,7 @@ def test_apply_scores_all_dropped_sets_is_similar_false():
     assert data.get("similar_pair1") is None or "similar_pair1" not in data
     assert "similar_pair2" not in data
     assert data["is_similar"] is False
+    assert gdb_has_usable_answers(data) is False
 
 
 # ── Node (mocked LLM) ─────────────────────────────────────────────────────
@@ -222,6 +249,7 @@ async def test_node_filters_pairs_via_llm():
     assert "messages" in result
     updated = result["messages"][0]
     assert isinstance(updated, ToolMessage)
+    assert updated.id == "gdb-msg-1"
     parsed = json.loads(updated.content)
     assert "similar_pair1" in parsed
     assert "similar_pair2" not in parsed

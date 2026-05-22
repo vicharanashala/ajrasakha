@@ -37,6 +37,7 @@ from ajrasakha.agents.location_context import (
     main_agent_location_context_message,
     resolve_state_for_turn,
 )
+from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
     format_conversation_for_planner,
@@ -193,10 +194,11 @@ async def _apply_domain_and_crop_async(
     plan["domain"] = domain
 
     tool_flags = apply_tool_flags_from_domain(domain)
-    chemical_checker = plan.get("chemical_checker", False)
     plan.update(tool_flags)
-    if chemical_checker:
+    if ENABLE_CHEMICAL_CHECKER and plan.get("chemical_checker", False):
         plan["chemical_checker"] = True
+    else:
+        plan["chemical_checker"] = False
 
     entities: PlannerEntities = dict(plan.get("entities") or {})
     user_text = latest_human_text(messages)
