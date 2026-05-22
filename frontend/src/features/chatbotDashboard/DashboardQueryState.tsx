@@ -199,7 +199,7 @@ export const DashboardStateWiseAnalytics = (
     userType,
   );
 
-  console.log("State-wise analytics data:", data);
+  // console.log("State-wise analytics data:", data);
 
   const districts = data ?? [];
 

@@ -37,9 +37,11 @@ from ajrasakha.agents.location_context import (
     main_agent_location_context_message,
     resolve_state_for_turn,
 )
+from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
     format_conversation_for_planner,
+    merge_entities_from_rephrased_query,
     resolve_crop_for_turn,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
@@ -193,10 +195,11 @@ async def _apply_domain_and_crop_async(
     plan["domain"] = domain
 
     tool_flags = apply_tool_flags_from_domain(domain)
-    chemical_checker = plan.get("chemical_checker", False)
     plan.update(tool_flags)
-    if chemical_checker:
+    if ENABLE_CHEMICAL_CHECKER and plan.get("chemical_checker", False):
         plan["chemical_checker"] = True
+    else:
+        plan["chemical_checker"] = False
 
     entities: PlannerEntities = dict(plan.get("entities") or {})
     user_text = latest_human_text(messages)
@@ -312,9 +315,9 @@ async def planner_node(
     conv_block = format_conversation_for_planner(messages) or user_text
 
     deterministic_context = (
-        f"PRE-EXTRACTED ENTITIES (use these, do not override):\n"
-        f"- state: {state_resolved or 'NOT RESOLVED'}\n"
-        f"- crop: {crop_resolved or 'NOT RESOLVED'}\n"
+        f"PRE-EXTRACTED HINTS from latest raw message (server will re-merge from rephrased_query):\n"
+        f"- state hint: {state_resolved or 'NOT RESOLVED'}\n"
+        f"- crop hint: {crop_resolved or 'NOT RESOLVED'}\n"
         f"- has_gps: {has_gps}\n"
     )
     llm_messages.append(
@@ -334,30 +337,24 @@ async def planner_node(
         output = await llm.ainvoke(llm_messages, config=config)
         plan = planner_output_to_plan(output)
 
-        entities = plan.get("entities") or {}
+        if not plan.get("rephrased_query"):
+            plan["rephrased_query"] = user_text
+        if not plan.get("original_query_en"):
+            plan["original_query_en"] = user_text
 
-        if state_resolved:
-            entities["state"] = state_resolved
-        elif not entities.get("state"):
-            gps_state = gps_state_from_location(location)
-            if gps_state:
-                entities["state"] = gps_state
-
-        if crop_resolved:
-            entities["crop"] = crop_resolved
-
+        entities = merge_entities_from_rephrased_query(plan, messages, location)
         plan["entities"] = entities
 
         plan, domain, crop_required = await _apply_domain_and_crop_async(
             plan,
             messages,
-            crop_prefilled=crop_resolved,
+            crop_prefilled=entities.get("crop"),
             config=config,
         )
 
         entities = plan.get("entities") or {}
         effective_crop = entities.get("crop")
-        final_state = entities.get("state") or state_resolved
+        final_state = entities.get("state")
         is_complete, missing, follow_up = _check_question_completeness(
             state_resolved=final_state,
             crop_resolved=effective_crop,
@@ -377,10 +374,6 @@ async def planner_node(
             farmer_language=farmer_lang,
         )
 
-        if not plan.get("rephrased_query"):
-            plan["rephrased_query"] = user_text
-        if not plan.get("original_query_en"):
-            plan["original_query_en"] = user_text
         plan["knowledge_base"] = True
 
         logger.info(
