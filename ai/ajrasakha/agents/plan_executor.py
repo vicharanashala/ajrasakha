@@ -19,10 +19,18 @@ from ajrasakha.agents.location_context import (
     merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
+from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
+from ajrasakha.agents.retrieval_sanitizer import should_skip_sanitizer_for_gdb
 from ajrasakha.agents.tool_registry import get_location_tool, get_main_tool_node, get_reviewer_tool
 
 logger = logging.getLogger(__name__)
+
+# Set True to run chemical_checker (planner flag + post-gdb regex follow-up batch).
+ENABLE_CHEMICAL_CHECKER = False
+
+_SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
+_GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
 
 _CHEMICAL_NAME_RE = re.compile(
     r"\b(monocrotophos|chlorpyrifos|endosulfan|carbofuran|paraquat|"
@@ -106,17 +114,7 @@ def _entity_str(
 
 
 def _reviewer_domain(plan: PlannerPlan) -> str:
-    if plan.get("weather"):
-        return "Weather"
-    if plan.get("mandi"):
-        return "Market Prices"
-    if plan.get("soil"):
-        return "Soil Health"
-    if plan.get("schemes"):
-        return "Government Schemes"
-    if plan.get("knowledge_base"):
-        return "Crop Protection"
-    return "General"
+    return reviewer_upload_domain(plan.get("domain") or "General")
 
 
 async def build_tool_calls_from_plan(
@@ -133,9 +131,17 @@ async def build_tool_calls_from_plan(
     loc = location or {}
     entities = plan.get("entities") or {}
     state_name = _entity_str(plan, "state", loc, "Not specified", user_query=user_query)
-    district = _entity_str(plan, "district", loc, "Not specified", user_query=user_query)
-    if district == "Not specified" and has_gps_coordinates(loc) and loc.get("city"):
+    district = _entity_str(plan, "district", loc, "all", user_query=user_query)
+    if district in {"", "Not specified", "unknown"} and has_gps_coordinates(loc) and loc.get("city"):
         district = str(loc["city"])
+    elif district in {"", "Not specified", "unknown"} and state_name.lower() not in {
+        "",
+        "not specified",
+        "unknown",
+        "all",
+        "none",
+    }:
+        district = "all"
     crop = _entity_str(plan, "crop", loc, "General", user_query=user_query)
     domain = _reviewer_domain(plan)
 
@@ -261,7 +267,7 @@ async def build_tool_calls_from_plan(
         chemicals.extend(extra_chemicals)
     chemicals = list(dict.fromkeys(c for c in chemicals if c))
 
-    if plan.get("chemical_checker") and chemicals:
+    if ENABLE_CHEMICAL_CHECKER and plan.get("chemical_checker") and chemicals:
         calls.append({
             "name": "chemical_checker",
             "args": {
@@ -395,7 +401,12 @@ async def execute_plan_node(
         )
 
     extra_chems = extract_chemicals_from_tool_messages(new_msgs)
-    if extra_chems and plan.get("knowledge_base") and not plan.get("chemical_checker"):
+    if (
+        ENABLE_CHEMICAL_CHECKER
+        and extra_chems
+        and plan.get("knowledge_base")
+        and not plan.get("chemical_checker")
+    ):
         second_calls = await build_tool_calls_from_plan(
             {**plan, "chemical_checker": True},
             user_query,
@@ -417,6 +428,106 @@ async def execute_plan_node(
     return {"messages": [ai_msg] + new_msgs, "location": merged_loc}
 
 
+def _latest_turn_gdb_payload(messages: list[BaseMessage]) -> Optional[dict]:
+    """Parse gdb ToolMessage JSON from the current turn (after last HumanMessage)."""
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+    if last_human_idx < 0:
+        return None
+    for i in range(len(messages) - 1, last_human_idx, -1):
+        msg = messages[i]
+        if isinstance(msg, ToolMessage) and getattr(msg, "name", None) == "gdb":
+            text = _message_to_text(msg)
+            if not text or text.upper() in _GDB_EMPTY_SENTINELS:
+                return None
+            try:
+                data = json.loads(text)
+                if isinstance(data, dict):
+                    return data
+            except (json.JSONDecodeError, TypeError):
+                return None
+    return None
+
+
+def _gdb_has_usable_data(messages: list[BaseMessage]) -> bool:
+    """True when GDB has an exact answer or at least one similar pair with content."""
+    data = _latest_turn_gdb_payload(messages)
+    if not data:
+        return False
+    if data.get("is_exact"):
+        exact = data.get("exact_match") or {}
+        if (exact.get("answer") or "").strip():
+            return True
+    if data.get("is_similar"):
+        for key in _SIMILAR_PAIR_KEYS:
+            pair = data.get(key)
+            if isinstance(pair, dict) and (
+                (pair.get("question") or "").strip() or (pair.get("answer") or "").strip()
+            ):
+                return True
+    exact = data.get("exact_match") or {}
+    if (exact.get("answer") or "").strip():
+        return True
+    for key in _SIMILAR_PAIR_KEYS:
+        pair = data.get(key)
+        if isinstance(pair, dict) and (
+            (pair.get("question") or "").strip() or (pair.get("answer") or "").strip()
+        ):
+            return True
+    return False
+
+
+_SPECIALIST_TOOL_NAMES = frozenset({"weather", "market", "soil", "schemes", "chemical_checker"})
+
+
+def _plan_used_specialist_tools(plan: PlannerPlan) -> bool:
+    """True when weather/mandi/soil/schemes/chemical_checker were requested this turn."""
+    return bool(
+        plan.get("weather")
+        or plan.get("mandi")
+        or plan.get("soil")
+        or plan.get("schemes")
+        or plan.get("chemical_checker")
+    )
+
+
+def _turn_has_specialist_tool_message(messages: list[BaseMessage]) -> bool:
+    """True when a specialist ToolMessage exists in the current turn."""
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+    if last_human_idx < 0:
+        return False
+    for i in range(len(messages) - 1, last_human_idx, -1):
+        msg = messages[i]
+        if isinstance(msg, ToolMessage):
+            name = getattr(msg, "name", None) or ""
+            if name in _SPECIALIST_TOOL_NAMES and _message_to_text(msg):
+                return True
+    return False
+
+
+def should_expert_queue_reply(state: AjraSakhaState) -> bool:
+    """GDB empty after retrieval + no specialist tools → canned expert-queue message."""
+    plan = state.get("plan") or {}
+    messages = state.get("messages") or []
+    used_specialists = _plan_used_specialist_tools(plan) or _turn_has_specialist_tool_message(
+        messages
+    )
+    return not _gdb_has_usable_data(messages) and not used_specialists
+
+
+def route_after_sanitizer(state: AjraSakhaState) -> str:
+    if should_expert_queue_reply(state):
+        return "empty_gdb_reply"
+    return "synthesize"
+
+
 def route_after_execute(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
     if plan.get("skip_synthesize"):
@@ -426,22 +537,13 @@ def route_after_execute(state: AjraSakhaState) -> str:
         if isinstance(msg, AIMessage):
             break
         if isinstance(msg, ToolMessage) and getattr(msg, "name", None) == "gdb":
-            text = _message_to_text(msg)
-            if not text or text.upper() == "NO_RELEVANT_CONTENT" or text in {"[]", "{}"}:
+            if should_expert_queue_reply(state):
                 return "empty_gdb_reply"
-            try:
-                data = json.loads(text)
-                if isinstance(data, dict):
-                    is_exact = data.get("is_exact", False)
-                    is_similar = data.get("is_similar", False)
-                    # If neither exact nor similar match, it's empty
-                    if not is_exact and not is_similar:
-                        # Also check legacy format
-                        exact = data.get("exact_match") or {}
-                        similar = data.get("similar_match") or {}
-                        if not exact and not similar:
-                            return "empty_gdb_reply"
-            except Exception:
-                pass
-    return "synthesize"
+            data = _latest_turn_gdb_payload(messages)
+            if data and should_skip_sanitizer_for_gdb(data):
+                return "synthesize"
+            return "retrieval_sanitizer"
+    if should_expert_queue_reply(state):
+        return "empty_gdb_reply"
+    return "retrieval_sanitizer"
 

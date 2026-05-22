@@ -147,9 +147,9 @@ export class PerformanceController {
   }
 
   @OpenAPI({ summary: 'Get detailed questions/answers analytics' })
-  @Get('/questions-analytics')
+  @Post('/questions-analytics')
   @Authorized()
-  async getQuestionsAnalytics(@QueryParams() query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
+  async getQuestionsAnalytics(@Body() query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
     return this.performanceService.getQuestionsAnalytics(query);
   }
 

@@ -23,7 +23,8 @@ from ajrasakha.agents.config import CLAUDE_MODEL
 from ajrasakha.agents.language import detect_farmer_language, language_directive_for_synthesis
 from ajrasakha.agents.memory import load_long_term_summary
 from ajrasakha.agents.location_context import main_agent_location_context_message
-from ajrasakha.agents.prompts import LLM_FALLBACK_MSG, SYNTHESIZER_SYSTEM_PROMPT, WARNING_TEXT
+from ajrasakha.agents.plan_executor import should_expert_queue_reply
+from ajrasakha.agents.prompts import EMPTY_GDB_REPLY, LLM_FALLBACK_MSG, SYNTHESIZER_SYSTEM_PROMPT, WARNING_TEXT
 from ajrasakha.agents.state import AjraSakhaState
 
 logger = logging.getLogger(__name__)
@@ -138,6 +139,11 @@ def _collect_all_sources(gdb_data: dict) -> str:
 
 # ── Synthesizer prompts for exact vs similar ──────────────────────────────
 
+_SYNTHESIS_BODY_ONLY_REMINDER = (
+    "Rephrase/synthesize the answer body only. "
+    "Do not add sources, disclaimers, or footers — the system appends those."
+)
+
 EXACT_MATCH_REPHRASE_PROMPT = """You are AjraSakha, rephrasing an expert-verified answer for an Indian farmer.
 
 You receive an EXACT MATCH answer from the Golden Database. Your job is minimal:
@@ -146,8 +152,18 @@ You receive an EXACT MATCH answer from the Golden Database. Your job is minimal:
 3. Do NOT add new information or agricultural advice from your own knowledge
 4. Do NOT add the 2-hour disclaimer — this is expert-verified data
 5. Write in WhatsApp-friendly plain text (no markdown: no **, ##, or - bullets)
-6. Use professional emojis for section headers
+6. Do not use emojis, only add headers wherever necessary.
 7. Keep it concise and practical
+
+OUTPUT CONTRACT (NON-NEGOTIABLE):
+- Return ONLY the answer body. End on the last farming fact. Zero lines after that.
+- No footer, disclaimer, source list, or "where this answer came from" paragraph.
+
+FORBIDDEN — never output any of the following:
+- "The answer I provided is sourced only from the following approved materials"
+- "This is AjraSakha's testing version" or any "testing version" closing line
+- "Answers synthesized from" or closers naming SKUAST, universities, or "expert agricultural database"
+- SOURCE: / Sources: / plain-text source lists (system uses 📚 and 👨‍🌾 lines)
 
 LANGUAGE (NON-NEGOTIABLE):
 Reply in the EXACT same language as the farmer's query. Translate the expert answer if needed.
@@ -165,8 +181,19 @@ You receive SIMILAR MATCH pairs from the Golden Database. Your job:
 4. Do NOT add information from your own knowledge
 5. Do NOT add the 2-hour disclaimer — this is from the expert database
 6. Write in WhatsApp-friendly plain text (no markdown: no **, ##, or - bullets)
-7. Use professional emojis for section headers
+7. Do not use emojis, only add headers wherever necessary.
 8. Keep it concise, practical, and farmer-friendly
+
+OUTPUT CONTRACT (NON-NEGOTIABLE):
+- Return ONLY the answer body. End on the last farming fact. Zero lines after that.
+- No footer, disclaimer, source list, or "where this answer came from" paragraph.
+
+
+FORBIDDEN — never output any of the following:
+- "The answer I provided is sourced only from the following approved materials"
+- "This is AjraSakha's testing version" or any "testing version" closing line
+- "Answers synthesized from" or closers naming SKUAST, universities, or "expert agricultural database"
+- SOURCE: / Sources: / plain-text source lists (system uses 📚 and 👨‍🌾 lines)
 
 LANGUAGE (NON-NEGOTIABLE):
 Reply in the EXACT same language as the farmer's query. Translate the expert data if needed.
@@ -298,6 +325,13 @@ async def synthesize_node(
     if human is None:
         return {}
 
+    if should_expert_queue_reply(state):
+        logger.info("GDB empty with no specialist tools — returning expert-queue canned reply")
+        return {
+            "messages": [AIMessage(content=EMPTY_GDB_REPLY)],
+            "location": state.get("location"),
+        }
+
     user_text = _message_to_text(human)
     output_lang = detect_farmer_language(user_text)
     long_term_summary = await load_long_term_summary(store, config)
@@ -337,6 +371,7 @@ async def synthesize_node(
         llm_messages.append(
             HumanMessage(
                 content=(
+                    f"{_SYNTHESIS_BODY_ONLY_REMINDER}\n\n"
                     f"Farmer's question (language: {output_lang}):\n{user_text}\n\n"
                     f"EXACT MATCH from Golden Database:\n"
                     f"Matched Question: {exact_question}\n"
@@ -421,6 +456,7 @@ async def synthesize_node(
         llm_messages.append(
             HumanMessage(
                 content=(
+                    f"{_SYNTHESIS_BODY_ONLY_REMINDER}\n\n"
                     f"Farmer's question (language: {output_lang}):\n{user_text}\n\n"
                     f"SIMILAR MATCHES from Golden Database:\n{pairs_text}"
                     f"{other_tools_section}\n\n"
@@ -463,14 +499,25 @@ async def synthesize_node(
             raise
 
     else:
-        # ── No GDB data: Full synthesis with all tools (original behavior) ──
+        # ── No GDB data: Check if other tools have results ──
+        other_tools = _format_non_gdb_tool_results(messages)
+        
+        if not other_tools.strip():
+            # No tools have data at all
+            logger.info("No GDB data and no other specialist tools — returning canned reply")
+            return {
+                "messages": [AIMessage(content=EMPTY_GDB_REPLY)],
+                "location": state.get("location"),
+            }
+        
+        # Other tools have data → synthesize from them
+        logger.info("No GDB data but other tools available — synthesizing from tools")
         tool_block = _format_tool_results_for_synthesizer(messages)
 
         llm_messages: list[BaseMessage] = [
             SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
             SystemMessage(content=language_directive_for_synthesis(user_text)),
             SystemMessage(content=summary_context),
-            SystemMessage(content=f"Mandatory disclaimer to append when required:\n{WARNING_TEXT}"),
         ]
         loc_ctx = main_agent_location_context_message(state.get("location"))
         if loc_ctx:
@@ -487,7 +534,16 @@ async def synthesize_node(
         try:
             llm = ChatAnthropic(model=CLAUDE_MODEL)
             response = await llm.ainvoke(llm_messages, config=config)
-            return {"messages": [response], "location": state.get("location")}
+            answer_text = _message_to_text(response)
+
+            # Append mandatory testing disclaimer (same as exact/similar paths)
+            answer_text = f"{answer_text}\n\n{WARNING_TEXT}"
+
+            logger.info("Tool-only synthesis complete (len=%d)", len(answer_text))
+            return {
+                "messages": [AIMessage(content=answer_text)],
+                "location": state.get("location"),
+            }
         except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
             logger.warning("Synthesizer failed (%s: %s)", type(exc).__name__, exc)
             return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}

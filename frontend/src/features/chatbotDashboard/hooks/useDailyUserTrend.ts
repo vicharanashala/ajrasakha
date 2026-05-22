@@ -8,9 +8,10 @@ interface DailyUserTrendEntry {
   count: number;
 }
 
-export function useDailyUserTrend(days = 30, source: 'vicharanashala' | 'annam' = 'vicharanashala', userType: 'all' | 'external' | 'internal' = 'all') {
+export function useDailyUserTrend(days = 30, source: 'vicharanashala' | 'annam' | 'whatsapp'= 'vicharanashala', userType: 'all' | 'external' | 'internal' = 'all', enabled) {
   const { data: rawData, isLoading, error } = useQuery<DailyUserTrendEntry[], Error>({
     queryKey: ['daily-user-trend', days, source, userType],
+    enabled,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const params = new URLSearchParams({ days: String(days), source });
