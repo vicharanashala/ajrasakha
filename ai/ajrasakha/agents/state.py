@@ -26,7 +26,30 @@ class PlannerEntities(TypedDict, total=False):
     chemicals: list[str]
 
 
+class RetrievalSanitizerEvaluation(TypedDict, total=False):
+    pair_key: str
+    retrieved_question: str
+    retrieved_answer: str
+    relevance_score: Optional[float]
+    reason: str
+    action: str  # "kept" | "dropped" | "kept_fail_open"
+
+
+class RetrievalSanitizerAudit(TypedDict, total=False):
+    status: str  # filtered | skipped | noop
+    skip_reason: str
+    threshold: float
+    farmer_query_original: str
+    farmer_query_rephrased: str
+    pairs_evaluated: int
+    pairs_kept: int
+    pairs_dropped: int
+    evaluations: list[RetrievalSanitizerEvaluation]
+    llm_parse_ok: bool
+
+
 class PlannerPlan(TypedDict, total=False):
+    domain: Optional[str]
     weather: bool
     mandi: bool
     soil: bool
@@ -50,6 +73,18 @@ def merge_plan(
 ) -> Optional[PlannerPlan]:
     if right is None:
         return left
+    if left is None:
+        return right
+    return {**left, **right}
+
+
+def replace_sanitizer_audit(
+    left: Optional[RetrievalSanitizerAudit],
+    right: Optional[RetrievalSanitizerAudit],
+) -> Optional[RetrievalSanitizerAudit]:
+    """Per-turn sanitizer report for LangGraph Studio (shown at state root)."""
+    if right is None:
+        return left
     return right
 
 
@@ -57,3 +92,4 @@ class AjraSakhaState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     location: Annotated[Optional[Location], merge_location_dict]
     plan: Annotated[Optional[PlannerPlan], merge_plan]
+    sanitizer_audit: Annotated[Optional[RetrievalSanitizerAudit], replace_sanitizer_audit]
