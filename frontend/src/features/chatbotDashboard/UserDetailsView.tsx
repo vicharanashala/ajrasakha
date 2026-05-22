@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/atoms/alert-dialog";
+import { Input } from "@/components/atoms/input";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useDeleteUser } from "./hooks/useDeleteUser";
 import {
@@ -47,6 +48,7 @@ import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import UserGrowthChart from "./components/UserGrowthChart";
 import { AlertCard } from "./AlertCard";
 import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
+import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 
 const VISIBLE_CROPS = 2;
 
@@ -139,14 +141,30 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<{ userId: string; source: string } | null>(null);
+  const [userToDelete, setUserToDelete] = useState<{ userId: string; source: string; email: string } | null>(null);
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [hovered, setHovered] = useState<string | null>(null);
       const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
+  // const scrollToTable = () => {
+  //   setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  // };
+
   const scrollToTable = () => {
-    setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-  };
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      tableRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 300);
+  });
+};
+
+useEffect(() => {
+  scrollToTable();
+}, []);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard in overview)
   useEffect(() => {
@@ -189,6 +207,18 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
   };
   const { data: dashboardData, isLoading: isDashboardLoading } = useDashboardData(dashboardFilters, source);
   const { data: topCrops, isLoading: isLoadingTopCrops, error: errorLoadingTopCrops } = useTopCrops();
+    const {
+      data: dauTrend,
+      isLoading: dauLoading,
+      error: dauError,
+    } = useDailyUserTrend(30, source, filters.userType);
+
+    console.log("DAU Trend data:", dauTrend, "Loading:", dauLoading, "Error:", dauError);
+
+    console.log("Dashboard data in UserDetailsView:", dashboardData, "Loading:", isDashboardLoading, "Error:", error);
+
+      const todayCount =
+      dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
 
   // Patch the DAU card to show "active today / total" instead of just total (same as dashboard)
   const patchedKpiRow1 = useMemo(() => {
@@ -199,7 +229,7 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
       if (card.id === 'dau') {
         return {
           ...card,
-          value: `${activeUsers.toLocaleString()} / ${totalUsers.toLocaleString()}`,
+          value: `${todayCount?.toLocaleString()} / ${Number(card.value).toLocaleString()}`,
         };
       }
       return card;
@@ -1285,7 +1315,8 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
                             className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2" 
                             onClick={(e) => {
                               e.stopPropagation();
-                              setUserToDelete({ userId: user.userId, source });
+                              setConfirmEmail("");
+                              setUserToDelete({ userId: user.userId, source, email: user.email });
                             }}
                           >
                             <Trash2 className="h-4 w-4 text-red-600" />
@@ -1325,23 +1356,31 @@ export function UserDetailsView({ source = 'vicharanashala', initialFilters, use
       </Card>
       </div>
 
-      <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+      <AlertDialog open={!!userToDelete} onOpenChange={(open) => { if (!open) { setUserToDelete(null);  setConfirmEmail("");  }  }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the farmer
-              and remove their data.
+              This action cannot be undone. This will permanently delete the farmer and remove their data.
+              To confirm this action, enter the email address{" "}
+              <strong>{userToDelete?.email}</strong> in the box below.
             </AlertDialogDescription>
+            <Input
+              value={confirmEmail}
+              onChange={(e) => setConfirmEmail(e.target.value)}
+              placeholder="Enter email to confirm"
+            />
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={confirmEmail !== userToDelete?.email}
               onClick={() => {
                 if (userToDelete) {
                   deleteUserMutation.mutate(userToDelete);
                   setUserToDelete(null);
+                  setConfirmEmail("");
                 }
               }}
             >

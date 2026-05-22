@@ -4,7 +4,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { Maximize2, X } from "lucide-react";
+import {
+  Ban,
+  CheckCircle,
+  CircleAlert,
+  ImageOff,
+  Lightbulb,
+  Maximize2,
+  Pen,
+  Search,
+  ThumbsDown,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -42,43 +53,108 @@ function FeedbackCard({
   const positivePercentage =
     total > 0 ? ((positiveFeedbacks.length / total) * 100).toFixed(2) : "0.00";
 
-  const feedbackLabelMap: Record<string, string> = {
-    accurate_reliable: "Accuracy",
-    clear_well_written: "Clarity",
-    helpful_response: "Helpful Response",
-    detailed_explanation: "Detailed Explanation",
-    creative_solution: "Creative Solution",
+  const feedbackLabelMap: Record<
+    string,
+    {
+      label: string;
+      icon: React.ReactNode;
+    }
+  > = {
+    accurate_reliable: {
+      label: "Accurate and Reliable",
+      icon: <Search className="w-4 h-4" />,
+    },
 
-    inaccurate: "Inaccuracy",
-    not_matched: "Not Relevant",
-    confusing_response: "Confusing Response",
-    incomplete_answer: "Incomplete Answer",
+    clear_well_written: {
+      label: "Clear and Well-Written",
+      icon: <Lightbulb className="w-4 h-4" />,
+    },
+
+    attention_to_detail: {
+      label: "Attention to Detail",
+      icon: <CheckCircle className="w-4 h-4" />,
+    },
+
+    creative_solution: {
+      label: "Creative Solution",
+      icon: <Pen className="w-4 h-4" />,
+    },
+
+    inaccurate: {
+      label: "Inaccurate or incorrect",
+      icon: <CircleAlert className="w-4 h-4" />,
+    },
+
+    not_matched: {
+      label: "Didn't match question",
+      icon: <CircleAlert className="w-4 h-4" />,
+    },
+
+    bad_style: {
+      label: "Poor style or tone",
+      icon: <Pen className="w-4 h-4" />,
+    },
+
+    missing_image: {
+      label: "Expected an image",
+      icon: <ImageOff className="w-4 h-4" />,
+    },
+
+    unjustified_refusal: {
+      label: "Refused with reason",
+      icon: <Ban className="w-4 h-4" />,
+    },
+
+    not_helpful: {
+      label: "Lacked useful information",
+      icon: <ThumbsDown className="w-4 h-4" />,
+    },
   };
 
   const negativePercentage = (100 - Number(positivePercentage)).toFixed(2);
 
-  const summarizeTags = (items: { tag: string }[]) => {
-    const counts: Record<string, number> = {};
+  const summarizeTags = (
+    items: { tag: string }[],
+    type: "positive" | "negative",
+  ) => {
+    const defaultCategories =
+      type === "positive"
+        ? {
+            accurate_reliable: 0,
+            clear_well_written: 0,
+            attention_to_detail: 0,
+            creative_solution: 0,
+          }
+        : {
+            inaccurate: 0,
+            not_matched: 0,
+            bad_style: 0,
+            missing_image: 0,
+            unjustified_refusal: 0,
+            not_helpful: 0,
+          };
 
     items.forEach((item) => {
-      const label = feedbackLabelMap[item.tag] || item.tag;
-
-      counts[label] = (counts[label] || 0) + 1;
+      if (defaultCategories[item.tag] !== undefined) {
+        defaultCategories[item.tag]++;
+      }
     });
 
-    return Object.entries(counts).map(([label, count]) => ({
-      label,
+    return Object.entries(defaultCategories).map(([tag, count]) => ({
+      tag,
       count,
+      label: feedbackLabelMap[tag]?.label || tag,
+      icon: feedbackLabelMap[tag]?.icon || null,
     }));
   };
 
-  const positiveSummary = summarizeTags(positiveFeedbacks);
+  const positiveSummary = summarizeTags(positiveFeedbacks, "positive");
 
-  const negativeSummary = summarizeTags(negativeFeedbacks);
+  const negativeSummary = summarizeTags(negativeFeedbacks, "negative");
 
   return (
     <>
-      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
+      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden h-full flex flex-col">
         {/* Maximize Button */}
         {total > 0 && (
           <button
@@ -94,7 +170,7 @@ function FeedbackCard({
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="flex-1 flex flex-col justify-center">
           {total > 0 ? (
             <div className="space-y-5">
               {/* Summary */}
@@ -362,7 +438,11 @@ function FeedbackCard({
                       {positiveSummary.map((item, index) => (
                         <tr key={index} className="border-b border-gray-900">
                           <td className="p-4 text-sm text-gray-200">
-                            {item.label}
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-400">{item.icon}</span>
+
+                              <span>{item.label}</span>
+                            </div>
                           </td>
 
                           <td className="p-4 text-right font-medium text-green-400">
@@ -399,7 +479,11 @@ function FeedbackCard({
                       {negativeSummary.map((item, index) => (
                         <tr key={index} className="border-b border-gray-900">
                           <td className="p-4 text-sm text-gray-200">
-                            {item.label}
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-400">{item.icon}</span>
+
+                              <span>{item.label}</span>
+                            </div>
                           </td>
 
                           <td className="p-4 text-right font-medium text-orange-400">

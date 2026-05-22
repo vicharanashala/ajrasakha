@@ -383,11 +383,7 @@ const activeDeltaDir =
         </CardContent>
 
         {/* // Remove this div when data is dynamic */}
-        {kpi.isDummy && (
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10 cursor-not-allowed">
-            <span className="text-white text-xs font-semibold tracking-wide"></span>
-          </div>
-        )}
+        
       </Card>
 
       {/* Maximized Modal */}
@@ -603,6 +599,20 @@ export function EightCardsComponent({
   kpiRow2: KpiCardData[];
 }) {
   const combinedKpis = [...kpiRow1, ...kpiRow2];
+  const customOrder = [
+    "totalInstalls",
+    "dau",
+    "queries",
+    "session",
+    "bugs",
+    "repeatQuery",
+    "states"]
+
+  combinedKpis.sort((a, b) => {
+    const idxA = customOrder.indexOf(a.id);
+    const idxB = customOrder.indexOf(b.id);
+    return idxA - idxB;
+  });
   return (
     <>
       {/* Original 2-row layout commented out as requested:

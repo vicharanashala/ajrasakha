@@ -13,15 +13,10 @@ from langchain_core.runnables import RunnableConfig, patch_config
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.graph import StateGraph, START, END
 from langgraph.store.base import BaseStore
-from pydantic import BaseModel
 
 from ajrasakha.agents.answer_quality import (
-    _looks_like_government_scheme_answer,
     ensure_two_hour_disclaimer,
-    is_no_database_match_answer,
-    is_official_government_sourced_answer,
     is_sufficient_expert_answer,
-    should_preserve_official_tool_answer,
     strip_two_hour_disclaimer,
 )
 from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
@@ -36,16 +31,18 @@ from ajrasakha.agents.plan_executor import (
     ensure_location_node,
     execute_plan_node,
     route_after_execute,
+    route_after_sanitizer,
 )
 from ajrasakha.agents.planner import clarify_node, planner_node, route_after_planner
 from ajrasakha.agents.prompts import (
     EMPTY_GDB_REPLY,
+    EXPERT_QUEUE_REPLY_MARKER,
     LLM_FALLBACK_MSG,
-    RELEVANCE_CHECK_PROMPT,
     WARNING_TEXT,
     WHATSAPP_SYSTEM_PROMPT,
 )
 from ajrasakha.agents.state import AjraSakhaState, Location
+from ajrasakha.agents.retrieval_sanitizer import retrieval_sanitizer_node
 from ajrasakha.agents.synthesizer import synthesize_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
@@ -95,59 +92,54 @@ async def _get_tools() -> list:
 _GDB_EMPTY_SENTINEL = "NO_RELEVANT_CONTENT"
 
 
-class _RelevanceCheck(BaseModel):
-    is_relevant: bool
-    reasoning: str
-
-
 logger = logging.getLogger(__name__)
 
 
-async def ajrasakha_node(
-    state: AjraSakhaState,
-    config: RunnableConfig,
-    *,
-    store: BaseStore | None = None,
-) -> dict:
-    main_tools = await _get_main_tools_legacy()
-    merged_configurable = dict((config.get("configurable") or {}))
-    merged_configurable["location"] = state.get("location")
-    enriched_config = patch_config(config, configurable=merged_configurable)
-    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
-    long_term_summary = await load_long_term_summary(store, config)
-    summary_context = (
-        f"Long-term memory from previous daily threads:\n{long_term_summary}"
-        if long_term_summary
-        else "Long-term memory from previous daily threads:\nNo previous summary available."
-    )
-    messages = [
-        SystemMessage(content=WHATSAPP_SYSTEM_PROMPT),
-        SystemMessage(content=summary_context),
-    ]
-    loc_ctx = main_agent_location_context_message(state.get("location"))
-    if loc_ctx:
-        messages.append(loc_ctx)
-    messages.extend(list(state["messages"]))
+# async def ajrasakha_node(
+#     state: AjraSakhaState,
+#     config: RunnableConfig,
+#     *,
+#     store: BaseStore | None = None,
+# ) -> dict:
+#     main_tools = await _get_main_tools_legacy()
+#     merged_configurable = dict((config.get("configurable") or {}))
+#     merged_configurable["location"] = state.get("location")
+#     enriched_config = patch_config(config, configurable=merged_configurable)
+#     llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
+#     long_term_summary = await load_long_term_summary(store, config)
+#     summary_context = (
+#         f"Long-term memory from previous daily threads:\n{long_term_summary}"
+#         if long_term_summary
+#         else "Long-term memory from previous daily threads:\nNo previous summary available."
+#     )
+#     messages = [
+#         SystemMessage(content=WHATSAPP_SYSTEM_PROMPT),
+#         SystemMessage(content=summary_context),
+#     ]
+#     loc_ctx = main_agent_location_context_message(state.get("location"))
+#     if loc_ctx:
+#         messages.append(loc_ctx)
+#     messages.extend(list(state["messages"]))
 
-    try:
-        response = await llm.ainvoke(messages, config=enriched_config)
-    except (asyncio.CancelledError, TimeoutError, APITimeoutError,
-            APIConnectionError) as exc:
-        logger.warning(
-            "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
-            type(exc).__name__, exc,
-        )
-        return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-    except APIStatusError as exc:
-        if exc.status_code >= 500:
-            logger.warning(
-                "Anthropic server error (%s) — returning safe fallback",
-                exc.status_code,
-            )
-            return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-        raise  # 4xx errors (auth, rate-limit) should still propagate
+#     try:
+#         response = await llm.ainvoke(messages, config=enriched_config)
+#     except (asyncio.CancelledError, TimeoutError, APITimeoutError,
+#             APIConnectionError) as exc:
+#         logger.warning(
+#             "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
+#             type(exc).__name__, exc,
+#         )
+#         return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+#     except APIStatusError as exc:
+#         if exc.status_code >= 500:
+#             logger.warning(
+#                 "Anthropic server error (%s) — returning safe fallback",
+#                 exc.status_code,
+#             )
+#             return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+#         raise  # 4xx errors (auth, rate-limit) should still propagate
 
-    return {"messages": [response], "location": state.get("location")}
+#     return {"messages": [response], "location": state.get("location")}
 
 
 async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
@@ -299,203 +291,23 @@ def _message_to_text(message: BaseMessage) -> str:
 
 
 def route_after_ajrasakha(state: AjraSakhaState) -> str:
-    """Replacement for ``tools_condition``: if the main LLM still has tool_calls
-    pending, run the tools; otherwise hand the final answer to the relevance
-    checker before returning to the farmer."""
+    """If the main LLM still has tool_calls pending, run tools; else sanitize the answer."""
     messages = state.get("messages") or []
     if not messages:
-        return "relevance_check"
+        return "sanitize_answer"
     last_message = messages[-1]
     if isinstance(last_message, AIMessage) and getattr(last_message, "tool_calls", None):
         return "tools"
-    return "relevance_check"
-
-
-def _is_unsourced_agricultural_advice(answer_text: str) -> bool:
-    """Heuristic: True when the answer looks like substantive agricultural
-    advice but lacks ANY attribution to approved data sources.
-
-    This catches cases where the LLM generated a helpful-sounding answer
-    from its own training data instead of from GDB/Reviewer/POP tools.
-    Answers about weather, market prices, soil health, and government schemes
-    that cite their official sources are NOT flagged by this check.
-    """
-    import re
-    from ajrasakha.agents.answer_quality import strip_warning_disclaimer
-
-    # CRITICAL: Strip the testing disclaimer FIRST. It contains URLs,
-    # source names (Annam.ai, IMD, Agmarknet), and "expert-verified" which
-    # would create false-positive attribution signals.
-    stripped = strip_warning_disclaimer(answer_text.strip())
-
-    # Answers that admit no/limited DB match should be fully replaced with
-    # the canned EMPTY_GDB_REPLY — flag them as unsourced. Must check BEFORE
-    # the length filter so short "limited info" answers aren't skipped.
-    if is_no_database_match_answer(stripped):
-        return True
-
-    # Short answers (greetings, clarifications, scope rejections) are fine.
-    if len(stripped) < 150:
-        return False
-
-    if is_official_government_sourced_answer(stripped):
-        return False
-
-    if _looks_like_government_scheme_answer(stripped):
-        return False
-
-    # Clarification requests and scope rejections are fine.
-    _CLARIFICATION = re.compile(
-        r"could you (?:please )?(?:tell|share|provide|specify)|"
-        r"which (?:crop|state|district)|"
-        r"please (?:share|provide|tell|specify)|"
-        r"what is your|"
-        r"I (?:am|'m) only designed to help|"
-        r"not (?:related to|about) agriculture",
-        re.IGNORECASE,
-    )
-    if _CLARIFICATION.search(stripped):
-        return False
-
-    # Now check for source-attribution signals. If NONE are present in the
-    # answer body (disclaimer already stripped), it was generated from LLM
-    # knowledge.
-    _EXPERT_INDICATORS = re.compile(
-        r"expert|author|agri\s*specialist|agriexpert|specialist|reviewed\s+by",
-        re.IGNORECASE,
-    )
-    _SOURCE_INDICATORS = re.compile(
-        r"source|reference|sourced\s+from|approved\s+materials|"
-        r"annam\.ai|golden\s*(?:data|db)|package\s+of\s+practices",
-        re.IGNORECASE,
-    )
-    _URL_PATTERN = re.compile(r"https?://|www\.", re.IGNORECASE)
-
-    has_expert = bool(_EXPERT_INDICATORS.search(stripped))
-    has_source = bool(_SOURCE_INDICATORS.search(stripped))
-    has_link   = bool(_URL_PATTERN.search(stripped))
-
-    # If none of the three attribution signals are present, it's unsourced.
-    if not has_expert and not has_source and not has_link:
-        return True
-
-    return False
-
-
-async def relevance_check_node(
-    state: AjraSakhaState,
-    config: RunnableConfig,
-) -> dict:
-    """Verify the assistant's final answer is BOTH on-topic AND sourced from
-    approved data (GDB, Reviewer, POP, or official government APIs).
-
-    Two checks are performed:
-    1. **Heuristic pre-check**: catches obvious cases where the LLM generated
-       agricultural advice from its own knowledge (no expert names, no source
-       links, no citation table). These are replaced immediately.
-    2. **LLM-based check**: for borderline cases, an LLM verifies both topic
-       relevance and source attribution.
-    """
-    messages = state.get("messages") or []
-    if not messages:
-        return {}
-
-    final_answer_msg: AIMessage | None = None
-    for msg in reversed(messages):
-        if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
-            final_answer_msg = msg
-            break
-
-    last_user_msg: HumanMessage | None = None
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            last_user_msg = msg
-            break
-
-    if final_answer_msg is None or last_user_msg is None:
-        return {}
-
-    question_text = _message_to_text(last_user_msg)
-    answer_text = _message_to_text(final_answer_msg)
-
-    if not question_text or not answer_text:
-        return {}
-
-    # Never second-guess the canned acknowledgement itself — it's already the
-    # safe fallback we'd otherwise route to.
-    if answer_text.startswith(EMPTY_GDB_REPLY[:80]):
-        return {}
-
-    if should_preserve_official_tool_answer(messages, question_text, answer_text):
-        logger.info(
-            "Official/tool-backed answer (schemes/soil/weather/market) — "
-            "skipping GDB-style relevance rejection"
-        )
-        return {}
-
-    # ── Heuristic pre-check: catch unsourced agricultural advice ──────────
-    if _is_unsourced_agricultural_advice(answer_text):
-        logger.info(
-            "Heuristic pre-check: answer is agricultural advice with NO source "
-            "attribution (no expert, no source link, no citation) — replacing "
-            "with canned reviewer-upload acknowledgement (len=%d)",
-            len(answer_text),
-        )
-        return {
-            "messages": [AIMessage(content=EMPTY_GDB_REPLY, id=final_answer_msg.id)],
-            "location": state.get("location"),
-        }
-
-    # ── LLM-based relevance + source verification ────────────────────────
-    try:
-        checker = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(_RelevanceCheck)
-        result = await checker.ainvoke(
-            [
-                SystemMessage(content=RELEVANCE_CHECK_PROMPT),
-                HumanMessage(
-                    content=(
-                        f"Farmer's question:\n{question_text}\n\n"
-                        f"Proposed answer:\n{answer_text}"
-                    )
-                ),
-            ],
-            config=config,
-        )
-    except (asyncio.CancelledError, TimeoutError, APITimeoutError,
-            APIConnectionError, APIStatusError) as exc:
-        logger.warning(
-            "Relevance check failed (%s: %s) — falling back to heuristic "
-            "(answer already passed pre-check, allowing through)",
-            type(exc).__name__, exc,
-        )
-        return {}
-    except Exception as exc:
-        logger.warning(
-            "Relevance check raised unexpectedly (%s: %s) — falling back to "
-            "heuristic (answer already passed pre-check, allowing through)",
-            type(exc).__name__, exc,
-        )
-        return {}
-
-    if result.is_relevant:
-        return {}
-
-    logger.info(
-        "LLM relevance check flagged answer as not relevant (reason: %s) — "
-        "replacing with canned reviewer-upload acknowledgement",
-        result.reasoning,
-    )
-    # Reuse the original message id so the `add_messages` reducer overwrites
-    # the irrelevant answer instead of appending a second AIMessage.
-    return {
-        "messages": [AIMessage(content=EMPTY_GDB_REPLY, id=final_answer_msg.id)],
-        "location": state.get("location"),
-    }
+    return "sanitize_answer"
 
 
 def sanitize_answer_node(state: AjraSakhaState) -> dict:
     """Adjust the 2-hour reviewer disclaimer on the final farmer-facing answer.
 
+    Disabled in _build_graph() (synthesize goes directly to END). Re-enable by
+    uncommenting the sanitize_answer node and edges below.
+
+    - GDB returned real data (gdb_has_data=True): ALWAYS strip the 2-hour disclaimer.
     - Strong GDB-style answer (expert + sources + links): strip disclaimer if present.
     - Weak / no-database-match answer: append disclaimer if missing.
     """
@@ -510,8 +322,27 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
         return {}
 
     answer_text = _message_to_text(final_answer_msg)
-    if not answer_text or answer_text.startswith(EMPTY_GDB_REPLY[:80]):
+    if not answer_text or EXPERT_QUEUE_REPLY_MARKER in answer_text:
         return {}
+
+    # Check if GDB returned real expert data
+    plan = state.get("plan") or {}
+    gdb_has_data = plan.get("gdb_has_data", False)
+
+    if gdb_has_data:
+        # GDB provided real data → ALWAYS strip the 2-hour disclaimer
+        cleaned = strip_two_hour_disclaimer(answer_text)
+        if cleaned == answer_text:
+            return {}
+        logger.info(
+            "Removing 2-hour disclaimer from GDB-sourced answer (gdb_has_data=True, len %d -> %d)",
+            len(answer_text),
+            len(cleaned),
+        )
+        return {
+            "messages": [AIMessage(content=cleaned, id=final_answer_msg.id)],
+            "location": state.get("location"),
+        }
 
     if is_sufficient_expert_answer(answer_text):
         cleaned = strip_two_hour_disclaimer(answer_text)
@@ -545,14 +376,14 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
 def _build_graph():
     builder = StateGraph(AjraSakhaState)
     builder.add_node("empty_gdb_reply", empty_gdb_reply_node)
-    builder.add_node("relevance_check", relevance_check_node)
-    builder.add_node("sanitize_answer", sanitize_answer_node)
+    # builder.add_node("sanitize_answer", sanitize_answer_node)  # disabled: 2-hour disclaimer post-process
 
     if use_planner_graph():
         builder.add_node("planner", planner_node)
         builder.add_node("clarify", clarify_node)
         builder.add_node("ensure_location", ensure_location_node)
         builder.add_node("execute_plan", execute_plan_node)
+        builder.add_node("retrieval_sanitizer", retrieval_sanitizer_node)
         builder.add_node("synthesize", synthesize_node)
 
         builder.add_edge(START, "planner")
@@ -569,29 +400,23 @@ def _build_graph():
             {
                 END: END,
                 "synthesize": "synthesize",
+                "retrieval_sanitizer": "retrieval_sanitizer",
                 "empty_gdb_reply": "empty_gdb_reply",
             },
         )
-        builder.add_edge("synthesize", "relevance_check")
-    else:
-        builder.add_node("ajrasakha", ajrasakha_node)
-        builder.add_node("tools", tools_node)
-
-        builder.add_edge(START, "ajrasakha")
         builder.add_conditional_edges(
-            "ajrasakha",
-            route_after_ajrasakha,
-            {"tools": "tools", "relevance_check": "relevance_check"},
+            "retrieval_sanitizer",
+            route_after_sanitizer,
+            {
+                "empty_gdb_reply": "empty_gdb_reply",
+                "synthesize": "synthesize",
+            },
         )
-        builder.add_conditional_edges(
-            "tools",
-            route_after_tools,
-            {"ajrasakha": "ajrasakha", "empty_gdb_reply": "empty_gdb_reply"},
-        )
+        builder.add_edge("synthesize", END)
+        # builder.add_edge("synthesize", "sanitize_answer")
 
     builder.add_edge("empty_gdb_reply", END)
-    builder.add_edge("relevance_check", "sanitize_answer")
-    builder.add_edge("sanitize_answer", END)
+    # builder.add_edge("sanitize_answer", END)
     return builder.compile()
 
 

@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any, Optional
 
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 # Canonical state names and common spellings in farmer queries (longest match first).
@@ -83,6 +83,78 @@ def extract_state_from_text(text: str) -> Optional[str]:
         if pattern.search(text):
             return name
     return None
+
+
+def _message_to_text(message: BaseMessage) -> str:
+    content = message.content
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return " ".join(parts).strip()
+    return str(content).strip()
+
+
+def latest_human_text(messages: list[BaseMessage]) -> str:
+    """Text from the most recent farmer message only (no thread history bleed)."""
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            return _message_to_text(msg)
+    return ""
+
+
+def recent_human_text(messages: list[BaseMessage], *, max_turns: int = 3) -> str:
+    """Last N farmer lines — for crop carry-over during clarify, not full thread state."""
+    lines: list[str] = []
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            text = _message_to_text(msg)
+            if text:
+                lines.append(text)
+    if len(lines) > max_turns:
+        lines = lines[-max_turns:]
+    return " ".join(lines)
+
+
+def has_gps_coordinates(location: Optional[dict[str, Any]]) -> bool:
+    if not location:
+        return False
+    return location.get("latitude") is not None and location.get("longitude") is not None
+
+
+def gps_state_from_location(location: Optional[dict[str, Any]]) -> Optional[str]:
+    """State from thread GPS reverse-geocode only (not from old query text)."""
+    if not has_gps_coordinates(location):
+        return None
+    if not location:
+        return None
+    state_val = location.get("state")
+    if state_val is None:
+        return None
+    normalized = str(state_val).strip()
+    if normalized.lower() in {"", "unknown", "not specified", "all", "none"}:
+        return None
+    return normalized
+
+
+def resolve_state_for_turn(
+    latest_text: str,
+    location: Optional[dict[str, Any]],
+) -> Optional[str]:
+    """Current message state first, then GPS-resolved thread state — never old messages."""
+    state_from_text = extract_state_from_text(latest_text)
+    if state_from_text:
+        return state_from_text
+    return gps_state_from_location(location)
 
 
 def merge_location_dict(
