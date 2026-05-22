@@ -3,9 +3,9 @@ import { getContainer } from '../loadModules.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
 
-// Run every 2 minutes, all day — time-bound questions can arrive at any hour
+// Run every 1 minutes, all day — time-bound questions can arrive at any hour
 cron.schedule(
-  '*/2 * * * *',
+  '*/30 * * * * *',
   async () => {
     console.log('<<CRON>> [TimeBound] Running 45-min time-bound reallocation job...');
     try {

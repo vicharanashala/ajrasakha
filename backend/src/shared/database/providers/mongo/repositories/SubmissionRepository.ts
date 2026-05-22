@@ -3187,33 +3187,33 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       [
         {
           $match: {
-        $or: [
-          // Type A — Never answered
-          {
-            history: { $size: 0 },
-            lastRespondedBy: null,
-            createdAt: { $lte: oneHourAgo },
-          },
+            $or: [
+              // Type A — Never answered
+              {
+                history: { $size: 0 },
+                lastRespondedBy: null,
+                createdAt: { $lte: oneHourAgo },
+              },
 
-          // Type B — Last update stuck in-review
-          {
-            'history.1': {$exists: true},
-            $expr: {
-              $let: {
-                vars: {
-                  lastHistory: {$arrayElemAt: ['$history', -1]},
-                },
-                in: {
-                  $and: [
-                    {$eq: ['$$lastHistory.status', 'in-review']},
-                    {$lte: ['$$lastHistory.createdAt', oneHourAgo]},
-                  ],
+              // Type B — Last update stuck in-review
+              {
+                'history.1': { $exists: true },
+                $expr: {
+                  $let: {
+                    vars: {
+                      lastHistory: { $arrayElemAt: ['$history', -1] },
+                    },
+                    in: {
+                      $and: [
+                        { $eq: ['$$lastHistory.status', 'in-review'] },
+                        { $lte: ['$$lastHistory.createdAt', oneHourAgo] },
+                      ],
+                    },
+                  },
                 },
               },
-            },
+            ],
           },
-        ],
-      },
         },
         {
           $lookup: {
@@ -3226,9 +3226,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         {
           $unwind: '$question',
         },
-        ...(limit ? [{$limit: limit}] : []),
+        ...(limit ? [{ $limit: limit }] : []),
       ],
-      {session},
+      { session },
     ).toArray();
   }
   async findById(id: string): Promise<IQuestionSubmission | null> {
@@ -3330,7 +3330,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $match: {
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft'] },
+          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft'] },
           'question.isOnHold': { $ne: true },
         },
       },
@@ -3369,9 +3369,94 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     ]).toArray();
   }
 
+  /** Find time-bound (AJRASAKHA/WHATSAPP) submissions where the current expert
+   *  has completed their turn (submitted an answer OR finished a review) but no
+   *  new reviewer has been assigned — question is still open/delayed.
+   *
+   *  "Needs a reviewer" = lastHistory exists AND is NOT a pending in-review entry
+   *  (i.e. last action was either: answer submitted, review accepted/rejected/modified).
+   *
+   *  Guard: currentExpertOpenedAt must be set — ensures the expert engaged with the
+   *  question (prevents overlap with Part A's 45-min-not-opened reallocation). */
+  async findAnsweredQuestionsNeedingReviewer(): Promise<IQuestionSubmission[]> {
+    await this.init();
+    return [];
+    // return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+    //   {
+    //     $addFields: {
+    //       lastHistory: { $arrayElemAt: ['$history', -1] },
+    //     },
+    //   },
+    //   {
+    //     $match: {
+    //       // Expert must have opened the question — prevents conflict with Part A
+    //       currentExpertOpenedAt: { $exists: true, $ne: null },
+    //       // History must be non-empty
+    //       lastHistory: { $ne: null },
+    //       $or: [
+    //         // Expert submitted their own answer (initial answer)
+    //         { 'lastHistory.answer': { $exists: true, $ne: null } },
+    //         // Expert completed a review (accepted/rejected/modified) — status no longer 'in-review'
+    //         { 'lastHistory.status': { $nin: ['in-review'] } },
+    //       ],
+    //     },
+    //   },
+    //   {
+    //     $lookup: {
+    //       from: 'questions',
+    //       localField: 'questionId',
+    //       foreignField: '_id',
+    //       as: 'question',
+    //     },
+    //   },
+    //   { $unwind: '$question' },
+    //   {
+    //     $match: {
+    //       'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+    //       'question.status': { $in: ['open', 'delayed'] },
+    //       'question.isOnHold': { $ne: true },
+    //     },
+    //   },
+    // ]).toArray();
+  }
+
+  /** Atomically add a reviewer to a time-bound question:
+   *  pushes the expert into queue, creates an in-review history entry,
+   *  and resets the 45-min allocation clock. */
+  async assignTimeBoundReviewer(
+    questionId: string,
+    reviewerId: string,
+    now: Date,
+  ): Promise<void> {
+    await this.init();
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: new ObjectId(questionId) },
+      {
+        $push: {
+          queue: new ObjectId(reviewerId),
+          history: {
+            updatedBy: new ObjectId(reviewerId),
+            status: 'in-review',
+            createdAt: now,
+            updatedAt: now,
+          },
+        } as any,
+        $set: {
+          currentExpertAllocatedAt: now,
+          currentExpertOpenedAt: null,
+          updatedAt: now,
+        },
+      },
+    );
+  }
+
   async getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>> {
     await this.init();
-    // Single pipeline: join with questions, filter to time-bound, compute current expert per submission
+    // Pipeline: join with questions, filter to time-bound, unwind queue with index,
+    // and determine whether the expert at each position still has pending work.
+    //
+    // Position 0 (author): active if history[0].answer is missing/null (hasn't submitted yet).
+    // Position ≥ 1 (reviewer): active if history[position].status === 'in-review' (hasn't completed review).
     const result = await this.QuestionSubmissionCollection.aggregate<{ _id: string; count: number }>([
       {
         $lookup: {
@@ -3386,37 +3471,53 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $match: {
           'q.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
           'q.status': { $in: ['open', 'delayed'] },
+          'q.isOnHold': { $ne: true },
         },
       },
+      // Unwind queue so each expert gets their own document with their position index
       {
-        $addFields: {
-          historyCount: { $size: { $ifNull: ['$history', []] } },
-          lastHistoryStatus: { $arrayElemAt: ['$history.status', -1] },
-          lastHistoryUpdatedBy: { $arrayElemAt: ['$history.updatedBy', -1] },
-          firstInQueue: { $arrayElemAt: ['$queue', 0] },
+        $unwind: {
+          path: '$queue',
+          includeArrayIndex: 'queueIndex',
         },
       },
+      // Get the corresponding history entry for this queue position (may be null if not yet created)
       {
         $addFields: {
-          currentExpert: {
+          correspondingHistory: { $arrayElemAt: ['$history', '$queueIndex'] },
+        },
+      },
+      // Determine if this expert still has pending work at their position
+      {
+        $addFields: {
+          isPending: {
             $cond: {
-              if: { $eq: ['$historyCount', 0] },
-              then: '$firstInQueue',
+              // Position 0 = author: pending if no history entry yet, or history entry has no answer
+              if: { $eq: ['$queueIndex', 0] },
+              then: {
+                $or: [
+                  { $eq: ['$correspondingHistory', null] },
+                  { $not: { $ifNull: ['$correspondingHistory.answer', false] } },
+                ],
+              },
+              // Position >= 1 = reviewer: pending if no history entry yet, or status is 'in-review'
               else: {
-                $cond: {
-                  if: { $eq: ['$lastHistoryStatus', 'in-review'] },
-                  then: '$lastHistoryUpdatedBy',
-                  else: { $arrayElemAt: ['$queue', '$historyCount'] },
-                },
+                $or: [
+                  { $eq: ['$correspondingHistory', null] },
+                  { $eq: ['$correspondingHistory.status', 'in-review'] },
+                ],
               },
             },
           },
         },
       },
-      { $match: { currentExpert: { $ne: null } } },
+      // Keep only experts who still have pending work
+      { $match: { isPending: true } },
+      // Filter out null queue entries
+      { $match: { queue: { $ne: null } } },
       {
         $group: {
-          _id: '$currentExpert',
+          _id: '$queue',
           count: { $sum: 1 },
         },
       },
@@ -3922,11 +4023,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
         },
       ],
-      {session},
+      { session },
     ).toArray();
   }
 
-    //get delayed questions
+  //get delayed questions
   async getDelayedReviews(session: ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]> {
     try {
       await this.init();

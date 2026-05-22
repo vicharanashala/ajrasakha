@@ -215,6 +215,14 @@ export interface IQuestionSubmissionRepository {
    *  question is not on hold, not closed/pass/duplicate/draft */
   findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]>;
 
+  /** Find time-bound submissions where the initial answer was submitted (last
+   *  history entry has an answer) but status is still open/delayed — needs a reviewer. */
+  findAnsweredQuestionsNeedingReviewer(): Promise<IQuestionSubmission[]>;
+
+  /** Atomically push reviewer into queue, add an in-review history entry, and
+   *  reset the 45-min allocation clock (currentExpertAllocatedAt/OpenedAt). */
+  assignTimeBoundReviewer(questionId: string, reviewerId: string, now: Date): Promise<void>;
+
   /** Single aggregation: returns a Map<expertId, count> of active time-bound
    *  questions per expert. Used to enforce the 3-question hard cap. */
   getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>>;

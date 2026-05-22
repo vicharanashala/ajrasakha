@@ -253,6 +253,16 @@ export const QAInterface = ({
     setTranslatedText("");
   }, [selectedQuestion]);
 
+  // Mark time-bound questions as opened whenever a question becomes selected
+  // (covers auto-select on load, notification auto-select, and manual click).
+  useEffect(() => {
+    if (!selectedQuestion || actionType !== "allocated") return;
+    const q = questions.find((q) => q?.id === selectedQuestion);
+    if (q?.source === "AJRASAKHA" || q?.source === "WHATSAPP") {
+      questionServiceRef.current.markQuestionOpened(selectedQuestion);
+    }
+  }, [selectedQuestion, actionType, questions]);
+
   useEffect(() => {
     if (!selectedQuestion) return;
 
@@ -533,17 +543,6 @@ export const QAInterface = ({
     }
     handleReset();
 
-    // Mark time-bound questions as opened so the 45-min reallocation is blocked.
-    // Only applies when the expert is viewing their own allocated questions.
-    if (actionType === "allocated") {
-      const clickedQuestion = questions.find((q) => q.id === id);
-      if (
-        clickedQuestion?.source === "WHATSAPP" ||
-        clickedQuestion?.source === "AJRASAKHA"
-      ) {
-        questionServiceRef.current.markQuestionOpened(id);
-      }
-    }
   };
 
 

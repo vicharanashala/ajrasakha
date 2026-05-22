@@ -5206,22 +5206,26 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
-  /** Periodic job (every 5 min) — reallocates time-bound questions pending > 45 min
-   *  without being opened, AND allocates time-bound questions that were never assigned. */
+  /** Periodic job — handles three cases for time-bound (AJRASAKHA/WHATSAPP) questions:
+   *  A) Expert allocated but didn't open in 45 min → penalise + replace.
+   *  B) Question never allocated → initial assignment.
+   *  C) Initial answer submitted, status still open/delayed → assign reviewer. */
   async reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }> {
-    console.log('[TimeBound] Starting reallocation + initial-allocation check...');
+    console.log('[TimeBound] Starting reallocation + initial-allocation + reviewer-assignment check...');
     try {
-      // 1. Fetch stuck (>45 min, not opened) AND never-allocated in parallel
-      const [stuckSubmissions, unallocatedSubmissions] = await Promise.all([
+      // 1. Fetch all three cases in parallel
+      const [stuckSubmissions, unallocatedSubmissions, answeredNeedingReviewer] = await Promise.all([
         this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
         this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
+        this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
       ]);
 
-      const totalWork = stuckSubmissions.length + unallocatedSubmissions.length;
+      const totalWork = stuckSubmissions.length + unallocatedSubmissions.length + answeredNeedingReviewer.length;
       if (!totalWork) {
         return { message: 'No time-bound questions need attention', reallocated: 0, skipped: 0 };
       }
-      console.log(`[TimeBound] Stuck: ${stuckSubmissions.length}, Never-allocated: ${unallocatedSubmissions.length}`);
+
+      console.log(`[TimeBound] Stuck: ${stuckSubmissions.length}, Never-allocated: ${unallocatedSubmissions.length}, NeedReviewer: ${answeredNeedingReviewer.length}`);
 
       // 2. Get all non-blocked experts ordered by workload (lowest first)
       const allExperts = await this.userRepo.findExpertsByReputationScore({} as any);
@@ -5231,12 +5235,13 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // 3. Get current time-bound workload per expert (single DB call)
       const timeBoundCounts = await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert();
-      const MAX_TIME_BOUND = 3;
+      console.log(timeBoundCounts+ "this is from my console");
+      const MAX_TIME_BOUND = 1; // Each expert handles at most 1 active time-bound question
       // Track provisional additions during this run to respect cap within batch
       const provisionalCounts = new Map<string, number>(timeBoundCounts);
 
       // ── Part A: Stuck submissions → reallocation via worker (penalises stuck expert) ──
-      const flatAssignments: { submissionId: string; expertId: string }[] = [];
+      const flatAssignments: { submissionId: string; expertId: string; appendExpert?: boolean }[] = [];
       let skipped = 0;
 
       for (const submission of stuckSubmissions as any[]) {
@@ -5279,7 +5284,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           continue;
         }
 
-        flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert });
+        flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert, appendExpert: true });
       }
 
       if (flatAssignments.length) {
@@ -5337,9 +5342,61 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
-      const totalReallocated = flatAssignments.length + initialAllocated;
+      // ── Part C: Answered questions needing a reviewer ──
+      let reviewersAssigned = 0;
+      for (const submission of answeredNeedingReviewer as any[]) {
+        const questionId = submission.questionId?.toString();
+        const question = (submission as any).question;
+        const sourceLabel = question?.source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
+        const history: any[] = submission.history || [];
+        const queue: any[] = submission.queue || [];
+
+        const historyExpertIds = new Set(history.map((h: any) => h.updatedBy?.toString()));
+        const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
+
+        let assignedReviewer: string | null = null;
+        for (const expert of allExperts) {
+          const expertId = expert._id.toString();
+          if (historyExpertIds.has(expertId)) continue;
+          if (queueExpertIds.has(expertId)) continue;
+          const currentCount = provisionalCounts.get(expertId) ?? 0;
+          if (currentCount >= MAX_TIME_BOUND) continue;
+
+          assignedReviewer = expertId;
+          provisionalCounts.set(expertId, currentCount + 1);
+          break;
+        }
+
+        if (!assignedReviewer) {
+          console.log(`[TimeBound] No eligible reviewer for question ${questionId} — skipping`);
+          skipped++;
+          continue;
+        }
+
+        try {
+          const now = new Date();
+          await Promise.all([
+            this.questionSubmissionRepo.assignTimeBoundReviewer(questionId, assignedReviewer, now),
+            this.userRepo.updateReputationScore(assignedReviewer, true),
+            this.notificationService.saveTheNotifications(
+              `A time-bound question from ${sourceLabel} needs your review`,
+              'New Review Assigned',
+              questionId,
+              assignedReviewer,
+              'peer_review',
+            ),
+          ]);
+          console.log(`[TimeBound] Assigned reviewer ${assignedReviewer} for question ${questionId}`);
+          reviewersAssigned++;
+        } catch (err: any) {
+          console.error(`[TimeBound] Failed to assign reviewer for question ${questionId}:`, err?.message);
+          skipped++;
+        }
+      }
+
+      const totalReallocated = flatAssignments.length + initialAllocated + reviewersAssigned;
       return {
-        message: `Time-bound: reallocated=${flatAssignments.length}, initially-allocated=${initialAllocated}`,
+        message: `Time-bound: reallocated=${flatAssignments.length}, initially-allocated=${initialAllocated}, reviewers-assigned=${reviewersAssigned}`,
         reallocated: totalReallocated,
         skipped,
       };

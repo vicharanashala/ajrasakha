@@ -396,6 +396,14 @@ export class AnswerService extends BaseService implements IAnswerService {
             session,
           );
 
+          // For time-bound questions: mark as opened so the cron won't reallocate
+          if (question.source === 'AJRASAKHA' || question.source === 'WHATSAPP') {
+            const sub = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+            if (sub && !sub.currentExpertOpenedAt) {
+              await this.questionSubmissionRepo.markQuestionOpenedByExpert(questionId, userId);
+            }
+          }
+
           // PAE experts skip the peer-review cycle — mark as pae_submitted for moderator action
           if (isPaeExpert) {
             await this.questionRepo.updateQuestion(

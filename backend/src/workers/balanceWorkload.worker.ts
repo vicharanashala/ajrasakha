@@ -8,6 +8,7 @@ import { ObjectId } from 'mongodb';
 interface AssignmentJob {
   submissionId: string;
   expertId: string;
+  appendExpert?: boolean;
 }
 
 interface WorkerData {
@@ -167,7 +168,63 @@ const notificationService = new NotificationService(notificationRepo, database);
       }
       */
 
-      if (modified) {
+      if (job.appendExpert) {
+        // ── PUSH MODE (time-bound reallocation) ──────────────────────────────
+        // Append the new expert instead of replacing the stuck one so the full
+        // allocation history is preserved.
+
+        // Penalize the stuck expert
+        if (history.length === 0) {
+          // No history yet — penalize queue[0] who was allocated but never answered
+          const firstExpert = queue[0]?.toString();
+          if (firstExpert) {
+            await userRepo.updateReputationScore(firstExpert, false);
+            affectedExpertIds.add(firstExpert);
+          }
+        } else {
+          const lastHistory = history[history.length - 1];
+          if (lastHistory?.status === 'in-review') {
+            const stuckExpertId = lastHistory.updatedBy?.toString();
+            if (stuckExpertId) {
+              await userRepo.updateReputationScore(stuckExpertId, false);
+              affectedExpertIds.add(stuckExpertId);
+            }
+          }
+        }
+
+        // Push new expert into queue and add a fresh in-review history entry
+        const pushQueue = [...queue, new ObjectId(newExpertId)];
+        const pushHistory = [
+          ...history,
+          {
+            updatedBy: new ObjectId(newExpertId),
+            status: 'in-review',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ];
+
+        await submissionRepo.updateById(job.submissionId, {
+          $set: {
+            queue: pushQueue,
+            history: pushHistory,
+            updatedAt: now,
+            reviewDelayNotificationSent: false,
+            currentExpertAllocatedAt: now,
+            currentExpertOpenedAt: null,
+          },
+        });
+
+        affectedExpertIds.add(newExpertId);
+        await notificationService.saveTheNotifications(
+          'A time-bound question has been reassigned to you',
+          'Question Reassigned',
+          submission.questionId.toString(),
+          newExpertId,
+          'answer_creation',
+        );
+      } else if (modified) {
+        // ── REPLACE MODE (default workload balancing) ─────────────────────────
         const updatedHistory = [...history];
 
         // 1. If the expert currently in-review was replaced, update the history entry to the new expert
@@ -214,7 +271,7 @@ const notificationService = new NotificationService(notificationRepo, database);
           'Workload Reassigned',
           submission.questionId.toString(),
           newExpertId,
-          'answer_creation'
+          'answer_creation',
         );
       }
 
