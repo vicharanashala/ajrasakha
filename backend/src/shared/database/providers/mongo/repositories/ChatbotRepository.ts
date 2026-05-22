@@ -27,6 +27,7 @@ import type {
   MonthlySessionDurationEntry,
   DistrictAnalyticsEntry,
   FeedbackData,
+  ResponseAdherenceTable,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -114,6 +115,272 @@ export class ChatbotRepository implements IChatbotRepository {
   private async initReviewSystem() {
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
+  }
+
+  private async getSourceAdherenceStats(
+    source: 'WHATSAPP' | 'AJRASAKHA',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+    session?: ClientSession,
+  ): Promise<{
+    questionAsked: number;
+    closedQuestionsCount: number;
+    answeredWithin120Min: number;
+    averageResponseMinutes: number;
+    inReviewCount: number;
+    openCount: number;
+    delayedCount: number;
+    dynamicWeatherCount: number;
+    dynamicMarketCount: number;
+    dynamicSchemesCount: number;
+    markedDuplicateGdbCount: number;
+  }> {
+    const matchQuery: any = {source, createdAt: {$exists: true}};
+    if (startTime || endTime) {
+      matchQuery.createdAt = {};
+      if (startTime) matchQuery.createdAt.$gte = new Date(startTime);
+      if (endTime) matchQuery.createdAt.$lte = new Date(endTime);
+    }
+
+    const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
+
+    const result = await this.QuestionCollection.aggregate(
+      [
+        {$match: matchQuery},
+        ...userTypeLookupStages,
+        {
+          $facet: {
+            questionAsked: [{$count: 'count'}],
+            closedQuestions: [
+              {
+                $match: {
+                  status: 'closed',
+                },
+              },
+              {$count: 'count'},
+            ],
+            answeredWithin120Min: [
+              {
+                $match: {
+                  status: 'closed',
+                  closedAt: {$exists: true},
+                  totalAnswersCount: {$gt: 0},
+                },
+              },
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      {$gte: ['$closedAt', '$createdAt']},
+                      {$lte: [{$subtract: ['$closedAt', '$createdAt']}, 120 * 60 * 1000]},
+                    ],
+                  },
+                },
+              },
+              {$count: 'count'},
+            ],
+            averageResponse: [
+              {
+                $match: {
+                  status: 'closed',
+                  closedAt: {$exists: true},
+                  totalAnswersCount: {$gt: 0},
+                },
+              },
+              {$match: {$expr: {$gte: ['$closedAt', '$createdAt']}}},
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [{$subtract: ['$closedAt', '$createdAt']}, 60 * 1000],
+                    },
+                  },
+                },
+              },
+            ],
+            inReview: [
+              {$match: {status: 'in-review'}},
+              {$count: 'count'},
+            ],
+            open: [
+              {$match: {status: 'open'}},
+              {$count: 'count'},
+            ],
+            delayed: [
+              {$match: {status: 'delayed'}},
+              {$count: 'count'},
+            ],
+            markedDuplicateGdb: [
+              {
+                $match: {
+                  status: 'duplicate',
+                  referenceSource: {$regex: '^golden$', $options: 'i'},
+                },
+              },
+              {$count: 'count'},
+            ],
+          },
+        },
+      ],
+      {session},
+    ).toArray();
+
+    const row = result[0] ?? {};
+    return {
+      questionAsked: row.questionAsked?.[0]?.count ?? 0,
+      closedQuestionsCount: row.closedQuestions?.[0]?.count ?? 0,
+      answeredWithin120Min: row.answeredWithin120Min?.[0]?.count ?? 0,
+      averageResponseMinutes: row.averageResponse?.[0]?.avgMinutes ?? 0,
+      inReviewCount: row.inReview?.[0]?.count ?? 0,
+      openCount: row.open?.[0]?.count ?? 0,
+      delayedCount: row.delayed?.[0]?.count ?? 0,
+      dynamicWeatherCount: 0,
+      dynamicMarketCount: 0,
+      dynamicSchemesCount: 0,
+      markedDuplicateGdbCount: row.markedDuplicateGdb?.[0]?.count ?? 0,
+    };
+  }
+
+  async getResponseAdherenceTable(
+    session?: ClientSession,
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+    source = 'vicharanashala',
+  ): Promise<ResponseAdherenceTable> {
+    try {
+      await this.init(source);
+      await this.initReviewSystem();
+
+      const [whatsapp, ajrasakha] = await Promise.all([
+        this.getSourceAdherenceStats('WHATSAPP', userType, startTime, endTime, session),
+        this.getSourceAdherenceStats('AJRASAKHA', userType, startTime, endTime, session),
+      ]);
+
+      const messageMatch: any = {isDeleted: {$ne: true}};
+      if (startTime || endTime) {
+        messageMatch.createdAt = {};
+        if (startTime) messageMatch.createdAt.$gte = new Date(startTime);
+        if (endTime) messageMatch.createdAt.$lte = new Date(endTime);
+      }
+      const queryCounts = await this.messagesCollection
+        .aggregate(
+          [
+            {$match: messageMatch},
+            ...this.buildUserTypeLookupStages(userType),
+            {
+              $addFields: {
+                _sourceHint: {
+                  $toUpper: {
+                    $concat: [
+                      {$ifNull: ['$source', '']},
+                      ' ',
+                      {$ifNull: ['$endpoint', '']},
+                    ],
+                  },
+                },
+              },
+            },
+            {
+              $group: {
+                _id: {
+                  $switch: {
+                    branches: [
+                      {
+                        case: {
+                          $regexMatch: {
+                            input: '$_sourceHint',
+                            regex: 'WHATSAPP',
+                          },
+                        },
+                        then: 'WHATSAPP',
+                      },
+                      {
+                        case: {
+                          $regexMatch: {
+                            input: '$_sourceHint',
+                            regex: 'WA\\b',
+                          },
+                        },
+                        then: 'WHATSAPP',
+                      },
+                    ],
+                    default: 'AJRASAKHA',
+                  },
+                },
+                count: {$sum: 1},
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+      const whatsappQueriesAsked = queryCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
+      const ajrasakhaQueriesAsked = queryCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+
+      const whatsappAdherencePct =
+        whatsapp.questionAsked > 0
+          ? Math.round((whatsapp.answeredWithin120Min / whatsapp.questionAsked) * 100 * 100) / 100
+          : 0;
+      const ajrasakhaAdherencePct =
+        ajrasakha.questionAsked > 0
+          ? Math.round((ajrasakha.answeredWithin120Min / ajrasakha.questionAsked) * 100 * 100) / 100
+          : 0;
+
+      const startReference = startTime ? new Date(startTime) : new Date();
+      const endReference = endTime ? new Date(endTime) : new Date();
+      const startIst = new Date(
+        startReference.toLocaleString('en-US', {timeZone: 'Asia/Kolkata'}),
+      );
+      const endIst = new Date(
+        endReference.toLocaleString('en-US', {timeZone: 'Asia/Kolkata'}),
+      );
+      const hh = String(endIst.getHours()).padStart(2, '0');
+      const mm = String(endIst.getMinutes()).padStart(2, '0');
+      const date = startIst.toLocaleDateString('en-GB').split('/').join('-');
+      const whatsappNonGdbWithin120 = whatsapp.closedQuestionsCount;
+      const ajrasakhaNonGdbWithin120 = ajrasakha.closedQuestionsCount;
+
+      return {
+        date,
+        time: `${hh}:${mm}`,
+        timeWindow: `[00:00-${hh}:${mm}]`,
+        whatsappQueriesAsked,
+        ajrasakhaQueriesAsked,
+        whatsappPushedToReviewer: whatsapp.questionAsked,
+        ajrasakhaPushedToReviewer: ajrasakha.questionAsked,
+        whatsappAnsweredWithin120Min: whatsapp.answeredWithin120Min,
+        ajrasakhaAnsweredWithin120Min: ajrasakha.answeredWithin120Min,
+        whatsappMarkedDuplicate: whatsapp.markedDuplicateGdbCount,
+        ajrasakhaMarkedDuplicate: ajrasakha.markedDuplicateGdbCount,
+        whatsappDynamicWeather: whatsapp.dynamicWeatherCount,
+        ajrasakhaDynamicWeather: ajrasakha.dynamicWeatherCount,
+        whatsappDynamicMarket: whatsapp.dynamicMarketCount,
+        ajrasakhaDynamicMarket: ajrasakha.dynamicMarketCount,
+        whatsappDynamicSchemes: whatsapp.dynamicSchemesCount,
+        ajrasakhaDynamicSchemes: ajrasakha.dynamicSchemesCount,
+        whatsappNonGdbWithin120,
+        ajrasakhaNonGdbWithin120,
+        whatsappInReview: whatsapp.inReviewCount,
+        ajrasakhaInReview: ajrasakha.inReviewCount,
+        whatsappOpen: whatsapp.openCount,
+        ajrasakhaOpen: ajrasakha.openCount,
+        whatsappDelayed: whatsapp.delayedCount,
+        ajrasakhaDelayed: ajrasakha.delayedCount,
+        whatsappAverageResponseMinutes:
+          Math.round(whatsapp.averageResponseMinutes * 100) / 100,
+        ajrasakhaAverageResponseMinutes:
+          Math.round(ajrasakha.averageResponseMinutes * 100) / 100,
+        whatsappAdherencePct,
+        ajrasakhaAdherencePct,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get response adherence table: ${error}`,
+      );
+    }
   }
 
   /**
@@ -1150,6 +1417,742 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
+
+async getQuerySummaryByPeriod(
+  period: 'daily' | 'weekly' | 'monthly',
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+) {
+  try {
+    await this.init(source);
+
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
+
+    const now = new Date();
+
+    let startDate = new Date();
+    let label = '';
+
+    switch (period) {
+      case 'daily':
+        startDate.setHours(0, 0, 0, 0);
+        label = 'Today Queries';
+        break;
+
+      case 'weekly':
+        startDate.setDate(now.getDate() - 7);
+        label = 'Last 7 Days Queries';
+        break;
+
+      case 'monthly':
+        startDate.setDate(now.getDate() - 30);
+        label = 'Last 30 Days Queries';
+        break;
+    }
+
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              createdAt: {
+                $gte: startDate,
+              },
+
+              isCreatedByUser: true,
+
+              isDeleted: {
+                $ne: true,
+              },
+            },
+          },
+
+          ...userTypeLookupStages,
+
+          {
+            $count: 'total',
+          },
+        ],
+        { session },
+      )
+      .toArray();
+
+    return {
+      label,
+      totalQueries: result[0]?.total || 0,
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get query summary: ${error}`,
+    );
+  }
+}
+
+  // ============================================
+// HELPER
+// ============================================
+
+private getMonthDateRange(month: string) {
+  // month => "2026-05"
+
+  const start = new Date(`${month}-01T00:00:00.000Z`);
+
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 1);
+
+  return { start, end };
+}
+
+
+// ============================================
+// DAILY ANALYTICS
+// ============================================
+
+async getDailyAnalytics(
+  month: string,
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+) {
+  try {
+    await this.init(source);
+    await this.initReviewSystem();
+
+    const { start, end } = this.getMonthDateRange(month);
+
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
+
+    // ============================================
+    // MESSAGE COLLECTION DATA
+    // ============================================
+
+    const messageData = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              createdAt: {
+                $gte: start,
+                $lt: end,
+              },
+
+              isCreatedByUser: true,
+
+              isDeleted: {
+                $ne: true,
+              },
+            },
+          },
+
+          ...userTypeLookupStages,
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m-%d',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+
+              queryCount: {
+                $sum: 1,
+              },
+            },
+          },
+
+          {
+            $project: {
+              _id: 0,
+              period: '$_id',
+              queryCount: 1,
+            },
+          },
+        ],
+        { session },
+      )
+      .toArray();
+
+    // ============================================
+    // QUESTIONS COLLECTION DATA
+    // ============================================
+
+    const questionData = await this.QuestionCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              source: 'AJRASAKHA',
+
+              createdAt: {
+                $gte: start,
+                $lt: end,
+              },
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m-%d',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+
+              totalQuestions: {
+                $sum: 1,
+              },
+
+              closedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$status', 'closed'],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              averageCloseTimeMinutes: {
+                $avg: {
+                  $cond: [
+                    {
+                      $and: [
+                        {
+                          $eq: ['$status', 'closed'],
+                        },
+
+                        {
+                          $ne: ['$closedAt', null],
+                        },
+                      ],
+                    },
+
+                    {
+                      $divide: [
+                        {
+                          $subtract: [
+                            '$closedAt',
+                            '$createdAt',
+                          ],
+                        },
+
+                        1000 * 60,
+                      ],
+                    },
+
+                    null,
+                  ],
+                },
+              },
+            },
+          },
+
+          {
+            $project: {
+              _id: 0,
+
+              period: '$_id',
+
+              totalQuestions: 1,
+
+              closedQuestions: 1,
+
+              averageCloseTimeMinutes: {
+                $round: [
+                  '$averageCloseTimeMinutes',
+                  2,
+                ],
+              },
+            },
+          },
+        ],
+        { session },
+      )
+      .toArray();
+
+    // ============================================
+    // MERGE DATA
+    // ============================================
+
+    const mergedMap = new Map();
+
+    for (const item of messageData) {
+      mergedMap.set(item.period, {
+        period: item.period,
+        queryCount: item.queryCount,
+        totalQuestions: 0,
+        closedQuestions: 0,
+        averageCloseTimeMinutes: 0,
+      });
+    }
+
+    for (const item of questionData) {
+      const existing = mergedMap.get(item.period);
+
+      if (existing) {
+        existing.totalQuestions = item.totalQuestions;
+        existing.closedQuestions = item.closedQuestions;
+        existing.averageCloseTimeMinutes =
+          item.averageCloseTimeMinutes || 0;
+      } else {
+        mergedMap.set(item.period, {
+          period: item.period,
+          queryCount: 0,
+          totalQuestions: item.totalQuestions,
+          closedQuestions: item.closedQuestions,
+          averageCloseTimeMinutes:
+            item.averageCloseTimeMinutes || 0,
+        });
+      }
+    }
+
+    return Array.from(mergedMap.values()).sort((a, b) =>
+      a.period.localeCompare(b.period),
+    );
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get daily analytics: ${error}`,
+    );
+  }
+}
+
+
+
+// ============================================
+// WEEKLY ANALYTICS
+// ============================================
+
+async getWeeklyAnalytics(
+  month: string,
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+) {
+  try {
+    await this.init(source);
+    await this.initReviewSystem();
+
+    const { start, end } = this.getMonthDateRange(month);
+
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
+
+    // ============================================
+    // MESSAGE DATA
+    // ============================================
+
+    const messageData = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              createdAt: {
+                $gte: start,
+                $lt: end,
+              },
+
+              isCreatedByUser: true,
+
+              isDeleted: {
+                $ne: true,
+              },
+            },
+          },
+
+          ...userTypeLookupStages,
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%G-W%V',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+
+              queryCount: {
+                $sum: 1,
+              },
+            },
+          },
+
+          {
+            $project: {
+              _id: 0,
+              period: '$_id',
+              queryCount: 1,
+            },
+          },
+        ],
+        { session },
+      )
+      .toArray();
+
+    // ============================================
+    // QUESTION DATA
+    // ============================================
+
+    const questionData = await this.QuestionCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              source: 'AJRASAKHA',
+
+              createdAt: {
+                $gte: start,
+                $lt: end,
+              },
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%G-W%V',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+
+              totalQuestions: {
+                $sum: 1,
+              },
+
+              closedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$status', 'closed'],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              averageCloseTimeMinutes: {
+                $avg: {
+                  $cond: [
+                    {
+                      $and: [
+                        {
+                          $eq: ['$status', 'closed'],
+                        },
+
+                        {
+                          $ne: ['$closedAt', null],
+                        },
+                      ],
+                    },
+
+                    {
+                      $divide: [
+                        {
+                          $subtract: [
+                            '$closedAt',
+                            '$createdAt',
+                          ],
+                        },
+
+                        1000 * 60,
+                      ],
+                    },
+
+                    null,
+                  ],
+                },
+              },
+            },
+          },
+
+          {
+            $project: {
+              _id: 0,
+
+              period: '$_id',
+
+              totalQuestions: 1,
+
+              closedQuestions: 1,
+
+              averageCloseTimeMinutes: {
+                $round: [
+                  '$averageCloseTimeMinutes',
+                  2,
+                ],
+              },
+            },
+          },
+        ],
+        { session },
+      )
+      .toArray();
+
+    // ============================================
+    // MERGE
+    // ============================================
+
+    const mergedMap = new Map();
+
+    for (const item of messageData) {
+      mergedMap.set(item.period, {
+        period: item.period,
+        queryCount: item.queryCount,
+        totalQuestions: 0,
+        closedQuestions: 0,
+        averageCloseTimeMinutes: 0,
+      });
+    }
+
+    for (const item of questionData) {
+      const existing = mergedMap.get(item.period);
+
+      if (existing) {
+        existing.totalQuestions = item.totalQuestions;
+        existing.closedQuestions = item.closedQuestions;
+        existing.averageCloseTimeMinutes =
+          item.averageCloseTimeMinutes || 0;
+      } else {
+        mergedMap.set(item.period, {
+          period: item.period,
+          queryCount: 0,
+          totalQuestions: item.totalQuestions,
+          closedQuestions: item.closedQuestions,
+          averageCloseTimeMinutes:
+            item.averageCloseTimeMinutes || 0,
+        });
+      }
+    }
+
+    return Array.from(mergedMap.values()).sort((a, b) =>
+      a.period.localeCompare(b.period),
+    );
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get weekly analytics: ${error}`,
+    );
+  }
+}
+
+
+
+// ============================================
+// MONTHLY ANALYTICS
+// ============================================
+
+async getMonthlyAnalytics(
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+) {
+  try {
+    await this.init(source);
+    await this.initReviewSystem();
+
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
+
+    // ============================================
+    // MESSAGE DATA
+    // ============================================
+
+    const messageData = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              isCreatedByUser: true,
+
+              isDeleted: {
+                $ne: true,
+              },
+            },
+          },
+
+          ...userTypeLookupStages,
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+
+              queryCount: {
+                $sum: 1,
+              },
+            },
+          },
+
+          {
+            $project: {
+              _id: 0,
+              period: '$_id',
+              queryCount: 1,
+            },
+          },
+        ],
+        { session },
+      )
+      .toArray();
+
+    // ============================================
+    // QUESTION DATA
+    // ============================================
+
+    const questionData = await this.QuestionCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              source: 'AJRASAKHA',
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+
+              totalQuestions: {
+                $sum: 1,
+              },
+
+              closedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$status', 'closed'],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              averageCloseTimeMinutes: {
+                $avg: {
+                  $cond: [
+                    {
+                      $and: [
+                        {
+                          $eq: ['$status', 'closed'],
+                        },
+
+                        {
+                          $ne: ['$closedAt', null],
+                        },
+                      ],
+                    },
+
+                    {
+                      $divide: [
+                        {
+                          $subtract: [
+                            '$closedAt',
+                            '$createdAt',
+                          ],
+                        },
+
+                        1000 * 60,
+                      ],
+                    },
+
+                    null,
+                  ],
+                },
+              },
+            },
+          },
+
+          {
+            $project: {
+              _id: 0,
+
+              period: '$_id',
+
+              totalQuestions: 1,
+
+              closedQuestions: 1,
+
+              averageCloseTimeMinutes: {
+                $round: [
+                  '$averageCloseTimeMinutes',
+                  2,
+                ],
+              },
+            },
+          },
+        ],
+        { session },
+      )
+      .toArray();
+
+    // ============================================
+    // MERGE
+    // ============================================
+
+    const mergedMap = new Map();
+
+    for (const item of messageData) {
+      mergedMap.set(item.period, {
+        period: item.period,
+        queryCount: item.queryCount,
+        totalQuestions: 0,
+        closedQuestions: 0,
+        averageCloseTimeMinutes: 0,
+      });
+    }
+
+    for (const item of questionData) {
+      const existing = mergedMap.get(item.period);
+
+      if (existing) {
+        existing.totalQuestions = item.totalQuestions;
+        existing.closedQuestions = item.closedQuestions;
+        existing.averageCloseTimeMinutes =
+          item.averageCloseTimeMinutes || 0;
+      } else {
+        mergedMap.set(item.period, {
+          period: item.period,
+          queryCount: 0,
+          totalQuestions: item.totalQuestions,
+          closedQuestions: item.closedQuestions,
+          averageCloseTimeMinutes:
+            item.averageCloseTimeMinutes || 0,
+        });
+      }
+    }
+
+    return Array.from(mergedMap.values()).sort((a, b) =>
+      a.period.localeCompare(b.period),
+    );
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get monthly analytics: ${error}`,
+    );
+  }
+}
 
   async getFeedbackData(
     source = 'vicharanashala',

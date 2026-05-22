@@ -35,7 +35,6 @@ import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import { Maximize2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
-import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
 import {
@@ -44,6 +43,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import FeedbackCard from "./FeedbackCard";
+import { ResponseAdherenceTableCard } from "./components/ResponseAdherenceTableCard";
 import { ActiveUsersChart } from "./active-users";
 import NewFilters, { type Filters } from "./NewFilters";
 
@@ -54,6 +54,19 @@ const DEFAULT_FILTERS: DashboardFilterValues = {
   startTime: undefined,
   endTime: undefined,
   userType: "all",
+};
+
+const formatDateForInput = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseInputDateToLocalDate = (value: string): Date => {
+  if (!value) return new Date();
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
 };
 
 export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam' | 'whatsapp'; onSourceChange?: (source: 'vicharanashala' | 'annam' | 'whatsapp') => void }) {
@@ -70,6 +83,9 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
   const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
+  const [responseAdherenceDate, setResponseAdherenceDate] = useState<string>(
+    formatDateForInput(new Date()),
+  );
 
   const trendsFilters = useMemo(() => ({
     ...filters,
@@ -93,6 +109,41 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     source,
     source === "annam" || source === "vicharanashala",
   );
+
+  const responseAdherenceFilters = useMemo(() => {
+    const selectedDate = parseInputDateToLocalDate(responseAdherenceDate);
+    const startTime = new Date(selectedDate);
+    startTime.setHours(0, 0, 0, 0);
+
+    const endTime = new Date(selectedDate);
+    const now = new Date();
+    const isSelectedToday =
+      selectedDate.getFullYear() === now.getFullYear() &&
+      selectedDate.getMonth() === now.getMonth() &&
+      selectedDate.getDate() === now.getDate();
+
+    if (isSelectedToday) {
+      endTime.setHours(
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds(),
+        now.getMilliseconds(),
+      );
+    } else {
+      endTime.setHours(23, 59, 59, 999);
+    }
+
+    return {
+      ...filters,
+      startTime,
+      endTime,
+    };
+  }, [filters, responseAdherenceDate]);
+
+  const {
+    data: responseAdherenceData,
+    isLoading: isResponseAdherenceLoading,
+  } = useDashboardData(responseAdherenceFilters, source);
 
   // console.log("Dashboard data:", data);
   const {
@@ -363,6 +414,16 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   <EightCardsComponent
                     kpiRow1={kpiRow1WithOverlay}
                     kpiRow2={kpiRow2WithOverlay}
+                  />
+
+                  <ResponseAdherenceTableCard
+                    data={
+                      (responseAdherenceData as any).responseAdherenceTable ??
+                      (data as any).responseAdherenceTable
+                    }
+                    selectedDate={responseAdherenceDate}
+                    onSelectedDateChange={setResponseAdherenceDate}
+                    isLoading={isResponseAdherenceLoading}
                   />
                 </div>
 
