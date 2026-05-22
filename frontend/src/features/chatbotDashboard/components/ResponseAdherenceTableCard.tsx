@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
+import { Button } from "@/components/atoms/button";
 import { useState } from "react";
 
 type ResponseAdherenceTableData = {
@@ -65,6 +66,44 @@ const DEFAULT_DATA: ResponseAdherenceTableData = {
   ajrasakhaAdherencePct: 0,
 };
 
+const ALL_ROW_IDS = [
+  "date",
+  "time",
+  "header",
+  "queriesAsked",
+  "pushedReviewer",
+  "answered120",
+  "duplicate",
+  "dynamicWeather",
+  "dynamicMarket",
+  "dynamicSchemes",
+  "nonGdb",
+  "inReview",
+  "open",
+  "delayed",
+  "summaryDelayReason",
+  "avgResponse",
+  "adherencePct",
+] as const;
+
+const DEFAULT_SELECTED_ROW_IDS = new Set<string>([
+  "date",
+  "time",
+  "pushedReviewer",
+  "answered120",
+  "summaryDelayReason",
+  "avgResponse",
+  "adherencePct",
+]);
+
+const todayAsInputDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 function formatMinutes(minutes: number): string {
   if (!Number.isFinite(minutes) || minutes <= 0) return "0 Min";
   const totalMinutes = Math.round(minutes);
@@ -77,13 +116,90 @@ function formatMinutes(minutes: number): string {
 
 export function ResponseAdherenceTableCard({
   data,
+  selectedDate,
+  onSelectedDateChange,
+  isLoading = false,
 }: {
   data?: Partial<ResponseAdherenceTableData> | null;
+  selectedDate?: string;
+  onSelectedDateChange?: (date: string) => void;
+  isLoading?: boolean;
 }) {
   const d = { ...DEFAULT_DATA, ...(data ?? {}) };
-  const [checkedRows, setCheckedRows] = useState<Record<string, boolean>>({});
+  const [internalDate, setInternalDate] = useState<string>(todayAsInputDate());
+  const [checkedRows, setCheckedRows] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      ALL_ROW_IDS.map((rowId) => [rowId, DEFAULT_SELECTED_ROW_IDS.has(rowId)]),
+    ),
+  );
+
+  const effectiveDate = selectedDate ?? internalDate;
+
   const toggleRow = (rowId: string) =>
     setCheckedRows((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
+
+  const handleDateChange = (nextDate: string) => {
+    if (onSelectedDateChange) {
+      onSelectedDateChange(nextDate);
+      return;
+    }
+    setInternalDate(nextDate);
+  };
+
+  const csvEscape = (value: string | number) => {
+    const str = String(value ?? "");
+    const escaped = str.replace(/"/g, "\"\"");
+    return `"${escaped}"`;
+  };
+
+  const rowExportData = [
+    { id: "date", field: "Date", whatsapp: d.date || effectiveDate || "", ajraSakha: "", notes: "" },
+    { id: "time", field: "Time", whatsapp: d.time, ajraSakha: "", notes: d.timeWindow },
+    { id: "header", field: "Source", whatsapp: "Whatsapp", ajraSakha: "AjraSakha", notes: "" },
+    { id: "queriesAsked", field: "Queries Asked", whatsapp: d.whatsappQueriesAsked, ajraSakha: d.ajrasakhaQueriesAsked, notes: "" },
+    { id: "pushedReviewer", field: "Questions pushed into the review system", whatsapp: d.whatsappPushedToReviewer, ajraSakha: d.ajrasakhaPushedToReviewer, notes: "" },
+    { id: "answered120", field: "Questions answered within 120 minutes", whatsapp: d.whatsappAnsweredWithin120Min, ajraSakha: d.ajrasakhaAnsweredWithin120Min, notes: "" },
+    { id: "duplicate", field: "Marked Duplicate (Fetched from GDB)", whatsapp: d.whatsappMarkedDuplicate, ajraSakha: d.ajrasakhaMarkedDuplicate, notes: "" },
+    { id: "dynamicWeather", field: "Dynamic - Weather", whatsapp: d.whatsappDynamicWeather, ajraSakha: d.ajrasakhaDynamicWeather, notes: "" },
+    { id: "dynamicMarket", field: "Dynamic - Market", whatsapp: d.whatsappDynamicMarket, ajraSakha: d.ajrasakhaDynamicMarket, notes: "" },
+    { id: "dynamicSchemes", field: "Dynamic - Schemes", whatsapp: d.whatsappDynamicSchemes, ajraSakha: d.ajrasakhaDynamicSchemes, notes: "" },
+    { id: "nonGdb", field: "Non GDB Questions - Answer prepared in 120 Min by AEs", whatsapp: d.whatsappNonGdbWithin120, ajraSakha: d.ajrasakhaNonGdbWithin120, notes: "" },
+    { id: "inReview", field: "Question in Review", whatsapp: d.whatsappInReview, ajraSakha: d.ajrasakhaInReview, notes: "" },
+    { id: "open", field: "Questions are Open", whatsapp: d.whatsappOpen, ajraSakha: d.ajrasakhaOpen, notes: "" },
+    { id: "delayed", field: "Questions are delayed", whatsapp: d.whatsappDelayed, ajraSakha: d.ajrasakhaDelayed, notes: "" },
+    { id: "summaryDelayReason", field: "Summary of the reason for delay", whatsapp: "", ajraSakha: "", notes: "" },
+    { id: "avgResponse", field: "Average response time", whatsapp: formatMinutes(d.whatsappAverageResponseMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseMinutes), notes: "" },
+    { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, notes: "" },
+  ] as const;
+
+  const hasSelectedRows = rowExportData.some((row) => checkedRows[row.id]);
+
+  const handleDownloadSelectedFields = () => {
+    const selectedRows = rowExportData.filter((row) => checkedRows[row.id]);
+    if (!selectedRows.length) return;
+
+    const header = ["Field", "Whatsapp", "AjraSakha", "Notes"];
+    const lines = selectedRows.map((row) =>
+      [
+        csvEscape(row.field),
+        csvEscape(row.whatsapp),
+        csvEscape(row.ajraSakha),
+        csvEscape(row.notes),
+      ].join(","),
+    );
+
+    const csvContent = ["\uFEFF" + header.join(","), ...lines].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const downloadUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = downloadUrl;
+    anchor.download = `response-adherence-selected-fields-${effectiveDate || todayAsInputDate()}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(downloadUrl);
+  };
+
   const rowCheck = (rowId: string) => (
     <input
       type="checkbox"
@@ -95,20 +211,43 @@ export function ResponseAdherenceTableCard({
 
   return (
     <Card className="mb-4">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Response Adherence Summary</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Source-wise question handling performance
-        </p>
+      <CardHeader className="pb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <CardTitle className="text-base">Response Adherence Summary</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Source-wise question handling performance
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            type="date"
+            value={effectiveDate}
+            onChange={(e) => handleDateChange(e.target.value)}
+            className="h-9 rounded-md border border-border px-3 text-sm bg-background"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDownloadSelectedFields}
+            disabled={!hasSelectedRows}
+          >
+            Download Selected Fields
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
+        {isLoading ? (
+          <div className="mb-3 text-xs text-muted-foreground">
+            Fetching selected date data...
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] border-collapse text-sm">
             <tbody>
               <tr>
                 <td className="border border-border px-2 py-2 text-center">{rowCheck("date")}</td>
                 <td className="border border-border px-3 py-2 font-medium">Date</td>
-                <td className="border border-border px-3 py-2">{d.date}</td>
+                <td className="border border-border px-3 py-2">{d.date || effectiveDate}</td>
                 <td className="border border-border px-3 py-2"></td>
               </tr>
               <tr>
