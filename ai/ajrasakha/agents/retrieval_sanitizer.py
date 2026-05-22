@@ -21,7 +21,7 @@ from ajrasakha.agents.state import (
 
 logger = logging.getLogger(__name__)
 
-RELEVANCE_THRESHOLD = 0.9
+RELEVANCE_THRESHOLD = 0.8
 SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 
 _BATCH_SUFFIX = (

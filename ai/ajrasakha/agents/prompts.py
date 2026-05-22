@@ -108,6 +108,8 @@ Return the raw fetched data structured as:
 Weather Summary: current conditions for the location.
 Forecast: rainfall, temperature, humidity forecast relevant to the query.
 Farming Advisory: one practical suggestion based on the data.
+
+Do not add any emojies in your response.
 """
 
 SOIL_SYSTEM_PROMPT = """

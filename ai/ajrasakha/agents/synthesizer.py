@@ -499,21 +499,55 @@ async def synthesize_node(
             raise
 
     else:
-        #── No GDB data: Return deterministic fallback ──
-        logger.info("No GDB data available — returning deterministic fallback message")
-        return {
-        "messages": [AIMessage(content=EMPTY_GDB_REPLY)],
-        "location": state.get("location"),
-        }
+        # ── No GDB data: Check if other tools have results ──
+        other_tools = _format_non_gdb_tool_results(messages)
+        
+        if not other_tools.strip():
+            # No tools have data at all
+            logger.info("No GDB data and no other specialist tools — returning canned reply")
+            return {
+                "messages": [AIMessage(content=EMPTY_GDB_REPLY)],
+                "location": state.get("location"),
+            }
+        
+        # Other tools have data → synthesize from them
+        logger.info("No GDB data but other tools available — synthesizing from tools")
+        tool_block = _format_tool_results_for_synthesizer(messages)
 
-        # try:
-        #     llm = ChatAnthropic(model=CLAUDE_MODEL)
-        #     response = await llm.ainvoke(llm_messages, config=config)
-        #     return {"messages": [response], "location": state.get("location")}
-        # except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
-        #     logger.warning("Synthesizer failed (%s: %s)", type(exc).__name__, exc)
-        #     return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-        # except APIStatusError as exc:
-        #     if exc.status_code >= 500:
-        #         return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-        #     raise
+        llm_messages: list[BaseMessage] = [
+            SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
+            SystemMessage(content=language_directive_for_synthesis(user_text)),
+            SystemMessage(content=summary_context),
+        ]
+        loc_ctx = main_agent_location_context_message(state.get("location"))
+        if loc_ctx:
+            llm_messages.append(loc_ctx)
+        llm_messages.append(
+            HumanMessage(
+                content=(
+                    f"Farmer message (detected language: {output_lang}):\n{user_text}"
+                )
+            )
+        )
+        llm_messages.append(HumanMessage(content=f"Tool results:\n{tool_block}"))
+
+        try:
+            llm = ChatAnthropic(model=CLAUDE_MODEL)
+            response = await llm.ainvoke(llm_messages, config=config)
+            answer_text = _message_to_text(response)
+
+            # Append mandatory testing disclaimer (same as exact/similar paths)
+            answer_text = f"{answer_text}\n\n{WARNING_TEXT}"
+
+            logger.info("Tool-only synthesis complete (len=%d)", len(answer_text))
+            return {
+                "messages": [AIMessage(content=answer_text)],
+                "location": state.get("location"),
+            }
+        except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
+            logger.warning("Synthesizer failed (%s: %s)", type(exc).__name__, exc)
+            return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+        except APIStatusError as exc:
+            if exc.status_code >= 500:
+                return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+            raise
