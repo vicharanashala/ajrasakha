@@ -296,6 +296,10 @@ export interface IChatbotRepository {
     lowFeedbackOnly?: boolean,
   ): Promise<PaginatedUserDetails>;
 
+  getUserQuestionsData(userId: string, source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
+  
+  getUsersMessages(email: string, source?: string, session?: ClientSession, userType?: string, page?: number, limit?: number): Promise<any>;
+
   /** Aggregate conversations from the messages collection for Excel export. */
   generateChatbotExcelReport(
     startDate: Date,

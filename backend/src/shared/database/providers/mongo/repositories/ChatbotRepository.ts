@@ -331,7 +331,13 @@ export class ChatbotRepository implements IChatbotRepository {
         this.messagesCollection
           .aggregate(
             [
-              {$match: {feedback: {$exists: true}, isCreatedByUser: false,  isDeleted: {$ne: true},},},
+              {
+                $match: {
+                  feedback: {$exists: true},
+                  isCreatedByUser: false,
+                  isDeleted: {$ne: true},
+                },
+              },
               {$group: {_id: '$user'}},
               {$count: 'total'},
             ],
@@ -387,10 +393,10 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       // Construct matches based on startTime and endTime if provided
-      const queryMatch: any = { 
-        isCreatedByUser: true, 
+      const queryMatch: any = {
+        isCreatedByUser: true,
         isDeleted: {$ne: true},
-        text: { $exists: true, $ne: null, $nin: ['', ' '] } 
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
       if (startTime || endTime) {
         queryMatch.createdAt = {};
@@ -443,10 +449,10 @@ export class ChatbotRepository implements IChatbotRepository {
           : 0;
 
       // Avg questions per user per day over the filtered range (or default to last 30 days)
-      const avgQuestionsMatch: any = { 
-        isCreatedByUser: true, 
+      const avgQuestionsMatch: any = {
+        isCreatedByUser: true,
         isDeleted: {$ne: true},
-        text: { $exists: true, $ne: null, $nin: ['', ' '] } 
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
       if (startTime || endTime) {
         avgQuestionsMatch.createdAt = {};
@@ -540,7 +546,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
+            {
+              $match: {
+                createdAt: {$gte: since},
+                isCreatedByUser: true,
+                isDeleted: {$ne: true},
+              },
+            },
             ...userTypeLookupStages,
             // Deduplicate: one entry per (month, user) pair
             {
@@ -943,7 +955,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true},  },},
+            {
+              $match: {
+                createdAt: {$gte: since},
+                isCreatedByUser: true,
+                isDeleted: {$ne: true},
+              },
+            },
             ...userTypeLookupStages,
             {
               $group: {
@@ -985,7 +1003,13 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate(
           [
             // Filter to last N days, user-sent messages only
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
+            {
+              $match: {
+                createdAt: {$gte: since},
+                isCreatedByUser: true,
+                isDeleted: {$ne: true},
+              },
+            },
             ...userTypeLookupStages,
             // Deduplicate: one entry per (day, user) pair
             {
@@ -1065,68 +1089,67 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyQueryCounts(
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-): Promise<MonthlyQueryCountEntry[]> {
-  try {
-    await this.init(source);
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<MonthlyQueryCountEntry[]> {
+    try {
+      await this.init(source);
 
-    const userTypeLookupStages =
-      this.buildUserTypeLookupStages(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-    const result = await this.messagesCollection
-      .aggregate(
-        [
-          {
-            $match: {
-              isCreatedByUser: true,
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                isCreatedByUser: true,
+              },
             },
-          },
 
-          ...userTypeLookupStages,
+            ...userTypeLookupStages,
 
-          {
-            $group: {
-              _id: {
-                $dateToString: {
-                  format: '%Y-%m',
-                  date: '$createdAt',
-                  timezone: '+05:30',
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+
+                count: {
+                  $sum: 1,
                 },
               },
+            },
 
-              count: {
-                $sum: 1,
+            {
+              $project: {
+                month: '$_id',
+                count: 1,
+                _id: 0,
               },
             },
-          },
 
-          {
-            $project: {
-              month: '$_id',
-              count: 1,
-              _id: 0,
+            {
+              $sort: {
+                month: 1,
+              },
             },
-          },
+          ],
+          {session},
+        )
+        .toArray();
 
-          {
-            $sort: {
-              month: 1,
-            },
-          },
-        ],
-        {session},
-      )
-      .toArray();
-
-    return result as MonthlyQueryCountEntry[];
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get monthly query counts: ${error}`,
-    );
+      return result as MonthlyQueryCountEntry[];
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get monthly query counts: ${error}`,
+      );
+    }
   }
-}
 
   async getFeedbackData(
     source = 'vicharanashala',
@@ -1281,7 +1304,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: today}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
+            {
+              $match: {
+                createdAt: {$gte: today},
+                isCreatedByUser: true,
+                isDeleted: {$ne: true},
+              },
+            },
             ...userTypeLookupStages,
             {$count: 'total'},
           ],
@@ -1617,7 +1646,10 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
 
       // Build date match for messages (optional)
-      const dateMatch: Record<string, any> = {isCreatedByUser: true,  isDeleted: {$ne: true}, };
+      const dateMatch: Record<string, any> = {
+        isCreatedByUser: true,
+        isDeleted: {$ne: true},
+      };
       if (startDate || endDate) {
         dateMatch.createdAt = {};
         if (startDate) dateMatch.createdAt.$gte = startDate;
@@ -1737,7 +1769,13 @@ export class ChatbotRepository implements IChatbotRepository {
       if (lowFeedbackOnly) {
         const feedbackDocs = await this.messagesCollection
           .aggregate([
-            {$match: {feedback: {$exists: true}, isCreatedByUser: false,  isDeleted: {$ne: true},  },},
+            {
+              $match: {
+                feedback: {$exists: true},
+                isCreatedByUser: false,
+                isDeleted: {$ne: true},
+              },
+            },
             {$group: {_id: '$user'}},
           ])
           .toArray();
@@ -1790,6 +1828,265 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getUserQuestionsData(
+    userId: string,
+    source: string,
+    userType = 'all',
+    page = 1,
+    limit = 10,
+  ) {
+    try {
+      await this.initReviewSystem();
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const objectId = new ObjectId(userId);
+
+      const skip = (page - 1) * limit;
+
+      const pipeline = [
+        {
+          $match: {
+            userId: objectId,
+            source: 'AJRASAKHA',
+          },
+        },
+
+        ...userTypeLookupStages,
+
+        // Sort first so latest record becomes first inside group
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+
+        // Group duplicate questions
+        {
+          $group: {
+            _id: {
+              $toLower: '$question',
+            },
+
+            totalRepeated: {
+              $sum: {
+                $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
+              },
+            },
+
+            latestQuestion: {$first: '$question'},
+            latestStatus: {$first: '$status'},
+            latestCreatedAt: {$first: '$createdAt'},
+            latestUpdatedAt: {$first: '$updatedAt'},
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+
+            question: '$latestQuestion',
+
+            status: '$latestStatus',
+
+            createdAt: '$latestCreatedAt',
+
+            updatedAt: '$latestUpdatedAt',
+
+            repeatedCount: {
+              $cond: [
+                {$gt: ['$totalRepeated', 0]},
+                {$add: ['$totalRepeated', 1]},
+                1,
+              ],
+            },
+
+            isDuplicate: {
+              $gt: ['$totalRepeated', 0],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+      ];
+
+      // Get total count
+      const totalResult = await this.QuestionCollection.aggregate([
+        ...pipeline,
+        {
+          $count: 'total',
+        },
+      ]).toArray();
+
+      const totalQuestions = totalResult[0]?.total || 0;
+
+      const totalPages = Math.ceil(totalQuestions / limit);
+
+      // Paginated data
+      const questions = await this.QuestionCollection.aggregate([
+        ...pipeline,
+
+        {
+          $skip: skip,
+        },
+
+        {
+          $limit: limit,
+        },
+      ]).toArray();
+
+      return {
+        totalQuestions,
+        totalPages,
+        currentPage: page,
+        limit,
+        questions,
+      };
+    } catch (err) {
+      throw new InternalServerError(`Failed to get question data: ${err}`);
+    }
+  }
+
+  async getUsersMessages(
+    email: string,
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+    page = 1,
+    limit = 10,
+  ) {
+    console.log(`getUsersMessages called with email=${email}, source=${source}, userType=${userType}, page=${page}, limit=${limit}`);
+    try {
+      await this.init(source);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const user = await this.users.findOne({email: email}, {session});
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const skip = (page - 1) * limit;
+
+      const pipeline = [
+        {
+          $match: {
+            user: String(user._id),
+            sender: 'User',
+            isCreatedByUser: true,
+          },
+        },
+
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+
+        // Group repeated messages
+        {
+          $group: {
+            _id: {
+              $trim: {
+                input: {
+                  $toLower: '$text',
+                },
+              },
+            },
+
+            repeatedCount: {
+              $sum: 1,
+            },
+
+            latestMessage: {
+              $first: '$text',
+            },
+
+            latestCreatedAt: {
+              $first: '$createdAt',
+            },
+
+            latestUpdatedAt: {
+              $first: '$updatedAt',
+            },
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+
+            message: '$latestMessage',
+
+            createdAt: '$latestCreatedAt',
+
+            updatedAt: '$latestUpdatedAt',
+
+            repeatedCount: 1,
+
+            isDuplicate: {
+              $gt: ['$repeatedCount', 1],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+      ];
+
+      // Total count
+
+      const totalResult = await this.messagesCollection
+        .aggregate([
+          ...pipeline,
+          {
+            $count: 'total',
+          },
+        ])
+        .toArray();
+
+      const totalMessages = totalResult[0]?.total || 0;
+
+      const totalPages = Math.ceil(totalMessages / limit);
+
+      // Paginated messages
+
+      const messages = await this.messagesCollection
+        .aggregate([
+          ...pipeline,
+
+          {
+            $skip: skip,
+          },
+
+          {
+            $limit: limit,
+          },
+        ])
+        .toArray();
+
+      return {
+        totalMessages,
+
+        totalPages,
+
+        currentPage: page,
+
+        limit,
+
+        messages,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get users messages: ${error}`);
+    }
+  }
   // ── NEW: Inactivity-gap based avg session duration (KPI number) ──────────────
   // Uses the messages collection instead of conversations.
   // For each conversation: sums only the gaps between consecutive messages that
@@ -3027,7 +3324,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const queryMatch: any = {
         isCreatedByUser: true,
         isDeleted: {$ne: true},
-        text: { $exists: true, $ne: null, $nin: ['', ' '] }
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
 
       if (startTime || endTime) {
@@ -3163,7 +3460,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {user: userId},
         {$set: {isDeleted: true}},
       );
-      const result = await this.users.deleteOne({ _id: new ObjectId(userId) });
+      const result = await this.users.deleteOne({_id: new ObjectId(userId)});
       return result.deletedCount === 1;
     } catch (error) {
       throw new InternalServerError(`Failed to delete user: ${error}`);
@@ -3171,7 +3468,10 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getDailyActiveUsersTrend(
-    startDate: Date, endDate: Date, source: string, userType: string,
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
     session?: ClientSession,
   ) {
     try {
@@ -3194,21 +3494,21 @@ export class ChatbotRepository implements IChatbotRepository {
       /**
        * External Users
        */
-      if (source === "external") {
+      if (source === 'external') {
         matchStage.email = {
-          $regex: "^rup",
-          $options: "i",
+          $regex: '^rup',
+          $options: 'i',
         };
       }
 
       /**
        * Internal Users
        */
-      if (source === "internal") {
+      if (source === 'internal') {
         matchStage.email = {
           $not: {
-            $regex: "^rup",
-            $options: "i",
+            $regex: '^rup',
+            $options: 'i',
           },
         };
       }
@@ -3219,15 +3519,15 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.users
         .aggregate(
           [
-          {
-            $match: matchStage,
-          },
+            {
+              $match: matchStage,
+            },
             {
               $group: {
                 _id: {
                   $dateToString: {
-                    format: "%Y-%m-%d",
-                    date: "$lastActiveAt",
+                    format: '%Y-%m-%d',
+                    date: '$lastActiveAt',
                   },
                 },
                 dau: {
@@ -3248,7 +3548,6 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
 
       return result;
-
     } catch (error) {
       throw new InternalServerError(
         `Failed to get daily active users trend: ${error}`,
@@ -3256,9 +3555,11 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-
   async getWeeklyActiveUsersTrend(
-    startDate: Date, endDate: Date, source: string, userType: string,
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
     session?: ClientSession,
   ) {
     try {
@@ -3287,21 +3588,21 @@ export class ChatbotRepository implements IChatbotRepository {
       /**
        * External Users
        */
-      if (source === "external") {
+      if (source === 'external') {
         matchStage.email = {
-          $regex: "^rup",
-          $options: "i",
+          $regex: '^rup',
+          $options: 'i',
         };
       }
 
       /**
        * Internal Users
        */
-      if (source === "internal") {
+      if (source === 'internal') {
         matchStage.email = {
           $not: {
-            $regex: "^rup",
-            $options: "i",
+            $regex: '^rup',
+            $options: 'i',
           },
         };
       }
@@ -3319,11 +3620,11 @@ export class ChatbotRepository implements IChatbotRepository {
               $group: {
                 _id: {
                   year: {
-                    $isoWeekYear: "$lastActiveAt",
+                    $isoWeekYear: '$lastActiveAt',
                   },
 
                   week: {
-                    $isoWeek: "$lastActiveAt",
+                    $isoWeek: '$lastActiveAt',
                   },
                 },
 
@@ -3334,8 +3635,8 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             {
               $sort: {
-                "_id.year": 1,
-                "_id.week": 1,
+                '_id.year': 1,
+                '_id.week': 1,
               },
             },
             {
@@ -3343,24 +3644,24 @@ export class ChatbotRepository implements IChatbotRepository {
                 _id: {
                   $concat: [
                     {
-                      $toString: "$_id.year",
+                      $toString: '$_id.year',
                     },
-                    "-W",
+                    '-W',
                     {
                       $cond: [
                         {
-                          $lt: ["$_id.week", 10],
+                          $lt: ['$_id.week', 10],
                         },
                         {
                           $concat: [
-                            "0",
+                            '0',
                             {
-                              $toString: "$_id.week",
+                              $toString: '$_id.week',
                             },
                           ],
                         },
                         {
-                          $toString: "$_id.week",
+                          $toString: '$_id.week',
                         },
                       ],
                     },
@@ -3378,7 +3679,6 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
 
       return result;
-
     } catch (error) {
       throw new InternalServerError(
         `Failed to get weekly active users trend: ${error}`,
@@ -3387,7 +3687,10 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyActiveUsersTrend(
-    startDate: Date, endDate: Date, source: string, userType: string,
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
     session?: ClientSession,
   ) {
     try {
@@ -3410,21 +3713,21 @@ export class ChatbotRepository implements IChatbotRepository {
       /**
        * External Users
        */
-      if (source === "external") {
+      if (source === 'external') {
         matchStage.email = {
-          $regex: "^rup",
-          $options: "i",
+          $regex: '^rup',
+          $options: 'i',
         };
       }
 
       /**
        * Internal Users
        */
-      if (source === "internal") {
+      if (source === 'internal') {
         matchStage.email = {
           $not: {
-            $regex: "^rup",
-            $options: "i",
+            $regex: '^rup',
+            $options: 'i',
           },
         };
       }
@@ -3441,8 +3744,8 @@ export class ChatbotRepository implements IChatbotRepository {
               $group: {
                 _id: {
                   $dateToString: {
-                    format: "%Y-%m",
-                    date: "$lastActiveAt",
+                    format: '%Y-%m',
+                    date: '$lastActiveAt',
                   },
                 },
                 mau: {
@@ -3462,8 +3765,7 @@ export class ChatbotRepository implements IChatbotRepository {
         )
         .toArray();
 
-        return result;
-
+      return result;
     } catch (error) {
       throw new InternalServerError(
         `Failed to get monthly active users trend: ${error}`,
@@ -3471,9 +3773,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getRetentionMetrics(
-    session?: ClientSession,
-  ) {
+  async getRetentionMetrics(session?: ClientSession) {
     try {
       await this.init();
 
@@ -3483,9 +3783,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const endDate = new Date();
       const startDate = new Date();
 
-      startDate.setMonth(
-        startDate.getMonth() - 3,
-      );
+      startDate.setMonth(startDate.getMonth() - 3);
 
       const result = await this.users
         .aggregate(
@@ -3507,13 +3805,13 @@ export class ChatbotRepository implements IChatbotRepository {
              */
             {
               $project: {
-                userId: "$_id",
-                signupDate: "$createdAt",
+                userId: '$_id',
+                signupDate: '$createdAt',
                 cohortDate: {
                   $dateToString: {
                     // format: "%Y-%m-%d",
-                    format: "%Y-W%V",
-                    date: "$createdAt",
+                    format: '%Y-W%V',
+                    date: '$createdAt',
                   },
                 },
               },
@@ -3524,10 +3822,10 @@ export class ChatbotRepository implements IChatbotRepository {
              */
             {
               $lookup: {
-                from: "messages",
+                from: 'messages',
                 let: {
-                  userId: "$userId",
-                  signupDate: "$signupDate",
+                  userId: '$userId',
+                  signupDate: '$signupDate',
                 },
                 pipeline: [
                   /**
@@ -3537,9 +3835,9 @@ export class ChatbotRepository implements IChatbotRepository {
                     $match: {
                       $expr: {
                         $eq: [
-                          "$user",
+                          '$user',
                           {
-                            $toString: "$$userId",
+                            $toString: '$$userId',
                           },
                         ],
                       },
@@ -3557,19 +3855,19 @@ export class ChatbotRepository implements IChatbotRepository {
                         $dateDiff: {
                           startDate: {
                             $dateTrunc: {
-                              date: "$$signupDate",
-                              unit: "day",
+                              date: '$$signupDate',
+                              unit: 'day',
                             },
                           },
 
                           endDate: {
                             $dateTrunc: {
-                              date: "$createdAt",
-                              unit: "day",
+                              date: '$createdAt',
+                              unit: 'day',
                             },
                           },
 
-                          unit: "day",
+                          unit: 'day',
                         },
                       },
                     },
@@ -3587,7 +3885,7 @@ export class ChatbotRepository implements IChatbotRepository {
                   },
                 ],
 
-                as: "activities",
+                as: 'activities',
               },
             },
 
@@ -3603,15 +3901,12 @@ export class ChatbotRepository implements IChatbotRepository {
                     {
                       $size: {
                         $filter: {
-                          input: "$activities",
+                          input: '$activities',
 
-                          as: "activity",
+                          as: 'activity',
 
                           cond: {
-                            $eq: [
-                              "$$activity.daysAfterSignup",
-                              1,
-                            ],
+                            $eq: ['$$activity.daysAfterSignup', 1],
                           },
                         },
                       },
@@ -3625,15 +3920,12 @@ export class ChatbotRepository implements IChatbotRepository {
                     {
                       $size: {
                         $filter: {
-                          input: "$activities",
+                          input: '$activities',
 
-                          as: "activity",
+                          as: 'activity',
 
                           cond: {
-                            $eq: [
-                              "$$activity.daysAfterSignup",
-                              7,
-                            ],
+                            $eq: ['$$activity.daysAfterSignup', 7],
                           },
                         },
                       },
@@ -3647,15 +3939,12 @@ export class ChatbotRepository implements IChatbotRepository {
                     {
                       $size: {
                         $filter: {
-                          input: "$activities",
+                          input: '$activities',
 
-                          as: "activity",
+                          as: 'activity',
 
                           cond: {
-                            $eq: [
-                              "$$activity.daysAfterSignup",
-                              30,
-                            ],
+                            $eq: ['$$activity.daysAfterSignup', 30],
                           },
                         },
                       },
@@ -3671,7 +3960,7 @@ export class ChatbotRepository implements IChatbotRepository {
              */
             {
               $group: {
-                _id: "$cohortDate",
+                _id: '$cohortDate',
 
                 totalUsers: {
                   $sum: 1,
@@ -3679,31 +3968,19 @@ export class ChatbotRepository implements IChatbotRepository {
 
                 d1Users: {
                   $sum: {
-                    $cond: [
-                      "$retainedD1",
-                      1,
-                      0,
-                    ],
+                    $cond: ['$retainedD1', 1, 0],
                   },
                 },
 
                 d7Users: {
                   $sum: {
-                    $cond: [
-                      "$retainedD7",
-                      1,
-                      0,
-                    ],
+                    $cond: ['$retainedD7', 1, 0],
                   },
                 },
 
                 d30Users: {
                   $sum: {
-                    $cond: [
-                      "$retainedD30",
-                      1,
-                      0,
-                    ],
+                    $cond: ['$retainedD30', 1, 0],
                   },
                 },
               },
@@ -3716,7 +3993,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $project: {
                 _id: 0,
 
-                cohortDate: "$_id",
+                cohortDate: '$_id',
 
                 totalUsers: 1,
 
@@ -3725,10 +4002,7 @@ export class ChatbotRepository implements IChatbotRepository {
                     {
                       $multiply: [
                         {
-                          $divide: [
-                            "$d1Users",
-                            "$totalUsers",
-                          ],
+                          $divide: ['$d1Users', '$totalUsers'],
                         },
                         100,
                       ],
@@ -3742,10 +4016,7 @@ export class ChatbotRepository implements IChatbotRepository {
                     {
                       $multiply: [
                         {
-                          $divide: [
-                            "$d7Users",
-                            "$totalUsers",
-                          ],
+                          $divide: ['$d7Users', '$totalUsers'],
                         },
                         100,
                       ],
@@ -3759,10 +4030,7 @@ export class ChatbotRepository implements IChatbotRepository {
                     {
                       $multiply: [
                         {
-                          $divide: [
-                            "$d30Users",
-                            "$totalUsers",
-                          ],
+                          $divide: ['$d30Users', '$totalUsers'],
                         },
                         100,
                       ],
@@ -3789,12 +4057,10 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
 
       return result;
-
     } catch (error) {
       throw new InternalServerError(
         `Failed to get retention metrics: ${error}`,
       );
     }
   }
-
 }
