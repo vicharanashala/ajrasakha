@@ -52,9 +52,12 @@ def test_should_expert_queue_when_gdb_empty_no_specialists():
     assert should_expert_queue_reply(_state_after_sanitizer_filter()) is True
 
 
-def test_should_not_expert_queue_when_weather_in_plan():
+def test_should_not_expert_queue_when_weather_tool_has_content():
     state = _state_after_sanitizer_filter()
     state["plan"] = {**state["plan"], "weather": True}
+    state["messages"].append(
+        ToolMessage(content="Rain expected tomorrow", tool_call_id="w1", name="weather")
+    )
     assert should_expert_queue_reply(state) is False
 
 
@@ -71,14 +74,21 @@ def test_route_after_sanitizer_to_empty_gdb_reply():
     assert route_after_sanitizer(_state_after_sanitizer_filter()) == "empty_gdb_reply"
 
 
-def test_route_after_sanitizer_empty_gdb_even_when_weather_ran():
-    """After sanitizer, empty GDB always routes to empty_gdb_reply (not synthesize)."""
+def test_route_after_sanitizer_empty_when_weather_planned_but_no_tool_content():
+    """Planner requested weather but tool returned nothing — still expert-queue."""
+    state = _state_after_sanitizer_filter()
+    state["plan"] = {**state["plan"], "weather": True}
+    assert route_after_sanitizer(state) == "empty_gdb_reply"
+
+
+def test_route_after_sanitizer_synthesize_when_weather_has_content():
+    """Empty GDB + non-empty weather tool → synthesize (not expert-queue)."""
     state = _state_after_sanitizer_filter()
     state["plan"] = {**state["plan"], "weather": True}
     state["messages"].append(
         ToolMessage(content="Rain expected tomorrow", tool_call_id="w1", name="weather")
     )
-    assert route_after_sanitizer(state) == "empty_gdb_reply"
+    assert route_after_sanitizer(state) == "synthesize"
 
 
 def test_empty_gdb_reply_content():
