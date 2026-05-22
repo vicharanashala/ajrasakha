@@ -311,7 +311,7 @@ function transformApiResponse(
     if (card.id === "dau") {
       return {
         ...card,
-        value: result.kpi.dau.toString(), // raw number, no formatting
+        value: result.kpi.totalAppInstalls.toString(), // raw number, no formatting
         delta: delta.text,
         deltaDir: delta.dir,
         sparkPoints,

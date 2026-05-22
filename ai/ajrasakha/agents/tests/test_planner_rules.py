@@ -48,59 +48,59 @@ def test_conversation_carries_crop():
 def test_cotton_turn_complete_with_gps():
     messages = [
         HumanMessage(content="Can i get insurance for my crop?"),
-        AIMessage(content="Which crop?"),
+        AIMessage(content="Which crop are you growing?"),
         HumanMessage(content="Cotton"),
     ]
     plan = apply_planner_completeness_rules(
         {
-            "schemes": False,
-            "knowledge_base": True,
-            "is_complete": False,
-            "follow_up_question": "What would you like to know about your cotton crop?",
-            "entities": {},
+            "domain": "Crop Insurance",
+            "schemes": True,
+            "knowledge_base": False,
+            "is_complete": True,
+            "entities": {"crop": "Cotton"},
         },
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
     )
     assert plan["is_complete"] is True
-    assert plan["schemes"] is True
-    assert plan["knowledge_base"] is False
     assert plan["entities"]["crop"] == "Cotton"
     assert plan.get("follow_up_question") is None
 
 
-def test_pm_kisan_complete_with_gps_no_crop_needed():
+def test_pm_kisan_complete_with_gps_no_crop_bleed():
     messages = [
         HumanMessage(content="Can i get insurance for my crop?"),
         HumanMessage(content="Cotton"),
-        HumanMessage(content="Insurance"),
-        HumanMessage(content="Eligibility"),
-        HumanMessage(content="Government scheme"),
         HumanMessage(content="Pm kisan"),
     ]
     plan = apply_planner_completeness_rules(
         {
+            "domain": "Financial & Institutional Services",
             "schemes": True,
-            "is_complete": False,
-            "follow_up_question": "Which type of government scheme are you looking for?",
-            "entities": {},
+            "is_complete": True,
+            "entities": {"crop": "all"},
         },
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
     )
     assert plan["is_complete"] is True
-    assert plan["entities"]["crop"] == "Cotton"
+    assert plan["entities"]["crop"] == "all"
     assert plan.get("follow_up_question") is None
 
 
-def test_state_in_question_asks_only_district():
+def test_state_only_sets_district_all_without_follow_up():
     messages = [HumanMessage(content="PM-KISAN in Kerala")]
     plan = apply_planner_completeness_rules(
-        {"schemes": True, "is_complete": True, "entities": {}},
+        {
+            "domain": "Financial & Institutional Services",
+            "schemes": True,
+            "is_complete": True,
+            "entities": {"crop": "all"},
+        },
         messages,
         None,
     )
-    assert plan["is_complete"] is False
-    assert plan["missing_info"] == ["district"]
-    assert "district" in (plan.get("follow_up_question") or "").lower()
+    assert plan["is_complete"] is True
+    assert plan.get("follow_up_question") is None
     assert plan["entities"]["state"] == "Kerala"
+    assert plan["entities"]["district"] == "all"

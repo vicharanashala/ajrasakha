@@ -548,7 +548,7 @@ const DownloadShiftWiseReportButton = ({
                       <div className="flex h-[320px] items-center justify-center">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                       </div>
-                    ) : topExperts.length ? (
+                    ) : topExperts?.length ? (
                       <div className="space-y-4">
                         {(topExperts ?? []).map((expert, index) => {
                           const rankColors = [
@@ -665,7 +665,7 @@ const DownloadShiftWiseReportButton = ({
                       <div className="flex h-[320px] items-center justify-center">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                       </div>
-                    ) : topApprovingExperts.length ? (
+                    ) : topApprovingExperts?.length ? (
                       <div className="space-y-4">
                         {(topApprovingExperts ?? []).map((expert, index) => {
                           const rankColors = [
@@ -868,9 +868,7 @@ const DownloadShiftWiseReportButton = ({
                       <div className="flex h-[320px] items-center justify-center">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                       </div>
-                    ) : questionStatusDistribution.length == 0 ? (
-                      <>No activity found</>
-                    ) : (
+                    ) : questionStatusDistribution?.length ? (
                       <ChartContainer
                         className="h-[380px] w-full"
                         config={{
@@ -946,6 +944,8 @@ const DownloadShiftWiseReportButton = ({
                           </Bar>
                         </BarChart>
                       </ChartContainer>
+                    ) : (
+                      <>No activity found</>
                     )}
                   </CardContent>
                 </Card>
@@ -987,9 +987,7 @@ const DownloadShiftWiseReportButton = ({
                       <div className="flex h-[320px] items-center justify-center">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                       </div>
-                    ) : questionLevelDistribution.length == 0 ? (
-                      <>No activity found</>
-                    ) : (
+                    ) : questionLevelDistribution?.length ? (
                       <ChartContainer
                         className="h-[360px] w-full"
                         config={{
@@ -1070,6 +1068,8 @@ const DownloadShiftWiseReportButton = ({
                           </Bar>
                         </BarChart>
                       </ChartContainer>
+                    ) : (
+                      <>No activity found</>
                     )}
                   </CardContent>
                 </Card>
@@ -1115,28 +1115,12 @@ const DownloadShiftWiseReportButton = ({
                     <div className="flex h-[500px] items-center justify-center">
                       <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
-                  ) : formattedAuditActionCounts.length === 0 ? (
-                    <div
-                      className="
-                        flex h-[300px] flex-col items-center justify-center
-                        rounded-xl border border-dashed
-                        text-center
-                      "
-                    >
-                      <p className="text-sm font-medium text-muted-foreground">
-                        No audit activity found
-                      </p>
-
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Try changing shift or date range.
-                      </p>
-                    </div>
-                  ) : (
+                  ) : formattedAuditActionCounts?.length ? (
                     <ChartContainer
                       className="w-full"
                       style={{
                         height: `${Math.max(
-                          formattedAuditActionCounts.length * 45,
+                          formattedAuditActionCounts?.length * 45,
                           300,
                         )}px`,
                       }}
@@ -1197,6 +1181,18 @@ const DownloadShiftWiseReportButton = ({
                         </Bar>
                       </BarChart>
                     </ChartContainer>
+                  ) : (
+                    <div
+                      className="
+                        flex h-[300px] flex-col items-center justify-center
+                        rounded-xl border border-dashed
+                        text-center
+                      "
+                    >
+                      <p className="text-sm font-medium text-muted-foreground">
+                        No audit activity found
+                      </p>
+                    </div>
                   )}
                 </CardContent>
               </Card>

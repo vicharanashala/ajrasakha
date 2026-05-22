@@ -1,21 +1,19 @@
 import os
 import asyncio
 import json
-import string
-import re
 from typing import List, Optional
 from mcp.server.fastmcp import FastMCP
 
 from bson import ObjectId
+from langchain.tools import tool
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient
+from dotenv import load_dotenv
 
+load_dotenv()
 from ajrasakha.utils import get_mongodb_vector_store, get_huggingface_embedding_model
 
-# ==========================================
-# 1. SETUP & CONFIGURATION
-# ==========================================
 EMBEDDING_MODEL = os.getenv("GOLDEN_EMBEDDING_MODEL")
 MONGODB_URI = os.getenv("GOLDEN_MONGODB_URI")
 MONGODB_DATABASE = os.getenv("GOLDEN_MONGODB_DATABASE")
@@ -53,9 +51,7 @@ class QuestionAnswerPair(BaseModel):
     sources: List
     similarity_score: Optional[float] = None
 
-# ==========================================
-# 2. HELPER FUNCTIONS
-# ==========================================
+
 def _normalize_crop_state(crop: str, state: str) -> tuple[str, str]:
     """Require crop and state; use 'all' only when a value is missing after trim."""
     crop = (crop or "").strip() or "all"
@@ -65,17 +61,310 @@ def _normalize_crop_state(crop: str, state: str) -> tuple[str, str]:
 
 async def _get_answer_text_sources_and_author_name(question_id: str):
     answer_document = await answers_collection.find_one(
-        {"questionId": ObjectId(question_id)},
-        {"sources": 1, "authorId": 1, "answer": 1},
+        {
+            "questionId": ObjectId(question_id)
+        },
+        {
+            "sources": 1,
+            "authorId": 1,
+            "answer": 1,
+        },
     )
     user_document = await users_collection.find_one(
-        {"_id": ObjectId(answer_document["authorId"])}
+        {
+            "_id": ObjectId(answer_document["authorId"])
+        }
     )
-    author_name = user_document.get('firstName', 'Unknown')
-    sources = answer_document.get("sources", [])
-    answer = answer_document.get("answer", "")
+    author_name = user_document['firstName']
+    sources = answer_document["sources"]
+    answer = answer_document["answer"]
 
     return answer, sources, author_name
+
+
+@mcp.tool()
+async def golden_retriever_tool(
+        query: str,
+        crop: str,
+        state: str,
+        season: str | None = None,
+        domain: str | None = None,
+) -> list:
+    """Retrieve relevant documents from the Golden dataset.
+
+    crop and state are required on every call. Use the farmer's crop and state when known;
+    use crop='all' or state='all' only as a last resort when that dimension is unknown.
+    """
+    crop, state = _normalize_crop_state(crop, state)
+    filters = {
+        "status": "closed",
+    }
+    if crop != "all":
+        filters["details.crop"] = crop
+    if state != "all":
+        filters["details.state"] = state
+
+    if season:
+        filters["details.season"] = season
+    if domain:
+        filters["details.domain"] = domain
+
+    # Run in asyncio.to_thread because langchain vector_store performs synchronous socket calls
+    docs = await asyncio.to_thread(
+        vector_store.similarity_search_with_score, query, k=5, pre_filter=filters
+    )
+    result = []
+    for doc in docs:
+        document, score = doc
+        answer, sources, author_name = await _get_answer_text_sources_and_author_name(
+            document.metadata['_id']
+        )
+        question_answer_pair = QuestionAnswerPair(
+            question_id=document.metadata['_id'],
+            question_text=document.metadata['question'],
+            answer_text=answer,
+            author=author_name,
+            sources=sources,
+            similarity_score=score,
+        )
+        result.append(question_answer_pair)
+    return result
+
+
+@mcp.tool()
+async def get_available_states() -> dict:
+    """Get all unique states available in the Golden dataset."""
+    states = await questions_collection.distinct("details.state", {"status": "closed"})
+    return {"success": True, "states": sorted([s for s in states if s])}
+
+
+@mcp.tool()
+async def get_available_crops(state: str | None = None) -> dict:
+    """
+    Get all unique crops available in the Golden dataset.
+    Optionally filter by state to get crops specific to that state.
+    """
+    filters = {"status": "closed"}
+    if state:
+        filters["details.state"] = state
+    crops = await questions_collection.distinct("details.crop", filters)
+    return {"success": True, "crops": sorted([c for c in crops if c])}
+
+
+@mcp.tool()
+async def get_available_domains(state: str | None = None, crop: str | None = None) -> dict:
+    """
+    Get all unique domains (e.g. pest management, irrigation, soil health) in the Golden dataset.
+    Optionally filter by state and/or crop.
+    """
+    filters = {"status": "closed"}
+    if state:
+        filters["details.state"] = state
+    if crop:
+        filters["details.crop"] = crop
+    domains = await questions_collection.distinct("details.domain", filters)
+    return {"success": True, "domains": sorted([d for d in domains if d])}
+
+
+@mcp.tool()
+async def get_available_seasons(state: str | None = None, crop: str | None = None) -> dict:
+    """
+    Get all unique seasons (e.g. Kharif, Rabi, Zaid) in the Golden dataset.
+    Optionally filter by state and/or crop.
+    """
+    filters = {"status": "closed"}
+    if state:
+        filters["details.state"] = state
+    if crop:
+        filters["details.crop"] = crop
+    seasons = await questions_collection.distinct("details.season", filters)
+    return {"success": True, "seasons": sorted([s for s in seasons if s])}
+
+
+@mcp.tool()
+async def golden_strict_exact_search_tool(
+        query: str,
+        crop: str,
+        state: str,
+) -> list:
+    """
+    Search the Golden dataset for a strict character-by-character exact match on 'question'
+    or 'text' fields after applying strict state and crop filters only.
+
+    crop and state are required.
+    """
+    crop, state = _normalize_crop_state(crop, state)
+    meta_filter: dict = {
+        "status": "closed",
+    }
+    if crop != "all":
+        meta_filter["details.crop"] = crop
+    if state != "all":
+        meta_filter["details.state"] = state
+
+    pipeline = [
+        {
+            "$search": {
+                "index": MONGODB_SEARCH_INDEX,
+                "text": {
+                    "query": query,
+                    "path": ["question", "text"],
+                },
+            }
+        },
+        {
+            "$match": meta_filter
+        },
+        {"$limit": 10},
+        {
+            "$project": {
+                "_id": 1,
+                "question": 1,
+                "text": 1,
+            }
+        },
+    ]
+
+    cursor = await questions_collection.aggregate(pipeline)
+    raw_results = await cursor.to_list(length=10)
+
+    if not raw_results:
+        return []
+
+    import string
+    import re
+    def normalize(t: str) -> str:
+        return re.sub(r'\s+', ' ', t.translate(str.maketrans('', '', string.punctuation)).lower()).strip()
+
+    norm_query = normalize(query)
+
+    result = []
+    for doc in raw_results:
+        if normalize(doc.get("question") or doc.get("text", "")) == norm_query:
+            question_id = str(doc["_id"])
+            try:
+                answer, sources, author_name = await _get_answer_text_sources_and_author_name(
+                    question_id
+                )
+            except Exception:
+                continue
+
+            question_answer_pair = QuestionAnswerPair(
+                question_id=question_id,
+                question_text=doc.get("question") or doc.get("text", ""),
+                answer_text=answer,
+                author=author_name,
+                sources=sources,
+            )
+            result.append(question_answer_pair)
+            break  # Return only the first matching exact pair
+
+    return result
+
+
+@mcp.tool()
+async def golden_exact_search_tool(
+        query: str,
+        crop: str,
+        state: str,
+        season: str | None = None,
+        domain: str | None = None,
+        min_score: float = 1.0,
+) -> list:
+    """
+    Search the Golden dataset using full-text keyword matching on the 'question'
+    and 'text' fields via MongoDB Atlas Search ($search).
+
+    crop and state are required metadata filters on every search.
+
+    Args:
+        query:     The user's question or keywords to match.
+        crop:      Required crop filter (e.g. "Wheat", "Rice", or "all" as last resort).
+        state:     Required state filter (e.g. "Punjab", "Maharashtra", or "all" as last resort).
+        season:    Optional season filter (e.g. "Kharif", "Rabi").
+        domain:    Optional domain filter (e.g. "pest management").
+        min_score: Minimum Atlas Search relevance score to include a result.
+    """
+    crop, state = _normalize_crop_state(crop, state)
+    meta_filter: dict = {
+        "status": "closed",
+    }
+    if crop != "all":
+        meta_filter["details.crop"] = crop
+    if state != "all":
+        meta_filter["details.state"] = state
+
+    if season:
+        meta_filter["details.season"] = season
+    if domain:
+        meta_filter["details.domain"] = domain
+
+    pipeline = [
+        # Step 1: Atlas full-text search on question + text fields only
+        {
+            "$search": {
+                "index": MONGODB_SEARCH_INDEX,
+                "text": {
+                    "query": query,
+                    "path": ["question", "text"],  # search both fields
+                },
+            }
+        },
+        # Step 2: Inject the Atlas Search relevance score as a real field
+        {
+            "$addFields": {
+                "search_score": {"$meta": "searchScore"},
+            }
+        },
+        # Step 3: Apply metadata filters (crop/season/state/domain/status)
+        {
+            "$match": meta_filter
+        },
+        # Step 4: Only keep results with a meaningful keyword match score
+        {
+            "$match": {"search_score": {"$gte": min_score}}
+        },
+        # Step 5: Return top 5 best-matching documents
+        {"$sort": {"search_score": -1}},
+        {"$limit": 5},
+        {
+            "$project": {
+                "_id": 1,
+                "question": 1,
+                "text": 1,
+                "details": 1,
+                "search_score": 1,
+            }
+        },
+    ]
+    cursor = await questions_collection.aggregate(pipeline)
+    raw_results = await cursor.to_list(length=5)
+
+    if not raw_results:
+        return []
+
+    result = []
+    for doc in raw_results:
+        question_id = str(doc["_id"])
+        try:
+            answer, sources, author_name = await _get_answer_text_sources_and_author_name(
+                question_id
+            )
+        except Exception:
+            # Answer may not exist yet for some questions — skip gracefully
+            continue
+
+        question_answer_pair = QuestionAnswerPair(
+            question_id=question_id,
+            question_text=doc.get("question") or doc.get("text", ""),
+            answer_text=answer,
+            author=author_name,
+            sources=sources,
+            similarity_score=doc.get("search_score"),
+        )
+        result.append(question_answer_pair)
+
+    return result
 
 
 def _parse_sources(sources_raw, author_name) -> list[dict]:
@@ -123,235 +412,6 @@ def _parse_sources(sources_raw, author_name) -> list[dict]:
         })
     return details
 
-# ==========================================
-# 3. CORE BUSINESS LOGIC (Standard Async Functions)
-# ==========================================
-# Separating logic from MCP decorators so they can be called safely by gdb_search
-
-async def _core_retriever_search(
-        query: str, crop: str, state: str, 
-        season: Optional[str] = None, domain: Optional[str] = None
-) -> list:
-    crop, state = _normalize_crop_state(crop, state)
-    filters = {"status": "closed"}
-    if crop != "all":
-        filters["details.crop"] = crop
-    if state != "all":
-        filters["details.state"] = state
-    if season:
-        filters["details.season"] = season
-    if domain:
-        filters["details.domain"] = domain
-
-    docs = await asyncio.to_thread(
-        vector_store.similarity_search_with_score, query, k=5, pre_filter=filters
-    )
-    
-    result = []
-    for doc in docs:
-        document, score = doc
-        answer, sources, author_name = await _get_answer_text_sources_and_author_name(
-            document.metadata['_id']
-        )
-        result.append(QuestionAnswerPair(
-            question_id=document.metadata['_id'],
-            question_text=document.metadata['question'],
-            answer_text=answer,
-            author=author_name,
-            sources=sources,
-            similarity_score=score,
-        ))
-    return result
-
-
-async def _core_strict_exact_search(query: str, crop: str, state: str) -> list:
-    crop, state = _normalize_crop_state(crop, state)
-    meta_filter: dict = {"status": "closed"}
-    
-    if crop != "all":
-        meta_filter["details.crop"] = crop
-    if state != "all":
-        meta_filter["details.state"] = state
-
-    pipeline = [
-        {
-            "$search": {
-                "index": MONGODB_SEARCH_INDEX,
-                "text": {
-                    "query": query,
-                    "path": ["question", "text"],
-                },
-            }
-        },
-        {"$match": meta_filter},
-        {"$limit": 10},
-        {"$project": {"_id": 1, "question": 1, "text": 1}},
-    ]
-
-    cursor = await questions_collection.aggregate(pipeline)
-    raw_results = await cursor.to_list(length=10)
-
-    if not raw_results:
-        return []
-
-    def normalize(t: str) -> str:
-        return re.sub(r'\s+', ' ', t.translate(str.maketrans('', '', string.punctuation)).lower()).strip()
-
-    norm_query = normalize(query)
-    result = []
-    
-    for doc in raw_results:
-        if normalize(doc.get("question") or doc.get("text", "")) == norm_query:
-            question_id = str(doc["_id"])
-            try:
-                answer, sources, author_name = await _get_answer_text_sources_and_author_name(question_id)
-            except Exception:
-                continue
-
-            result.append(QuestionAnswerPair(
-                question_id=question_id,
-                question_text=doc.get("question") or doc.get("text", ""),
-                answer_text=answer,
-                author=author_name,
-                sources=sources,
-            ))
-            break 
-
-    return result
-
-
-async def _core_exact_keyword_search(
-        query: str, crop: str, state: str, 
-        season: Optional[str] = None, domain: Optional[str] = None, 
-        min_score: float = 1.0
-) -> list:
-    crop, state = _normalize_crop_state(crop, state)
-    meta_filter: dict = {"status": "closed"}
-    
-    if crop != "all":
-        meta_filter["details.crop"] = crop
-    if state != "all":
-        meta_filter["details.state"] = state
-    if season:
-        meta_filter["details.season"] = season
-    if domain:
-        meta_filter["details.domain"] = domain
-
-    pipeline = [
-        {
-            "$search": {
-                "index": MONGODB_SEARCH_INDEX,
-                "text": {
-                    "query": query,
-                    "path": ["question", "text"], 
-                },
-            }
-        },
-        {"$addFields": {"search_score": {"$meta": "searchScore"}}},
-        {"$match": meta_filter},
-        {"$match": {"search_score": {"$gte": min_score}}},
-        {"$sort": {"search_score": -1}},
-        {"$limit": 5},
-        {"$project": {"_id": 1, "question": 1, "text": 1, "details": 1, "search_score": 1}},
-    ]
-    
-    cursor = await questions_collection.aggregate(pipeline)
-    raw_results = await cursor.to_list(length=5)
-
-    if not raw_results:
-        return []
-
-    result = []
-    for doc in raw_results:
-        question_id = str(doc["_id"])
-        try:
-            answer, sources, author_name = await _get_answer_text_sources_and_author_name(question_id)
-        except Exception:
-            continue
-
-        result.append(QuestionAnswerPair(
-            question_id=question_id,
-            question_text=doc.get("question") or doc.get("text", ""),
-            answer_text=answer,
-            author=author_name,
-            sources=sources,
-            similarity_score=doc.get("search_score"),
-        ))
-    return result
-
-
-# ==========================================
-# 4. MCP TOOLS REGISTRATION
-# ==========================================
-
-@mcp.tool()
-async def golden_retriever_tool(
-        query: str,
-        crop: str,
-        state: str,
-        season: Optional[str] = None,
-        domain: Optional[str] = None,
-) -> list:
-    """Retrieve relevant documents from the Golden dataset.
-    crop and state are required on every call. Use the farmer's crop and state when known;
-    use crop='all' or state='all' only as a last resort when that dimension is unknown."""
-    return await _core_retriever_search(query, crop, state, season, domain)
-
-@mcp.tool()
-async def golden_strict_exact_search_tool(query: str, crop: str, state: str) -> list:
-    """Search the Golden dataset for a strict character-by-character exact match on 'question'
-    or 'text' fields after applying strict state and crop filters only."""
-    return await _core_strict_exact_search(query, crop, state)
-
-@mcp.tool()
-async def golden_exact_search_tool(
-        query: str,
-        crop: str,
-        state: str,
-        season: Optional[str] = None,
-        domain: Optional[str] = None,
-        min_score: float = 1.0,
-) -> list:
-    """Search the Golden dataset using full-text keyword matching on the 'question'
-    and 'text' fields via MongoDB Atlas Search ($search)."""
-    return await _core_exact_keyword_search(query, crop, state, season, domain, min_score)
-
-@mcp.tool()
-async def get_available_states() -> dict:
-    """Get all unique states available in the Golden dataset."""
-    states = await questions_collection.distinct("details.state", {"status": "closed"})
-    return {"success": True, "states": sorted([s for s in states if s])}
-
-@mcp.tool()
-async def get_available_crops(state: Optional[str] = None) -> dict:
-    """Get all unique crops available in the Golden dataset."""
-    filters = {"status": "closed"}
-    if state:
-        filters["details.state"] = state
-    crops = await questions_collection.distinct("details.crop", filters)
-    return {"success": True, "crops": sorted([c for c in crops if c])}
-
-@mcp.tool()
-async def get_available_domains(state: Optional[str] = None, crop: Optional[str] = None) -> dict:
-    """Get all unique domains in the Golden dataset."""
-    filters = {"status": "closed"}
-    if state:
-        filters["details.state"] = state
-    if crop:
-        filters["details.crop"] = crop
-    domains = await questions_collection.distinct("details.domain", filters)
-    return {"success": True, "domains": sorted([d for d in domains if d])}
-
-@mcp.tool()
-async def get_available_seasons(state: Optional[str] = None, crop: Optional[str] = None) -> dict:
-    """Get all unique seasons in the Golden dataset."""
-    filters = {"status": "closed"}
-    if state:
-        filters["details.state"] = state
-    if crop:
-        filters["details.crop"] = crop
-    seasons = await questions_collection.distinct("details.season", filters)
-    return {"success": True, "seasons": sorted([s for s in seasons if s])}
 
 @mcp.tool()
 async def gdb_search(
@@ -363,8 +423,11 @@ async def gdb_search(
     domain: Optional[str] = None,
 ) -> str:
     """
-    Search the golden database directly using an optimized prioritized parallel execution strategy.
-    Returns a highly structured JSON response containing exact and similar matches with sources.
+    Search the golden database directly using an optimized prioritized parallel execution strategy:
+    1. Fires strict exact matching, Atlas Search keyword matching, and semantic vector similarity search in parallel.
+    2. Enforces search priorities: strict exact search (1st priority), golden exact search (2nd priority), golden vector search (3rd priority).
+    3. Instantly short-circuits and cancels lower priority runs if a higher priority one returns valid results.
+    4. Returns a highly structured JSON response containing exact and similar matches with sources.
     """
     crop = (crop or "").strip() or "all"
     state = (state or "").strip() or "all"
@@ -379,18 +442,18 @@ async def gdb_search(
         "similar_match": {}
     }
 
-    # Start all 3 underlying core logic functions concurrently in parallel
+    # Start all 3 searches concurrently in parallel
     strict_task = asyncio.create_task(
-        _core_strict_exact_search(query=query, crop=crop, state=state)
+        golden_strict_exact_search_tool(query=query, crop=crop, state=state)
     )
     exact_task = asyncio.create_task(
-        _core_exact_keyword_search(query=rephrased, crop=crop, state=state, season=season, domain=domain)
+        golden_exact_search_tool(query=rephrased, crop=crop, state=state, season=season, domain=domain)
     )
     retriever_task = asyncio.create_task(
-        _core_retriever_search(query=rephrased, crop=crop, state=state, season=season, domain=domain)
+        golden_retriever_tool(query=rephrased, crop=crop, state=state, season=season, domain=domain)
     )
 
-    # 1. Await strict exact search (1st priority)
+    # 1. Await strict exact search (1st priority) - Uses EXACT raw query
     strict_results = await strict_task
     if strict_results:
         exact_task.cancel()
@@ -404,11 +467,11 @@ async def gdb_search(
         }
         return json.dumps(response_data)
 
-    # 2. Await keyword exact search (2nd priority)
+    # 2. Await keyword exact search (2nd priority) - Uses REPHRASED query
     exact_results = await exact_task
     if exact_results:
         retriever_task.cancel()
-        print("GDB MCP: Strict exact search empty. Found keyword exact search match.")
+        print("GDB MCP: Strict exact search empty. Found keyword exact search match. Short-circuiting vector search.")
         similar_match = {}
         for idx, pair in enumerate(exact_results[:5], 1):
             similar_match[f"similar_pair{idx}"] = {
@@ -419,7 +482,7 @@ async def gdb_search(
         response_data["similar_match"] = similar_match
         return json.dumps(response_data)
 
-    # 3. Await semantic vector retriever (3rd priority)
+    # 3. Await semantic vector retriever (3rd priority) - Uses REPHRASED query
     retriever_results = await retriever_task
     if retriever_results:
         print("GDB MCP: Exact and keyword search empty. Using vector retriever results.")
@@ -433,6 +496,7 @@ async def gdb_search(
         response_data["similar_match"] = similar_match
         return json.dumps(response_data)
 
+    # 4. Fall back to empty structured JSON if all empty
     print("GDB MCP: No matches found across any search priority.")
     return json.dumps(response_data)
 

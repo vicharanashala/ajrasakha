@@ -391,7 +391,17 @@ export interface IChatbotRepository {
     source?: string,
   ): Promise<ResponseAdherenceTable>;
   getDistrictAnalyticsByState( state: string, source?: string, session?: ClientSession, userType?: string): Promise<DistrictAnalyticsEntry[]>;
+
+  
   deleteUser(userId: string, source: string): Promise<boolean>;
+
+  getDailyActiveUsersTrend  (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession):Promise<any>
+
+  getMonthlyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
+
+  getWeeklyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
+
+  getRetentionMetrics (session?: ClientSession): Promise<any>
 }
 
 export interface ChatbotConversationData {

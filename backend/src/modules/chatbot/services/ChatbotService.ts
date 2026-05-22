@@ -715,4 +715,36 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Failed to delete user: ${error}`);
     }
   }
+
+  async getDailyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string){
+    try {
+      return await this.chatbotRepository.getDailyActiveUsersTrend(startDate, endDate, source, userType);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch Daily Active Users Trend: ${error}`);
+    }
+  }
+
+  async getMonthlyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string){
+    try {
+      return await this.chatbotRepository.getMonthlyActiveUsersTrend(startDate, endDate, source, userType);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch Monthly Active Users Trend: ${error}`);
+    }
+  }
+
+  async getWeeklyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string){
+    try {
+      return await this.chatbotRepository.getWeeklyActiveUsersTrend(startDate, endDate, source, userType);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch Weekly Active Users Trend: ${error}`);
+    }
+  }
+
+  async getRetentionMetrics(){
+    try {
+      return await this.chatbotRepository.getRetentionMetrics();
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch Retention Metrics: ${error}`);
+    }
+  }
 }
