@@ -732,6 +732,10 @@ export class AnswerService extends BaseService implements IAnswerService {
             session,
           );
         }
+
+        // Clear opened-at timestamp now that expert has submitted their response
+        await this.questionSubmissionRepo.clearCurrentExpertOpenedAt(questionId, session);
+
         // Decrement the reputation score of user since the user reviewed
         const IS_INCREMENT = false;
         await this.userRepo.updateReputationScore(

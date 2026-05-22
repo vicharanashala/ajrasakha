@@ -5220,7 +5220,16 @@ export class QuestionService extends BaseService implements IQuestionService {
         this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
       ]);
 
+      const byCreatedAt = (a: any, b: any) =>
+        new Date((a.question?.createdAt ?? a.createdAt) as string).getTime() -
+        new Date((b.question?.createdAt ?? b.createdAt) as string).getTime();
+
+      stuckSubmissions.sort(byCreatedAt);
+      unallocatedSubmissions.sort(byCreatedAt);
+      answeredNeedingReviewer.sort(byCreatedAt);
+
       const totalWork = stuckSubmissions.length + unallocatedSubmissions.length + answeredNeedingReviewer.length;
+      console.log("the total work coming====",totalWork)
       if (!totalWork) {
         return { message: 'No time-bound questions need attention', reallocated: 0, skipped: 0 };
       }

@@ -204,6 +204,9 @@ export interface IQuestionSubmissionRepository {
    *  Called on initial allocation and on every reallocation. Clears currentExpertOpenedAt. */
   setCurrentExpertAllocatedAt(questionId: string, allocatedAt: Date): Promise<void>;
 
+  /** Clear currentExpertOpenedAt after expert submits their response. */
+  clearCurrentExpertOpenedAt(questionId: string, session?: ClientSession): Promise<void>;
+
   /** Find all time-bound (WHATSAPP/AJRASAKHA) submissions where:
    *  - currentExpertAllocatedAt > 45 min ago
    *  - currentExpertOpenedAt is null (expert has NOT opened the question)

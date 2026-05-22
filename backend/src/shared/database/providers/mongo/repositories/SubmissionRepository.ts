@@ -3304,6 +3304,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   }
 
+  async clearCurrentExpertOpenedAt(questionId: string, session?: ClientSession): Promise<void> {
+    await this.init();
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: new ObjectId(questionId) },
+      { $set: { currentExpertOpenedAt: null, updatedAt: new Date() } },
+      { session },
+    );
+  }
+
   async findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]> {
     await this.init();
     const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
@@ -3334,6 +3343,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           'question.isOnHold': { $ne: true },
         },
       },
+      { $sort: { 'question.createdAt': 1 } },
     ]).toArray();
   }
 
@@ -3366,6 +3376,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           'question.isOnHold': { $ne: true },
         },
       },
+      { $sort: { 'question.createdAt': 1 } },
     ]).toArray();
   }
 
@@ -3380,44 +3391,44 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
    *  question (prevents overlap with Part A's 45-min-not-opened reallocation). */
   async findAnsweredQuestionsNeedingReviewer(): Promise<IQuestionSubmission[]> {
     await this.init();
-    return [];
-    // return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
-    //   {
-    //     $addFields: {
-    //       lastHistory: { $arrayElemAt: ['$history', -1] },
-    //     },
-    //   },
-    //   {
-    //     $match: {
-    //       // Expert must have opened the question — prevents conflict with Part A
-    //       currentExpertOpenedAt: { $exists: true, $ne: null },
-    //       // History must be non-empty
-    //       lastHistory: { $ne: null },
-    //       $or: [
-    //         // Expert submitted their own answer (initial answer)
-    //         { 'lastHistory.answer': { $exists: true, $ne: null } },
-    //         // Expert completed a review (accepted/rejected/modified) — status no longer 'in-review'
-    //         { 'lastHistory.status': { $nin: ['in-review'] } },
-    //       ],
-    //     },
-    //   },
-    //   {
-    //     $lookup: {
-    //       from: 'questions',
-    //       localField: 'questionId',
-    //       foreignField: '_id',
-    //       as: 'question',
-    //     },
-    //   },
-    //   { $unwind: '$question' },
-    //   {
-    //     $match: {
-    //       'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-    //       'question.status': { $in: ['open', 'delayed'] },
-    //       'question.isOnHold': { $ne: true },
-    //     },
-    //   },
-    // ]).toArray();
+   // return [];
+     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+       {
+         $addFields: {
+           lastHistory: { $arrayElemAt: ['$history', -1] },
+         },
+      },
+       {
+         $match: {
+           // Expert must have opened the question — prevents conflict with Part A
+           currentExpertOpenedAt: { $exists: true, $ne: null },
+           // History must be non-empty
+           lastHistory: { $ne: null },
+          $or: [
+            // Expert submitted their own answer (initial answer)
+             { 'lastHistory.answer': { $exists: true, $ne: null } },
+             // Expert completed a review (accepted/rejected/modified) — status no longer 'in-review'
+             { 'lastHistory.status': { $nin: ['in-review'] } },
+           ],
+         },
+       },
+       {
+         $lookup: {
+           from: 'questions',
+           localField: 'questionId',
+           foreignField: '_id',
+           as: 'question',
+         },
+       },
+       { $unwind: '$question' },
+       {
+         $match: {
+           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+           'question.status': { $in: ['open', 'delayed'] },
+           'question.isOnHold': { $ne: true },
+         },
+       },
+     ]).toArray();
   }
 
   /** Atomically add a reviewer to a time-bound question:
