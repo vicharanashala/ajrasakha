@@ -399,9 +399,7 @@ export function TotalQueriesModal({
 
           <div className="flex items-center justify-between gap-3 mb-3">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                Filter
-              </div>
+              
               <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
                 {granularity === "monthly"
                   ? "Monthly data"
