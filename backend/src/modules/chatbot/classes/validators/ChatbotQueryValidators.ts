@@ -75,6 +75,43 @@ export class QueryAnalyticsQueryDto extends SourceQueryDto {
   limit: number = 10;
 }
 
+export class WeatherConcernAnalyticsQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 'Kharif', description: 'Filter by season' })
+  @IsOptional()
+  @IsString()
+  season?: string;
+
+  @JSONSchema({ example: 'Punjab', description: 'Filter by farmer state' })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @JSONSchema({ example: 'Rupnagar', description: 'Filter by farmer district' })
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @JSONSchema({ example: 'Erattupetta', description: 'Filter by farmer block' })
+  @IsOptional()
+  @IsString()
+  block?: string;
+
+  @JSONSchema({ example: 'Poonjar', description: 'Filter by farmer village' })
+  @IsOptional()
+  @IsString()
+  village?: string;
+
+  @JSONSchema({ example: '2026-07-01T00:00:00.000Z', description: 'Filter weather queries from this date/time' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @JSONSchema({ example: '2026-07-31T23:59:59.999Z', description: 'Filter weather queries through this date/time' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+}
+
 export class UserDetailsQueryDto {
   @JSONSchema({ example: '2025-01-01', description: 'Filter start date (ISO string)' })
   @IsOptional()

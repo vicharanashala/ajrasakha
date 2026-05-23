@@ -20,6 +20,7 @@ import {
   QueryAnalyticsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
+  WeatherConcernAnalyticsQueryDto,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -283,6 +284,29 @@ async getDistrictAnalyticsByState(
   @Authorized()
   async getQueryCategories(@QueryParams() query: SourceQueryDto) {
     return this.chatbotService.getQueryCategories(query.source, query.userType);
+  }
+
+  @OpenAPI({
+    summary: 'Get weather concern analytics',
+    description: 'Returns weather concern percentages from weather tool messages filtered by season and farmer location.',
+  })
+  @Get('/weather-concerns')
+  @HttpCode(200)
+  @Authorized()
+  async getWeatherConcernAnalytics(@QueryParams() query: WeatherConcernAnalyticsQueryDto) {
+    return this.chatbotService.getWeatherConcernAnalytics(
+      {
+        season: query.season,
+        state: query.state,
+        district: query.district,
+        block: query.block,
+        village: query.village,
+        startDate: query.startDate,
+        endDate: query.endDate,
+      },
+      query.source,
+      query.userType,
+    );
   }
 
   @OpenAPI({ 

@@ -8,6 +8,7 @@ import type {
 import type {
   IChatbotRepository,
   ChatbotConversationData,
+  WeatherConcernAnalyticsFilters,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -207,6 +208,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch query categories: ${error}`,
+      );
+    }
+  }
+
+  async getWeatherConcernAnalytics(
+    filters: WeatherConcernAnalyticsFilters = {},
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
+    try {
+      return await this.chatbotRepository.getWeatherConcernAnalytics(
+        filters,
+        source,
+        undefined,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch weather concern analytics: ${error}`,
       );
     }
   }
