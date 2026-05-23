@@ -1,12 +1,10 @@
-# Reviewer backend + frontend — build locally
+# Same as docker-compose.pull.yml but builds frontend locally (SSH/CI — not Portainer).
 #
-# Ports: APP_PORT, BACKEND_HOST_PORT, FRONTEND_PORT in .env (see .env.example)
+#   docker compose --env-file .env.deployed -f docker-compose.pull-build.yml up -d --build
 
 services:
   reviewer-backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.app
+    image: vicharanashala/reviewer-api:${IMAGE_TAG:-latest}
     container_name: reviewer-backend
     restart: unless-stopped
     ports:
@@ -27,6 +25,7 @@ services:
       - reviewer-net
 
   reviewer-frontend:
+    image: vicharanashala/reviewer-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -45,7 +44,7 @@ services:
     container_name: reviewer-frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "${FRONTEND_PORT:-8020}:80"
     environment:
       APP_PORT: ${APP_PORT:-4000}
       VITE_ENABLE_MOCKS: ${VITE_ENABLE_MOCKS:-false}

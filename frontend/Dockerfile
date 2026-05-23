@@ -41,6 +41,9 @@ FROM nginx:1.27-alpine
 # APP_PORT env at runtime is substituted into the proxy URL (default 4000)
 ENV APP_PORT=4000
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY docker/runtime-config.js.template /etc/reviewer/runtime-config.js.template
+COPY docker/10-generate-runtime-config.sh /docker-entrypoint.d/10-generate-runtime-config.sh
+RUN chmod +x /docker-entrypoint.d/10-generate-runtime-config.sh
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
