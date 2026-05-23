@@ -3652,6 +3652,8 @@ export class QuestionRepository implements IQuestionRepository {
             draft:        {$sum: {$cond: [{$eq: ['$status', 'draft']}, 1, 0]}},
             duplicate:    {$sum: {$cond: [{$eq: ['$status', 'duplicate']}, 1, 0]}},
             total:        {$sum: 1},
+            lastPushedDate: {$max: '$createdAt'},
+            lastClosedDate: {$max: '$closedAt'},
           },
         },
         {
@@ -3662,6 +3664,15 @@ export class QuestionRepository implements IQuestionRepository {
             source: '$_id.source',
             open: 1, closed: 1, inReview: 1, delayed: 1, reRouted: 1,
             hold: 1, paeSubmitted: 1, draft: 1, duplicate: 1, total: 1,
+            lastPushedDate: 1,
+            lastClosedDate: 1,
+            completionPct: {
+              $cond: [
+                {$gt: ['$total', 0]},
+                {$round: [{$multiply: [{$divide: ['$closed', '$total']}, 100]}, 1]},
+                0,
+              ],
+            },
           },
         },
         {$sort: {state: 1, crop: 1, source: 1}},

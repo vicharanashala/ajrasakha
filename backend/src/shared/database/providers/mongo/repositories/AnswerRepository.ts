@@ -1316,6 +1316,8 @@ export class AnswerRepository implements IAnswerRepository {
             draft:        {$sum: {$cond: [{$eq: ['$questionDetails.status', 'draft']}, 1, 0]}},
             duplicate:    {$sum: {$cond: [{$eq: ['$questionDetails.status', 'duplicate']}, 1, 0]}},
             total:        {$sum: 1},
+            lastPushedDate: {$max: '$questionDetails.createdAt'},
+            lastClosedDate: {$max: '$questionDetails.closedAt'},
           },
         },
         {
@@ -1326,6 +1328,15 @@ export class AnswerRepository implements IAnswerRepository {
             source: '$_id.source',
             open: 1, closed: 1, inReview: 1, delayed: 1, reRouted: 1,
             hold: 1, paeSubmitted: 1, draft: 1, duplicate: 1, total: 1,
+            lastPushedDate: 1,
+            lastClosedDate: 1,
+            completionPct: {
+              $cond: [
+                {$gt: ['$total', 0]},
+                {$round: [{$multiply: [{$divide: ['$closed', '$total']}, 100]}, 1]},
+                0,
+              ],
+            },
           },
         },
         {$sort: {state: 1, crop: 1, source: 1}},

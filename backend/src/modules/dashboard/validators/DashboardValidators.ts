@@ -379,6 +379,12 @@ export class AnalyticsTableRow {
   draft!: number;
   duplicate!: number;
   total!: number;
+  /** Date of the most recently created question in this group */
+  lastPushedDate?: Date;
+  /** Date of the most recently closed question in this group */
+  lastClosedDate?: Date;
+  /** Percentage of questions that are closed: (closed / total) * 100 */
+  completionPct!: number;
 }
 
 export class Analytics {
