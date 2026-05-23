@@ -303,7 +303,7 @@ export class ChatbotRepository implements IChatbotRepository {
         if (startTime) messageMatch.createdAt.$gte = new Date(startTime);
         if (endTime) messageMatch.createdAt.$lte = new Date(endTime);
       }
-      const queryCounts = await this.messagesCollection
+      const adherenceMessageStats = await this.messagesCollection
         .aggregate(
           [
             {$match: messageMatch},
@@ -319,11 +319,7 @@ export class ChatbotRepository implements IChatbotRepository {
                     ],
                   },
                 },
-              },
-            },
-            {
-              $group: {
-                _id: {
+                _sourceBucket: {
                   $switch: {
                     branches: [
                       {
@@ -348,15 +344,90 @@ export class ChatbotRepository implements IChatbotRepository {
                     default: 'AJRASAKHA',
                   },
                 },
-                count: {$sum: 1},
+              },
+            },
+            {
+              $facet: {
+                queryCounts: [
+                  {
+                    $match: {
+                      sender: 'User',
+                    },
+                  },
+                  {
+                    $count: 'count',
+                  },
+                ],
+                dynamicWeather: [
+                  {
+                    $match: {
+                      'content.tool_call.name': {$regex: 'weather', $options: 'i'},
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: '$_sourceBucket',
+                      count: {$sum: 1},
+                    },
+                  },
+                ],
+                dynamicMarket: [
+                  {
+                    $match: {
+                      'content.tool_call.name': {$regex: 'market', $options: 'i'},
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: '$_sourceBucket',
+                      count: {$sum: 1},
+                    },
+                  },
+                ],
+                dynamicSchemes: [
+                  {
+                    $match: {
+                      'content.tool_call.name': {
+                        $regex: '(scheme|schemes)',
+                        $options: 'i',
+                      },
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: '$_sourceBucket',
+                      count: {$sum: 1},
+                    },
+                  },
+                ],
               },
             },
           ],
           {session},
         )
         .toArray();
-      const whatsappQueriesAsked = queryCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
-      const ajrasakhaQueriesAsked = queryCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+      const messageStats = adherenceMessageStats[0] ?? {};
+      const queryCounts = messageStats.queryCounts ?? [];
+      const dynamicWeatherCounts = messageStats.dynamicWeather ?? [];
+      const dynamicMarketCounts = messageStats.dynamicMarket ?? [];
+      const dynamicSchemesCounts = messageStats.dynamicSchemes ?? [];
+
+      const whatsappDynamicWeather =
+        dynamicWeatherCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
+      const ajrasakhaDynamicWeather =
+        dynamicWeatherCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+      const whatsappDynamicMarket =
+        dynamicMarketCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
+      const ajrasakhaDynamicMarket =
+        dynamicMarketCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+      const whatsappDynamicSchemes =
+        dynamicSchemesCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
+      const ajrasakhaDynamicSchemes =
+        dynamicSchemesCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+
+      const totalUserMessages = queryCounts[0]?.count ?? 0;
+      const whatsappQueriesAsked = 0;
+      const ajrasakhaQueriesAsked = totalUserMessages;
 
       const whatsappAdherencePct =
         whatsapp.questionAsked > 0
@@ -393,12 +464,12 @@ export class ChatbotRepository implements IChatbotRepository {
         ajrasakhaAnsweredWithin120Min: ajrasakha.answeredWithin120Min,
         whatsappMarkedDuplicate: whatsapp.markedDuplicateGdbCount,
         ajrasakhaMarkedDuplicate: ajrasakha.markedDuplicateGdbCount,
-        whatsappDynamicWeather: whatsapp.dynamicWeatherCount,
-        ajrasakhaDynamicWeather: ajrasakha.dynamicWeatherCount,
-        whatsappDynamicMarket: whatsapp.dynamicMarketCount,
-        ajrasakhaDynamicMarket: ajrasakha.dynamicMarketCount,
-        whatsappDynamicSchemes: whatsapp.dynamicSchemesCount,
-        ajrasakhaDynamicSchemes: ajrasakha.dynamicSchemesCount,
+        whatsappDynamicWeather,
+        ajrasakhaDynamicWeather,
+        whatsappDynamicMarket,
+        ajrasakhaDynamicMarket,
+        whatsappDynamicSchemes,
+        ajrasakhaDynamicSchemes,
         whatsappNonGdbWithin120,
         ajrasakhaNonGdbWithin120,
         whatsappInReview: whatsapp.inReviewCount,
@@ -4848,6 +4919,91 @@ async getMonthlyAnalytics(
       return result.deletedCount === 1;
     } catch (error) {
       throw new InternalServerError(`Failed to delete user: ${error}`);
+    }
+  }
+
+  async updateUser(
+    userId: string,
+    source: string,
+    data: {
+      name?: string;
+      farmerProfile?: {
+        farmerName?: string;
+        age?: number;
+        gender?: string;
+        villageName?: string;
+        blockName?: string;
+        district?: string;
+        state?: string;
+        phoneNo?: string;
+        languagePreference?: string;
+        yearsOfExperience?: number;
+        cropsCultivated?: string[];
+        primaryCrop?: string;
+        secondaryCrop?: string;
+        awarenessOfKCC?: boolean;
+        usesAgriApps?: boolean;
+        highestEducatedPerson?: string;
+        numberOfSmartphones?: number;
+        platform?: string;
+      };
+    },
+  ): Promise<boolean> {
+    try {
+      await this.init(source);
+
+      const setPayload: Record<string, any> = {
+        updatedAt: new Date(),
+      };
+
+      if (typeof data?.name === 'string') {
+        const trimmedName = data.name.trim();
+        if (trimmedName) {
+          setPayload.name = trimmedName;
+        }
+      }
+
+      const profile = data?.farmerProfile;
+      if (profile && typeof profile === 'object') {
+        const editableFarmerFields = [
+          'farmerName',
+          'age',
+          'gender',
+          'villageName',
+          'blockName',
+          'district',
+          'state',
+          'phoneNo',
+          'languagePreference',
+          'yearsOfExperience',
+          'cropsCultivated',
+          'primaryCrop',
+          'secondaryCrop',
+          'awarenessOfKCC',
+          'usesAgriApps',
+          'highestEducatedPerson',
+          'numberOfSmartphones',
+          'platform',
+        ] as const;
+
+        for (const field of editableFarmerFields) {
+          if (Object.prototype.hasOwnProperty.call(profile, field)) {
+            const value = (profile as any)[field];
+            if (value !== undefined) {
+              setPayload[`farmerProfile.${field}`] = value;
+            }
+          }
+        }
+      }
+
+      const result = await this.users.updateOne(
+        {_id: new ObjectId(userId)},
+        {$set: setPayload},
+      );
+
+      return result.matchedCount > 0;
+    } catch (error) {
+      throw new InternalServerError(`Failed to update user: ${error}`);
     }
   }
 
