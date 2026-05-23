@@ -19,6 +19,7 @@ from ajrasakha.agents.location_context import (
     merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
+from ajrasakha.agents.config import resolve_question_source
 from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
 from ajrasakha.agents.retrieval_sanitizer import (
@@ -378,7 +379,7 @@ async def execute_plan_node(
 
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
-    question_source = (config.get("configurable") or {}).get("question_source")
+    question_source = resolve_question_source(config)
     tool_calls = await build_tool_calls_from_plan(
         plan,
         user_query,
