@@ -51,6 +51,7 @@ import {
   DEFAULT_WEATHER_CONCERN_FILTERS,
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
+import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -85,7 +86,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     source,
     source === "annam" || source === "vicharanashala",
   );
-
+console.log(source,"----data-----", data,)
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
   const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
   const [responseAdherenceDate, setResponseAdherenceDate] = useState<string>(
@@ -290,6 +291,22 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const [weatherConcernFilters, setWeatherConcernFilters] =
     useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
 
+
+const queryCard =
+  data?.kpiRow1?.find(
+    (card) => card.id === "queries"
+  );
+
+const dailyAnalytics =
+  queryCard?.dailyAnalytics || [];
+
+const weeklyAnalytics =
+  queryCard?.weeklyAnalytics || [];
+
+const monthlyAnalytics =
+  queryCard?.monthlyAnalytics || [];
+
+
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -389,7 +406,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                   filters={filters}
                   onFilterChange={setFilters}
                 />
-            {(source === "annam" || source === "vicharanashala") && (
+            {(source === "annam" || source === "vicharanashala" || source === "whatsapp") && (
               <div
                 ref={(el) => {
                   sectionRefs.current["overview"] = el;
@@ -418,10 +435,35 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
                   {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
                   {/* Uncomment the above line when data is dynamic and delete the below code */}
-                  <EightCardsComponent
+                  {(source === "annam" || source === "vicharanashala") &&
+                   <EightCardsComponent
                     kpiRow1={kpiRow1WithOverlay}
                     kpiRow2={kpiRow2WithOverlay}
-                  />
+                    source={source}
+                  />}
+                  {source === "whatsapp" && 
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+
+                      <WhatsAppAnalyticsCard
+                        title="Daily Queries"
+                        analytics={dailyAnalytics}
+                        granularity="daily"
+                      />
+
+                      <WhatsAppAnalyticsCard
+                        title="Weekly Queries"
+                        analytics={weeklyAnalytics}
+                        granularity="weekly"
+                      />
+
+                      <WhatsAppAnalyticsCard
+                        title="Monthly Queries"
+                        analytics={monthlyAnalytics}
+                        granularity="monthly"
+                      />
+
+                    </div>
+                  }
 
                   <ResponseAdherenceTableCard
                     data={
@@ -447,9 +489,10 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     isLoading={dauLoading}
                     error={dauError}
                   /> */}
+                  {/* {isGrowthVisible ? source === "whatsapp" ?(<div className="h-full w-full blur-sm opacity-90"></div>):( */}
                   {isGrowthVisible ? (
                     <Suspense fallback={<Spinner />}>
-                      <LazyUserGrowthChart />
+                      <LazyUserGrowthChart source={source}/>
                     </Suspense>
                   ) : (
                     <div className="h-[300px] flex items-center justify-center text-gray-400">
@@ -477,6 +520,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                         (data as any).lowFeedbackUsersCount ?? null
                       }
                       onLowFeedbackClick={handleLowFeedbackUsersClick}
+                      source = {source}
                     />
                     {isDuplicateModalOpen && (
                       <DuplicateQuestionsModal
@@ -488,6 +532,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                 </div>
 
                 {/* Demographics */}
+                {source !== "whatsapp" && 
                 <div
                   ref={(el) => {
                     sectionRefs.current["demographics"] = el;
@@ -502,14 +547,19 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     }}
                   />
                 </div>
+                }
                 {/* 2-col row */}
+                
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4 items-stretch">
+                  {source !== "whatsapp" && 
                   <div className="lg:col-span-2">
                     <PlatformDonutSegments
                           rawData={data.platformInstalls}
                         />
                   </div>
-                  <div
+                  }
+                  {source !== "whatsapp" && 
+                  <div  
                     className="lg:col-span-2"
                     ref={(el) => {
                       sectionRefs.current["farmer-segments"] = el;
@@ -1116,6 +1166,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                         )}
                     </>
                   </div>
+                  }
                   <div
                     className="lg:col-span-2"
                     ref={(el) => {
@@ -1140,7 +1191,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     />
                   </div>
                 </div>
-
+                
                 {/* Chatbot Quality & FAQ Analytics Section Header */}
                 {/* Daily Trends & FAQ Leaderboard Grid */}
                 {/* Row 1: Daily Trends & Feedback Data */}

@@ -138,7 +138,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ) {}*/
 
   private async init(source = 'vicharanashala') {
-    const db = source === 'annam' ? this.annamDb : this.analyticsDb;
+    const db = source === 'whatsapp' ? this.db: source === 'annam' ? this.annamDb : this.analyticsDb;
     this.users = await db.getCollection<IUser>('users');
     this.conversations = await db.getCollection<IConversation>('conversations');
     this.messagesCollection = await db.getCollection<any>('messages');
@@ -1026,11 +1026,16 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.initReviewSystem();
 
       const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-
+      if(_source !== "whatsapp"){
+        _source = 'AJRASAKHA'
+      }
+      else{
+        _source = 'WHATSAPP'
+      }
       const pipeline = [
         {
           $match: {
-            source: 'AJRASAKHA',
+            source: _source,
             'details.domain': {$exists: true, $nin: [null, '']},
           },
         },
@@ -1904,7 +1909,12 @@ async getDailyAnalytics(
     const monthDateMatch = monthRange
       ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
       : {};
-
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    if(source === "whatsapp"){
+      return  await this.getDailyAnalyticsForWhatsApp(start, end);
+    }
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
 
@@ -2125,6 +2135,12 @@ async getWeeklyAnalytics(
 
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    if(source === "whatsapp"){
+      return  await this.getWeeklyAnalyticsForWhatsApp(start, end);
+    }
 
     // ============================================
     // MESSAGE DATA
@@ -2351,6 +2367,10 @@ async getMonthlyAnalytics(
     // ============================================
     // MESSAGE DATA
     // ============================================
+
+    if(source === "whatsapp"){
+      return  await this.getMonthlyAnalyticsForWhatsApp();
+    }
 
     const messageData = await this.messagesCollection
       .aggregate(
@@ -4427,6 +4447,9 @@ async getMonthlyAnalytics(
       await this.initReviewSystem();
       await this.init(source);
 
+      if(source === "whatsapp"){
+        return await this.getWhatsAppDuplicateQuestions()
+      }
       // 1. Fetch duplicate questions from the main review DB
       const dupeQuestions = await this.QuestionCollection.find(
         {similarityScore: {$exists: true}},
@@ -5603,4 +5626,506 @@ async getMonthlyAnalytics(
       );
     }
   }
+  async getDailyAnalyticsForWhatsApp(start: Date, end: Date):Promise<any>{
+
+    return await this.QuestionCollection.aggregate([
+    {
+      $match: {
+        source: "WHATSAPP",
+        createdAt: {
+          $gte: start,
+          $lt: end,
+        },
+      },
+    },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt"
+            }
+          },
+
+          // total queries
+          queryCount: { $sum: 1 },
+
+          // total questions
+          totalQuestions: { $sum: 1 },
+
+          // closed questions count
+          closedQuestions: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "closed"] }, 1, 0]
+            }
+          },
+
+          // average close time in minutes
+          averageCloseTimeMinutes: {
+            $avg: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$status", "closed"] },
+                    { $ne: ["$closedAt", null] }
+                  ]
+                },
+                {
+                  $divide: [
+                    {
+                      $subtract: ["$closedAt", "$createdAt"]
+                    },
+                    1000 * 60
+                  ]
+                },
+                null
+              ]
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          period: "$_id",
+          queryCount: 1,
+          totalQuestions: 1,
+          closedQuestions: 1,
+          averageCloseTimeMinutes: {
+            $ifNull: [
+              { $round: ["$averageCloseTimeMinutes", 2] },
+              0
+            ]
+          }
+        }
+      },
+      {
+        $sort: {
+          period: 1
+        }
+      }
+    ]).toArray();
+
+  }
+
+
+  async getWeeklyAnalyticsForWhatsApp(
+    start: Date,
+    end: Date,
+  ): Promise<any[]> {
+
+      await this.initReviewSystem();
+
+      return await this.QuestionCollection.aggregate([
+        {
+          $match: {
+            source: "WHATSAPP",
+
+            createdAt: {
+              $gte: start,
+              $lt: end,
+            },
+          },
+        },
+
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: "%G-W%V",
+                date: "$createdAt",
+                timezone: "+05:30",
+              },
+            },
+
+            // total queries
+            queryCount: {
+              $sum: 1,
+            },
+
+            // total questions
+            totalQuestions: {
+              $sum: 1,
+            },
+
+            // closed questions
+            closedQuestions: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ["$status", "closed"],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            // avg close time
+            averageCloseTimeMinutes: {
+              $avg: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ["$status", "closed"],
+                      },
+
+                      {
+                        $ne: ["$closedAt", null],
+                      },
+                    ],
+                  },
+
+                  {
+                    $divide: [
+                      {
+                        $subtract: [
+                          "$closedAt",
+                          "$createdAt",
+                        ],
+                      },
+
+                      1000 * 60,
+                    ],
+                  },
+
+                  null,
+                ],
+              },
+            },
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+
+            period: "$_id",
+
+            queryCount: 1,
+
+            totalQuestions: 1,
+
+            closedQuestions: 1,
+
+            averageCloseTimeMinutes: {
+              $ifNull: [
+                {
+                  $round: [
+                    "$averageCloseTimeMinutes",
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            period: 1,
+          },
+        },
+      ]).toArray();
+
+  }
+
+
+  async getMonthlyAnalyticsForWhatsApp(): Promise<any[]> {
+
+      return await this.QuestionCollection.aggregate([
+        {
+          $match: {
+            source: "WHATSAPP",
+          },
+        },
+
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: "%Y-%m",
+                date: "$createdAt",
+                timezone: "+05:30",
+              },
+            },
+            queryCount: {
+              $sum: 1,
+            },
+            totalQuestions: {
+              $sum: 1,
+            },
+            closedQuestions: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ["$status", "closed"],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            averageCloseTimeMinutes: {
+              $avg: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ["$status", "closed"],
+                      },
+
+                      {
+                        $ne: ["$closedAt", null],
+                      },
+                    ],
+                  },
+
+                  {
+                    $divide: [
+                      {
+                        $subtract: [
+                          "$closedAt",
+                          "$createdAt",
+                        ],
+                      },
+
+                      1000 * 60,
+                    ],
+                  },
+
+                  null,
+                ],
+              },
+            },
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+
+            period: "$_id",
+
+            queryCount: 1,
+
+            totalQuestions: 1,
+
+            closedQuestions: 1,
+
+            averageCloseTimeMinutes: {
+              $ifNull: [
+                {
+                  $round: [
+                    "$averageCloseTimeMinutes",
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            period: 1,
+          },
+        },
+      ]).toArray();
+
+  }
+
+  async getWhatsAppDuplicateQuestions(
+    session?: ClientSession,
+  ): Promise<DuplicateQuestionEntry[]> {
+
+    try {
+
+      await this.initReviewSystem();
+
+      const dupeQuestions =
+        await this.QuestionCollection.find(
+          {
+            source: "WHATSAPP",
+            similarityScore: {
+              $exists: true,
+            },
+            referenceQuestionId: {
+              $exists: true,
+            },
+          },
+          { session },
+        )
+          .project<{
+            _id: any;
+            question: string;
+            referenceQuestion?: string;
+            originalQuestion?: string;
+            similarityScore: number;
+            createdAt: Date;
+            details?: {
+              state?: string;
+              district?: string;
+            };
+          }>({
+            question: 1,
+            referenceQuestion: 1,
+            originalQuestion: 1,
+            similarityScore: 1,
+            createdAt: 1,
+            details: 1,
+          })
+          .sort({
+            createdAt: -1,
+          })
+          .toArray();
+
+      const result= dupeQuestions.map(q => ({
+        questionId: q._id.toString(),
+        question: q.question,
+        referenceQuestion:
+          q.referenceQuestion ||
+          q.originalQuestion ||
+          "",
+        similarityScore:
+          Number(q.similarityScore) || 0,
+        createdAt: q.createdAt,
+        farmerName: "WhatsApp User",
+        email: "—",
+        village: "—",
+        block: "—",
+        district:
+          q.details?.district || "—",
+        state:
+          q.details?.state || "—",
+      }));
+      // console.log("--------------dupeQuestions------", result);
+      return result;
+
+    } catch (error) {
+
+      throw new InternalServerError(
+        `Failed to get WhatsApp duplicate questions: ${error}`,
+      );
+    }
+  }
+
+//   async getWhatsAppDuplicateQuestions(
+//     session?: ClientSession,
+//   ): Promise<DuplicateQuestionEntry[]> {
+
+//   try {
+
+//     await this.initReviewSystem();
+
+//     const dupeQuestions =
+//       await this.QuestionCollection.find(
+//         {
+//           source: "WHATSAPP",
+//           similarityScore: {
+//             $exists: true,
+//           },
+//           referenceQuestionId: {
+//             $exists: true,
+//             $ne: null,
+//           },
+//         },
+//         { session },
+//       )
+//         .project<{
+//           _id: any;
+//           referenceQuestionId?: any;
+//           question: string;
+//           referenceQuestion?: string;
+//           originalQuestion?: string;
+//           similarityScore: number;
+//           createdAt: Date;
+//           details?: {
+//             state?: string;
+//             district?: string;
+//           };
+//         }>({
+//           referenceQuestionId: 1,
+//           question: 1,
+//           referenceQuestion: 1,
+//           originalQuestion: 1,
+//           similarityScore: 1,
+//           createdAt: 1,
+//           details: 1,
+//         })
+//         .sort({
+//           createdAt: -1,
+//         })
+//         .toArray();
+
+//     // ============================================
+//     // KEEP ONLY UNIQUE referenceQuestionId
+//     // ============================================
+
+//     const seen =
+//       new Set<string>();
+
+//     const uniqueQuestions =
+//       dupeQuestions.filter(q => {
+//         const refId =
+//           q.referenceQuestionId?.toString();
+//         if (!refId) {
+//           return false;
+//         }
+//         if (seen.has(refId)) {
+//           return false;
+//         }
+//         seen.add(refId);
+//         return true;
+//       });
+
+//     // ============================================
+//     // MAP TO EXISTING RESPONSE STRUCTURE
+//     // ============================================
+
+//     const result:
+//       DuplicateQuestionEntry[] =
+//         uniqueQuestions.map(q => ({
+//           questionId:
+//             q._id.toString(),
+//           question:
+//             q.question,
+//           referenceQuestion:
+//             q.referenceQuestion ||
+//             q.originalQuestion ||
+//             "",
+//           similarityScore:
+//             Number(
+//               q.similarityScore,
+//             ) || 0,
+//           createdAt:
+//             q.createdAt,
+//           farmerName:
+//             "WhatsApp User",
+//           email:
+//             "—",
+//           village:
+//             "—",
+//           block:
+//             "—",
+//           district:
+//             q.details?.district || "—",
+//           state:
+//             q.details?.state || "—",
+//         }));
+
+//     return result;
+
+//   } catch (error) {
+
+//     throw new InternalServerError(
+//       `Failed to get WhatsApp duplicate questions: ${error}`,
+//     );
+//   }
+// }
+
 }

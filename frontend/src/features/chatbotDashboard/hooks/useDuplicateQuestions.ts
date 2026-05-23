@@ -16,7 +16,7 @@ export interface DuplicateQuestionEntry {
   state: string;
 }
 
-export function useDuplicateQuestions(enabled = false, source: 'vicharanashala' | 'annam' = 'annam') {
+export function useDuplicateQuestions(enabled = false, source: 'vicharanashala' | 'annam' | 'whatsapp'= 'annam') {
   return useQuery<DuplicateQuestionEntry[], Error>({
     queryKey: ['duplicate-questions', source],
     queryFn: async () => {

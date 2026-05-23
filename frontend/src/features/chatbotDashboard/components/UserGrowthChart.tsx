@@ -60,7 +60,7 @@ const defaultDateRange: DateRange = {
   to: new Date(),
 };
 
-const UserGrowthChart = () => {
+const UserGrowthChart = ({source}) => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultDateRange);
   const [activeMetrics, setActiveMetrics] = useState(
     metricsConfig.map((m) => m.key)
@@ -257,7 +257,7 @@ const UserGrowthChart = () => {
 
   return (
     <>
-      <Card className="flex flex-col h-full bg-white dark:bg-[#1a1a1a] shadow-sm overflow-hidden relative dark:border-[#2a2a2a]">
+      <Card className={source === "whatsapp" ? "h-full pointer-events-none select-none blur-sm flex flex-col opacity-90 overflow-hidden relative":"flex flex-col h-full bg-white dark:bg-[#1a1a1a] shadow-sm overflow-hidden relative dark:border-[#2a2a2a]"}>
         <button
           onClick={() => setIsMaximized(true)}
           className="absolute top-4 right-4 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
