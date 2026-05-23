@@ -33,14 +33,14 @@ import {
   SelectValue,
 } from "../atoms/select";
 import { Label } from "../atoms/label";
-import { Activity, AlertTriangle, CalendarIcon, Filter, MapPin } from "lucide-react";
+import { Activity, CalendarIcon, Filter, MapPin } from "lucide-react";
 import { STATES, SOURCES } from "../MetaData";
 import { ScrollArea } from "../atoms/scroll-area";
 import { Calendar } from "../atoms/calendar";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import CountUp from "react-countup";
 import React, { useState } from "react";
-import { differenceInCalendarDays, format } from "date-fns";
+import { format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -172,6 +172,12 @@ export interface AnalyticsTableRow {
   draft: number;
   duplicate: number;
   total: number;
+  /** Most recent createdAt date across questions in this group */
+  lastPushedDate?: string;
+  /** Most recent closedAt date across questions in this group */
+  lastClosedDate?: string;
+  /** Percentage of questions closed: (closed / total) * 100 */
+  completionPct: number;
 }
 
 export interface QuestionsAnalytics {
@@ -234,16 +240,13 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 
   const { ref, key } = useRestartOnView();
 
-  const MAX_RANGE_DAYS = 30;
   const [openFilter, setOpenFilter] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [rangeWarning, setRangeWarning] = useState(false);
   const [draftFilters, setDraftFilters] = useState<DraftFilters>(() =>
     defaultDraft(analyticsStatus, analyticsType, date, analyticsState, analyticsSource),
   );
 
   const handleApplyFilters = () => {
-    if (rangeWarning) return;
     setAnalyticsStatus(draftFilters.status);
     setAnalyticsType(draftFilters.analyticsType);
     setDate(draftFilters.dateRange);
@@ -255,7 +258,6 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   const handleClearFilters = () => {
     const defaults = defaultDraft([], "question", {}, [], []);
     setDraftFilters(defaults);
-    setRangeWarning(false);
     setAnalyticsStatus(defaults.status);
     setAnalyticsType(defaults.analyticsType);
     setDate(defaults.dateRange);
@@ -266,7 +268,6 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   const handleOpenChange = (open: boolean) => {
     if (open) {
       setDraftFilters(defaultDraft(analyticsStatus, analyticsType, date, analyticsState, analyticsSource));
-      setRangeWarning(false);
       setShowCalendar(false);
     }
     setOpenFilter(open);
@@ -403,14 +404,6 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 
                   {showCalendar && (
                     <>
-                      {rangeWarning && (
-                        <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300">
-                          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                          <p className="text-xs leading-snug">
-                            Range exceeds {MAX_RANGE_DAYS} days. Please pick an end date within {MAX_RANGE_DAYS} days of the start.
-                          </p>
-                        </div>
-                      )}
                       <Calendar
                         mode="range"
                         selected={{
@@ -421,16 +414,12 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                           const next = { startTime: range?.from, endTime: range?.to };
                           setDraftFilters((prev) => ({ ...prev, dateRange: next }));
                           if (next.startTime && next.endTime) {
-                            setRangeWarning(differenceInCalendarDays(next.endTime, next.startTime) > MAX_RANGE_DAYS);
                             setShowCalendar(false);
-                          } else {
-                            setRangeWarning(false);
                           }
                         }}
                         numberOfMonths={1}
                         className="rounded-md border"
                       />
-                      <p className="text-xs text-muted-foreground">Select up to {MAX_RANGE_DAYS} days at a time</p>
                     </>
                   )}
                 </div>
@@ -439,7 +428,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
               <Button variant="outline" onClick={handleClearFilters}>
                 Clear
               </Button>
-              <Button onClick={handleApplyFilters} disabled={rangeWarning}>
+              <Button onClick={handleApplyFilters}>
                 Apply Filters
               </Button>
             </DialogFooter>
@@ -680,12 +669,15 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       <TableHead className="text-center min-w-[55px] text-gray-500 dark:text-gray-400 font-semibold">Draft</TableHead>
                       <TableHead className="text-center min-w-[75px] text-orange-600 dark:text-orange-400 font-semibold">Duplicate</TableHead>
                       <TableHead className="text-center min-w-[60px] font-bold">Total</TableHead>
+                      <TableHead className="text-center min-w-[110px] text-blue-600 dark:text-blue-400 font-semibold">Last Pushed</TableHead>
+                      <TableHead className="text-center min-w-[110px] text-purple-600 dark:text-purple-400 font-semibold">Last Closed</TableHead>
+                      <TableHead className="text-center min-w-[90px] text-teal-600 dark:text-teal-400 font-semibold">Completion %</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {stateGroups.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={13} className="text-center text-muted-foreground py-10">
+                        <TableCell colSpan={16} className="text-center text-muted-foreground py-10">
                           No data available. Apply filters and try again.
                         </TableCell>
                       </TableRow>
@@ -731,6 +723,27 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                               <TableCell className="text-center text-sm">{fmt(row.draft)}</TableCell>
                               <TableCell className="text-center text-sm">{fmt(row.duplicate)}</TableCell>
                               <TableCell className="text-center text-sm font-bold">{row.total}</TableCell>
+                              <TableCell className="text-center text-sm text-blue-600 dark:text-blue-400">
+                                {row.lastPushedDate
+                                  ? format(new Date(row.lastPushedDate), "dd MMM yyyy")
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-center text-sm text-purple-600 dark:text-purple-400">
+                                {row.lastClosedDate
+                                  ? format(new Date(row.lastClosedDate), "dd MMM yyyy")
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-center text-sm">
+                                <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                  row.completionPct >= 75
+                                    ? "bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300"
+                                    : row.completionPct >= 40
+                                    ? "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300"
+                                    : "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300"
+                                }`}>
+                                  {row.completionPct ?? 0}%
+                                </span>
+                              </TableCell>
                             </TableRow>
                           ))
                         )
