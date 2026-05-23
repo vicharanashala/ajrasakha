@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import re
 from typing import Optional
 
 from langchain_core.runnables import RunnableConfig
@@ -19,7 +20,7 @@ def _standardize_label(value: str) -> str:
     value = (value or "").strip()
     if not value:
         return "all"
-    return " ".join(word.capitalize() for word in re.sub(r"\s+", " ", value).split(" "))
+    return " ".join(word.capitalize() for word in re.sub(r"\s+", " ", value).split())
 
 
 class GDBInput(BaseModel):
