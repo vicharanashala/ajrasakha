@@ -38,7 +38,9 @@ RUN pnpm exec vite build
 
 FROM nginx:1.27-alpine
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# APP_PORT env at runtime is substituted into the proxy URL (default 4000)
+ENV APP_PORT=4000
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
