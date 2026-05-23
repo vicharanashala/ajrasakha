@@ -42,9 +42,12 @@ async def test_build_tool_calls_includes_reviewer_and_weather():
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ropar"},
         location_tool_name="location_information_tool",
         reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
     )
     names = [c["name"] for c in calls]
     assert "upload_question_to_reviewer_system" in names
+    reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
+    assert reviewer["args"]["source"] == "AJRASAKHA"
     assert "weather" in names
     assert "gdb" in names
 
@@ -67,6 +70,7 @@ async def test_build_tool_calls_location_when_gps_unresolved():
         {"latitude": 18.5, "longitude": 73.8},
         location_tool_name="location_information_tool",
         reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
     )
     names = [c["name"] for c in calls]
     assert names[0] == "location_information_tool"
@@ -219,10 +223,13 @@ async def test_csv_onion_price_plan_builds_mandi_only():
         {"state": "Punjab", "city": "Ludhiana"},
         location_tool_name="location_information_tool",
         reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="WHATSAPP",
     )
     names = [c["name"] for c in calls]
     assert "market" in names
     assert "gdb" not in names
+    reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
+    assert reviewer["args"]["source"] == "WHATSAPP"
 
 
 def test_format_tool_results_collects_after_tool_call_ai_message():
