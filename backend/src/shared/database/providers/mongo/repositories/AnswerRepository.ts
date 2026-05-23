@@ -1316,8 +1316,18 @@ export class AnswerRepository implements IAnswerRepository {
             draft:        {$sum: {$cond: [{$eq: ['$questionDetails.status', 'draft']}, 1, 0]}},
             duplicate:    {$sum: {$cond: [{$eq: ['$questionDetails.status', 'duplicate']}, 1, 0]}},
             total:        {$sum: 1},
-            lastPushedDate: {$max: '$questionDetails.createdAt'},
-            lastClosedDate: {$max: '$questionDetails.closedAt'},
+            // Earliest question ever created in this group
+            lastPushedDate: {$min: '$questionDetails.createdAt'},
+            // Most recent closedAt among questions that are actually closed
+            lastClosedDate: {
+              $max: {
+                $cond: [
+                  {$eq: ['$questionDetails.status', 'closed']},
+                  '$questionDetails.closedAt',
+                  null,
+                ],
+              },
+            },
           },
         },
         {

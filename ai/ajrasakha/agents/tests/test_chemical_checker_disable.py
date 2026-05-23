@@ -34,6 +34,7 @@ async def test_build_tool_calls_omits_chemical_checker_when_disabled():
         {"state": "Punjab"},
         location_tool_name="location_information_tool",
         reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
     )
     names = [c["name"] for c in calls]
     assert "gdb" in names

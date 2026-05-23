@@ -1604,10 +1604,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: {
               source: 'AJRASAKHA',
 
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
+              ...monthDateMatch,
             },
           },
 
@@ -1810,10 +1807,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: {
               source: 'AJRASAKHA',
 
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
+              ...monthDateMatch,
             },
           },
 
@@ -2007,6 +2001,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'AJRASAKHA',
+              ...yearDateMatch,
             },
           },
 
