@@ -168,6 +168,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
           $set: {
             reviewDelayNotificationSent: false,
+            currentExpertAllocatedAt: null,
           },
         },
         { session },
