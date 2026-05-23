@@ -333,6 +333,8 @@ export interface IChatbotRepository {
 
   getUserData(userEmail: string, source: string, session?: ClientSession): Promise<{ userId: string; name: string }>;
 
+  getAllUserMessageIds(email: string, source?: string, session?: ClientSession): Promise<string[]>;
+
   /** Aggregate conversations from the messages collection for Excel export. */
   generateChatbotExcelReport(
     startDate: Date,

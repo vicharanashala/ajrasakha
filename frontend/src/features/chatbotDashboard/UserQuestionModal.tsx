@@ -57,10 +57,8 @@ const UserQuestionsModal = ({
   }, [viewType, fullData]);
 
   const items = useMemo(() => {
-    return viewType === "questions"
-      ? activeData?.items || []
-      : activeData?.messages || [];
-  }, [viewType, activeData]);
+  return activeData?.items || [];
+}, [activeData]);
 
   const totalCount =
     viewType === "questions"
@@ -210,7 +208,7 @@ const UserQuestionsModal = ({
 
                       {/* Timeline Button */}
 
-                      {item.isDuplicate && (
+                      {item.isDuplicate && item.repeatedCount - 1 > 0 && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -220,7 +218,7 @@ const UserQuestionsModal = ({
                             setTimelineModalOpen(true);
                           }}
                         >
-                          {item.repeatedCount}x
+                          {item.repeatedCount - 1 > 0 ? `${item.repeatedCount - 1}X` : null}
                         </Button>
                       )}
                     </div>

@@ -2823,6 +2823,11 @@ export class ChatbotRepository implements IChatbotRepository {
       const skip = (page - 1) * limit;
 
       const pipeline = [
+        /**
+         * Match only questions
+         * linked with user's messages
+         */
+
         {
           $match: {
             messageId: {
@@ -2837,31 +2842,43 @@ export class ChatbotRepository implements IChatbotRepository {
 
         ...userTypeLookupStages,
 
-        // Newest first
+        /**
+         * Newest first
+         */
+
         {
           $sort: {
             createdAt: -1,
           },
         },
 
-        // Group duplicate questions
+        /**
+         * Group same questions
+         * asked by SAME user
+         */
+
         {
           $group: {
             _id: {
-              $toLower: '$question',
-            },
-
-            totalRepeated: {
-              $sum: {
-                $cond: [
-                  {
-                    $eq: ['$status', 'duplicate'],
-                  },
-                  1,
-                  0,
-                ],
+              $toLower: {
+                $trim: {
+                  input: '$question',
+                },
               },
             },
+
+            /**
+             * Count how many times
+             * same user asked same question
+             */
+
+            repeatedCount: {
+              $sum: 1,
+            },
+
+            /**
+             * Latest question data
+             */
 
             latestQuestion: {
               $first: '$question',
@@ -2883,11 +2900,20 @@ export class ChatbotRepository implements IChatbotRepository {
               $first: '$messageId',
             },
 
+            /**
+             * Store all timestamps
+             * for timeline modal
+             */
+
             allCreatedAt: {
               $push: '$createdAt',
             },
           },
         },
+
+        /**
+         * Final response shape
+         */
 
         {
           $project: {
@@ -2895,7 +2921,18 @@ export class ChatbotRepository implements IChatbotRepository {
 
             messageId: '$latestMessageId',
 
-            question: '$latestQuestion',
+            /**
+             * Clean:
+             * (repeated)
+             * (duplicate)
+             * etc.
+             */
+
+            question: {
+              $trim: {
+                input: '$latestQuestion',
+              },
+            },
 
             status: '$latestStatus',
 
@@ -2903,27 +2940,23 @@ export class ChatbotRepository implements IChatbotRepository {
 
             updatedAt: '$latestUpdatedAt',
 
-            repeatedCount: {
-              $cond: [
-                {
-                  $gt: ['$totalRepeated', 0],
-                },
-
-                {
-                  $add: ['$totalRepeated', 1],
-                },
-
-                1,
-              ],
-            },
+            repeatedCount: '$repeatedCount',
 
             repeatedAt: '$allCreatedAt',
 
+            /**
+             * If asked > 1 time
+             */
+
             isDuplicate: {
-              $gt: ['$totalRepeated', 0],
+              $gt: ['$repeatedCount', 1],
             },
           },
         },
+
+        /**
+         * Sort latest first
+         */
 
         {
           $sort: {
@@ -2931,7 +2964,10 @@ export class ChatbotRepository implements IChatbotRepository {
           },
         },
 
-        // Better optimization
+        /**
+         * Pagination
+         */
+
         {
           $facet: {
             metadata: [
@@ -2960,8 +2996,21 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const questions = result[0]?.data || [];
 
+      /**
+       * Cleanup question prefixes
+       */
+
       questions.forEach((q: any) => {
-        q.question = q.question?.replace(/^\s*\([^)]*\)\s*/, '');
+        q.question = q.question?.replace(/^\s*\([^)]*\)\s*/, '')?.trim();
+
+        /**
+         * Sort timeline newest first
+         */
+
+        q.repeatedAt = (q.repeatedAt || []).sort(
+          (a: string, b: string) =>
+            new Date(b).getTime() - new Date(a).getTime(),
+        );
       });
 
       const totalPages = Math.ceil(totalQuestions / limit);
@@ -3155,7 +3204,7 @@ export class ChatbotRepository implements IChatbotRepository {
       });
 
       return {
-        totalMessages,
+        total: totalMessages,
 
         totalPages,
 
@@ -3163,7 +3212,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
         limit,
 
-        messages: filteredMessages,
+        items: filteredMessages,
 
         // separate array
         allMessageIds,
@@ -3192,6 +3241,36 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(`Failed to get user data: ${error}`);
     }
   }
+
+  async getAllUserMessageIds(
+    email: string,
+    source = 'vicharanashala',
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(source);
+
+      const user = await this.users.findOne({email}, {session});
+
+      if (!user) {
+        return [];
+      }
+
+      const messageIds = await this.messagesCollection.distinct('messageId', {
+        user: String(user._id),
+
+        messageId: {
+          $exists: true,
+          $ne: null,
+        },
+      });
+
+      return messageIds;
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch all messageIds: ${error}`);
+    }
+  }
+
   // ── NEW: Inactivity-gap based avg session duration (KPI number) ──────────────
   // Uses the messages collection instead of conversations.
   // For each conversation: sums only the gaps between consecutive messages that

@@ -387,7 +387,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
 
     // Extract messageIds
-    const messageIds = messages.allMessageIds;
+   const messageIds =
+  await this.chatbotRepository.getAllUserMessageIds(
+    userEmail,
+    source,
+  );
 
     console.log("Extracted message IDs", messageIds);
 
