@@ -1,0 +1,382 @@
+import { useEffect, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
+import { toast } from "sonner";
+
+type EditableUser = {
+  userId: string;
+  name: string;
+  farmerProfile?: {
+    farmerName?: string;
+    age?: number;
+    gender?: string;
+    villageName?: string;
+    blockName?: string;
+    district?: string;
+    state?: string;
+    phoneNo?: string;
+    languagePreference?: string;
+    yearsOfExperience?: number;
+    cropsCultivated?: string[];
+    primaryCrop?: string;
+    secondaryCrop?: string;
+    awarenessOfKCC?: boolean;
+    usesAgriApps?: boolean;
+    highestEducatedPerson?: string;
+    numberOfSmartphones?: number;
+    platform?: string;
+    platformHistory?: { os: string; timestamp: string }[];
+  };
+};
+
+interface EditFarmerModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  user: EditableUser | null;
+  isSaving?: boolean;
+  onSave: (payload: {
+    name?: string;
+    farmerProfile?: {
+      farmerName?: string;
+      age?: number;
+      gender?: string;
+      villageName?: string;
+      blockName?: string;
+      district?: string;
+      state?: string;
+      phoneNo?: string;
+      languagePreference?: string;
+      yearsOfExperience?: number;
+      cropsCultivated?: string[];
+      primaryCrop?: string;
+      secondaryCrop?: string;
+      awarenessOfKCC?: boolean;
+      usesAgriApps?: boolean;
+      highestEducatedPerson?: string;
+      numberOfSmartphones?: number;
+      platform?: string;
+      platformHistory?: { os: string; timestamp: string }[];
+    };
+  }) => void | Promise<void>;
+}
+
+type FormState = {
+  name: string;
+  farmerName: string;
+  age: string;
+  gender: string;
+  villageName: string;
+  blockName: string;
+  district: string;
+  state: string;
+  phoneNo: string;
+  languagePreference: string;
+  yearsOfExperience: string;
+  cropsCultivated: string;
+  primaryCrop: string;
+  secondaryCrop: string;
+  awarenessOfKCC: "" | "true" | "false";
+  usesAgriApps: "" | "true" | "false";
+  highestEducatedPerson: string;
+  numberOfSmartphones: string;
+  platform: string;
+  platformHistory: string;
+};
+
+const EMPTY_FORM: FormState = {
+  name: "",
+  farmerName: "",
+  age: "",
+  gender: "",
+  villageName: "",
+  blockName: "",
+  district: "",
+  state: "",
+  phoneNo: "",
+  languagePreference: "",
+  yearsOfExperience: "",
+  cropsCultivated: "",
+  primaryCrop: "",
+  secondaryCrop: "",
+  awarenessOfKCC: "",
+  usesAgriApps: "",
+  highestEducatedPerson: "",
+  numberOfSmartphones: "",
+  platform: "",
+  platformHistory: "",
+};
+
+const toNumber = (value: string): number | undefined => {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const toBoolean = (
+  value: "" | "true" | "false",
+): boolean | undefined => {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
+};
+
+const toStringArray = (value: string): string[] | undefined => {
+  const list = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return list.length ? list : undefined;
+};
+
+export function EditFarmerModal({
+  open,
+  onOpenChange,
+  user,
+  isSaving = false,
+  onSave,
+}: EditFarmerModalProps) {
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+
+  useEffect(() => {
+    if (!open || !user) return;
+    const fp = user.farmerProfile;
+    setForm({
+      name: user.name ?? "",
+      farmerName: fp?.farmerName ?? "",
+      age: fp?.age != null ? String(fp.age) : "",
+      gender: fp?.gender ?? "",
+      villageName: fp?.villageName ?? "",
+      blockName: fp?.blockName ?? "",
+      district: fp?.district ?? "",
+      state: fp?.state ?? "",
+      phoneNo: fp?.phoneNo ?? "",
+      languagePreference: fp?.languagePreference ?? "",
+      yearsOfExperience:
+        fp?.yearsOfExperience != null ? String(fp.yearsOfExperience) : "",
+      cropsCultivated: (fp?.cropsCultivated ?? []).join(", "),
+      primaryCrop: fp?.primaryCrop ?? "",
+      secondaryCrop: fp?.secondaryCrop ?? "",
+      awarenessOfKCC:
+        fp?.awarenessOfKCC == null ? "" : fp.awarenessOfKCC ? "true" : "false",
+      usesAgriApps:
+        fp?.usesAgriApps == null ? "" : fp.usesAgriApps ? "true" : "false",
+      highestEducatedPerson: fp?.highestEducatedPerson ?? "",
+      numberOfSmartphones:
+        fp?.numberOfSmartphones != null ? String(fp.numberOfSmartphones) : "",
+      platform: fp?.platform ?? "",
+      platformHistory: fp?.platformHistory
+        ? JSON.stringify(fp.platformHistory, null, 2)
+        : "",
+    });
+  }, [open, user]);
+
+  const handleChange = (key: keyof FormState, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    let parsedPlatformHistory:
+      | { os: string; timestamp: string }[]
+      | undefined = undefined;
+
+    if (form.platformHistory.trim()) {
+      try {
+        const parsed = JSON.parse(form.platformHistory);
+        if (Array.isArray(parsed)) {
+          parsedPlatformHistory = parsed;
+        } else {
+          toast.error("Platform history must be a JSON array");
+          return;
+        }
+      } catch {
+        toast.error("Invalid JSON in platform history");
+        return;
+      }
+    }
+
+    await onSave({
+      name: form.name.trim() || undefined,
+      farmerProfile: {
+        farmerName: form.farmerName.trim() || undefined,
+        age: toNumber(form.age),
+        gender: form.gender.trim() || undefined,
+        villageName: form.villageName.trim() || undefined,
+        blockName: form.blockName.trim() || undefined,
+        district: form.district.trim() || undefined,
+        state: form.state.trim() || undefined,
+        phoneNo: form.phoneNo.trim() || undefined,
+        languagePreference: form.languagePreference.trim() || undefined,
+        yearsOfExperience: toNumber(form.yearsOfExperience),
+        cropsCultivated: toStringArray(form.cropsCultivated),
+        primaryCrop: form.primaryCrop.trim() || undefined,
+        secondaryCrop: form.secondaryCrop.trim() || undefined,
+        awarenessOfKCC: toBoolean(form.awarenessOfKCC),
+        usesAgriApps: toBoolean(form.usesAgriApps),
+        highestEducatedPerson: form.highestEducatedPerson.trim() || undefined,
+        numberOfSmartphones: toNumber(form.numberOfSmartphones),
+        platform: form.platform.trim() || undefined,
+        platformHistory: parsedPlatformHistory,
+      },
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Farmer</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            value={form.name}
+            onChange={(e) => handleChange("name", e.target.value)}
+            placeholder="Name"
+          />
+          <Input
+            value={form.farmerName}
+            onChange={(e) => handleChange("farmerName", e.target.value)}
+            placeholder="Farmer Name"
+          />
+          <Input
+            value={form.age}
+            onChange={(e) => handleChange("age", e.target.value)}
+            placeholder="Age"
+            type="number"
+          />
+          <Input
+            value={form.gender}
+            onChange={(e) => handleChange("gender", e.target.value)}
+            placeholder="Gender"
+          />
+          <Input
+            value={form.villageName}
+            onChange={(e) => handleChange("villageName", e.target.value)}
+            placeholder="Village"
+          />
+          <Input
+            value={form.blockName}
+            onChange={(e) => handleChange("blockName", e.target.value)}
+            placeholder="Block"
+          />
+          <Input
+            value={form.district}
+            onChange={(e) => handleChange("district", e.target.value)}
+            placeholder="District"
+          />
+          <Input
+            value={form.state}
+            onChange={(e) => handleChange("state", e.target.value)}
+            placeholder="State"
+          />
+          <Input
+            value={form.phoneNo}
+            onChange={(e) => handleChange("phoneNo", e.target.value)}
+            placeholder="Phone"
+          />
+          <Input
+            value={form.languagePreference}
+            onChange={(e) => handleChange("languagePreference", e.target.value)}
+            placeholder="Language Preference"
+          />
+          <Input
+            value={form.yearsOfExperience}
+            onChange={(e) => handleChange("yearsOfExperience", e.target.value)}
+            placeholder="Years Of Experience"
+            type="number"
+          />
+          <Input
+            value={form.numberOfSmartphones}
+            onChange={(e) => handleChange("numberOfSmartphones", e.target.value)}
+            placeholder="Number Of Smartphones"
+            type="number"
+          />
+          <Input
+            value={form.primaryCrop}
+            onChange={(e) => handleChange("primaryCrop", e.target.value)}
+            placeholder="Primary Crop"
+          />
+          <Input
+            value={form.secondaryCrop}
+            onChange={(e) => handleChange("secondaryCrop", e.target.value)}
+            placeholder="Secondary Crop"
+          />
+          <Input
+            value={form.platform}
+            onChange={(e) => handleChange("platform", e.target.value)}
+            placeholder="Platform"
+          />
+          <Input
+            value={form.highestEducatedPerson}
+            onChange={(e) =>
+              handleChange("highestEducatedPerson", e.target.value)
+            }
+            placeholder="Highest Educated Person"
+          />
+        </div>
+
+        <div className="space-y-3">
+          <Input
+            value={form.cropsCultivated}
+            onChange={(e) => handleChange("cropsCultivated", e.target.value)}
+            placeholder="Crops Cultivated (comma-separated)"
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <select
+              value={form.awarenessOfKCC}
+              onChange={(e) =>
+                handleChange(
+                  "awarenessOfKCC",
+                  e.target.value as "" | "true" | "false",
+                )
+              }
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">KCC Awareness</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+
+            <select
+              value={form.usesAgriApps}
+              onChange={(e) =>
+                handleChange(
+                  "usesAgriApps",
+                  e.target.value as "" | "true" | "false",
+                )
+              }
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Uses Agri Apps</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+          >
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

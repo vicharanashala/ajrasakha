@@ -1054,6 +1054,41 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async updateUser(
+    userId: string,
+    source: string,
+    data: {
+      name?: string;
+      farmerProfile?: {
+        farmerName?: string;
+        age?: number;
+        gender?: string;
+        villageName?: string;
+        blockName?: string;
+        district?: string;
+        state?: string;
+        phoneNo?: string;
+        languagePreference?: string;
+        yearsOfExperience?: number;
+        cropsCultivated?: string[];
+        primaryCrop?: string;
+        secondaryCrop?: string;
+        awarenessOfKCC?: boolean;
+        usesAgriApps?: boolean;
+        highestEducatedPerson?: string;
+        numberOfSmartphones?: number;
+        platform?: string;
+        platformHistory?: { os: string; timestamp: string }[];
+      };
+    },
+  ): Promise<boolean> {
+    try {
+      return await this.chatbotRepository.updateUser(userId, source, data);
+    } catch (error) {
+      throw new InternalServerError(`Failed to update user: ${error}`);
+    }
+  }
+
   async getDailyActiveUsersTrend(
     startDate: Date,
     endDate: Date,

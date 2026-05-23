@@ -400,6 +400,14 @@ export interface IChatbotRepository {
 
   
   deleteUser(userId: string, source: string): Promise<boolean>;
+  updateUser(
+    userId: string,
+    source: string,
+    data: {
+      name?: string;
+      farmerProfile?: Partial<FarmerProfile>;
+    },
+  ): Promise<boolean>;
 
   getDailyActiveUsersTrend  (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession):Promise<any>
 
