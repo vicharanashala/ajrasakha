@@ -10,6 +10,8 @@ import {
   QueryParam,
   Delete,
   Param,
+  Patch,
+  Body,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -476,6 +478,48 @@ async getDistrictAnalyticsByState(
     }
     const success = await this.chatbotService.deleteUser(userId, source);
     return { success, message: success ? 'User deleted successfully' : 'Failed to delete user' };
+  }
+
+  @OpenAPI({
+    summary: 'Edit a farmer',
+    description: 'Updates editable farmer fields for a user in the selected source database.',
+  })
+  @Patch('/users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async updateUser(
+    @Param('userId') userId: string,
+    @QueryParam('source') source: string,
+    @Body()
+    body: {
+      name?: string;
+      farmerProfile?: {
+        farmerName?: string;
+        age?: number;
+        gender?: string;
+        villageName?: string;
+        blockName?: string;
+        district?: string;
+        state?: string;
+        phoneNo?: string;
+        languagePreference?: string;
+        yearsOfExperience?: number;
+        cropsCultivated?: string[];
+        primaryCrop?: string;
+        secondaryCrop?: string;
+        awarenessOfKCC?: boolean;
+        usesAgriApps?: boolean;
+        highestEducatedPerson?: string;
+        numberOfSmartphones?: number;
+        platform?: string;
+      };
+    },
+  ) {
+    if (!source) {
+      source = 'vicharanashala';
+    }
+    const success = await this.chatbotService.updateUser(userId, source, body);
+    return { success, message: success ? 'User updated successfully' : 'Failed to update user' };
   }
 
   @Get('/daily-active-users-trend')

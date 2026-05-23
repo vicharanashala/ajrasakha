@@ -4542,6 +4542,91 @@ async getMonthlyAnalytics(
     }
   }
 
+  async updateUser(
+    userId: string,
+    source: string,
+    data: {
+      name?: string;
+      farmerProfile?: {
+        farmerName?: string;
+        age?: number;
+        gender?: string;
+        villageName?: string;
+        blockName?: string;
+        district?: string;
+        state?: string;
+        phoneNo?: string;
+        languagePreference?: string;
+        yearsOfExperience?: number;
+        cropsCultivated?: string[];
+        primaryCrop?: string;
+        secondaryCrop?: string;
+        awarenessOfKCC?: boolean;
+        usesAgriApps?: boolean;
+        highestEducatedPerson?: string;
+        numberOfSmartphones?: number;
+        platform?: string;
+      };
+    },
+  ): Promise<boolean> {
+    try {
+      await this.init(source);
+
+      const setPayload: Record<string, any> = {
+        updatedAt: new Date(),
+      };
+
+      if (typeof data?.name === 'string') {
+        const trimmedName = data.name.trim();
+        if (trimmedName) {
+          setPayload.name = trimmedName;
+        }
+      }
+
+      const profile = data?.farmerProfile;
+      if (profile && typeof profile === 'object') {
+        const editableFarmerFields = [
+          'farmerName',
+          'age',
+          'gender',
+          'villageName',
+          'blockName',
+          'district',
+          'state',
+          'phoneNo',
+          'languagePreference',
+          'yearsOfExperience',
+          'cropsCultivated',
+          'primaryCrop',
+          'secondaryCrop',
+          'awarenessOfKCC',
+          'usesAgriApps',
+          'highestEducatedPerson',
+          'numberOfSmartphones',
+          'platform',
+        ] as const;
+
+        for (const field of editableFarmerFields) {
+          if (Object.prototype.hasOwnProperty.call(profile, field)) {
+            const value = (profile as any)[field];
+            if (value !== undefined) {
+              setPayload[`farmerProfile.${field}`] = value;
+            }
+          }
+        }
+      }
+
+      const result = await this.users.updateOne(
+        {_id: new ObjectId(userId)},
+        {$set: setPayload},
+      );
+
+      return result.matchedCount > 0;
+    } catch (error) {
+      throw new InternalServerError(`Failed to update user: ${error}`);
+    }
+  }
+
   async getDailyActiveUsersTrend(
     startDate: Date,
     endDate: Date,
