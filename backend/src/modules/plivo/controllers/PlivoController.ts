@@ -15,8 +15,10 @@ import {
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { Request, Response } from 'express';
 import { appConfig } from '#root/config/app.js';
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 import plivo from 'plivo';
+import { PLIVO_TYPES } from '../types.js';
+import type { ICallDetailsRepository } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
 
 @OpenAPI({
@@ -28,7 +30,11 @@ import plivo from 'plivo';
 export class PlivoController {
   private client = new plivo.Client(process.env.PLIVO_AUTH_ID, process.env.PLIVO_AUTH_TOKEN, { timeout: 30000 });
 
-  
+  constructor(
+    @inject(PLIVO_TYPES.CallDetailsRepository) private callDetailsRepository: ICallDetailsRepository
+  ) {}
+
+
   @Post('/answer')
   @HttpCode(200)
   @OpenAPI({ summary: 'Handle inbound call answer from Plivo' })
@@ -41,8 +47,8 @@ export class PlivoController {
       // FIXED XML Structure: Stream outside Dial, proper fallback handling
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
                     <Response>
-                              <Stream contentType="audio/x-l16;rate=16000" bidirectional="true"
-          noiseCancellation="true" audioTrack="inbound" 
+                              <Stream contentType="audio/x-l16;rate=16000"
+          noiseCancellation="true" audioTrack="both" 
           >${streamUrl}</Stream>
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>
@@ -78,6 +84,7 @@ export class PlivoController {
     status: string;
     startTime: string;
     direction: string;
+    callDetails?: any;
   }>> {
     try {
       // Build the query object for Plivo API
@@ -102,14 +109,26 @@ export class PlivoController {
       const history = (response as any)
         .filter((item: any) => item.callUuid) // Filter out meta object
         .map((call: any) => ({
-        uuid: call.callUuid,
-        from: call.fromNumber,
-        to: call.toNumber,
-        duration: call.callDuration, // in seconds
-        status: call.callState,
-        startTime: call.initiationTime,
-        direction: call.callDirection
-      }));
+          uuid: call.callUuid,
+          from: call.fromNumber,
+          to: call.toNumber,
+          duration: call.callDuration, // in seconds
+          status: call.callState,
+          startTime: call.initiationTime,
+          direction: call.callDirection
+        }));
+
+      // Attach Call Details from MongoDB
+      for (const item of history) {
+        try {
+          const details = await this.callDetailsRepository.getByCallUuid(item.uuid);
+          if (details) {
+            item.callDetails = details;
+          }
+        } catch (e) {
+          console.error(`[PLIVO-CONTROLLER] Could not fetch details for ${item.uuid}`);
+        }
+      }
 
       return history;
     } catch (error: any) {

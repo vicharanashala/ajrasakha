@@ -11,6 +11,10 @@ export interface CallHistoryItem {
   status: string;
   startTime: string;
   direction: string;
+  callDetails?: {
+    caller?: { transcript: string; translation: string; detectedLanguage: string };
+    agent?: { transcript: string; translation: string; detectedLanguage: string };
+  };
 }
 
 export interface CallHistoryResponse {
@@ -27,8 +31,41 @@ export interface MakeCallResponse {
   callUuid: string;
 }
 
+export interface FarmerProfile {
+  farmerName?: string;
+  age?: number;
+  gender?: string;
+  villageName?: string;
+  blockName?: string;
+  district?: string;
+  state?: string;
+  phoneNo?: string;
+  languagePreference?: string;
+  yearsOfExperience?: number;
+  cropsCultivated?: string[];
+  primaryCrop?: string;
+  secondaryCrop?: string;
+  awarenessOfKCC?: boolean;
+  usesAgriApps?: boolean;
+  highestEducatedPerson?: string;
+  numberOfSmartphones?: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+export interface CallFarmer {
+  _id?: string;
+  phoneNo: string;
+  profile: FarmerProfile;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export class PlivoService {
   private _baseUrl = `${API_BASE_URL}/plivo`;
+  private _farmerBaseUrl = `${API_BASE_URL}/farmer`;
 
   async getCallHistory(params: {
     limit?: number;
@@ -55,6 +92,75 @@ export class PlivoService {
     }
 
     return response;
+  }
+
+  async getFarmerByPhoneNo(phoneNo: string): Promise<CallFarmer | null> {
+    const url = `${this._farmerBaseUrl}/${encodeURIComponent(phoneNo)}`;
+    try {
+      const response = await apiFetch<CallFarmer>(url);
+      return response;
+    } catch (error) {
+      console.error(`[FARMER_FLOW] PlivoService.getFarmerByPhoneNo: Error for phoneNo ${phoneNo}:`, error);
+      throw error;
+    }
+  }
+
+  async createFarmer(phoneNo: string, profile: FarmerProfile): Promise<string> {
+    const url = `${this._farmerBaseUrl}`;
+    try {
+      const response = await apiFetch<{ id: string }>(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNo, profile }),
+      });
+      return response?.id || '';
+    } catch (error) {
+      console.error(`[FARMER_FLOW] PlivoService.createFarmer: Error for phoneNo ${phoneNo}:`, error);
+      throw error;
+    }
+  }
+
+  async updateFarmer(phoneNo: string, profile: FarmerProfile): Promise<boolean> {
+    const url = `${this._farmerBaseUrl}/${encodeURIComponent(phoneNo)}`;
+    try {
+      const response = await apiFetch<{ success: boolean }>(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ profile }),
+      });
+      return response?.success || false;
+    } catch (error) {
+      console.error(`[FARMER_FLOW] PlivoService.updateFarmer: Error for phoneNo ${phoneNo}:`, error);
+      throw error;
+    }
+  }
+
+  async deleteFarmer(phoneNo: string): Promise<boolean> {
+    const url = `${this._farmerBaseUrl}/${encodeURIComponent(phoneNo)}`;
+    try {
+      const response = await apiFetch<{ success: boolean }>(url, {
+        method: 'DELETE',
+      });
+      return response?.success || false;
+    } catch (error) {
+      console.error(`[FARMER_FLOW] PlivoService.deleteFarmer: Error for phoneNo ${phoneNo}:`, error);
+      throw error;
+    }
+  }
+
+  async getAllFarmers(): Promise<CallFarmer[]> {
+    const url = `${this._farmerBaseUrl}`;
+    try {
+      const response = await apiFetch<CallFarmer[]>(url);
+      return response || [];
+    } catch (error) {
+      console.error(`[FARMER_FLOW] PlivoService.getAllFarmers: Error:`, error);
+      throw error;
+    }
   }
 }
 

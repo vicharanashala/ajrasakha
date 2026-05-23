@@ -17,7 +17,8 @@ interface IncomingCall {
   timestamp: string;
 }
 
-interface CallTranscript {
+export interface CallTranscript {
+  track: 'inbound' | 'outbound';
   text: string;
   originalText: string;
   translatedText: string;
@@ -28,6 +29,7 @@ interface CallTranscript {
 export interface IncomingCallBoxProps {
   onTranscriptChange?: (translatedTranscript: string) => void;
   onOriginalTranscriptChange?: (originalTranscript: string) => void;
+  onTranscriptsListChange?: (transcripts: CallTranscript[]) => void;
   onCallStateChange?: (isActive: boolean) => void;
 }
 
@@ -39,7 +41,12 @@ declare global {
 
 // things to do:- auth the websocket, call only for admin, and make transcript working, and make UI good,
 
-export const IncomingCallBox = ({ onTranscriptChange, onOriginalTranscriptChange, onCallStateChange }: IncomingCallBoxProps) => {
+export const IncomingCallBox = ({
+  onTranscriptChange,
+  onOriginalTranscriptChange,
+  onTranscriptsListChange,
+  onCallStateChange
+}: IncomingCallBoxProps) => {
   console.log(' [IncomingCallBox] Component mounting...');
 
   const { data: currentUser, isLoading: isUserLoading } = useGetCurrentUser();
@@ -54,6 +61,37 @@ export const IncomingCallBox = ({ onTranscriptChange, onOriginalTranscriptChange
   const wsRef = useRef<PlivoWebSocketService | null>(null);
   const plivoClientRef = useRef<any>(null);
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync callbacks to refs to avoid effect dependencies
+  const callbacksRef = useRef({
+    onOriginalTranscriptChange,
+    onTranscriptChange,
+    onTranscriptsListChange
+  });
+
+  useEffect(() => {
+    callbacksRef.current = {
+      onOriginalTranscriptChange,
+      onTranscriptChange,
+      onTranscriptsListChange
+    };
+  });
+
+  // Notify parent component when transcripts change
+  useEffect(() => {
+    const formattedOriginal = transcripts.map(t => {
+      const speaker = t.track === 'inbound' ? 'Caller' : 'Agent';
+      return `${speaker}: ${t.originalText}`;
+    }).join('\n');
+    const formattedTranslated = transcripts.map(t => {
+      const speaker = t.track === 'inbound' ? 'Caller' : 'Agent';
+      return `${speaker}: ${t.translatedText}`;
+    }).join('\n');
+
+    callbacksRef.current.onOriginalTranscriptChange?.(formattedOriginal);
+    callbacksRef.current.onTranscriptChange?.(formattedTranslated);
+    callbacksRef.current.onTranscriptsListChange?.(transcripts);
+  }, [transcripts]);
 
   // Auto-reset call UI if stuck in 'incoming' state for too long
   useEffect(() => {
@@ -267,6 +305,9 @@ export const IncomingCallBox = ({ onTranscriptChange, onOriginalTranscriptChange
       return;
     }
 
+    // Clear transcripts from previous call
+    setTranscripts([]);
+
     // console.log('🔌 Initializing WebSocket connection...');
     const ws = new PlivoWebSocketService();
     wsRef.current = ws;
@@ -275,7 +316,8 @@ export const IncomingCallBox = ({ onTranscriptChange, onOriginalTranscriptChange
     ws.onMessage('transcript', (message: PlivoTranscriptMessage) => {
       // console.log('📝 [IncomingCallBox] Received transcript:', message);
       if (message.originalText || message.translatedText) {
-        const newTranscript = {
+        const newTranscript: CallTranscript = {
+          track: message.track || 'inbound',
           text: message.text || '',
           originalText: message.originalText || '',
           translatedText: message.translatedText || '',
@@ -283,24 +325,43 @@ export const IncomingCallBox = ({ onTranscriptChange, onOriginalTranscriptChange
           timestamp: message.timestamp
         };
 
-        setTranscripts(prev => {
-          const updated = [...prev, newTranscript];
-          // Update parent component with full accumulated transcripts
-          const fullOriginalTranscript = updated.map(t => t.originalText).filter(Boolean).join(' ');
-          const fullTranslatedTranscript = updated.map(t => t.translatedText).filter(Boolean).join(' ');
-          onOriginalTranscriptChange?.(fullOriginalTranscript);
-          onTranscriptChange?.(fullTranslatedTranscript);
-          return updated;
-        });
+        setTranscripts(prev => [...prev, newTranscript]);
       }
     });
 
-    ws.onMessage('call_end', (message: PlivoTranscriptMessage) => {
+    ws.onMessage('call_end', (message: any) => {
       // console.log('📴 Call ended from WebSocket:', message);
-      if (message.originalText || message.translatedText) {
-        onOriginalTranscriptChange?.(message.originalText || '');
-        onTranscriptChange?.(message.translatedText || '');
+      const finalItems: CallTranscript[] = [];
+
+      const caller = message.caller || message.inbound;
+      const agent = message.agent || message.outbound;
+
+      if (caller && (caller.transcript || caller.translation || caller.originalText || caller.translatedText)) {
+        finalItems.push({
+          track: 'inbound',
+          text: caller.transcript || caller.finalTranscript || caller.originalText || '',
+          originalText: caller.transcript || caller.originalText || '',
+          translatedText: caller.translation || caller.translatedText || '',
+          detectedLanguage: caller.detectedLanguage || 'unknown',
+          timestamp: message.timestamp || new Date().toISOString()
+        });
       }
+
+      if (agent && (agent.transcript || agent.translation || agent.originalText || agent.translatedText)) {
+        finalItems.push({
+          track: 'outbound',
+          text: agent.transcript || agent.finalTranscript || agent.originalText || '',
+          originalText: agent.transcript || agent.originalText || '',
+          translatedText: agent.translation || agent.translatedText || '',
+          detectedLanguage: agent.detectedLanguage || 'unknown',
+          timestamp: message.timestamp || new Date().toISOString()
+        });
+      }
+
+      if (finalItems.length > 0) {
+        setTranscripts(finalItems);
+      }
+
       setCallStatus('ended');
       setIncomingCall(null);
       onCallStateChange?.(false);
@@ -416,166 +477,219 @@ export const IncomingCallBox = ({ onTranscriptChange, onOriginalTranscriptChange
   return (
     <div className={cn(
       "rounded-xl transition-all duration-300",
-      callStatus === 'incoming' ? "p-[2px] from-white via-white to-white animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.5)]" : ""
+      callStatus === 'incoming' ? "p-[2px] from-white via-white to-white animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.4)]" : ""
     )}>
       <Card className={cn(
-        "transition-all duration-300 p-2",
+        "transition-all duration-300 overflow-hidden",
         callStatus === 'incoming' ? "border-2 border-white" : "",
-        callStatus === 'connected' ? "border-green-200" : "",
-        callStatus === 'held' ? "border-yellow-200 bg-yellow-50/50" : ""
+        callStatus === 'connected' ? "border-green-500/30" : "",
+        callStatus === 'held' ? "border-yellow-500/30 bg-yellow-500/5 dark:bg-yellow-950/5" : ""
       )}>
-        <CardHeader className="p-2 pb-1">
-          <CardTitle className="flex items-center justify-between gap-2 text-sm">
+        <CardHeader className="px-4 border-b-0">
+          <CardTitle className="flex items-center justify-between gap-2 text-base">
             <div className="flex items-center gap-2">
               <div className={cn(
-                "p-1.5 rounded-lg",
-                callStatus === 'incoming' ? "bg-orange-100" :
-                  callStatus === 'connected' ? "bg-green-100" :
-                    callStatus === 'held' ? "bg-yellow-100" : "bg-gray-100"
+                "p-1 rounded-lg transition-colors",
+                callStatus === 'incoming' ? "bg-amber-100 dark:bg-amber-950/40" :
+                  callStatus === 'connected' ? "bg-emerald-100 dark:bg-emerald-950/40" :
+                    callStatus === 'held' ? "bg-yellow-100 dark:bg-yellow-950/40" : "bg-zinc-100 dark:bg-zinc-800"
               )}>
                 <Phone className={cn(
-                  "h-3.5 w-3.5",
-                  callStatus === 'incoming' ? "text-orange-600" :
-                    callStatus === 'connected' ? "text-green-600" :
-                      callStatus === 'held' ? "text-yellow-600" : "text-gray-600"
+                  "h-3.5 w-3.5 transition-colors",
+                  callStatus === 'incoming' ? "text-amber-600 dark:text-amber-400" :
+                    callStatus === 'connected' ? "text-emerald-600 dark:text-emerald-400" :
+                      callStatus === 'held' ? "text-yellow-600 dark:text-yellow-400" : "text-zinc-500 dark:text-zinc-400"
                 )} />
               </div>
-              <span className="text-sm">Incoming Call</span>
+              <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                {callStatus === 'incoming' ? "Incoming Call" :
+                  callStatus === 'connected' ? "Active Call" :
+                    callStatus === 'held' ? "Call On Hold" :
+                      callStatus === 'ended' ? "Call Concluded" : "Telephony Panel"}
+              </span>
             </div>
-            <Badge variant={callStatus === 'connected' ? 'default' : 'destructive'} className="text-xs px-1.5 py-0">
-              {callStatus.toUpperCase()}
+            <Badge
+              className={cn(
+                "text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all uppercase tracking-wider",
+                callStatus === 'connected' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                  callStatus === 'incoming' ? "bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse" :
+                    callStatus === 'held' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
+                      callStatus === 'ended' ? "bg-zinc-500/10 text-zinc-500 border-zinc-500/20" :
+                        "bg-zinc-500/10 text-zinc-400 border-zinc-500/10"
+              )}
+            >
+              {callStatus}
             </Badge>
           </CardTitle>
         </CardHeader>
 
         {isAdmin ? (
-          <CardContent>
+          <CardContent className="p-1">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Phone className="h-4 w-4" />
-              <span className="text-base">Admin access only</span>
+              <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+              <span className="text-sm font-medium">Admin access only</span>
             </div>
           </CardContent>
         ) : ((callStatus === 'idle' || callStatus === 'ended') && !incomingCall) ? (
-          <CardContent>
+          <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Phone className="h-4 w-4" />
-              <span className="text-base">No active calls</span>
+              <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+              <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">No active calls</span>
             </div>
           </CardContent>
         ) : (
-          <CardContent className="space-y-3 p-2 pt-1">
-            {/* Call Info */}
-            {incomingCall && (
-              <div className="text-sm">
-                <div className="font-medium">From: {incomingCall.number}</div>
-                <div className="text-xs text-muted-foreground">
-                  {new Date(incomingCall.timestamp).toLocaleTimeString()}
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+
+              {/* Left Column: Call Info and Controls */}
+              <div className="flex flex-col justify-between space-y-4 bg-zinc-50/50 dark:bg-zinc-900/40 p-4 rounded-xl border border-zinc-200/40 dark:border-zinc-800/40">
+                {/* Caller Identity Detail */}
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-3 rounded-full shrink-0 flex items-center justify-center shadow-inner transition-colors",
+                    callStatus === 'incoming' ? "bg-amber-500/10 text-amber-500 dark:bg-amber-500/20" :
+                      callStatus === 'connected' ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20" :
+                        callStatus === 'held' ? "bg-yellow-500/10 text-yellow-500 dark:bg-yellow-500/20" :
+                          "bg-zinc-500/10 text-zinc-500 dark:bg-zinc-500/20"
+                  )}>
+                    <Phone className={cn(
+                      "h-5 w-5",
+                      callStatus === 'incoming' && "animate-bounce"
+                    )} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                      {callStatus === 'incoming' ? 'Incoming Call From' :
+                        callStatus === 'connected' ? 'Connected Call' :
+                          callStatus === 'held' ? 'Call On Hold' : 'Call Status'}
+                    </p>
+                    <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate font-mono">
+                      {incomingCall?.number || 'Unknown Caller'}
+                    </p>
+                    {incomingCall && (
+                      <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                        Started: {new Date(incomingCall.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-zinc-200/50 dark:border-zinc-800/50 my-1" />
+
+                {/* Call Controls Group */}
+                <div className="flex flex-wrap gap-2 items-center">
+                  {callStatus === 'incoming' && (
+                    <div className="flex gap-2 w-full">
+                      <Button
+                        onClick={handleAnswer}
+                        size="sm"
+                        className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-600/10 hover:shadow-lg hover:shadow-emerald-600/20 h-9 rounded-lg transition-all text-xs"
+                      >
+                        <Phone className="h-4 w-4" />
+                        <span>Answer</span>
+                      </Button>
+                      <Button
+                        onClick={handleReject}
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1 flex items-center justify-center gap-2 px-4 h-9 rounded-lg shadow-md shadow-red-600/10 hover:shadow-lg hover:shadow-red-600/20 transition-all text-xs"
+                      >
+                        <PhoneOff className="h-4 w-4" />
+                        <span>Reject</span>
+                      </Button>
+                    </div>
+                  )}
+
+                  {(callStatus === 'connected' || callStatus === 'held') && (
+                    <div className="grid grid-cols-2 gap-2 w-full">
+                      <Button
+                        onClick={handleHangup}
+                        size="sm"
+                        variant="destructive"
+                        className="col-span-2 flex items-center justify-center gap-2 h-9 rounded-lg shadow-md shadow-red-600/10 hover:shadow-lg hover:shadow-red-600/20 transition-all font-semibold text-xs"
+                      >
+                        <PhoneOff className="h-4 w-4" />
+                        <span>Hang Up</span>
+                      </Button>
+
+                      <Button
+                        onClick={handleToggleRecording}
+                        size="sm"
+                        variant="outline"
+                        className={cn(
+                          "flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium transition-all",
+                          isRecording
+                            ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 dark:bg-red-500/20 border-red-500/30 animate-pulse font-semibold"
+                            : "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 dark:bg-emerald-500/20 border-emerald-500/30 border"
+                        )}
+                      >
+                        {isRecording ? (
+                          <>
+                            <MicOff className="h-3.5 w-3.5" />
+                            <span>Stop Rec</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+                            <span>Record</span>
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={handleToggleHold}
+                        size="sm"
+                        variant="outline"
+                        className="flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50"
+                      >
+                        {callStatus === 'held' ? (
+                          <>
+                            <Play className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+                            <span>Resume</span>
+                          </>
+                        ) : (
+                          <>
+                            <Pause className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+                            <span>Hold</span>
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={handleToggleMute}
+                        size="sm"
+                        variant={isMuted ? "destructive" : "outline"}
+                        className={cn(
+                          "col-span-2 flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50",
+                          isMuted && "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-semibold"
+                        )}
+                      >
+                        {isMuted ? (
+                          <>
+                            <VolumeX className="h-3.5 w-3.5" />
+                            <span>Unmute Agent</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+                            <span>Mute Agent</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* Call Controls */}
-            <div className="flex flex-wrap gap-2 justify-end w-full">
-              {callStatus === 'incoming' && (
-                <>
-                  <Button
-                    onClick={handleAnswer}
-                    size="sm"
-                    className="flex items-center gap-1.5 bg-green-700 hover:bg-green-800 shadow-lg shadow-green-700/30 px-4 py-2 h-9"
-                  >
-                    <Phone className="h-5 w-5" />
-                    <span className="font-semibold">Answer</span>
-                  </Button>
-                  <Button
-                    onClick={handleReject}
-                    size="sm"
-                    variant="destructive"
-                    className="flex items-center gap-1.5 px-4 py-2 h-9 shadow-lg shadow-red-600/30"
-                  >
-                    <PhoneOff className="h-5 w-5" />
-                    <span className="font-semibold">Reject</span>
-                  </Button>
-                </>
-              )}
+              {/* Right Column: Farmer Details */}
+              <div className="flex flex-col justify-start">
+                {incomingCall && (
+                  <FarmerDetails phoneNo={incomingCall.number} className="h-full border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10" />
+                )}
+              </div>
 
-              {(callStatus === 'connected' || callStatus === 'held') && (
-                <>
-                  <Button
-                    onClick={handleHangup}
-                    size="sm"
-                    variant="destructive"
-                    className="flex items-center gap-1.5 px-4 py-2 h-9 shadow-lg shadow-red-600/30"
-                  >
-                    <PhoneOff className="h-5 w-5" />
-                    <span className="font-semibold">Hang Up</span>
-                  </Button>
-
-                  <Button
-                    onClick={handleToggleRecording}
-                    size="sm"
-                    variant={isRecording ? "destructive" : "default"}
-                    className={cn(
-                      "flex items-center gap-1.5 h-8",
-                      isRecording && "animate-pulse"
-                    )}
-                  >
-                    {isRecording ? (
-                      <>
-                        <MicOff className="h-4 w-4" />
-                        <span>Stop</span>
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="h-4 w-4" />
-                        <span>Record</span>
-                      </>
-                    )}
-                  </Button>
-
-                  <Button
-                    onClick={handleToggleHold}
-                    size="sm"
-                    variant="outline"
-                    className="flex items-center gap-1 h-8"
-                  >
-                    {callStatus === 'held' ? (
-                      <>
-                        <Play className="h-4 w-4" />
-                        Unhold
-                      </>
-                    ) : (
-                      <>
-                        <Pause className="h-4 w-4" />
-                        Hold
-                      </>
-                    )}
-                  </Button>
-
-                  <Button
-                    onClick={handleToggleMute}
-                    size="sm"
-                    variant="outline"
-                    className="flex items-center gap-1 h-8"
-                  >
-                    {isMuted ? (
-                      <>
-                        <VolumeX className="h-4 w-4" />
-                        Unmute
-                      </>
-                    ) : (
-                      <>
-                        <Volume2 className="h-4 w-4" />
-                        Mute
-                      </>
-                    )}
-                  </Button>
-                </>
-              )}
             </div>
-            {/* Farmer Details */}
-            {incomingCall && (
-              <FarmerDetails phoneNo={incomingCall.number} />
-            )}
           </CardContent>
         )}
       </Card>

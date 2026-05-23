@@ -6,6 +6,7 @@ let hasConnectionAlertShown = false;
 export interface PlivoTranscriptMessage {
   type: 'transcript' | 'call_start' | 'call_end' | 'call_disconnected' | 'transcription_error';
   callId: string;
+  track?: 'inbound' | 'outbound';
   text?: string;
   finalTranscript?: string;
   originalText?: string;
@@ -32,15 +33,15 @@ export class PlivoWebSocketService {
     this.messageHandlers.set('transcript', [(message: PlivoTranscriptMessage) => {
       // console.log('📝 Live transcript:', message.text);
     }]);
-    
+
     this.messageHandlers.set('call_start', [(message: PlivoTranscriptMessage) => {
       // console.log('📞 Call started:', message.data);
     }]);
-    
+
     this.messageHandlers.set('call_end', [(message: PlivoTranscriptMessage) => {
       // console.log('📴 Call ended. Final transcript:', message.finalTranscript);
     }]);
-    
+
     this.messageHandlers.set('transcription_error', [(message: PlivoTranscriptMessage) => {
       // console.error('❌ Transcription error:', message.error);
     }]);
@@ -49,7 +50,7 @@ export class PlivoWebSocketService {
   connect(token?: string): Promise<void> {
     // Reset reconnect attempts for fresh connection
     this.reconnectAttempts = 0;
-    
+
     return new Promise((resolve, reject) => {
       try {
         // Use stream URL from env config (includes /plivo-stream path)
@@ -60,7 +61,7 @@ export class PlivoWebSocketService {
         // console.log(`🔌 [FRONTEND] Connecting to WebSocket URL: ${wsUrl}`);
         // console.log(`🔌 [FRONTEND] Token present: ${token ? 'YES' : 'NO'}`);
         // console.log(`🔌 [FRONTEND] Browser WebSocket support: ${typeof WebSocket !== 'undefined' ? 'YES' : 'NO'}`);
-        
+
         // Also log to window for visibility
         if (typeof window !== 'undefined') {
           (window as any).frontendWsLog = '🔌 [FRONTEND] WebSocket connection initiated';
@@ -72,7 +73,7 @@ export class PlivoWebSocketService {
           hasConnectionAlertShown = true;
         }
         // console.log('🚨 IMMEDIATE ALERT: Check browser console for WebSocket logs!');
-        
+
         this.ws = new WebSocket(wsUrl);
         // console.log(`🔌 [FRONTEND] WebSocket created, readyState: ${this.ws?.readyState}`);
 
@@ -132,9 +133,9 @@ export class PlivoWebSocketService {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-      
+
       // console.log(`🔄 Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      
+
       setTimeout(() => {
         this.connect();
       }, delay);

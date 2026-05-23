@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Button } from "./atoms/button";
 import { Badge } from "./atoms/badge";
-import { Phone, PhoneOff, Calendar, Filter, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Phone, Filter, ChevronLeft, ChevronRight, RefreshCw, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { plivoApi } from "@/hooks/api/plivo/api";
 import type { CallHistoryItem } from "@/hooks/api/plivo/api";
 import { format } from "date-fns";
+import { FarmerDetails } from "./FarmerDetails";
 
 interface CallHistoryProps {
   onRedial?: (phoneNumber: string) => void;
@@ -16,11 +17,14 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   const [calls, setCalls] = useState<CallHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Pagination
   const [page, setPage] = useState(0);
   const [totalCalls, setTotalCalls] = useState(0);
   const limit = 20;
+
+  // Farmer Details
+  const [selectedCallForDetails, setSelectedCallForDetails] = useState<string | null>(null);
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -265,39 +269,104 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                       </tr>
                     ) : (
                       calls.map((call) => (
-                        <tr key={call.uuid} className="border-b hover:bg-muted/50">
-                          <td className="px-4 py-3">
-                            <Badge className={getDirectionColor(call.direction)}>
-                              {call.direction}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-sm">{formatPhoneNumber(call.from)}</td>
-                          <td className="px-4 py-3 text-sm">{formatPhoneNumber(call.to)}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <Badge className={getStatusColor(call.status)}>
-                                {call.status}
+                        <>
+                          <tr key={call.uuid} className="border-b hover:bg-muted/50">
+                            <td className="px-4 py-3">
+                              <Badge className={getDirectionColor(call.direction)}>
+                                {call.direction}
                               </Badge>
-                              {call.startTime && (
-                                <span className="text-xs text-muted-foreground">
-                                  {format(new Date(call.startTime), 'MMM dd, HH:mm')}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm">{formatDuration(call.duration)}</td>
-                          <td className="px-4 py-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRedial(call.to)}
-                              className="gap-2"
-                            >
-                              <Phone className="h-4 w-4" />
-                              Redial
-                            </Button>
-                          </td>
-                        </tr>
+                            </td>
+                            <td className="px-4 py-3 text-sm">{formatPhoneNumber(call.from)}</td>
+                            <td className="px-4 py-3 text-sm">{formatPhoneNumber(call.to)}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col gap-1">
+                                <Badge className={getStatusColor(call.status)}>
+                                  {call.status}
+                                </Badge>
+                                {call.startTime && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(new Date(call.startTime), 'MMM dd, HH:mm')}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm">{formatDuration(call.duration)}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRedial(call.to)}
+                                  className="gap-2"
+                                >
+                                  <Phone className="h-4 w-4" />
+                                  Redial
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setSelectedCallForDetails(selectedCallForDetails === call.uuid ? null : call.uuid)}
+                                  className="gap-2"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                  {selectedCallForDetails === call.uuid ? 'Hide' : 'View'}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                          {selectedCallForDetails === call.uuid && (
+                            <tr key={`details-${call.uuid}`}>
+                              <td colSpan={6} className="px-4 py-4 bg-muted/30">
+                                <div className="space-y-6">
+                                  <FarmerDetails phoneNo={call.from} />
+
+                                  <div className="space-y-3">
+                                    <h3 className="text-sm font-semibold tracking-wide uppercase flex items-center gap-2">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                      Call Transcripts
+                                    </h3>
+
+                                    {call.callDetails ? (
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                                          <h4 className="font-semibold text-sm mb-3 text-indigo-600 dark:text-indigo-400">Caller</h4>
+                                          <div className="space-y-3 text-sm">
+                                            <div>
+                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Original ({call.callDetails.caller?.detectedLanguage || 'unknown'})</span>
+                                              <p className="mt-1 leading-relaxed text-zinc-700 dark:text-zinc-300 italic">{call.callDetails.caller?.transcript || 'N/A'}</p>
+                                            </div>
+                                            <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">English Translation</span>
+                                              <p className="mt-1 leading-relaxed font-medium">{call.callDetails.caller?.translation || 'N/A'}</p>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <div className="bg-gradient-to-br from-indigo-50 to-white dark:from-zinc-900 dark:to-zinc-900 rounded-xl p-4 border border-indigo-100 dark:border-zinc-800 shadow-sm">
+                                          <h4 className="font-semibold text-sm mb-3 text-indigo-700 dark:text-indigo-400">Agent</h4>
+                                          <div className="space-y-3 text-sm">
+                                            <div>
+                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Original ({call.callDetails.agent?.detectedLanguage || 'unknown'})</span>
+                                              <p className="mt-1 leading-relaxed text-zinc-700 dark:text-zinc-300 italic">{call.callDetails.agent?.transcript || 'N/A'}</p>
+                                            </div>
+                                            <div className="pt-2 border-t border-indigo-100 dark:border-zinc-800">
+                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">English Translation</span>
+                                              <p className="mt-1 leading-relaxed font-medium">{call.callDetails.agent?.translation || 'N/A'}</p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="text-sm text-muted-foreground text-center py-6 bg-white/50 dark:bg-zinc-900/50 rounded-xl border border-dashed">
+                                        No transcript data available for this call
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       ))
                     )}
                   </tbody>

@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import AuditPage from "./AuditPage";
 import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
 import { CallInterface } from "./CallInterface";
+import { CallHistory } from "./CallHistory";
 import { env } from "@/config/env";
 
 export const PlaygroundPage = () => {
@@ -54,7 +55,7 @@ export const PlaygroundPage = () => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
   };
-    const targetUserId = env.plivo.targetUserId();
+  const targetUserId = env.plivo.targetUserId();
   // Set default tab based on user role when user data loads
   useEffect(() => {
     if (!user) return;
@@ -227,14 +228,39 @@ export const PlaygroundPage = () => {
                 </TabsTrigger>
 
                 {targetUserId && user?._id == targetUserId && (
-                  <TabsTrigger
-                    value="call_interface"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <HoverCard openDelay={150}>
-                      <span>Call Interface</span>
-                    </HoverCard>
-                  </TabsTrigger>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className={`px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-1 ${['call_interface', 'call_history'].includes(activeTab)
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                          }`}
+                      >
+                        Call  Agent
+                        <ChevronDownIcon className="w-3.5 h-3.5 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        onClick={() => handleTabChange('call_interface')}
+                        className={activeTab === 'call_interface' ? 'bg-primary/10 text-primary font-medium' : ''}
+                      >
+                        Call Interface
+                        {activeTab === 'call_interface' && (
+                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleTabChange('call_history')}
+                        className={activeTab === 'call_history' ? 'bg-primary/10 text-primary font-medium' : ''}
+                      >
+                        Call History
+                        {activeTab === 'call_history' && (
+                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                        )}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
 
                 {user && user.role !== "expert" && (
@@ -442,7 +468,22 @@ export const PlaygroundPage = () => {
                   <CallInterface />
                 </TabsContent>
               )}
-                            {user && (
+
+              {targetUserId && user?._id == targetUserId && (
+                <TabsContent value="call_history" className={cn(
+                  "mt-0 border-0 md:px-8 outline-none",
+                  "data-[state=active]:animate-in",
+                  "data-[state=active]:fade-in-0",
+                  "data-[state=active]:zoom-in-[0.98]",
+                  "data-[state=active]:slide-in-from-bottom-3",
+                  "duration-500 ease-out"
+                )}>
+                  <div className="w-full max-w-full px-4 md:px-6 py-2">
+                    <CallHistory onRedial={() => { }} />
+                  </div>
+                </TabsContent>
+              )}
+              {user && (
                 <TabsContent
                   value="history"
                   className={cn(
