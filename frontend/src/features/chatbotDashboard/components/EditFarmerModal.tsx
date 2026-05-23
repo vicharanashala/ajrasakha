@@ -8,7 +8,7 @@ import {
 } from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
-import { toast } from "sonner";
+import { STATES, DISTRICTS } from "@/components/MetaData"
 
 type EditableUser = {
   userId: string;
@@ -32,7 +32,6 @@ type EditableUser = {
     highestEducatedPerson?: string;
     numberOfSmartphones?: number;
     platform?: string;
-    platformHistory?: { os: string; timestamp: string }[];
   };
 };
 
@@ -62,7 +61,6 @@ interface EditFarmerModalProps {
       highestEducatedPerson?: string;
       numberOfSmartphones?: number;
       platform?: string;
-      platformHistory?: { os: string; timestamp: string }[];
     };
   }) => void | Promise<void>;
 }
@@ -87,7 +85,6 @@ type FormState = {
   highestEducatedPerson: string;
   numberOfSmartphones: string;
   platform: string;
-  platformHistory: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -110,7 +107,6 @@ const EMPTY_FORM: FormState = {
   highestEducatedPerson: "",
   numberOfSmartphones: "",
   platform: "",
-  platformHistory: "",
 };
 
 const toNumber = (value: string): number | undefined => {
@@ -172,9 +168,6 @@ export function EditFarmerModal({
       numberOfSmartphones:
         fp?.numberOfSmartphones != null ? String(fp.numberOfSmartphones) : "",
       platform: fp?.platform ?? "",
-      platformHistory: fp?.platformHistory
-        ? JSON.stringify(fp.platformHistory, null, 2)
-        : "",
     });
   }, [open, user]);
 
@@ -183,25 +176,6 @@ export function EditFarmerModal({
   };
 
   const handleSave = async () => {
-    let parsedPlatformHistory:
-      | { os: string; timestamp: string }[]
-      | undefined = undefined;
-
-    if (form.platformHistory.trim()) {
-      try {
-        const parsed = JSON.parse(form.platformHistory);
-        if (Array.isArray(parsed)) {
-          parsedPlatformHistory = parsed;
-        } else {
-          toast.error("Platform history must be a JSON array");
-          return;
-        }
-      } catch {
-        toast.error("Invalid JSON in platform history");
-        return;
-      }
-    }
-
     await onSave({
       name: form.name.trim() || undefined,
       farmerProfile: {
@@ -223,7 +197,6 @@ export function EditFarmerModal({
         highestEducatedPerson: form.highestEducatedPerson.trim() || undefined,
         numberOfSmartphones: toNumber(form.numberOfSmartphones),
         platform: form.platform.trim() || undefined,
-        platformHistory: parsedPlatformHistory,
       },
     });
   };
@@ -261,22 +234,48 @@ export function EditFarmerModal({
             value={form.villageName}
             onChange={(e) => handleChange("villageName", e.target.value)}
             placeholder="Village"
+            disabled
           />
           <Input
             value={form.blockName}
             onChange={(e) => handleChange("blockName", e.target.value)}
             placeholder="Block"
+            disabled
           />
-          <Input
-            value={form.district}
-            onChange={(e) => handleChange("district", e.target.value)}
-            placeholder="District"
-          />
-          <Input
+          <select
             value={form.state}
-            onChange={(e) => handleChange("state", e.target.value)}
-            placeholder="State"
-          />
+            onChange={(e) => {
+              const newState = e.target.value;
+              setForm((prev) => ({
+                ...prev,
+                state: newState,
+                district: DISTRICTS[newState]?.includes(prev.district)
+                  ? prev.district
+                  : "",
+              }));
+            }}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Select State</option>
+            {STATES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+           <select
+              value={form.district}
+              onChange={(e) => handleChange("district", e.target.value)}
+              disabled={!form.state}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+            >
+              <option value="">Select District</option>
+              {(DISTRICTS[form.state] || []).map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
           <Input
             value={form.phoneNo}
             onChange={(e) => handleChange("phoneNo", e.target.value)}

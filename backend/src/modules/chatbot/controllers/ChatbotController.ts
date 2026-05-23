@@ -512,7 +512,6 @@ async getDistrictAnalyticsByState(
         highestEducatedPerson?: string;
         numberOfSmartphones?: number;
         platform?: string;
-        platformHistory?: { os: string; timestamp: string }[];
       };
     },
   ) {

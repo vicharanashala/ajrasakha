@@ -1078,7 +1078,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
         highestEducatedPerson?: string;
         numberOfSmartphones?: number;
         platform?: string;
-        platformHistory?: { os: string; timestamp: string }[];
       };
     },
   ): Promise<boolean> {

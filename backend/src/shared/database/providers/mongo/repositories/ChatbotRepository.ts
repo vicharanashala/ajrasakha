@@ -4566,7 +4566,6 @@ async getMonthlyAnalytics(
         highestEducatedPerson?: string;
         numberOfSmartphones?: number;
         platform?: string;
-        platformHistory?: {os: string; timestamp: string}[];
       };
     },
   ): Promise<boolean> {
@@ -4605,7 +4604,6 @@ async getMonthlyAnalytics(
           'highestEducatedPerson',
           'numberOfSmartphones',
           'platform',
-          'platformHistory',
         ] as const;
 
         for (const field of editableFarmerFields) {
