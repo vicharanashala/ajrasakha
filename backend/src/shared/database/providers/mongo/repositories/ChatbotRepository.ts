@@ -1511,7 +1511,7 @@ private getMonthDateRange(month: string) {
 // ============================================
 
 async getDailyAnalytics(
-  month: string,
+  month?: string,
   source = 'vicharanashala',
   session?: ClientSession,
   userType = 'all',
@@ -1520,7 +1520,10 @@ async getDailyAnalytics(
     await this.init(source);
     await this.initReviewSystem();
 
-    const { start, end } = this.getMonthDateRange(month);
+    const monthRange = month ? this.getMonthDateRange(month) : null;
+    const monthDateMatch = monthRange
+      ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
+      : {};
 
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
@@ -1534,10 +1537,7 @@ async getDailyAnalytics(
         [
           {
             $match: {
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
+              ...monthDateMatch,
 
               isCreatedByUser: true,
 
@@ -1588,10 +1588,7 @@ async getDailyAnalytics(
             $match: {
               source: 'AJRASAKHA',
 
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
+              ...monthDateMatch,
             },
           },
 
@@ -1732,7 +1729,7 @@ async getDailyAnalytics(
 // ============================================
 
 async getWeeklyAnalytics(
-  month: string,
+  month?: string,
   source = 'vicharanashala',
   session?: ClientSession,
   userType = 'all',
@@ -1741,7 +1738,10 @@ async getWeeklyAnalytics(
     await this.init(source);
     await this.initReviewSystem();
 
-    const { start, end } = this.getMonthDateRange(month);
+    const monthRange = month ? this.getMonthDateRange(month) : null;
+    const monthDateMatch = monthRange
+      ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
+      : {};
 
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
@@ -1755,10 +1755,7 @@ async getWeeklyAnalytics(
         [
           {
             $match: {
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
+              ...monthDateMatch,
 
               isCreatedByUser: true,
 
@@ -1809,10 +1806,7 @@ async getWeeklyAnalytics(
             $match: {
               source: 'AJRASAKHA',
 
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
+              ...monthDateMatch,
             },
           },
 
@@ -1956,10 +1950,20 @@ async getMonthlyAnalytics(
   source = 'vicharanashala',
   session?: ClientSession,
   userType = 'all',
+  year?: number,
 ) {
   try {
     await this.init(source);
     await this.initReviewSystem();
+
+    const yearDateMatch = year
+      ? {
+          createdAt: {
+            $gte: new Date(`${year}-01-01T00:00:00.000Z`),
+            $lt: new Date(`${year + 1}-01-01T00:00:00.000Z`),
+          },
+        }
+      : {};
 
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
@@ -1973,6 +1977,8 @@ async getMonthlyAnalytics(
         [
           {
             $match: {
+              ...yearDateMatch,
+
               isCreatedByUser: true,
 
               isDeleted: {
@@ -2021,6 +2027,7 @@ async getMonthlyAnalytics(
           {
             $match: {
               source: 'AJRASAKHA',
+              ...yearDateMatch,
             },
           },
 

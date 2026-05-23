@@ -17,6 +17,7 @@ import { CHATBOT_TYPES } from '../types.js';
 import type { IChatbotService } from '../interfaces/IChatbotService.js';
 import {
   DashboardQueryDto,
+  QueryAnalyticsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
 } from '../classes/validators/ChatbotQueryValidators.js';
@@ -78,6 +79,27 @@ export class ChatbotController {
       query.userType,
       query.startTime,
       query.endTime,
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Get paginated total query analytics',
+    description: 'Returns filtered daily, weekly, or monthly total query analytics for the dashboard modal.',
+  })
+  @Get('/query-analytics')
+  @HttpCode(200)
+  @Authorized()
+  async getQueryAnalytics(@QueryParams() query: QueryAnalyticsQueryDto) {
+    return this.chatbotService.getQueryAnalytics(
+      query.period,
+      {
+        month: query.month,
+        year: query.year,
+        page: query.page,
+        limit: query.limit,
+        source: query.source,
+        userType: query.userType,
+      },
     );
   }
 

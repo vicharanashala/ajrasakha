@@ -158,6 +158,8 @@ function weeklyRange(entries: Array<{ week: string }>): string {
 
 function transformApiResponse(
   result: DashboardApiResponse,
+  source: "vicharanashala" | "annam" | "whatsapp" = "vicharanashala",
+  userType: "all" | "external" | "internal" = "all",
 ): DashboardDataType & {
   inactiveUsersLast3Days: number;
   duplicateQuestionsCount: number;
@@ -235,6 +237,7 @@ function transformApiResponse(
             dir: "neutral" as const,
           };
         })();
+  void sessionMonthlyDelta;
 
   const sessionSparkPoints =
     sessionWeekly.length > 0
@@ -283,6 +286,7 @@ function transformApiResponse(
   const dauLabels = result.dau.map((d) => fmtMonthYear(parseDay(d.day)));
   const queryLabels = queryTrend.map((d) => fmtDayWithWeek(parseDay(d.period)));
   const sessionLabels = sessionWeekly.map((w) => fmtWeekLabel(w.week));
+  void queryLabels;
 
   updatedData.ageGroups = result.ageGroups ?? [];
   updatedData.genderSplit = result.genderSplit ?? [];
@@ -348,6 +352,8 @@ function transformApiResponse(
         dailyAnalytics: queryTrend,
         weeklyAnalytics: weeklyQueryData,
         monthlyAnalytics: monthlyQueryData,
+        source,
+        userType,
         querySummaries: result.querySummaries,
       };
     }
@@ -449,7 +455,7 @@ export function useDashboardData(
       );
 
       if (result) {
-        return transformApiResponse(result);
+        return transformApiResponse(result, source, userType);
       }
 
       // Fallback to mock data if API returns nothing
