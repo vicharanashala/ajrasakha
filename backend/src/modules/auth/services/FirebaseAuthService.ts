@@ -8,14 +8,11 @@ import { IAuthService } from '#auth/interfaces/IAuthService.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { injectable, inject } from 'inversify';
 import { BadRequestError, InternalServerError, UnauthorizedError } from 'routing-controllers';
-import admin from 'firebase-admin';
 import { IUser } from '#root/shared/interfaces/models.js';
 import { BaseService } from '#root/shared/classes/BaseService.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import { MongoDatabase } from '#root/shared/database/providers/mongo/MongoDatabase.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import serviceAccount from '../../../../agriai-a2fba-firebase-adminsdk-fbsvc-452072d744.json' with {type: 'json'};
+import { getFirebaseAuth } from '#root/config/firebaseAdmin.js';
 import { error } from 'console';
 import { sendEmailNotification } from '#root/utils/mailer.js';
 import { appConfig } from '#root/config/app.js';
@@ -50,14 +47,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     private notificationService: NotificationService,
   ) {
     super(database);
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert(
-          serviceAccount as admin.ServiceAccount,
-        ),
-      });
-    }
-    this.auth = admin.auth();
+    this.auth = getFirebaseAuth();
   }
   async getCurrentUserFromToken(token: string): Promise<IUser> {
     // Verify the token and decode it to get the Firebase UID
