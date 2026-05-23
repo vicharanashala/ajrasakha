@@ -43,6 +43,38 @@ export class SourceQueryDto {
   userType: 'all' | 'external' | 'internal' = 'all';
 }
 
+export class QueryAnalyticsQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 'daily', description: 'Analytics period: daily, weekly, or monthly' })
+  @IsIn(['daily', 'weekly', 'monthly'])
+  period: 'daily' | 'weekly' | 'monthly' = 'daily';
+
+  @JSONSchema({ example: '2026-05', description: 'Month filter for daily and weekly analytics (YYYY-MM)' })
+  @IsOptional()
+  @IsString()
+  month?: string;
+
+  @JSONSchema({ example: 2026, description: 'Year filter for monthly analytics' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  year?: number;
+
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+}
+
 export class UserDetailsQueryDto {
   @JSONSchema({ example: '2025-01-01', description: 'Filter start date (ISO string)' })
   @IsOptional()

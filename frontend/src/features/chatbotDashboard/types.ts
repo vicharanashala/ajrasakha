@@ -64,6 +64,8 @@ export interface KpiCard {
   dailyAnalytics?: AnalyticsEntry[];
   weeklyAnalytics?: AnalyticsEntry[];
   monthlyAnalytics?: AnalyticsEntry[];
+  source?: 'vicharanashala' | 'annam' | 'whatsapp';
+  userType?: 'all' | 'external' | 'internal';
   badges?: { label: string; variant: BadgeVariant }[];
   icon?: string;
   querySummaries?: {

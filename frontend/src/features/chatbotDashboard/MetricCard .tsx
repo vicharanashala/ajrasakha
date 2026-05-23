@@ -31,6 +31,8 @@ type KpiCardData = {
   dailyAnalytics?: AnalyticsEntry[];
   weeklyAnalytics?: AnalyticsEntry[];
   monthlyAnalytics?: AnalyticsEntry[];
+  source?: "vicharanashala" | "annam" | "whatsapp";
+  userType?: "all" | "external" | "internal";
   querySummaries?: {
     daily: { label: string; totalQueries: number };
     weekly: { label: string; totalQueries: number };
@@ -391,12 +393,13 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
           icon={getIcon(kpi.icon, kpi.accentColor, 28)}
           label={kpi.label}
           value={kpi.value}
-          labels={activeLabels}
           analytics={{
             daily: kpi.dailyAnalytics,
             weekly: kpi.weeklyAnalytics,
             monthly: kpi.monthlyAnalytics,
           }}
+          source={kpi.source}
+          userType={kpi.userType}
           summaries={kpi.querySummaries}
           renderChart={() => (
             <Sparkline

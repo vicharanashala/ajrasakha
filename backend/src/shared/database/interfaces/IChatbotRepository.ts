@@ -258,7 +258,7 @@ export interface IChatbotRepository {
   ): Promise<WeeklySessionDurationEntry[]>;
 
   getDailyAnalytics(
-    month: string,
+    month?: string,
     source?: string,
     session?: ClientSession,
     userType?: string,
@@ -268,7 +268,7 @@ export interface IChatbotRepository {
   getTodayQueryCount(source?: string, session?: ClientSession, userType?: string): Promise<number>;
 
   getWeeklyAnalytics(
-    month: string,
+    month?: string,
     source?: string,
     session?: ClientSession,
     userType?: string,
@@ -278,6 +278,7 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    year?: number,
   ): Promise<any[]>;
 
   /** Daily user activity trend (users active per day) over the last `days` days, sorted ascending. */

@@ -199,7 +199,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyAnalytics(month: string, source = 'vicharanashala', userType = 'all') {
+  async getDailyAnalytics(month?: string, source = 'vicharanashala', userType = 'all') {
     try {
       return await this.chatbotRepository.getDailyAnalytics(month, source, undefined, userType);
     } catch (error) {
@@ -223,7 +223,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getWeeklyAnalytics(month: string, source = 'vicharanashala', userType = 'all') {
+  async getWeeklyAnalytics(month?: string, source = 'vicharanashala', userType = 'all') {
     try {
       return await this.chatbotRepository.getWeeklyAnalytics(month, source, undefined, userType);
     } catch (error) {
@@ -236,6 +236,46 @@ export class ChatbotService extends BaseService implements IChatbotService {
       return await this.chatbotRepository.getMonthlyAnalytics(source, undefined, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch monthly analytics: ${error}`);
+    }
+  }
+
+  async getQueryAnalytics(
+    period: 'daily' | 'weekly' | 'monthly',
+    options: {
+      month?: string;
+      year?: number;
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+    },
+  ) {
+    const source = options.source ?? 'vicharanashala';
+    const userType = options.userType ?? 'all';
+    const page = Math.max(1, options.page ?? 1);
+    const limit = Math.max(1, options.limit ?? 10);
+
+    try {
+      const rows =
+        period === 'daily'
+          ? await this.chatbotRepository.getDailyAnalytics(options.month, source, undefined, userType)
+          : period === 'weekly'
+            ? await this.chatbotRepository.getWeeklyAnalytics(options.month, source, undefined, userType)
+            : await this.chatbotRepository.getMonthlyAnalytics(source, undefined, userType, options.year);
+
+      const total = rows.length;
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      const startIndex = (page - 1) * limit;
+
+      return {
+        data: rows.slice(startIndex, startIndex + limit),
+        page,
+        limit,
+        total,
+        totalPages,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch query analytics: ${error}`);
     }
   }
 
