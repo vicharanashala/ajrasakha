@@ -16,7 +16,6 @@ from config import (
     LANGGRAPH_ASSISTANT_ID,
     LANGGRAPH_BASE_URL,
     LOCATION_SYNC_TO_DB,
-    QUESTION_SOURCE,
     REQUEST_TIMEOUT,
 )
 from mongo_user import update_user_location_if_changed
@@ -272,11 +271,8 @@ def build_run_config(
     request_headers: dict[str, str],
     thread_id: str,
 ) -> dict[str, Any]:
-    """LangGraph run config for long-term memory and reviewer upload source."""
-    configurable: dict[str, Any] = {
-        "thread_id": thread_id,
-        "question_source": QUESTION_SOURCE,
-    }
+    """LangGraph run config for long-term memory (see ajrasakha.py _load_long_term_summary)."""
+    configurable: dict[str, Any] = {"thread_id": thread_id}
     for key in ("x-user-id", "X-User-ID"):
         user_id = request_headers.get(key)
         if user_id and str(user_id).strip():

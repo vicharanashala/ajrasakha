@@ -19,7 +19,6 @@ from ajrasakha.agents.location_context import (
     merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
-from ajrasakha.agents.config import resolve_question_source
 from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
 from ajrasakha.agents.retrieval_sanitizer import (
@@ -128,13 +127,9 @@ async def build_tool_calls_from_plan(
     *,
     location_tool_name: str,
     reviewer_tool_name: str,
-    question_source: str | None = None,
     extra_chemicals: Optional[list[str]] = None,
 ) -> list[dict[str, Any]]:
     """Build LangChain tool_call dicts for one parallel batch."""
-    if not (question_source and str(question_source).strip()):
-        question_source = resolve_question_source(None)
-
     calls: list[dict[str, Any]] = []
     loc = location or {}
     entities = plan.get("entities") or {}
@@ -163,30 +158,23 @@ async def build_tool_calls_from_plan(
             "type": "tool_call",
         })
 
-    if question_source and str(question_source).strip():
-        calls.append({
-            "name": reviewer_tool_name,
-            "args": {
-                "question": reviewer_question,
-                "state_name": state_name,
+    calls.append({
+        "name": reviewer_tool_name,
+        "args": {
+            "question": reviewer_question,
+            "state_name": state_name,
+            "crop": crop,
+            "details": {
+                "state": state_name,
+                "district": district,
                 "crop": crop,
-                "details": {
-                    "state": state_name,
-                    "district": district,
-                    "crop": crop,
-                    "season": "General",
-                    "domain": domain,
-                },
-                "source": str(question_source).strip(),
+                "season": "General",
+                "domain": domain,
             },
-            "id": _new_tool_call_id(),
-            "type": "tool_call",
-        })
-    else:
-        logger.warning(
-            "Skipping %s: configurable.question_source not set",
-            reviewer_tool_name,
-        )
+        },
+        "id": _new_tool_call_id(),
+        "type": "tool_call",
+    })
 
     lat = loc.get("latitude")
     lon = loc.get("longitude")
@@ -382,14 +370,12 @@ async def execute_plan_node(
 
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
-    question_source = resolve_question_source(config)
     tool_calls = await build_tool_calls_from_plan(
         plan,
         user_query,
         loc,
         location_tool_name=location_tool.name,
         reviewer_tool_name=reviewer_tool.name,
-        question_source=question_source,
     )
     if not tool_calls:
         return {}
@@ -432,7 +418,6 @@ async def execute_plan_node(
             merged_loc,
             location_tool_name=location_tool.name,
             reviewer_tool_name=reviewer_tool.name,
-            question_source=question_source,
             extra_chemicals=extra_chems,
         )
         chem_only = [c for c in second_calls if c.get("name") == "chemical_checker"]

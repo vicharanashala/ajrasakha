@@ -20,9 +20,6 @@ REVIEWER_DESK_API_BASE_URL = os.getenv(
     "REVIEWER_DESK_API_BASE_URL", "https://desk.vicharanashala.ai/api"
 ).rstrip("/")
 
-# Source sent to upload_question_to_reviewer_system (adapter sets this; client does not)
-QUESTION_SOURCE = os.getenv("QUESTION_SOURCE", "AJRASAKHA").strip()
-
 # MongoDB (LibreChat farmerProfile.location lookup via X-User-ID)
 MONGO_URI = os.getenv("MONGO_URI", "").strip()
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "").strip()
