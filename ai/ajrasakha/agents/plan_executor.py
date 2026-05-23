@@ -132,6 +132,9 @@ async def build_tool_calls_from_plan(
     extra_chemicals: Optional[list[str]] = None,
 ) -> list[dict[str, Any]]:
     """Build LangChain tool_call dicts for one parallel batch."""
+    if not (question_source and str(question_source).strip()):
+        question_source = resolve_question_source(None)
+
     calls: list[dict[str, Any]] = []
     loc = location or {}
     entities = plan.get("entities") or {}
