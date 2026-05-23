@@ -5231,6 +5231,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       });
 
       const flatAssignments: { submissionId: string; expertId: string; appendExpert?: boolean }[] = [];
+      const reallocationInfo: { questionId: string; oldExpertId: string; newExpertId: string; sourceLabel: string; questionText: string }[] = [];
       let skipped = 0;
       let initialAllocated = 0;
       let reviewersAssigned = 0;
@@ -5276,6 +5277,13 @@ export class QuestionService extends BaseService implements IQuestionService {
             continue;
           }
           flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert, appendExpert: false });
+          reallocationInfo.push({
+            questionId,
+            oldExpertId: currentExpertId ?? 'Unknown',
+            newExpertId: assignedExpert,
+            sourceLabel,
+            questionText: (question as any)?.question?.toString() ?? '',
+          });
 
         } else if (type === 'unallocated') {
           let assignedExpert: string | null = null;
@@ -5362,6 +5370,57 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (flatAssignments.length) {
         startBalanceWorkloadWorkers(flatAssignments);
         console.log(`[TimeBound] Triggered reallocation for ${flatAssignments.length} stuck submission(s)`);
+
+        // Notify all moderators and admins about stuck-question reallocations
+        try {
+          const [moderators, admins] = await Promise.all([
+            this.userRepo.findModerators(),
+            this.userRepo.findAdmins(),
+          ]);
+          const allRecipients = [...(moderators || []), ...(admins || [])];
+          console.log(`[TimeBound] Notifying ${allRecipients.length} moderators/admins about ${reallocationInfo.length} reallocation(s)`);
+
+          const getName = async (id?: string | null): Promise<string> => {
+            if (!id) return 'Unknown';
+            try {
+              const u = await this.userRepo.findById(id);
+              if (!u) return 'Unknown';
+              const first = (u as any).firstName?.toString().trim() || '';
+              const last = (u as any).lastName?.toString().trim() || '';
+              const full = `${first} ${last}`.trim();
+              return full || 'Unknown';
+            } catch {
+              return 'Unknown';
+            }
+          };
+
+          for (const info of reallocationInfo) {
+            const [oldExpertName, newExpertName] = await Promise.all([
+              getName(info.oldExpertId),
+              getName(info.newExpertId),
+            ]);
+            const message = `${info.sourceLabel} question auto-reallocated from expert ${oldExpertName} to ${newExpertName}`;
+            const trimmedQuestion = (info.questionText || '').trim();
+            const title = trimmedQuestion
+              ? (trimmedQuestion.length > 80 ? `${trimmedQuestion.slice(0, 80)}...` : trimmedQuestion)
+              : 'Time-Bound Question Reallocated';
+            for (const recipient of allRecipients) {
+              const recipientId = recipient._id?.toString();
+              if (!recipientId) continue;
+              await this.notificationService.saveTheNotifications(
+                message,
+                title,
+                info.questionId,
+                recipientId,
+                'expert_replacement',
+              ).catch((err: any) => {
+                console.error(`[TimeBound] Failed to notify ${recipientId}:`, err?.message);
+              });
+            }
+          }
+        } catch (err: any) {
+          console.error(`[TimeBound] Failed to notify moderators/admins:`, err?.message);
+        }
       }
 
       const totalReallocated = flatAssignments.length + initialAllocated + reviewersAssigned;

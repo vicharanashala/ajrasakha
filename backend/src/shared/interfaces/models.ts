@@ -275,6 +275,7 @@ export type INotificationType =
   | 'expert_replacement'
   | 'user_verification'
   | 'delayed_question'
+  | 'moderator_approval'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;

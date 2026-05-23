@@ -53,6 +53,20 @@ await (notificationRepo as any).init();
 
 const notificationService = new NotificationService(notificationRepo, database);
 
+async function getExpertDisplayName(expertId?: string | null): Promise<string> {
+  if (!expertId) return 'Unknown';
+  try {
+    const user = await userRepo.findById(expertId);
+    if (!user) return 'Unknown';
+    const first = (user as any).firstName?.toString().trim() || '';
+    const last = (user as any).lastName?.toString().trim() || '';
+    const full = `${first} ${last}`.trim();
+    return full || 'Unknown';
+  } catch {
+    return 'Unknown';
+  }
+}
+
 /* ---------------- WORK ---------------- */
 (async () => {
   let processed = 0;
@@ -274,6 +288,45 @@ const notificationService = new NotificationService(notificationRepo, database);
           newExpertId,
           isAuthorPosition ? 'answer_creation' : 'peer_review',
         );
+
+        // 5. Notify all moderators and admins about the reallocation
+        try {
+          console.log(`📢 [Worker] Fetching moderators and admins for reallocation notification...`);
+          const [moderators, admins] = await Promise.all([
+            (userRepo as any).findModerators(),
+            (userRepo as any).findAdmins(),
+          ]);
+          console.log(`📢 [Worker] Found ${moderators?.length ?? 0} moderators and ${admins?.length ?? 0} admins`);
+          const [oldExpertName, newExpertName] = await Promise.all([
+            getExpertDisplayName(currentExpertId),
+            getExpertDisplayName(newExpertId),
+          ]);
+          const rawQuestionText = (question as any)?.question?.toString().trim() || '';
+          const truncatedQuestion = rawQuestionText.length > 80
+            ? `${rawQuestionText.slice(0, 80)}...`
+            : rawQuestionText;
+          const notifTitle = truncatedQuestion || 'Time-Bound Question Reallocated';
+          const notifMessage = `Question auto-reallocated from expert ${oldExpertName} to ${newExpertName} (${isAuthorPosition ? 'author' : 'reviewer'})`;
+          const allRecipients = [...(moderators || []), ...(admins || [])];
+          for (const recipient of allRecipients) {
+            const recipientId = recipient._id?.toString();
+            if (!recipientId) continue;
+            try {
+              await notificationService.saveTheNotifications(
+                notifMessage,
+                notifTitle,
+                submission.questionId.toString(),
+                recipientId,
+                'expert_replacement',
+              );
+              console.log(`📢 [Worker] Notified moderator/admin ${recipientId}`);
+            } catch (notifErr: any) {
+              console.error(`⚠️ [Worker] Failed to notify ${recipientId}:`, notifErr?.message);
+            }
+          }
+        } catch (err: any) {
+          console.error(`⚠️ [Worker] Failed to notify moderators/admins for submission ${job.submissionId}:`, err?.message);
+        }
       }
 
       processed++;

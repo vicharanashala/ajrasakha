@@ -158,6 +158,44 @@ export class AnswerService extends BaseService implements IAnswerService {
     );
   }
 
+  private async notifyModeratorsAndAdminsForApproval(
+    questionId: string,
+    questionText: string | undefined,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      const [moderators, admins] = await Promise.all([
+        this.userRepo.findModerators(),
+        this.userRepo.findAdmins(session),
+      ]);
+      const recipients = [...(moderators || []), ...(admins || [])];
+      if (!recipients.length) return;
+
+      const trimmed = (questionText || '').trim();
+      const title = trimmed
+        ? (trimmed.length > 80 ? `${trimmed.slice(0, 80)}...` : trimmed)
+        : 'Question Ready for Approval';
+      const message = 'A question is ready for your approval';
+
+      for (const r of recipients) {
+        const id = (r as any)._id?.toString();
+        if (!id) continue;
+        await this.notificationService.saveTheNotifications(
+          message,
+          title,
+          questionId,
+          id,
+          'moderator_approval' as INotificationType,
+          session,
+        ).catch((err: any) => {
+          console.error(`[ModeratorApproval] Failed to notify ${id}:`, err?.message);
+        });
+      }
+    } catch (err: any) {
+      console.error('[ModeratorApproval] Failed to notify moderators/admins:', err?.message);
+    }
+  }
+
   async reviewAnswer(
     userId: string,
     body: ReviewAnswerBody,
@@ -466,11 +504,15 @@ export class AnswerService extends BaseService implements IAnswerService {
               session,
             );
 
+            const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
             await this.questionRepo.updateQuestion(
               questionId,
               { status: 'in-review' },
               session,
             );
+            if (wasOpenOrDelayed) {
+              await this.notifyModeratorsAndAdminsForApproval(questionId, (question as any)?.question, session);
+            }
 
             // Decrement the workload/reputation score
             const IS_INCREMENT = false;
@@ -726,11 +768,15 @@ export class AnswerService extends BaseService implements IAnswerService {
 
         // Check the history limit reaced, if reached then question status will be in-review
         if (currentSubmissionHistory.length == 10) {
+          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
           await this.questionRepo.updateQuestion(
             questionId,
             { status: 'in-review' },
             session,
           );
+          if (wasOpenOrDelayed) {
+            await this.notifyModeratorsAndAdminsForApproval(questionId, (question as any)?.question, session);
+          }
         }
 
         // Clear opened-at timestamp now that expert has submitted their response
@@ -894,11 +940,15 @@ export class AnswerService extends BaseService implements IAnswerService {
               'Failed to create review entry. Please try again.',
             );
           }
+          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
           await this.questionRepo.updateQuestion(
             questionId,
             { status: 'in-review' },
             session,
           );
+          if (wasOpenOrDelayed) {
+            await this.notifyModeratorsAndAdminsForApproval(questionId, (question as any)?.question, session);
+          }
 
           reviewId = new ObjectId(insertedId);
         }
