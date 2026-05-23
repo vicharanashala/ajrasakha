@@ -31,15 +31,18 @@ from ajrasakha.agents.plan_executor import (
     ensure_location_node,
     execute_plan_node,
     route_after_execute,
+    route_after_sanitizer,
 )
 from ajrasakha.agents.planner import clarify_node, planner_node, route_after_planner
 from ajrasakha.agents.prompts import (
     EMPTY_GDB_REPLY,
+    EXPERT_QUEUE_REPLY_MARKER,
     LLM_FALLBACK_MSG,
     WARNING_TEXT,
     WHATSAPP_SYSTEM_PROMPT,
 )
 from ajrasakha.agents.state import AjraSakhaState, Location
+from ajrasakha.agents.retrieval_sanitizer import retrieval_sanitizer_node
 from ajrasakha.agents.synthesizer import synthesize_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
@@ -92,51 +95,51 @@ _GDB_EMPTY_SENTINEL = "NO_RELEVANT_CONTENT"
 logger = logging.getLogger(__name__)
 
 
-async def ajrasakha_node(
-    state: AjraSakhaState,
-    config: RunnableConfig,
-    *,
-    store: BaseStore | None = None,
-) -> dict:
-    main_tools = await _get_main_tools_legacy()
-    merged_configurable = dict((config.get("configurable") or {}))
-    merged_configurable["location"] = state.get("location")
-    enriched_config = patch_config(config, configurable=merged_configurable)
-    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
-    long_term_summary = await load_long_term_summary(store, config)
-    summary_context = (
-        f"Long-term memory from previous daily threads:\n{long_term_summary}"
-        if long_term_summary
-        else "Long-term memory from previous daily threads:\nNo previous summary available."
-    )
-    messages = [
-        SystemMessage(content=WHATSAPP_SYSTEM_PROMPT),
-        SystemMessage(content=summary_context),
-    ]
-    loc_ctx = main_agent_location_context_message(state.get("location"))
-    if loc_ctx:
-        messages.append(loc_ctx)
-    messages.extend(list(state["messages"]))
+# async def ajrasakha_node(
+#     state: AjraSakhaState,
+#     config: RunnableConfig,
+#     *,
+#     store: BaseStore | None = None,
+# ) -> dict:
+#     main_tools = await _get_main_tools_legacy()
+#     merged_configurable = dict((config.get("configurable") or {}))
+#     merged_configurable["location"] = state.get("location")
+#     enriched_config = patch_config(config, configurable=merged_configurable)
+#     llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
+#     long_term_summary = await load_long_term_summary(store, config)
+#     summary_context = (
+#         f"Long-term memory from previous daily threads:\n{long_term_summary}"
+#         if long_term_summary
+#         else "Long-term memory from previous daily threads:\nNo previous summary available."
+#     )
+#     messages = [
+#         SystemMessage(content=WHATSAPP_SYSTEM_PROMPT),
+#         SystemMessage(content=summary_context),
+#     ]
+#     loc_ctx = main_agent_location_context_message(state.get("location"))
+#     if loc_ctx:
+#         messages.append(loc_ctx)
+#     messages.extend(list(state["messages"]))
 
-    try:
-        response = await llm.ainvoke(messages, config=enriched_config)
-    except (asyncio.CancelledError, TimeoutError, APITimeoutError,
-            APIConnectionError) as exc:
-        logger.warning(
-            "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
-            type(exc).__name__, exc,
-        )
-        return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-    except APIStatusError as exc:
-        if exc.status_code >= 500:
-            logger.warning(
-                "Anthropic server error (%s) — returning safe fallback",
-                exc.status_code,
-            )
-            return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-        raise  # 4xx errors (auth, rate-limit) should still propagate
+#     try:
+#         response = await llm.ainvoke(messages, config=enriched_config)
+#     except (asyncio.CancelledError, TimeoutError, APITimeoutError,
+#             APIConnectionError) as exc:
+#         logger.warning(
+#             "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
+#             type(exc).__name__, exc,
+#         )
+#         return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+#     except APIStatusError as exc:
+#         if exc.status_code >= 500:
+#             logger.warning(
+#                 "Anthropic server error (%s) — returning safe fallback",
+#                 exc.status_code,
+#             )
+#             return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+#         raise  # 4xx errors (auth, rate-limit) should still propagate
 
-    return {"messages": [response], "location": state.get("location")}
+#     return {"messages": [response], "location": state.get("location")}
 
 
 async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
@@ -301,6 +304,9 @@ def route_after_ajrasakha(state: AjraSakhaState) -> str:
 def sanitize_answer_node(state: AjraSakhaState) -> dict:
     """Adjust the 2-hour reviewer disclaimer on the final farmer-facing answer.
 
+    Disabled in _build_graph() (synthesize goes directly to END). Re-enable by
+    uncommenting the sanitize_answer node and edges below.
+
     - GDB returned real data (gdb_has_data=True): ALWAYS strip the 2-hour disclaimer.
     - Strong GDB-style answer (expert + sources + links): strip disclaimer if present.
     - Weak / no-database-match answer: append disclaimer if missing.
@@ -316,7 +322,7 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
         return {}
 
     answer_text = _message_to_text(final_answer_msg)
-    if not answer_text or answer_text.startswith(EMPTY_GDB_REPLY[:80]):
+    if not answer_text or EXPERT_QUEUE_REPLY_MARKER in answer_text:
         return {}
 
     # Check if GDB returned real expert data
@@ -370,13 +376,14 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
 def _build_graph():
     builder = StateGraph(AjraSakhaState)
     builder.add_node("empty_gdb_reply", empty_gdb_reply_node)
-    builder.add_node("sanitize_answer", sanitize_answer_node)
+    # builder.add_node("sanitize_answer", sanitize_answer_node)  # disabled: 2-hour disclaimer post-process
 
     if use_planner_graph():
         builder.add_node("planner", planner_node)
         builder.add_node("clarify", clarify_node)
         builder.add_node("ensure_location", ensure_location_node)
         builder.add_node("execute_plan", execute_plan_node)
+        builder.add_node("retrieval_sanitizer", retrieval_sanitizer_node)
         builder.add_node("synthesize", synthesize_node)
 
         builder.add_edge(START, "planner")
@@ -393,28 +400,23 @@ def _build_graph():
             {
                 END: END,
                 "synthesize": "synthesize",
+                "retrieval_sanitizer": "retrieval_sanitizer",
                 "empty_gdb_reply": "empty_gdb_reply",
             },
         )
-        builder.add_edge("synthesize", "sanitize_answer")
-    else:
-        builder.add_node("ajrasakha", ajrasakha_node)
-        builder.add_node("tools", tools_node)
-
-        builder.add_edge(START, "ajrasakha")
         builder.add_conditional_edges(
-            "ajrasakha",
-            route_after_ajrasakha,
-            {"tools": "tools", "sanitize_answer": "sanitize_answer"},
+            "retrieval_sanitizer",
+            route_after_sanitizer,
+            {
+                "empty_gdb_reply": "empty_gdb_reply",
+                "synthesize": "synthesize",
+            },
         )
-        builder.add_conditional_edges(
-            "tools",
-            route_after_tools,
-            {"ajrasakha": "ajrasakha", "empty_gdb_reply": "empty_gdb_reply"},
-        )
+        builder.add_edge("synthesize", END)
+        # builder.add_edge("synthesize", "sanitize_answer")
 
     builder.add_edge("empty_gdb_reply", END)
-    builder.add_edge("sanitize_answer", END)
+    # builder.add_edge("sanitize_answer", END)
     return builder.compile()
 
 

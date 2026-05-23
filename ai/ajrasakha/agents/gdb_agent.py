@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import re
 from typing import Optional
 
 from langchain_core.runnables import RunnableConfig
@@ -13,6 +14,13 @@ logger = logging.getLogger(__name__)
 
 # Maximum number of similar pairs to return in the response.
 MAX_SIMILAR_PAIRS = 5
+
+
+def _standardize_label(value: str) -> str:
+    value = (value or "").strip()
+    if not value:
+        return "all"
+    return " ".join(word.capitalize() for word in re.sub(r"\s+", " ", value).split())
 
 
 class GDBInput(BaseModel):
@@ -160,11 +168,11 @@ async def gdb(
             return "all"
         return val.strip()
 
-    resolved_crop = clean_fallback(crop)
+    resolved_crop = _standardize_label(clean_fallback(crop))
     # State comes directly from the planner's deterministic resolution.
     # We no longer override it from the thread's injected location config,
     # because the planner already resolved state from query text or GPS.
-    resolved_state = clean_fallback(state)
+    resolved_state = _standardize_label(clean_fallback(state))
     resolved_rephrased = (rephrased_query or "").strip() or query
 
     fallback_response = json.dumps({

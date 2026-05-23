@@ -1,19 +1,32 @@
-import { injectable, inject } from 'inversify';
-import { InternalServerError } from 'routing-controllers';
-import { CHATBOT_TYPES } from '../types.js';
-import type { IChatbotService, DashboardResponse } from '../interfaces/IChatbotService.js';
-import type { IChatbotRepository, ChatbotConversationData } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import {injectable, inject} from 'inversify';
+import {InternalServerError} from 'routing-controllers';
+import {CHATBOT_TYPES} from '../types.js';
+import type {
+  IChatbotService,
+  DashboardResponse,
+} from '../interfaces/IChatbotService.js';
+import type {
+  IChatbotRepository,
+  ChatbotConversationData,
+} from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
-import { GrowthResponse } from '../types/chatbot.type.js';
-import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { GLOBAL_TYPES } from '#root/types.js';
-import { getDateLabelsBetween, getDateRange, mapToSeries } from '../utils/chatbot.utils.js';
+import {GrowthResponse} from '../types/chatbot.type.js';
+import {BaseService, MongoDatabase} from '#root/shared/index.js';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {
+  getDateLabelsBetween,
+  getDateRange,
+  mapToSeries,
+} from '../utils/chatbot.utils.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotRepository)
     private readonly chatbotRepository: IChatbotRepository,
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepository: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
@@ -26,9 +39,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    month?: string,
   ): Promise<DashboardResponse> {
+    const currentMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, monthlySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes, feedbackData, dailyQuestionTrends, topFaqs, topQuestionsFromCollection] =
+      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, monthlyQueries, avgSessionDurationMin, weeklySessionDuration, monthlySessionDuration, demographics, kccAndAgri, platformInstalls, domainSpikes, feedbackData, dailyQuestionTrends, topFaqs, topQuestionsFromCollection,responseAdherenceTable, dailySummary, weeklySummary, monthlySummary] =
         await Promise.all([
           this.chatbotRepository.getKpiSummary(source, undefined, userType, startTime, endTime),
           this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType),
@@ -36,10 +51,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getVoiceAccuracyByLanguage(source),
           this.chatbotRepository.getGeoDistribution(source),
           this.chatbotRepository.getQueryCategories(source, undefined, userType),
-          this.chatbotRepository.getDailyQueryCounts(days, source, undefined, userType),
+          this.chatbotRepository.getDailyAnalytics(currentMonth, source, undefined, userType),
           this.chatbotRepository.getTodayQueryCount(source, undefined, userType),
-          this.chatbotRepository.getWeeklyQueryCounts(source, undefined, userType),
-          this.chatbotRepository.getMonthlyQueryCounts(source, undefined, userType),
+          this.chatbotRepository.getWeeklyAnalytics(currentMonth, source, undefined, userType),
+          this.chatbotRepository.getMonthlyAnalytics(source, undefined, userType),
           this.chatbotRepository.getAvgSessionDurationV2(source, undefined, userType),
           this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source, undefined, userType),
           this.chatbotRepository.getMonthlyAvgSessionDuration(Math.ceil(days / 30), source, undefined, userType),
@@ -51,11 +66,47 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getDailyQuestionTrends(days, undefined, userType, startTime, endTime),
           this.chatbotRepository.getTopFaqs(source, undefined, userType, startTime, endTime),
           this.chatbotRepository.getTopQuestionsFromCollection(source, undefined, userType, startTime, endTime),
+          this.chatbotRepository
+            .getResponseAdherenceTable(undefined, userType, startTime, endTime, source)
+            .catch(() => ({
+              date: '',
+              time: '',
+              timeWindow: '',
+              whatsappQueriesAsked: 0,
+              ajrasakhaQueriesAsked: 0,
+              whatsappPushedToReviewer: 0,
+              ajrasakhaPushedToReviewer: 0,
+              whatsappAnsweredWithin120Min: 0,
+              ajrasakhaAnsweredWithin120Min: 0,
+              whatsappMarkedDuplicate: 0,
+              ajrasakhaMarkedDuplicate: 0,
+              whatsappDynamicWeather: 0,
+              ajrasakhaDynamicWeather: 0,
+              whatsappDynamicMarket: 0,
+              ajrasakhaDynamicMarket: 0,
+              whatsappDynamicSchemes: 0,
+              ajrasakhaDynamicSchemes: 0,
+              whatsappNonGdbWithin120: 0,
+              ajrasakhaNonGdbWithin120: 0,
+              whatsappInReview: 0,
+              ajrasakhaInReview: 0,
+              whatsappOpen: 0,
+              ajrasakhaOpen: 0,
+              whatsappDelayed: 0,
+              ajrasakhaDelayed: 0,
+              whatsappAverageResponseMinutes: 0,
+              ajrasakhaAverageResponseMinutes: 0,
+              whatsappAdherencePct: 0,
+              ajrasakhaAdherencePct: 0,
+            })),
+          this.chatbotRepository.getQuerySummaryByPeriod('daily', source, undefined, userType),
+          this.chatbotRepository.getQuerySummaryByPeriod('weekly', source, undefined, userType),
+          this.chatbotRepository.getQuerySummaryByPeriod('monthly', source, undefined, userType),
         ]);
 
       return {
         // Override avgSessionDurationMin in the KPI with the V2 value
-        kpi: { ...kpi, dailyQueries: todayQueryCount, avgSessionDurationMin },
+        kpi: {...kpi, dailyQueries: todayQueryCount, avgSessionDurationMin},
         dau,
         channelSplit,
         voiceAccuracy,
@@ -77,6 +128,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
         dailyQuestionTrends,
         topFaqs,
         topQuestionsFromCollection,
+        responseAdherenceTable,
+        querySummaries: {
+          daily: dailySummary,
+          weekly: weeklySummary,
+          monthly: monthlySummary,
+        },
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch dashboard data: ${error}`);
@@ -85,17 +142,32 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getKpiSummary(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getKpiSummary(source, undefined, userType);
+      return await this.chatbotRepository.getKpiSummary(
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch KPI summary: ${error}`);
     }
   }
 
-  async getDailyActiveUsers(days = 30, source = 'vicharanashala', userType = 'all') {
+  async getDailyActiveUsers(
+    days = 30,
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
     try {
-      return await this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType);
+      return await this.chatbotRepository.getDailyActiveUsers(
+        days,
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch daily active users: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch daily active users: ${error}`,
+      );
     }
   }
 
@@ -119,23 +191,42 @@ export class ChatbotService extends BaseService implements IChatbotService {
     try {
       return await this.chatbotRepository.getGeoDistribution(source);
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch geo distribution: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch geo distribution: ${error}`,
+      );
     }
   }
 
   async getQueryCategories(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getQueryCategories(source, undefined, userType);
+      return await this.chatbotRepository.getQueryCategories(
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch query categories: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch query categories: ${error}`,
+      );
     }
   }
 
-  async getDistrictAnalyticsByState(source = 'vicharanashala', state: string, userType = 'all') {
+  async getDistrictAnalyticsByState(
+    source = 'vicharanashala',
+    state: string,
+    userType = 'all',
+  ) {
     try {
-      return await this.chatbotRepository.getDistrictAnalyticsByState(state, source, undefined, userType);
+      return await this.chatbotRepository.getDistrictAnalyticsByState(
+        state,
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch district analytics: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch district analytics: ${error}`,
+      );
     }
   }
 
@@ -149,68 +240,213 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeeklyAvgSessionDuration(weeks = 52, source = 'vicharanashala') {
     try {
-      return await this.chatbotRepository.getWeeklyAvgSessionDuration(weeks, source);
+      return await this.chatbotRepository.getWeeklyAvgSessionDuration(
+        weeks,
+        source,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch weekly session duration: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch weekly session duration: ${error}`,
+      );
     }
   }
 
-  async getDailyQueryCounts(days = 30, source = 'vicharanashala', userType = 'all') {
+  async getDailyAnalytics(month: string, source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getDailyQueryCounts(days, source, undefined, userType);
+      return await this.chatbotRepository.getDailyAnalytics(month, source, undefined, userType);
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch daily query counts: ${error}`);
+      throw new InternalServerError(`Failed to fetch daily analytics: ${error}`);
     }
   }
 
   async getTodayQueryCount(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getTodayQueryCount(source, undefined, userType);
+      return await this.chatbotRepository.getTodayQueryCount(
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch today query count: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch today query count: ${error}`,
+      );
     }
   }
 
-  async getDailyUserTrend(days = 30, source = 'vicharanashala', userType = 'all') {
+  async getDailyUserTrend(
+    days = 30,
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
     try {
-      return await this.chatbotRepository.getDailyUserTrend(days, source, undefined, userType);
+      return await this.chatbotRepository.getDailyUserTrend(
+        days,
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch daily user trend: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch daily user trend: ${error}`,
+      );
     }
   }
 
-  async getWeeklyQueryCounts(source = 'vicharanashala', userType = 'all') {
+  async getWeeklyAnalytics(month: string, source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getWeeklyQueryCounts(source, undefined, userType);
+      return await this.chatbotRepository.getWeeklyAnalytics(month, source, undefined, userType);
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch weekly query counts: ${error}`);
+      throw new InternalServerError(`Failed to fetch weekly analytics: ${error}`);
     }
   }
 
-  async getUserDetails(startDate?: string, endDate?: string, page = 1, limit = 10, search = '', source = 'vicharanashala', crop = '', village = '', profileCompleted = 'all', inactiveOnly = false, lowFeedbackOnly = false, userType = 'all', sortBy = 'name', sortOrder = 'asc') {
+  async getMonthlyAnalytics(source = 'vicharanashala', userType = 'all') {
+    try {
+      return await this.chatbotRepository.getMonthlyAnalytics(source, undefined, userType);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch monthly analytics: ${error}`);
+    }
+  }
+
+  async getUserDetails(
+    startDate?: string,
+    endDate?: string,
+    page = 1,
+    limit = 10,
+    search = '',
+    source = 'vicharanashala',
+    crop = '',
+    village = '',
+    profileCompleted = 'all',
+    inactiveOnly = false,
+    lowFeedbackOnly = false,
+    userType = 'all',
+    sortBy = 'name',
+    sortOrder = 'asc',
+  ) {
     try {
       const start = startDate ? new Date(startDate) : undefined;
       const end = endDate ? new Date(endDate) : undefined;
-      const data =  await this.chatbotRepository.getUserDetails(start, end, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, undefined, userType, sortBy, sortOrder, lowFeedbackOnly);
+      const data = await this.chatbotRepository.getUserDetails(
+        start,
+        end,
+        page,
+        limit,
+        search,
+        source,
+        crop,
+        village,
+        profileCompleted,
+        inactiveOnly,
+        undefined,
+        userType,
+        sortBy,
+        sortOrder,
+        lowFeedbackOnly,
+      );
       return data;
     } catch (error) {
       throw new InternalServerError(`Failed to fetch user details: ${error}`);
     }
   }
 
+  async getUserQuestionsData(
+    userEmail: string,
+    source = 'vicharanashala',
+    userType = 'all',
+    page = 1,
+    limit = 10,
+  ) {
+    const user = await this.chatbotRepository.getUserData(userEmail, source);
+
+    // Always fetch messages
+    const messages = await this.chatbotRepository.getUsersMessages(
+      userEmail,
+      source,
+      undefined,
+      userType,
+      page,
+      limit,
+    );
+
+    // No user found
+    if (!user) {
+      return {
+        questions: {
+          total: 0,
+          totalPages: 0,
+          currentPage: page,
+          limit,
+          items: [],
+        },
+
+        messages,
+      };
+    }
+
+    // Extract messageIds
+    const messageIds = messages.messages.map((msg: any) => msg.messageId);
+
+    // No linked messages
+    if (!messageIds.length) {
+      return {
+        questions: {
+          total: 0,
+          totalPages: 0,
+          currentPage: page,
+          limit,
+          items: [],
+        },
+
+        messages,
+      };
+    }
+
+    // Fetch questions using messageIds
+    const questions = await this.chatbotRepository.getUserQuestionsData(
+      messageIds,
+      source,
+      userType,
+      page,
+      limit,
+    );
+
+    return {
+      questions,
+      messages,
+    };
+  }
+
   async getAvgSessionDurationV2(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getAvgSessionDurationV2(source, undefined, userType);
+      return await this.chatbotRepository.getAvgSessionDurationV2(
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch avg session duration v2: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch avg session duration v2: ${error}`,
+      );
     }
   }
 
-  async getWeeklyAvgSessionDurationV2(weeks = 52, source = 'vicharanashala', userType = 'all') {
+  async getWeeklyAvgSessionDurationV2(
+    weeks = 52,
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
     try {
-      return await this.chatbotRepository.getWeeklyAvgSessionDurationV2(weeks, source, undefined, userType);
+      return await this.chatbotRepository.getWeeklyAvgSessionDurationV2(
+        weeks,
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch weekly avg session duration v2: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch weekly avg session duration v2: ${error}`,
+      );
     }
   }
 
@@ -220,12 +456,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'vicharanashala',
   ): Promise<ArrayBuffer | null> {
     try {
-      const rows = await this.chatbotRepository.generateChatbotExcelReport(startDate, endDate, source);
+      const rows = await this.chatbotRepository.generateChatbotExcelReport(
+        startDate,
+        endDate,
+        source,
+      );
       if (!rows || rows.length === 0) return null;
 
       // ── helpers ─────────────────────────────────────────────────────────────
       const safeJson = (raw: any): any => {
-        try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+        try {
+          return raw ? JSON.parse(raw) : {};
+        } catch {
+          return {};
+        }
       };
 
       const truncate = (text: any, maxLen = 32000): string => {
@@ -241,11 +485,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
               const out = JSON.parse(tc.output);
               const locData = JSON.parse(out[0].text);
               const loc = locData?.location ?? {};
-              return { state: loc.state ?? '', district: loc.county ?? '', city: loc.city ?? '' };
-            } catch { /* skip */ }
+              return {
+                state: loc.state ?? '',
+                district: loc.county ?? '',
+                city: loc.city ?? '',
+              };
+            } catch {
+              /* skip */
+            }
           }
         }
-        return { state: '', district: '', city: '' };
+        return {state: '', district: '', city: ''};
       };
 
       const extractUploadDetails = (toolCalls: any[]) => {
@@ -263,7 +513,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
             };
           }
         }
-        return { question_en: '', state: '', crop: '', district: '', season: '', domain: '' };
+        return {
+          question_en: '',
+          state: '',
+          crop: '',
+          district: '',
+          season: '',
+          domain: '',
+        };
       };
 
       const extractWeather = (toolCalls: any[]): string => {
@@ -272,41 +529,64 @@ export class ChatbotService extends BaseService implements IChatbotService {
             try {
               const out = JSON.parse(tc.output);
               return String(out[0]?.text ?? '').slice(0, 500);
-            } catch { /* skip */ }
+            } catch {
+              /* skip */
+            }
           }
         }
         return '';
       };
 
       // ── styling helpers ──────────────────────────────────────────────────────
-      const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E79' } };
-      const HEADER_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-      const CELL_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 10 };
-      const WRAP_ALIGN: Partial<ExcelJS.Alignment> = { wrapText: true, vertical: 'top' };
-      const CENTER_ALIGN: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      const HEADER_FILL: ExcelJS.Fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: {argb: 'FF1F4E79'},
+      };
+      const HEADER_FONT: Partial<ExcelJS.Font> = {
+        name: 'Calibri',
+        bold: true,
+        color: {argb: 'FFFFFFFF'},
+        size: 11,
+      };
+      const CELL_FONT: Partial<ExcelJS.Font> = {name: 'Calibri', size: 10};
+      const WRAP_ALIGN: Partial<ExcelJS.Alignment> = {
+        wrapText: true,
+        vertical: 'top',
+      };
+      const CENTER_ALIGN: Partial<ExcelJS.Alignment> = {
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true,
+      };
       const THIN_BORDER: Partial<ExcelJS.Borders> = {
-        left: { style: 'thin' }, right: { style: 'thin' },
-        top: { style: 'thin' }, bottom: { style: 'thin' },
+        left: {style: 'thin'},
+        right: {style: 'thin'},
+        top: {style: 'thin'},
+        bottom: {style: 'thin'},
       };
 
       const styleHeader = (sheet: ExcelJS.Worksheet) => {
         const row = sheet.getRow(1);
-        row.eachCell((cell) => {
+        row.eachCell(cell => {
           cell.font = HEADER_FONT;
           cell.fill = HEADER_FILL;
           cell.alignment = CENTER_ALIGN;
           cell.border = THIN_BORDER;
         });
-        sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: sheet.columnCount } };
-        sheet.views = [{ state: 'frozen', ySplit: 1 }];
+        sheet.autoFilter = {
+          from: {row: 1, column: 1},
+          to: {row: 1, column: sheet.columnCount},
+        };
+        sheet.views = [{state: 'frozen', ySplit: 1}];
       };
 
       const autoWidth = (sheet: ExcelJS.Worksheet, max = 60) => {
-        sheet.columns.forEach((col) => {
+        sheet.columns.forEach(col => {
           let best = 12;
-          col.eachCell?.({ includeEmpty: false }, (cell) => {
+          col.eachCell?.({includeEmpty: false}, cell => {
             const lines = String(cell.value ?? '').split('\n');
-            const longest = Math.max(...lines.map((l) => l.length));
+            const longest = Math.max(...lines.map(l => l.length));
             best = Math.max(best, Math.min(longest + 2, max));
           });
           col.width = best;
@@ -318,100 +598,108 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       const ws1 = wb.addWorksheet('Conversations');
       ws1.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 40 },
-        { header: 'User Question (English)', key: 'userQEn', width: 40 },
-        { header: 'State', key: 'state', width: 16 },
-        { header: 'District', key: 'district', width: 16 },
-        { header: 'Crop', key: 'crop', width: 16 },
-        { header: 'Season', key: 'season', width: 14 },
-        { header: 'Domain', key: 'domain', width: 18 },
-        { header: 'Location – State', key: 'locState', width: 16 },
-        { header: 'Location – District', key: 'locDistrict', width: 16 },
-        { header: 'Location – City', key: 'locCity', width: 16 },
-        { header: 'Number of Tool Calls', key: 'toolCount', width: 12 },
-        { header: 'Tool Names Used', key: 'toolNames', width: 40 },
-        { header: 'Number of Think Steps', key: 'thinkCount', width: 12 },
-        { header: 'Bot Response (Final Text)', key: 'botResponse', width: 60 },
-        { header: 'Weather Forecast Preview', key: 'weather', width: 40 },
+        {header: 'S.No', key: 'sno', width: 6},
+        {header: 'Conversation ID', key: 'convId', width: 36},
+        {header: 'User Question (Original)', key: 'userQ', width: 40},
+        {header: 'User Question (English)', key: 'userQEn', width: 40},
+        {header: 'State', key: 'state', width: 16},
+        {header: 'District', key: 'district', width: 16},
+        {header: 'Crop', key: 'crop', width: 16},
+        {header: 'Season', key: 'season', width: 14},
+        {header: 'Domain', key: 'domain', width: 18},
+        {header: 'Location – State', key: 'locState', width: 16},
+        {header: 'Location – District', key: 'locDistrict', width: 16},
+        {header: 'Location – City', key: 'locCity', width: 16},
+        {header: 'Number of Tool Calls', key: 'toolCount', width: 12},
+        {header: 'Tool Names Used', key: 'toolNames', width: 40},
+        {header: 'Number of Think Steps', key: 'thinkCount', width: 12},
+        {header: 'Bot Response (Final Text)', key: 'botResponse', width: 60},
+        {header: 'Weather Forecast Preview', key: 'weather', width: 40},
       ];
 
       const ws2 = wb.addWorksheet('Tool Calls');
       ws2.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 30 },
-        { header: 'Tool Call Order', key: 'order', width: 10 },
-        { header: 'Tool Name', key: 'name', width: 40 },
-        { header: 'Tool Call ID', key: 'id', width: 30 },
-        { header: 'Arguments (JSON)', key: 'args', width: 40 },
-        { header: 'Progress', key: 'progress', width: 10 },
-        { header: 'Output Preview', key: 'output', width: 50 },
+        {header: 'S.No', key: 'sno', width: 6},
+        {header: 'Conversation ID', key: 'convId', width: 36},
+        {header: 'User Question (Original)', key: 'userQ', width: 30},
+        {header: 'Tool Call Order', key: 'order', width: 10},
+        {header: 'Tool Name', key: 'name', width: 40},
+        {header: 'Tool Call ID', key: 'id', width: 30},
+        {header: 'Arguments (JSON)', key: 'args', width: 40},
+        {header: 'Progress', key: 'progress', width: 10},
+        {header: 'Output Preview', key: 'output', width: 50},
       ];
 
       const ws3 = wb.addWorksheet('Reviewer Data');
       ws3.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 30 },
-        { header: 'Reviewer Question ID', key: 'qId', width: 26 },
-        { header: 'Reviewer Question Text', key: 'qText', width: 40 },
-        { header: 'Reviewer Answer Text', key: 'aText', width: 50 },
-        { header: 'Author', key: 'author', width: 18 },
-        { header: 'Similarity Score', key: 'score', width: 14 },
-        { header: 'Source 1 Name', key: 's1Name', width: 24 },
-        { header: 'Source 1 Link', key: 's1Link', width: 40 },
-        { header: 'Source 2 Name', key: 's2Name', width: 24 },
-        { header: 'Source 2 Link', key: 's2Link', width: 40 },
+        {header: 'S.No', key: 'sno', width: 6},
+        {header: 'Conversation ID', key: 'convId', width: 36},
+        {header: 'User Question (Original)', key: 'userQ', width: 30},
+        {header: 'Reviewer Question ID', key: 'qId', width: 26},
+        {header: 'Reviewer Question Text', key: 'qText', width: 40},
+        {header: 'Reviewer Answer Text', key: 'aText', width: 50},
+        {header: 'Author', key: 'author', width: 18},
+        {header: 'Similarity Score', key: 'score', width: 14},
+        {header: 'Source 1 Name', key: 's1Name', width: 24},
+        {header: 'Source 1 Link', key: 's1Link', width: 40},
+        {header: 'Source 2 Name', key: 's2Name', width: 24},
+        {header: 'Source 2 Link', key: 's2Link', width: 40},
       ];
 
       const ws4 = wb.addWorksheet('FAQ Videos');
       ws4.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 30 },
-        { header: 'FAQ Title', key: 'title', width: 30 },
-        { header: 'FAQ Link', key: 'link', width: 40 },
-        { header: 'FAQ Query', key: 'query', width: 30 },
-        { header: 'FAQ English Answer', key: 'answer', width: 50 },
-        { header: 'Similarity Score', key: 'score', width: 14 },
+        {header: 'S.No', key: 'sno', width: 6},
+        {header: 'Conversation ID', key: 'convId', width: 36},
+        {header: 'User Question (Original)', key: 'userQ', width: 30},
+        {header: 'FAQ Title', key: 'title', width: 30},
+        {header: 'FAQ Link', key: 'link', width: 40},
+        {header: 'FAQ Query', key: 'query', width: 30},
+        {header: 'FAQ English Answer', key: 'answer', width: 50},
+        {header: 'Similarity Score', key: 'score', width: 14},
       ];
 
       const ws5 = wb.addWorksheet('POP Data');
       ws5.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 30 },
-        { header: 'POP Text', key: 'text', width: 50 },
-        { header: 'Similarity Score', key: 'score', width: 14 },
-        { header: 'Page No', key: 'page', width: 10 },
-        { header: 'Source', key: 'source', width: 40 },
-        { header: 'Source Name', key: 'sourceName', width: 24 },
-        { header: 'Topics', key: 'topics', width: 30 },
+        {header: 'S.No', key: 'sno', width: 6},
+        {header: 'Conversation ID', key: 'convId', width: 36},
+        {header: 'User Question (Original)', key: 'userQ', width: 30},
+        {header: 'POP Text', key: 'text', width: 50},
+        {header: 'Similarity Score', key: 'score', width: 14},
+        {header: 'Page No', key: 'page', width: 10},
+        {header: 'Source', key: 'source', width: 40},
+        {header: 'Source Name', key: 'sourceName', width: 24},
+        {header: 'Topics', key: 'topics', width: 30},
       ];
 
       const ws6 = wb.addWorksheet('Golden Data');
       ws6.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 30 },
-        { header: 'Golden Question Text', key: 'qText', width: 40 },
-        { header: 'Golden Answer Text', key: 'aText', width: 50 },
-        { header: 'Author', key: 'author', width: 18 },
-        { header: 'Similarity Score', key: 'score', width: 14 },
-        { header: 'Source Name', key: 'sName', width: 24 },
-        { header: 'Source Link', key: 'sLink', width: 40 },
+        {header: 'S.No', key: 'sno', width: 6},
+        {header: 'Conversation ID', key: 'convId', width: 36},
+        {header: 'User Question (Original)', key: 'userQ', width: 30},
+        {header: 'Golden Question Text', key: 'qText', width: 40},
+        {header: 'Golden Answer Text', key: 'aText', width: 50},
+        {header: 'Author', key: 'author', width: 18},
+        {header: 'Similarity Score', key: 'score', width: 14},
+        {header: 'Source Name', key: 'sName', width: 24},
+        {header: 'Source Link', key: 'sLink', width: 40},
       ];
 
-      let tcRow = 2, revRow = 2, faqRow = 2, popRow = 2, goldRow = 2;
+      let tcRow = 2,
+        revRow = 2,
+        faqRow = 2,
+        popRow = 2,
+        goldRow = 2;
 
       rows.forEach((item, idx) => {
         const convId = item.conversationId;
-        const userQ = item.farmerQuestions.find((t) => t && t.trim().length > 0) ?? '';
-        const contentBlocks: any[] = Array.isArray(item.mcpToolCalls) && item.mcpToolCalls.length > 0
-          ? (Array.isArray(item.mcpToolCalls[0]) ? item.mcpToolCalls[0] : [])
-          : [];
+        const userQ =
+          item.farmerQuestions.find(t => t && t.trim().length > 0) ?? '';
+        const contentBlocks: any[] =
+          Array.isArray(item.mcpToolCalls) && item.mcpToolCalls.length > 0
+            ? Array.isArray(item.mcpToolCalls[0])
+              ? item.mcpToolCalls[0]
+              : []
+            : [];
 
         // classify content blocks
         const toolCallsRaw: any[] = [];
@@ -438,7 +726,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         const uploadInfo = extractUploadDetails(toolCallsRaw);
         const loc = extractLocation(toolCallsRaw);
         const weatherPreview = extractWeather(toolCallsRaw);
-        const toolNames = toolCallsRaw.map((tc) => tc.name).join(', ');
+        const toolNames = toolCallsRaw.map(tc => tc.name).join(', ');
         const finalResponse = responseTexts.join('\n\n---\n\n');
 
         // Sheet 1
@@ -468,10 +756,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
           if (tc.output) {
             try {
               const parsed = JSON.parse(tc.output);
-              outputText = Array.isArray(parsed) && parsed.length > 0
-                ? (parsed[0].text ?? String(parsed))
-                : String(parsed);
-            } catch { outputText = String(tc.output); }
+              outputText =
+                Array.isArray(parsed) && parsed.length > 0
+                  ? (parsed[0].text ?? String(parsed))
+                  : String(parsed);
+            } catch {
+              outputText = String(tc.output);
+            }
           }
           ws2.addRow({
             sno: tcRow - 1,
@@ -488,8 +779,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
         });
 
         // Sheet 3
-        toolCallsRaw.forEach((tc) => {
-          if (tc.name === 'get_context_from_reviewer_dataset_mcp_reviewer' && tc.output) {
+        toolCallsRaw.forEach(tc => {
+          if (
+            tc.name === 'get_context_from_reviewer_dataset_mcp_reviewer' &&
+            tc.output
+          ) {
             try {
               const out = JSON.parse(tc.output);
               const results = JSON.parse(out[0].text);
@@ -497,27 +791,32 @@ export class ChatbotService extends BaseService implements IChatbotService {
                 results.forEach((r: any) => {
                   const sources = r.sources ?? [];
                   ws3.addRow({
-                    sno: revRow - 1, convId,
+                    sno: revRow - 1,
+                    convId,
                     userQ: truncate(userQ, 2000),
                     qId: r.question_id ?? '',
                     qText: truncate(r.question_text ?? '', 10000),
                     aText: truncate(r.answer_text ?? ''),
                     author: r.author ?? '',
                     score: r.similarity_score ?? '',
-                    s1Name: sources[0]?.source_name ?? sources[0]?.sourceName ?? '',
+                    s1Name:
+                      sources[0]?.source_name ?? sources[0]?.sourceName ?? '',
                     s1Link: sources[0]?.source ?? '',
-                    s2Name: sources[1]?.source_name ?? sources[1]?.sourceName ?? '',
+                    s2Name:
+                      sources[1]?.source_name ?? sources[1]?.sourceName ?? '',
                     s2Link: sources[1]?.source ?? '',
                   });
                   revRow++;
                 });
               }
-            } catch { /* skip */ }
+            } catch {
+              /* skip */
+            }
           }
         });
 
         // Sheet 4
-        toolCallsRaw.forEach((tc) => {
+        toolCallsRaw.forEach(tc => {
           if (tc.name === 'search_faq_mcp_faq-videos' && tc.output) {
             try {
               const out = JSON.parse(tc.output);
@@ -525,7 +824,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
               const results = faqData.results ?? [];
               results.forEach((r: any) => {
                 ws4.addRow({
-                  sno: faqRow - 1, convId,
+                  sno: faqRow - 1,
+                  convId,
                   userQ: truncate(userQ, 2000),
                   title: r.title ?? '',
                   link: r.link ?? '',
@@ -535,13 +835,18 @@ export class ChatbotService extends BaseService implements IChatbotService {
                 });
                 faqRow++;
               });
-            } catch { /* skip */ }
+            } catch {
+              /* skip */
+            }
           }
         });
 
         // Sheet 5
-        toolCallsRaw.forEach((tc) => {
-          if (tc.name === 'get_context_from_package_of_practices_mcp_pop' && tc.output) {
+        toolCallsRaw.forEach(tc => {
+          if (
+            tc.name === 'get_context_from_package_of_practices_mcp_pop' &&
+            tc.output
+          ) {
             try {
               const out = JSON.parse(tc.output);
               const results = JSON.parse(out[0].text);
@@ -549,25 +854,33 @@ export class ChatbotService extends BaseService implements IChatbotService {
                 results.forEach((r: any) => {
                   const meta = r.meta_data ?? {};
                   ws5.addRow({
-                    sno: popRow - 1, convId,
+                    sno: popRow - 1,
+                    convId,
                     userQ: truncate(userQ, 2000),
                     text: truncate(r.text ?? ''),
                     score: meta.similarity_score ?? '',
                     page: meta.page_no ?? '',
                     source: meta.source ?? '',
                     sourceName: meta.source_name ?? '',
-                    topics: Array.isArray(meta.topics) ? meta.topics.join(', ') : '',
+                    topics: Array.isArray(meta.topics)
+                      ? meta.topics.join(', ')
+                      : '',
                   });
                   popRow++;
                 });
               }
-            } catch { /* skip */ }
+            } catch {
+              /* skip */
+            }
           }
         });
 
         // Sheet 6
-        toolCallsRaw.forEach((tc) => {
-          if (tc.name === 'get_context_from_golden_dataset_mcp_golden' && tc.output) {
+        toolCallsRaw.forEach(tc => {
+          if (
+            tc.name === 'get_context_from_golden_dataset_mcp_golden' &&
+            tc.output
+          ) {
             try {
               const out = JSON.parse(tc.output);
               const results = JSON.parse(out[0].text ?? '');
@@ -575,29 +888,33 @@ export class ChatbotService extends BaseService implements IChatbotService {
                 results.forEach((r: any) => {
                   const sources = r.sources ?? [];
                   ws6.addRow({
-                    sno: goldRow - 1, convId,
+                    sno: goldRow - 1,
+                    convId,
                     userQ: truncate(userQ, 2000),
                     qText: truncate(r.question_text ?? '', 10000),
                     aText: truncate(r.answer_text ?? ''),
                     author: r.author ?? '',
                     score: r.similarity_score ?? '',
-                    sName: sources[0]?.source_name ?? sources[0]?.sourceName ?? '',
+                    sName:
+                      sources[0]?.source_name ?? sources[0]?.sourceName ?? '',
                     sLink: sources[0]?.source ?? '',
                   });
                   goldRow++;
                 });
               }
-            } catch { /* skip */ }
+            } catch {
+              /* skip */
+            }
           }
         });
       });
 
       // Style all sheets
-      [ws1, ws2, ws3, ws4, ws5, ws6].forEach((ws) => {
+      [ws1, ws2, ws3, ws4, ws5, ws6].forEach(ws => {
         styleHeader(ws);
         ws.eachRow((row, rowNum) => {
           if (rowNum === 1) return;
-          row.eachCell((cell) => {
+          row.eachCell(cell => {
             cell.font = CELL_FONT;
             cell.alignment = WRAP_ALIGN;
             cell.border = THIN_BORDER;
@@ -608,12 +925,18 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       return wb.xlsx.writeBuffer() as Promise<ArrayBuffer>;
     } catch (error) {
-      throw new InternalServerError(`Failed to generate chatbot Excel report: ${error}`);
+      throw new InternalServerError(
+        `Failed to generate chatbot Excel report: ${error}`,
+      );
     }
   }
 
-  async getGrowth(range: number, startDate?: Date, endDate?: Date): Promise<GrowthResponse> {
-    return await this._withTransaction(async (session) => {
+  async getGrowth(
+    range: number,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<GrowthResponse> {
+    return await this._withTransaction(async session => {
       const resolvedEndDate = endDate ? new Date(endDate) : new Date();
       const resolvedStartDate = startDate ? new Date(startDate) : new Date();
 
@@ -627,26 +950,40 @@ export class ChatbotService extends BaseService implements IChatbotService {
           : getDateRange(range);
 
       const [idsData, installsData, activeUsersData] = await Promise.all([
-        this.chatbotRepository.getIdsCreated(resolvedStartDate, resolvedEndDate, session),
-        this.chatbotRepository.getInstalls(resolvedStartDate, resolvedEndDate, session),
-        this.chatbotRepository.getActiveUsers(resolvedStartDate, resolvedEndDate, session),
-      ])
+        this.chatbotRepository.getIdsCreated(
+          resolvedStartDate,
+          resolvedEndDate,
+          session,
+        ),
+        this.chatbotRepository.getInstalls(
+          resolvedStartDate,
+          resolvedEndDate,
+          session,
+        ),
+        this.chatbotRepository.getActiveUsers(
+          resolvedStartDate,
+          resolvedEndDate,
+          session,
+        ),
+      ]);
       return {
         labels,
-        series:{
-          idsCreated:mapToSeries(labels, idsData),
-          installs:mapToSeries(labels, installsData),
-          activeUsers:mapToSeries(labels, activeUsersData)
-        }
-      }
-    })
+        series: {
+          idsCreated: mapToSeries(labels, idsData),
+          installs: mapToSeries(labels, installsData),
+          activeUsers: mapToSeries(labels, activeUsersData),
+        },
+      };
+    });
   }
 
   async getDuplicateQuestions(source = 'annam') {
     try {
       return await this.chatbotRepository.getDuplicateQuestions(source);
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch duplicate questions: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch duplicate questions: ${error}`,
+      );
     }
   }
 
@@ -660,15 +997,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDailyQuestionTrends(days = 30, userType = 'all') {
     try {
-      return await this.chatbotRepository.getDailyQuestionTrends(days, undefined, userType);
+      return await this.chatbotRepository.getDailyQuestionTrends(
+        days,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch daily question trends: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch daily question trends: ${error}`,
+      );
     }
   }
 
   async getTopFaqs(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getTopFaqs(source, undefined, userType);
+      return await this.chatbotRepository.getTopFaqs(
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
     }
@@ -682,35 +1029,73 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string){
+  async getDailyActiveUsersTrend(
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
+  ) {
     try {
-      return await this.chatbotRepository.getDailyActiveUsersTrend(startDate, endDate, source, userType);
+      return await this.chatbotRepository.getDailyActiveUsersTrend(
+        startDate,
+        endDate,
+        source,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch Daily Active Users Trend: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch Daily Active Users Trend: ${error}`,
+      );
     }
   }
 
-  async getMonthlyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string){
+  async getMonthlyActiveUsersTrend(
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
+  ) {
     try {
-      return await this.chatbotRepository.getMonthlyActiveUsersTrend(startDate, endDate, source, userType);
+      return await this.chatbotRepository.getMonthlyActiveUsersTrend(
+        startDate,
+        endDate,
+        source,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch Monthly Active Users Trend: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch Monthly Active Users Trend: ${error}`,
+      );
     }
   }
 
-  async getWeeklyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string){
+  async getWeeklyActiveUsersTrend(
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
+  ) {
     try {
-      return await this.chatbotRepository.getWeeklyActiveUsersTrend(startDate, endDate, source, userType);
+      return await this.chatbotRepository.getWeeklyActiveUsersTrend(
+        startDate,
+        endDate,
+        source,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch Weekly Active Users Trend: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch Weekly Active Users Trend: ${error}`,
+      );
     }
   }
 
-  async getRetentionMetrics(){
+  async getRetentionMetrics() {
     try {
       return await this.chatbotRepository.getRetentionMetrics();
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch Retention Metrics: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch Retention Metrics: ${error}`,
+      );
     }
   }
 }
