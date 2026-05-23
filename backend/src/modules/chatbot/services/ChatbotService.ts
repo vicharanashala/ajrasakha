@@ -414,7 +414,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
       limit,
     );
 
-    console.log("Fetched the messages", messages);
 
     // No user found
     if (!user) {
@@ -437,8 +436,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userEmail,
     source,
   );
-
-    console.log("Extracted message IDs", messageIds);
 
     // No linked messages
     if (!messageIds.length) {
