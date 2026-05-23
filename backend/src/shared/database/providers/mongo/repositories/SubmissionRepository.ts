@@ -3257,8 +3257,24 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   // ─── Time-bound allocation tracking ───────────────────────────────────────
 
-  async markQuestionOpenedByExpert(questionId: string, expertId: string): Promise<void> {
+  async markQuestionOpenedByExpert(questionId: string, expertId: string, isTimeBound: boolean = true): Promise<void> {
     await this.init();
+
+    // Always clear currentExpertOpenedAt on any OTHER time-bound question this
+    // expert had previously opened. This ensures navigating to ANY question
+    // (time-bound or not) frees the old time-bound question for reallocation.
+    await this.QuestionSubmissionCollection.updateMany(
+      {
+        questionId: { $ne: new ObjectId(questionId) },
+        queue: new ObjectId(expertId),
+        currentExpertOpenedAt: { $ne: null },
+      },
+      { $set: { currentExpertOpenedAt: null, updatedAt: new Date() } },
+    );
+
+    // Only set currentExpertOpenedAt on the current question if it's time-bound
+    if (!isTimeBound) return;
+
     const submission = await this.QuestionSubmissionCollection.findOne({
       questionId: new ObjectId(questionId),
     });
@@ -3315,7 +3331,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   async findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]> {
     await this.init();
-    const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
+    const fortyFiveMinAgo = new Date(Date.now() - 40 * 60 * 1000);
 
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
       {
@@ -3549,6 +3565,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     for (const r of result) {
       if (r._id) map.set(r._id.toString(), r.count);
     }
+    console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
     return map;
   }
 

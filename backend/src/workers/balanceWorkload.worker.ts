@@ -99,11 +99,7 @@ const notificationService = new NotificationService(notificationRepo, database);
         });
       }
 
-      // 🟢 TYPE A: Penalize first expert if no history exists (initial delay)
-      if (history.length === 0) {
-        const firstExpert = queue[0]?.toString();
-        if (firstExpert) await userRepo.updateReputationScore(firstExpert, false);
-      }
+
 
       // Deep Replacement (Purge Inactive): replace inactive experts in the queue
       // ENSURE UNIQUENESS: Only replace the FIRST occurrence encountered at or after currentExpertIndex
@@ -240,15 +236,17 @@ const notificationService = new NotificationService(notificationRepo, database);
           }
         }
 
-        // 2. Penalize the expert who was stuck (TYPE B logic from main)
-        // Only penalize 'in-review' experts — 'reviewed' experts already completed their work
-        // and were decremented by reviewAnswer; decrementing them again would be incorrect.
+        // 2. Penalize the expert who was stuck
         if (history.length > 0) {
+          // Reviewer case: penalize only 'in-review' experts — 'reviewed' experts already completed their work
           const lastHistory = history[history.length - 1];
           if (lastHistory?.status === 'in-review') {
             const stuckExpertId = lastHistory.updatedBy?.toString();
             if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
           }
+        } else {
+          // Author case: penalize author who never answered
+          if (currentExpertId) await userRepo.updateReputationScore(currentExpertId, false);
         }
 
         // 3. Save updates to Submission
@@ -264,14 +262,17 @@ const notificationService = new NotificationService(notificationRepo, database);
           },
         });
 
-        // 4. Notify new expert
+        // 4. Notify new expert (role-aware notification for time-bound questions)
+        const isAuthorPosition = currentExpertIndex === 0 && history.length === 0;
         affectedExpertIds.add(newExpertId);
         await notificationService.saveTheNotifications(
-          'Tasks have been reallocated to your queue',
-          'Workload Reassigned',
+          isAuthorPosition
+            ? 'A time-bound question has been assigned to you for answering'
+            : 'A time-bound question has been reassigned to you for review',
+          isAuthorPosition ? 'Answer Creation Assigned' : 'Review Reassigned',
           submission.questionId.toString(),
           newExpertId,
-          'answer_creation',
+          isAuthorPosition ? 'answer_creation' : 'peer_review',
         );
       }
 

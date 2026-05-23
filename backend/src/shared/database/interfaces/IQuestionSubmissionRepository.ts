@@ -198,7 +198,7 @@ export interface IQuestionSubmissionRepository {
   /** Mark that the current expert has opened a time-bound question.
    *  Sets currentExpertOpenedAt if not already set and expertId is the current assignee.
    *  Once set, the question is excluded from 45-min auto-reallocation. */
-  markQuestionOpenedByExpert(questionId: string, expertId: string): Promise<void>;
+  markQuestionOpenedByExpert(questionId: string, expertId: string, isTimeBound?: boolean): Promise<void>;
 
   /** Reset the 45-min allocation clock for the current expert.
    *  Called on initial allocation and on every reallocation. Clears currentExpertOpenedAt. */

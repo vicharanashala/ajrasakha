@@ -5154,15 +5154,19 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   // ─── Time-bound question tracking ───────────────────────────────────────────
 
-  /** Called when an expert opens/clicks a time-bound question in the UI.
-   *  Sets currentExpertOpenedAt on the submission, blocking 45-min auto-reallocation. */
+  /** Called whenever an expert selects ANY question in the UI.
+   *  1. Clears currentExpertOpenedAt on any OTHER time-bound submission the expert
+   *     had previously opened — so navigating away makes the old question eligible
+   *     for reallocation by the cron.
+   *  2. Only SETS currentExpertOpenedAt if the current question is time-bound. */
   async markQuestionOpened(questionId: string, userId: string): Promise<void> {
     try {
       const question = await this.questionRepo.getById(questionId);
       if (!question) return;
-      // Only applies to time-bound questions
-      if (question.source !== 'WHATSAPP' && question.source !== 'AJRASAKHA') return;
-      await this.questionSubmissionRepo.markQuestionOpenedByExpert(questionId, userId);
+      // Always call the repo — it clears previous openedAt on other questions,
+      // and only sets it on the current question if it's time-bound.
+      const isTimeBound = question.source === 'WHATSAPP' || question.source === 'AJRASAKHA';
+      await this.questionSubmissionRepo.markQuestionOpenedByExpert(questionId, userId, isTimeBound);
     } catch (error) {
       // Non-fatal — log and swallow so the UI is never blocked by this
       console.error(`[markQuestionOpened] Failed for questionId=${questionId}:`, error);
@@ -5271,7 +5275,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             skipped++;
             continue;
           }
-          flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert, appendExpert: true });
+          flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert, appendExpert: false });
 
         } else if (type === 'unallocated') {
           let assignedExpert: string | null = null;
