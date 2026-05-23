@@ -143,7 +143,8 @@ export class ChatbotRepository implements IChatbotRepository {
       if (endTime) matchQuery.createdAt.$lte = new Date(endTime);
     }
 
-    const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildQuestionUserTypeLookupStages(userType);
 
     const result = await this.QuestionCollection.aggregate(
       [
@@ -173,7 +174,12 @@ export class ChatbotRepository implements IChatbotRepository {
                   $expr: {
                     $and: [
                       {$gte: ['$closedAt', '$createdAt']},
-                      {$lte: [{$subtract: ['$closedAt', '$createdAt']}, 120 * 60 * 1000]},
+                      {
+                        $lte: [
+                          {$subtract: ['$closedAt', '$createdAt']},
+                          120 * 60 * 1000,
+                        ],
+                      },
                     ],
                   },
                 },
@@ -194,24 +200,18 @@ export class ChatbotRepository implements IChatbotRepository {
                   _id: null,
                   avgMinutes: {
                     $avg: {
-                      $divide: [{$subtract: ['$closedAt', '$createdAt']}, 60 * 1000],
+                      $divide: [
+                        {$subtract: ['$closedAt', '$createdAt']},
+                        60 * 1000,
+                      ],
                     },
                   },
                 },
               },
             ],
-            inReview: [
-              {$match: {status: 'in-review'}},
-              {$count: 'count'},
-            ],
-            open: [
-              {$match: {status: 'open'}},
-              {$count: 'count'},
-            ],
-            delayed: [
-              {$match: {status: 'delayed'}},
-              {$count: 'count'},
-            ],
+            inReview: [{$match: {status: 'in-review'}}, {$count: 'count'}],
+            open: [{$match: {status: 'open'}}, {$count: 'count'}],
+            delayed: [{$match: {status: 'delayed'}}, {$count: 'count'}],
             markedDuplicateGdb: [
               {
                 $match: {
@@ -255,8 +255,20 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.initReviewSystem();
 
       const [whatsapp, ajrasakha] = await Promise.all([
-        this.getSourceAdherenceStats('WHATSAPP', userType, startTime, endTime, session),
-        this.getSourceAdherenceStats('AJRASAKHA', userType, startTime, endTime, session),
+        this.getSourceAdherenceStats(
+          'WHATSAPP',
+          userType,
+          startTime,
+          endTime,
+          session,
+        ),
+        this.getSourceAdherenceStats(
+          'AJRASAKHA',
+          userType,
+          startTime,
+          endTime,
+          session,
+        ),
       ]);
 
       const messageMatch: any = {isDeleted: {$ne: true}};
@@ -317,16 +329,26 @@ export class ChatbotRepository implements IChatbotRepository {
           {session},
         )
         .toArray();
-      const whatsappQueriesAsked = queryCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
-      const ajrasakhaQueriesAsked = queryCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+      const whatsappQueriesAsked =
+        queryCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
+      const ajrasakhaQueriesAsked =
+        queryCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
 
       const whatsappAdherencePct =
         whatsapp.questionAsked > 0
-          ? Math.round((whatsapp.answeredWithin120Min / whatsapp.questionAsked) * 100 * 100) / 100
+          ? Math.round(
+              (whatsapp.answeredWithin120Min / whatsapp.questionAsked) *
+                100 *
+                100,
+            ) / 100
           : 0;
       const ajrasakhaAdherencePct =
         ajrasakha.questionAsked > 0
-          ? Math.round((ajrasakha.answeredWithin120Min / ajrasakha.questionAsked) * 100 * 100) / 100
+          ? Math.round(
+              (ajrasakha.answeredWithin120Min / ajrasakha.questionAsked) *
+                100 *
+                100,
+            ) / 100
           : 0;
 
       const startReference = startTime ? new Date(startTime) : new Date();
@@ -1356,455 +1378,433 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyQueryCounts(
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-): Promise<MonthlyQueryCountEntry[]> {
-  try {
-    await this.init(source);
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<MonthlyQueryCountEntry[]> {
+    try {
+      await this.init(source);
 
-    const userTypeLookupStages =
-      this.buildUserTypeLookupStages(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-    const result = await this.messagesCollection
-      .aggregate(
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                isCreatedByUser: true,
+              },
+            },
+
+            ...userTypeLookupStages,
+
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+
+                count: {
+                  $sum: 1,
+                },
+              },
+            },
+
+            {
+              $project: {
+                month: '$_id',
+                count: 1,
+                _id: 0,
+              },
+            },
+
+            {
+              $sort: {
+                month: 1,
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      return result as MonthlyQueryCountEntry[];
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get monthly query counts: ${error}`,
+      );
+    }
+  }
+
+  async getQuerySummaryByPeriod(
+    period: 'daily' | 'weekly' | 'monthly',
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ) {
+    try {
+      await this.init(source);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const now = new Date();
+
+      let startDate = new Date();
+      let label = '';
+
+      switch (period) {
+        case 'daily':
+          startDate.setHours(0, 0, 0, 0);
+          label = 'Today Queries';
+          break;
+
+        case 'weekly':
+          startDate.setDate(now.getDate() - 7);
+          label = 'Last 7 Days Queries';
+          break;
+
+        case 'monthly':
+          startDate.setDate(now.getDate() - 30);
+          label = 'Last 30 Days Queries';
+          break;
+      }
+
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                createdAt: {
+                  $gte: startDate,
+                },
+
+                isCreatedByUser: true,
+
+                isDeleted: {
+                  $ne: true,
+                },
+              },
+            },
+
+            ...userTypeLookupStages,
+
+            {
+              $count: 'total',
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      return {
+        label,
+        totalQueries: result[0]?.total || 0,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get query summary: ${error}`);
+    }
+  }
+
+  // ============================================
+  // HELPER
+  // ============================================
+
+  private getMonthDateRange(month: string) {
+    // month => "2026-05"
+
+    const start = new Date(`${month}-01T00:00:00.000Z`);
+
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+
+    return {start, end};
+  }
+
+  // ============================================
+  // DAILY ANALYTICS
+  // ============================================
+
+  async getDailyAnalytics(
+    month: string,
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ) {
+    try {
+      await this.init(source);
+      await this.initReviewSystem();
+
+      const {start, end} = this.getMonthDateRange(month);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      // ============================================
+      // MESSAGE COLLECTION DATA
+      // ============================================
+
+      const messageData = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                createdAt: {
+                  $gte: start,
+                  $lt: end,
+                },
+
+                isCreatedByUser: true,
+
+                isDeleted: {
+                  $ne: true,
+                },
+              },
+            },
+
+            ...userTypeLookupStages,
+
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: '%Y-%m-%d',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+
+                queryCount: {
+                  $sum: 1,
+                },
+              },
+            },
+
+            {
+              $project: {
+                _id: 0,
+                period: '$_id',
+                queryCount: 1,
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      // ============================================
+      // QUESTIONS COLLECTION DATA
+      // ============================================
+
+      const questionData = await this.QuestionCollection.aggregate(
         [
           {
             $match: {
-              isCreatedByUser: true,
+              source: 'AJRASAKHA',
+
+              createdAt: {
+                $gte: start,
+                $lt: end,
+              },
             },
           },
-
-          ...userTypeLookupStages,
 
           {
             $group: {
               _id: {
                 $dateToString: {
-                  format: '%Y-%m',
+                  format: '%Y-%m-%d',
                   date: '$createdAt',
                   timezone: '+05:30',
                 },
               },
 
-              count: {
+              totalQuestions: {
                 $sum: 1,
+              },
+
+              closedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$status', 'closed'],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              averageCloseTimeMinutes: {
+                $avg: {
+                  $cond: [
+                    {
+                      $and: [
+                        {
+                          $eq: ['$status', 'closed'],
+                        },
+
+                        {
+                          $ne: ['$closedAt', null],
+                        },
+                      ],
+                    },
+
+                    {
+                      $divide: [
+                        {
+                          $subtract: ['$closedAt', '$createdAt'],
+                        },
+
+                        1000 * 60,
+                      ],
+                    },
+
+                    null,
+                  ],
+                },
               },
             },
           },
 
           {
             $project: {
-              month: '$_id',
-              count: 1,
               _id: 0,
-            },
-          },
 
-          {
-            $sort: {
-              month: 1,
+              period: '$_id',
+
+              totalQuestions: 1,
+
+              closedQuestions: 1,
+
+              averageCloseTimeMinutes: {
+                $round: ['$averageCloseTimeMinutes', 2],
+              },
             },
           },
         ],
         {session},
-      )
-      .toArray();
+      ).toArray();
 
-    return result as MonthlyQueryCountEntry[];
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get monthly query counts: ${error}`,
-    );
-  }
-}
+      // ============================================
+      // MERGE DATA
+      // ============================================
 
-async getQuerySummaryByPeriod(
-  period: 'daily' | 'weekly' | 'monthly',
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-) {
-  try {
-    await this.init(source);
+      const mergedMap = new Map();
 
-    const userTypeLookupStages =
-      this.buildUserTypeLookupStages(userType);
+      for (const item of messageData) {
+        mergedMap.set(item.period, {
+          period: item.period,
+          queryCount: item.queryCount,
+          totalQuestions: 0,
+          closedQuestions: 0,
+          averageCloseTimeMinutes: 0,
+        });
+      }
 
-    const now = new Date();
+      for (const item of questionData) {
+        const existing = mergedMap.get(item.period);
 
-    let startDate = new Date();
-    let label = '';
+        if (existing) {
+          existing.totalQuestions = item.totalQuestions;
+          existing.closedQuestions = item.closedQuestions;
+          existing.averageCloseTimeMinutes = item.averageCloseTimeMinutes || 0;
+        } else {
+          mergedMap.set(item.period, {
+            period: item.period,
+            queryCount: 0,
+            totalQuestions: item.totalQuestions,
+            closedQuestions: item.closedQuestions,
+            averageCloseTimeMinutes: item.averageCloseTimeMinutes || 0,
+          });
+        }
+      }
 
-    switch (period) {
-      case 'daily':
-        startDate.setHours(0, 0, 0, 0);
-        label = 'Today Queries';
-        break;
-
-      case 'weekly':
-        startDate.setDate(now.getDate() - 7);
-        label = 'Last 7 Days Queries';
-        break;
-
-      case 'monthly':
-        startDate.setDate(now.getDate() - 30);
-        label = 'Last 30 Days Queries';
-        break;
+      return Array.from(mergedMap.values()).sort((a, b) =>
+        a.period.localeCompare(b.period),
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to get daily analytics: ${error}`);
     }
-
-    const result = await this.messagesCollection
-      .aggregate(
-        [
-          {
-            $match: {
-              createdAt: {
-                $gte: startDate,
-              },
-
-              isCreatedByUser: true,
-
-              isDeleted: {
-                $ne: true,
-              },
-            },
-          },
-
-          ...userTypeLookupStages,
-
-          {
-            $count: 'total',
-          },
-        ],
-        { session },
-      )
-      .toArray();
-
-    return {
-      label,
-      totalQueries: result[0]?.total || 0,
-    };
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get query summary: ${error}`,
-    );
   }
-}
 
   // ============================================
-// HELPER
-// ============================================
+  // WEEKLY ANALYTICS
+  // ============================================
 
-private getMonthDateRange(month: string) {
-  // month => "2026-05"
+  async getWeeklyAnalytics(
+    month: string,
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ) {
+    try {
+      await this.init(source);
+      await this.initReviewSystem();
 
-  const start = new Date(`${month}-01T00:00:00.000Z`);
+      const {start, end} = this.getMonthDateRange(month);
 
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + 1);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-  return { start, end };
-}
+      // ============================================
+      // MESSAGE DATA
+      // ============================================
 
-
-// ============================================
-// DAILY ANALYTICS
-// ============================================
-
-async getDailyAnalytics(
-  month: string,
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-) {
-  try {
-    await this.init(source);
-    await this.initReviewSystem();
-
-    const { start, end } = this.getMonthDateRange(month);
-
-    const userTypeLookupStages =
-      this.buildUserTypeLookupStages(userType);
-
-    // ============================================
-    // MESSAGE COLLECTION DATA
-    // ============================================
-
-    const messageData = await this.messagesCollection
-      .aggregate(
-        [
-          {
-            $match: {
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
-
-              isCreatedByUser: true,
-
-              isDeleted: {
-                $ne: true,
-              },
-            },
-          },
-
-          ...userTypeLookupStages,
-
-          {
-            $group: {
-              _id: {
-                $dateToString: {
-                  format: '%Y-%m-%d',
-                  date: '$createdAt',
-                  timezone: '+05:30',
+      const messageData = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                createdAt: {
+                  $gte: start,
+                  $lt: end,
                 },
-              },
 
-              queryCount: {
-                $sum: 1,
-              },
-            },
-          },
+                isCreatedByUser: true,
 
-          {
-            $project: {
-              _id: 0,
-              period: '$_id',
-              queryCount: 1,
-            },
-          },
-        ],
-        { session },
-      )
-      .toArray();
-
-    // ============================================
-    // QUESTIONS COLLECTION DATA
-    // ============================================
-
-    const questionData = await this.QuestionCollection
-      .aggregate(
-        [
-          {
-            $match: {
-              source: 'AJRASAKHA',
-
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
-            },
-          },
-
-          {
-            $group: {
-              _id: {
-                $dateToString: {
-                  format: '%Y-%m-%d',
-                  date: '$createdAt',
-                  timezone: '+05:30',
-                },
-              },
-
-              totalQuestions: {
-                $sum: 1,
-              },
-
-              closedQuestions: {
-                $sum: {
-                  $cond: [
-                    {
-                      $eq: ['$status', 'closed'],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-
-              averageCloseTimeMinutes: {
-                $avg: {
-                  $cond: [
-                    {
-                      $and: [
-                        {
-                          $eq: ['$status', 'closed'],
-                        },
-
-                        {
-                          $ne: ['$closedAt', null],
-                        },
-                      ],
-                    },
-
-                    {
-                      $divide: [
-                        {
-                          $subtract: [
-                            '$closedAt',
-                            '$createdAt',
-                          ],
-                        },
-
-                        1000 * 60,
-                      ],
-                    },
-
-                    null,
-                  ],
+                isDeleted: {
+                  $ne: true,
                 },
               },
             },
-          },
 
-          {
-            $project: {
-              _id: 0,
+            ...userTypeLookupStages,
 
-              period: '$_id',
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: '%G-W%V',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
 
-              totalQuestions: 1,
-
-              closedQuestions: 1,
-
-              averageCloseTimeMinutes: {
-                $round: [
-                  '$averageCloseTimeMinutes',
-                  2,
-                ],
-              },
-            },
-          },
-        ],
-        { session },
-      )
-      .toArray();
-
-    // ============================================
-    // MERGE DATA
-    // ============================================
-
-    const mergedMap = new Map();
-
-    for (const item of messageData) {
-      mergedMap.set(item.period, {
-        period: item.period,
-        queryCount: item.queryCount,
-        totalQuestions: 0,
-        closedQuestions: 0,
-        averageCloseTimeMinutes: 0,
-      });
-    }
-
-    for (const item of questionData) {
-      const existing = mergedMap.get(item.period);
-
-      if (existing) {
-        existing.totalQuestions = item.totalQuestions;
-        existing.closedQuestions = item.closedQuestions;
-        existing.averageCloseTimeMinutes =
-          item.averageCloseTimeMinutes || 0;
-      } else {
-        mergedMap.set(item.period, {
-          period: item.period,
-          queryCount: 0,
-          totalQuestions: item.totalQuestions,
-          closedQuestions: item.closedQuestions,
-          averageCloseTimeMinutes:
-            item.averageCloseTimeMinutes || 0,
-        });
-      }
-    }
-
-    return Array.from(mergedMap.values()).sort((a, b) =>
-      a.period.localeCompare(b.period),
-    );
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get daily analytics: ${error}`,
-    );
-  }
-}
-
-
-
-// ============================================
-// WEEKLY ANALYTICS
-// ============================================
-
-async getWeeklyAnalytics(
-  month: string,
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-) {
-  try {
-    await this.init(source);
-    await this.initReviewSystem();
-
-    const { start, end } = this.getMonthDateRange(month);
-
-    const userTypeLookupStages =
-      this.buildUserTypeLookupStages(userType);
-
-    // ============================================
-    // MESSAGE DATA
-    // ============================================
-
-    const messageData = await this.messagesCollection
-      .aggregate(
-        [
-          {
-            $match: {
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
-
-              isCreatedByUser: true,
-
-              isDeleted: {
-                $ne: true,
-              },
-            },
-          },
-
-          ...userTypeLookupStages,
-
-          {
-            $group: {
-              _id: {
-                $dateToString: {
-                  format: '%G-W%V',
-                  date: '$createdAt',
-                  timezone: '+05:30',
+                queryCount: {
+                  $sum: 1,
                 },
               },
+            },
 
-              queryCount: {
-                $sum: 1,
+            {
+              $project: {
+                _id: 0,
+                period: '$_id',
+                queryCount: 1,
               },
             },
-          },
+          ],
+          {session},
+        )
+        .toArray();
 
-          {
-            $project: {
-              _id: 0,
-              period: '$_id',
-              queryCount: 1,
-            },
-          },
-        ],
-        { session },
-      )
-      .toArray();
+      // ============================================
+      // QUESTION DATA
+      // ============================================
 
-    // ============================================
-    // QUESTION DATA
-    // ============================================
-
-    const questionData = await this.QuestionCollection
-      .aggregate(
+      const questionData = await this.QuestionCollection.aggregate(
         [
           {
             $match: {
@@ -1861,10 +1861,7 @@ async getWeeklyAnalytics(
                     {
                       $divide: [
                         {
-                          $subtract: [
-                            '$closedAt',
-                            '$createdAt',
-                          ],
+                          $subtract: ['$closedAt', '$createdAt'],
                         },
 
                         1000 * 60,
@@ -1889,135 +1886,123 @@ async getWeeklyAnalytics(
               closedQuestions: 1,
 
               averageCloseTimeMinutes: {
-                $round: [
-                  '$averageCloseTimeMinutes',
-                  2,
-                ],
+                $round: ['$averageCloseTimeMinutes', 2],
               },
             },
           },
         ],
-        { session },
-      )
-      .toArray();
+        {session},
+      ).toArray();
 
-    // ============================================
-    // MERGE
-    // ============================================
+      // ============================================
+      // MERGE
+      // ============================================
 
-    const mergedMap = new Map();
+      const mergedMap = new Map();
 
-    for (const item of messageData) {
-      mergedMap.set(item.period, {
-        period: item.period,
-        queryCount: item.queryCount,
-        totalQuestions: 0,
-        closedQuestions: 0,
-        averageCloseTimeMinutes: 0,
-      });
-    }
-
-    for (const item of questionData) {
-      const existing = mergedMap.get(item.period);
-
-      if (existing) {
-        existing.totalQuestions = item.totalQuestions;
-        existing.closedQuestions = item.closedQuestions;
-        existing.averageCloseTimeMinutes =
-          item.averageCloseTimeMinutes || 0;
-      } else {
+      for (const item of messageData) {
         mergedMap.set(item.period, {
           period: item.period,
-          queryCount: 0,
-          totalQuestions: item.totalQuestions,
-          closedQuestions: item.closedQuestions,
-          averageCloseTimeMinutes:
-            item.averageCloseTimeMinutes || 0,
+          queryCount: item.queryCount,
+          totalQuestions: 0,
+          closedQuestions: 0,
+          averageCloseTimeMinutes: 0,
         });
       }
+
+      for (const item of questionData) {
+        const existing = mergedMap.get(item.period);
+
+        if (existing) {
+          existing.totalQuestions = item.totalQuestions;
+          existing.closedQuestions = item.closedQuestions;
+          existing.averageCloseTimeMinutes = item.averageCloseTimeMinutes || 0;
+        } else {
+          mergedMap.set(item.period, {
+            period: item.period,
+            queryCount: 0,
+            totalQuestions: item.totalQuestions,
+            closedQuestions: item.closedQuestions,
+            averageCloseTimeMinutes: item.averageCloseTimeMinutes || 0,
+          });
+        }
+      }
+
+      return Array.from(mergedMap.values()).sort((a, b) =>
+        a.period.localeCompare(b.period),
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to get weekly analytics: ${error}`);
     }
-
-    return Array.from(mergedMap.values()).sort((a, b) =>
-      a.period.localeCompare(b.period),
-    );
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get weekly analytics: ${error}`,
-    );
   }
-}
 
+  // ============================================
+  // MONTHLY ANALYTICS
+  // ============================================
 
+  async getMonthlyAnalytics(
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ) {
+    try {
+      await this.init(source);
+      await this.initReviewSystem();
 
-// ============================================
-// MONTHLY ANALYTICS
-// ============================================
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-async getMonthlyAnalytics(
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-) {
-  try {
-    await this.init(source);
-    await this.initReviewSystem();
+      // ============================================
+      // MESSAGE DATA
+      // ============================================
 
-    const userTypeLookupStages =
-      this.buildUserTypeLookupStages(userType);
+      const messageData = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                isCreatedByUser: true,
 
-    // ============================================
-    // MESSAGE DATA
-    // ============================================
-
-    const messageData = await this.messagesCollection
-      .aggregate(
-        [
-          {
-            $match: {
-              isCreatedByUser: true,
-
-              isDeleted: {
-                $ne: true,
-              },
-            },
-          },
-
-          ...userTypeLookupStages,
-
-          {
-            $group: {
-              _id: {
-                $dateToString: {
-                  format: '%Y-%m',
-                  date: '$createdAt',
-                  timezone: '+05:30',
+                isDeleted: {
+                  $ne: true,
                 },
               },
+            },
 
-              queryCount: {
-                $sum: 1,
+            ...userTypeLookupStages,
+
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+
+                queryCount: {
+                  $sum: 1,
+                },
               },
             },
-          },
 
-          {
-            $project: {
-              _id: 0,
-              period: '$_id',
-              queryCount: 1,
+            {
+              $project: {
+                _id: 0,
+                period: '$_id',
+                queryCount: 1,
+              },
             },
-          },
-        ],
-        { session },
-      )
-      .toArray();
+          ],
+          {session},
+        )
+        .toArray();
 
-    // ============================================
-    // QUESTION DATA
-    // ============================================
+      // ============================================
+      // QUESTION DATA
+      // ============================================
 
-    const questionData = await this.QuestionCollection
-      .aggregate(
+      const questionData = await this.QuestionCollection.aggregate(
         [
           {
             $match: {
@@ -2069,10 +2054,7 @@ async getMonthlyAnalytics(
                     {
                       $divide: [
                         {
-                          $subtract: [
-                            '$closedAt',
-                            '$createdAt',
-                          ],
+                          $subtract: ['$closedAt', '$createdAt'],
                         },
 
                         1000 * 60,
@@ -2097,63 +2079,57 @@ async getMonthlyAnalytics(
               closedQuestions: 1,
 
               averageCloseTimeMinutes: {
-                $round: [
-                  '$averageCloseTimeMinutes',
-                  2,
-                ],
+                $round: ['$averageCloseTimeMinutes', 2],
               },
             },
           },
         ],
-        { session },
-      )
-      .toArray();
+        {session},
+      ).toArray();
 
-    // ============================================
-    // MERGE
-    // ============================================
+      // ============================================
+      // MERGE
+      // ============================================
 
-    const mergedMap = new Map();
+      const mergedMap = new Map();
 
-    for (const item of messageData) {
-      mergedMap.set(item.period, {
-        period: item.period,
-        queryCount: item.queryCount,
-        totalQuestions: 0,
-        closedQuestions: 0,
-        averageCloseTimeMinutes: 0,
-      });
-    }
-
-    for (const item of questionData) {
-      const existing = mergedMap.get(item.period);
-
-      if (existing) {
-        existing.totalQuestions = item.totalQuestions;
-        existing.closedQuestions = item.closedQuestions;
-        existing.averageCloseTimeMinutes =
-          item.averageCloseTimeMinutes || 0;
-      } else {
+      for (const item of messageData) {
         mergedMap.set(item.period, {
           period: item.period,
-          queryCount: 0,
-          totalQuestions: item.totalQuestions,
-          closedQuestions: item.closedQuestions,
-          averageCloseTimeMinutes:
-            item.averageCloseTimeMinutes || 0,
+          queryCount: item.queryCount,
+          totalQuestions: 0,
+          closedQuestions: 0,
+          averageCloseTimeMinutes: 0,
         });
       }
-    }
 
-    return Array.from(mergedMap.values()).sort((a, b) =>
-      a.period.localeCompare(b.period),
-    );
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get monthly analytics: ${error}`,
-    );
+      for (const item of questionData) {
+        const existing = mergedMap.get(item.period);
+
+        if (existing) {
+          existing.totalQuestions = item.totalQuestions;
+          existing.closedQuestions = item.closedQuestions;
+          existing.averageCloseTimeMinutes = item.averageCloseTimeMinutes || 0;
+        } else {
+          mergedMap.set(item.period, {
+            period: item.period,
+            queryCount: 0,
+            totalQuestions: item.totalQuestions,
+            closedQuestions: item.closedQuestions,
+            averageCloseTimeMinutes: item.averageCloseTimeMinutes || 0,
+          });
+        }
+      }
+
+      return Array.from(mergedMap.values()).sort((a, b) =>
+        a.period.localeCompare(b.period),
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get monthly analytics: ${error}`,
+      );
+    }
   }
-}
 
   async getFeedbackData(
     source = 'vicharanashala',
@@ -2850,6 +2826,8 @@ async getMonthlyAnalytics(
         {
           $match: {
             messageId: {
+              $exists: true,
+              $ne: null,
               $in: messageIds,
             },
 
@@ -2904,6 +2882,10 @@ async getMonthlyAnalytics(
             latestMessageId: {
               $first: '$messageId',
             },
+
+            allCreatedAt: {
+              $push: '$createdAt',
+            },
           },
         },
 
@@ -2934,6 +2916,8 @@ async getMonthlyAnalytics(
                 1,
               ],
             },
+
+            repeatedAt: '$allCreatedAt',
 
             isDuplicate: {
               $gt: ['$totalRepeated', 0],
@@ -2975,6 +2959,10 @@ async getMonthlyAnalytics(
       const totalQuestions = result[0]?.metadata?.[0]?.total || 0;
 
       const questions = result[0]?.data || [];
+
+      questions.forEach((q: any) => {
+        q.question = q.question?.replace(/^\s*\([^)]*\)\s*/, '');
+      });
 
       const totalPages = Math.ceil(totalQuestions / limit);
 
@@ -3019,8 +3007,9 @@ async getMonthlyAnalytics(
         {
           $match: {
             user: String(user._id),
-            sender: 'User',
-            isCreatedByUser: true,
+
+            // sender: 'User',
+            // isCreatedByUser: true,
           },
         },
 
@@ -3031,6 +3020,7 @@ async getMonthlyAnalytics(
         },
 
         // Group repeated messages
+
         {
           $group: {
             _id: {
@@ -3057,8 +3047,21 @@ async getMonthlyAnalytics(
               $first: '$updatedAt',
             },
 
-            latestMessageId: {
-              $first: '$messageId',
+            latestSender: {
+              $first: '$sender',
+            },
+
+            latestIsCreatedByUser: {
+              $first: '$isCreatedByUser',
+            },
+
+            allCreatedAt: {
+              $push: '$createdAt',
+            },
+
+            // Store all messageIds
+            messageIds: {
+              $push: '$messageId',
             },
           },
         },
@@ -3071,15 +3074,22 @@ async getMonthlyAnalytics(
 
             createdAt: '$latestCreatedAt',
 
+            sender: '$latestSender',
+
+            isCreatedByUser: '$latestIsCreatedByUser',
+
             updatedAt: '$latestUpdatedAt',
 
-            messageId: '$latestMessageId',
+            repeatedAt: '$allCreatedAt',
 
             repeatedCount: 1,
 
             isDuplicate: {
               $gt: ['$repeatedCount', 1],
             },
+
+            // keep temporarily
+            messageIds: 1,
           },
         },
 
@@ -3095,6 +3105,7 @@ async getMonthlyAnalytics(
       const totalResult = await this.messagesCollection
         .aggregate([
           ...pipeline,
+
           {
             $count: 'total',
           },
@@ -3121,6 +3132,28 @@ async getMonthlyAnalytics(
         ])
         .toArray();
 
+      // Extract all messageIds separately
+
+      const allMessageIds = messages.flatMap(
+        (msg: any) => msg.messageIds || [],
+      );
+
+      // Remove messageIds from frontend data
+
+      messages.forEach((msg: any) => {
+        delete msg.messageIds;
+      });
+
+      const filteredMessages = messages.filter(
+        (msg: any) => msg.sender === 'User' && msg.isCreatedByUser === true,
+      );
+
+      filteredMessages.forEach((msg: any) => {
+        delete msg.messageIds;
+        delete msg.sender;
+        delete msg.isCreatedByUser;
+      });
+
       return {
         totalMessages,
 
@@ -3130,7 +3163,10 @@ async getMonthlyAnalytics(
 
         limit,
 
-        messages,
+        messages: filteredMessages,
+
+        // separate array
+        allMessageIds,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get users messages: ${error}`);

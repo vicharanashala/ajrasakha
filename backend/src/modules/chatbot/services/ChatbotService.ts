@@ -369,6 +369,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       limit,
     );
 
+    console.log("Fetched the messages", messages);
+
     // No user found
     if (!user) {
       return {
@@ -385,7 +387,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
 
     // Extract messageIds
-    const messageIds = messages.messages.map((msg: any) => msg.messageId);
+    const messageIds = messages.allMessageIds;
+
+    console.log("Extracted message IDs", messageIds);
 
     // No linked messages
     if (!messageIds.length) {
@@ -410,6 +414,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       page,
       limit,
     );
+
+    console.log("Fetched questions", questions);
 
     return {
       questions,
