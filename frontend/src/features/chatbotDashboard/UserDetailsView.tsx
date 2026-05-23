@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { X, MapPin, Maximize2, Trash2 } from "lucide-react";
+import { X, MapPin, Maximize2, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
   Card,
@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
-import { useUserDetails } from "./hooks/useUserDetails";
+import { useUserDetails, type UserDetail } from "./hooks/useUserDetails";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { BarGraph } from "./components/shared/BarGrapgh";
 import { Pagination } from "@/components/pagination";
@@ -32,6 +32,7 @@ import {
 import { Input } from "@/components/atoms/input";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useDeleteUser } from "./hooks/useDeleteUser";
+import { useUpdateUser } from "./hooks/useUpdateUser";
 import {
   Table,
   TableBody,
@@ -49,6 +50,7 @@ import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import UserQuestionsModal from "./UserQuestionModal";
+import { EditFarmerModal } from "./components/EditFarmerModal";
 
 const VISIBLE_CROPS = 2;
 
@@ -139,6 +141,7 @@ export function UserDetailsView({
   const { data: currentUser } = useGetCurrentUser({});
   const isAdmin = currentUser?.role === "admin";
   const deleteUserMutation = useDeleteUser();
+  const updateUserMutation = useUpdateUser();
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
     ...initialFilters,
@@ -155,6 +158,7 @@ export function UserDetailsView({
     source: string;
     email: string;
   } | null>(null);
+  const [userToEdit, setUserToEdit] = useState<UserDetail | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
   const [hovered, setHovered] = useState<string | null>(null);
   const [agriHovered, setAgriHovered] = useState<string | null>(null);
@@ -333,6 +337,39 @@ export function UserDetailsView({
     filters.startTime && filters.endTime
       ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
       : "All time";
+
+  const handleSaveEditedUser = async (payload: {
+    name?: string;
+    farmerProfile?: {
+      farmerName?: string;
+      age?: number;
+      gender?: string;
+      villageName?: string;
+      blockName?: string;
+      district?: string;
+      state?: string;
+      phoneNo?: string;
+      languagePreference?: string;
+      yearsOfExperience?: number;
+      cropsCultivated?: string[];
+      primaryCrop?: string;
+      secondaryCrop?: string;
+      awarenessOfKCC?: boolean;
+      usesAgriApps?: boolean;
+      highestEducatedPerson?: string;
+      numberOfSmartphones?: number;
+      platform?: string;
+      platformHistory?: { os: string; timestamp: string }[];
+    };
+  }) => {
+    if (!userToEdit) return;
+    await updateUserMutation.mutateAsync({
+      userId: userToEdit.userId,
+      source,
+      data: payload,
+    });
+    setUserToEdit(null);
+  };
 
   return (
     <div className="flex-1 overflow-y-auto pb-5 min-w-0">
@@ -1055,6 +1092,16 @@ export function UserDetailsView({
                             {isAdmin && (
                               <ContextMenuContent>
                                 <ContextMenuItem
+                                  className="cursor-pointer flex items-center gap-2"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setUserToEdit(user);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                  Edit
+                                </ContextMenuItem>
+                                <ContextMenuItem
                                   className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1113,6 +1160,16 @@ export function UserDetailsView({
           </CardContent>
         </Card>
       </div>
+
+      <EditFarmerModal
+        open={!!userToEdit}
+        onOpenChange={(open) => {
+          if (!open) setUserToEdit(null);
+        }}
+        user={userToEdit}
+        isSaving={updateUserMutation.isPending}
+        onSave={handleSaveEditedUser}
+      />
 
       <AlertDialog
         open={!!userToDelete}
