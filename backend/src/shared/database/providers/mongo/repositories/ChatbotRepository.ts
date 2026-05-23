@@ -598,7 +598,13 @@ export class ChatbotRepository implements IChatbotRepository {
         this.messagesCollection
           .aggregate(
             [
-              {$match: {feedback: {$exists: true}, isCreatedByUser: false,  isDeleted: {$ne: true},},},
+              {
+                $match: {
+                  feedback: {$exists: true},
+                  isCreatedByUser: false,
+                  isDeleted: {$ne: true},
+                },
+              },
               {$group: {_id: '$user'}},
               {$count: 'total'},
             ],
@@ -654,10 +660,10 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       // Construct matches based on startTime and endTime if provided
-      const queryMatch: any = { 
-        isCreatedByUser: true, 
+      const queryMatch: any = {
+        isCreatedByUser: true,
         isDeleted: {$ne: true},
-        text: { $exists: true, $ne: null, $nin: ['', ' '] } 
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
       if (startTime || endTime) {
         queryMatch.createdAt = {};
@@ -710,10 +716,10 @@ export class ChatbotRepository implements IChatbotRepository {
           : 0;
 
       // Avg questions per user per day over the filtered range (or default to last 30 days)
-      const avgQuestionsMatch: any = { 
-        isCreatedByUser: true, 
+      const avgQuestionsMatch: any = {
+        isCreatedByUser: true,
         isDeleted: {$ne: true},
-        text: { $exists: true, $ne: null, $nin: ['', ' '] } 
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
       if (startTime || endTime) {
         avgQuestionsMatch.createdAt = {};
@@ -807,7 +813,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
+            {
+              $match: {
+                createdAt: {$gte: since},
+                isCreatedByUser: true,
+                isDeleted: {$ne: true},
+              },
+            },
             ...userTypeLookupStages,
             // Deduplicate: one entry per (month, user) pair
             {
@@ -1210,7 +1222,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true},  },},
+            {
+              $match: {
+                createdAt: {$gte: since},
+                isCreatedByUser: true,
+                isDeleted: {$ne: true},
+              },
+            },
             ...userTypeLookupStages,
             {
               $group: {
@@ -1252,7 +1270,13 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate(
           [
             // Filter to last N days, user-sent messages only
-            {$match: {createdAt: {$gte: since}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
+            {
+              $match: {
+                createdAt: {$gte: since},
+                isCreatedByUser: true,
+                isDeleted: {$ne: true},
+              },
+            },
             ...userTypeLookupStages,
             // Deduplicate: one entry per (day, user) pair
             {
@@ -1347,7 +1371,6 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $match: {
                 isCreatedByUser: true,
-                isDeleted: {$ne: true},
               },
             },
 
@@ -2284,7 +2307,13 @@ async getMonthlyAnalytics(
       const result = await this.messagesCollection
         .aggregate(
           [
-            {$match: {createdAt: {$gte: today}, isCreatedByUser: true,  isDeleted: {$ne: true}, },},
+            {
+              $match: {
+                createdAt: {$gte: today},
+                isCreatedByUser: true,
+                isDeleted: {$ne: true},
+              },
+            },
             ...userTypeLookupStages,
             {$count: 'total'},
           ],
@@ -2620,7 +2649,10 @@ async getMonthlyAnalytics(
       await this.init(source);
 
       // Build date match for messages (optional)
-      const dateMatch: Record<string, any> = {isCreatedByUser: true,  isDeleted: {$ne: true}, };
+      const dateMatch: Record<string, any> = {
+        isCreatedByUser: true,
+        isDeleted: {$ne: true},
+      };
       if (startDate || endDate) {
         dateMatch.createdAt = {};
         if (startDate) dateMatch.createdAt.$gte = startDate;
@@ -2740,7 +2772,13 @@ async getMonthlyAnalytics(
       if (lowFeedbackOnly) {
         const feedbackDocs = await this.messagesCollection
           .aggregate([
-            {$match: {feedback: {$exists: true}, isCreatedByUser: false,  isDeleted: {$ne: true},  },},
+            {
+              $match: {
+                feedback: {$exists: true},
+                isCreatedByUser: false,
+                isDeleted: {$ne: true},
+              },
+            },
             {$group: {_id: '$user'}},
           ])
           .toArray();
@@ -2793,6 +2831,330 @@ async getMonthlyAnalytics(
     }
   }
 
+  async getUserQuestionsData(
+    messageIds: string[],
+    source: string,
+    userType = 'all',
+    page = 1,
+    limit = 10,
+  ) {
+    try {
+      await this.initReviewSystem();
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const skip = (page - 1) * limit;
+
+      const pipeline = [
+        {
+          $match: {
+            messageId: {
+              $in: messageIds,
+            },
+
+            source: 'AJRASAKHA',
+          },
+        },
+
+        ...userTypeLookupStages,
+
+        // Newest first
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+
+        // Group duplicate questions
+        {
+          $group: {
+            _id: {
+              $toLower: '$question',
+            },
+
+            totalRepeated: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$status', 'duplicate'],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            latestQuestion: {
+              $first: '$question',
+            },
+
+            latestStatus: {
+              $first: '$status',
+            },
+
+            latestCreatedAt: {
+              $first: '$createdAt',
+            },
+
+            latestUpdatedAt: {
+              $first: '$updatedAt',
+            },
+
+            latestMessageId: {
+              $first: '$messageId',
+            },
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+
+            messageId: '$latestMessageId',
+
+            question: '$latestQuestion',
+
+            status: '$latestStatus',
+
+            createdAt: '$latestCreatedAt',
+
+            updatedAt: '$latestUpdatedAt',
+
+            repeatedCount: {
+              $cond: [
+                {
+                  $gt: ['$totalRepeated', 0],
+                },
+
+                {
+                  $add: ['$totalRepeated', 1],
+                },
+
+                1,
+              ],
+            },
+
+            isDuplicate: {
+              $gt: ['$totalRepeated', 0],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+
+        // Better optimization
+        {
+          $facet: {
+            metadata: [
+              {
+                $count: 'total',
+              },
+            ],
+
+            data: [
+              {
+                $skip: skip,
+              },
+
+              {
+                $limit: limit,
+              },
+            ],
+          },
+        },
+      ];
+
+      const result =
+        await this.QuestionCollection.aggregate(pipeline).toArray();
+
+      const totalQuestions = result[0]?.metadata?.[0]?.total || 0;
+
+      const questions = result[0]?.data || [];
+
+      const totalPages = Math.ceil(totalQuestions / limit);
+
+      return {
+        total: totalQuestions,
+
+        totalPages,
+
+        currentPage: page,
+
+        limit,
+
+        items: questions,
+      };
+    } catch (err) {
+      throw new InternalServerError(`Failed to get question data: ${err}`);
+    }
+  }
+
+  async getUsersMessages(
+    email: string,
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+    page = 1,
+    limit = 10,
+  ) {
+    try {
+      await this.init(source);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const user = await this.users.findOne({email: email}, {session});
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const skip = (page - 1) * limit;
+
+      const pipeline = [
+        {
+          $match: {
+            user: String(user._id),
+            sender: 'User',
+            isCreatedByUser: true,
+          },
+        },
+
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+
+        // Group repeated messages
+        {
+          $group: {
+            _id: {
+              $trim: {
+                input: {
+                  $toLower: '$text',
+                },
+              },
+            },
+
+            repeatedCount: {
+              $sum: 1,
+            },
+
+            latestMessage: {
+              $first: '$text',
+            },
+
+            latestCreatedAt: {
+              $first: '$createdAt',
+            },
+
+            latestUpdatedAt: {
+              $first: '$updatedAt',
+            },
+
+            latestMessageId: {
+              $first: '$messageId',
+            },
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+
+            message: '$latestMessage',
+
+            createdAt: '$latestCreatedAt',
+
+            updatedAt: '$latestUpdatedAt',
+
+            messageId: '$latestMessageId',
+
+            repeatedCount: 1,
+
+            isDuplicate: {
+              $gt: ['$repeatedCount', 1],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+      ];
+
+      // Total count
+
+      const totalResult = await this.messagesCollection
+        .aggregate([
+          ...pipeline,
+          {
+            $count: 'total',
+          },
+        ])
+        .toArray();
+
+      const totalMessages = totalResult[0]?.total || 0;
+
+      const totalPages = Math.ceil(totalMessages / limit);
+
+      // Paginated messages
+
+      const messages = await this.messagesCollection
+        .aggregate([
+          ...pipeline,
+
+          {
+            $skip: skip,
+          },
+
+          {
+            $limit: limit,
+          },
+        ])
+        .toArray();
+
+      return {
+        totalMessages,
+
+        totalPages,
+
+        currentPage: page,
+
+        limit,
+
+        messages,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get users messages: ${error}`);
+    }
+  }
+
+  async getUserData(
+    userEmail: string,
+    source: string,
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(source);
+      const user = await this.users.findOne({email: userEmail}, {session});
+      if (!user) {
+        throw new Error('User not found');
+      }
+      return {
+        userId: String(user._id),
+        name: user.name || user.username || 'Unknown',
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get user data: ${error}`);
+    }
+  }
   // ── NEW: Inactivity-gap based avg session duration (KPI number) ──────────────
   // Uses the messages collection instead of conversations.
   // For each conversation: sums only the gaps between consecutive messages that
@@ -4030,7 +4392,7 @@ async getMonthlyAnalytics(
       const queryMatch: any = {
         isCreatedByUser: true,
         isDeleted: {$ne: true},
-        text: { $exists: true, $ne: null, $nin: ['', ' '] }
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
 
       if (startTime || endTime) {
@@ -4166,7 +4528,7 @@ async getMonthlyAnalytics(
         {user: userId},
         {$set: {isDeleted: true}},
       );
-      const result = await this.users.deleteOne({ _id: new ObjectId(userId) });
+      const result = await this.users.deleteOne({_id: new ObjectId(userId)});
       return result.deletedCount === 1;
     } catch (error) {
       throw new InternalServerError(`Failed to delete user: ${error}`);
@@ -4174,7 +4536,10 @@ async getMonthlyAnalytics(
   }
 
   async getDailyActiveUsersTrend(
-    startDate: Date, endDate: Date, source: string, userType: string,
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
     session?: ClientSession,
   ) {
     try {
@@ -4197,21 +4562,21 @@ async getMonthlyAnalytics(
       /**
        * External Users
        */
-      if (source === "external") {
+      if (source === 'external') {
         matchStage.email = {
-          $regex: "^rup",
-          $options: "i",
+          $regex: '^rup',
+          $options: 'i',
         };
       }
 
       /**
        * Internal Users
        */
-      if (source === "internal") {
+      if (source === 'internal') {
         matchStage.email = {
           $not: {
-            $regex: "^rup",
-            $options: "i",
+            $regex: '^rup',
+            $options: 'i',
           },
         };
       }
@@ -4222,15 +4587,15 @@ async getMonthlyAnalytics(
       const result = await this.users
         .aggregate(
           [
-          {
-            $match: matchStage,
-          },
+            {
+              $match: matchStage,
+            },
             {
               $group: {
                 _id: {
                   $dateToString: {
-                    format: "%Y-%m-%d",
-                    date: "$lastActiveAt",
+                    format: '%Y-%m-%d',
+                    date: '$lastActiveAt',
                   },
                 },
                 dau: {
@@ -4251,7 +4616,6 @@ async getMonthlyAnalytics(
         .toArray();
 
       return result;
-
     } catch (error) {
       throw new InternalServerError(
         `Failed to get daily active users trend: ${error}`,
@@ -4259,9 +4623,11 @@ async getMonthlyAnalytics(
     }
   }
 
-
   async getWeeklyActiveUsersTrend(
-    startDate: Date, endDate: Date, source: string, userType: string,
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
     session?: ClientSession,
   ) {
     try {
@@ -4290,21 +4656,21 @@ async getMonthlyAnalytics(
       /**
        * External Users
        */
-      if (source === "external") {
+      if (source === 'external') {
         matchStage.email = {
-          $regex: "^rup",
-          $options: "i",
+          $regex: '^rup',
+          $options: 'i',
         };
       }
 
       /**
        * Internal Users
        */
-      if (source === "internal") {
+      if (source === 'internal') {
         matchStage.email = {
           $not: {
-            $regex: "^rup",
-            $options: "i",
+            $regex: '^rup',
+            $options: 'i',
           },
         };
       }
@@ -4322,11 +4688,11 @@ async getMonthlyAnalytics(
               $group: {
                 _id: {
                   year: {
-                    $isoWeekYear: "$lastActiveAt",
+                    $isoWeekYear: '$lastActiveAt',
                   },
 
                   week: {
-                    $isoWeek: "$lastActiveAt",
+                    $isoWeek: '$lastActiveAt',
                   },
                 },
 
@@ -4337,8 +4703,8 @@ async getMonthlyAnalytics(
             },
             {
               $sort: {
-                "_id.year": 1,
-                "_id.week": 1,
+                '_id.year': 1,
+                '_id.week': 1,
               },
             },
             {
@@ -4346,24 +4712,24 @@ async getMonthlyAnalytics(
                 _id: {
                   $concat: [
                     {
-                      $toString: "$_id.year",
+                      $toString: '$_id.year',
                     },
-                    "-W",
+                    '-W',
                     {
                       $cond: [
                         {
-                          $lt: ["$_id.week", 10],
+                          $lt: ['$_id.week', 10],
                         },
                         {
                           $concat: [
-                            "0",
+                            '0',
                             {
-                              $toString: "$_id.week",
+                              $toString: '$_id.week',
                             },
                           ],
                         },
                         {
-                          $toString: "$_id.week",
+                          $toString: '$_id.week',
                         },
                       ],
                     },
@@ -4381,7 +4747,6 @@ async getMonthlyAnalytics(
         .toArray();
 
       return result;
-
     } catch (error) {
       throw new InternalServerError(
         `Failed to get weekly active users trend: ${error}`,
@@ -4390,7 +4755,10 @@ async getMonthlyAnalytics(
   }
 
   async getMonthlyActiveUsersTrend(
-    startDate: Date, endDate: Date, source: string, userType: string,
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
     session?: ClientSession,
   ) {
     try {
@@ -4413,21 +4781,21 @@ async getMonthlyAnalytics(
       /**
        * External Users
        */
-      if (source === "external") {
+      if (source === 'external') {
         matchStage.email = {
-          $regex: "^rup",
-          $options: "i",
+          $regex: '^rup',
+          $options: 'i',
         };
       }
 
       /**
        * Internal Users
        */
-      if (source === "internal") {
+      if (source === 'internal') {
         matchStage.email = {
           $not: {
-            $regex: "^rup",
-            $options: "i",
+            $regex: '^rup',
+            $options: 'i',
           },
         };
       }
@@ -4444,8 +4812,8 @@ async getMonthlyAnalytics(
               $group: {
                 _id: {
                   $dateToString: {
-                    format: "%Y-%m",
-                    date: "$lastActiveAt",
+                    format: '%Y-%m',
+                    date: '$lastActiveAt',
                   },
                 },
                 mau: {
@@ -4465,8 +4833,7 @@ async getMonthlyAnalytics(
         )
         .toArray();
 
-        return result;
-
+      return result;
     } catch (error) {
       throw new InternalServerError(
         `Failed to get monthly active users trend: ${error}`,
@@ -4474,9 +4841,7 @@ async getMonthlyAnalytics(
     }
   }
 
-  async getRetentionMetrics(
-    session?: ClientSession,
-  ) {
+  async getRetentionMetrics(session?: ClientSession) {
     try {
       await this.init();
 
@@ -4486,9 +4851,7 @@ async getMonthlyAnalytics(
       const endDate = new Date();
       const startDate = new Date();
 
-      startDate.setMonth(
-        startDate.getMonth() - 3,
-      );
+      startDate.setMonth(startDate.getMonth() - 3);
 
       const result = await this.users
         .aggregate(
@@ -4510,13 +4873,13 @@ async getMonthlyAnalytics(
              */
             {
               $project: {
-                userId: "$_id",
-                signupDate: "$createdAt",
+                userId: '$_id',
+                signupDate: '$createdAt',
                 cohortDate: {
                   $dateToString: {
                     // format: "%Y-%m-%d",
-                    format: "%Y-W%V",
-                    date: "$createdAt",
+                    format: '%Y-W%V',
+                    date: '$createdAt',
                   },
                 },
               },
@@ -4527,10 +4890,10 @@ async getMonthlyAnalytics(
              */
             {
               $lookup: {
-                from: "messages",
+                from: 'messages',
                 let: {
-                  userId: "$userId",
-                  signupDate: "$signupDate",
+                  userId: '$userId',
+                  signupDate: '$signupDate',
                 },
                 pipeline: [
                   /**
@@ -4540,9 +4903,9 @@ async getMonthlyAnalytics(
                     $match: {
                       $expr: {
                         $eq: [
-                          "$user",
+                          '$user',
                           {
-                            $toString: "$$userId",
+                            $toString: '$$userId',
                           },
                         ],
                       },
@@ -4560,19 +4923,19 @@ async getMonthlyAnalytics(
                         $dateDiff: {
                           startDate: {
                             $dateTrunc: {
-                              date: "$$signupDate",
-                              unit: "day",
+                              date: '$$signupDate',
+                              unit: 'day',
                             },
                           },
 
                           endDate: {
                             $dateTrunc: {
-                              date: "$createdAt",
-                              unit: "day",
+                              date: '$createdAt',
+                              unit: 'day',
                             },
                           },
 
-                          unit: "day",
+                          unit: 'day',
                         },
                       },
                     },
@@ -4590,7 +4953,7 @@ async getMonthlyAnalytics(
                   },
                 ],
 
-                as: "activities",
+                as: 'activities',
               },
             },
 
@@ -4606,15 +4969,12 @@ async getMonthlyAnalytics(
                     {
                       $size: {
                         $filter: {
-                          input: "$activities",
+                          input: '$activities',
 
-                          as: "activity",
+                          as: 'activity',
 
                           cond: {
-                            $eq: [
-                              "$$activity.daysAfterSignup",
-                              1,
-                            ],
+                            $eq: ['$$activity.daysAfterSignup', 1],
                           },
                         },
                       },
@@ -4628,15 +4988,12 @@ async getMonthlyAnalytics(
                     {
                       $size: {
                         $filter: {
-                          input: "$activities",
+                          input: '$activities',
 
-                          as: "activity",
+                          as: 'activity',
 
                           cond: {
-                            $eq: [
-                              "$$activity.daysAfterSignup",
-                              7,
-                            ],
+                            $eq: ['$$activity.daysAfterSignup', 7],
                           },
                         },
                       },
@@ -4650,15 +5007,12 @@ async getMonthlyAnalytics(
                     {
                       $size: {
                         $filter: {
-                          input: "$activities",
+                          input: '$activities',
 
-                          as: "activity",
+                          as: 'activity',
 
                           cond: {
-                            $eq: [
-                              "$$activity.daysAfterSignup",
-                              30,
-                            ],
+                            $eq: ['$$activity.daysAfterSignup', 30],
                           },
                         },
                       },
@@ -4674,7 +5028,7 @@ async getMonthlyAnalytics(
              */
             {
               $group: {
-                _id: "$cohortDate",
+                _id: '$cohortDate',
 
                 totalUsers: {
                   $sum: 1,
@@ -4682,31 +5036,19 @@ async getMonthlyAnalytics(
 
                 d1Users: {
                   $sum: {
-                    $cond: [
-                      "$retainedD1",
-                      1,
-                      0,
-                    ],
+                    $cond: ['$retainedD1', 1, 0],
                   },
                 },
 
                 d7Users: {
                   $sum: {
-                    $cond: [
-                      "$retainedD7",
-                      1,
-                      0,
-                    ],
+                    $cond: ['$retainedD7', 1, 0],
                   },
                 },
 
                 d30Users: {
                   $sum: {
-                    $cond: [
-                      "$retainedD30",
-                      1,
-                      0,
-                    ],
+                    $cond: ['$retainedD30', 1, 0],
                   },
                 },
               },
@@ -4719,7 +5061,7 @@ async getMonthlyAnalytics(
               $project: {
                 _id: 0,
 
-                cohortDate: "$_id",
+                cohortDate: '$_id',
 
                 totalUsers: 1,
 
@@ -4728,10 +5070,7 @@ async getMonthlyAnalytics(
                     {
                       $multiply: [
                         {
-                          $divide: [
-                            "$d1Users",
-                            "$totalUsers",
-                          ],
+                          $divide: ['$d1Users', '$totalUsers'],
                         },
                         100,
                       ],
@@ -4745,10 +5084,7 @@ async getMonthlyAnalytics(
                     {
                       $multiply: [
                         {
-                          $divide: [
-                            "$d7Users",
-                            "$totalUsers",
-                          ],
+                          $divide: ['$d7Users', '$totalUsers'],
                         },
                         100,
                       ],
@@ -4762,10 +5098,7 @@ async getMonthlyAnalytics(
                     {
                       $multiply: [
                         {
-                          $divide: [
-                            "$d30Users",
-                            "$totalUsers",
-                          ],
+                          $divide: ['$d30Users', '$totalUsers'],
                         },
                         100,
                       ],
@@ -4792,12 +5125,10 @@ async getMonthlyAnalytics(
         .toArray();
 
       return result;
-
     } catch (error) {
       throw new InternalServerError(
         `Failed to get retention metrics: ${error}`,
       );
     }
   }
-
 }
