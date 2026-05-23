@@ -24,6 +24,10 @@ import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
 
 const app = express();
 
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 app.use(loggingHandler);
 
 const {controllers, validators} = await loadAppModules(
