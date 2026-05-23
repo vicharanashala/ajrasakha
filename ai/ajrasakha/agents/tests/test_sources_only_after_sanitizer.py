@@ -85,13 +85,13 @@ def test_route_after_sanitizer_empty_when_all_answers_dropped():
                 name="gdb",
             ),
         ],
-        "plan": {"knowledge_base": True, "weather": True},
+        "plan": {"knowledge_base": True},
     }
     assert route_after_sanitizer(state) == "empty_gdb_reply"
 
 
-def test_route_after_sanitizer_empty_even_with_weather_tool_message():
-    """Post-sanitizer routing ignores specialist tools — empty GDB → canned reply."""
+def test_route_after_sanitizer_synthesize_when_weather_tool_has_content():
+    """Empty GDB after sanitizer + weather answer → synthesize from specialist tools."""
     state: AjraSakhaState = {
         "messages": [
             HumanMessage(content="Weather and crop?"),
@@ -104,4 +104,4 @@ def test_route_after_sanitizer_empty_even_with_weather_tool_message():
         ],
         "plan": {"knowledge_base": True, "weather": True},
     }
-    assert route_after_sanitizer(state) == "empty_gdb_reply"
+    assert route_after_sanitizer(state) == "synthesize"

@@ -337,6 +337,52 @@ def _format_tool_results_for_synthesizer(messages: list[BaseMessage]) -> str:
     return "\n\n".join(blocks) if blocks else "(No tool results)"
 
 
+async def _synthesize_from_specialist_tools(
+    state: AjraSakhaState,
+    config: RunnableConfig,
+    *,
+    user_text: str,
+    output_lang: str,
+    summary_context: str,
+    messages: list[BaseMessage],
+) -> dict:
+    """Synthesize from weather/market/soil/schemes tools when GDB has no usable answer."""
+    logger.info("Synthesizing from specialist tool results (GDB empty or rejected)")
+    tool_block = _format_tool_results_for_synthesizer(messages)
+    llm_messages: list[BaseMessage] = [
+        SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
+        SystemMessage(content=language_directive_for_synthesis(user_text)),
+        SystemMessage(content=summary_context),
+    ]
+    loc_ctx = main_agent_location_context_message(state.get("location"))
+    if loc_ctx:
+        llm_messages.append(loc_ctx)
+    llm_messages.append(
+        HumanMessage(
+            content=f"Farmer message (detected language: {output_lang}):\n{user_text}"
+        )
+    )
+    llm_messages.append(HumanMessage(content=f"Tool results:\n{tool_block}"))
+
+    try:
+        llm = ChatAnthropic(model=CLAUDE_MODEL)
+        response = await llm.ainvoke(llm_messages, config=config)
+        answer_text = _message_to_text(response)
+        answer_text = f"{answer_text}\n\n{WARNING_TEXT}"
+        logger.info("Tool-only synthesis complete (len=%d)", len(answer_text))
+        return {
+            "messages": [AIMessage(content=answer_text)],
+            "location": state.get("location"),
+        }
+    except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
+        logger.warning("Synthesizer failed (%s: %s)", type(exc).__name__, exc)
+        return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+    except APIStatusError as exc:
+        if exc.status_code >= 500:
+            return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+        raise
+
+
 # ── Main synthesize node ─────────────────────────────────────────────────
 
 
@@ -372,10 +418,7 @@ async def synthesize_node(
     # Parse GDB response to determine exact vs similar
     gdb_data = _extract_gdb_from_messages(messages)
     plan = state.get("plan") or {}
-
-    if gdb_data and not gdb_has_usable_answers(gdb_data):
-        logger.info("GDB has no usable expert answers — returning expert-queue canned reply")
-        return _empty_gdb_synthesis_result(state, plan=plan)
+    other_tools = _format_non_gdb_tool_results(messages)
 
     if gdb_data and gdb_has_usable_answers(gdb_data):
         exact = gdb_data.get("exact_match") or {}
@@ -477,8 +520,20 @@ async def synthesize_node(
         other_tools_section = f"\n\nOther tool results:\n{other_tools}" if other_tools else ""
 
         if not pairs_text.strip():
+            if other_tools.strip():
+                logger.info(
+                    "GDB pairs empty after sanitizer — synthesizing from specialist tools"
+                )
+                return await _synthesize_from_specialist_tools(
+                    state,
+                    config,
+                    user_text=user_text,
+                    output_lang=output_lang,
+                    summary_context=summary_context,
+                    messages=messages,
+                )
             logger.info(
-                "Similar match path has no pair answers after sanitizer — expert-queue canned reply"
+                "Similar match path has no pair answers and no specialist tools — expert-queue"
             )
             return _empty_gdb_synthesis_result(state, plan=plan)
 
@@ -525,52 +580,15 @@ async def synthesize_node(
             raise
 
     else:
-        # ── No GDB data: Check if other tools have results ──
-        other_tools = _format_non_gdb_tool_results(messages)
-        
-        if not other_tools.strip():
-            # No tools have data at all
-            logger.info("No GDB data and no other specialist tools — returning expert-queue canned reply")
-            return _empty_gdb_synthesis_result(state, plan=plan)
-        
-        # Other tools have data → synthesize from them
-        logger.info("No GDB data but other tools available — synthesizing from tools")
-        tool_block = _format_tool_results_for_synthesizer(messages)
-
-        llm_messages: list[BaseMessage] = [
-            SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(user_text)),
-            SystemMessage(content=summary_context),
-        ]
-        loc_ctx = main_agent_location_context_message(state.get("location"))
-        if loc_ctx:
-            llm_messages.append(loc_ctx)
-        llm_messages.append(
-            HumanMessage(
-                content=(
-                    f"Farmer message (detected language: {output_lang}):\n{user_text}"
-                )
+        # GDB missing or empty/rejected — use specialist tools if any
+        if other_tools.strip():
+            return await _synthesize_from_specialist_tools(
+                state,
+                config,
+                user_text=user_text,
+                output_lang=output_lang,
+                summary_context=summary_context,
+                messages=messages,
             )
-        )
-        llm_messages.append(HumanMessage(content=f"Tool results:\n{tool_block}"))
-
-        try:
-            llm = ChatAnthropic(model=CLAUDE_MODEL)
-            response = await llm.ainvoke(llm_messages, config=config)
-            answer_text = _message_to_text(response)
-
-            # Append mandatory testing disclaimer (same as exact/similar paths)
-            answer_text = f"{answer_text}\n\n{WARNING_TEXT}"
-
-            logger.info("Tool-only synthesis complete (len=%d)", len(answer_text))
-            return {
-                "messages": [AIMessage(content=answer_text)],
-                "location": state.get("location"),
-            }
-        except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
-            logger.warning("Synthesizer failed (%s: %s)", type(exc).__name__, exc)
-            return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-        except APIStatusError as exc:
-            if exc.status_code >= 500:
-                return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-            raise
+        logger.info("No usable GDB and no specialist tools — returning expert-queue canned reply")
+        return _empty_gdb_synthesis_result(state, plan=plan)

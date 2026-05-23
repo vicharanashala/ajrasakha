@@ -73,7 +73,7 @@ def test_stale_city_not_used_as_district_without_gps():
 
 
 @pytest.mark.asyncio
-async def test_gdb_uses_kerala_from_query_not_stale_gps_punjab():
+async def test_gdb_uses_kerala_from_rephrased_plan_not_stale_gps_punjab():
     plan = {
         "weather": False,
         "mandi": False,
@@ -82,11 +82,12 @@ async def test_gdb_uses_kerala_from_query_not_stale_gps_punjab():
         "chemical_checker": False,
         "knowledge_base": True,
         "is_complete": True,
-        "entities": {"crop": "paddy"},
+        "rephrased_query": "How can I grow paddy in Kottayam, Kerala?",
+        "entities": {"crop": "paddy", "state": "Kerala"},
     }
     calls = await build_tool_calls_from_plan(
         plan,
-        "How can I grow paddy in kottayam kerla?",
+        "ਕੋਟਟਾਯਮ ਵਿੱਚ ਧਾਨ ਉਗਾਉਣਾ?",
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
         location_tool_name="location_information_tool",
         reviewer_tool_name="upload_question_to_reviewer_system",
