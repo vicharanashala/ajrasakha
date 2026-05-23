@@ -181,7 +181,8 @@ export class ChatbotRepository implements IChatbotRepository {
       if (endTime) matchQuery.createdAt.$lte = new Date(endTime);
     }
 
-    const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildQuestionUserTypeLookupStages(userType);
 
     const result = await this.QuestionCollection.aggregate(
       [
@@ -211,7 +212,12 @@ export class ChatbotRepository implements IChatbotRepository {
                   $expr: {
                     $and: [
                       {$gte: ['$closedAt', '$createdAt']},
-                      {$lte: [{$subtract: ['$closedAt', '$createdAt']}, 120 * 60 * 1000]},
+                      {
+                        $lte: [
+                          {$subtract: ['$closedAt', '$createdAt']},
+                          120 * 60 * 1000,
+                        ],
+                      },
                     ],
                   },
                 },
@@ -232,24 +238,18 @@ export class ChatbotRepository implements IChatbotRepository {
                   _id: null,
                   avgMinutes: {
                     $avg: {
-                      $divide: [{$subtract: ['$closedAt', '$createdAt']}, 60 * 1000],
+                      $divide: [
+                        {$subtract: ['$closedAt', '$createdAt']},
+                        60 * 1000,
+                      ],
                     },
                   },
                 },
               },
             ],
-            inReview: [
-              {$match: {status: 'in-review'}},
-              {$count: 'count'},
-            ],
-            open: [
-              {$match: {status: 'open'}},
-              {$count: 'count'},
-            ],
-            delayed: [
-              {$match: {status: 'delayed'}},
-              {$count: 'count'},
-            ],
+            inReview: [{$match: {status: 'in-review'}}, {$count: 'count'}],
+            open: [{$match: {status: 'open'}}, {$count: 'count'}],
+            delayed: [{$match: {status: 'delayed'}}, {$count: 'count'}],
             markedDuplicateGdb: [
               {
                 $match: {
@@ -293,8 +293,20 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.initReviewSystem();
 
       const [whatsapp, ajrasakha] = await Promise.all([
-        this.getSourceAdherenceStats('WHATSAPP', userType, startTime, endTime, session),
-        this.getSourceAdherenceStats('AJRASAKHA', userType, startTime, endTime, session),
+        this.getSourceAdherenceStats(
+          'WHATSAPP',
+          userType,
+          startTime,
+          endTime,
+          session,
+        ),
+        this.getSourceAdherenceStats(
+          'AJRASAKHA',
+          userType,
+          startTime,
+          endTime,
+          session,
+        ),
       ]);
 
       const messageMatch: any = {isDeleted: {$ne: true}};
@@ -431,11 +443,19 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const whatsappAdherencePct =
         whatsapp.questionAsked > 0
-          ? Math.round((whatsapp.answeredWithin120Min / whatsapp.questionAsked) * 100 * 100) / 100
+          ? Math.round(
+              (whatsapp.answeredWithin120Min / whatsapp.questionAsked) *
+                100 *
+                100,
+            ) / 100
           : 0;
       const ajrasakhaAdherencePct =
         ajrasakha.questionAsked > 0
-          ? Math.round((ajrasakha.answeredWithin120Min / ajrasakha.questionAsked) * 100 * 100) / 100
+          ? Math.round(
+              (ajrasakha.answeredWithin120Min / ajrasakha.questionAsked) *
+                100 *
+                100,
+            ) / 100
           : 0;
 
       const startReference = startTime ? new Date(startTime) : new Date();
@@ -1556,77 +1576,74 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-async getQuerySummaryByPeriod(
-  period: 'daily' | 'weekly' | 'monthly',
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-) {
-  try {
-    await this.init(source);
+  async getQuerySummaryByPeriod(
+    period: 'daily' | 'weekly' | 'monthly',
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ) {
+    try {
+      await this.init(source);
 
-    const userTypeLookupStages =
-      this.buildUserTypeLookupStages(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-    const now = new Date();
+      const now = new Date();
 
-    let startDate = new Date();
-    let label = '';
+      let startDate = new Date();
+      let label = '';
 
-    switch (period) {
-      case 'daily':
-        startDate.setHours(0, 0, 0, 0);
-        label = 'Today Queries';
-        break;
+      switch (period) {
+        case 'daily':
+          startDate.setHours(0, 0, 0, 0);
+          label = 'Today Queries';
+          break;
 
-      case 'weekly':
-        startDate.setDate(now.getDate() - 7);
-        label = 'Last 7 Days Queries';
-        break;
+        case 'weekly':
+          startDate.setDate(now.getDate() - 7);
+          label = 'Last 7 Days Queries';
+          break;
 
-      case 'monthly':
-        startDate.setDate(now.getDate() - 30);
-        label = 'Last 30 Days Queries';
-        break;
-    }
+        case 'monthly':
+          startDate.setDate(now.getDate() - 30);
+          label = 'Last 30 Days Queries';
+          break;
+      }
 
-    const result = await this.messagesCollection
-      .aggregate(
-        [
-          {
-            $match: {
-              createdAt: {
-                $gte: startDate,
-              },
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                createdAt: {
+                  $gte: startDate,
+                },
 
-              isCreatedByUser: true,
+                isCreatedByUser: true,
 
-              isDeleted: {
-                $ne: true,
+                isDeleted: {
+                  $ne: true,
+                },
               },
             },
-          },
 
-          ...userTypeLookupStages,
+            ...userTypeLookupStages,
 
-          {
-            $count: 'total',
-          },
-        ],
-        { session },
-      )
-      .toArray();
+            {
+              $count: 'total',
+            },
+          ],
+          {session},
+        )
+        .toArray();
 
-    return {
-      label,
-      totalQueries: result[0]?.total || 0,
-    };
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get query summary: ${error}`,
-    );
+      return {
+        label,
+        totalQueries: result[0]?.total || 0,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get query summary: ${error}`);
+    }
   }
-}
 
   async getWeatherConcernAnalytics(
     filters: WeatherConcernAnalyticsFilters = {},
@@ -1871,26 +1888,25 @@ async getQuerySummaryByPeriod(
   }
 
   // ============================================
-// HELPER
-// ============================================
+  // HELPER
+  // ============================================
 
-private getMonthDateRange(month: string) {
-  // month => "2026-05"
+  private getMonthDateRange(month: string) {
+    // month => "2026-05"
 
-  const start = new Date(`${month}-01T00:00:00.000Z`);
+    const start = new Date(`${month}-01T00:00:00.000Z`);
 
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + 1);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
 
-  return { start, end };
-}
+    return {start, end};
+  }
 
+  // ============================================
+  // DAILY ANALYTICS
+  // ============================================
 
-// ============================================
-// DAILY ANALYTICS
-// ============================================
-
-async getDailyAnalytics(
+  async getDailyAnalytics(
   month?: string,
   source = 'vicharanashala',
   session?: ClientSession,
@@ -2102,13 +2118,11 @@ async getDailyAnalytics(
   }
 }
 
+  // ============================================
+  // WEEKLY ANALYTICS
+  // ============================================
 
-
-// ============================================
-// WEEKLY ANALYTICS
-// ============================================
-
-async getWeeklyAnalytics(
+  async getWeeklyAnalytics(
   month?: string,
   source = 'vicharanashala',
   session?: ClientSession,
@@ -2320,13 +2334,11 @@ async getWeeklyAnalytics(
   }
 }
 
+  // ============================================
+  // MONTHLY ANALYTICS
+  // ============================================
 
-
-// ============================================
-// MONTHLY ANALYTICS
-// ============================================
-
-async getMonthlyAnalytics(
+  async getMonthlyAnalytics(
   source = 'vicharanashala',
   session?: ClientSession,
   userType = 'all',
@@ -3233,9 +3245,16 @@ async getMonthlyAnalytics(
       const skip = (page - 1) * limit;
 
       const pipeline = [
+        /**
+         * Match only questions
+         * linked with user's messages
+         */
+
         {
           $match: {
             messageId: {
+              $exists: true,
+              $ne: null,
               $in: messageIds,
             },
 
@@ -3245,31 +3264,43 @@ async getMonthlyAnalytics(
 
         ...userTypeLookupStages,
 
-        // Newest first
+        /**
+         * Newest first
+         */
+
         {
           $sort: {
             createdAt: -1,
           },
         },
 
-        // Group duplicate questions
+        /**
+         * Group same questions
+         * asked by SAME user
+         */
+
         {
           $group: {
             _id: {
-              $toLower: '$question',
-            },
-
-            totalRepeated: {
-              $sum: {
-                $cond: [
-                  {
-                    $eq: ['$status', 'duplicate'],
-                  },
-                  1,
-                  0,
-                ],
+              $toLower: {
+                $trim: {
+                  input: '$question',
+                },
               },
             },
+
+            /**
+             * Count how many times
+             * same user asked same question
+             */
+
+            repeatedCount: {
+              $sum: 1,
+            },
+
+            /**
+             * Latest question data
+             */
 
             latestQuestion: {
               $first: '$question',
@@ -3290,8 +3321,21 @@ async getMonthlyAnalytics(
             latestMessageId: {
               $first: '$messageId',
             },
+
+            /**
+             * Store all timestamps
+             * for timeline modal
+             */
+
+            allCreatedAt: {
+              $push: '$createdAt',
+            },
           },
         },
+
+        /**
+         * Final response shape
+         */
 
         {
           $project: {
@@ -3299,7 +3343,18 @@ async getMonthlyAnalytics(
 
             messageId: '$latestMessageId',
 
-            question: '$latestQuestion',
+            /**
+             * Clean:
+             * (repeated)
+             * (duplicate)
+             * etc.
+             */
+
+            question: {
+              $trim: {
+                input: '$latestQuestion',
+              },
+            },
 
             status: '$latestStatus',
 
@@ -3307,25 +3362,23 @@ async getMonthlyAnalytics(
 
             updatedAt: '$latestUpdatedAt',
 
-            repeatedCount: {
-              $cond: [
-                {
-                  $gt: ['$totalRepeated', 0],
-                },
+            repeatedCount: '$repeatedCount',
 
-                {
-                  $add: ['$totalRepeated', 1],
-                },
+            repeatedAt: '$allCreatedAt',
 
-                1,
-              ],
-            },
+            /**
+             * If asked > 1 time
+             */
 
             isDuplicate: {
-              $gt: ['$totalRepeated', 0],
+              $gt: ['$repeatedCount', 1],
             },
           },
         },
+
+        /**
+         * Sort latest first
+         */
 
         {
           $sort: {
@@ -3333,7 +3386,10 @@ async getMonthlyAnalytics(
           },
         },
 
-        // Better optimization
+        /**
+         * Pagination
+         */
+
         {
           $facet: {
             metadata: [
@@ -3361,6 +3417,23 @@ async getMonthlyAnalytics(
       const totalQuestions = result[0]?.metadata?.[0]?.total || 0;
 
       const questions = result[0]?.data || [];
+
+      /**
+       * Cleanup question prefixes
+       */
+
+      questions.forEach((q: any) => {
+        q.question = q.question?.replace(/^\s*\([^)]*\)\s*/, '')?.trim();
+
+        /**
+         * Sort timeline newest first
+         */
+
+        q.repeatedAt = (q.repeatedAt || []).sort(
+          (a: string, b: string) =>
+            new Date(b).getTime() - new Date(a).getTime(),
+        );
+      });
 
       const totalPages = Math.ceil(totalQuestions / limit);
 
@@ -3405,8 +3478,9 @@ async getMonthlyAnalytics(
         {
           $match: {
             user: String(user._id),
-            sender: 'User',
-            isCreatedByUser: true,
+
+            // sender: 'User',
+            // isCreatedByUser: true,
           },
         },
 
@@ -3417,6 +3491,7 @@ async getMonthlyAnalytics(
         },
 
         // Group repeated messages
+
         {
           $group: {
             _id: {
@@ -3443,8 +3518,21 @@ async getMonthlyAnalytics(
               $first: '$updatedAt',
             },
 
-            latestMessageId: {
-              $first: '$messageId',
+            latestSender: {
+              $first: '$sender',
+            },
+
+            latestIsCreatedByUser: {
+              $first: '$isCreatedByUser',
+            },
+
+            allCreatedAt: {
+              $push: '$createdAt',
+            },
+
+            // Store all messageIds
+            messageIds: {
+              $push: '$messageId',
             },
           },
         },
@@ -3457,15 +3545,22 @@ async getMonthlyAnalytics(
 
             createdAt: '$latestCreatedAt',
 
+            sender: '$latestSender',
+
+            isCreatedByUser: '$latestIsCreatedByUser',
+
             updatedAt: '$latestUpdatedAt',
 
-            messageId: '$latestMessageId',
+            repeatedAt: '$allCreatedAt',
 
             repeatedCount: 1,
 
             isDuplicate: {
               $gt: ['$repeatedCount', 1],
             },
+
+            // keep temporarily
+            messageIds: 1,
           },
         },
 
@@ -3481,6 +3576,7 @@ async getMonthlyAnalytics(
       const totalResult = await this.messagesCollection
         .aggregate([
           ...pipeline,
+
           {
             $count: 'total',
           },
@@ -3507,8 +3603,30 @@ async getMonthlyAnalytics(
         ])
         .toArray();
 
+      // Extract all messageIds separately
+
+      const allMessageIds = messages.flatMap(
+        (msg: any) => msg.messageIds || [],
+      );
+
+      // Remove messageIds from frontend data
+
+      messages.forEach((msg: any) => {
+        delete msg.messageIds;
+      });
+
+      const filteredMessages = messages.filter(
+        (msg: any) => msg.sender === 'User' && msg.isCreatedByUser === true,
+      );
+
+      filteredMessages.forEach((msg: any) => {
+        delete msg.messageIds;
+        delete msg.sender;
+        delete msg.isCreatedByUser;
+      });
+
       return {
-        totalMessages,
+        total: totalMessages,
 
         totalPages,
 
@@ -3516,7 +3634,10 @@ async getMonthlyAnalytics(
 
         limit,
 
-        messages,
+        items: filteredMessages,
+
+        // separate array
+        allMessageIds,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get users messages: ${error}`);
@@ -3542,6 +3663,36 @@ async getMonthlyAnalytics(
       throw new InternalServerError(`Failed to get user data: ${error}`);
     }
   }
+
+  async getAllUserMessageIds(
+    email: string,
+    source = 'vicharanashala',
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(source);
+
+      const user = await this.users.findOne({email}, {session});
+
+      if (!user) {
+        return [];
+      }
+
+      const messageIds = await this.messagesCollection.distinct('messageId', {
+        user: String(user._id),
+
+        messageId: {
+          $exists: true,
+          $ne: null,
+        },
+      });
+
+      return messageIds;
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch all messageIds: ${error}`);
+    }
+  }
+
   // ── NEW: Inactivity-gap based avg session duration (KPI number) ──────────────
   // Uses the messages collection instead of conversations.
   // For each conversation: sums only the gaps between consecutive messages that
