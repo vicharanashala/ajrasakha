@@ -1922,12 +1922,13 @@ answer: ${updates.answer}`;
           aiInitialAnswer: updates.answer ?? '',
           // totalAnswersCount: 1,
           isAutoAllocate: true,
+          status:"open"
         },
         session,
         isAddTextRequired,
       );
 
-      if (question.status !== 'open' && question.status !== 'delayed') {
+    /*  if (question.status !== 'open' && question.status !== 'delayed') {
         let queue: ObjectId[] = [];
         let initialExpert: any = null;
 
@@ -1986,7 +1987,7 @@ answer: ${updates.answer}`;
             session
           );
         }
-      }
+      }*/
 
       return { modifiedCount: 1 };
     });

@@ -3331,7 +3331,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   async findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]> {
     await this.init();
-    const fortyFiveMinAgo = new Date(Date.now() - 40 * 60 * 1000);
+    const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
 
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
       {
