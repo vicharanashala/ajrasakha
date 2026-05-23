@@ -312,10 +312,12 @@ export class ChatbotRepository implements IChatbotRepository {
               $facet: {
                 queryCounts: [
                   {
-                    $group: {
-                      _id: '$_sourceBucket',
-                      count: {$sum: 1},
+                    $match: {
+                      sender: 'User',
                     },
+                  },
+                  {
+                    $count: 'count',
                   },
                 ],
                 dynamicWeather: [
@@ -385,8 +387,9 @@ export class ChatbotRepository implements IChatbotRepository {
       const ajrasakhaDynamicSchemes =
         dynamicSchemesCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
 
-      const whatsappQueriesAsked = queryCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
-      const ajrasakhaQueriesAsked = queryCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+      const totalUserMessages = queryCounts[0]?.count ?? 0;
+      const whatsappQueriesAsked = 0;
+      const ajrasakhaQueriesAsked = totalUserMessages;
 
       const whatsappAdherencePct =
         whatsapp.questionAsked > 0
