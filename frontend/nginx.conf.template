@@ -8,7 +8,10 @@ server {
 
     location /api/ {
         set $api_upstream reviewer-backend;
-        proxy_pass http://$api_upstream:${APP_PORT}/api/;
+        # Variable proxy_pass + $request_uri: nginx treats @ in emails (user@host) as
+        # authority if the URI is in proxy_pass literally — paths get truncated to /api/.
+        set $api_backend http://$api_upstream:${APP_PORT};
+        proxy_pass $api_backend$request_uri;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
