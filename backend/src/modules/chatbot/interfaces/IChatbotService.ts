@@ -49,6 +49,14 @@ export interface DashboardResponse {
   };
 }
 
+export interface QueryAnalyticsResponse {
+  data: any[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface IChatbotService {
   getDashboard(
     days: number,
@@ -65,10 +73,21 @@ export interface IChatbotService {
   getQueryCategories(source?: string, userType?: string): Promise<QueryCategoryEntry[]>;
   getTopCrops(): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
-  getDailyAnalytics(month: string, source?: string, userType?: string): Promise<any[]>;
+  getDailyAnalytics(month?: string, source?: string, userType?: string): Promise<any[]>;
   getTodayQueryCount(source?: string, userType?: string): Promise<number>;
-  getWeeklyAnalytics(month: string, source?: string, userType?: string): Promise<any[]>;
+  getWeeklyAnalytics(month?: string, source?: string, userType?: string): Promise<any[]>;
   getMonthlyAnalytics(source?: string, userType?: string): Promise<any[]>;
+  getQueryAnalytics(
+    period: 'daily' | 'weekly' | 'monthly',
+    options: {
+      month?: string;
+      year?: number;
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+    },
+  ): Promise<QueryAnalyticsResponse>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
   getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string,sortBy?:string, sortOrder?:string): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string, userType?: string): Promise<number>;
@@ -85,5 +104,5 @@ export interface IChatbotService {
   getMonthlyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string): Promise<any>;
   getWeeklyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string): Promise<any>;
   getRetentionMetrics(): Promise<any>;
+  getUserQuestionsData(userEmail: string, source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
 }
-

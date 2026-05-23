@@ -17,6 +17,7 @@ import { CHATBOT_TYPES } from '../types.js';
 import type { IChatbotService } from '../interfaces/IChatbotService.js';
 import {
   DashboardQueryDto,
+  QueryAnalyticsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
 } from '../classes/validators/ChatbotQueryValidators.js';
@@ -34,6 +35,8 @@ import {
   DistrictAnalyticsEntryResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
 import { ActiveUsersQuery, GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { UserService } from '#root/modules/user/services/UserService.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -45,6 +48,9 @@ export class ChatbotController {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotService)
     private readonly chatbotService: IChatbotService,
+
+    @inject(GLOBAL_TYPES.UserService)
+    private readonly userService: UserService,
   ) {}
 
   @OpenAPI({ 
@@ -73,6 +79,27 @@ export class ChatbotController {
       query.userType,
       query.startTime,
       query.endTime,
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Get paginated total query analytics',
+    description: 'Returns filtered daily, weekly, or monthly total query analytics for the dashboard modal.',
+  })
+  @Get('/query-analytics')
+  @HttpCode(200)
+  @Authorized()
+  async getQueryAnalytics(@QueryParams() query: QueryAnalyticsQueryDto) {
+    return this.chatbotService.getQueryAnalytics(
+      query.period,
+      {
+        month: query.month,
+        year: query.year,
+        page: query.page,
+        limit: query.limit,
+        source: query.source,
+        userType: query.userType,
+      },
     );
   }
 
@@ -514,5 +541,43 @@ async getDistrictAnalyticsByState(
   async getRetentionMetrics(): Promise<any> {
     return await this.chatbotService.getRetentionMetrics();
   }
-  
+
+@Get('/user-questions-data')
+@HttpCode(200)
+@Authorized()
+async getUserQuestionsData(
+  @QueryParam('userEmail') userEmail: string,
+
+  @QueryParam('source')
+  source: string= 'vicharanashala',  
+
+  @QueryParam('userType')
+  userType: string = 'all',
+
+  @QueryParam('page')
+  page: number = 1,
+
+  @QueryParam('limit')
+  limit: number = 10,
+): Promise<any> {
+
+  // const userData =
+  //   await this.userService.getUserByEmail(userEmail);
+
+  // if (!userData) {
+  //   throw new Error(
+  //     'User not found with the provided email.',
+  //   );
+  // }
+
+  // const userId = userData._id.toString();
+
+  return await this.chatbotService.getUserQuestionsData(
+    userEmail,
+    source,
+    userType,
+    Number(page),
+    Number(limit),
+  );
+}
 }
