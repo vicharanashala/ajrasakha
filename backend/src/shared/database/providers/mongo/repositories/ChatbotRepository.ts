@@ -1907,76 +1907,78 @@ export class ChatbotRepository implements IChatbotRepository {
   // ============================================
 
   async getDailyAnalytics(
-    month: string,
-    source = 'vicharanashala',
-    session?: ClientSession,
-    userType = 'all',
-  ) {
-    try {
-      await this.init(source);
-      await this.initReviewSystem();
+  month?: string,
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+) {
+  try {
+    await this.init(source);
+    await this.initReviewSystem();
 
-      const {start, end} = this.getMonthDateRange(month);
+    const monthRange = month ? this.getMonthDateRange(month) : null;
+    const monthDateMatch = monthRange
+      ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
+      : {};
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
 
-      // ============================================
-      // MESSAGE COLLECTION DATA
-      // ============================================
+    // ============================================
+    // MESSAGE COLLECTION DATA
+    // ============================================
 
-      const messageData = await this.messagesCollection
-        .aggregate(
-          [
-            {
-              $match: {
-                createdAt: {
-                  $gte: start,
-                  $lt: end,
-                },
+    const messageData = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              ...monthDateMatch,
 
-                isCreatedByUser: true,
+              isCreatedByUser: true,
 
-                isDeleted: {
-                  $ne: true,
-                },
+              isDeleted: {
+                $ne: true,
               },
             },
+          },
 
-            ...userTypeLookupStages,
+          ...userTypeLookupStages,
 
-            {
-              $group: {
-                _id: {
-                  $dateToString: {
-                    format: '%Y-%m-%d',
-                    date: '$createdAt',
-                    timezone: '+05:30',
-                  },
-                },
-
-                queryCount: {
-                  $sum: 1,
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m-%d',
+                  date: '$createdAt',
+                  timezone: '+05:30',
                 },
               },
-            },
 
-            {
-              $project: {
-                _id: 0,
-                period: '$_id',
-                queryCount: 1,
+              queryCount: {
+                $sum: 1,
               },
             },
-          ],
-          {session},
-        )
-        .toArray();
+          },
 
-      // ============================================
-      // QUESTIONS COLLECTION DATA
-      // ============================================
+          {
+            $project: {
+              _id: 0,
+              period: '$_id',
+              queryCount: 1,
+            },
+          },
+        ],
+        { session },
+      )
+      .toArray();
 
-      const questionData = await this.QuestionCollection.aggregate(
+    // ============================================
+    // QUESTIONS COLLECTION DATA
+    // ============================================
+
+    const questionData = await this.QuestionCollection
+      .aggregate(
         [
           {
             $match: {
@@ -2030,7 +2032,10 @@ export class ChatbotRepository implements IChatbotRepository {
                     {
                       $divide: [
                         {
-                          $subtract: ['$closedAt', '$createdAt'],
+                          $subtract: [
+                            '$closedAt',
+                            '$createdAt',
+                          ],
                         },
 
                         1000 * 60,
@@ -2055,131 +2060,141 @@ export class ChatbotRepository implements IChatbotRepository {
               closedQuestions: 1,
 
               averageCloseTimeMinutes: {
-                $round: ['$averageCloseTimeMinutes', 2],
+                $round: [
+                  '$averageCloseTimeMinutes',
+                  2,
+                ],
               },
             },
           },
         ],
-        {session},
-      ).toArray();
+        { session },
+      )
+      .toArray();
 
-      // ============================================
-      // MERGE DATA
-      // ============================================
+    // ============================================
+    // MERGE DATA
+    // ============================================
 
-      const mergedMap = new Map();
+    const mergedMap = new Map();
 
-      for (const item of messageData) {
+    for (const item of messageData) {
+      mergedMap.set(item.period, {
+        period: item.period,
+        queryCount: item.queryCount,
+        totalQuestions: 0,
+        closedQuestions: 0,
+        averageCloseTimeMinutes: 0,
+      });
+    }
+
+    for (const item of questionData) {
+      const existing = mergedMap.get(item.period);
+
+      if (existing) {
+        existing.totalQuestions = item.totalQuestions;
+        existing.closedQuestions = item.closedQuestions;
+        existing.averageCloseTimeMinutes =
+          item.averageCloseTimeMinutes || 0;
+      } else {
         mergedMap.set(item.period, {
           period: item.period,
-          queryCount: item.queryCount,
-          totalQuestions: 0,
-          closedQuestions: 0,
-          averageCloseTimeMinutes: 0,
+          queryCount: 0,
+          totalQuestions: item.totalQuestions,
+          closedQuestions: item.closedQuestions,
+          averageCloseTimeMinutes:
+            item.averageCloseTimeMinutes || 0,
         });
       }
-
-      for (const item of questionData) {
-        const existing = mergedMap.get(item.period);
-
-        if (existing) {
-          existing.totalQuestions = item.totalQuestions;
-          existing.closedQuestions = item.closedQuestions;
-          existing.averageCloseTimeMinutes = item.averageCloseTimeMinutes || 0;
-        } else {
-          mergedMap.set(item.period, {
-            period: item.period,
-            queryCount: 0,
-            totalQuestions: item.totalQuestions,
-            closedQuestions: item.closedQuestions,
-            averageCloseTimeMinutes: item.averageCloseTimeMinutes || 0,
-          });
-        }
-      }
-
-      return Array.from(mergedMap.values()).sort((a, b) =>
-        a.period.localeCompare(b.period),
-      );
-    } catch (error) {
-      throw new InternalServerError(`Failed to get daily analytics: ${error}`);
     }
+
+    return Array.from(mergedMap.values()).sort((a, b) =>
+      a.period.localeCompare(b.period),
+    );
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get daily analytics: ${error}`,
+    );
   }
+}
 
   // ============================================
   // WEEKLY ANALYTICS
   // ============================================
 
   async getWeeklyAnalytics(
-    month: string,
-    source = 'vicharanashala',
-    session?: ClientSession,
-    userType = 'all',
-  ) {
-    try {
-      await this.init(source);
-      await this.initReviewSystem();
+  month?: string,
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+) {
+  try {
+    await this.init(source);
+    await this.initReviewSystem();
 
-      const {start, end} = this.getMonthDateRange(month);
+    const monthRange = month ? this.getMonthDateRange(month) : null;
+    const monthDateMatch = monthRange
+      ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
+      : {};
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
 
-      // ============================================
-      // MESSAGE DATA
-      // ============================================
+    // ============================================
+    // MESSAGE DATA
+    // ============================================
 
-      const messageData = await this.messagesCollection
-        .aggregate(
-          [
-            {
-              $match: {
-                createdAt: {
-                  $gte: start,
-                  $lt: end,
-                },
+    const messageData = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              ...monthDateMatch,
 
-                isCreatedByUser: true,
+              isCreatedByUser: true,
 
-                isDeleted: {
-                  $ne: true,
-                },
+              isDeleted: {
+                $ne: true,
               },
             },
+          },
 
-            ...userTypeLookupStages,
+          ...userTypeLookupStages,
 
-            {
-              $group: {
-                _id: {
-                  $dateToString: {
-                    format: '%G-W%V',
-                    date: '$createdAt',
-                    timezone: '+05:30',
-                  },
-                },
-
-                queryCount: {
-                  $sum: 1,
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%G-W%V',
+                  date: '$createdAt',
+                  timezone: '+05:30',
                 },
               },
-            },
 
-            {
-              $project: {
-                _id: 0,
-                period: '$_id',
-                queryCount: 1,
+              queryCount: {
+                $sum: 1,
               },
             },
-          ],
-          {session},
-        )
-        .toArray();
+          },
 
-      // ============================================
-      // QUESTION DATA
-      // ============================================
+          {
+            $project: {
+              _id: 0,
+              period: '$_id',
+              queryCount: 1,
+            },
+          },
+        ],
+        { session },
+      )
+      .toArray();
 
-      const questionData = await this.QuestionCollection.aggregate(
+    // ============================================
+    // QUESTION DATA
+    // ============================================
+
+    const questionData = await this.QuestionCollection
+      .aggregate(
         [
           {
             $match: {
@@ -2233,7 +2248,10 @@ export class ChatbotRepository implements IChatbotRepository {
                     {
                       $divide: [
                         {
-                          $subtract: ['$closedAt', '$createdAt'],
+                          $subtract: [
+                            '$closedAt',
+                            '$createdAt',
+                          ],
                         },
 
                         1000 * 60,
@@ -2258,123 +2276,145 @@ export class ChatbotRepository implements IChatbotRepository {
               closedQuestions: 1,
 
               averageCloseTimeMinutes: {
-                $round: ['$averageCloseTimeMinutes', 2],
+                $round: [
+                  '$averageCloseTimeMinutes',
+                  2,
+                ],
               },
             },
           },
         ],
-        {session},
-      ).toArray();
+        { session },
+      )
+      .toArray();
 
-      // ============================================
-      // MERGE
-      // ============================================
+    // ============================================
+    // MERGE
+    // ============================================
 
-      const mergedMap = new Map();
+    const mergedMap = new Map();
 
-      for (const item of messageData) {
+    for (const item of messageData) {
+      mergedMap.set(item.period, {
+        period: item.period,
+        queryCount: item.queryCount,
+        totalQuestions: 0,
+        closedQuestions: 0,
+        averageCloseTimeMinutes: 0,
+      });
+    }
+
+    for (const item of questionData) {
+      const existing = mergedMap.get(item.period);
+
+      if (existing) {
+        existing.totalQuestions = item.totalQuestions;
+        existing.closedQuestions = item.closedQuestions;
+        existing.averageCloseTimeMinutes =
+          item.averageCloseTimeMinutes || 0;
+      } else {
         mergedMap.set(item.period, {
           period: item.period,
-          queryCount: item.queryCount,
-          totalQuestions: 0,
-          closedQuestions: 0,
-          averageCloseTimeMinutes: 0,
+          queryCount: 0,
+          totalQuestions: item.totalQuestions,
+          closedQuestions: item.closedQuestions,
+          averageCloseTimeMinutes:
+            item.averageCloseTimeMinutes || 0,
         });
       }
-
-      for (const item of questionData) {
-        const existing = mergedMap.get(item.period);
-
-        if (existing) {
-          existing.totalQuestions = item.totalQuestions;
-          existing.closedQuestions = item.closedQuestions;
-          existing.averageCloseTimeMinutes = item.averageCloseTimeMinutes || 0;
-        } else {
-          mergedMap.set(item.period, {
-            period: item.period,
-            queryCount: 0,
-            totalQuestions: item.totalQuestions,
-            closedQuestions: item.closedQuestions,
-            averageCloseTimeMinutes: item.averageCloseTimeMinutes || 0,
-          });
-        }
-      }
-
-      return Array.from(mergedMap.values()).sort((a, b) =>
-        a.period.localeCompare(b.period),
-      );
-    } catch (error) {
-      throw new InternalServerError(`Failed to get weekly analytics: ${error}`);
     }
+
+    return Array.from(mergedMap.values()).sort((a, b) =>
+      a.period.localeCompare(b.period),
+    );
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get weekly analytics: ${error}`,
+    );
   }
+}
 
   // ============================================
   // MONTHLY ANALYTICS
   // ============================================
 
   async getMonthlyAnalytics(
-    source = 'vicharanashala',
-    session?: ClientSession,
-    userType = 'all',
-  ) {
-    try {
-      await this.init(source);
-      await this.initReviewSystem();
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+  year?: number,
+) {
+  try {
+    await this.init(source);
+    await this.initReviewSystem();
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const yearDateMatch = year
+      ? {
+          createdAt: {
+            $gte: new Date(`${year}-01-01T00:00:00.000Z`),
+            $lt: new Date(`${year + 1}-01-01T00:00:00.000Z`),
+          },
+        }
+      : {};
 
-      // ============================================
-      // MESSAGE DATA
-      // ============================================
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
 
-      const messageData = await this.messagesCollection
-        .aggregate(
-          [
-            {
-              $match: {
-                isCreatedByUser: true,
+    // ============================================
+    // MESSAGE DATA
+    // ============================================
 
-                isDeleted: {
-                  $ne: true,
-                },
+    const messageData = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              ...yearDateMatch,
+
+              isCreatedByUser: true,
+
+              isDeleted: {
+                $ne: true,
               },
             },
+          },
 
-            ...userTypeLookupStages,
+          ...userTypeLookupStages,
 
-            {
-              $group: {
-                _id: {
-                  $dateToString: {
-                    format: '%Y-%m',
-                    date: '$createdAt',
-                    timezone: '+05:30',
-                  },
-                },
-
-                queryCount: {
-                  $sum: 1,
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
                 },
               },
-            },
 
-            {
-              $project: {
-                _id: 0,
-                period: '$_id',
-                queryCount: 1,
+              queryCount: {
+                $sum: 1,
               },
             },
-          ],
-          {session},
-        )
-        .toArray();
+          },
 
-      // ============================================
-      // QUESTION DATA
-      // ============================================
+          {
+            $project: {
+              _id: 0,
+              period: '$_id',
+              queryCount: 1,
+            },
+          },
+        ],
+        { session },
+      )
+      .toArray();
 
-      const questionData = await this.QuestionCollection.aggregate(
+    // ============================================
+    // QUESTION DATA
+    // ============================================
+
+    const questionData = await this.QuestionCollection
+      .aggregate(
         [
           {
             $match: {
@@ -2427,7 +2467,10 @@ export class ChatbotRepository implements IChatbotRepository {
                     {
                       $divide: [
                         {
-                          $subtract: ['$closedAt', '$createdAt'],
+                          $subtract: [
+                            '$closedAt',
+                            '$createdAt',
+                          ],
                         },
 
                         1000 * 60,
@@ -2452,57 +2495,63 @@ export class ChatbotRepository implements IChatbotRepository {
               closedQuestions: 1,
 
               averageCloseTimeMinutes: {
-                $round: ['$averageCloseTimeMinutes', 2],
+                $round: [
+                  '$averageCloseTimeMinutes',
+                  2,
+                ],
               },
             },
           },
         ],
-        {session},
-      ).toArray();
+        { session },
+      )
+      .toArray();
 
-      // ============================================
-      // MERGE
-      // ============================================
+    // ============================================
+    // MERGE
+    // ============================================
 
-      const mergedMap = new Map();
+    const mergedMap = new Map();
 
-      for (const item of messageData) {
+    for (const item of messageData) {
+      mergedMap.set(item.period, {
+        period: item.period,
+        queryCount: item.queryCount,
+        totalQuestions: 0,
+        closedQuestions: 0,
+        averageCloseTimeMinutes: 0,
+      });
+    }
+
+    for (const item of questionData) {
+      const existing = mergedMap.get(item.period);
+
+      if (existing) {
+        existing.totalQuestions = item.totalQuestions;
+        existing.closedQuestions = item.closedQuestions;
+        existing.averageCloseTimeMinutes =
+          item.averageCloseTimeMinutes || 0;
+      } else {
         mergedMap.set(item.period, {
           period: item.period,
-          queryCount: item.queryCount,
-          totalQuestions: 0,
-          closedQuestions: 0,
-          averageCloseTimeMinutes: 0,
+          queryCount: 0,
+          totalQuestions: item.totalQuestions,
+          closedQuestions: item.closedQuestions,
+          averageCloseTimeMinutes:
+            item.averageCloseTimeMinutes || 0,
         });
       }
-
-      for (const item of questionData) {
-        const existing = mergedMap.get(item.period);
-
-        if (existing) {
-          existing.totalQuestions = item.totalQuestions;
-          existing.closedQuestions = item.closedQuestions;
-          existing.averageCloseTimeMinutes = item.averageCloseTimeMinutes || 0;
-        } else {
-          mergedMap.set(item.period, {
-            period: item.period,
-            queryCount: 0,
-            totalQuestions: item.totalQuestions,
-            closedQuestions: item.closedQuestions,
-            averageCloseTimeMinutes: item.averageCloseTimeMinutes || 0,
-          });
-        }
-      }
-
-      return Array.from(mergedMap.values()).sort((a, b) =>
-        a.period.localeCompare(b.period),
-      );
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to get monthly analytics: ${error}`,
-      );
     }
+
+    return Array.from(mergedMap.values()).sort((a, b) =>
+      a.period.localeCompare(b.period),
+    );
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get monthly analytics: ${error}`,
+    );
   }
+}
 
   async getFeedbackData(
     source = 'vicharanashala',
