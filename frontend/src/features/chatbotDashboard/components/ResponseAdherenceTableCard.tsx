@@ -135,6 +135,8 @@ export function ResponseAdherenceTableCard({
   isLoading?: boolean;
 }) {
   const d = { ...DEFAULT_DATA, ...(data ?? {}) };
+  const whatsappQueriesAskedDisplay =
+    d.whatsappQueriesAsked > 0 ? d.whatsappQueriesAsked : "NIL";
   const [internalDate, setInternalDate] = useState<string>(todayAsInputDate());
   const [checkedRows, setCheckedRows] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -165,7 +167,7 @@ export function ResponseAdherenceTableCard({
     { id: "date", field: "Date", whatsapp: d.date || effectiveDate || "", ajraSakha: "", notes: "" },
     { id: "time", field: "Time", whatsapp: d.timeWindow, ajraSakha: "", notes: "" },
     { id: "header", field: "Source", whatsapp: "Whatsapp", ajraSakha: "AjraSakha", notes: "" },
-    { id: "queriesAsked", field: "Queries Asked", whatsapp: d.whatsappQueriesAsked, ajraSakha: d.ajrasakhaQueriesAsked, notes: "" },
+    { id: "queriesAsked", field: "Queries Asked", whatsapp: whatsappQueriesAskedDisplay, ajraSakha: d.ajrasakhaQueriesAsked, notes: "" },
     { id: "pushedReviewer", field: "Questions pushed into the review system", whatsapp: d.whatsappPushedToReviewer, ajraSakha: d.ajrasakhaPushedToReviewer, notes: "" },
     { id: "answered120", field: "Questions answered within 120 minutes", whatsapp: d.whatsappAnsweredWithin120Min, ajraSakha: d.ajrasakhaAnsweredWithin120Min, notes: "" },
     { id: "duplicate", field: "Marked Duplicate (Fetched from GDB)", whatsapp: d.whatsappMarkedDuplicate, ajraSakha: d.ajrasakhaMarkedDuplicate, notes: "" },
@@ -320,7 +322,7 @@ export function ResponseAdherenceTableCard({
                   Queries Asked
                 </td>
                 <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappQueriesAsked}
+                  {whatsappQueriesAskedDisplay}
                 </td>
                 <td className="border border-border/70 px-3 py-2">
                   {d.ajrasakhaQueriesAsked}

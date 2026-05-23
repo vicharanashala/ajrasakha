@@ -46,6 +46,11 @@ import FeedbackCard from "./FeedbackCard";
 import { ResponseAdherenceTableCard } from "./components/ResponseAdherenceTableCard";
 import { ActiveUsersChart } from "./active-users";
 import NewFilters, { type Filters } from "./NewFilters";
+import { WeatherConcernAnalyticsCard } from "./components/WeatherConcernAnalyticsCard";
+import {
+  DEFAULT_WEATHER_CONCERN_FILTERS,
+  type WeatherConcernFilters,
+} from "./hooks/useWeatherConcernAnalytics";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -282,6 +287,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     sourceType: "application",
     application: "annam",
   });
+  const [weatherConcernFilters, setWeatherConcernFilters] =
+    useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
 
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
@@ -1226,7 +1233,16 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     initialFilters={userDetailsInitialFilters}
                     userType={filters.userType}
                   />
-                </div>  
+                </div>
+
+                <div className="mt-4 mb-4">
+                  <WeatherConcernAnalyticsCard
+                    source={source}
+                    userType={filters.userType}
+                    filters={weatherConcernFilters}
+                    onFiltersChange={setWeatherConcernFilters}
+                  />
+                </div>
               </div>
             )}
           </div>
