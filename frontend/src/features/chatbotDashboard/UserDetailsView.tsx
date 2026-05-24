@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { X, MapPin, Maximize2, Trash2, Pencil } from "lucide-react";
+import { X, MapPin, Maximize2, Trash2, Pencil, Users } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
   Card,
@@ -373,17 +373,14 @@ export function UserDetailsView({
 
   return (
     <div className="flex-1 overflow-y-auto pb-5 min-w-0">
-
       {/* Dashboard Charts Section */}
       <div className="mb-6">
-     
         {isDashboardLoading ? (
           <div className="py-8">
             <Spinner text="Loading analytics..." fullScreen={false} />
           </div>
         ) : dashboardData ? (
           <>
-
             {/* Top Crops - Full Width */}
             {/* <div className="grid grid-cols-1 gap-4 mb-4">
               <TopCropsCard
@@ -823,21 +820,35 @@ export function UserDetailsView({
       {/* Users table */}
       <div ref={tableRef}>
         <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between gap-3 min-w-0 w-full">
-              <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
-              <div className="flex items-center gap-2">
+          <CardHeader className="pb-4 border-b">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              {/* Title Section */}
+              <div className="min-w-0">
+                <CardTitle className="text-base font-semibold tracking-tight flex items-center gap-2">
+                  <div className="p-1.5 rounded-md bg-primary/10">
+                    <Users className="h-4 w-4 text-primary" />
+                  </div>
+                  All Farmers
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  View and manage farmer details, activity, and preferences.
+                </p>
+              </div>
+
+              {/* Actions Section */}
+              <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap">
                 {isFiltered && (
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="h-9 text-muted-foreground hover:text-foreground"
+                    className="h-9 px-3"
                     onClick={handleResetFilters}
                   >
-                    <X className="h-4 w-4 mr-1" />
-                    Clear
+                    <X className="h-4 w-4 mr-1.5" />
+                    Clear Filters
                   </Button>
                 )}
+
                 <UserDetailsPreferenceFilter
                   filters={filters}
                   onApply={handleApplyFilters}
@@ -946,115 +957,423 @@ export function UserDetailsView({
                       users.map((user, idx) => {
                         const fp = user.farmerProfile;
                         return (
+                          // <ContextMenu key={user.userId}>
+                          //   <ContextMenuTrigger asChild>
+                          //     <TableRow className="text-center">
+                          //       <TableCell className="align-middle">
+                          //         {(currentPage - 1) * pageSize + idx + 1}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle">
+                          //         {/* <span
+                          //     className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          //       user.totalQuestions > 0
+                          //         ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
+                          //         : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                          //     }`}
+                          //   >
+                          //     {user.totalQuestions.toLocaleString()}
+                          //   </span> */}
+
+                          //         <Button
+                          //           onClick={() => {
+                          //             setSelectedUser(user);
+                          //             setQuestionModalOpen(true);
+                          //           }}
+                          //           className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold hover:cursor-pointer ${
+                          //             user.totalQuestions > 0
+                          //               ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
+                          //               : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                          //           }`}
+                          //         >
+                          //           {user.totalQuestions.toLocaleString()}
+                          //         </Button>
+                          //       </TableCell>
+
+                          //       <TableCell className="align-middle font-medium whitespace-nowrap">
+                          //         {user.name}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {user.email}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {fp?.farmerName ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle">
+                          //         {fp?.age ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {fp?.gender ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {fp?.villageName ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {fp?.blockName ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {fp?.district ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {fp?.state ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {fp?.phoneNo ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {fp?.languagePreference ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle">
+                          //         {fp?.yearsOfExperience ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle">
+                          //         <CropsCell crops={fp?.cropsCultivated} />
+                          //       </TableCell>
+                          //       <TableCell className="align-middle">
+                          //         <CropsCell crops={fp?.primaryCrop} />
+                          //       </TableCell>
+                          //       <TableCell className="align-middle">
+                          //         <CropsCell crops={fp?.secondaryCrop} />
+                          //       </TableCell>
+                          //       <TableCell className="align-middle">
+                          //         {fp?.awarenessOfKCC == null
+                          //           ? "—"
+                          //           : fp.awarenessOfKCC
+                          //             ? "Yes"
+                          //             : "No"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle">
+                          //         {fp?.usesAgriApps == null
+                          //           ? "—"
+                          //           : fp.usesAgriApps
+                          //             ? "Yes"
+                          //             : "No"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {fp?.highestEducatedPerson ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle">
+                          //         {fp?.numberOfSmartphones ?? "—"}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle whitespace-nowrap">
+                          //         {fp?.platformHistory &&
+                          //         fp.platformHistory.length > 0 ? (
+                          //           <div className="flex flex-col items-center">
+                          //             <span>
+                          //               {
+                          //                 fp.platformHistory[
+                          //                   fp.platformHistory.length - 1
+                          //                 ].os
+                          //               }
+                          //             </span>
+                          //             <span className="text-xs text-gray-400">
+                          //               {new Date(
+                          //                 fp.platformHistory[
+                          //                   fp.platformHistory.length - 1
+                          //                 ].timestamp,
+                          //               ).toLocaleDateString("en-GB", {
+                          //                 day: "2-digit",
+                          //                 month: "2-digit",
+                          //                 year: "2-digit",
+                          //               })}
+                          //             </span>
+                          //           </div>
+                          //         ) : (
+                          //           (fp?.platform ?? "—")
+                          //         )}
+                          //       </TableCell>
+                          //       <TableCell className="align-middle">
+                          //         {fp?.location?.latitude &&
+                          //         fp?.location?.longitude ? (
+                          //           <a
+                          //             href={`https://maps.google.com/?q=${fp.location.latitude},${fp.location.longitude}`}
+                          //             target="_blank"
+                          //             rel="noopener noreferrer"
+                          //             title="View on Maps"
+                          //             className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
+                          //             onClick={(e) => e.stopPropagation()}
+                          //           >
+                          //             <MapPin className="h-4 w-4" />
+                          //           </a>
+                          //         ) : (
+                          //           "—"
+                          //         )}
+                          //       </TableCell>
+                          //     </TableRow>
+                          //   </ContextMenuTrigger>
+                          //   {isAdmin && (
+                          //     <ContextMenuContent>
+                          //       <ContextMenuItem
+                          //         className="cursor-pointer flex items-center gap-2"
+                          //         onClick={(e) => {
+                          //           e.stopPropagation();
+                          //           setUserToEdit(user);
+                          //         }}
+                          //       >
+                          //         <Pencil className="h-4 w-4" />
+                          //         Edit
+                          //       </ContextMenuItem>
+                          //       <ContextMenuItem
+                          //         className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
+                          //         onClick={(e) => {
+                          //           e.stopPropagation();
+                          //           setConfirmEmail("");
+                          //           setUserToDelete({
+                          //             userId: user.userId,
+                          //             source,
+                          //             email: user.email,
+                          //           });
+                          //         }}
+                          //       >
+                          //         <Trash2 className="h-4 w-4 text-red-600" />
+                          //         Delete
+                          //       </ContextMenuItem>
+                          //     </ContextMenuContent>
+                          //   )}
+                          // </ContextMenu>
+                          // ─── Drop-in replacement for your existing ContextMenu block ─────────────────
+                          // All state references (currentPage, pageSize, setSelectedUser, setQuestionModalOpen,
+                          // setUserToEdit, setConfirmEmail, setUserToDelete, source, isAdmin) remain unchanged.
+                          // Only the visuals are improved.
+
                           <ContextMenu key={user.userId}>
                             <ContextMenuTrigger asChild>
-                              <TableRow className="text-center">
-                                <TableCell className="align-middle">
+                              <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
+                                {/* S.No */}
+                                <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
                                   {(currentPage - 1) * pageSize + idx + 1}
                                 </TableCell>
-                                <TableCell className="align-middle">
-                                  {/* <span
-                              className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                user.totalQuestions > 0
-                                  ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                              }`}
-                            >
-                              {user.totalQuestions.toLocaleString()}
-                            </span> */}
 
+                                {/* Queries asked */}
+                                <TableCell className="align-middle">
                                   <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => {
                                       setSelectedUser(user);
                                       setQuestionModalOpen(true);
                                     }}
-                                    className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold hover:cursor-pointer ${
+                                    className={`inline-flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full text-xs font-semibold transition-colors ${
                                       user.totalQuestions > 0
-                                        ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                                        : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                                        ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
+                                        : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default pointer-events-none"
                                     }`}
+                                    disabled={user.totalQuestions === 0}
+                                    title={
+                                      user.totalQuestions > 0
+                                        ? "View queries"
+                                        : undefined
+                                    }
                                   >
                                     {user.totalQuestions.toLocaleString()}
                                   </Button>
                                 </TableCell>
 
+                                {/* Name */}
                                 <TableCell className="align-middle font-medium whitespace-nowrap">
                                   {user.name}
                                 </TableCell>
-                                <TableCell className="align-middle whitespace-nowrap">
+
+                                {/* Email */}
+                                <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
                                   {user.email}
                                 </TableCell>
+
+                                {/* Farmer Name */}
                                 <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.farmerName ?? "—"}
+                                  {fp?.farmerName ?? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
+
+                                {/* Age */}
+                                <TableCell className="align-middle tabular-nums">
+                                  {fp?.age ?? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
+                                </TableCell>
+
+                                {/* Gender */}
                                 <TableCell className="align-middle">
-                                  {fp?.age ?? "—"}
+                                  {fp?.gender ? (
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                        fp.gender === "Male"
+                                          ? "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
+                                          : fp.gender === "Female"
+                                            ? "bg-pink-50 dark:bg-pink-950 text-pink-700 dark:text-pink-300"
+                                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                                      }`}
+                                    >
+                                      {fp.gender}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
+
+                                {/* Village */}
                                 <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.gender ?? "—"}
+                                  {fp?.villageName ?? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
+
+                                {/* Block */}
                                 <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.villageName ?? "—"}
+                                  {fp?.blockName ?? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
+
+                                {/* District */}
                                 <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.blockName ?? "—"}
+                                  {fp?.district ?? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
+
+                                {/* State */}
                                 <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.district ?? "—"}
+                                  {fp?.state ?? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
+
+                                {/* Phone */}
                                 <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.state ?? "—"}
+                                  {fp?.phoneNo ? (
+                                    <a
+                                      href={`tel:${fp.phoneNo}`}
+                                      className="text-blue-600 dark:text-blue-400 hover:underline text-xs tabular-nums"
+                                    >
+                                      {fp.phoneNo}
+                                    </a>
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
+
+                                {/* Language */}
                                 <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.phoneNo ?? "—"}
+                                  {fp?.languagePreference ?? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.languagePreference ?? "—"}
+
+                                {/* Experience */}
+                                <TableCell className="align-middle tabular-nums">
+                                  {fp?.yearsOfExperience != null ? (
+                                    <span>
+                                      {fp.yearsOfExperience}{" "}
+                                      <span className="text-muted-foreground text-xs">
+                                        yrs
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
-                                <TableCell className="align-middle">
-                                  {fp?.yearsOfExperience ?? "—"}
-                                </TableCell>
+
+                                {/* Crops cultivated */}
                                 <TableCell className="align-middle">
                                   <CropsCell crops={fp?.cropsCultivated} />
                                 </TableCell>
+
+                                {/* Primary crop */}
                                 <TableCell className="align-middle">
                                   <CropsCell crops={fp?.primaryCrop} />
                                 </TableCell>
+
+                                {/* Secondary crop */}
                                 <TableCell className="align-middle">
                                   <CropsCell crops={fp?.secondaryCrop} />
                                 </TableCell>
+
+                                {/* KCC Aware */}
                                 <TableCell className="align-middle">
-                                  {fp?.awarenessOfKCC == null
-                                    ? "—"
-                                    : fp.awarenessOfKCC
-                                      ? "Yes"
-                                      : "No"}
+                                  {fp?.awarenessOfKCC == null ? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  ) : fp.awarenessOfKCC ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300">
+                                      Yes
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400">
+                                      No
+                                    </span>
+                                  )}
                                 </TableCell>
+
+                                {/* Agri Apps */}
                                 <TableCell className="align-middle">
-                                  {fp?.usesAgriApps == null
-                                    ? "—"
-                                    : fp.usesAgriApps
-                                      ? "Yes"
-                                      : "No"}
+                                  {fp?.usesAgriApps == null ? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  ) : fp.usesAgriApps ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300">
+                                      Yes
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400">
+                                      No
+                                    </span>
+                                  )}
                                 </TableCell>
+
+                                {/* Education */}
                                 <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.highestEducatedPerson ?? "—"}
+                                  {fp?.highestEducatedPerson ?? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
-                                <TableCell className="align-middle">
-                                  {fp?.numberOfSmartphones ?? "—"}
+
+                                {/* Smartphones */}
+                                <TableCell className="align-middle tabular-nums">
+                                  {fp?.numberOfSmartphones ?? (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
+
+                                {/* Platform */}
                                 <TableCell className="align-middle whitespace-nowrap">
                                   {fp?.platformHistory &&
                                   fp.platformHistory.length > 0 ? (
-                                    <div className="flex flex-col items-center">
-                                      <span>
+                                    <div className="flex flex-col items-center leading-tight gap-0.5">
+                                      <span className="font-medium text-xs">
                                         {
                                           fp.platformHistory[
                                             fp.platformHistory.length - 1
                                           ].os
                                         }
                                       </span>
-                                      <span className="text-xs text-gray-400">
+                                      <span className="text-[11px] text-muted-foreground tabular-nums">
                                         {new Date(
                                           fp.platformHistory[
                                             fp.platformHistory.length - 1
@@ -1066,10 +1385,18 @@ export function UserDetailsView({
                                         })}
                                       </span>
                                     </div>
+                                  ) : fp?.platform ? (
+                                    <span className="text-xs">
+                                      {fp.platform}
+                                    </span>
                                   ) : (
-                                    (fp?.platform ?? "—")
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
                                   )}
                                 </TableCell>
+
+                                {/* Location */}
                                 <TableCell className="align-middle">
                                   {fp?.location?.latitude &&
                                   fp?.location?.longitude ? (
@@ -1077,18 +1404,21 @@ export function UserDetailsView({
                                       href={`https://maps.google.com/?q=${fp.location.latitude},${fp.location.longitude}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      title="View on Maps"
-                                      className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
+                                      title="View on Google Maps"
+                                      className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       <MapPin className="h-4 w-4" />
                                     </a>
                                   ) : (
-                                    "—"
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
                                   )}
                                 </TableCell>
                               </TableRow>
                             </ContextMenuTrigger>
+
                             {isAdmin && (
                               <ContextMenuContent>
                                 <ContextMenuItem
@@ -1123,7 +1453,6 @@ export function UserDetailsView({
                       })
                     )}
                   </TableBody>
-                
                 </Table>
                 {/* Pagination footer */}
                 {totalPages > 0 && (
@@ -1149,14 +1478,13 @@ export function UserDetailsView({
                 )}
               </div>
             )}
-              <UserQuestionsModal
-                    open={questionModalOpen}
-                    onOpenChange={setQuestionModalOpen}
-                    user={selectedUser}
-                    source={source}
-                    userType={userType}
-                  />
-                
+            <UserQuestionsModal
+              open={questionModalOpen}
+              onOpenChange={setQuestionModalOpen}
+              user={selectedUser}
+              source={source}
+              userType={userType}
+            />
           </CardContent>
         </Card>
       </div>
