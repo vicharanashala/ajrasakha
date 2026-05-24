@@ -1,4 +1,9 @@
 import { Card, CardContent, CardHeader } from "@/components/atoms/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 
 type AnalyticsItem = {
   queryCount: number;
@@ -116,106 +121,70 @@ export function WhatsAppAnalyticsCard({
                     justify-end
                   "
               >
-                {/* Bar */}
-                <div
-                  className="
-                      w-full
-                      bg-green-500
-                      hover:bg-green-400
-                      rounded-t-xl
-                      transition-all
-                      duration-200
-                      cursor-pointer
-                      relative
-                      group
-                    "
-                  style={{
-                    height: `${Math.max(height, 8)}%`,
-                  }}
-                >
-                  {/* Tooltip */}
-                  <div
+                {/* Tooltip */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className="
+                          w-full
+                          bg-primary
+                          hover:opacity-90
+                          rounded-t-xl
+                          transition-all
+                          duration-200
+                          cursor-pointer
+                        "
+                      style={{
+                        height: `${Math.max(height, 8)}%`,
+                      }}
+                    />
+                  </TooltipTrigger>
+
+                  <TooltipContent
+                    side="top"
                     className="
-                        absolute
-                        bottom-[110%]
-                        left-1/2
-                        -translate-x-1/2
-                        hidden
-                        group-hover:block
-                        z-50
-                        min-w-[100px]
+                        min-w-[220px]
                         rounded-xl
-                        border
-                        bg-black/95
-                        px-3
-                        py-2
-                        text-xs
-                        shadow-xl
+                        p-4
                       "
                   >
-                    <div
-                      className="
-                          mb-2
-                          font-semibold
-                          text-white
-                        "
-                    >
-                      {formatLabel(item.period)}
+                    <div className="space-y-2">
+                      <div className="font-semibold">
+                        {formatLabel(item.period)}
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">Queries</span>
+
+                        <span className="font-medium">{item.queryCount}</span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">Questions</span>
+
+                        <span className="font-medium">
+                          {item.totalQuestions}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">Closed</span>
+
+                        <span className="font-medium">
+                          {item.closedQuestions}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">Avg Close</span>
+
+                        <span className="font-medium">
+                          {item.averageCloseTimeMinutes}m
+                        </span>
+                      </div>
                     </div>
-
-                    <div
-                      className="
-                          flex
-                          justify-between
-                          gap-4
-                          text-neutral-300
-                        "
-                    >
-                      <span>Queries</span>
-
-                      <span>{item.queryCount}</span>
-                    </div>
-
-                    <div
-                      className="
-                          flex
-                          justify-between
-                          gap-4
-                          text-neutral-300
-                        "
-                    >
-                      <span>Questions</span>
-
-                      <span>{item.totalQuestions}</span>
-                    </div>
-
-                    <div
-                      className="
-                          flex
-                          justify-between
-                          gap-4
-                          text-neutral-300
-                        "
-                    >
-                      <span>Closed</span>
-
-                      <span>{item.closedQuestions}</span>
-                    </div>
-
-                    <div
-                      className="
-                          flex
-                          justify-between
-                          gap-4
-                          text-neutral-300
-                        "
-                    >
-                      <span>Avg Close</span>
-
-                      <span>{item.averageCloseTimeMinutes}m</span>
-                    </div>
-                  </div>
-                </div>
+                  </TooltipContent>
+                </Tooltip>
 
                 {/* X-axis label */}
                 <div

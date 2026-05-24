@@ -64,7 +64,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getPlatformInstalls(source),
           this.chatbotRepository.getDomainSpikes(60),
           this.chatbotRepository.getFeedbackData(source, undefined, userType),
-          this.chatbotRepository.getDailyQuestionTrends(days, undefined, userType, startTime, endTime),
+          this.chatbotRepository.getDailyQuestionTrends(days,source, undefined, userType, startTime, endTime),
           this.chatbotRepository.getTopFaqs(source, undefined, userType, startTime, endTime),
           this.chatbotRepository.getTopQuestionsFromCollection(source, undefined, userType, startTime, endTime),
           this.chatbotRepository
@@ -250,9 +250,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTopCrops() {
+  async getTopCrops(source?: string) {
     try {
-      return await this.chatbotRepository.getTopCrops();
+      return await this.chatbotRepository.getTopCrops(source);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top crops: ${error}`);
     }
@@ -1044,6 +1044,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     try {
       return await this.chatbotRepository.getDailyQuestionTrends(
         days,
+        undefined,
         undefined,
         userType,
       );

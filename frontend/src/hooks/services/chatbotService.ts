@@ -104,4 +104,14 @@ export class ChatbotService {
   async getRetentionMetrics(): Promise<any> {
     return apiFetch<any>(`${this._baseUrl}/retention-metrics`);
   }
+
+  async getQueryCategories(
+    source: string,
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append("source", source);
+    return apiFetch<any>(
+      `${this._baseUrl}/query-categories?${params.toString()}`,
+    );
+  }
 }

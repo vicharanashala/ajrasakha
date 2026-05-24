@@ -330,8 +330,8 @@ async getDistrictAnalyticsByState(
   @Get('/top-crops')
   @HttpCode(200)
   @Authorized()
-  async getTopCrops() {
-    return this.chatbotService.getTopCrops();
+  async getTopCrops(@QueryParams() query: {source?: string },) {
+    return this.chatbotService.getTopCrops(query.source);
   }
 
   @OpenAPI({ 

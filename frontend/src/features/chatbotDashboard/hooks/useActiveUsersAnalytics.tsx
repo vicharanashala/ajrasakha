@@ -60,3 +60,16 @@ export const useRetentionMetrics = (enabled: boolean = true) => {
     enabled,
   });
 };
+
+export const useQueryCategories = (source: string, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ["query-categories",
+      source
+    ],
+    queryFn: () => {
+      return chatbotService.getQueryCategories(source);
+    },
+    enabled,
+  });
+};
+

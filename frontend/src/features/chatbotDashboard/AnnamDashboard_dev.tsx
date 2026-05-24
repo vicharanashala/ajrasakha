@@ -52,6 +52,7 @@ import {
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
+import { useQueryCategories } from "./hooks/useActiveUsersAnalytics";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -86,7 +87,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     source,
     source === "annam" || source === "vicharanashala",
   );
-console.log(source,"----data-----", data,)
+  const {data: queryCategories} = useQueryCategories(source);
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
   const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
   const [responseAdherenceDate, setResponseAdherenceDate] = useState<string>(
@@ -108,12 +109,12 @@ console.log(source,"----data-----", data,)
   const { data: trendsData, isLoading: trendsLoading } = useDashboardData(
     trendsFilters,
     source,
-    source === "annam" || source === "vicharanashala",
+    true,
   );
   const { data: faqsData, isLoading: faqsLoading } = useDashboardData(
     faqsFilters,
     source,
-    source === "annam" || source === "vicharanashala",
+    true,
   );
 
   const responseAdherenceFilters = useMemo(() => {
@@ -169,7 +170,7 @@ console.log(source,"----data-----", data,)
     data: topCrops,
     isLoading: isLoadingTopCrops,
     error: errorLoadingtopCrops,
-  } = useTopCrops();
+  } = useTopCrops(source);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   const [hovered, setHovered] = useState<string | null>(null);
@@ -306,7 +307,14 @@ const weeklyAnalytics =
 const monthlyAnalytics =
   queryCard?.monthlyAnalytics || [];
 
-
+useEffect(() => {
+  if (source === "whatsapp") {
+    setFilters((prev) => ({
+      ...prev,
+      userType: "all",
+    }));
+  }
+}, [source]);
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -380,24 +388,24 @@ const monthlyAnalytics =
                       />
 
                     <SearchableSelect
-                      options={["External", "Internal"]}
+                      options={
+                        source === "whatsapp"
+                          ? []
+                          : ["External", "Internal"]
+                      }
                       value={
-                          filters.userType === "all"
-                            ? "all"
-                            : filters.userType.charAt(0).toUpperCase() +
-                              filters.userType.slice(1)
-                        }
-                        onChange={(v) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            userType: (v === "all"
-                              ? "all"
-                              : v.toLowerCase()) as DashboardFilterValues["userType"],
-                          }))
-                        }
+                        filters.userType === "all"
+                          ? "All Users"
+                          : filters.userType.charAt(0).toUpperCase() +
+                            filters.userType.slice(1)
+                      }
+                      onChange={(v) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          userType: v.toLowerCase() as DashboardFilterValues["userType"],
+                        }))
+                      }
                       placeholder="All Users"
-                      className="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
-                      activeClassName="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
                     />
                   </div>
                 </div>
@@ -464,7 +472,7 @@ const monthlyAnalytics =
 
                     </div>
                   }
-
+                {source !== "whatsapp" &&
                   <ResponseAdherenceTableCard
                     data={
                       (responseAdherenceData as any).responseAdherenceTable ??
@@ -473,7 +481,7 @@ const monthlyAnalytics =
                     selectedDate={responseAdherenceDate}
                     onSelectedDateChange={setResponseAdherenceDate}
                     isLoading={isResponseAdherenceLoading}
-                  />
+                  />}
                 </div>
 
                 {/* DAU trend + Alerts */}
@@ -1174,7 +1182,7 @@ const monthlyAnalytics =
                     }}
                   >
                     <DashboardQueryCategories
-                      categories={data.queryCategories}
+                      categories={source === "whatsapp"? queryCategories: data.queryCategories}
                     />
                   </div>
 
@@ -1195,14 +1203,14 @@ const monthlyAnalytics =
                 {/* Chatbot Quality & FAQ Analytics Section Header */}
                 {/* Daily Trends & FAQ Leaderboard Grid */}
                 {/* Row 1: Daily Trends & Feedback Data */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 mt-6">
+                <div className={ source === "whatsapp" ? "grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6": "grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 mt-6"}>
                   <DailyQuestionTrendsChart
                     trends={(trendsData as any).dailyQuestionTrends}
                     dateRange={trendsDateRange}
                     onDateRangeChange={setTrendsDateRange}
                     isLoading={trendsLoading}
                   />
-
+                {source !== "whatsapp" && 
                   <FeedbackCard
                     title="Feedback Data"
                     positiveFeedbacksCount={
@@ -1218,7 +1226,8 @@ const monthlyAnalytics =
                       data?.feedbackData?.negativeFeedbacks
                     }
                     averageRating={data?.feedbackData?.stats?.averageRating}
-                  />
+                  /> 
+                }
                 </div>
 
                 {/* Row 2: State Analytics & FAQ Leaderboard */}
@@ -1267,13 +1276,15 @@ const monthlyAnalytics =
                     {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
                   </div>
                 </div>
-
+              {source !== "whatsapp" && 
                 <div className="">
                   <ActiveUsersChart
                     source={source}
                     userType={filters.userType}
                   />
                 </div>
+                }
+                {source !== "whatsapp" && 
                 <div
                   ref={(el) => {
                     sectionRefs.current["user-details"] = el;
@@ -1285,7 +1296,8 @@ const monthlyAnalytics =
                     userType={filters.userType}
                   />
                 </div>
-
+              }
+              {source !== "whatsapp" && 
                 <div className="mt-4 mb-4">
                   <WeatherConcernAnalyticsCard
                     source={source}
@@ -1294,6 +1306,7 @@ const monthlyAnalytics =
                     onFiltersChange={setWeatherConcernFilters}
                   />
                 </div>
+                }
               </div>
             )}
           </div>
