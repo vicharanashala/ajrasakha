@@ -170,6 +170,7 @@ export interface UserDetailEntry {
   email: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
+  createdAt: Date;
 }
 
 export interface PaginatedUserDetails {

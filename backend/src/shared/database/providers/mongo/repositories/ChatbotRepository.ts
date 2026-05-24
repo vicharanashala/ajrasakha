@@ -3040,7 +3040,7 @@ export class ChatbotRepository implements IChatbotRepository {
     inactiveOnly = false,
     session?: ClientSession,
     userType = 'all',
-    sortBy = 'name',
+    sortBy = 'createdAt',
     sortOrder = 'asc',
     lowFeedbackOnly = false,
   ): Promise<PaginatedUserDetails> {
@@ -3135,6 +3135,7 @@ export class ChatbotRepository implements IChatbotRepository {
         name: u.name || u.username || 'Unknown',
         email: u.email || '',
         totalQuestions: countMap.get(String(u._id)) ?? 0,
+        createdAt: u.createdAt,
         farmerProfile: u.farmerProfile
           ? {
               farmerName: u.farmerProfile.farmerName,
@@ -3188,20 +3189,26 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       // Sort based on sortBy and sortOrder parameters
-      if (sortBy === 'name') {
-        if (sortOrder === 'asc') {
-          finalList.sort((a, b) => a.name.localeCompare(b.name));
-        } else {
-          finalList.sort((a, b) => b.name.localeCompare(a.name));
-        }
-      } else {
-        // Default: totalQuestions
-        if (sortOrder === 'asc') {
-          finalList.sort((a, b) => a.totalQuestions - b.totalQuestions);
-        } else {
-          finalList.sort((a, b) => b.totalQuestions - a.totalQuestions);
-        }
-      }
+   if (sortBy === 'name') {
+     finalList.sort((a, b) =>
+       sortOrder === 'asc'
+         ? a.name.localeCompare(b.name)
+         : b.name.localeCompare(a.name),
+     );
+   } else if (sortBy === 'createdAt') {
+     finalList.sort((a, b) =>
+       sortOrder === 'asc'
+         ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+         : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+     );
+   } else {
+     // Default: totalQuestions
+     finalList.sort((a, b) =>
+       sortOrder === 'asc'
+         ? a.totalQuestions - b.totalQuestions
+         : b.totalQuestions - a.totalQuestions,
+     );
+   }
 
       // Compute summary stats over the full filtered set
       const totalUsers = finalList.length;
