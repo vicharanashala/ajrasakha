@@ -348,44 +348,43 @@ useEffect(() => {
               source={source}
             />
 
-              <div className="flex-1 overflow-y-auto px-5 pb-5"  >
-                {/* Source Selection Tabs & All Users Filter */}
-                <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
+            <div className="flex-1 overflow-y-auto px-5 pb-5">
+              {/* Source Selection Tabs & All Users Filter */}
+              <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
+                {/* Top Level Tabs */}
+                <div className="flex items-center gap-2">
+                  {/* Application Tab */}
+                  <button
+                    onClick={() =>
+                      setNewFilters((prev) => ({
+                        ...prev,
+                        sourceType: "application",
+                      }))
+                    }
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      newFilters.sourceType === "application"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }`}
+                  >
+                    Application
+                  </button>
 
-                  {/* Top Level Tabs */}
-                    <div className="flex items-center gap-2" >
-                      {/* Application Tab */}
-                      <button
-                        onClick={() =>
-                          setNewFilters((prev) => ({
-                            ...prev,
-                            sourceType: "application",
-                          }))
-                        }
-                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                          newFilters.sourceType === "application"
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                        }`}
-                      >
-                        Application
-                      </button>
+                  {/* Manual Tab (Muted/Disabled) */}
+                  <button
+                    disabled
+                    className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
+                  >
+                    Manual
+                  </button>
+                </div>
 
-                      {/* Manual Tab (Muted/Disabled) */}
-                      <button
-                        disabled
-                        className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
-                      >
-                        Manual
-                      </button>
-                    </div>
-
-                    <div className="flex items-center ml-auto gap-1">
-                      <NewFilters
-                        filters={newFilters}
-                        onChange={setNewFilters}
-                        onSourceChange={onSourceChange}
-                      />
+                <div className="flex items-center ml-auto gap-1">
+                  <NewFilters
+                    filters={newFilters}
+                    onChange={setNewFilters}
+                    onSourceChange={onSourceChange}
+                  />
 
                     <SearchableSelect
                       options={
@@ -428,18 +427,15 @@ useEffect(() => {
                   />
                 )}
 
-                <div
-                  ref={(el) => {
-                    sectionRefs.current["overview"] = el;
-                  }}
-                  className="relative"
-                >
-                  {isLoading && (
-                    <Spinner
-                      text="Fetching metrics..."
-                      fullScreen={false}
-                    />
-                  )}
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["overview"] = el;
+                    }}
+                    className="relative"
+                  >
+                    {isLoading && (
+                      <Spinner text="Fetching metrics..." fullScreen={false} />
+                    )}
 
                   {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
                   {/* Uncomment the above line when data is dynamic and delete the below code */}
@@ -484,15 +480,15 @@ useEffect(() => {
                   />}
                 </div>
 
-                {/* DAU trend + Alerts */}
-                <div
-                  ref={(el) => {
-                    sectionRefs.current["usage-patterns"] = el;
-                    growthRef.current = el;
-                  }}
-                  className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
-                >
-                  {/* <DailyActiveUsers
+                  {/* DAU trend + Alerts */}
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["usage-patterns"] = el;
+                      growthRef.current = el;
+                    }}
+                    className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
+                  >
+                    {/* <DailyActiveUsers
                     data={dauTrend}
                     isLoading={dauLoading}
                     error={dauError}
@@ -585,27 +581,27 @@ useEffect(() => {
                           <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                         </button>
 
-                        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
-                          Knowledge & Awareness
-                        </div>
-                        <div className="flex flex-wrap gap-4 justify-center items-center h-[calc(100%-2rem)] overflow-hidden">
-                          {/* KCC Awareness Circle */}
-                          {(() => {
-                            const pct =
-                              data.kccAwareness?.[0]?.count +
-                                data.kccAwareness?.[1]?.count || 0;
-                            const r = 45,
-                              cx = 60,
-                              cy = 60,
-                              circ = 2 * Math.PI * r;
-                            // const dash = (pct / 100) * circ;
-                            const yesDash =
-                              (data.kccAwareness?.[0]?.count / pct) * circ;
-                            const noDash =
-                              (data.kccAwareness?.[1]?.count / pct) * circ;
-                            return (
-                              <div className="flex flex-col items-center gap-2 min-w-0">
-                                {/* <svg
+                          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
+                            Knowledge & Awareness
+                          </div>
+                          <div className="flex flex-wrap gap-4 justify-center items-center h-[calc(100%-2rem)] overflow-hidden">
+                            {/* KCC Awareness Circle */}
+                            {(() => {
+                              const pct =
+                                data.kccAwareness?.[0]?.count +
+                                  data.kccAwareness?.[1]?.count || 0;
+                              const r = 45,
+                                cx = 60,
+                                cy = 60,
+                                circ = 2 * Math.PI * r;
+                              // const dash = (pct / 100) * circ;
+                              const yesDash =
+                                (data.kccAwareness?.[0]?.count / pct) * circ;
+                              const noDash =
+                                (data.kccAwareness?.[1]?.count / pct) * circ;
+                              return (
+                                <div className="flex flex-col items-center gap-2 min-w-0">
+                                  {/* <svg
                                 viewBox="0 0 120 120"
                                 className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
                               >
@@ -640,110 +636,108 @@ useEffect(() => {
                                 </text>
                               </svg> */}
 
-                                <svg
-                                  viewBox="0 0 120 120"
-                                  className="w-[110px] h-[110px]"
-                                >
-                                  {/* Background Ring */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#2f3542"
-                                    strokeWidth={10}
-                                  />
-
-                                  {/* YES SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#22c55e"
-                                    strokeWidth={
-                                      hovered === "yes" ? 14 : 10
-                                    }
-                                    strokeDasharray={`${yesDash} ${circ}`}
-                                    strokeDashoffset={0}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setHovered("yes")}
-                                    onMouseLeave={() => setHovered(null)}
-                                  />
-
-                                  {/* NO SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#6b7280"
-                                    strokeWidth={hovered === "no" ? 14 : 10}
-                                    strokeDasharray={`${noDash} ${circ}`}
-                                    strokeDashoffset={-yesDash}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setHovered("no")}
-                                    onMouseLeave={() => setHovered(null)}
-                                  />
-
-                                  {/* CENTER TEXT */}
-                                  <text
-                                    x={cx}
-                                    y={cy - 2}
-                                    textAnchor="middle"
-                                    fontSize={hovered ? 16 : 18}
-                                    fontWeight={700}
-                                    fill="#ffffff"
+                                  <svg
+                                    viewBox="0 0 120 120"
+                                    className="w-[110px] h-[110px]"
                                   >
-                                    {hovered === "yes"
-                                      ? `${data.kccAwareness?.[0]?.count ?? 0}`
-                                      : hovered === "no"
-                                        ? `${data.kccAwareness?.[1]?.count ?? 0}`
-                                        : pct}
-                                  </text>
+                                    {/* Background Ring */}
+                                    <circle
+                                      cx={cx}
+                                      cy={cy}
+                                      r={r}
+                                      fill="none"
+                                      stroke="#2f3542"
+                                      strokeWidth={10}
+                                    />
 
-                                  <text
-                                    x={cx}
-                                    y={cy + 18}
-                                    textAnchor="middle"
-                                    fontSize={11}
-                                    fill="#9ca3af"
-                                  >
-                                    {hovered === "yes"
-                                      ? "Aware"
-                                      : hovered === "no"
-                                        ? "Unaware"
-                                        : "TOTAL"}
-                                  </text>
-                                </svg>
+                                    {/* YES SEGMENT */}
+                                    <circle
+                                      cx={cx}
+                                      cy={cy}
+                                      r={r}
+                                      fill="none"
+                                      stroke="#22c55e"
+                                      strokeWidth={hovered === "yes" ? 14 : 10}
+                                      strokeDasharray={`${yesDash} ${circ}`}
+                                      strokeDashoffset={0}
+                                      transform={`rotate(-90 ${cx} ${cy})`}
+                                      strokeLinecap="butt"
+                                      className="transition-all duration-300 cursor-pointer"
+                                      onMouseEnter={() => setHovered("yes")}
+                                      onMouseLeave={() => setHovered(null)}
+                                    />
 
-                                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                  KCC Awareness
-                                </span>
-                              </div>
-                            );
-                          })()}
-                          {/* Uses Agri Apps Circle */}
-                          {(() => {
-                            const pct =
-                              data.agriAppUsage?.[0]?.count +
-                             data.agriAppUsage?.[1]?.count || 0;
-                            const r = 45,
-                              cx = 60,
-                              cy = 60,
-                              circ = 2 * Math.PI * r;
-                            // const dash = (pct / 100) * circ;
-                            const yesDash =
-                              (data.agriAppUsage?.[0]?.count / pct) * circ;
-                            const noDash =
-                              (data.agriAppUsage?.[1]?.count / pct) * circ;
-                            return (
-                              <div className="flex flex-col items-center gap-2 min-w-0">
-                                {/* <svg
+                                    {/* NO SEGMENT */}
+                                    <circle
+                                      cx={cx}
+                                      cy={cy}
+                                      r={r}
+                                      fill="none"
+                                      stroke="#6b7280"
+                                      strokeWidth={hovered === "no" ? 14 : 10}
+                                      strokeDasharray={`${noDash} ${circ}`}
+                                      strokeDashoffset={-yesDash}
+                                      transform={`rotate(-90 ${cx} ${cy})`}
+                                      strokeLinecap="butt"
+                                      className="transition-all duration-300 cursor-pointer"
+                                      onMouseEnter={() => setHovered("no")}
+                                      onMouseLeave={() => setHovered(null)}
+                                    />
+
+                                    {/* CENTER TEXT */}
+                                    <text
+                                      x={cx}
+                                      y={cy - 2}
+                                      textAnchor="middle"
+                                      fontSize={hovered ? 16 : 18}
+                                      fontWeight={700}
+                                      fill="#ffffff"
+                                    >
+                                      {hovered === "yes"
+                                        ? `${data.kccAwareness?.[0]?.count ?? 0}`
+                                        : hovered === "no"
+                                          ? `${data.kccAwareness?.[1]?.count ?? 0}`
+                                          : pct}
+                                    </text>
+
+                                    <text
+                                      x={cx}
+                                      y={cy + 18}
+                                      textAnchor="middle"
+                                      fontSize={11}
+                                      fill="#9ca3af"
+                                    >
+                                      {hovered === "yes"
+                                        ? "Aware"
+                                        : hovered === "no"
+                                          ? "Unaware"
+                                          : "TOTAL"}
+                                    </text>
+                                  </svg>
+
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                    KCC Awareness
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                            {/* Uses Agri Apps Circle */}
+                            {(() => {
+                              const pct =
+                                data.agriAppUsage?.[0]?.count +
+                                  data.agriAppUsage?.[1]?.count || 0;
+                              const r = 45,
+                                cx = 60,
+                                cy = 60,
+                                circ = 2 * Math.PI * r;
+                              // const dash = (pct / 100) * circ;
+                              const yesDash =
+                                (data.agriAppUsage?.[0]?.count / pct) * circ;
+                              const noDash =
+                                (data.agriAppUsage?.[1]?.count / pct) * circ;
+                              return (
+                                <div className="flex flex-col items-center gap-2 min-w-0">
+                                  {/* <svg
                                   viewBox="0 0 120 120"
                                   className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
                                 >
@@ -778,152 +772,142 @@ useEffect(() => {
                                   </text>
                                 </svg> */}
 
-                                <svg
-                                  viewBox="0 0 120 120"
-                                  className="w-[110px] h-[110px]"
-                                >
-                                  {/* Background Ring */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#2f3542"
-                                    strokeWidth={10}
-                                  />
-
-                                  {/* YES SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="blue"
-                                    strokeWidth={
-                                      agriHovered === "yes" ? 14 : 10
-                                    }
-                                    strokeDasharray={`${yesDash} ${circ}`}
-                                    strokeDashoffset={0}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() =>
-                                      setAgriHovered("yes")
-                                    }
-                                    onMouseLeave={() =>
-                                      setAgriHovered(null)
-                                    }
-                                  />
-
-                                  {/* NO SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#ffff"
-                                    strokeWidth={
-                                      agriHovered === "no" ? 14 : 10
-                                    }
-                                    strokeDasharray={`${noDash} ${circ}`}
-                                    strokeDashoffset={-yesDash}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() =>
-                                      setAgriHovered("no")
-                                    }
-                                    onMouseLeave={() =>
-                                      setAgriHovered(null)
-                                    }
-                                  />
-
-                                  {/* CENTER TEXT */}
-                                  <text
-                                    x={cx}
-                                    y={cy - 2}
-                                    textAnchor="middle"
-                                    fontSize={agriHovered ? 16 : 18}
-                                    fontWeight={700}
-                                    fill="#ffffff"
+                                  <svg
+                                    viewBox="0 0 120 120"
+                                    className="w-[110px] h-[110px]"
                                   >
-                                    {agriHovered === "yes"
-                                      ? `${data.agriAppUsage?.[0]?.count ?? 0}`
-                                      : agriHovered === "no"
-                                        ? `${data.agriAppUsage?.[1]?.count ?? 0}`
-                                        : pct}
-                                  </text>
+                                    {/* Background Ring */}
+                                    <circle
+                                      cx={cx}
+                                      cy={cy}
+                                      r={r}
+                                      fill="none"
+                                      stroke="#2f3542"
+                                      strokeWidth={10}
+                                    />
 
-                                  <text
-                                    x={cx}
-                                    y={cy + 18}
-                                    textAnchor="middle"
-                                    fontSize={11}
-                                    fill="#9ca3af"
-                                  >
-                                    {agriHovered === "yes"
-                                      ? "Aware"
-                                      : agriHovered === "no"
-                                        ? "Unaware"
-                                        : "TOTAL"}
-                                  </text>
-                                </svg>
+                                    {/* YES SEGMENT */}
+                                    <circle
+                                      cx={cx}
+                                      cy={cy}
+                                      r={r}
+                                      fill="none"
+                                      stroke="blue"
+                                      strokeWidth={
+                                        agriHovered === "yes" ? 14 : 10
+                                      }
+                                      strokeDasharray={`${yesDash} ${circ}`}
+                                      strokeDashoffset={0}
+                                      transform={`rotate(-90 ${cx} ${cy})`}
+                                      strokeLinecap="butt"
+                                      className="transition-all duration-300 cursor-pointer"
+                                      onMouseEnter={() => setAgriHovered("yes")}
+                                      onMouseLeave={() => setAgriHovered(null)}
+                                    />
 
-                                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                  Uses Agri Apps
-                                </span>
-                              </div>
-                            );
-                          })()}
+                                    {/* NO SEGMENT */}
+                                    <circle
+                                      cx={cx}
+                                      cy={cy}
+                                      r={r}
+                                      fill="none"
+                                      stroke="#ffff"
+                                      strokeWidth={
+                                        agriHovered === "no" ? 14 : 10
+                                      }
+                                      strokeDasharray={`${noDash} ${circ}`}
+                                      strokeDashoffset={-yesDash}
+                                      transform={`rotate(-90 ${cx} ${cy})`}
+                                      strokeLinecap="butt"
+                                      className="transition-all duration-300 cursor-pointer"
+                                      onMouseEnter={() => setAgriHovered("no")}
+                                      onMouseLeave={() => setAgriHovered(null)}
+                                    />
+
+                                    {/* CENTER TEXT */}
+                                    <text
+                                      x={cx}
+                                      y={cy - 2}
+                                      textAnchor="middle"
+                                      fontSize={agriHovered ? 16 : 18}
+                                      fontWeight={700}
+                                      fill="#ffffff"
+                                    >
+                                      {agriHovered === "yes"
+                                        ? `${data.agriAppUsage?.[0]?.count ?? 0}`
+                                        : agriHovered === "no"
+                                          ? `${data.agriAppUsage?.[1]?.count ?? 0}`
+                                          : pct}
+                                    </text>
+
+                                    <text
+                                      x={cx}
+                                      y={cy + 18}
+                                      textAnchor="middle"
+                                      fontSize={11}
+                                      fill="#9ca3af"
+                                    >
+                                      {agriHovered === "yes"
+                                        ? "Aware"
+                                        : agriHovered === "no"
+                                          ? "Unaware"
+                                          : "TOTAL"}
+                                    </text>
+                                  </svg>
+
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                    Uses Agri Apps
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Maximized Modal */}
-                      {isKnowledgeMaximized &&
-                        createPortal(
-                          <div
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-                            onClick={() => setIsKnowledgeMaximized(false)}
-                          >
+                        {/* Maximized Modal */}
+                        {isKnowledgeMaximized &&
+                          createPortal(
                             <div
-                              className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
-                              onClick={(e) => e.stopPropagation()}
+                              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+                              onClick={() => setIsKnowledgeMaximized(false)}
                             >
-                              <button
-                                onClick={() =>
-                                  setIsKnowledgeMaximized(false)
-                                }
-                                className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                title="Close"
+                              <div
+                                className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                              </button>
+                                <button
+                                  onClick={() => setIsKnowledgeMaximized(false)}
+                                  className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                  title="Close"
+                                >
+                                  <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                                </button>
 
-                              <div className="mb-8">
-                                <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                                  Knowledge & Awareness
-                                </h3>
-                              </div>
+                                <div className="mb-8">
+                                  <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+                                    Knowledge & Awareness
+                                  </h3>
+                                </div>
 
-                              <div className="flex flex-wrap gap-12 justify-center items-center">
-                                {(() => {
-                                  const pct =
-                                    data.kccAwareness?.[0]?.count +
-                                      data.kccAwareness?.[1]?.count || 0;
-                                  const circ = 2 * Math.PI * 90;
-                                  // const dash = (pct / 100) * circ;
-                                  const yesDash =
-                                    (data.kccAwareness?.[0]?.count / pct) *
-                                    circ;
-                                  const noDash =
-                                    (data.kccAwareness?.[1]?.count / pct) *
-                                    circ;
-                                  const cx = 120,
-                                    cy = 120,
-                                    r = 90;
-                                  return (
-                                    <div className="flex flex-col items-center gap-4">
-                                      {/* <svg
+                                <div className="flex flex-wrap gap-12 justify-center items-center">
+                                  {(() => {
+                                    const pct =
+                                      data.kccAwareness?.[0]?.count +
+                                        data.kccAwareness?.[1]?.count || 0;
+                                    const circ = 2 * Math.PI * 90;
+                                    // const dash = (pct / 100) * circ;
+                                    const yesDash =
+                                      (data.kccAwareness?.[0]?.count / pct) *
+                                      circ;
+                                    const noDash =
+                                      (data.kccAwareness?.[1]?.count / pct) *
+                                      circ;
+                                    const cx = 120,
+                                      cy = 120,
+                                      r = 90;
+                                    return (
+                                      <div className="flex flex-col items-center gap-4">
+                                        {/* <svg
                                         viewBox="0 0 240 240"
                                         className="w-[200px] h-[200px]"
                                       >
@@ -958,194 +942,194 @@ useEffect(() => {
                                         </text>
                                       </svg> */}
 
-                                      <svg
-                                        viewBox="0 0 240 240"
-                                        className="w-[200px] h-[200px]"
-                                      >
-                                        {/* Background Ring */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="#2f3542"
-                                          strokeWidth={10}
-                                        />
-
-                                        {/* YES SEGMENT */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="#22c55e"
-                                          strokeWidth={
-                                            hovered === "yes" ? 14 : 10
-                                          }
-                                          strokeDasharray={`${yesDash} ${circ}`}
-                                          strokeDashoffset={0}
-                                          transform={`rotate(-90 ${cx} ${cy})`}
-                                          strokeLinecap="butt"
-                                          className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() =>
-                                            setHovered("yes")
-                                          }
-                                          onMouseLeave={() =>
-                                            setHovered(null)
-                                          }
-                                        />
-
-                                        {/* NO SEGMENT */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="#6b7280"
-                                          strokeWidth={
-                                            hovered === "no" ? 14 : 10
-                                          }
-                                          strokeDasharray={`${noDash} ${circ}`}
-                                          strokeDashoffset={-yesDash}
-                                          transform={`rotate(-90 ${cx} ${cy})`}
-                                          strokeLinecap="butt"
-                                          className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() =>
-                                            setHovered("no")
-                                          }
-                                          onMouseLeave={() =>
-                                            setHovered(null)
-                                          }
-                                        />
-
-                                        {/* CENTER TEXT */}
-                                        <text
-                                          x={120}
-                                          y={120}
-                                          textAnchor="middle"
-                                          fontSize={hovered ? 32 : 32}
-                                          fontWeight={700}
-                                          fill="#ffffff"
+                                        <svg
+                                          viewBox="0 0 240 240"
+                                          className="w-[200px] h-[200px]"
                                         >
-                                          {hovered === "yes"
-                                            ? `${data.kccAwareness?.[0]?.count ?? 0}`
-                                            : hovered === "no"
-                                              ? `${data.kccAwareness?.[1]?.count ?? 0}`
-                                              : pct}
-                                        </text>
+                                          {/* Background Ring */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            stroke="#2f3542"
+                                            strokeWidth={10}
+                                          />
 
-                                        <text
-                                          x={120}
-                                          y={138}
-                                          textAnchor="middle"
-                                          fontSize={20}
-                                          fill="#9ca3af"
+                                          {/* YES SEGMENT */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            stroke="#22c55e"
+                                            strokeWidth={
+                                              hovered === "yes" ? 14 : 10
+                                            }
+                                            strokeDasharray={`${yesDash} ${circ}`}
+                                            strokeDashoffset={0}
+                                            transform={`rotate(-90 ${cx} ${cy})`}
+                                            strokeLinecap="butt"
+                                            className="transition-all duration-300 cursor-pointer"
+                                            onMouseEnter={() =>
+                                              setHovered("yes")
+                                            }
+                                            onMouseLeave={() =>
+                                              setHovered(null)
+                                            }
+                                          />
+
+                                          {/* NO SEGMENT */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            stroke="#6b7280"
+                                            strokeWidth={
+                                              hovered === "no" ? 14 : 10
+                                            }
+                                            strokeDasharray={`${noDash} ${circ}`}
+                                            strokeDashoffset={-yesDash}
+                                            transform={`rotate(-90 ${cx} ${cy})`}
+                                            strokeLinecap="butt"
+                                            className="transition-all duration-300 cursor-pointer"
+                                            onMouseEnter={() =>
+                                              setHovered("no")
+                                            }
+                                            onMouseLeave={() =>
+                                              setHovered(null)
+                                            }
+                                          />
+
+                                          {/* CENTER TEXT */}
+                                          <text
+                                            x={120}
+                                            y={120}
+                                            textAnchor="middle"
+                                            fontSize={hovered ? 32 : 32}
+                                            fontWeight={700}
+                                            fill="#ffffff"
+                                          >
+                                            {hovered === "yes"
+                                              ? `${data.kccAwareness?.[0]?.count ?? 0}`
+                                              : hovered === "no"
+                                                ? `${data.kccAwareness?.[1]?.count ?? 0}`
+                                                : pct}
+                                          </text>
+
+                                          <text
+                                            x={120}
+                                            y={138}
+                                            textAnchor="middle"
+                                            fontSize={20}
+                                            fill="#9ca3af"
+                                          >
+                                            {hovered === "yes"
+                                              ? "Aware"
+                                              : hovered === "no"
+                                                ? "Unaware"
+                                                : "TOTAL"}
+                                          </text>
+                                        </svg>
+                                        <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
+                                          KCC Awareness
+                                        </span>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {(() => {
+                                    const pct =
+                                      data.agriAppUsage?.[0]?.count +
+                                        data.agriAppUsage?.[1]?.count || 0;
+                                    const circ = 2 * Math.PI * 90;
+                                    // const dash = (pct / 100) * circ;
+                                    const yesDash =
+                                      (data.kccAwareness?.[0]?.count / pct) *
+                                      circ;
+                                    const noDash =
+                                      (data.kccAwareness?.[1]?.count / pct) *
+                                      circ;
+                                    const cx = 120,
+                                      cy = 120,
+                                      r = 90;
+                                    return (
+                                      <div className="flex flex-col items-center gap-4">
+                                        <svg
+                                          viewBox="0 0 240 240"
+                                          className="w-[200px] h-[200px]"
                                         >
-                                          {hovered === "yes"
-                                            ? "Aware"
-                                            : hovered === "no"
-                                              ? "Unaware"
-                                              : "TOTAL"}
-                                        </text>
-                                      </svg>
-                                      <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
-                                        KCC Awareness
-                                      </span>
-                                    </div>
-                                  );
-                                })()}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            stroke="#2f3542"
+                                            strokeWidth={10}
+                                          />
 
-                                {(() => {
-                                  const pct =
-                                    data.agriAppUsage?.[0]?.count +
-                                      data.agriAppUsage?.[1]?.count || 0;
-                                  const circ = 2 * Math.PI * 90;
-                                  // const dash = (pct / 100) * circ;
-                                  const yesDash =
-                                    (data.kccAwareness?.[0]?.count / pct) *
-                                    circ;
-                                  const noDash =
-                                    (data.kccAwareness?.[1]?.count / pct) *
-                                    circ;
-                                  const cx = 120,
-                                    cy = 120,
-                                    r = 90;
-                                  return (
-                                    <div className="flex flex-col items-center gap-4">
-                                      <svg
-                                        viewBox="0 0 240 240"
-                                        className="w-[200px] h-[200px]"
-                                      >
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="#2f3542"
-                                          strokeWidth={10}
-                                        />
+                                          {/* YES SEGMENT */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            stroke="blue"
+                                            strokeWidth={
+                                              agriHovered === "yes" ? 14 : 10
+                                            }
+                                            strokeDasharray={`${yesDash} ${circ}`}
+                                            strokeDashoffset={0}
+                                            transform={`rotate(-90 ${cx} ${cy})`}
+                                            strokeLinecap="butt"
+                                            className="transition-all duration-300 cursor-pointer"
+                                            onMouseEnter={() =>
+                                              setAgriHovered("yes")
+                                            }
+                                            onMouseLeave={() =>
+                                              setAgriHovered(null)
+                                            }
+                                          />
 
-                                        {/* YES SEGMENT */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="blue"
-                                          strokeWidth={
-                                            agriHovered === "yes" ? 14 : 10
-                                          }
-                                          strokeDasharray={`${yesDash} ${circ}`}
-                                          strokeDashoffset={0}
-                                          transform={`rotate(-90 ${cx} ${cy})`}
-                                          strokeLinecap="butt"
-                                          className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() =>
-                                            setAgriHovered("yes")
-                                          }
-                                          onMouseLeave={() =>
-                                            setAgriHovered(null)
-                                          }
-                                        />
+                                          {/* NO SEGMENT */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            stroke="#ffff"
+                                            strokeWidth={
+                                              agriHovered === "no" ? 14 : 10
+                                            }
+                                            strokeDasharray={`${noDash} ${circ}`}
+                                            strokeDashoffset={-yesDash}
+                                            transform={`rotate(-90 ${cx} ${cy})`}
+                                            strokeLinecap="butt"
+                                            className="transition-all duration-300 cursor-pointer"
+                                            onMouseEnter={() =>
+                                              setAgriHovered("no")
+                                            }
+                                            onMouseLeave={() =>
+                                              setAgriHovered(null)
+                                            }
+                                          />
 
-                                        {/* NO SEGMENT */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="#ffff"
-                                          strokeWidth={
-                                            agriHovered === "no" ? 14 : 10
-                                          }
-                                          strokeDasharray={`${noDash} ${circ}`}
-                                          strokeDashoffset={-yesDash}
-                                          transform={`rotate(-90 ${cx} ${cy})`}
-                                          strokeLinecap="butt"
-                                          className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() =>
-                                            setAgriHovered("no")
-                                          }
-                                          onMouseLeave={() =>
-                                            setAgriHovered(null)
-                                          }
-                                        />
-
-                                        {/* CENTER TEXT */}
-                                        <text
-                                          x={120}
-                                          y={120}
-                                          textAnchor="middle"
-                                          fontSize={agriHovered ? 32 : 32}
-                                          fontWeight={700}
-                                          fill="#ffffff"
-                                        >
-                                          {agriHovered === "yes"
-                                            ? `${data.agriAppUsage?.[0]?.count ?? 0}`
-                                            : agriHovered === "no"
-                                              ? `${data.agriAppUsage?.[1]?.count ?? 0}`
-                                              : pct}
-                                        </text>
+                                          {/* CENTER TEXT */}
+                                          <text
+                                            x={120}
+                                            y={120}
+                                            textAnchor="middle"
+                                            fontSize={agriHovered ? 32 : 32}
+                                            fontWeight={700}
+                                            fill="#ffffff"
+                                          >
+                                            {agriHovered === "yes"
+                                              ? `${data.agriAppUsage?.[0]?.count ?? 0}`
+                                              : agriHovered === "no"
+                                                ? `${data.agriAppUsage?.[1]?.count ?? 0}`
+                                                : pct}
+                                          </text>
 
                                         <text
                                           x={120}
@@ -1230,39 +1214,37 @@ useEffect(() => {
                 }
                 </div>
 
-                {/* Row 2: State Analytics & FAQ Leaderboard */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-                  <DashboardStateWiseAnalytics
-                    source={source}
-                    userType={filters.userType}
-                  />
+                  {/* Row 2: State Analytics & FAQ Leaderboard */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                    <DashboardStateWiseAnalytics
+                      source={source}
+                      userType={filters.userType}
+                    />
 
-                  <TopFaqsLeaderboard
-                    faqs={(faqsData as any).topFaqs}
-                    topQuestionsFromCollection={
-                      (faqsData as any).topQuestionsFromCollection
-                    }
-                    repeatQueryCount={(faqsData as any).repeatQueryCount}
-                    repeatQueryRatePct={
-                      (faqsData as any).repeatQueryRatePct
-                    }
-                    avgQuestionsPerUserDay={
-                      (faqsData as any).avgQuestionsPerUserDay
-                    }
-                    dateRange={faqsDateRange}
-                    onDateRangeChange={setFaqsDateRange}
-                    isLoading={faqsLoading}
-                  />
-                </div>
+                    <TopFaqsLeaderboard
+                      faqs={(faqsData as any).topFaqs}
+                      topQuestionsFromCollection={
+                        (faqsData as any).topQuestionsFromCollection
+                      }
+                      repeatQueryCount={(faqsData as any).repeatQueryCount}
+                      repeatQueryRatePct={(faqsData as any).repeatQueryRatePct}
+                      avgQuestionsPerUserDay={
+                        (faqsData as any).avgQuestionsPerUserDay
+                      }
+                      dateRange={faqsDateRange}
+                      onDateRangeChange={setFaqsDateRange}
+                      isLoading={faqsLoading}
+                    />
+                  </div>
 
-                {/* Geo + Health */}
-                <div
-                  ref={(el) => {
-                    sectionRefs.current["geo-intelligence"] = el;
-                  }}
-                  className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
-                >
-                  {/* <ChannelSplitCard
+                  {/* Geo + Health */}
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["geo-intelligence"] = el;
+                    }}
+                    className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
+                  >
+                    {/* <ChannelSplitCard
                 channelSplit={data.channelSplit}
                 voiceAccuracy={data.voiceAccuracy}
               /> */}

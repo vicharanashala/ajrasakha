@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { ComponentType, CSSProperties } from "react";
-import { CalendarIcon, CloudRain, Droplets, RefreshCcw, Thermometer, Wind, Cloud, Zap, X } from "lucide-react";
+import { CalendarIcon, CloudRain, Droplets, RefreshCcw, Thermometer, Wind, Cloud, Zap, X, CloudSun } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
@@ -204,8 +204,9 @@ export function WeatherConcernAnalyticsCard({
       <CardHeader className="border-b border-border/50 pb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <CardTitle className="text-base font-semibold tracking-wide text-foreground">
-              Weather Concern Analytics
+            <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-wide text-foreground">
+              <CloudSun className="h-5 w-5 text-primary" />
+              <span>Weather Concern Analytics</span>
             </CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               Concern distribution from weather-related chatbot queries
@@ -249,7 +250,9 @@ export function WeatherConcernAnalyticsCard({
             options={districtOptions}
             value={filters.district}
             onChange={(value) => updateFilter("district", value)}
-            placeholder={filters.state === "all" ? "Select State First" : "All Districts"}
+            placeholder={
+              filters.state === "all" ? "Select State First" : "All Districts"
+            }
             className={selectClassName}
             activeClassName={activeSelectClassName}
           />
@@ -263,15 +266,11 @@ export function WeatherConcernAnalyticsCard({
                 >
                   <CalendarIcon className="h-4 w-4 text-[#3AAA5A]" />
                   <span className="truncate">
-                    {filters.startDate ? (
-                      filters.endDate ? (
-                        `${format(filters.startDate, "MMM dd, yyyy")} - ${format(filters.endDate, "MMM dd, yyyy")}`
-                      ) : (
-                        format(filters.startDate, "MMM dd, yyyy")
-                      )
-                    ) : (
-                      "All Dates"
-                    )}
+                    {filters.startDate
+                      ? filters.endDate
+                        ? `${format(filters.startDate, "MMM dd, yyyy")} - ${format(filters.endDate, "MMM dd, yyyy")}`
+                        : format(filters.startDate, "MMM dd, yyyy")
+                      : "All Dates"}
                   </span>
                 </Button>
               </PopoverTrigger>
@@ -362,7 +361,8 @@ export function WeatherConcernAnalyticsCard({
           ) : (
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {concernDistribution.map((item) => {
-                const style = CONCERN_STYLES[item.concern] ?? CONCERN_STYLES.Rain;
+                const style =
+                  CONCERN_STYLES[item.concern] ?? CONCERN_STYLES.Rain;
                 const Icon = style.icon;
 
                 return (
@@ -375,7 +375,10 @@ export function WeatherConcernAnalyticsCard({
                         <span
                           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${style.bg}`}
                         >
-                          <Icon className="h-4 w-4" style={{color: style.color}} />
+                          <Icon
+                            className="h-4 w-4"
+                            style={{ color: style.color }}
+                          />
                         </span>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-foreground">

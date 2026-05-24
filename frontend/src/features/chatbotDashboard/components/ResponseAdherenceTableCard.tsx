@@ -3,8 +3,9 @@ import { Button } from "@/components/atoms/button";
 import { useState } from "react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { CalendarIcon, ClipboardCheck, Download } from "lucide-react";
+import { CalendarIcon, ClipboardCheck, Download, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/atoms/accordion";
 
 type ResponseAdherenceTableData = {
   date: string;
@@ -93,12 +94,38 @@ const ALL_ROW_IDS = [
 const DEFAULT_SELECTED_ROW_IDS = new Set<string>([
   "date",
   "time",
+  "header",
   "pushedReviewer",
   "answered120",
   "summaryDelayReason",
   "avgResponse",
   "adherencePct",
 ]);
+ 
+type RowConfig =
+  | {
+      key: string;
+      label: string;
+      type: "single";
+      value: React.ReactNode;
+      span?: boolean;
+    }
+  | {
+      key: string;
+      label: string;
+      type: "header";
+      wa: React.ReactNode;
+      as: React.ReactNode;
+      isHeader: true;
+    }
+  | {
+      key: string;
+      label: string;
+      type: "data";
+      wa: React.ReactNode;
+      as: React.ReactNode;
+      highlight?: boolean;
+    };
 
 const todayAsInputDate = (now: Date = new Date()) => {
   const year = now.getFullYear();
@@ -183,6 +210,136 @@ export function ResponseAdherenceTableCard({
     { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, notes: "" },
   ] as const;
 
+   const rows: RowConfig[] = [
+     {
+       key: "date",
+       label: "Date",
+       type: "single",
+       value: d.date || effectiveDate,
+     },
+     {
+       key: "time",
+       label: "Time Window",
+       type: "single",
+       value: d.timeWindow,
+       span: true,
+     },
+     {
+       key: "header",
+       label: "Source",
+       type: "header",
+       wa: "WhatsApp",
+       as: "AjraSakha",
+       isHeader: true,
+     },
+     {
+       key: "queriesAsked",
+       label: "Queries Asked",
+       type: "data",
+       wa: whatsappQueriesAskedDisplay,
+       as: d.ajrasakhaQueriesAsked,
+     },
+     {
+       key: "pushedReviewer",
+       label: "Pushed into Reviewer System",
+       type: "data",
+       wa: d.whatsappPushedToReviewer,
+       as: d.ajrasakhaPushedToReviewer,
+     },
+     {
+       key: "answered120",
+       label: "Answered within 120 min",
+       type: "data",
+       wa: d.whatsappAnsweredWithin120Min,
+       as: d.ajrasakhaAnsweredWithin120Min,
+     },
+     {
+       key: "duplicate",
+       label: "Marked Duplicate (GDB)",
+       type: "data",
+       wa: d.whatsappMarkedDuplicate,
+       as: d.ajrasakhaMarkedDuplicate,
+     },
+     {
+       key: "dynamicWeather",
+       label: "Dynamic — Weather",
+       type: "data",
+       wa: d.whatsappDynamicWeather,
+       as: d.ajrasakhaDynamicWeather,
+     },
+     {
+       key: "dynamicMarket",
+       label: "Dynamic — Market",
+       type: "data",
+       wa: d.whatsappDynamicMarket,
+       as: d.ajrasakhaDynamicMarket,
+     },
+     {
+       key: "dynamicSchemes",
+       label: "Dynamic — Schemes",
+       type: "data",
+       wa: d.whatsappDynamicSchemes,
+       as: d.ajrasakhaDynamicSchemes,
+     },
+     {
+       key: "nonGdb",
+       label: "Non-GDB answered in 120 min by AEs",
+       type: "data",
+       wa: d.whatsappNonGdbWithin120,
+       as: d.ajrasakhaNonGdbWithin120,
+     },
+     {
+       key: "inReview",
+       label: "In Review",
+       type: "data",
+       wa: d.whatsappInReview,
+       as: d.ajrasakhaInReview,
+     },
+     {
+       key: "open",
+       label: "Open",
+       type: "data",
+       wa: d.whatsappOpen,
+       as: d.ajrasakhaOpen,
+     },
+     {
+       key: "delayed",
+       label: "Delayed",
+       type: "data",
+       wa: d.whatsappDelayed,
+       as: d.ajrasakhaDelayed,
+     },
+     {
+       key: "summaryDelayReason",
+       label: "Summary of delay reason",
+       type: "data",
+       wa: "—",
+       as: "—",
+     },
+     {
+       key: "avgResponse",
+       label: "Avg. Response Time",
+       type: "data",
+       wa: formatMinutes(d.whatsappAverageResponseMinutes),
+       as: formatMinutes(d.ajrasakhaAverageResponseMinutes),
+     },
+     {
+       key: "adherencePct",
+       label: "% Completed within 120 min",
+       type: "data",
+       wa:
+         d.whatsappAdherencePct != null
+           ? `${d.whatsappAdherencePct.toFixed(2)}%`
+           : "—",
+       as:
+         d.ajrasakhaAdherencePct != null
+           ? `${d.ajrasakhaAdherencePct.toFixed(2)}%`
+           : "—",
+       highlight: true,
+     },
+   ];
+
+
   const hasSelectedRows = rowExportData.some((row) => checkedRows[row.id]);
 
   const handleDownloadSelectedFields = () => {
@@ -204,8 +361,9 @@ export function ResponseAdherenceTableCard({
     const downloadUrl = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = downloadUrl;
-    anchor.download = `response-adherence-selected-fields-${effectiveDate || todayAsInputDate()}.csv`;
-    document.body.appendChild(anchor);
+    const now = new Date();
+    const timestamp = `${now.getHours()}-${now.getMinutes()}-${now.getSeconds()}`;
+    anchor.download = `response-adherence-report-${effectiveDate}-${timestamp}.csv`;    document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
     URL.revokeObjectURL(downloadUrl);
@@ -221,295 +379,453 @@ export function ResponseAdherenceTableCard({
   );
 
   return (
-    <Card className="mb-4 rounded-2xl border border-border/70 bg-muted/10">
-      <CardHeader className="pb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <CardTitle className="flex items-center gap-2 text-base text-primary">
-            <ClipboardCheck className="w-5 h-5" />
-            Response Adherence Summary
-          </CardTitle>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-11 min-w-[220px] justify-start border-border/80 bg-background text-sm font-normal"
-              >
-                <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                {format(
-                  parseInputDateToLocalDate(effectiveDate),
-                  "MMM dd, yyyy",
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                initialFocus
-                mode="single"
-                selected={parseInputDateToLocalDate(effectiveDate)}
-                onSelect={(date) => {
-                  if (!date) return;
-                  handleDateChange(todayAsInputDate(date));
-                }}
-                disabled={{ after: new Date() }}
-              />
-            </PopoverContent>
-          </Popover>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleDownloadSelectedFields}
-            disabled={!hasSelectedRows}
-            className="h-11 px-5 text-base"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Download Selected Fields (.xlsx)
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="mb-3 text-xs text-muted-foreground">
-            Fetching selected date data...
-          </div>
-        ) : null}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] border-collapse text-sm">
-            <tbody>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("date")}
-                </td>
-                <td className="border border-border/70 px-3 py-2 font-medium">
-                  Date
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.date || effectiveDate}
-                </td>
-                <td className="border border-border/70 px-3 py-2"></td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("time")}
-                </td>
-                <td className="border border-border/70 px-3 py-2 font-medium">
-                  Time
-                </td>
-                <td colSpan={2} className="border border-border/70 px-3 py-2">
-                  {d.timeWindow}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("header")}
-                </td>
-                <td className="border border-border/70 px-3 py-2 font-medium">
-                  Source
-                </td>
-                <td className="border border-border/70 px-3 py-2 font-semibold">
-                  Whatsapp
-                </td>
-                <td className="border border-border/70 px-3 py-2 font-semibold">
-                  AjraSakha
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("queriesAsked")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Queries Asked
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {whatsappQueriesAskedDisplay}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaQueriesAsked}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("pushedReviewer")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Question Pushed into Reviewer System
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappPushedToReviewer}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaPushedToReviewer}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("answered120")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Question Answered within 120 Min
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappAnsweredWithin120Min}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaAnsweredWithin120Min}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("duplicate")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Marked Duplicate (Fetched from GDB)
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappMarkedDuplicate}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaMarkedDuplicate}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("dynamicWeather")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Dynamic - Weather
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappDynamicWeather}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaDynamicWeather}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("dynamicMarket")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Dynamic - Market
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappDynamicMarket}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaDynamicMarket}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("dynamicSchemes")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Dynamic - Schemes
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappDynamicSchemes}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaDynamicSchemes}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("nonGdb")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Non GDB Questions - Answer prepared in 120 Min by AEs
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappNonGdbWithin120}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaNonGdbWithin120}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("inReview")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Question in Review
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappInReview}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaInReview}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("open")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Questions are Open
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappOpen}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaOpen}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("delayed")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Questions are delayed
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappDelayed}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaDelayed}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("summaryDelayReason")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Summary of the reason for delaying
-                </td>
-                <td className="border border-border/70 px-3 py-2"></td>
-                <td className="border border-border/70 px-3 py-2"></td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("avgResponse")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Average time for Response
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {formatMinutes(d.whatsappAverageResponseMinutes)}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {formatMinutes(d.ajrasakhaAverageResponseMinutes)}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-border/70 px-2 py-2 text-center">
-                  {rowCheck("adherencePct")}
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  Percentage of questions completed within 120 min
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.whatsappAdherencePct.toFixed(2)}%
-                </td>
-                <td className="border border-border/70 px-3 py-2">
-                  {d.ajrasakhaAdherencePct.toFixed(2)}%
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
+    <Card className="mb-4 rounded-2xl border border-border/60 bg-muted/5 shadow-none">
+      <Accordion type="single" collapsible>
+        <AccordionItem value="response-adherence" className="border-none">
+          {/* ── Card Header ── */}
+          <CardHeader className="p-0">
+            <AccordionTrigger className="w-full px-6 py-2.5 hover:no-underline">
+              <div className="flex w-full items-center justify-between gap-4">
+                {/* Left */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <ClipboardCheck className="w-4.5 h-4.5 text-primary shrink-0" />
+
+                  <CardTitle className="text-base font-semibold tracking-tight text-foreground">
+                    Response Adherence Summary
+                  </CardTitle>
+                </div>
+
+                {/* Right Section */}
+                <div
+                  className="flex items-center gap-2 ml-auto mr-3"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Date Picker */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="h-9 min-w-[200px] justify-start text-sm font-normal border-border/70 bg-background"
+                      >
+                        <CalendarIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+
+                        {format(
+                          parseInputDateToLocalDate(effectiveDate),
+                          "MMM dd, yyyy",
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        initialFocus
+                        mode="single"
+                        selected={parseInputDateToLocalDate(effectiveDate)}
+                        onSelect={(date) => {
+                          if (!date) return;
+                          handleDateChange(todayAsInputDate(date));
+                        }}
+                        disabled={{ after: new Date() }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Download */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadSelectedFields}
+                    disabled={!hasSelectedRows}
+                    className="h-9 px-4 text-sm gap-2 border-border/70"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download .xlsx
+                  </Button>
+                </div>
+              </div>
+            </AccordionTrigger>
+          </CardHeader>
+
+          {/* ── Accordion Content ── */}
+          <AccordionContent>
+            <CardContent className="pt-0">
+              {isLoading && (
+                <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Fetching data for selected date…
+                </div>
+              )}
+
+              <div className="overflow-x-auto rounded-xl border border-border/50">
+                <table className="w-full min-w-[720px] border-collapse text-sm">
+                  <tbody>
+                    {rows.map((row) => {
+                      if (row.type === "single") {
+                        return (
+                          <tr
+                            key={row.key}
+                            className="hover:bg-muted/20 transition-colors"
+                          >
+                            <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
+                              {rowCheck(row.key)}
+                            </td>
+                            <td className="border-b border-r border-border/40 px-3 py-2.5 text-muted-foreground w-56">
+                              {row.label}
+                            </td>
+                            <td
+                              colSpan={row.span ? 2 : 1}
+                              className="border-b border-border/40 px-3 py-2.5 font-medium"
+                            >
+                              {row.value}
+                            </td>
+                            {!row.span && (
+                              <td className="border-b border-border/40" />
+                            )}
+                          </tr>
+                        );
+                      }
+
+                      if (row.type === "header") {
+                        return (
+                          <tr key={row.key} className="bg-muted/30">
+                            <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
+                              {rowCheck(row.key)}
+                            </td>
+                            <td className="border-b border-r border-border/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              {row.label}
+                            </td>
+                            <td className="border-b border-r border-border/40 px-3 py-2.5 font-semibold text-foreground">
+                              {row.wa}
+                            </td>
+                            <td className="border-b border-border/40 px-3 py-2.5 font-semibold text-foreground">
+                              {row.as}
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      // data row
+                      return (
+                        <tr
+                          key={row.key}
+                          className={`hover:bg-muted/20 transition-colors ${
+                            row.highlight ? "bg-primary/5 font-medium" : ""
+                          }`}
+                        >
+                          <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
+                            {rowCheck(row.key)}
+                          </td>
+                          <td className="border-b border-r border-border/40 px-3 py-2.5 text-muted-foreground">
+                            {row.label}
+                          </td>
+                          <td className="border-b border-r border-border/40 px-3 py-2.5 tabular-nums">
+                            {row.wa ?? "—"}
+                          </td>
+                          <td className="border-b border-border/40 px-3 py-2.5 tabular-nums">
+                            {row.as ?? "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </Card>
+
+    // <Card className="mb-4 rounded-2xl border border-border/70 bg-muted/10">
+    //   <CardHeader className="pb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    //     <div>
+    //       <CardTitle className="flex items-center gap-2 text-base text-primary">
+    //         <ClipboardCheck className="w-5 h-5" />
+    //         Response Adherence Summary
+    //       </CardTitle>
+    //     </div>
+    //     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    //       <Popover>
+    //         <PopoverTrigger asChild>
+    //           <Button
+    //             variant="outline"
+    //             className="h-11 min-w-[220px] justify-start border-border/80 bg-background text-sm font-normal"
+    //           >
+    //             <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+    //             {format(
+    //               parseInputDateToLocalDate(effectiveDate),
+    //               "MMM dd, yyyy",
+    //             )}
+    //           </Button>
+    //         </PopoverTrigger>
+    //         <PopoverContent className="w-auto p-0" align="end">
+    //           <Calendar
+    //             initialFocus
+    //             mode="single"
+    //             selected={parseInputDateToLocalDate(effectiveDate)}
+    //             onSelect={(date) => {
+    //               if (!date) return;
+    //               handleDateChange(todayAsInputDate(date));
+    //             }}
+    //             disabled={{ after: new Date() }}
+    //           />
+    //         </PopoverContent>
+    //       </Popover>
+    //       <Button
+    //         type="button"
+    //         variant="outline"
+    //         onClick={handleDownloadSelectedFields}
+    //         disabled={!hasSelectedRows}
+    //         className="h-11 px-5 text-base"
+    //       >
+    //         <Download className="w-4 h-4 mr-2" />
+    //         Download Selected Fields (.xlsx)
+    //       </Button>
+    //     </div>
+    //   </CardHeader>
+    //   <CardContent>
+    //     {isLoading ? (
+    //       <div className="mb-3 text-xs text-muted-foreground">
+    //         Fetching selected date data...
+    //       </div>
+    //     ) : null}
+    //     <div className="overflow-x-auto">
+    //       <table className="w-full min-w-[860px] border-collapse text-sm">
+    //         <tbody>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("date")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2 font-medium">
+    //               Date
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.date || effectiveDate}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2"></td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("time")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2 font-medium">
+    //               Time
+    //             </td>
+    //             <td colSpan={2} className="border border-border/70 px-3 py-2">
+    //               {d.timeWindow}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("header")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2 font-medium">
+    //               Source
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2 font-semibold">
+    //               Whatsapp
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2 font-semibold">
+    //               AjraSakha
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("queriesAsked")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Queries Asked
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {whatsappQueriesAskedDisplay}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaQueriesAsked}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("pushedReviewer")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Question Pushed into Reviewer System
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappPushedToReviewer}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaPushedToReviewer}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("answered120")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Question Answered within 120 Min
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappAnsweredWithin120Min}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaAnsweredWithin120Min}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("duplicate")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Marked Duplicate (Fetched from GDB)
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappMarkedDuplicate}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaMarkedDuplicate}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("dynamicWeather")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Dynamic - Weather
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappDynamicWeather}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaDynamicWeather}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("dynamicMarket")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Dynamic - Market
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappDynamicMarket}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaDynamicMarket}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("dynamicSchemes")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Dynamic - Schemes
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappDynamicSchemes}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaDynamicSchemes}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("nonGdb")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Non GDB Questions - Answer prepared in 120 Min by AEs
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappNonGdbWithin120}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaNonGdbWithin120}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("inReview")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Question in Review
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappInReview}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaInReview}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("open")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Questions are Open
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappOpen}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaOpen}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("delayed")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Questions are delayed
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappDelayed}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaDelayed}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("summaryDelayReason")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Summary of the reason for delaying
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2"></td>
+    //             <td className="border border-border/70 px-3 py-2"></td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("avgResponse")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Average time for Response
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {formatMinutes(d.whatsappAverageResponseMinutes)}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {formatMinutes(d.ajrasakhaAverageResponseMinutes)}
+    //             </td>
+    //           </tr>
+    //           <tr>
+    //             <td className="border border-border/70 px-2 py-2 text-center">
+    //               {rowCheck("adherencePct")}
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               Percentage of questions completed within 120 min
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.whatsappAdherencePct.toFixed(2)}%
+    //             </td>
+    //             <td className="border border-border/70 px-3 py-2">
+    //               {d.ajrasakhaAdherencePct.toFixed(2)}%
+    //             </td>
+    //           </tr>
+    //         </tbody>
+    //       </table>
+    //     </div>
+    //   </CardContent>
+    // </Card>
   );
 }

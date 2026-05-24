@@ -1,0 +1,11 @@
+node_modules
+build
+tsconfig.tsbuildinfo
+.env
+.env.*
+*.log
+coverage
+gcp-service-account.json
+*firebase-adminsdk*.json
+backups
+.git

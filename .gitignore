@@ -28,3 +28,7 @@ Thumbs.db
 # Logs
 *.log
 node_modules/
+
+# App Docker secrets and env
+.env
+secrets/
