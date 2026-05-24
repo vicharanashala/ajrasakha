@@ -3652,8 +3652,14 @@ export class QuestionRepository implements IQuestionRepository {
             draft:        {$sum: {$cond: [{$eq: ['$status', 'draft']}, 1, 0]}},
             duplicate:    {$sum: {$cond: [{$eq: ['$status', 'duplicate']}, 1, 0]}},
             total:        {$sum: 1},
-            lastPushedDate: {$max: '$createdAt'},
-            lastClosedDate: {$max: '$closedAt'},
+            // Earliest question ever created in this group
+            lastPushedDate: {$min: '$createdAt'},
+            // Most recent closedAt among questions that are actually closed
+            lastClosedDate: {
+              $max: {
+                $cond: [{$eq: ['$status', 'closed']}, '$closedAt', null],
+              },
+            },
           },
         },
         {

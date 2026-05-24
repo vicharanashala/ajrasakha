@@ -8,6 +8,7 @@ import type {
 import type {
   IChatbotRepository,
   ChatbotConversationData,
+  WeatherConcernAnalyticsFilters,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -211,6 +212,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getWeatherConcernAnalytics(
+    filters: WeatherConcernAnalyticsFilters = {},
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
+    try {
+      return await this.chatbotRepository.getWeatherConcernAnalytics(
+        filters,
+        source,
+        undefined,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch weather concern analytics: ${error}`,
+      );
+    }
+  }
+
   async getDistrictAnalyticsByState(
     source = 'vicharanashala',
     state: string,
@@ -394,6 +414,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       limit,
     );
 
+
     // No user found
     if (!user) {
       return {
@@ -410,7 +431,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
 
     // Extract messageIds
-    const messageIds = messages.messages.map((msg: any) => msg.messageId);
+   const messageIds =
+  await this.chatbotRepository.getAllUserMessageIds(
+    userEmail,
+    source,
+  );
 
     // No linked messages
     if (!messageIds.length) {
@@ -435,6 +460,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       page,
       limit,
     );
+
+    console.log("Fetched questions", questions);
 
     return {
       questions,
@@ -1051,6 +1078,40 @@ export class ChatbotService extends BaseService implements IChatbotService {
       return await this.chatbotRepository.deleteUser(userId, source);
     } catch (error) {
       throw new InternalServerError(`Failed to delete user: ${error}`);
+    }
+  }
+
+  async updateUser(
+    userId: string,
+    source: string,
+    data: {
+      name?: string;
+      farmerProfile?: {
+        farmerName?: string;
+        age?: number;
+        gender?: string;
+        villageName?: string;
+        blockName?: string;
+        district?: string;
+        state?: string;
+        phoneNo?: string;
+        languagePreference?: string;
+        yearsOfExperience?: number;
+        cropsCultivated?: string[];
+        primaryCrop?: string;
+        secondaryCrop?: string;
+        awarenessOfKCC?: boolean;
+        usesAgriApps?: boolean;
+        highestEducatedPerson?: string;
+        numberOfSmartphones?: number;
+        platform?: string;
+      };
+    },
+  ): Promise<boolean> {
+    try {
+      return await this.chatbotRepository.updateUser(userId, source, data);
+    } catch (error) {
+      throw new InternalServerError(`Failed to update user: ${error}`);
     }
   }
 

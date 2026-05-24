@@ -65,6 +65,37 @@ export interface DistrictAnalyticsEntry{
   duplicateQuestions: number;
 }
 
+export interface WeatherConcernAnalyticsFilters {
+  season?: string;
+  state?: string;
+  district?: string;
+  block?: string;
+  village?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface WeatherConcernDistributionEntry {
+  concern: string;
+  count: number;
+  percentage: number;
+}
+
+export interface WeatherConcernTimelineEntry {
+  month: string;
+  count: number;
+}
+
+export interface WeatherConcernAnalyticsResponse {
+  filters: WeatherConcernAnalyticsFilters;
+  summary: {
+    totalWeatherQueries: number;
+    topConcern: string | null;
+  };
+  concernDistribution: WeatherConcernDistributionEntry[];
+  timeline: WeatherConcernTimelineEntry[];
+}
+
 export interface WeeklySessionDurationEntry {
   week: string; // ISO week string, e.g. '2025-W03'
   avgSessionDurationMin: number;
@@ -139,6 +170,7 @@ export interface UserDetailEntry {
   email: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
+  createdAt: Date;
 }
 
 export interface PaginatedUserDetails {
@@ -334,6 +366,8 @@ export interface IChatbotRepository {
 
   getUserData(userEmail: string, source: string, session?: ClientSession): Promise<{ userId: string; name: string }>;
 
+  getAllUserMessageIds(email: string, source?: string, session?: ClientSession): Promise<string[]>;
+
   /** Aggregate conversations from the messages collection for Excel export. */
   generateChatbotExcelReport(
     startDate: Date,
@@ -398,8 +432,23 @@ export interface IChatbotRepository {
   ): Promise<ResponseAdherenceTable>;
   getDistrictAnalyticsByState( state: string, source?: string, session?: ClientSession, userType?: string): Promise<DistrictAnalyticsEntry[]>;
 
+  getWeatherConcernAnalytics(
+    filters?: WeatherConcernAnalyticsFilters,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<WeatherConcernAnalyticsResponse>;
+
   
   deleteUser(userId: string, source: string): Promise<boolean>;
+  updateUser(
+    userId: string,
+    source: string,
+    data: {
+      name?: string;
+      farmerProfile?: Partial<FarmerProfile>;
+    },
+  ): Promise<boolean>;
 
   getDailyActiveUsersTrend  (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession):Promise<any>
 
