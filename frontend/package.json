@@ -59,6 +59,8 @@
     "date-fns": "^4.1.0",
     "firebase": "^12.0.0",
     "framer-motion": "^12.34.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "ldrs": "^1.1.9",
     "lucide-react": "^0.476.0",
     "next-themes": "^0.4.6",
