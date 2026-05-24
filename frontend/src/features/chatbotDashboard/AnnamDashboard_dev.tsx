@@ -87,6 +87,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     source,
     source === "annam" || source === "vicharanashala",
   );
+  const inactiveUsers = 15;
   const {data: queryCategories} = useQueryCategories(source);
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
   const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
@@ -513,7 +514,7 @@ useEffect(() => {
                     <AlertCard
                       alerts={data.alerts}
                       inactiveUsersLast3Days={
-                        (data as any).inactiveUsersLast3Days ?? 0
+                        source === "whatsapp" ? inactiveUsers : (data as any).inactiveUsersLast3Days ?? 0
                       }
                       onInactiveClick={handleInactiveUsersClick}
                       duplicateQuestionsCount={
