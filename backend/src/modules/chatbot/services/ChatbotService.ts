@@ -414,6 +414,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       limit,
     );
 
+
     // No user found
     if (!user) {
       return {
@@ -430,7 +431,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
 
     // Extract messageIds
-    const messageIds = messages.messages.map((msg: any) => msg.messageId);
+   const messageIds =
+  await this.chatbotRepository.getAllUserMessageIds(
+    userEmail,
+    source,
+  );
 
     // No linked messages
     if (!messageIds.length) {
@@ -455,6 +460,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       page,
       limit,
     );
+
+    console.log("Fetched questions", questions);
 
     return {
       questions,

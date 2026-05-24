@@ -170,6 +170,7 @@ export interface UserDetailEntry {
   email: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
+  createdAt: Date;
 }
 
 export interface PaginatedUserDetails {
@@ -364,6 +365,8 @@ export interface IChatbotRepository {
   getUsersMessages(email: string, source?: string, session?: ClientSession, userType?: string, page?: number, limit?: number): Promise<any>;
 
   getUserData(userEmail: string, source: string, session?: ClientSession): Promise<{ userId: string; name: string }>;
+
+  getAllUserMessageIds(email: string, source?: string, session?: ClientSession): Promise<string[]>;
 
   /** Aggregate conversations from the messages collection for Excel export. */
   generateChatbotExcelReport(
