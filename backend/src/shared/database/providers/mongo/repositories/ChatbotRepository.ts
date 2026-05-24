@@ -28,6 +28,8 @@ import type {
   DistrictAnalyticsEntry,
   FeedbackData,
   ResponseAdherenceTable,
+  WeatherConcernAnalyticsFilters,
+  WeatherConcernAnalyticsResponse,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -76,6 +78,42 @@ interface IConversation {
   createdAt: Date;
   updatedAt: Date;
 }
+
+const WEATHER_CONCERNS = {
+  rain: 'rain',
+  heavyRain: 'heavy rain',
+  flood: 'flood',
+  waterlogging: 'waterlogging',
+  monsoon: 'monsoon',
+  heat: 'heat',
+  temperature: 'temperature',
+  cold: 'cold',
+  frost: 'frost',
+  hotWeather: 'hot weather',
+  humidity: 'humidity',
+  moisture: 'moisture',
+  wind: 'wind',
+  storm: 'storm',
+  cyclone: 'cyclone',
+} as const;
+
+const WEATHER_CONCERN_LABELS: Record<keyof typeof WEATHER_CONCERNS, string> = {
+  rain: 'Rain',
+  heavyRain: 'Heavy Rain',
+  flood: 'Flood',
+  waterlogging: 'Waterlogging',
+  monsoon: 'Monsoon',
+  heat: 'Heat',
+  temperature: 'Temperature',
+  cold: 'Cold',
+  frost: 'Frost',
+  hotWeather: 'Hot Weather',
+  humidity: 'Humidity',
+  moisture: 'Moisture',
+  wind: 'Wind',
+  storm: 'Storm',
+  cyclone: 'Cyclone',
+};
 
 @injectable()
 export class ChatbotRepository implements IChatbotRepository {
@@ -143,7 +181,8 @@ export class ChatbotRepository implements IChatbotRepository {
       if (endTime) matchQuery.createdAt.$lte = new Date(endTime);
     }
 
-    const userTypeLookupStages = this.buildQuestionUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildQuestionUserTypeLookupStages(userType);
 
     const result = await this.QuestionCollection.aggregate(
       [
@@ -173,7 +212,12 @@ export class ChatbotRepository implements IChatbotRepository {
                   $expr: {
                     $and: [
                       {$gte: ['$closedAt', '$createdAt']},
-                      {$lte: [{$subtract: ['$closedAt', '$createdAt']}, 120 * 60 * 1000]},
+                      {
+                        $lte: [
+                          {$subtract: ['$closedAt', '$createdAt']},
+                          120 * 60 * 1000,
+                        ],
+                      },
                     ],
                   },
                 },
@@ -194,24 +238,18 @@ export class ChatbotRepository implements IChatbotRepository {
                   _id: null,
                   avgMinutes: {
                     $avg: {
-                      $divide: [{$subtract: ['$closedAt', '$createdAt']}, 60 * 1000],
+                      $divide: [
+                        {$subtract: ['$closedAt', '$createdAt']},
+                        60 * 1000,
+                      ],
                     },
                   },
                 },
               },
             ],
-            inReview: [
-              {$match: {status: 'in-review'}},
-              {$count: 'count'},
-            ],
-            open: [
-              {$match: {status: 'open'}},
-              {$count: 'count'},
-            ],
-            delayed: [
-              {$match: {status: 'delayed'}},
-              {$count: 'count'},
-            ],
+            inReview: [{$match: {status: 'in-review'}}, {$count: 'count'}],
+            open: [{$match: {status: 'open'}}, {$count: 'count'}],
+            delayed: [{$match: {status: 'delayed'}}, {$count: 'count'}],
             markedDuplicateGdb: [
               {
                 $match: {
@@ -255,8 +293,20 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.initReviewSystem();
 
       const [whatsapp, ajrasakha] = await Promise.all([
-        this.getSourceAdherenceStats('WHATSAPP', userType, startTime, endTime, session),
-        this.getSourceAdherenceStats('AJRASAKHA', userType, startTime, endTime, session),
+        this.getSourceAdherenceStats(
+          'WHATSAPP',
+          userType,
+          startTime,
+          endTime,
+          session,
+        ),
+        this.getSourceAdherenceStats(
+          'AJRASAKHA',
+          userType,
+          startTime,
+          endTime,
+          session,
+        ),
       ]);
 
       const messageMatch: any = {isDeleted: {$ne: true}};
@@ -265,7 +315,7 @@ export class ChatbotRepository implements IChatbotRepository {
         if (startTime) messageMatch.createdAt.$gte = new Date(startTime);
         if (endTime) messageMatch.createdAt.$lte = new Date(endTime);
       }
-      const queryCounts = await this.messagesCollection
+      const adherenceMessageStats = await this.messagesCollection
         .aggregate(
           [
             {$match: messageMatch},
@@ -281,11 +331,7 @@ export class ChatbotRepository implements IChatbotRepository {
                     ],
                   },
                 },
-              },
-            },
-            {
-              $group: {
-                _id: {
+                _sourceBucket: {
                   $switch: {
                     branches: [
                       {
@@ -310,23 +356,106 @@ export class ChatbotRepository implements IChatbotRepository {
                     default: 'AJRASAKHA',
                   },
                 },
-                count: {$sum: 1},
+              },
+            },
+            {
+              $facet: {
+                queryCounts: [
+                  {
+                    $match: {
+                      sender: 'User',
+                    },
+                  },
+                  {
+                    $count: 'count',
+                  },
+                ],
+                dynamicWeather: [
+                  {
+                    $match: {
+                      'content.tool_call.name': {$regex: 'weather', $options: 'i'},
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: '$_sourceBucket',
+                      count: {$sum: 1},
+                    },
+                  },
+                ],
+                dynamicMarket: [
+                  {
+                    $match: {
+                      'content.tool_call.name': {$regex: 'market', $options: 'i'},
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: '$_sourceBucket',
+                      count: {$sum: 1},
+                    },
+                  },
+                ],
+                dynamicSchemes: [
+                  {
+                    $match: {
+                      'content.tool_call.name': {
+                        $regex: '(scheme|schemes)',
+                        $options: 'i',
+                      },
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: '$_sourceBucket',
+                      count: {$sum: 1},
+                    },
+                  },
+                ],
               },
             },
           ],
           {session},
         )
         .toArray();
-      const whatsappQueriesAsked = queryCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
-      const ajrasakhaQueriesAsked = queryCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+      const messageStats = adherenceMessageStats[0] ?? {};
+      const queryCounts = messageStats.queryCounts ?? [];
+      const dynamicWeatherCounts = messageStats.dynamicWeather ?? [];
+      const dynamicMarketCounts = messageStats.dynamicMarket ?? [];
+      const dynamicSchemesCounts = messageStats.dynamicSchemes ?? [];
+
+      const whatsappDynamicWeather =
+        dynamicWeatherCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
+      const ajrasakhaDynamicWeather =
+        dynamicWeatherCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+      const whatsappDynamicMarket =
+        dynamicMarketCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
+      const ajrasakhaDynamicMarket =
+        dynamicMarketCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+      const whatsappDynamicSchemes =
+        dynamicSchemesCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
+      const ajrasakhaDynamicSchemes =
+        dynamicSchemesCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+
+      const totalUserMessages = queryCounts[0]?.count ?? 0;
+      const whatsappQueriesAsked = 0;
+      const ajrasakhaQueriesAsked = totalUserMessages;
 
       const whatsappAdherencePct =
         whatsapp.questionAsked > 0
-          ? Math.round((whatsapp.answeredWithin120Min / whatsapp.questionAsked) * 100 * 100) / 100
+          ? Math.round(
+              (whatsapp.answeredWithin120Min / whatsapp.questionAsked) *
+                100 *
+                100,
+            ) / 100
           : 0;
       const ajrasakhaAdherencePct =
         ajrasakha.questionAsked > 0
-          ? Math.round((ajrasakha.answeredWithin120Min / ajrasakha.questionAsked) * 100 * 100) / 100
+          ? Math.round(
+              (ajrasakha.answeredWithin120Min / ajrasakha.questionAsked) *
+                100 *
+                100,
+            ) / 100
           : 0;
 
       const startReference = startTime ? new Date(startTime) : new Date();
@@ -355,12 +484,12 @@ export class ChatbotRepository implements IChatbotRepository {
         ajrasakhaAnsweredWithin120Min: ajrasakha.answeredWithin120Min,
         whatsappMarkedDuplicate: whatsapp.markedDuplicateGdbCount,
         ajrasakhaMarkedDuplicate: ajrasakha.markedDuplicateGdbCount,
-        whatsappDynamicWeather: whatsapp.dynamicWeatherCount,
-        ajrasakhaDynamicWeather: ajrasakha.dynamicWeatherCount,
-        whatsappDynamicMarket: whatsapp.dynamicMarketCount,
-        ajrasakhaDynamicMarket: ajrasakha.dynamicMarketCount,
-        whatsappDynamicSchemes: whatsapp.dynamicSchemesCount,
-        ajrasakhaDynamicSchemes: ajrasakha.dynamicSchemesCount,
+        whatsappDynamicWeather,
+        ajrasakhaDynamicWeather,
+        whatsappDynamicMarket,
+        ajrasakhaDynamicMarket,
+        whatsappDynamicSchemes,
+        ajrasakhaDynamicSchemes,
         whatsappNonGdbWithin120,
         ajrasakhaNonGdbWithin120,
         whatsappInReview: whatsapp.inReviewCount,
@@ -482,6 +611,35 @@ export class ChatbotRepository implements IChatbotRepository {
 
     stages.push({$unset: ['_userOid', '_userDoc']});
     return stages;
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private buildExactTextRegex(value?: string): Record<string, string> | undefined {
+    if (!value || value.trim().toLowerCase() === 'all') return undefined;
+    return {
+      $regex: `^${this.escapeRegex(value.trim())}$`,
+      $options: 'i',
+    };
+  }
+
+  private buildContainsTextRegex(value?: string): Record<string, string> | undefined {
+    if (!value || value.trim().toLowerCase() === 'all') return undefined;
+    return {
+      $regex: this.escapeRegex(value.trim()),
+      $options: 'i',
+    };
+  }
+
+  private formatMonthLabel(monthKey: string): string {
+    const [year, month] = monthKey.split('-').map(Number);
+    if (!year || !month) return monthKey;
+
+    return new Intl.DateTimeFormat('en', {month: 'long'}).format(
+      new Date(Date.UTC(year, month - 1, 1)),
+    );
   }
 
   async getKpiSummary(
@@ -1419,100 +1577,338 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 }
 
-async getQuerySummaryByPeriod(
-  period: 'daily' | 'weekly' | 'monthly',
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-) {
-  try {
-    await this.init(source);
+  async getQuerySummaryByPeriod(
+    period: 'daily' | 'weekly' | 'monthly',
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ) {
+    try {
+      await this.init(source);
 
-    const userTypeLookupStages =
-      this.buildUserTypeLookupStages(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-    const now = new Date();
+      const now = new Date();
 
-    let startDate = new Date();
-    let label = '';
+      let startDate = new Date();
+      let label = '';
 
-    switch (period) {
-      case 'daily':
-        startDate.setHours(0, 0, 0, 0);
-        label = 'Today Queries';
-        break;
+      switch (period) {
+        case 'daily':
+          startDate.setHours(0, 0, 0, 0);
+          label = 'Today Queries';
+          break;
 
-      case 'weekly':
-        startDate.setDate(now.getDate() - 7);
-        label = 'Last 7 Days Queries';
-        break;
+        case 'weekly':
+          startDate.setDate(now.getDate() - 7);
+          label = 'Last 7 Days Queries';
+          break;
 
-      case 'monthly':
-        startDate.setDate(now.getDate() - 30);
-        label = 'Last 30 Days Queries';
-        break;
-    }
+        case 'monthly':
+          startDate.setDate(now.getDate() - 30);
+          label = 'Last 30 Days Queries';
+          break;
+      }
 
-    const result = await this.messagesCollection
-      .aggregate(
-        [
-          {
-            $match: {
-              createdAt: {
-                $gte: startDate,
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                createdAt: {
+                  $gte: startDate,
+                },
+
+                isCreatedByUser: true,
+
+                isDeleted: {
+                  $ne: true,
+                },
               },
+            },
 
-              isCreatedByUser: true,
+            ...userTypeLookupStages,
 
-              isDeleted: {
-                $ne: true,
+            {
+              $count: 'total',
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      return {
+        label,
+        totalQueries: result[0]?.total || 0,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get query summary: ${error}`);
+    }
+  }
+
+  async getWeatherConcernAnalytics(
+    filters: WeatherConcernAnalyticsFilters = {},
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<WeatherConcernAnalyticsResponse> {
+    try {
+      await this.init(source);
+
+      const locationMatch: Record<string, any> = {};
+      const stateRegex = this.buildExactTextRegex(filters.state);
+      const districtRegex = this.buildExactTextRegex(filters.district);
+      const blockRegex = this.buildExactTextRegex(filters.block);
+      const villageRegex = this.buildExactTextRegex(filters.village);
+
+      if (stateRegex) locationMatch['userDetails.farmerProfile.state'] = stateRegex;
+      if (districtRegex) locationMatch['userDetails.farmerProfile.district'] = districtRegex;
+      if (blockRegex) locationMatch['userDetails.farmerProfile.blockName'] = blockRegex;
+      if (villageRegex) locationMatch['userDetails.farmerProfile.villageName'] = villageRegex;
+
+      const userDocFilter = this.buildUserDocFilter(userType);
+      const userTypeMatch: Record<string, any> = {};
+      for (const key of Object.keys(userDocFilter)) {
+        userTypeMatch[`userDetails.${key}`] = userDocFilter[key];
+      }
+
+      const messageMatch: Record<string, any> = {
+        isDeleted: {$ne: true},
+        'content.tool_call.name': {$regex: 'weather', $options: 'i'},
+      };
+      if (filters.startDate || filters.endDate) {
+        messageMatch.createdAt = {};
+        if (filters.startDate) messageMatch.createdAt.$gte = new Date(filters.startDate);
+        if (filters.endDate) messageMatch.createdAt.$lte = new Date(filters.endDate);
+      }
+
+      const concernExpressions = Object.fromEntries(
+        Object.entries(WEATHER_CONCERNS).map(([concern, keyword]) => [
+          concern,
+          {
+            $regexMatch: {
+              input: '$contentSignal',
+              regex: this.escapeRegex(keyword),
+              options: 'i',
+            },
+          },
+        ]),
+      );
+
+      const concernSums = Object.fromEntries(
+        Object.keys(WEATHER_CONCERNS).map(concern => [
+          concern,
+          {$sum: {$cond: [`$detectedConcerns.${concern}`, 1, 0]}},
+        ]),
+      );
+
+      const pipeline: any[] = [
+        {
+          $match: messageMatch,
+        },
+        {
+          $addFields: {
+            _userRef: {$ifNull: ['$user', '$userId']},
+          },
+        },
+        {
+          $addFields: {
+            _userOid: {
+              $cond: [
+                {$eq: [{$type: '$_userRef'}, 'objectId']},
+                '$_userRef',
+                {
+                  $cond: [
+                    {$and: [{$ne: ['$_userRef', null]}, {$ne: ['$_userRef', '']}]},
+                    {$toObjectId: '$_userRef'},
+                    null,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_userOid',
+            foreignField: '_id',
+            as: 'userDetails',
+          },
+        },
+        {
+          $unwind: {
+            path: '$userDetails',
+            preserveNullAndEmptyArrays: userType !== 'external',
+          },
+        },
+      ];
+
+      if (Object.keys(userTypeMatch).length > 0) {
+        pipeline.push({$match: userTypeMatch});
+      }
+
+      if (Object.keys(locationMatch).length > 0) {
+        pipeline.push({$match: locationMatch});
+      }
+
+      pipeline.push(
+        {
+          $addFields: {
+            contentSignal: {
+              $reduce: {
+                input: {$ifNull: ['$content', []]},
+                initialValue: '',
+                in: {
+                  $concat: [
+                    '$$value',
+                    ' ',
+                    {$ifNull: ['$$this.tool_call.name', '']},
+                    ' ',
+                    {$ifNull: ['$$this.think', '']},
+                    ' ',
+                    {$ifNull: ['$$this.text', '']},
+                  ],
+                },
               },
             },
           },
+        },
+      );
 
-          ...userTypeLookupStages,
+      const seasonRegex = this.buildContainsTextRegex(filters.season);
+      if (seasonRegex) {
+        pipeline.push({$match: {contentSignal: seasonRegex}});
+      }
 
-          {
-            $count: 'total',
+      pipeline.push(
+        {
+          $addFields: {
+            detectedConcerns: concernExpressions,
           },
-        ],
-        { session },
-      )
-      .toArray();
+        },
+        {
+          $addFields: {
+            hasKnownConcern: {
+              $anyElementTrue: [
+                Object.keys(WEATHER_CONCERNS).map(concern => `$detectedConcerns.${concern}`),
+              ],
+            },
+          },
+        },
+        {
+          $facet: {
+            summary: [
+              {
+                $group: {
+                  _id: null,
+                  totalWeatherQueries: {$sum: 1},
+                  ...concernSums,
+                  others: {$sum: {$cond: ['$hasKnownConcern', 0, 1]}},
+                },
+              },
+            ],
+            timeline: [
+              {
+                $group: {
+                  _id: {
+                    $dateToString: {
+                      format: '%Y-%m',
+                      date: '$createdAt',
+                      timezone: '+05:30',
+                    },
+                  },
+                  count: {$sum: 1},
+                },
+              },
+              {$sort: {_id: 1}},
+            ],
+          },
+        },
+      );
 
-    return {
-      label,
-      totalQueries: result[0]?.total || 0,
-    };
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get query summary: ${error}`,
-    );
+      const [result] = await this.messagesCollection
+        .aggregate(pipeline, {session})
+        .toArray();
+
+      const summary = result?.summary?.[0] ?? {};
+      const totalWeatherQueries = summary.totalWeatherQueries ?? 0;
+      const concernDistribution = Object.keys(WEATHER_CONCERNS).map(key => {
+        const concernKey = key as keyof typeof WEATHER_CONCERNS;
+        const count = summary[key] ?? 0;
+        return {
+          concern: WEATHER_CONCERN_LABELS[concernKey],
+          count,
+          percentage: totalWeatherQueries
+            ? Math.round((count / totalWeatherQueries) * 100)
+            : 0,
+        };
+      });
+      const othersCount = summary.others ?? 0;
+      concernDistribution.push({
+        concern: 'Others',
+        count: othersCount,
+        percentage: totalWeatherQueries
+          ? Math.round((othersCount / totalWeatherQueries) * 100)
+          : 0,
+      });
+
+      const topConcern = (() => {
+        const sortedConcerns = [...concernDistribution].sort((a, b) => b.count - a.count);
+        if (sortedConcerns[0]?.concern === 'Others' && sortedConcerns[1]) {
+          return sortedConcerns[1].concern;
+        }
+        return sortedConcerns[0]?.concern ?? null;
+      })();
+
+      return {
+        filters: {
+          season: filters.season,
+          state: filters.state,
+          district: filters.district,
+          block: filters.block,
+          village: filters.village,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+        },
+        summary: {
+          totalWeatherQueries,
+          topConcern,
+        },
+        concernDistribution,
+        timeline: (result?.timeline ?? []).map((item: any) => ({
+          month: this.formatMonthLabel(item._id),
+          count: item.count,
+        })),
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get weather concern analytics: ${error}`,
+      );
+    }
   }
-}
 
   // ============================================
-// HELPER
-// ============================================
+  // HELPER
+  // ============================================
 
-private getMonthDateRange(month: string) {
-  // month => "2026-05"
+  private getMonthDateRange(month: string) {
+    // month => "2026-05"
 
-  const start = new Date(`${month}-01T00:00:00.000Z`);
+    const start = new Date(`${month}-01T00:00:00.000Z`);
 
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + 1);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
 
-  return { start, end };
-}
+    return {start, end};
+  }
 
+  // ============================================
+  // DAILY ANALYTICS
+  // ============================================
 
-// ============================================
-// DAILY ANALYTICS
-// ============================================
-
-async getDailyAnalytics(
-  month: string,
+  async getDailyAnalytics(
+  month?: string,
   source = 'vicharanashala',
   session?: ClientSession,
   userType = 'all',
@@ -1521,7 +1917,10 @@ async getDailyAnalytics(
     await this.init(source);
     await this.initReviewSystem();
 
-    const { start, end } = this.getMonthDateRange(month);
+    const monthRange = month ? this.getMonthDateRange(month) : null;
+    const monthDateMatch = monthRange
+      ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
+      : {};
 
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
@@ -1535,10 +1934,7 @@ async getDailyAnalytics(
         [
           {
             $match: {
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
+              ...monthDateMatch,
 
               isCreatedByUser: true,
 
@@ -1589,10 +1985,7 @@ async getDailyAnalytics(
             $match: {
               source: 'AJRASAKHA',
 
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
+              ...monthDateMatch,
             },
           },
 
@@ -1726,14 +2119,12 @@ async getDailyAnalytics(
   }
 }
 
+  // ============================================
+  // WEEKLY ANALYTICS
+  // ============================================
 
-
-// ============================================
-// WEEKLY ANALYTICS
-// ============================================
-
-async getWeeklyAnalytics(
-  month: string,
+  async getWeeklyAnalytics(
+  month?: string,
   source = 'vicharanashala',
   session?: ClientSession,
   userType = 'all',
@@ -1742,7 +2133,10 @@ async getWeeklyAnalytics(
     await this.init(source);
     await this.initReviewSystem();
 
-    const { start, end } = this.getMonthDateRange(month);
+    const monthRange = month ? this.getMonthDateRange(month) : null;
+    const monthDateMatch = monthRange
+      ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
+      : {};
 
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
@@ -1756,10 +2150,7 @@ async getWeeklyAnalytics(
         [
           {
             $match: {
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
+              ...monthDateMatch,
 
               isCreatedByUser: true,
 
@@ -1810,10 +2201,7 @@ async getWeeklyAnalytics(
             $match: {
               source: 'AJRASAKHA',
 
-              createdAt: {
-                $gte: start,
-                $lt: end,
-              },
+              ...monthDateMatch,
             },
           },
 
@@ -1947,20 +2335,28 @@ async getWeeklyAnalytics(
   }
 }
 
+  // ============================================
+  // MONTHLY ANALYTICS
+  // ============================================
 
-
-// ============================================
-// MONTHLY ANALYTICS
-// ============================================
-
-async getMonthlyAnalytics(
+  async getMonthlyAnalytics(
   source = 'vicharanashala',
   session?: ClientSession,
   userType = 'all',
+  year?: number,
 ) {
   try {
     await this.init(source);
     await this.initReviewSystem();
+
+    const yearDateMatch = year
+      ? {
+          createdAt: {
+            $gte: new Date(`${year}-01-01T00:00:00.000Z`),
+            $lt: new Date(`${year + 1}-01-01T00:00:00.000Z`),
+          },
+        }
+      : {};
 
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
@@ -1974,6 +2370,8 @@ async getMonthlyAnalytics(
         [
           {
             $match: {
+              ...yearDateMatch,
+
               isCreatedByUser: true,
 
               isDeleted: {
@@ -2022,6 +2420,7 @@ async getMonthlyAnalytics(
           {
             $match: {
               source: 'AJRASAKHA',
+              ...yearDateMatch,
             },
           },
 
@@ -2847,9 +3246,16 @@ async getMonthlyAnalytics(
       const skip = (page - 1) * limit;
 
       const pipeline = [
+        /**
+         * Match only questions
+         * linked with user's messages
+         */
+
         {
           $match: {
             messageId: {
+              $exists: true,
+              $ne: null,
               $in: messageIds,
             },
 
@@ -2859,31 +3265,43 @@ async getMonthlyAnalytics(
 
         ...userTypeLookupStages,
 
-        // Newest first
+        /**
+         * Newest first
+         */
+
         {
           $sort: {
             createdAt: -1,
           },
         },
 
-        // Group duplicate questions
+        /**
+         * Group same questions
+         * asked by SAME user
+         */
+
         {
           $group: {
             _id: {
-              $toLower: '$question',
-            },
-
-            totalRepeated: {
-              $sum: {
-                $cond: [
-                  {
-                    $eq: ['$status', 'duplicate'],
-                  },
-                  1,
-                  0,
-                ],
+              $toLower: {
+                $trim: {
+                  input: '$question',
+                },
               },
             },
+
+            /**
+             * Count how many times
+             * same user asked same question
+             */
+
+            repeatedCount: {
+              $sum: 1,
+            },
+
+            /**
+             * Latest question data
+             */
 
             latestQuestion: {
               $first: '$question',
@@ -2904,8 +3322,21 @@ async getMonthlyAnalytics(
             latestMessageId: {
               $first: '$messageId',
             },
+
+            /**
+             * Store all timestamps
+             * for timeline modal
+             */
+
+            allCreatedAt: {
+              $push: '$createdAt',
+            },
           },
         },
+
+        /**
+         * Final response shape
+         */
 
         {
           $project: {
@@ -2913,7 +3344,18 @@ async getMonthlyAnalytics(
 
             messageId: '$latestMessageId',
 
-            question: '$latestQuestion',
+            /**
+             * Clean:
+             * (repeated)
+             * (duplicate)
+             * etc.
+             */
+
+            question: {
+              $trim: {
+                input: '$latestQuestion',
+              },
+            },
 
             status: '$latestStatus',
 
@@ -2921,25 +3363,23 @@ async getMonthlyAnalytics(
 
             updatedAt: '$latestUpdatedAt',
 
-            repeatedCount: {
-              $cond: [
-                {
-                  $gt: ['$totalRepeated', 0],
-                },
+            repeatedCount: '$repeatedCount',
 
-                {
-                  $add: ['$totalRepeated', 1],
-                },
+            repeatedAt: '$allCreatedAt',
 
-                1,
-              ],
-            },
+            /**
+             * If asked > 1 time
+             */
 
             isDuplicate: {
-              $gt: ['$totalRepeated', 0],
+              $gt: ['$repeatedCount', 1],
             },
           },
         },
+
+        /**
+         * Sort latest first
+         */
 
         {
           $sort: {
@@ -2947,7 +3387,10 @@ async getMonthlyAnalytics(
           },
         },
 
-        // Better optimization
+        /**
+         * Pagination
+         */
+
         {
           $facet: {
             metadata: [
@@ -2975,6 +3418,23 @@ async getMonthlyAnalytics(
       const totalQuestions = result[0]?.metadata?.[0]?.total || 0;
 
       const questions = result[0]?.data || [];
+
+      /**
+       * Cleanup question prefixes
+       */
+
+      questions.forEach((q: any) => {
+        q.question = q.question?.replace(/^\s*\([^)]*\)\s*/, '')?.trim();
+
+        /**
+         * Sort timeline newest first
+         */
+
+        q.repeatedAt = (q.repeatedAt || []).sort(
+          (a: string, b: string) =>
+            new Date(b).getTime() - new Date(a).getTime(),
+        );
+      });
 
       const totalPages = Math.ceil(totalQuestions / limit);
 
@@ -3019,8 +3479,9 @@ async getMonthlyAnalytics(
         {
           $match: {
             user: String(user._id),
-            sender: 'User',
-            isCreatedByUser: true,
+
+            // sender: 'User',
+            // isCreatedByUser: true,
           },
         },
 
@@ -3031,6 +3492,7 @@ async getMonthlyAnalytics(
         },
 
         // Group repeated messages
+
         {
           $group: {
             _id: {
@@ -3057,8 +3519,21 @@ async getMonthlyAnalytics(
               $first: '$updatedAt',
             },
 
-            latestMessageId: {
-              $first: '$messageId',
+            latestSender: {
+              $first: '$sender',
+            },
+
+            latestIsCreatedByUser: {
+              $first: '$isCreatedByUser',
+            },
+
+            allCreatedAt: {
+              $push: '$createdAt',
+            },
+
+            // Store all messageIds
+            messageIds: {
+              $push: '$messageId',
             },
           },
         },
@@ -3071,15 +3546,22 @@ async getMonthlyAnalytics(
 
             createdAt: '$latestCreatedAt',
 
+            sender: '$latestSender',
+
+            isCreatedByUser: '$latestIsCreatedByUser',
+
             updatedAt: '$latestUpdatedAt',
 
-            messageId: '$latestMessageId',
+            repeatedAt: '$allCreatedAt',
 
             repeatedCount: 1,
 
             isDuplicate: {
               $gt: ['$repeatedCount', 1],
             },
+
+            // keep temporarily
+            messageIds: 1,
           },
         },
 
@@ -3095,6 +3577,7 @@ async getMonthlyAnalytics(
       const totalResult = await this.messagesCollection
         .aggregate([
           ...pipeline,
+
           {
             $count: 'total',
           },
@@ -3121,8 +3604,30 @@ async getMonthlyAnalytics(
         ])
         .toArray();
 
+      // Extract all messageIds separately
+
+      const allMessageIds = messages.flatMap(
+        (msg: any) => msg.messageIds || [],
+      );
+
+      // Remove messageIds from frontend data
+
+      messages.forEach((msg: any) => {
+        delete msg.messageIds;
+      });
+
+      const filteredMessages = messages.filter(
+        (msg: any) => msg.sender === 'User' && msg.isCreatedByUser === true,
+      );
+
+      filteredMessages.forEach((msg: any) => {
+        delete msg.messageIds;
+        delete msg.sender;
+        delete msg.isCreatedByUser;
+      });
+
       return {
-        totalMessages,
+        total: totalMessages,
 
         totalPages,
 
@@ -3130,7 +3635,10 @@ async getMonthlyAnalytics(
 
         limit,
 
-        messages,
+        items: filteredMessages,
+
+        // separate array
+        allMessageIds,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get users messages: ${error}`);
@@ -3156,6 +3664,36 @@ async getMonthlyAnalytics(
       throw new InternalServerError(`Failed to get user data: ${error}`);
     }
   }
+
+  async getAllUserMessageIds(
+    email: string,
+    source = 'vicharanashala',
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init(source);
+
+      const user = await this.users.findOne({email}, {session});
+
+      if (!user) {
+        return [];
+      }
+
+      const messageIds = await this.messagesCollection.distinct('messageId', {
+        user: String(user._id),
+
+        messageId: {
+          $exists: true,
+          $ne: null,
+        },
+      });
+
+      return messageIds;
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch all messageIds: ${error}`);
+    }
+  }
+
   // ── NEW: Inactivity-gap based avg session duration (KPI number) ──────────────
   // Uses the messages collection instead of conversations.
   // For each conversation: sums only the gaps between consecutive messages that
@@ -4533,6 +5071,91 @@ async getMonthlyAnalytics(
       return result.deletedCount === 1;
     } catch (error) {
       throw new InternalServerError(`Failed to delete user: ${error}`);
+    }
+  }
+
+  async updateUser(
+    userId: string,
+    source: string,
+    data: {
+      name?: string;
+      farmerProfile?: {
+        farmerName?: string;
+        age?: number;
+        gender?: string;
+        villageName?: string;
+        blockName?: string;
+        district?: string;
+        state?: string;
+        phoneNo?: string;
+        languagePreference?: string;
+        yearsOfExperience?: number;
+        cropsCultivated?: string[];
+        primaryCrop?: string;
+        secondaryCrop?: string;
+        awarenessOfKCC?: boolean;
+        usesAgriApps?: boolean;
+        highestEducatedPerson?: string;
+        numberOfSmartphones?: number;
+        platform?: string;
+      };
+    },
+  ): Promise<boolean> {
+    try {
+      await this.init(source);
+
+      const setPayload: Record<string, any> = {
+        updatedAt: new Date(),
+      };
+
+      if (typeof data?.name === 'string') {
+        const trimmedName = data.name.trim();
+        if (trimmedName) {
+          setPayload.name = trimmedName;
+        }
+      }
+
+      const profile = data?.farmerProfile;
+      if (profile && typeof profile === 'object') {
+        const editableFarmerFields = [
+          'farmerName',
+          'age',
+          'gender',
+          'villageName',
+          'blockName',
+          'district',
+          'state',
+          'phoneNo',
+          'languagePreference',
+          'yearsOfExperience',
+          'cropsCultivated',
+          'primaryCrop',
+          'secondaryCrop',
+          'awarenessOfKCC',
+          'usesAgriApps',
+          'highestEducatedPerson',
+          'numberOfSmartphones',
+          'platform',
+        ] as const;
+
+        for (const field of editableFarmerFields) {
+          if (Object.prototype.hasOwnProperty.call(profile, field)) {
+            const value = (profile as any)[field];
+            if (value !== undefined) {
+              setPayload[`farmerProfile.${field}`] = value;
+            }
+          }
+        }
+      }
+
+      const result = await this.users.updateOne(
+        {_id: new ObjectId(userId)},
+        {$set: setPayload},
+      );
+
+      return result.matchedCount > 0;
+    } catch (error) {
+      throw new InternalServerError(`Failed to update user: ${error}`);
     }
   }
 

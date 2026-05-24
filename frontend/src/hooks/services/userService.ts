@@ -77,7 +77,9 @@ export class UserService {
   }
 
    async Getuser(email:string):Promise<IUser| null>{
-    return apiFetch<IUser | null>(`${this._baseUrl}/details/${email}`);
+    return apiFetch<IUser | null>(
+      `${this._baseUrl}/details/${encodeURIComponent(email)}`
+    );
   }
   async getUserReviewLevel(userId?:string|undefined,startTime?:Date|undefined,endTime?:Date|undefined,role?:string,state?:string,crop?:string,domain?:string,status?:string,normalised_crop?:string): Promise<ReviewLevelCount[] | null> {
     const params = new URLSearchParams();

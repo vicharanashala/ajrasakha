@@ -2,6 +2,9 @@ import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Download, Smartphone, Apple, Maximize2, X } from "lucide-react";
+import { TotalQueriesModal } from "./components/TotalQueriesModal";
+import type { QueryGranularity } from "./components/TotalQueriesModal";
+import type { AnalyticsEntry } from "./utils/dashboardHelpers";
 
 type BadgeVariant = "green" | "red" | "amber" | "blue";
 
@@ -25,9 +28,11 @@ type KpiCardData = {
   dateRange?: string;
   badges?: { label: string; variant: BadgeVariant }[];
   icon?: string;
-  dailyAnalytics?: any[];
-  weeklyAnalytics?: any[];
-  monthlyAnalytics?: any[];
+  dailyAnalytics?: AnalyticsEntry[];
+  weeklyAnalytics?: AnalyticsEntry[];
+  monthlyAnalytics?: AnalyticsEntry[];
+  source?: "vicharanashala" | "annam" | "whatsapp";
+  userType?: "all" | "external" | "internal";
   querySummaries?: {
     daily: { label: string; totalQueries: number };
     weekly: { label: string; totalQueries: number };
@@ -54,7 +59,7 @@ const badgeStyles: Record<BadgeVariant, { bg: string; text: string }> = {
   },
 };
 
-function getDateRangeLabel(days = 30): string {
+export function getDateRangeLabel(days = 30): string {
   const end = new Date();
   const start = new Date();
   start.setDate(start.getDate() - days);
@@ -198,7 +203,7 @@ function Sparkline({
   );
 }
 
-function DeltaIcon({ dir }: { dir: KpiCardData["deltaDir"] }) {
+export function DeltaIcon({ dir }: { dir: KpiCardData["deltaDir"] }) {
   if (dir === "up") {
     return (
       <svg width={10} height={10} viewBox="0 0 10 10">
@@ -228,34 +233,7 @@ function getIcon(icon?: string, color?: string, size: number = 16) {
 }
 function KpiCard({ kpi }: { kpi: KpiCardData }) {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [granularity, setGranularity] = useState<
-    "weekly" | "daily" | "monthly"
-  >("daily");
-  // const deltaColor =
-  //   kpi.deltaDir === "up"
-  //     ? "#1E7A3C"
-  //     : kpi.deltaDir === "down"
-  //       ? "#A32D2D"
-  //       : "#888";
-
-
-
-      const activeDelta =
-  granularity === "monthly"
-    ? kpi.monthlyDelta
-    : kpi.delta;
-
-const activeDeltaDir =
-  granularity === "monthly"
-    ? kpi.monthlyDeltaDir
-    : kpi.deltaDir;
-
-      const deltaColor =
-  activeDeltaDir === "up"
-    ? "#1E7A3C"
-    : activeDeltaDir === "down"
-      ? "#A32D2D"
-      : "#888";
+  const [granularity, setGranularity] = useState<QueryGranularity>("daily");
 
   const activePoints =
     kpi.id === "queries"
@@ -405,8 +383,37 @@ const activeDeltaDir =
         
       </Card>
 
+      {isMaximized && kpi.id === "queries" && kpi.sparkPoints && (
+        <TotalQueriesModal
+          granularity={granularity}
+          onGranularityChange={setGranularity}
+          onClose={() => setIsMaximized(false)}
+          accentColor={kpi.accentColor}
+          valueColor={kpi.valueColor}
+          icon={getIcon(kpi.icon, kpi.accentColor, 28)}
+          label={kpi.label}
+          value={kpi.value}
+          analytics={{
+            daily: kpi.dailyAnalytics,
+            weekly: kpi.weeklyAnalytics,
+            monthly: kpi.monthlyAnalytics,
+          }}
+          source={kpi.source}
+          userType={kpi.userType}
+          summaries={kpi.querySummaries}
+          renderChart={() => (
+            <Sparkline
+              points={activePoints || []}
+              color={kpi.accentColor}
+              labels={activeLabels}
+            />
+          )}
+        />
+      )}
+
       {/* Maximized Modal */}
       {isMaximized &&
+        kpi.id !== "queries" &&
         kpi.sparkPoints &&
         createPortal(
           <div
@@ -451,55 +458,13 @@ const activeDeltaDir =
                     </div>
                   </div>
 
-                  {/* Toggle for queries card */}
-                  {kpi.id === "queries" && kpi.dailySparkPoints && (
-                    <div className="flex items-center gap-1 rounded-full bg-gray-100 dark:bg-[#2a2a2a] p-1 flex-shrink-0">
-                      <button
-                        onClick={() => setGranularity("monthly")}
-                        className={`text-sm px-4 py-1.5 rounded-full font-medium transition-all ${
-                          granularity === "monthly"
-                            ? "bg-white dark:bg-[#3a3a3a] text-gray-800 dark:text-gray-100 shadow-sm"
-                            : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                        }`}
-                      >
-                        Monthly
-                      </button>
-
-                      <button
-                        onClick={() => setGranularity("weekly")}
-                        className={`text-sm px-4 py-1.5 rounded-full font-medium transition-all ${
-                          granularity === "weekly"
-                            ? "bg-white dark:bg-[#3a3a3a] text-gray-800 dark:text-gray-100 shadow-sm"
-                            : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                        }`}
-                      >
-                        Weekly
-                      </button>
-                      <button
-                        onClick={() => setGranularity("daily")}
-                        className={`text-sm px-4 py-1.5 rounded-full font-medium transition-all ${
-                          granularity === "daily"
-                            ? "bg-white dark:bg-[#3a3a3a] text-gray-800 dark:text-gray-100 shadow-sm"
-                            : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                        }`}
-                      >
-                        Daily
-                      </button>
-                    </div>
-                  )}
                 </div>
-                {/* <div
-                  className="flex items-center gap-1.5 text-sm dark:text-gray-300"
-                  style={{ color: deltaColor }}
-                >
-                     {granularity !== "daily" && <DeltaIcon dir={activeDeltaDir} />} {granularity !== "daily" && activeDelta}
-                </div> */}
               </div>
 
               {/* Chart (left/top) + Table (right/bottom) */}
-              <div className={`flex gap-4 items-start ${kpi.id === "queries" ? "flex-col" : ""}`}>
+              <div className="flex gap-4 items-start">
                 {/* Sparkline */}
-                <div className={`${kpi.id === "queries" ? "w-full" : "flex-[65]"} min-w-0`}>
+                <div className="flex-[65] min-w-0">
                   <div className="h-48 relative">
                     <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700" />
                     <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700" />
@@ -523,58 +488,20 @@ const activeDeltaDir =
                 </div>
 
                 {/* Table */}
-                <div className={`${kpi.id === "queries" ? "w-full mt-2" : "flex-[35]"} min-w-0 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg`}>
+                <div className="flex-[35] min-w-0 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
                       <tr>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                          {kpi.id === "queries" ? "Period" : "Date"}
+                          Date
                         </th>
                         <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                          {kpi.id === "queries" ? "Total Queries" : "Value"}
+                          Value
                         </th>
-                        {kpi.id === "queries" && (
-                          <>
-                            <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Total Questions</th>
-                            <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Closed Questions</th>
-                            <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Avg. Closing Time</th>
-                          </>
-                        )}
                       </tr>
                     </thead>
                     <tbody>
-                      {kpi.id === "queries" ? (
-                        (
-                          (granularity === "daily" ? kpi.dailyAnalytics :
-                           granularity === "weekly" ? kpi.weeklyAnalytics :
-                           kpi.monthlyAnalytics) || []
-                        ).map((entry, idx) => {
-                          const label = activeLabels?.[idx] || entry.period;
-                          return (
-                            <tr
-                              key={idx}
-                              className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                            >
-                              <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                                {label}
-                              </td>
-                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                                {entry.queryCount.toLocaleString()}
-                              </td>
-                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                                {entry.totalQuestions.toLocaleString()}
-                              </td>
-                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                                {entry.closedQuestions.toLocaleString()}
-                              </td>
-                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                                {entry.averageCloseTimeMinutes} min
-                              </td>
-                            </tr>
-                          );
-                        })
-                      ) : (
-                        (activePoints || []).map((value, idx) => {
+                      {(activePoints || []).map((value, idx) => {
                           const label = activeLabels?.[idx] || `Point ${idx + 1}`;
                           return (
                             <tr
@@ -589,8 +516,7 @@ const activeDeltaDir =
                               </td>
                             </tr>
                           );
-                        })
-                      )}
+                        })}
                     </tbody>
                   </table>
                 </div>

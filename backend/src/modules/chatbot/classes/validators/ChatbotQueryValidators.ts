@@ -43,6 +43,75 @@ export class SourceQueryDto {
   userType: 'all' | 'external' | 'internal' = 'all';
 }
 
+export class QueryAnalyticsQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 'daily', description: 'Analytics period: daily, weekly, or monthly' })
+  @IsIn(['daily', 'weekly', 'monthly'])
+  period: 'daily' | 'weekly' | 'monthly' = 'daily';
+
+  @JSONSchema({ example: '2026-05', description: 'Month filter for daily and weekly analytics (YYYY-MM)' })
+  @IsOptional()
+  @IsString()
+  month?: string;
+
+  @JSONSchema({ example: 2026, description: 'Year filter for monthly analytics' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  year?: number;
+
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+}
+
+export class WeatherConcernAnalyticsQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 'Kharif', description: 'Filter by season' })
+  @IsOptional()
+  @IsString()
+  season?: string;
+
+  @JSONSchema({ example: 'Punjab', description: 'Filter by farmer state' })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @JSONSchema({ example: 'Rupnagar', description: 'Filter by farmer district' })
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @JSONSchema({ example: 'Erattupetta', description: 'Filter by farmer block' })
+  @IsOptional()
+  @IsString()
+  block?: string;
+
+  @JSONSchema({ example: 'Poonjar', description: 'Filter by farmer village' })
+  @IsOptional()
+  @IsString()
+  village?: string;
+
+  @JSONSchema({ example: '2026-07-01T00:00:00.000Z', description: 'Filter weather queries from this date/time' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @JSONSchema({ example: '2026-07-31T23:59:59.999Z', description: 'Filter weather queries through this date/time' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+}
+
 export class UserDetailsQueryDto {
   @JSONSchema({ example: '2025-01-01', description: 'Filter start date (ISO string)' })
   @IsOptional()

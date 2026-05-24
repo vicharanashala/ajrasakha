@@ -1,3 +1,5 @@
+import { resolveEnv } from "./runtime-env";
+
 // Add all .env keys here
 type EnvKey =
   // Common
@@ -23,7 +25,7 @@ type EnvKey =
  * Internal getter (single source of truth)
  */
 function getEnv(key: EnvKey, required = true): string {
-  const value = import.meta.env[key];
+  const value = resolveEnv(key, import.meta.env[key]);
 
   if (!value && required) {
     alert("Missing required environment variable");

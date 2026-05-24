@@ -656,9 +656,9 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <Table>
                   <TableHeader className="sticky top-0 z-10">
                     <TableRow className="bg-muted/80 backdrop-blur-sm hover:bg-muted/80">
-                      <TableHead className="min-w-[130px] font-semibold">State</TableHead>
-                      <TableHead className="min-w-[130px] font-semibold">Crop</TableHead>
-                      <TableHead className="min-w-[110px] font-semibold">Source</TableHead>
+                      <TableHead className="w-[160px] min-w-[160px] max-w-[160px] font-semibold sticky left-0 z-20 bg-muted/80 backdrop-blur-sm border-r border-border">State</TableHead>
+                      <TableHead className="w-[200px] min-w-[200px] max-w-[200px] font-semibold sticky left-[160px] z-20 bg-muted/80 backdrop-blur-sm border-r border-border">Crop</TableHead>
+                      <TableHead className="w-[150px] min-w-[150px] max-w-[150px] font-semibold sticky left-[360px] z-20 bg-muted/80 backdrop-blur-sm border-r border-border">Source</TableHead>
                       <TableHead className="text-center min-w-[60px] text-emerald-600 dark:text-emerald-400 font-semibold">Open</TableHead>
                       <TableHead className="text-center min-w-[80px] text-sky-600 dark:text-sky-400 font-semibold">In Review</TableHead>
                       <TableHead className="text-center min-w-[60px] text-rose-600 dark:text-rose-400 font-semibold">Closed</TableHead>
@@ -695,11 +695,11 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                               {cropIdx === 0 && rowIdx === 0 && (
                                 <TableCell
                                   rowSpan={sg.totalRows}
-                                  className="text-sm font-semibold align-top border-r border-border/50 bg-muted/30"
+                                  className="w-[160px] min-w-[160px] max-w-[160px] text-sm font-semibold align-top border-r border-border/50 bg-muted/30 sticky left-0 z-10"
                                 >
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 overflow-hidden">
                                     <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
-                                    {sg.state}
+                                    <span className="truncate">{sg.state}</span>
                                   </div>
                                 </TableCell>
                               )}
@@ -707,12 +707,14 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                               {rowIdx === 0 && (
                                 <TableCell
                                   rowSpan={cg.rows.length}
-                                  className="text-sm font-medium align-top border-r border-border/40"
+                                  className="w-[200px] min-w-[200px] max-w-[200px] text-sm font-medium align-top border-r border-border/40 bg-background sticky left-[160px] z-10"
                                 >
-                                  {cg.crop}
+                                  <span className="block truncate" title={cg.crop}>{cg.crop}</span>
                                 </TableCell>
                               )}
-                              <TableCell className="text-sm text-muted-foreground">{row.source || "—"}</TableCell>
+                              <TableCell className="w-[150px] min-w-[150px] max-w-[150px] text-sm text-muted-foreground bg-background sticky left-[360px] z-10 border-r border-border/40">
+                                <span className="block truncate" title={row.source || "—"}>{row.source || "—"}</span>
+                              </TableCell>
                               <TableCell className="text-center text-sm">{fmt(row.open)}</TableCell>
                               <TableCell className="text-center text-sm">{fmt(row.inReview)}</TableCell>
                               <TableCell className="text-center text-sm">{fmt(row.closed)}</TableCell>

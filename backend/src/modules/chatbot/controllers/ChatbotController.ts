@@ -10,6 +10,8 @@ import {
   QueryParam,
   Delete,
   Param,
+  Patch,
+  Body,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -17,8 +19,10 @@ import { CHATBOT_TYPES } from '../types.js';
 import type { IChatbotService } from '../interfaces/IChatbotService.js';
 import {
   DashboardQueryDto,
+  QueryAnalyticsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
+  WeatherConcernAnalyticsQueryDto,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -78,6 +82,27 @@ export class ChatbotController {
       query.userType,
       query.startTime,
       query.endTime,
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Get paginated total query analytics',
+    description: 'Returns filtered daily, weekly, or monthly total query analytics for the dashboard modal.',
+  })
+  @Get('/query-analytics')
+  @HttpCode(200)
+  @Authorized()
+  async getQueryAnalytics(@QueryParams() query: QueryAnalyticsQueryDto) {
+    return this.chatbotService.getQueryAnalytics(
+      query.period,
+      {
+        month: query.month,
+        year: query.year,
+        page: query.page,
+        limit: query.limit,
+        source: query.source,
+        userType: query.userType,
+      },
     );
   }
 
@@ -261,6 +286,29 @@ async getDistrictAnalyticsByState(
   @Authorized()
   async getQueryCategories(@QueryParams() query: SourceQueryDto) {
     return this.chatbotService.getQueryCategories(query.source, query.userType);
+  }
+
+  @OpenAPI({
+    summary: 'Get weather concern analytics',
+    description: 'Returns weather concern percentages from weather tool messages filtered by season and farmer location.',
+  })
+  @Get('/weather-concerns')
+  @HttpCode(200)
+  @Authorized()
+  async getWeatherConcernAnalytics(@QueryParams() query: WeatherConcernAnalyticsQueryDto) {
+    return this.chatbotService.getWeatherConcernAnalytics(
+      {
+        season: query.season,
+        state: query.state,
+        district: query.district,
+        block: query.block,
+        village: query.village,
+        startDate: query.startDate,
+        endDate: query.endDate,
+      },
+      query.source,
+      query.userType,
+    );
   }
 
   @OpenAPI({ 
@@ -454,6 +502,48 @@ async getDistrictAnalyticsByState(
     }
     const success = await this.chatbotService.deleteUser(userId, source);
     return { success, message: success ? 'User deleted successfully' : 'Failed to delete user' };
+  }
+
+  @OpenAPI({
+    summary: 'Edit a farmer',
+    description: 'Updates editable farmer fields for a user in the selected source database.',
+  })
+  @Patch('/users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async updateUser(
+    @Param('userId') userId: string,
+    @QueryParam('source') source: string,
+    @Body()
+    body: {
+      name?: string;
+      farmerProfile?: {
+        farmerName?: string;
+        age?: number;
+        gender?: string;
+        villageName?: string;
+        blockName?: string;
+        district?: string;
+        state?: string;
+        phoneNo?: string;
+        languagePreference?: string;
+        yearsOfExperience?: number;
+        cropsCultivated?: string[];
+        primaryCrop?: string;
+        secondaryCrop?: string;
+        awarenessOfKCC?: boolean;
+        usesAgriApps?: boolean;
+        highestEducatedPerson?: string;
+        numberOfSmartphones?: number;
+        platform?: string;
+      };
+    },
+  ) {
+    if (!source) {
+      source = 'vicharanashala';
+    }
+    const success = await this.chatbotService.updateUser(userId, source, body);
+    return { success, message: success ? 'User updated successfully' : 'Failed to update user' };
   }
 
   @Get('/daily-active-users-trend')
