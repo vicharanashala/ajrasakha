@@ -6,6 +6,9 @@ services:
       context: ./golden_dataset
       dockerfile: Dockerfile
     container_name: golden-dataset-mcp
+    env_file:
+      - path: ../.env
+        required: false
     ports:
       - "9001:9001"
     volumes:
@@ -17,6 +20,9 @@ services:
       context: ./pop
       dockerfile: Dockerfile
     container_name: pop-mcp
+    env_file:
+      - path: ../.env
+        required: false
     ports:
       - "9002:9002"
     volumes:
@@ -28,6 +34,9 @@ services:
       context: ./market
       dockerfile: Dockerfile
     container_name: market-mcp
+    env_file:
+      - path: ../.env
+        required: false
     ports:
       - "9003:9003"
     restart: unless-stopped
@@ -37,6 +46,9 @@ services:
       context: ./weather
       dockerfile: Dockerfile
     container_name: weather-mcp
+    env_file:
+      - path: ../.env
+        required: false
     ports:
       - "9004:9004"
     restart: unless-stopped
@@ -46,6 +58,9 @@ services:
       context: ./faq
       dockerfile: Dockerfile
     container_name: faq-mcp
+    env_file:
+      - path: ../.env
+        required: false
     ports:
       - "9005:9005"
     volumes:
@@ -60,7 +75,8 @@ services:
     ports:
       - "9012:9012"
     env_file:
-      - ./review-search-mcp/.env
+      - path: ./review-search-mcp/.env
+        required: false
     environment:
       - MONGODB_URI=${MONGODB_URI}
       - DATABASE_NAME=${DATABASE_NAME:-agriai}
