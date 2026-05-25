@@ -13,6 +13,7 @@ import { ScrollArea, ScrollBar } from "./atoms/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./atoms/accordion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import type { GeneratedQuestion } from "./voice-recorder-card";
+import Plivo from "plivo-browser-sdk";
 
 export const CallInterface = () => {
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
@@ -23,26 +24,7 @@ export const CallInterface = () => {
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const lastTranscriptRef = useRef("");
   const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } = useGenerateQuestion();
-
-  useEffect(() => {
-    const liveTranscript = transcriptsList.map(t => t.translatedText || t.text || t.originalText).filter(Boolean).join(" ");
-
-    if (!liveTranscript || liveTranscript.trim().length <= 10) return;
-
-    if (liveTranscript === lastTranscriptRef.current) return;
-    lastTranscriptRef.current = liveTranscript;
-
-    const generate = async () => {
-      try {
-        const qstns = await generateQuestions(liveTranscript);
-        setQuestions(qstns || []);
-      } catch (err) {
-        console.error("Error generating question", err);
-      }
-    };
-
-    generate();
-  }, [transcriptsList, generateQuestions]);
+  const [lastProcessedTranscriptIndex, setLastProcessedTranscriptIndex] = useState(0);
 
   // Auto-scroll to bottom of chat bubbles
   useEffect(() => {
@@ -81,6 +63,7 @@ export const CallInterface = () => {
       setTranscriptsList([]); // Clear the conversation view
       setQuestions([]);
       lastTranscriptRef.current = "";
+      setLastProcessedTranscriptIndex(0);
       toast.success("Transcript submitted successfully!");
     } catch (error) {
       console.error(error);
@@ -93,10 +76,52 @@ export const CallInterface = () => {
     setTranscriptsList([]);
     setQuestions([]);
     lastTranscriptRef.current = "";
+    setLastProcessedTranscriptIndex(0);
   };
+
+  const handleGenerateQuestions = async () => {
+    const newTranscripts = transcriptsList.slice(lastProcessedTranscriptIndex);
+    const liveTranscript = newTranscripts
+      .map(t => t.translatedText || t.text || t.originalText)
+      .filter(Boolean)
+      .join(" ");
+
+    if (!liveTranscript || liveTranscript.trim().length <= 10) {
+      toast.info("Not enough new transcript to generate questions.");
+      return;
+    }
+
+    try {
+      const qstns = await generateQuestions(liveTranscript);
+      setQuestions(prev => [...prev, ...(qstns || [])]);
+      setLastProcessedTranscriptIndex(transcriptsList.length);
+    } catch (err) {
+      console.error("Error generating question", err);
+      toast.error("Failed to generate questions.");
+    }
+  };
+
+  let plivoClientRef;
 
   const handleRedial = async (phoneNumber: string) => {
     // Preserved for redial hook implementation
+    const options = {
+      debug: "DEBUG" as const,
+      permOnClick: true,
+      enableTracking: true
+    };
+
+    const client = new Plivo(options);
+    plivoClientRef = client;
+    try {
+      const extraHeaders = {
+        'X-PH-destination': "+919606751041"       // e.g. "+919606751041"
+      };
+      const result = plivoClientRef.client.call("+919606751041", extraHeaders);
+      toast.success(`Redialing ${phoneNumber}. Call UUID: ${result}`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to initiate call");
+    }
   };
 
   return (
@@ -108,6 +133,7 @@ export const CallInterface = () => {
         onTranscriptsListChange={(list) => setTranscriptsList(list)}
         onCallStateChange={(isActive) => setIsCallActive(isActive)}
       />
+      <button onClick={() => handleRedial("+919606751041")}>Redial</button>
 
       {/* Premium Read-Only Chat-Bubble Conversation View */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -228,7 +254,17 @@ export const CallInterface = () => {
                   These are questions generated from your transcript
                 </TooltipContent>
               </Tooltip>
-              <Badge variant="outline">{questions?.length} questions</Badge>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline">{questions?.length} questions</Badge>
+                <Button 
+                  onClick={handleGenerateQuestions} 
+                  disabled={isGeneratingQuestions || transcriptsList.length === lastProcessedTranscriptIndex}
+                  size="sm" 
+                  className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  {isGeneratingQuestions ? "Generating..." : "Generate question"}
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
 
@@ -245,7 +281,7 @@ export const CallInterface = () => {
                   <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground mt-10">
                     <Lightbulb className="h-10 w-10 mb-4 opacity-50" />
                     <p className="text-sm">
-                      As the call progresses, AI will generate relevant questions here.
+                      Click "Generate question" to fetch AI insights from the current conversation.
                     </p>
                   </div>
                 ) : (
@@ -341,7 +377,7 @@ export const CallInterface = () => {
 
             {(questions?.length || 0) > 0 && (
               <div className="text-center text-xs text-muted-foreground pt-4 font-medium uppercase tracking-wider">
-                <p>Questions are generated live</p>
+                <p>Questions generated from conversation</p>
               </div>
             )}
           </CardContent>
