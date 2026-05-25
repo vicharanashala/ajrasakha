@@ -30,6 +30,7 @@ from ajrasakha.agents.domains import (
     crop_counts_as_resolved,
     normalize_domain,
 )
+from ajrasakha.agents.language import resolve_planner_language_pair
 from ajrasakha.agents.translation_catalog import (
     OFFICIAL_LANGUAGES,
     get_crop_follow_up,
@@ -102,8 +103,10 @@ class PlannerOutput(BaseModel):
     script_language: str = Field(
         default="English",
         description=(
-            "Writing system of the farmer's message. One of OFFICIAL_LANGUAGES. "
-            "Use English when the farmer types in Latin/Roman letters for a non-English vocal."
+            "Writing system / alphabet of the farmer's message. One of OFFICIAL_LANGUAGES. "
+            "Latin/Roman letters for any Indian language → English (e.g. Romanized Telugu "
+            "'Barli pantalo aafids ni ela...' → script_language=English, vocal_language=Telugu). "
+            "Native Unicode script → same language name as vocal (e.g. both Telugu for Telugu script)."
         ),
     )
 
@@ -351,6 +354,22 @@ async def planner_node(
         llm = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=config)
         plan = planner_output_to_plan(output)
+
+        prev_vocal = plan.get("vocal_language")
+        prev_script = plan.get("script_language")
+        vocal, script = resolve_planner_language_pair(
+            user_text, prev_vocal or "English", prev_script or "English"
+        )
+        if vocal != prev_vocal or script != prev_script:
+            logger.info(
+                "Planner language normalized from raw message: (%s, %s) -> (%s, %s)",
+                prev_vocal,
+                prev_script,
+                vocal,
+                script,
+            )
+        plan["vocal_language"] = vocal
+        plan["script_language"] = script
 
         if not plan.get("rephrased_query"):
             plan["rephrased_query"] = user_text

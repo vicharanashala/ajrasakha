@@ -55,8 +55,8 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 
 ## Language (vocal + script)
 
-- **Source of truth:** planner structured output sets `vocal_language` and `script_language` from `OFFICIAL_LANGUAGES` in `translation_catalog.py` (loaded from `translated_languages.xlsx`).
-- **Romanized / Latin typing:** `script_language=English`, `vocal_language=<spoken>` (e.g. Hindi Hinglish → English + Hindi).
+- **Source of truth:** planner LLM proposes `vocal_language` and `script_language`; **`resolve_planner_language_pair()`** in `language.py` normalizes them from Unicode script on the **latest raw farmer message** (`detect_script`).
+- **Romanized / Latin typing:** `script_language=English`, `vocal_language=<spoken>` (e.g. Romanized Telugu → English + Telugu; Hinglish → English + Hindi).
 - **Native script:** `script_language` and `vocal_language` match (e.g. both Hindi for Devanagari).
 - **Fixed strings** (exact cells, no LLM paraphrase): testing disclaimer, 2-hour expert-queue text, state/crop follow-ups — keyed by `(script_language, vocal_language)`.
 - **Synthesis** writes an English advisory body only (no sources, no testing disclaimer, no 2-hour text).

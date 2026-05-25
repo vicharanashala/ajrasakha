@@ -55,6 +55,96 @@ def detect_script(text: str) -> str:
     return "Latin"
 
 
+# detect_script label → OFFICIAL_LANGUAGES name when script maps 1:1 to a language
+_SCRIPT_TO_OFFICIAL_LANGUAGE: dict[str, str] = {
+    "Telugu": "Telugu",
+    "Tamil": "Tamil",
+    "Kannada": "Kannada",
+    "Malayalam": "Malayalam",
+    "Odia": "Odia",
+    "Gujarati": "Gujarati",
+    "Gurmukhi": "Punjabi",
+    "Ol Chiki": "Santali",
+    "Meitei Mayek": "Manipuri (Meitei)",
+}
+
+_DEVANAGARI_VOCAL_LANGUAGES = frozenset(
+    {
+        "Hindi",
+        "Marathi",
+        "Nepali",
+        "Sanskrit",
+        "Konkani",
+        "Maithili",
+        "Bodo",
+        "Dogri",
+        "Kashmiri",
+    }
+)
+
+_PERSO_ARABIC_VOCAL_LANGUAGES = frozenset({"Urdu", "Sindhi", "Kashmiri"})
+
+_BENGALI_ASSAMESE_VOCAL_LANGUAGES = frozenset({"Bengali", "Assamese"})
+
+
+def _coerce_official_language(name: str) -> str | None:
+    """Case-insensitive match against OFFICIAL_LANGUAGES; None if unknown."""
+    from ajrasakha.agents.translation_catalog import OFFICIAL_LANGUAGES
+
+    raw = (name or "").strip()
+    if not raw:
+        return None
+    lower = raw.lower()
+    for lang in OFFICIAL_LANGUAGES:
+        if lang.lower() == lower:
+            return lang
+    return None
+
+
+def resolve_planner_language_pair(
+    farmer_text: str,
+    vocal_language: str,
+    script_language: str,
+) -> tuple[str, str]:
+    """Normalize planner vocal/script using Unicode script on the raw farmer message.
+
+    Roman/Latin typing → script_language=English, vocal unchanged (if valid).
+    Native script blocks → script_language aligns with detected script (vocal matched).
+    """
+    detected = detect_script(farmer_text or "")
+    vocal = _coerce_official_language(vocal_language) or "English"
+    script = _coerce_official_language(script_language) or "English"
+
+    if detected == "Latin":
+        return vocal, "English"
+
+    if detected == "Devanagari":
+        script_out = vocal if vocal in _DEVANAGARI_VOCAL_LANGUAGES else "Hindi"
+        return vocal, script_out
+
+    if detected == "Perso-Arabic":
+        if vocal in _PERSO_ARABIC_VOCAL_LANGUAGES:
+            return vocal, vocal
+        return "Urdu", "Urdu"
+
+    if detected == "Bengali-Assamese":
+        if vocal in _BENGALI_ASSAMESE_VOCAL_LANGUAGES:
+            return vocal, vocal
+        return "Bengali", "Bengali"
+
+    official = _SCRIPT_TO_OFFICIAL_LANGUAGE.get(detected)
+    if official:
+        return official, official
+
+    logger.warning(
+        "resolve_planner_language_pair: unknown detect_script=%s — keeping planner pair (%s, %s)",
+        detected,
+        vocal,
+        script,
+    )
+    return vocal, script
+
+
 def _llm_detect_language(text: str) -> str:
     """Analyze the text and return the underlying spoken language name (e.g. Hindi, English, Punjabi)."""
     t = (text or "").strip()
