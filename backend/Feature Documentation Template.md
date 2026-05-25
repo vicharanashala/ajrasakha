@@ -67,11 +67,8 @@ repositories/QuestionRepository.ts
 Example:
 
 | Method | Endpoint | Purpose |
-
 | ------ | ---------- | --------------- |
-
 | GET | /questions | Get questions |
-
 | POST | /questions | Create question |
 
 ---
@@ -81,11 +78,8 @@ Example:
 Example:
 
 | Function | Purpose |
-
 | ---------------- | -------------------- |
-
 | createQuestion | Creates new question |
-
 | allocateQuestion | Assigns expert |
 
 ---
