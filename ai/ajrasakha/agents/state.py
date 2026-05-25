@@ -65,6 +65,7 @@ class PlannerPlan(TypedDict, total=False):
     rephrased_query: Optional[str]
     original_query_en: Optional[str]
     gdb_has_data: bool  # True when GDB returned exact or similar matches
+    farmer_language: Optional[str]  # Detected language label (e.g. "Romanized Telugu", "Hinglish")
 
 
 def merge_plan(
