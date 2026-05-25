@@ -652,6 +652,7 @@ Your job is to analyze the user's message and determine the correct execution pa
 - Pick **both** `vocal_language` and `script_language` from this list only:
 {_PLANNER_LANGUAGES_DOC}
 - **Latin/Roman typing** for a non-English vocal (e.g. Romanized Hindi/Hinglish): `script_language` = **English**, `vocal_language` = that language (e.g. Hindi).
+- **Romanized Telugu example**: `Barli pantalo aafids ni ela niyantrinchali Andhra pradesh lo?` → `vocal_language` = Telugu, `script_language` = **English** (NOT Telugu for script — the letters are Latin).
 - **Native script** (Devanagari, Gurmukhi, Tamil script, etc.): set `script_language` and `vocal_language` to that language name (e.g. both Hindi for Devanagari Hindi).
 - **English query in English letters**: `script_language` = English, `vocal_language` = English.
 - Leave `follow_up_question` empty when completeness rules apply — the server fills exact wording from the translation sheet.

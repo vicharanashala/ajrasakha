@@ -80,21 +80,276 @@ interface IConversation {
 }
 
 const WEATHER_CONCERNS = {
-  rain: 'rain',
-  heavyRain: 'heavy rain',
-  flood: 'flood',
-  waterlogging: 'waterlogging',
-  monsoon: 'monsoon',
-  heat: 'heat',
-  temperature: 'temperature',
-  cold: 'cold',
-  frost: 'frost',
-  hotWeather: 'hot weather',
-  humidity: 'humidity',
-  moisture: 'moisture',
-  wind: 'wind',
-  storm: 'storm',
-  cyclone: 'cyclone',
+  rain: [
+    'rain',
+    'raining',
+    'rainfall',
+    'drizzle',
+    'downpour',
+    'shower',
+    'showers',
+    'light rain',
+    'moderate rain',
+    'rain water',
+    'wet weather',
+    'rain storm',
+    'rain clouds',
+    'rainy',
+    'continuous rain',
+    'scattered showers',
+    'rain prediction',
+    'rain alert',
+    'rain warning',
+    'unexpected rain',
+  ],
+
+  heavyRain: [
+    'heavy rain',
+    'very heavy rain',
+    'extreme rain',
+    'cloudburst',
+    'intense rainfall',
+    'torrential rain',
+    'pouring rain',
+    'heavy shower',
+    'extreme rainfall',
+    'excess rainfall',
+    'rain havoc',
+    'heavy downpour',
+    'violent rain',
+    'red alert rain',
+    'orange alert rain',
+    'severe rainfall',
+  ],
+
+  flood: [
+    'flood',
+    'flooding',
+    'overflow',
+    'inundation',
+    'flash flood',
+    'river overflow',
+    'dam overflow',
+    'water overflow',
+    'submerged',
+    'overflowing river',
+    'flood water',
+    'flood alert',
+    'flood warning',
+    'flooded area',
+    'flood situation',
+    'river flooding',
+    'urban flooding',
+    'water rising',
+  ],
+
+  waterlogging: [
+    'waterlogging',
+    'water logged',
+    'stagnant water',
+    'logged water',
+    'water accumulation',
+    'standing water',
+    'drain blockage',
+    'poor drainage',
+    'water stagnation',
+    'water filled roads',
+    'road flooding',
+    'drain overflow',
+    'sewage overflow',
+    'water on roads',
+  ],
+
+  heat: [
+    'heat',
+    'heatwave',
+    'hot climate',
+    'high heat',
+    'extreme heat',
+    'severe heat',
+    'hot condition',
+    'burning heat',
+    'sun heat',
+    'heat stress',
+    'heat stroke',
+    'high temperature',
+    'summer heat',
+    'scorching heat',
+    'dry heat',
+    'intense heat',
+    'temperature rise',
+  ],
+
+  temperature: [
+    'temperature',
+    'degree',
+    'degrees',
+    'celsius',
+    'fahrenheit',
+    'temperature level',
+    'temperature rise',
+    'temperature drop',
+    'high temperature',
+    'low temperature',
+    'normal temperature',
+    'weather temperature',
+    'temp',
+    'heat level',
+    'cold level',
+  ],
+
+  cold: [
+    'cold',
+    'cold weather',
+    'low temperature',
+    'chilly',
+    'freezing',
+    'winter cold',
+    'cool climate',
+    'cold wave',
+    'severe cold',
+    'extreme cold',
+    'cold condition',
+    'cold breeze',
+    'low climate',
+    'winter season',
+    'cold air',
+    'shivering cold',
+    'cool weather',
+  ],
+
+  humidity: [
+    'humidity',
+    'humid',
+    'moisture',
+    'sticky weather',
+    'air moisture',
+    'high humidity',
+    'low humidity',
+    'humid climate',
+    'humid weather',
+    'sticky climate',
+    'sweaty weather',
+    'damp weather',
+    'air dampness',
+    'muggy weather',
+  ],
+
+  wind: [
+    'wind',
+    'windy',
+    'gust',
+    'air speed',
+    'strong wind',
+    'high wind',
+    'wind speed',
+    'wind pressure',
+    'gusty wind',
+    'air flow',
+    'breeze',
+    'strong breeze',
+    'wind current',
+    'wind alert',
+    'storm wind',
+  ],
+
+  storm: [
+    'storm',
+    'thunderstorm',
+    'lightning',
+    'thunder',
+    'electrical storm',
+    'severe storm',
+    'storm warning',
+    'storm alert',
+    'lightning strike',
+    'thunder rain',
+    'stormy weather',
+    'hailstorm',
+    'dust storm',
+    'wind storm',
+    'violent storm',
+    'weather storm',
+  ],
+
+  cyclone: [
+    'cyclone',
+    'hurricane',
+    'typhoon',
+    'cyclonic storm',
+    'cyclone alert',
+    'cyclone warning',
+    'severe cyclone',
+    'storm surge',
+    'coastal storm',
+    'tropical storm',
+    'depression',
+    'deep depression',
+    'cyclonic circulation',
+    'whirlwind',
+  ],
+
+  monsoon: [
+    'monsoon',
+    'rainy season',
+    'southwest monsoon',
+    'northeast monsoon',
+    'monsoon rain',
+    'monsoon season',
+    'monsoon arrival',
+    'monsoon update',
+    'seasonal rain',
+    'heavy monsoon',
+    'monsoon forecast',
+    'monsoon clouds',
+  ],
+
+  frost: [
+    'frost',
+    'ice formation',
+    'frostbite',
+    'frozen weather',
+    'ice layer',
+    'icy condition',
+    'ice crystals',
+    'snow frost',
+    'morning frost',
+    'frost warning',
+    'ground frost',
+    'frost damage',
+  ],
+
+  hotWeather: [
+    'hot weather',
+    'very hot',
+    'extremely hot',
+    'boiling weather',
+    'warm climate',
+    'summer weather',
+    'sunny weather',
+    'harsh sunlight',
+    'hot sun',
+    'dry weather',
+    'heat condition',
+    'heat climate',
+    'high atmospheric heat',
+  ],
+
+  moisture: [
+    'moisture',
+    'soil moisture',
+    'water content',
+    'soil wetness',
+    'ground moisture',
+    'moist soil',
+    'dry soil',
+    'soil dryness',
+    'crop moisture',
+    'air moisture',
+    'water retention',
+    'field moisture',
+    'land moisture',
+  ],
 } as const;
 
 const WEATHER_CONCERN_LABELS: Record<keyof typeof WEATHER_CONCERNS, string> = {
@@ -139,6 +394,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   private async init(source = 'vicharanashala') {
     const db = source === 'whatsapp' ? this.db: source === 'annam' ? this.annamDb : this.analyticsDb;
+    // const db = source === 'whatsapp' ? this.db: source === 'annam' ? this.annamDb : this.analyticsDb;
     this.users = await db.getCollection<IUser>('users');
     this.conversations = await db.getCollection<IConversation>('conversations');
     this.messagesCollection = await db.getCollection<any>('messages');
@@ -1804,7 +2060,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-    async getWeatherConcernAnalytics(
+async getWeatherConcernAnalytics(
   filters: WeatherConcernAnalyticsFilters = {},
   source = 'vicharanashala',
   session?: ClientSession,
@@ -1819,50 +2075,79 @@ export class ChatbotRepository implements IChatbotRepository {
 
     const locationMatch: Record<string, any> = {};
 
-    const stateRegex = this.buildExactTextRegex(filters.state);
-    const districtRegex = this.buildExactTextRegex(filters.district);
-    const blockRegex = this.buildExactTextRegex(filters.block);
-    const villageRegex = this.buildExactTextRegex(filters.village);
+    const stateRegex = this.buildExactTextRegex(
+      filters.state,
+    );
+
+    const districtRegex =
+      this.buildExactTextRegex(
+        filters.district,
+      );
+
+    const blockRegex = this.buildExactTextRegex(
+      filters.block,
+    );
+
+    const villageRegex =
+      this.buildExactTextRegex(
+        filters.village,
+      );
 
     if (stateRegex) {
-      locationMatch['userDetails.farmerProfile.state'] = stateRegex;
+      locationMatch[
+        'userDetails.farmerProfile.state'
+      ] = stateRegex;
     }
 
     if (districtRegex) {
-      locationMatch['userDetails.farmerProfile.district'] = districtRegex;
+      locationMatch[
+        'userDetails.farmerProfile.district'
+      ] = districtRegex;
     }
 
     if (blockRegex) {
-      locationMatch['userDetails.farmerProfile.blockName'] = blockRegex;
+      locationMatch[
+        'userDetails.farmerProfile.blockName'
+      ] = blockRegex;
     }
 
     if (villageRegex) {
-      locationMatch['userDetails.farmerProfile.villageName'] = villageRegex;
+      locationMatch[
+        'userDetails.farmerProfile.villageName'
+      ] = villageRegex;
     }
 
     // ============================================
     // USER TYPE FILTER
     // ============================================
 
-    const userDocFilter = this.buildUserDocFilter(userType);
+    const userDocFilter =
+      this.buildUserDocFilter(userType);
 
-    const userTypeMatch: Record<string, any> = {};
+    const userTypeMatch: Record<
+      string,
+      any
+    > = {};
 
-    for (const key of Object.keys(userDocFilter)) {
-      userTypeMatch[`userDetails.${key}`] = userDocFilter[key];
+    for (const key of Object.keys(
+      userDocFilter,
+    )) {
+      userTypeMatch[`userDetails.${key}`] =
+        userDocFilter[key];
     }
 
     // ============================================
     // MATCH WEATHER AI RESPONSES
     // ============================================
 
-    const messageMatch: Record<string, any> = {
+    const messageMatch: Record<
+      string,
+      any
+    > = {
       isDeleted: {$ne: true},
 
-      // AI generated docs only
       isCreatedByUser: false,
 
-      // weather tool used
       'content.tool_call.name': {
         $regex: 'weather',
         $options: 'i',
@@ -1873,15 +2158,20 @@ export class ChatbotRepository implements IChatbotRepository {
     // DATE FILTER
     // ============================================
 
-    if (filters.startDate || filters.endDate) {
+    if (
+      filters.startDate ||
+      filters.endDate
+    ) {
       messageMatch.createdAt = {};
 
       if (filters.startDate) {
-        messageMatch.createdAt.$gte = new Date(filters.startDate);
+        messageMatch.createdAt.$gte =
+          new Date(filters.startDate);
       }
 
       if (filters.endDate) {
-        messageMatch.createdAt.$lte = new Date(filters.endDate);
+        messageMatch.createdAt.$lte =
+          new Date(filters.endDate);
       }
     }
 
@@ -1889,33 +2179,49 @@ export class ChatbotRepository implements IChatbotRepository {
     // CONCERN REGEX EXPRESSIONS
     // ============================================
 
-    const concernExpressions = Object.fromEntries(
-      Object.entries(WEATHER_CONCERNS).map(([concern, keyword]) => [
-        concern,
-        {
-          $regexMatch: {
-            input: '$contentSignal',
-            regex: this.escapeRegex(keyword),
-            options: 'i',
+    const concernExpressions =
+      Object.fromEntries(
+        Object.entries(
+          WEATHER_CONCERNS,
+        ).map(([concern, keywords]) => [
+          concern,
+          {
+            $regexMatch: {
+              input: '$contentSignal',
+
+              regex: keywords
+                .map(keyword =>
+                  this.escapeRegex(keyword),
+                )
+                .join('|'),
+
+              options: 'i',
+            },
           },
-        },
-      ]),
-    );
+        ]),
+      );
 
     // ============================================
     // CONCERN SUMS
     // ============================================
 
-    const concernSums = Object.fromEntries(
-      Object.keys(WEATHER_CONCERNS).map(concern => [
-        concern,
-        {
-          $sum: {
-            $cond: [`$detectedConcerns.${concern}`, 1, 0],
+    const concernSums =
+      Object.fromEntries(
+        Object.keys(
+          WEATHER_CONCERNS,
+        ).map(concern => [
+          concern,
+          {
+            $sum: {
+              $cond: [
+                `$detectedConcerns.${concern}`,
+                1,
+                0,
+              ],
+            },
           },
-        },
-      ]),
-    );
+        ]),
+      );
 
     // ============================================
     // PIPELINE
@@ -1932,14 +2238,16 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // ============================================
       // STEP 2 -> FIND ORIGINAL USER MESSAGE
-      // AI.parentMessageId === USER.messageId
       // ============================================
 
       {
         $lookup: {
           from: 'messages',
+
           localField: 'parentMessageId',
+
           foreignField: 'messageId',
+
           as: 'userMessage',
         },
       },
@@ -1958,7 +2266,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       {
         $match: {
-          'userMessage.isCreatedByUser': true,
+          'userMessage.isCreatedByUser':
+            true,
         },
       },
 
@@ -1969,7 +2278,10 @@ export class ChatbotRepository implements IChatbotRepository {
       {
         $addFields: {
           _userRef: {
-            $ifNull: ['$userMessage.user', '$userMessage.userId'],
+            $ifNull: [
+              '$userMessage.user',
+              '$userMessage.userId',
+            ],
           },
         },
       },
@@ -1978,7 +2290,12 @@ export class ChatbotRepository implements IChatbotRepository {
         $addFields: {
           _userOid: {
             $cond: [
-              {$eq: [{$type: '$_userRef'}, 'objectId']},
+              {
+                $eq: [
+                  {$type: '$_userRef'},
+                  'objectId',
+                ],
+              },
 
               '$_userRef',
 
@@ -1986,12 +2303,26 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$ne: ['$_userRef', null]},
-                      {$ne: ['$_userRef', '']},
+                      {
+                        $ne: [
+                          '$_userRef',
+                          null,
+                        ],
+                      },
+
+                      {
+                        $ne: [
+                          '$_userRef',
+                          '',
+                        ],
+                      },
                     ],
                   },
 
-                  {$toObjectId: '$_userRef'},
+                  {
+                    $toObjectId:
+                      '$_userRef',
+                  },
 
                   null,
                 ],
@@ -2008,8 +2339,11 @@ export class ChatbotRepository implements IChatbotRepository {
       {
         $lookup: {
           from: 'users',
+
           localField: '_userOid',
+
           foreignField: '_id',
+
           as: 'userDetails',
         },
       },
@@ -2017,7 +2351,9 @@ export class ChatbotRepository implements IChatbotRepository {
       {
         $unwind: {
           path: '$userDetails',
-          preserveNullAndEmptyArrays: userType !== 'external',
+
+          preserveNullAndEmptyArrays:
+            userType !== 'external',
         },
       },
     ];
@@ -2026,7 +2362,10 @@ export class ChatbotRepository implements IChatbotRepository {
     // USER TYPE FILTER
     // ============================================
 
-    if (Object.keys(userTypeMatch).length > 0) {
+    if (
+      Object.keys(userTypeMatch)
+        .length > 0
+    ) {
       pipeline.push({
         $match: userTypeMatch,
       });
@@ -2036,23 +2375,28 @@ export class ChatbotRepository implements IChatbotRepository {
     // LOCATION FILTER
     // ============================================
 
-    if (Object.keys(locationMatch).length > 0) {
+    if (
+      Object.keys(locationMatch).length >
+      0
+    ) {
       pipeline.push({
         $match: locationMatch,
       });
     }
 
     // ============================================
-    // STEP 7 -> BUILD SIGNAL FROM USER TEXT
-    // IMPORTANT:
-    // ONLY USER QUESTION
-    // NO AI THINKING
+    // STEP 7 -> BUILD SIGNAL
     // ============================================
 
     pipeline.push({
       $addFields: {
         contentSignal: {
-          $ifNull: ['$userMessage.text', ''],
+          $toLower: {
+            $ifNull: [
+              '$userMessage.text',
+              '',
+            ],
+          },
         },
       },
     });
@@ -2061,7 +2405,10 @@ export class ChatbotRepository implements IChatbotRepository {
     // SEASON FILTER
     // ============================================
 
-    const seasonRegex = this.buildContainsTextRegex(filters.season);
+    const seasonRegex =
+      this.buildContainsTextRegex(
+        filters.season,
+      );
 
     if (seasonRegex) {
       pipeline.push({
@@ -2078,7 +2425,8 @@ export class ChatbotRepository implements IChatbotRepository {
     pipeline.push(
       {
         $addFields: {
-          detectedConcerns: concernExpressions,
+          detectedConcerns:
+            concernExpressions,
         },
       },
 
@@ -2090,8 +2438,11 @@ export class ChatbotRepository implements IChatbotRepository {
         $addFields: {
           hasKnownConcern: {
             $anyElementTrue: [
-              Object.keys(WEATHER_CONCERNS).map(
-                concern => `$detectedConcerns.${concern}`,
+              Object.keys(
+                WEATHER_CONCERNS,
+              ).map(
+                concern =>
+                  `$detectedConcerns.${concern}`,
               ),
             ],
           },
@@ -2109,15 +2460,20 @@ export class ChatbotRepository implements IChatbotRepository {
               $group: {
                 _id: null,
 
-                totalWeatherQueries: {
-                  $sum: 1,
-                },
+                totalWeatherQueries:
+                  {
+                    $sum: 1,
+                  },
 
                 ...concernSums,
 
                 others: {
                   $sum: {
-                    $cond: ['$hasKnownConcern', 0, 1],
+                    $cond: [
+                      '$hasKnownConcern',
+                      0,
+                      1,
+                    ],
                   },
                 },
               },
@@ -2130,8 +2486,11 @@ export class ChatbotRepository implements IChatbotRepository {
                 _id: {
                   $dateToString: {
                     format: '%Y-%m',
+
                     date: '$createdAt',
-                    timezone: '+05:30',
+
+                    timezone:
+                      '+05:30',
                   },
                 },
 
@@ -2155,15 +2514,17 @@ export class ChatbotRepository implements IChatbotRepository {
     // EXECUTE PIPELINE
     // ============================================
 
-    const [result] = await this.messagesCollection
-      .aggregate(pipeline, {session})
-      .toArray();
+    const [result] =
+      await this.messagesCollection
+        .aggregate(pipeline, {session})
+        .toArray();
 
     // ============================================
     // SUMMARY
     // ============================================
 
-    const summary = result?.summary?.[0] ?? {};
+    const summary =
+      result?.summary?.[0] ?? {};
 
     const totalWeatherQueries =
       summary.totalWeatherQueries ?? 0;
@@ -2172,42 +2533,72 @@ export class ChatbotRepository implements IChatbotRepository {
     // CONCERN DISTRIBUTION
     // ============================================
 
-    const concernDistribution = Object.keys(
-      WEATHER_CONCERNS,
-    ).map(key => {
-      const concernKey =
-        key as keyof typeof WEATHER_CONCERNS;
+    const concernDistribution =
+      Object.keys(WEATHER_CONCERNS)
+        .map(key => {
+          const concernKey =
+            key as keyof typeof WEATHER_CONCERNS;
 
-      const count = summary[key] ?? 0;
+          const count =
+            summary[key] ?? 0;
 
-      return {
-        concern: WEATHER_CONCERN_LABELS[concernKey],
-        count,
+          return {
+            concern:
+              WEATHER_CONCERN_LABELS[
+                concernKey
+              ],
 
-        percentage: totalWeatherQueries
-          ? Math.round(
-              (count / totalWeatherQueries) * 100,
-            )
-          : 0,
-      };
-    });
+            count,
+
+            percentage:
+              totalWeatherQueries
+                ? Math.round(
+                    (count /
+                      totalWeatherQueries) *
+                      100,
+                  )
+                : 0,
+          };
+        })
+        
 
     // ============================================
     // OTHERS
     // ============================================
 
-    const othersCount = summary.others ?? 0;
+    const othersCount =
+      summary.others ?? 0;
 
-    concernDistribution.push({
-      concern: 'Others',
+    if (othersCount > 0) {
+      concernDistribution.push({
+        concern: 'Others',
 
-      count: othersCount,
+        count: othersCount,
 
-      percentage: totalWeatherQueries
-        ? Math.round(
-            (othersCount / totalWeatherQueries) * 100,
-          )
-        : 0,
+        percentage:
+          totalWeatherQueries
+            ? Math.round(
+                (othersCount /
+                  totalWeatherQueries) *
+                  100,
+              )
+            : 0,
+      });
+    }
+
+    // ============================================
+    // SORT CONCERNS
+    // OTHERS ALWAYS LAST
+    // ============================================
+
+    concernDistribution.sort((a, b) => {
+      if (a.concern === 'Others')
+        return 1;
+
+      if (b.concern === 'Others')
+        return -1;
+
+      return b.count - a.count;
     });
 
     // ============================================
@@ -2215,11 +2606,27 @@ export class ChatbotRepository implements IChatbotRepository {
     // ============================================
 
     const topConcern = (() => {
-      const sortedConcerns = [...concernDistribution]
-        .filter(item => item.concern !== 'Others')
-        .sort((a, b) => b.count - a.count);
+      if (totalWeatherQueries === 0) {
+        return null;
+      }
 
-      return sortedConcerns[0]?.concern ?? null;
+      const sortedConcerns = [
+        ...concernDistribution,
+      ]
+        .filter(
+          item =>
+            item.concern !==
+              'Others' &&
+            item.count > 0,
+        )
+        .sort(
+          (a, b) => b.count - a.count,
+        );
+
+      return (
+        sortedConcerns[0]?.concern ??
+        null
+      );
     })();
 
     // ============================================
@@ -2229,11 +2636,17 @@ export class ChatbotRepository implements IChatbotRepository {
     return {
       filters: {
         season: filters.season,
+
         state: filters.state,
+
         district: filters.district,
+
         block: filters.block,
+
         village: filters.village,
+
         startDate: filters.startDate,
+
         endDate: filters.endDate,
       },
 
@@ -2244,12 +2657,15 @@ export class ChatbotRepository implements IChatbotRepository {
 
       concernDistribution,
 
-      timeline: (result?.timeline ?? []).map(
-        (item: any) => ({
-          month: this.formatMonthLabel(item._id),
-          count: item.count,
-        }),
-      ),
+      timeline: (
+        result?.timeline ?? []
+      ).map((item: any) => ({
+        month: this.formatMonthLabel(
+          item._id,
+        ),
+
+        count: item.count,
+      })),
     };
   } catch (error) {
     throw new InternalServerError(
@@ -6543,6 +6959,7 @@ export class ChatbotRepository implements IChatbotRepository {
             originalQuestion?: string;
             similarityScore: number;
             createdAt: Date;
+            threadId?: string;
             details?: {
               state?: string;
               district?: string;
@@ -6553,6 +6970,7 @@ export class ChatbotRepository implements IChatbotRepository {
             originalQuestion: 1,
             similarityScore: 1,
             createdAt: 1,
+            threadId: 1,
             details: 1,
           })
           .sort({
@@ -6578,6 +6996,10 @@ export class ChatbotRepository implements IChatbotRepository {
           q.details?.district || "—",
         state:
           q.details?.state || "—",
+        threadId: q.threadId || "—",
+        mobileNumber: q.threadId
+          ? q.threadId.split("-")[0]
+          : "—",
       }));
       // console.log("--------------dupeQuestions------", result);
       return result;

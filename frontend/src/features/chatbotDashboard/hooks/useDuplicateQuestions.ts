@@ -14,6 +14,8 @@ export interface DuplicateQuestionEntry {
   block: string;
   district: string;
   state: string;
+  mobileNumber: string;
+  threadId: string;
 }
 
 export function useDuplicateQuestions(enabled = false, source: 'vicharanashala' | 'annam' | 'whatsapp'= 'annam') {

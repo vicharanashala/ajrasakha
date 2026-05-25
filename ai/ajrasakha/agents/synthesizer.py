@@ -1,9 +1,7 @@
 """Final answer synthesis from tool results (no tool binding).
 
-Handles two GDB response modes:
-  1. Exact match  → Rephrase answer slightly + append source attribution
-  2. Similar match → LLM picks best pairs, synthesizes answer + append sources
-In both cases, source name (with link) and author name are MANDATORY in the output.
+Outputs English advisory body only. Sources, author lines, and disclaimers are
+appended in translate_answer via answer_footers.py.
 """
 
 from __future__ import annotations
@@ -20,23 +18,13 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.store.base import BaseStore
 
 from ajrasakha.agents.config import CLAUDE_MODEL
-from ajrasakha.agents.language import (
-    language_directive_for_synthesis,
-    get_localized_sources_header,
-    get_localized_source_prefix,
-    get_localized_expert_prefix,
-)
-from ajrasakha.agents.translation_catalog import (
-    get_testing_disclaimer,
-    get_two_hour_disclaimer,
-    language_pair_from_plan,
-    synthesis_lang_label,
-)
+from ajrasakha.agents.language import language_directive_for_synthesis
+from ajrasakha.agents.translation_catalog import language_pair_from_plan, synthesis_lang_label
 from ajrasakha.agents.memory import load_long_term_summary
 from ajrasakha.agents.location_context import main_agent_location_context_message
 from ajrasakha.agents.plan_executor import should_expert_queue_reply
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
-from ajrasakha.agents.prompts import EMPTY_GDB_REPLY, LLM_FALLBACK_MSG, SYNTHESIZER_SYSTEM_PROMPT, WARNING_TEXT
+from ajrasakha.agents.prompts import EMPTY_GDB_REPLY, LLM_FALLBACK_MSG, SYNTHESIZER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState
 
 logger = logging.getLogger(__name__)
@@ -87,100 +75,18 @@ def _extract_gdb_from_messages(messages: list[BaseMessage]) -> Optional[dict]:
     return None
 
 
-def _format_source_attribution(details: dict, lang_label: str = "English") -> str:
-    """Format source name (with embedded link) + author name for final output."""
-    lines: list[str] = []
-    source_name = details.get("source_name")
-    source_link = details.get("source_link")
-    author_name = details.get("author_name")
-
-    src_prefix = get_localized_source_prefix(lang_label)
-    exp_prefix = get_localized_expert_prefix(lang_label)
-
-    if source_name and source_link:
-        lines.append(f"{src_prefix} {source_name} ({source_link})")
-    elif source_name:
-        lines.append(f"{src_prefix} {source_name}")
-    elif source_link:
-        lines.append(f"{src_prefix} {source_link}")
-
-    if author_name:
-        lines.append(f"{exp_prefix} {author_name}")
-
-    return "\n".join(lines)
-
-
-def _collect_all_sources(gdb_data: dict, lang_label: str = "English") -> str:
-    """Collect source attribution from exact match and all similar pairs.
-
-    De-duplicates by (source_name, author_name) to avoid repetition.
-    """
-    seen: set[tuple] = set()
-    attribution_lines: list[str] = []
-
-    def _add_details(details: dict) -> None:
-        if not details:
-            return
-        key = (details.get("source_name"), details.get("author_name"))
-        if key in seen:
-            return
-        seen.add(key)
-        line = _format_source_attribution(details, lang_label)
-        if line:
-            attribution_lines.append(line)
-
-    # Exact match details (only when there is an expert answer to cite)
-    exact = gdb_data.get("exact_match") or {}
-    if (exact.get("answer") or "").strip():
-        _add_details(exact.get("details") or {})
-
-    # Similar pair details (only pairs with non-empty answers — sanitizer-kept content)
-    for i in range(1, 6):  # similar_pair1 through similar_pair5
-        pair = gdb_data.get(f"similar_pair{i}")
-        if (
-            pair
-            and isinstance(pair, dict)
-            and (pair.get("answer") or "").strip()
-        ):
-            _add_details(pair.get("details") or {})
-
-    if not attribution_lines:
-        return ""
-
-    header = get_localized_sources_header(lang_label)
-    return header + "\n\n".join(attribution_lines)
-
-
-def _append_sources_and_warning(answer_text: str, gdb_data: Optional[dict], lang_label: str = "English") -> str:
-    """Append source block and mandatory WARNING_TEXT when there is a body and GDB data."""
-    body = (answer_text or "").strip()
-    if not body:
-        return answer_text or ""
-    if gdb_data:
-        source_block = _collect_all_sources(gdb_data, lang_label)
-        if source_block:
-            answer_text = f"{answer_text}\n{source_block}"
-    warning = get_localized_warning_text(lang_label)
-    return f"{answer_text}\n\n{warning}"
-
-
 async def _empty_gdb_synthesis_result(
     state: AjraSakhaState,
     *,
     plan: dict | None = None,
 ) -> dict:
-    merged_plan = {**(state.get("plan") or {}), **(plan or {})}
-    script, vocal = language_pair_from_plan(merged_plan)
-    body = get_two_hour_disclaimer(script, vocal)
-    warning = get_testing_disclaimer(script, vocal)
-    content = f"{body}\n\n{warning}"
-    
+    """Expert-queue path: empty body; footers appended in translate_answer."""
+    merged_plan = {**(state.get("plan") or {}), **(plan or {}), "expert_queue": True}
     out: dict = {
-        "messages": [AIMessage(content=content)],
+        "messages": [AIMessage(content="")],
         "location": state.get("location"),
+        "plan": merged_plan,
     }
-    if plan is not None:
-        out["plan"] = plan
     return out
 
 
