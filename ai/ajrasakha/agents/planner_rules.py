@@ -21,6 +21,7 @@ from ajrasakha.agents.location_context import (
     recent_human_text,
 )
 from ajrasakha.agents.state import Location, PlannerEntities, PlannerPlan
+from ajrasakha.agents.language import get_localized_state_question, get_localized_crop_question
 
 _SCHEMES_RE = re.compile(
     r"\b(insurance|insured|pm[\s-]?kisan|pmkisan|subsidy|subsidies|scheme|schemes|"
@@ -247,19 +248,11 @@ def _finalize_location_and_crop_completeness(
     if not has_state and not has_gps:
         out["is_complete"] = False
         out["missing_info"] = ["location"]
-        out["follow_up_question"] = (
-            "Which state are you in?"
-            if farmer_language == "English"
-            else "आप किस राज्य में हैं?"
-        )
+        out["follow_up_question"] = get_localized_state_question(farmer_language)
     elif needs_crop:
         out["is_complete"] = False
         out["missing_info"] = ["crop"]
-        out["follow_up_question"] = (
-            "Which crop are you growing?"
-            if farmer_language == "English"
-            else "आप कौन सी फसल उगा रहे हैं?"
-        )
+        out["follow_up_question"] = get_localized_crop_question(farmer_language)
     else:
         out["is_complete"] = True
         out["missing_info"] = []
@@ -307,17 +300,9 @@ def apply_planner_completeness_rules(
         if _is_bad_follow_up(llm_follow_up):
             missing = out.get("missing_info") or []
             if "crop" in missing:
-                out["follow_up_question"] = (
-                    "Which crop are you growing?"
-                    if farmer_language == "English"
-                    else "आप कौन सी फसल उगा रहे हैं?"
-                )
+                out["follow_up_question"] = get_localized_crop_question(farmer_language)
             elif "location" in missing:
-                out["follow_up_question"] = (
-                    "Which state are you in?"
-                    if farmer_language == "English"
-                    else "आप किस राज्य में हैं?"
-                )
+                out["follow_up_question"] = get_localized_state_question(farmer_language)
 
     out = _finalize_location_and_crop_completeness(
         out,

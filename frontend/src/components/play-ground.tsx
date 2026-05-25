@@ -32,6 +32,7 @@ import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboa
 import { cn } from "@/lib/utils";
 import AuditPage from "./AuditPage";
 import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
+import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -244,7 +245,15 @@ export const PlaygroundPage = () => {
                     <span>ChatBot Analytics</span>
                   </TabsTrigger>
                 )}
-                {/* 
+                {user && (user.role === "moderator" || user.role === "admin") && (
+                  <TabsTrigger
+                    value="data_processing"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>Data Processing</span>
+                  </TabsTrigger>
+                )}
+                {/*
                 {user && (
                   <TabsTrigger
                     value="history"
@@ -420,6 +429,21 @@ export const PlaygroundPage = () => {
                   </div>
                 </div>
               </TabsContent>
+              {user && (user.role === "moderator" || user.role === "admin") && (
+                <TabsContent
+                  value="data_processing"
+                  className={cn(
+                    "mt-0 border-0 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <DataProcessingDashboard />
+                </TabsContent>
+              )}
               {/* {user && (
                 <TabsContent
                   value="history"

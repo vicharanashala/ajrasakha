@@ -561,6 +561,8 @@ export function EightCardsComponent({
     const idxB = customOrder.indexOf(b.id);
     return idxA - idxB;
   });
+
+  console.log("Combinedkpis", combinedKpis);
   return (
     <>
       {/* Original 2-row layout commented out as requested:

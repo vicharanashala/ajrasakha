@@ -376,6 +376,16 @@ export interface IChatbotRepository {
     session?: ClientSession,
   ): Promise<ChatbotConversationData[]>;
 
+  generateChatBotData(    
+    startDate: Date,
+    endDate: Date,
+    days: number,
+    userType: string,
+    month?: string,
+    source?: string,
+    session?: ClientSession,
+  )
+
   /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
   getUserDemographics(source?: string, session?: ClientSession, userType?: string): Promise<UserDemographics>;
 
