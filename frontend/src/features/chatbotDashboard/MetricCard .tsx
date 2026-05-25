@@ -231,9 +231,12 @@ function getIcon(icon?: string, color?: string, size: number = 16) {
   if (icon === "download") return <Download style={style} />;
   return null;
 }
-function KpiCard({ kpi }: { kpi: KpiCardData }) {
+function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [granularity, setGranularity] = useState<QueryGranularity>("daily");
+
+  const shouldBlur = source === "whatsapp" && kpi.id ==="dau"
+  const shouldHide = source === "whatsapp" && kpi.id ==="session"
 
   const activePoints =
     kpi.id === "queries"
@@ -266,7 +269,12 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 
   return (
     <>
-      <Card className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]">
+      {/* <Card className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]"> */}
+      <Card
+        className={`relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-[#2a2a2a] dark:bg-[#1a1a1a] ${
+          shouldHide? "pointer-events-none select-none hidden":shouldBlur ? "pointer-events-none select-none blur-sm opacity-90" : ""
+        }`}
+      >
         <div
           className="absolute inset-x-0 top-0 h-1"
           style={{ background: kpi.accentColor }}
@@ -532,9 +540,11 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 export function EightCardsComponent({
   kpiRow1,
   kpiRow2,
+  source
 }: {
   kpiRow1: KpiCardData[];
   kpiRow2: KpiCardData[];
+  source: string;
 }) {
   const combinedKpis = [...kpiRow1, ...kpiRow2];
   const customOrder = [
@@ -569,7 +579,7 @@ export function EightCardsComponent({
       */}
       <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {combinedKpis.map((kpi) => (
-          <KpiCard key={kpi.id} kpi={kpi} />
+          <KpiCard key={kpi.id} kpi={kpi} source={source} />
         ))}
       </div>
     </>
