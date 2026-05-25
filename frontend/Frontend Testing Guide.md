@@ -17,11 +17,8 @@ We are using:
 Use these suffixes:
 
 | Type | Naming |
-
 |---|---|
-
 | Unit Test |`*.unit.test.tsx`|
-
 | Integration Test |`*.integration.test.tsx`|
 
 Examples:
