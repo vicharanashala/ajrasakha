@@ -1171,6 +1171,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       if (!reportData) return null;
 
+      console.log("Excel Report", reportData)
+
       // ─────────────────────────────────────────────────────────────
       // WORKBOOK SETUP
       // ─────────────────────────────────────────────────────────────
@@ -1300,10 +1302,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
         {header: 'Total Queries', key: 'queries', width: 20},
       ];
 
-      (reportData.monthlyQueries || []).forEach((item: any) => {
+      (reportData. monthlyQueries || []).forEach((item: any) => {
         monthlySheet.addRow({
-          month: item.month ?? '',
-          queries: item.totalQueries ?? 0,
+          month: item.period ?? '',
+          queries: item.queryCount ?? 0,
         });
       });
 
@@ -1320,8 +1322,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       (reportData.weeklyQueries || []).forEach((item: any) => {
         weeklySheet.addRow({
-          week: item.week ?? '',
-          queries: item.totalQueries ?? 0,
+          week: item.period ?? '',
+          queries: item.queryCount ?? 0,
         });
       });
 
@@ -1338,8 +1340,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       (reportData.dailyQueries || []).forEach((item: any) => {
         dailySheet.addRow({
-          date: item.date ?? '',
-          queries: item.totalQueries ?? 0,
+          date: item.period ?? '',
+          queries: item.queryCount ?? 0,
         });
       });
 
@@ -1381,8 +1383,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
       );
 
-      console.log('reported date:', reportData);
-
       const doc = new PDFDocument({
         margin: 40,
         size: 'A4',
@@ -1422,7 +1422,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       doc.text(`Total Downloads: ${reportData.totalDownloads ?? 0}`);
 
-      doc.text(`Average Session Duration: ${reportData.averageSession ?? 0}`);
+      doc.text(`Average Session Duration: ${reportData.averageSession ?? 0} min`);
 
       doc.text(`Daily Active Users: ${reportData.dau ?? 0}`);
 
