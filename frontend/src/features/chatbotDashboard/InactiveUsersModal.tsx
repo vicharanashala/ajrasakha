@@ -8,7 +8,7 @@ import {
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Pagination } from "@/components/pagination";
 import WhatsappHistoryLink from "./components/WhatsappHistoryLink";
-import { Clock, Inbox, MessageCircleOff } from "lucide-react";
+import { Clock, Inbox, MessageCircleOff, PartyPopper } from "lucide-react";
 
 type InactiveUser = {
   phoneNumber: string;
@@ -94,8 +94,11 @@ export function InactiveUsersModal({
                 <Inbox className="h-6 w-6 text-muted-foreground" />
               </div>
               <p className="mt-3 text-sm font-medium">No inactive users</p>
-              <p className="text-xs text-muted-foreground">
-                Everyone's been active recently 🎉
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="flex items-center justify-center rounded-full bg-primary/10 p-1">
+                  <PartyPopper className="h-3.5 w-3.5 text-primary" />
+                </span>
+                Everyone&apos;s been active recently
               </p>
             </div>
           ) : (
