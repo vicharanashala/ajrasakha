@@ -51,7 +51,7 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 
 ## Feature flag
 
-- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → retrieval_sanitizer (when applicable) → synthesize → **translate_answer** → END. `empty_gdb_reply` skips translate (already sheet-localized). (`sanitize_answer` is commented out.)
+- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → retrieval_sanitizer (when applicable) → synthesize → **translate_answer** → END. `empty_gdb_reply` → **translate_answer** (sheet footers only, no LLM). (`sanitize_answer` is commented out.)
 
 ## Language (vocal + script)
 
@@ -59,9 +59,10 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 - **Romanized / Latin typing:** `script_language=English`, `vocal_language=<spoken>` (e.g. Hindi Hinglish → English + Hindi).
 - **Native script:** `script_language` and `vocal_language` match (e.g. both Hindi for Devanagari).
 - **Fixed strings** (exact cells, no LLM paraphrase): testing disclaimer, 2-hour expert-queue text, state/crop follow-ups — keyed by `(script_language, vocal_language)`.
-- **Synthesis** writes an English answer body; **translate_answer** translates the body then appends sources (if GDB) + testing disclaimer from the sheet.
+- **Synthesis** writes an English advisory body only (no sources, no testing disclaimer, no 2-hour text).
+- **translate_answer** translates the body when needed (LLM sees body only). Footers are deterministic in `answer_footers.py`: GDB source/author block, then testing disclaimer from the sheet. Expert-queue uses sheet 2-hour + testing (no translate LLM).
 - `USE_PLANNER_GRAPH=false`: legacy single-LLM `ajrasakha` + `tools` loop.
 
 ## Synthesizer
 
-The synthesizer LLM does not bind tools. It only composes farmer-facing text from tool results.
+The synthesizer LLM does not bind tools. It only composes the English advisory body from tool results; footers are appended in `translate_answer`.
