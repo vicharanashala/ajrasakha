@@ -52,17 +52,50 @@ def extract_tools_from_response(response_text: str) -> list[str]:
 
     return sorted(tools)
 
+def extract_nodes_from_response(response_text: str) -> list[str]:
+    known_nodes = [
+        "planner",
+        "clarify",
+        "ensure_location",
+        "execute_plan",
+        "retrieval_sanitizer",
+        "synthesize",
+        "empty_gdb_reply",
+    ]
+
+    return [node for node in known_nodes if node in response_text]
+
+
+def extract_plan_from_response(response_text: str) -> dict:
+    try:
+        data = json.loads(response_text)
+
+        if isinstance(data, dict):
+            if isinstance(data.get("plan"), dict):
+                return data["plan"]
+
+            values = data.get("values")
+            if isinstance(values, dict) and isinstance(values.get("plan"), dict):
+                return values["plan"]
+
+    except Exception:
+        pass
+
+    return {}
 
 def run_mock_case(case: dict) -> dict:
     start_time = time.time()
     expected_tools = case.get("expected_tools", [])
 
+    expected_nodes = case.get("expected_nodes", [])
+
     trace = {
-        "nodes": ["query_parser_node", "routing_node", "response_node"],
-        "tools": expected_tools,
-        "mcp_services": [f"mcp-{tool}" for tool in expected_tools],
-        "errors": [],
-    }
+    "nodes": expected_nodes,
+    "plan": case.get("expected_plan", {}),
+    "tools": expected_tools,
+    "mcp_services": [f"mcp-{tool}" for tool in expected_tools],
+    "errors": [],
+}
 
     response_text = f"Mock response for {case['name']}"
 
@@ -80,19 +113,18 @@ def run_mock_case(case: dict) -> dict:
     }
 
 
-def build_live_payload(query: str) -> dict:
+def build_live_payload(query: str, location: dict | None = None) -> dict:
     return {
         "assistant_id": ASSISTANT_ID,
         "input": {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": query,
-                }
-            ],
-            "latitude": None,
-            "longitude": None,
-        },
+    "messages": [
+        {
+            "role": "user",
+            "content": query,
+        }
+    ],
+    "location": location,
+},
         "stream": True,
         "stream_mode": "values",
     }
@@ -119,7 +151,7 @@ def run_live_case(case: dict) -> dict:
     last_values_payload = ""
 
     try:
-        payload = build_live_payload(case["query"])
+        payload = build_live_payload(case["query"], case.get("location"))
 
         with httpx.stream(
             "POST",
@@ -205,6 +237,8 @@ def run_live_case(case: dict) -> dict:
 
     extraction_source = last_values_payload or response_text or full_stream_text
     observed_tools_list = extract_tools_from_response(extraction_source)
+    observed_nodes = extract_nodes_from_response(full_stream_text)
+    observed_plan = extract_plan_from_response(extraction_source)
 
     return {
         "name": case.get("name"),
@@ -217,7 +251,8 @@ def run_live_case(case: dict) -> dict:
         "response_text": extraction_source[:500],
         "error": error[:500],
         "trace": {
-            "nodes": [],
+            "nodes": observed_nodes,
+            "plan": observed_plan,
             "tools": observed_tools_list,
             "mcp_services": [],
             "errors": [error[:500]] if error else [],

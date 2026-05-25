@@ -10,6 +10,9 @@ from ajrasakha.evaluation.trace import extract_trace_summary
 from ajrasakha.evaluation.tool import evaluate_tools
 from ajrasakha.evaluation.summary import build_summary
 from ajrasakha.evaluation.triage import triage_result
+from ajrasakha.evaluation.nodes import evaluate_nodes
+from ajrasakha.evaluation.plan import evaluate_plan
+from ajrasakha.evaluation.answer_eval import evaluate_response_quality
 
 
 def run_case(case: dict, mode: str) -> dict:
@@ -24,30 +27,35 @@ def run_case(case: dict, mode: str) -> dict:
     routing_result = evaluate_routing(result, case)
     trace_result = extract_trace_summary(result)
     tool_result = evaluate_tools(result, case)
+    node_result = evaluate_nodes(result, case)
+    plan_result = evaluate_plan(result, case)
+    quality_result = evaluate_response_quality(result)
 
-    
     combined = {
-    **result,
-    **technical_result,
-    **routing_result,
-    **tool_result,
-    **trace_result,
-}
+        **result,
+        **technical_result,
+        **routing_result,
+        **tool_result,
+        **trace_result,
+        **node_result,
+        **plan_result,
+        **quality_result, 
+    }
 
     failure_result = classify_failure(combined)
     triage_output = triage_result({**combined, **failure_result})
 
     final_result = {
-    **combined,
-    **failure_result,
-    **triage_output,
-}
+        **combined,
+        **failure_result,
+        **triage_output,
+    }
 
     final_result.pop("trace", None)
-    
 
     return final_result
-    
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -69,5 +77,6 @@ def main():
     summary = build_summary(results)
     print("Summary:", summary)
 
+
 if __name__ == "__main__":
-    main()
+    main() 

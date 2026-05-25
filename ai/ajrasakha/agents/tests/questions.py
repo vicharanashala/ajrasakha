@@ -3,48 +3,183 @@ TEST_CASES = [
         "name": "weather_question_1",
         "query": "What is the weather today in Ropar district of Punjab state?",
         "location": {"city": "Ropar", "state": "Punjab"},
-        "expected_tools": ["weather"]
+        "expected_domain": "Weather",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "weather"],
+        "expected_plan": {
+            "weather": True,
+            "mandi": False,
+            "soil": False,
+            "schemes": False,
+            "knowledge_base": False,
+            "is_complete": True,
+            "state": "Punjab",
+            "crop": "all",
+        },
     },
-
     {
         "name": "weather_question_2",
         "query": "Will it rain in Delhi today?",
         "location": {"city": "Delhi", "state": "Delhi"},
-        "expected_tools": ["weather"]
+        "expected_domain": "Weather",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "weather"],
+        "expected_plan": {
+            "weather": True,
+            "state": "Delhi",
+            "crop": "all",
+            "is_complete": True,
+        },
     },
-
+    {
+        "name": "weather_question_3",
+        "query": "What is the weather forecast for Ludhiana, Punjab for the next few days?",
+        "location": {"city": "Ludhiana", "state": "Punjab"},
+        "expected_domain": "Weather",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "weather"],
+        "expected_plan": {
+            "weather": True,
+            "state": "Punjab",
+            "crop": "all",
+            "is_complete": True,
+        },
+    },
     {
         "name": "market_question_1",
         "query": "What is the price of wheat in Sirsa mandi, Haryana?",
         "location": {"city": "Sirsa", "state": "Haryana"},
-        "expected_tools": ["market"]
+        "expected_domain": "Market Prices",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "market"],
+        "expected_plan": {
+            "mandi": True,
+            "state": "Haryana",
+            "crop": "Wheat",
+            "is_complete": True,
+        },
     },
-
+    {
+        "name": "market_question_2",
+        "query": "What is the current price of rice in Karnal mandi, Haryana?",
+        "location": {"city": "Karnal", "state": "Haryana"},
+        "expected_domain": "Market Prices",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "market"],
+        "expected_plan": {
+            "mandi": True,
+            "state": "Haryana",
+            "crop": "Rice",
+            "is_complete": True,
+        },
+    },
     {
         "name": "soil_question_1",
         "query": "My soil test shows Nitrogen 120, Phosphorus 40, Potassium 30, and OC 0.5%. What is the fertilizer dosage for Rice in Ropar, Punjab?",
         "location": {"city": "Ropar", "state": "Punjab"},
-        "expected_tools": ["soil"]
+        "expected_domain": "Soil Health Card",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "soil"],
+        "expected_plan": {
+            "soil": True,
+            "state": "Punjab",
+            "crop": "Rice",
+            "is_complete": True,
+        },
     },
-
     {
         "name": "scheme_question_1",
-        "query": "How can I get subsidy for drip irrigation?",
+        "query": "I am a 35-year-old male farmer from Jaipur, Rajasthan. How can I get subsidy for drip irrigation?",
         "location": {"city": "Jaipur", "state": "Rajasthan"},
-        "expected_tools": ["schemes"]
+        "expected_domain": "Government Schemes",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "schemes"],
+        "expected_plan": {
+            "schemes": True,
+            "state": "Rajasthan",
+            "crop": "all",
+            "is_complete": True,
+        },
     },
-
+    {
+        "name": "scheme_question_2",
+        "query": "I am a 42-year-old female farmer from Nashik, Maharashtra. Which government schemes can help me buy drip irrigation equipment?",
+        "location": {"city": "Nashik", "state": "Maharashtra"},
+        "expected_domain": "Government Schemes",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "schemes"],
+        "expected_plan": {
+            "schemes": True,
+            "state": "Maharashtra",
+            "crop": "all",
+            "is_complete": True,
+        },
+    },
+    {
+        "name": "gdb_question_1",
+        "query": "How to grow paddy in punjab",
+        "location": {"city": "Ropar", "state": "Punjab"},
+        "expected_domain": "Cultural Practices",
+        "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "gdb"],
+        "expected_plan": {
+            "knowledge_base": True,
+            "state": "Punjab",
+            "crop": "Paddy",
+            "is_complete": True,
+        },
+    },
     {
         "name": "greeting_question",
         "query": "Namaste Ajrasakha!",
         "location": None,
-        "expected_tools": []
+        "expected_domain": "General",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system"],
+        "expected_plan": {
+            "knowledge_base": False,
+            "is_complete": True,
+        },
     },
-
+    {
+        "name": "no_tool_greeting_2",
+        "query": "Hello, who are you?",
+        "location": None,
+        "expected_domain": "General",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system"],
+        "expected_plan": {
+            "knowledge_base": False,
+            "is_complete": True,
+        },
+    },
+    {
+        "name": "simple_weather_control",
+        "query": "What is the weather today in Delhi?",
+        "location": {"city": "Delhi", "state": "Delhi"},
+        "expected_domain": "Weather",
+        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "weather"],
+        "expected_plan": {
+            "weather": True,
+            "state": "Delhi",
+            "crop": "all",
+            "is_complete": True,
+        },
+    },
     {
         "name": "multi_tool_question",
-        "query": "What is the weather today in Punjab? Also my wheat crop has yellow rust disease.",
-        "location": {"city": "Ropar", "state": "Punjab"},
-        "expected_tools": ["weather", "upload_question"]
-    }
+        "query": "What is the weather forecast for Ludhiana, Punjab and what should I do for yellow rust in wheat?",
+        "location": {"city": "Ludhiana", "state": "Punjab"},
+        "expected_domain": "Plant Protection",
+        "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "synthesize"],
+        "expected_tools": ["upload_question_to_reviewer_system", "weather", "gdb"],
+        "expected_plan": {
+            "weather": True,
+            "knowledge_base": True,
+            "state": "Punjab",
+            "crop": "Wheat",
+            "is_complete": True,
+        },
+    },
 ]

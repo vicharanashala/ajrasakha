@@ -48,6 +48,10 @@ services:
     ports:
       - "8005:8005"
     env_file: .env
+    environment:
+      PYTHONPATH: /app
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
     restart: unless-stopped
+
+    

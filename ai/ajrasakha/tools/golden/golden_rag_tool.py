@@ -49,6 +49,8 @@ class QuestionAnswerPair(BaseModel):
 
 
 async def _get_answer_text_sources_and_author_name(question_id: str):
+    print(f"[DEBUG] Fetching answer for question_id={question_id}")
+
     answer_document = await answers_collection.find_one(
         {
             "questionId": ObjectId(question_id)
@@ -59,17 +61,37 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
             "answer": 1,
         },
     )
-    user_document = await users_collection.find_one(
-        {
-            "_id": ObjectId(answer_document["authorId"])
-        }
-    )
-    author_name = user_document['firstName']
-    sources = answer_document["sources"]
-    answer = answer_document["answer"]
+
+    print(f"[DEBUG] answer_document={answer_document}")
+
+    if not answer_document:
+        print("[DEBUG] No answer document found")
+        return "", [], "Unknown"
+
+    author_name = "Unknown"
+
+    try:
+        author_id = answer_document.get("authorId")
+
+        if author_id:
+            user_document = await users_collection.find_one(
+                {
+                    "_id": ObjectId(author_id)
+                }
+            )
+
+            print(f"[DEBUG] user_document={user_document}")
+
+            if user_document:
+                author_name = user_document.get("firstName", "Unknown")
+
+    except Exception as e:
+        print(f"[DEBUG] author lookup failed: {e}")
+
+    sources = answer_document.get("sources", [])
+    answer = answer_document.get("answer", "")
 
     return answer, sources, author_name
-
 
 @mcp.tool()
 async def golden_retriever_tool(
@@ -240,7 +262,11 @@ async def golden_exact_search_tool(
         },
     ]
 
-    raw_results = await questions_collection.aggregate(pipeline).to_list(length=5)
+    #raw_results = await questions_collection.aggregate(pipeline).to_list(length=5)
+    
+
+    cursor = questions_collection.aggregate(pipeline)
+    raw_results = await cursor.to_list(length=5)
 
     if not raw_results:
         return []
