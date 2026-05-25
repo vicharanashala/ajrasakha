@@ -7,6 +7,7 @@ import {
   UserDetailsPreferenceFilter,
   type UserDetailsFilters,
 } from './UserDetailsPreferenceFilter';
+import WhatsappHistoryLink from './WhatsappHistoryLink';
 
 interface DuplicateQuestionsModalProps {
   onClose: () => void;
@@ -81,7 +82,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
             <UserDetailsPreferenceFilter
               filters={filters}
               onApply={setFilters}
-              hideFields={['crop', 'inactive', 'profile']}
+              hideFields={["crop", "inactive", "profile"]}
             />
             <button
               onClick={onClose}
@@ -96,7 +97,10 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         <div className="flex-1 overflow-auto">
           {isLoading && (
             <div className="flex items-center justify-center py-20">
-              <Spinner text="Loading duplicate questions..." fullScreen={false} />
+              <Spinner
+                text="Loading duplicate questions..."
+                fullScreen={false}
+              />
             </div>
           )}
 
@@ -108,7 +112,9 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
 
           {!isLoading && !isError && filtered.length === 0 && (
             <div className="flex items-center justify-center py-20 text-sm text-gray-400 dark:text-gray-500">
-              {data && data.length > 0 ? 'No results match your filters.' : 'No duplicate questions found.'}
+              {data && data.length > 0
+                ? "No results match your filters."
+                : "No duplicate questions found."}
             </div>
           )}
 
@@ -116,26 +122,20 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-[#1f1f1f] border-b border-gray-200 dark:border-[#2a2a2a]">
                 <tr>
-              {/* {['#', 'Farmer', 'Email', 'Village / Block', 'District / State', 'Question Asked', 'Similar To', 'Score'].map((h, i) => ( */}
-                {[
-                  '#',
-                  source === 'whatsapp'
-                    ? 'Mobile Number'
-                    : 'Farmer',
-                  source === 'whatsapp'
-                    ? 'Thread ID'
-                    : 'Email',
-                  source === 'whatsapp'
-                    ? 'Created At'
-                    : 'Village / Block',
-                  'District / State',
-                  'Question Asked',
-                  'Similar To',
-                  'Score',
-                ].map((h, i) => (               
-                   <th
+                  {/* {['#', 'Farmer', 'Email', 'Village / Block', 'District / State', 'Question Asked', 'Similar To', 'Score'].map((h, i) => ( */}
+                  {[
+                    "#",
+                    source === "whatsapp" ? "Mobile Number" : "Farmer",
+                    source === "whatsapp" ? "Thread ID" : "Email",
+                    source === "whatsapp" ? "Created At" : "Village / Block",
+                    "District / State",
+                    "Question Asked",
+                    "Similar To",
+                    "Score",
+                  ].map((h, i) => (
+                    <th
                       key={h}
-                      className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 whitespace-nowrap ${i === 0 || i === 7 ? 'text-center' : 'text-left'}`}
+                      className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 whitespace-nowrap ${i === 0 || i === 7 ? "text-center" : "text-left"}`}
                     >
                       {h}
                     </th>
@@ -151,7 +151,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
                     <td className="px-4 py-3 text-center text-xs text-gray-400 dark:text-gray-500 w-8 align-top">
                       {idx + 1}
                     </td>
-                      {/* <td className="px-4 py-3 align-top whitespace-nowrap">
+                    {/* <td className="px-4 py-3 align-top whitespace-nowrap">
                         <span className="font-medium text-gray-800 dark:text-gray-100">
                           {row.farmerName}
                         </span>
@@ -165,18 +165,8 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
                       </td> */}
 
                     <td className="px-4 py-3 align-top whitespace-nowrap">
-                      {source === 'whatsapp' ? (
-                        <a
-                          href={`${currentOrigin}/whatsapp-history?threadId="${row.mobileNumber}"`}   
-                          rel="noopener noreferrer"
-                          className="
-                            font-medium
-                            text-[#3AAA5A]
-                            hover:underline
-                          "
-                        >
-                          {row.mobileNumber}
-                        </a>
+                      {source === "whatsapp" ? (
+                        <WhatsappHistoryLink mobileNumber={row.mobileNumber} />
                       ) : (
                         <span className="font-medium text-gray-800 dark:text-gray-100">
                           {row.farmerName}
@@ -184,13 +174,11 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
                       )}
                     </td>
                     <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600 dark:text-gray-300 max-w-[220px]">
-                      {source === 'whatsapp'
-                        ? row.threadId
-                        : row.email}
+                      {source === "whatsapp" ? row.threadId : row.email}
                     </td>
 
                     <td className="px-4 py-3 align-top">
-                      {source === 'whatsapp' ? (
+                      {source === "whatsapp" ? (
                         <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">
                           {new Date(row.createdAt).toLocaleString()}
                         </div>
@@ -207,23 +195,27 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
                       )}
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.district}</div>
-                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{row.state}</div>
+                      <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                        {row.district}
+                      </div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        {row.state}
+                      </div>
                     </td>
                     <td className="px-4 py-3 align-top text-gray-700 dark:text-gray-300 max-w-[220px]">
                       {row.question}
                     </td>
                     <td className="px-4 py-3 align-top text-gray-500 dark:text-gray-400 italic max-w-[220px]">
-                      {row.referenceQuestion || '—'}
+                      {row.referenceQuestion || "—"}
                     </td>
                     <td className="px-4 py-3 align-top text-center">
                       <span
                         className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                           row.similarityScore >= 90
-                            ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400'
+                            ? "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400"
                             : row.similarityScore >= 75
-                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
-                            : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                              ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                              : "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
                         }`}
                       >
                         {row.similarityScore.toFixed(1)}%
@@ -242,7 +234,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
             <span>
               {filtered.length !== data.length
                 ? `${filtered.length} of ${data.length} results`
-                : `${data.length} duplicate question${data.length !== 1 ? 's' : ''}`}
+                : `${data.length} duplicate question${data.length !== 1 ? "s" : ""}`}
             </span>
             {filtered.length !== data.length && (
               <button
