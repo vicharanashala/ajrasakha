@@ -21,7 +21,11 @@ from ajrasakha.agents.location_context import (
     recent_human_text,
 )
 from ajrasakha.agents.state import Location, PlannerEntities, PlannerPlan
-from ajrasakha.agents.language import get_localized_state_question, get_localized_crop_question
+from ajrasakha.agents.translation_catalog import (
+    get_crop_follow_up,
+    get_state_follow_up,
+    language_pair_from_plan,
+)
 
 _SCHEMES_RE = re.compile(
     r"\b(insurance|insured|pm[\s-]?kisan|pmkisan|subsidy|subsidies|scheme|schemes|"
@@ -238,9 +242,9 @@ def _finalize_location_and_crop_completeness(
     domain: str,
     has_state: bool,
     has_gps: bool,
-    farmer_language: str,
 ) -> PlannerPlan:
     """Single completeness pass: state (or GPS) required; district defaults to all."""
+    script, vocal = language_pair_from_plan(out)
     crop = entities.get("crop")
     domain = normalize_domain(domain)
     needs_crop = domain_requires_crop(domain) and not crop_counts_as_resolved(crop)
@@ -248,11 +252,11 @@ def _finalize_location_and_crop_completeness(
     if not has_state and not has_gps:
         out["is_complete"] = False
         out["missing_info"] = ["location"]
-        out["follow_up_question"] = get_localized_state_question(farmer_language)
+        out["follow_up_question"] = get_state_follow_up(script, vocal)
     elif needs_crop:
         out["is_complete"] = False
         out["missing_info"] = ["crop"]
-        out["follow_up_question"] = get_localized_crop_question(farmer_language)
+        out["follow_up_question"] = get_crop_follow_up(script, vocal)
     else:
         out["is_complete"] = True
         out["missing_info"] = []
@@ -264,8 +268,6 @@ def apply_planner_completeness_rules(
     plan: PlannerPlan,
     messages: list[BaseMessage],
     location: Optional[Location],
-    *,
-    farmer_language: str = "English",
 ) -> PlannerPlan:
     """Post-process planner output: merge entities, enforce scheme overrides.
 
@@ -295,14 +297,15 @@ def apply_planner_completeness_rules(
         out["schemes"] = True
         out["knowledge_base"] = False
 
+    script, vocal = language_pair_from_plan(out)
     if not out.get("is_complete", True):
         llm_follow_up = (out.get("follow_up_question") or "").strip()
         if _is_bad_follow_up(llm_follow_up):
             missing = out.get("missing_info") or []
             if "crop" in missing:
-                out["follow_up_question"] = get_localized_crop_question(farmer_language)
+                out["follow_up_question"] = get_crop_follow_up(script, vocal)
             elif "location" in missing:
-                out["follow_up_question"] = get_localized_state_question(farmer_language)
+                out["follow_up_question"] = get_state_follow_up(script, vocal)
 
     out = _finalize_location_and_crop_completeness(
         out,
@@ -310,7 +313,6 @@ def apply_planner_completeness_rules(
         domain=domain,
         has_state=has_state,
         has_gps=has_gps,
-        farmer_language=farmer_language,
     )
 
     out["reasoning"] = (out.get("reasoning") or "") + f"; domain={domain}"
