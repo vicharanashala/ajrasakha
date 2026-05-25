@@ -930,7 +930,6 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
       const avgQuestionsPerUserDay =
         avgQuestionsRaw[0]?.avgQuestionsPerUserDay ?? 0;
-
       return {
         dau: totalUsers,
         dauLastMonthPct,
@@ -4445,16 +4444,15 @@ export class ChatbotRepository implements IChatbotRepository {
         const currentMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     console.log(startDate, endDate);
     const kpiData = await this.getKpiSummary(source, session, userType="all" );
+    console.log("Kpi Data is", kpiData)
     const monthlyQueries = await this.getMonthlyAnalytics(source, session, userType="all");
     const weeklyQueries = await this.getWeeklyAnalytics(currentMonth, source, session, userType);
-    console.log("Weekly Queries ", weeklyQueries)
     const dailyQueries = await this.getDailyAnalytics(currentMonth, source, session, userType);
-    console.log("Daily queries", dailyQueries)
     const dauTrends = await this.getDailyUserTrend(days, source,session, userType)
-
+    const averageSession = await this.getAvgSessionDurationV2(source, session, userType)
     const dataToShow = {
       totalDownloads: kpiData.totalAppInstalls,
-      averageSession: kpiData.avgSessionDurationMin,
+      averageSession: averageSession,
       dau: dauTrends[dauTrends.length -1].count || 0,
       monthlyQueries,
       dailyQueries,

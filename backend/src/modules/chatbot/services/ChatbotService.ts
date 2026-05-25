@@ -1280,7 +1280,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         },
         {
           metric: 'Average Session Duration',
-          value: reportData.averageSession ?? 0,
+          value: `${reportData.averageSession} min` || "0 min",
         },
         {
           metric: 'Daily Active Users',
@@ -1299,7 +1299,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         {header: 'Total Queries', key: 'queries', width: 20},
       ];
 
-      (reportData.monthlyQueries || []).forEach((item: any) => {
+      (reportData. monthlyQueries || []).forEach((item: any) => {
         monthlySheet.addRow({
           month: item.period ?? '',
           queries: item.queryCount ?? 0,
@@ -1421,7 +1421,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       doc.text(`Total Downloads: ${reportData.totalDownloads ?? 0}`);
 
-      doc.text(`Average Session Duration: ${reportData.averageSession ?? 0}`);
+      doc.text(`Average Session Duration: ${reportData.averageSession ?? 0} min`);
 
       doc.text(`Daily Active Users: ${reportData.dau ?? 0}`);
 
