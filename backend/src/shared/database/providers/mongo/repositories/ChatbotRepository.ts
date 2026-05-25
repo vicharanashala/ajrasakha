@@ -2755,6 +2755,83 @@ async getWeatherConcernAnalytics(
     return {start, end};
   }
 
+private formatAverageCloseTime(
+  minutes: number,
+): string {
+  if (!minutes || minutes <= 0) {
+    return '0 minutes';
+  }
+
+  const totalMinutes = Math.round(minutes);
+
+  const MINUTES_IN_HOUR = 60;
+  const MINUTES_IN_DAY = 24 * MINUTES_IN_HOUR;
+
+  // Approximate month = 30 days
+  const MINUTES_IN_MONTH = 30 * MINUTES_IN_DAY;
+
+  const months = Math.floor(
+    totalMinutes / MINUTES_IN_MONTH,
+  );
+
+  const remainingAfterMonths =
+    totalMinutes % MINUTES_IN_MONTH;
+
+  const days = Math.floor(
+    remainingAfterMonths / MINUTES_IN_DAY,
+  );
+
+  const remainingAfterDays =
+    remainingAfterMonths % MINUTES_IN_DAY;
+
+  const hours = Math.floor(
+    remainingAfterDays / MINUTES_IN_HOUR,
+  );
+
+  const mins =
+    remainingAfterDays % MINUTES_IN_HOUR;
+
+  const parts: string[] = [];
+
+  // Months
+  if (months > 0) {
+    parts.push(
+      `${months} ${
+        months === 1 ? 'month' : 'months'
+      }`,
+    );
+  }
+
+  // Days
+  if (days > 0) {
+    parts.push(
+      `${days} ${
+        days === 1 ? 'day' : 'days'
+      }`,
+    );
+  }
+
+  // Hours
+  if (hours > 0) {
+    parts.push(
+      `${hours} ${
+        hours === 1 ? 'hour' : 'hours'
+      }`,
+    );
+  }
+
+  // Minutes
+  if (mins > 0) {
+    parts.push(
+      `${mins} ${
+        mins === 1 ? 'minute' : 'minutes'
+      }`,
+    );
+  }
+
+  return parts.join(' ');
+}
+
   // ============================================
   // DAILY ANALYTICS
   // ============================================
@@ -2845,7 +2922,7 @@ async getWeatherConcernAnalytics(
               ...monthDateMatch,
             },
           },
-
+            ...userTypeLookupStages,
           {
             $group: {
               _id: {
@@ -2952,16 +3029,20 @@ async getWeatherConcernAnalytics(
       if (existing) {
         existing.totalQuestions = item.totalQuestions;
         existing.closedQuestions = item.closedQuestions;
-        existing.averageCloseTimeMinutes =
-          item.averageCloseTimeMinutes || 0;
+        existing.averageCloseTime =
+          this.formatAverageCloseTime(
+            item.averageCloseTimeMinutes || 0,
+          );
       } else {
         mergedMap.set(item.period, {
           period: item.period,
           queryCount: 0,
           totalQuestions: item.totalQuestions,
           closedQuestions: item.closedQuestions,
-          averageCloseTimeMinutes:
-            item.averageCloseTimeMinutes || 0,
+          averageCloseTime:
+            this.formatAverageCloseTime(
+              item.averageCloseTimeMinutes || 0,
+            ),
         });
       }
     }
@@ -3067,7 +3148,7 @@ async getWeatherConcernAnalytics(
               ...monthDateMatch,
             },
           },
-
+            ...userTypeLookupStages,
           {
             $group: {
               _id: {
@@ -3174,16 +3255,20 @@ async getWeatherConcernAnalytics(
       if (existing) {
         existing.totalQuestions = item.totalQuestions;
         existing.closedQuestions = item.closedQuestions;
-        existing.averageCloseTimeMinutes =
-          item.averageCloseTimeMinutes || 0;
+        existing.averageCloseTime =
+          this.formatAverageCloseTime(
+            item.averageCloseTimeMinutes || 0,
+          );
       } else {
         mergedMap.set(item.period, {
           period: item.period,
           queryCount: 0,
           totalQuestions: item.totalQuestions,
           closedQuestions: item.closedQuestions,
-          averageCloseTimeMinutes:
-            item.averageCloseTimeMinutes || 0,
+          averageCloseTime:
+            this.formatAverageCloseTime(
+              item.averageCloseTimeMinutes || 0,
+            ),
         });
       }
     }
@@ -3290,7 +3375,7 @@ async getWeatherConcernAnalytics(
               ...yearDateMatch,
             },
           },
-
+          ...userTypeLookupStages,
           {
             $group: {
               _id: {
@@ -3397,16 +3482,20 @@ async getWeatherConcernAnalytics(
       if (existing) {
         existing.totalQuestions = item.totalQuestions;
         existing.closedQuestions = item.closedQuestions;
-        existing.averageCloseTimeMinutes =
-          item.averageCloseTimeMinutes || 0;
+        existing.averageCloseTime =
+          this.formatAverageCloseTime(
+            item.averageCloseTimeMinutes || 0,
+          );
       } else {
         mergedMap.set(item.period, {
           period: item.period,
           queryCount: 0,
           totalQuestions: item.totalQuestions,
           closedQuestions: item.closedQuestions,
-          averageCloseTimeMinutes:
-            item.averageCloseTimeMinutes || 0,
+          averageCloseTime:
+            this.formatAverageCloseTime(
+              item.averageCloseTimeMinutes || 0,
+            ),
         });
       }
     }

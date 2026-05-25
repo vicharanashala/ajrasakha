@@ -223,12 +223,12 @@ function getColumns(
       render: (entry) => entry.closedQuestions.toLocaleString(),
     },
     {
-      key: "averageCloseTimeMinutes",
-      header: "Avg. Closing Time",
-      align: "right",
-      className: "font-medium text-gray-900 dark:text-gray-100",
-      render: (entry) => `${entry.averageCloseTimeMinutes} min`,
-    },
+  key: "averageCloseTime",
+  header: "Avg. Closing Time",
+  align: "right",
+  className: "font-medium text-gray-900 dark:text-gray-100",
+  render: (entry) => entry.averageCloseTime || "0 minutes",
+},
   ];
 }
 
