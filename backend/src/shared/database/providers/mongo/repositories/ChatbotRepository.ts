@@ -139,6 +139,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   private async init(source = 'vicharanashala') {
     const db = source === 'whatsapp' ? this.db: source === 'annam' ? this.annamDb : this.analyticsDb;
+    const db = source === 'whatsapp' ? this.db: source === 'annam' ? this.annamDb : this.analyticsDb;
     this.users = await db.getCollection<IUser>('users');
     this.conversations = await db.getCollection<IConversation>('conversations');
     this.messagesCollection = await db.getCollection<any>('messages');
@@ -1805,247 +1806,461 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getWeatherConcernAnalytics(
-    filters: WeatherConcernAnalyticsFilters = {},
-    source = 'vicharanashala',
-    session?: ClientSession,
-    userType = 'all',
-  ): Promise<WeatherConcernAnalyticsResponse> {
-    try {
-      await this.init(source);
+    async getWeatherConcernAnalytics(
+  filters: WeatherConcernAnalyticsFilters = {},
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+): Promise<WeatherConcernAnalyticsResponse> {
+  try {
+    await this.init(source);
 
-      const locationMatch: Record<string, any> = {};
-      const stateRegex = this.buildExactTextRegex(filters.state);
-      const districtRegex = this.buildExactTextRegex(filters.district);
-      const blockRegex = this.buildExactTextRegex(filters.block);
-      const villageRegex = this.buildExactTextRegex(filters.village);
+    // ============================================
+    // LOCATION FILTERS
+    // ============================================
 
-      if (stateRegex) locationMatch['userDetails.farmerProfile.state'] = stateRegex;
-      if (districtRegex) locationMatch['userDetails.farmerProfile.district'] = districtRegex;
-      if (blockRegex) locationMatch['userDetails.farmerProfile.blockName'] = blockRegex;
-      if (villageRegex) locationMatch['userDetails.farmerProfile.villageName'] = villageRegex;
+    const locationMatch: Record<string, any> = {};
 
-      const userDocFilter = this.buildUserDocFilter(userType);
-      const userTypeMatch: Record<string, any> = {};
-      for (const key of Object.keys(userDocFilter)) {
-        userTypeMatch[`userDetails.${key}`] = userDocFilter[key];
+    const stateRegex = this.buildExactTextRegex(filters.state);
+    const districtRegex = this.buildExactTextRegex(filters.district);
+    const blockRegex = this.buildExactTextRegex(filters.block);
+    const villageRegex = this.buildExactTextRegex(filters.village);
+
+    if (stateRegex) {
+      locationMatch['userDetails.farmerProfile.state'] = stateRegex;
+    }
+
+    if (districtRegex) {
+      locationMatch['userDetails.farmerProfile.district'] = districtRegex;
+    }
+
+    if (blockRegex) {
+      locationMatch['userDetails.farmerProfile.blockName'] = blockRegex;
+    }
+
+    if (villageRegex) {
+      locationMatch['userDetails.farmerProfile.villageName'] = villageRegex;
+    }
+
+    // ============================================
+    // USER TYPE FILTER
+    // ============================================
+
+    const userDocFilter = this.buildUserDocFilter(userType);
+
+    const userTypeMatch: Record<string, any> = {};
+
+    for (const key of Object.keys(userDocFilter)) {
+      userTypeMatch[`userDetails.${key}`] = userDocFilter[key];
+    }
+
+    // ============================================
+    // MATCH WEATHER AI RESPONSES
+    // ============================================
+
+    const messageMatch: Record<string, any> = {
+      isDeleted: {$ne: true},
+
+      // AI generated docs only
+      isCreatedByUser: false,
+
+      // weather tool used
+      'content.tool_call.name': {
+        $regex: 'weather',
+        $options: 'i',
+      },
+    };
+
+    // ============================================
+    // DATE FILTER
+    // ============================================
+
+    if (filters.startDate || filters.endDate) {
+      messageMatch.createdAt = {};
+
+      if (filters.startDate) {
+        messageMatch.createdAt.$gte = new Date(filters.startDate);
       }
 
-      const messageMatch: Record<string, any> = {
-        isDeleted: {$ne: true},
-        'content.tool_call.name': {$regex: 'weather', $options: 'i'},
-      };
-      if (filters.startDate || filters.endDate) {
-        messageMatch.createdAt = {};
-        if (filters.startDate) messageMatch.createdAt.$gte = new Date(filters.startDate);
-        if (filters.endDate) messageMatch.createdAt.$lte = new Date(filters.endDate);
+      if (filters.endDate) {
+        messageMatch.createdAt.$lte = new Date(filters.endDate);
       }
+    }
 
-      const concernExpressions = Object.fromEntries(
-        Object.entries(WEATHER_CONCERNS).map(([concern, keyword]) => [
-          concern,
-          {
-            $regexMatch: {
-              input: '$contentSignal',
-              regex: this.escapeRegex(keyword),
-              options: 'i',
-            },
-          },
-        ]),
-      );
+    // ============================================
+    // CONCERN REGEX EXPRESSIONS
+    // ============================================
 
-      const concernSums = Object.fromEntries(
-        Object.keys(WEATHER_CONCERNS).map(concern => [
-          concern,
-          {$sum: {$cond: [`$detectedConcerns.${concern}`, 1, 0]}},
-        ]),
-      );
-
-      const pipeline: any[] = [
+    const concernExpressions = Object.fromEntries(
+      Object.entries(WEATHER_CONCERNS).map(([concern, keyword]) => [
+        concern,
         {
-          $match: messageMatch,
-        },
-        {
-          $addFields: {
-            _userRef: {$ifNull: ['$user', '$userId']},
+          $regexMatch: {
+            input: '$contentSignal',
+            regex: this.escapeRegex(keyword),
+            options: 'i',
           },
         },
-        {
-          $addFields: {
-            _userOid: {
-              $cond: [
-                {$eq: [{$type: '$_userRef'}, 'objectId']},
-                '$_userRef',
-                {
-                  $cond: [
-                    {$and: [{$ne: ['$_userRef', null]}, {$ne: ['$_userRef', '']}]},
-                    {$toObjectId: '$_userRef'},
-                    null,
-                  ],
-                },
-              ],
-            },
-          },
-        },
-        {
-          $lookup: {
-            from: 'users',
-            localField: '_userOid',
-            foreignField: '_id',
-            as: 'userDetails',
-          },
-        },
-        {
-          $unwind: {
-            path: '$userDetails',
-            preserveNullAndEmptyArrays: userType !== 'external',
-          },
-        },
-      ];
+      ]),
+    );
 
-      if (Object.keys(userTypeMatch).length > 0) {
-        pipeline.push({$match: userTypeMatch});
-      }
+    // ============================================
+    // CONCERN SUMS
+    // ============================================
 
-      if (Object.keys(locationMatch).length > 0) {
-        pipeline.push({$match: locationMatch});
-      }
-
-      pipeline.push(
+    const concernSums = Object.fromEntries(
+      Object.keys(WEATHER_CONCERNS).map(concern => [
+        concern,
         {
-          $addFields: {
-            contentSignal: {
-              $reduce: {
-                input: {$ifNull: ['$content', []]},
-                initialValue: '',
-                in: {
-                  $concat: [
-                    '$$value',
-                    ' ',
-                    {$ifNull: ['$$this.tool_call.name', '']},
-                    ' ',
-                    {$ifNull: ['$$this.think', '']},
-                    ' ',
-                    {$ifNull: ['$$this.text', '']},
-                  ],
-                },
-              },
-            },
+          $sum: {
+            $cond: [`$detectedConcerns.${concern}`, 1, 0],
           },
         },
-      );
+      ]),
+    );
 
-      const seasonRegex = this.buildContainsTextRegex(filters.season);
-      if (seasonRegex) {
-        pipeline.push({$match: {contentSignal: seasonRegex}});
-      }
+    // ============================================
+    // PIPELINE
+    // ============================================
 
-      pipeline.push(
-        {
-          $addFields: {
-            detectedConcerns: concernExpressions,
+    const pipeline: any[] = [
+      // ============================================
+      // STEP 1 -> WEATHER AI RESPONSES
+      // ============================================
+
+      {
+        $match: messageMatch,
+      },
+
+      // ============================================
+      // STEP 2 -> FIND ORIGINAL USER MESSAGE
+      // AI.parentMessageId === USER.messageId
+      // ============================================
+
+      {
+        $lookup: {
+          from: 'messages',
+          localField: 'parentMessageId',
+          foreignField: 'messageId',
+          as: 'userMessage',
+        },
+      },
+
+      // ============================================
+      // STEP 3 -> UNWIND USER MESSAGE
+      // ============================================
+
+      {
+        $unwind: '$userMessage',
+      },
+
+      // ============================================
+      // STEP 4 -> ONLY REAL USER QUESTIONS
+      // ============================================
+
+      {
+        $match: {
+          'userMessage.isCreatedByUser': true,
+        },
+      },
+
+      // ============================================
+      // STEP 5 -> GET USER OBJECT ID
+      // ============================================
+
+      {
+        $addFields: {
+          _userRef: {
+            $ifNull: ['$userMessage.user', '$userMessage.userId'],
           },
         },
-        {
-          $addFields: {
-            hasKnownConcern: {
-              $anyElementTrue: [
-                Object.keys(WEATHER_CONCERNS).map(concern => `$detectedConcerns.${concern}`),
-              ],
-            },
-          },
-        },
-        {
-          $facet: {
-            summary: [
+      },
+
+      {
+        $addFields: {
+          _userOid: {
+            $cond: [
+              {$eq: [{$type: '$_userRef'}, 'objectId']},
+
+              '$_userRef',
+
               {
-                $group: {
-                  _id: null,
-                  totalWeatherQueries: {$sum: 1},
-                  ...concernSums,
-                  others: {$sum: {$cond: ['$hasKnownConcern', 0, 1]}},
-                },
-              },
-            ],
-            timeline: [
-              {
-                $group: {
-                  _id: {
-                    $dateToString: {
-                      format: '%Y-%m',
-                      date: '$createdAt',
-                      timezone: '+05:30',
-                    },
+                $cond: [
+                  {
+                    $and: [
+                      {$ne: ['$_userRef', null]},
+                      {$ne: ['$_userRef', '']},
+                    ],
                   },
-                  count: {$sum: 1},
-                },
+
+                  {$toObjectId: '$_userRef'},
+
+                  null,
+                ],
               },
-              {$sort: {_id: 1}},
             ],
           },
         },
-      );
+      },
 
-      const [result] = await this.messagesCollection
-        .aggregate(pipeline, {session})
-        .toArray();
+      // ============================================
+      // STEP 6 -> LOOKUP USER DETAILS
+      // ============================================
 
-      const summary = result?.summary?.[0] ?? {};
-      const totalWeatherQueries = summary.totalWeatherQueries ?? 0;
-      const concernDistribution = Object.keys(WEATHER_CONCERNS).map(key => {
-        const concernKey = key as keyof typeof WEATHER_CONCERNS;
-        const count = summary[key] ?? 0;
-        return {
-          concern: WEATHER_CONCERN_LABELS[concernKey],
-          count,
-          percentage: totalWeatherQueries
-            ? Math.round((count / totalWeatherQueries) * 100)
-            : 0,
-        };
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_userOid',
+          foreignField: '_id',
+          as: 'userDetails',
+        },
+      },
+
+      {
+        $unwind: {
+          path: '$userDetails',
+          preserveNullAndEmptyArrays: userType !== 'external',
+        },
+      },
+    ];
+
+    // ============================================
+    // USER TYPE FILTER
+    // ============================================
+
+    if (Object.keys(userTypeMatch).length > 0) {
+      pipeline.push({
+        $match: userTypeMatch,
       });
-      const othersCount = summary.others ?? 0;
-      concernDistribution.push({
-        concern: 'Others',
-        count: othersCount,
-        percentage: totalWeatherQueries
-          ? Math.round((othersCount / totalWeatherQueries) * 100)
-          : 0,
-      });
+    }
 
-      const topConcern = (() => {
-        const sortedConcerns = [...concernDistribution].sort((a, b) => b.count - a.count);
-        if (sortedConcerns[0]?.concern === 'Others' && sortedConcerns[1]) {
-          return sortedConcerns[1].concern;
-        }
-        return sortedConcerns[0]?.concern ?? null;
-      })();
+    // ============================================
+    // LOCATION FILTER
+    // ============================================
+
+    if (Object.keys(locationMatch).length > 0) {
+      pipeline.push({
+        $match: locationMatch,
+      });
+    }
+
+    // ============================================
+    // STEP 7 -> BUILD SIGNAL FROM USER TEXT
+    // IMPORTANT:
+    // ONLY USER QUESTION
+    // NO AI THINKING
+    // ============================================
+
+    pipeline.push({
+      $addFields: {
+        contentSignal: {
+          $ifNull: ['$userMessage.text', ''],
+        },
+      },
+    });
+
+    // ============================================
+    // SEASON FILTER
+    // ============================================
+
+    const seasonRegex = this.buildContainsTextRegex(filters.season);
+
+    if (seasonRegex) {
+      pipeline.push({
+        $match: {
+          contentSignal: seasonRegex,
+        },
+      });
+    }
+
+    // ============================================
+    // STEP 8 -> DETECT WEATHER CONCERNS
+    // ============================================
+
+    pipeline.push(
+      {
+        $addFields: {
+          detectedConcerns: concernExpressions,
+        },
+      },
+
+      // ============================================
+      // STEP 9 -> OTHERS CATEGORY
+      // ============================================
+
+      {
+        $addFields: {
+          hasKnownConcern: {
+            $anyElementTrue: [
+              Object.keys(WEATHER_CONCERNS).map(
+                concern => `$detectedConcerns.${concern}`,
+              ),
+            ],
+          },
+        },
+      },
+
+      // ============================================
+      // STEP 10 -> SUMMARY + TIMELINE
+      // ============================================
+
+      {
+        $facet: {
+          summary: [
+            {
+              $group: {
+                _id: null,
+
+                totalWeatherQueries: {
+                  $sum: 1,
+                },
+
+                ...concernSums,
+
+                others: {
+                  $sum: {
+                    $cond: ['$hasKnownConcern', 0, 1],
+                  },
+                },
+              },
+            },
+          ],
+
+          timeline: [
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+
+                count: {
+                  $sum: 1,
+                },
+              },
+            },
+
+            {
+              $sort: {
+                _id: 1,
+              },
+            },
+          ],
+        },
+      },
+    );
+
+    // ============================================
+    // EXECUTE PIPELINE
+    // ============================================
+
+    const [result] = await this.messagesCollection
+      .aggregate(pipeline, {session})
+      .toArray();
+
+    // ============================================
+    // SUMMARY
+    // ============================================
+
+    const summary = result?.summary?.[0] ?? {};
+
+    const totalWeatherQueries =
+      summary.totalWeatherQueries ?? 0;
+
+    // ============================================
+    // CONCERN DISTRIBUTION
+    // ============================================
+
+    const concernDistribution = Object.keys(
+      WEATHER_CONCERNS,
+    ).map(key => {
+      const concernKey =
+        key as keyof typeof WEATHER_CONCERNS;
+
+      const count = summary[key] ?? 0;
 
       return {
-        filters: {
-          season: filters.season,
-          state: filters.state,
-          district: filters.district,
-          block: filters.block,
-          village: filters.village,
-          startDate: filters.startDate,
-          endDate: filters.endDate,
-        },
-        summary: {
-          totalWeatherQueries,
-          topConcern,
-        },
-        concernDistribution,
-        timeline: (result?.timeline ?? []).map((item: any) => ({
+        concern: WEATHER_CONCERN_LABELS[concernKey],
+        count,
+
+        percentage: totalWeatherQueries
+          ? Math.round(
+              (count / totalWeatherQueries) * 100,
+            )
+          : 0,
+      };
+    });
+
+    // ============================================
+    // OTHERS
+    // ============================================
+
+    const othersCount = summary.others ?? 0;
+
+    concernDistribution.push({
+      concern: 'Others',
+
+      count: othersCount,
+
+      percentage: totalWeatherQueries
+        ? Math.round(
+            (othersCount / totalWeatherQueries) * 100,
+          )
+        : 0,
+    });
+
+    // ============================================
+    // TOP CONCERN
+    // ============================================
+
+    const topConcern = (() => {
+      const sortedConcerns = [...concernDistribution]
+        .filter(item => item.concern !== 'Others')
+        .sort((a, b) => b.count - a.count);
+
+      return sortedConcerns[0]?.concern ?? null;
+    })();
+
+    // ============================================
+    // RESPONSE
+    // ============================================
+
+    return {
+      filters: {
+        season: filters.season,
+        state: filters.state,
+        district: filters.district,
+        block: filters.block,
+        village: filters.village,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+      },
+
+      summary: {
+        totalWeatherQueries,
+        topConcern,
+      },
+
+      concernDistribution,
+
+      timeline: (result?.timeline ?? []).map(
+        (item: any) => ({
           month: this.formatMonthLabel(item._id),
           count: item.count,
-        })),
-      };
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to get weather concern analytics: ${error}`,
-      );
-    }
+        }),
+      ),
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get weather concern analytics: ${error}`,
+    );
   }
+}
+
+
 
   // ============================================
   // HELPER

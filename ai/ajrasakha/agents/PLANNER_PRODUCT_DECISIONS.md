@@ -51,7 +51,15 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 
 ## Feature flag
 
-- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → retrieval_sanitizer (when applicable) → synthesize → END. (`sanitize_answer` is commented out in the graph.)
+- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → retrieval_sanitizer (when applicable) → synthesize → **translate_answer** → END. `empty_gdb_reply` skips translate (already sheet-localized). (`sanitize_answer` is commented out.)
+
+## Language (vocal + script)
+
+- **Source of truth:** planner structured output sets `vocal_language` and `script_language` from `OFFICIAL_LANGUAGES` in `translation_catalog.py` (loaded from `translated_languages.xlsx`).
+- **Romanized / Latin typing:** `script_language=English`, `vocal_language=<spoken>` (e.g. Hindi Hinglish → English + Hindi).
+- **Native script:** `script_language` and `vocal_language` match (e.g. both Hindi for Devanagari).
+- **Fixed strings** (exact cells, no LLM paraphrase): testing disclaimer, 2-hour expert-queue text, state/crop follow-ups — keyed by `(script_language, vocal_language)`.
+- **Synthesis** writes an English answer body; **translate_answer** translates the body then appends sources (if GDB) + testing disclaimer from the sheet.
 - `USE_PLANNER_GRAPH=false`: legacy single-LLM `ajrasakha` + `tools` loop.
 
 ## Synthesizer
