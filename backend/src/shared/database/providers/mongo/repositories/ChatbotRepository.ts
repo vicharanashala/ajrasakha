@@ -1439,69 +1439,133 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getQueryCategories(
-    _source = 'vicharanashala',
-    session?: ClientSession,
-    userType = 'all',
-  ): Promise<QueryCategoryEntry[]> {
-    try {
-      await this.initReviewSystem();
+  _source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+): Promise<QueryCategoryEntry[]> {
+  try {
+    await this.initReviewSystem();
 
-      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-      if(_source !== "whatsapp"){
-        _source = 'AJRASAKHA'
-      }
-      else{
-        _source = 'WHATSAPP'
-      }
-      const pipeline = [
-        {
-          $match: {
-            source: _source,
-            'details.domain': {$exists: true, $nin: [null, '']},
+    const lookupStages =
+      this.buildQuestionUserTypeLookupStages(userType);
+
+    const pipeline = [
+      {
+        $match: {
+          source: 'AJRASAKHA',
+          'details.domain': {
+            $exists: true,
+            $nin: [null, ''],
           },
         },
-        ...lookupStages,
-        {
-          $project: {
-            domain: '$details.domain',
-            isDuplicate: {
-              $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
+      },
+
+      ...lookupStages,
+
+      {
+        $project: {
+          domain: '$details.domain',
+
+          isDuplicate: {
+            $cond: [
+              {$eq: ['$status', 'duplicate']},
+              1,
+              0,
+            ],
+          },
+        },
+      },
+
+      {
+        $group: {
+          _id: '$domain',
+
+          totalCount: {
+            $sum: 1,
+          },
+
+          duplicateCount: {
+            $sum: '$isDuplicate',
+          },
+
+          uniqueCount: {
+            $sum: {
+              $cond: [
+                {$eq: ['$isDuplicate', 0]},
+                1,
+                0,
+              ],
             },
           },
         },
-        {
-          $group: {
-            _id: '$domain',
-            totalCount: {$sum: 1},
-            duplicateCount: {$sum: '$isDuplicate'},
-            uniqueCount: {
-              $sum: {
-                $cond: [{$eq: ['$isDuplicate', 0]}, 1, 0],
-              },
-            },
-          },
-        },
-        {
-          $sort: {totalCount: -1},
-        },
-        {
-          $limit: 15,
-        },
-      ];
+      },
 
-      const raw = await this.QuestionCollection.aggregate(pipeline, {
-        session,
-      }).toArray();
+      {
+        $sort: {
+          totalCount: -1,
+        },
+      },
+    ];
 
-      return raw.map(item => ({
+    const raw =
+      await this.QuestionCollection.aggregate(
+        pipeline,
+        {session},
+      ).toArray();
+
+    // Top 15 domains
+    const top15 = raw.slice(0, 15);
+
+    // Remaining domains
+    const remainingDomains = raw.slice(15);
+
+    // Response for top 15
+    const result: QueryCategoryEntry[] =
+      top15.map(item => ({
         label: item._id,
         questionCount: item.uniqueCount,
-        duplicateQuestionCount: item.duplicateCount,
+        duplicateQuestionCount:
+          item.duplicateCount,
       }));
-    } catch (error) {
-      throw new Error(`Failed to fetch query categories: ${error}`);
+
+    // Aggregate remaining domains
+    if (remainingDomains.length > 0) {
+      const remainingAggregation =
+        remainingDomains.reduce(
+          (acc, item) => ({
+            totalQuestions:
+              acc.totalQuestions +
+              item.uniqueCount,
+
+            totalDuplicates:
+              acc.totalDuplicates +
+              item.duplicateCount,
+          }),
+
+          {
+            totalQuestions: 0,
+            totalDuplicates: 0,
+          },
+        );
+
+      result.push({
+        label: 'Remaining Categories',
+
+        questionCount:
+          remainingAggregation.totalQuestions,
+
+        duplicateQuestionCount:
+          remainingAggregation.totalDuplicates,
+      });
     }
+
+    return result;
+  } catch (error) {
+    throw new Error(
+      `Failed to fetch query categories: ${error}`,
+    );
   }
+}
 
   async getDistrictAnalyticsByState(
     _source = 'vicharanashala',
