@@ -65,6 +65,37 @@ export interface DistrictAnalyticsEntry{
   duplicateQuestions: number;
 }
 
+export interface WeatherConcernAnalyticsFilters {
+  season?: string;
+  state?: string;
+  district?: string;
+  block?: string;
+  village?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface WeatherConcernDistributionEntry {
+  concern: string;
+  count: number;
+  percentage: number;
+}
+
+export interface WeatherConcernTimelineEntry {
+  month: string;
+  count: number;
+}
+
+export interface WeatherConcernAnalyticsResponse {
+  filters: WeatherConcernAnalyticsFilters;
+  summary: {
+    totalWeatherQueries: number;
+    topConcern: string | null;
+  };
+  concernDistribution: WeatherConcernDistributionEntry[];
+  timeline: WeatherConcernTimelineEntry[];
+}
+
 export interface WeeklySessionDurationEntry {
   week: string; // ISO week string, e.g. '2025-W03'
   avgSessionDurationMin: number;
@@ -139,6 +170,7 @@ export interface UserDetailEntry {
   email: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
+  createdAt: Date;
 }
 
 export interface PaginatedUserDetails {
@@ -179,6 +211,38 @@ export interface DomainSpikeEntry {
   baseline: number;   // rolling 30-day average (excluding the spike day)
   spikePct: number;   // % above baseline, rounded
   location?: string;  // most common "District, State" for that domain+date
+}
+
+export interface ResponseAdherenceTable {
+  date: string;
+  time: string;
+  timeWindow: string;
+  whatsappQueriesAsked: number;
+  ajrasakhaQueriesAsked: number;
+  whatsappPushedToReviewer: number;
+  ajrasakhaPushedToReviewer: number;
+  whatsappAnsweredWithin120Min: number;
+  ajrasakhaAnsweredWithin120Min: number;
+  whatsappMarkedDuplicate: number;
+  ajrasakhaMarkedDuplicate: number;
+  whatsappDynamicWeather: number;
+  ajrasakhaDynamicWeather: number;
+  whatsappDynamicMarket: number;
+  ajrasakhaDynamicMarket: number;
+  whatsappDynamicSchemes: number;
+  ajrasakhaDynamicSchemes: number;
+  whatsappNonGdbWithin120: number;
+  ajrasakhaNonGdbWithin120: number;
+  whatsappInReview: number;
+  ajrasakhaInReview: number;
+  whatsappOpen: number;
+  ajrasakhaOpen: number;
+  whatsappDelayed: number;
+  ajrasakhaDelayed: number;
+  whatsappAverageResponseMinutes: number;
+  ajrasakhaAverageResponseMinutes: number;
+  whatsappAdherencePct: number;
+  ajrasakhaAdherencePct: number;
 }
 
 // ─── Single consolidated interface ───────────────────────────────────────────
@@ -225,29 +289,29 @@ export interface IChatbotRepository {
     session?: ClientSession,
   ): Promise<WeeklySessionDurationEntry[]>;
 
-  /** Daily user-message counts from the messages collection over the last `days` days, sorted ascending. */
-  getDailyQueryCounts(
-    days?: number,
+  getDailyAnalytics(
+    month?: string,
     source?: string,
     session?: ClientSession,
     userType?: string,
-  ): Promise<DailyQueryCountEntry[]>;
+  ): Promise<any[]>;
 
   /** Count of user messages created today from the messages collection. */
   getTodayQueryCount(source?: string, session?: ClientSession, userType?: string): Promise<number>;
 
-  /** Weekly query totals (all-time) from the messages collection, sorted ascending by ISO week. */
-  getWeeklyQueryCounts(
+  getWeeklyAnalytics(
+    month?: string,
     source?: string,
     session?: ClientSession,
     userType?: string,
-  ): Promise<WeeklyQueryCountEntry[]>;
+  ): Promise<any[]>;
 
-  getMonthlyQueryCounts(
+  getMonthlyAnalytics(
     source?: string,
     session?: ClientSession,
     userType?: string,
-  ): Promise<MonthlyQueryCountEntry[]>;
+    year?: number,
+  ): Promise<any[]>;
 
   /** Daily user activity trend (users active per day) over the last `days` days, sorted ascending. */
   getDailyUserTrend(
@@ -295,6 +359,14 @@ export interface IChatbotRepository {
     sortOrder?: string,
     lowFeedbackOnly?: boolean,
   ): Promise<PaginatedUserDetails>;
+
+  getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
+
+  getUsersMessages(email: string, source?: string, session?: ClientSession, userType?: string, page?: number, limit?: number): Promise<any>;
+
+  getUserData(userEmail: string, source: string, session?: ClientSession): Promise<{ userId: string; name: string }>;
+
+  getAllUserMessageIds(email: string, source?: string, session?: ClientSession): Promise<string[]>;
 
   /** Aggregate conversations from the messages collection for Excel export. */
   generateChatbotExcelReport(
@@ -351,8 +423,47 @@ export interface IChatbotRepository {
     startTime?: string,
     endTime?: string,
   ): Promise<Array<{ question: string; count: number }>>;
+  getResponseAdherenceTable(
+    session?: ClientSession,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+    source?: string,
+  ): Promise<ResponseAdherenceTable>;
   getDistrictAnalyticsByState( state: string, source?: string, session?: ClientSession, userType?: string): Promise<DistrictAnalyticsEntry[]>;
+
+  getWeatherConcernAnalytics(
+    filters?: WeatherConcernAnalyticsFilters,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<WeatherConcernAnalyticsResponse>;
+
+  
   deleteUser(userId: string, source: string): Promise<boolean>;
+  updateUser(
+    userId: string,
+    source: string,
+    data: {
+      name?: string;
+      farmerProfile?: Partial<FarmerProfile>;
+    },
+  ): Promise<boolean>;
+
+  getDailyActiveUsersTrend  (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession):Promise<any>
+
+  getMonthlyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
+
+  getWeeklyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
+
+  getRetentionMetrics (session?: ClientSession): Promise<any>
+
+  getQuerySummaryByPeriod(
+    period: 'daily' | 'weekly' | 'monthly',
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<{ label: string; totalQueries: number }>;
 }
 
 export interface ChatbotConversationData {

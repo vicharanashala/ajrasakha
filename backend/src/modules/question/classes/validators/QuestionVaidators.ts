@@ -792,6 +792,14 @@ class GetDetailedQuestionsQuery {
   isOnHold?: string;
 
   @JSONSchema({
+    description: 'filter unallocated questions (empty queue or last history status != in-review)',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  unallocatedQuestions?: string;
+
+  @JSONSchema({
     description: 'filter questions assigned to PAE experts',
     example: 'true',
     type: 'string',

@@ -249,6 +249,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     }, [isMobile, collapsed]);
 
     const handleNavClick = useCallback((view: DashboardView, hasChildren?: boolean) => {
+        console.log("Nav item is clicked...")
         if (hasChildren) {
             if (collapsed) {
                 setCollapsed(false);
@@ -265,6 +266,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     }, [collapsed, isMobile, onViewChange]);
 
     const handleChildClick = useCallback((childId: string, parentView: DashboardView) => {
+        console.log("Child is clicked")
         setActiveSegmentId(childId);
         onViewChange(parentView);
         // On mobile, close after selecting a child

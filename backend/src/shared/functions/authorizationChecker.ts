@@ -1,17 +1,9 @@
 import { FirebaseAuthService } from "#root/modules/auth/services/FirebaseAuthService.js";
 import { getFromContainer } from "routing-controllers";
-import admin from 'firebase-admin';
-import serviceAccount from '../../../agriai-a2fba-firebase-adminsdk-fbsvc-452072d744.json' with {type: 'json'};
+import { getFirebaseAuth } from '#root/config/firebaseAdmin.js';
+
 export async function authorizationChecker(action): Promise<boolean> {
-  let auth: any;
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert(
-        serviceAccount as admin.ServiceAccount,
-      ),
-    });
-  }
-  auth = admin.auth();
+  getFirebaseAuth();
   const firebaseAuthService = getFromContainer(FirebaseAuthService);
   const token = action.request.headers.authorization?.split(' ')[1];
   if (!token) {
