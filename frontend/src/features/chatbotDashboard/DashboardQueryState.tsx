@@ -186,7 +186,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 // ─── MAIN COMPONENT ────────────────────────────────────
 
 export const DashboardStateWiseAnalytics = (
-  source: "annam" | "vicharanashala" | undefined,
+  source: "annam" | "vicharanashala" | "whatsapp",
   userType: "all" | "external" | "internal",
 ) => {
   const [selectedState, setSelectedState] = useState("Punjab");
@@ -195,11 +195,10 @@ export const DashboardStateWiseAnalytics = (
 
   const { data, isLoading } = useStateWiseAnalytics(
     selectedState,
-    source,
+    source.source,
     userType,
   );
 
-  // console.log("State-wise analytics data:", data);
 
   const districts = data ?? [];
 

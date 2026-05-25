@@ -21,14 +21,16 @@ from langgraph.store.base import BaseStore
 
 from ajrasakha.agents.config import CLAUDE_MODEL
 from ajrasakha.agents.language import (
-    detect_farmer_language,
-    adetect_farmer_language,
     language_directive_for_synthesis,
-    get_localized_warning_text,
-    get_localized_empty_reply_body,
     get_localized_sources_header,
     get_localized_source_prefix,
     get_localized_expert_prefix,
+)
+from ajrasakha.agents.translation_catalog import (
+    get_testing_disclaimer,
+    get_two_hour_disclaimer,
+    language_pair_from_plan,
+    synthesis_lang_label,
 )
 from ajrasakha.agents.memory import load_long_term_summary
 from ajrasakha.agents.location_context import main_agent_location_context_message
@@ -166,20 +168,11 @@ async def _empty_gdb_synthesis_result(
     state: AjraSakhaState,
     *,
     plan: dict | None = None,
-    lang_label: str | None = None,
 ) -> dict:
-    messages = state.get("messages") or []
-    human = None
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            human = msg
-            break
-    user_text = _message_to_text(human) if human else ""
-    if lang_label is None:
-        lang_label = await adetect_farmer_language(user_text) if user_text else "English"
-    
-    body = get_localized_empty_reply_body(lang_label)
-    warning = get_localized_warning_text(lang_label)
+    merged_plan = {**(state.get("plan") or {}), **(plan or {})}
+    script, vocal = language_pair_from_plan(merged_plan)
+    body = get_two_hour_disclaimer(script, vocal)
+    warning = get_testing_disclaimer(script, vocal)
     content = f"{body}\n\n{warning}"
     
     out: dict = {
@@ -365,7 +358,8 @@ async def _synthesize_from_specialist_tools(
     config: RunnableConfig,
     *,
     user_text: str,
-    output_lang: str,
+    vocal_language: str,
+    script_language: str,
     summary_context: str,
     messages: list[BaseMessage],
 ) -> dict:
@@ -374,7 +368,7 @@ async def _synthesize_from_specialist_tools(
     tool_block = _format_tool_results_for_synthesizer(messages)
     llm_messages: list[BaseMessage] = [
         SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
-        SystemMessage(content=language_directive_for_synthesis(output_lang)),
+        SystemMessage(content=language_directive_for_synthesis(vocal_language, script_language)),
         SystemMessage(content=summary_context),
     ]
     loc_ctx = main_agent_location_context_message(state.get("location"))
@@ -382,7 +376,10 @@ async def _synthesize_from_specialist_tools(
         llm_messages.append(loc_ctx)
     llm_messages.append(
         HumanMessage(
-            content=f"Farmer message (detected language: {output_lang}):\n{user_text}"
+            content=(
+                f"Farmer message (vocal={vocal_language}, script={script_language}):\n"
+                f"{user_text}"
+            )
         )
     )
     llm_messages.append(HumanMessage(content=f"Tool results:\n{tool_block}"))
@@ -391,7 +388,6 @@ async def _synthesize_from_specialist_tools(
         llm = ChatAnthropic(model=CLAUDE_MODEL)
         response = await llm.ainvoke(llm_messages, config=config)
         answer_text = _message_to_text(response)
-        answer_text = f"{answer_text}\n\n{get_localized_warning_text(output_lang)}"
         logger.info("Tool-only synthesis complete (len=%d)", len(answer_text))
         return {
             "messages": [AIMessage(content=answer_text)],
@@ -426,14 +422,19 @@ async def synthesize_node(
         return {}
 
     user_text = _message_to_text(human)
-    output_lang = await adetect_farmer_language(user_text)
+    plan = state.get("plan") or {}
+    script_lang, vocal_lang = language_pair_from_plan(plan)
 
     if should_expert_queue_reply(state):
         logger.info("GDB empty with no specialist tools — returning expert-queue canned reply")
-        return await _empty_gdb_synthesis_result(state, lang_label=output_lang)
+        return await _empty_gdb_synthesis_result(state, plan=plan)
 
-    logger.info("Detected Output Language inside synthesizer_node: %s", output_lang)
-    logger.info("Synthesizer user_text: %s", repr(user_text))
+    logger.info(
+        "synthesize_node: vocal=%s script=%s user_text=%s",
+        vocal_lang,
+        script_lang,
+        repr(user_text[:80]),
+    )
     long_term_summary = await load_long_term_summary(store, config)
     summary_context = (
         f"Long-term memory:\n{long_term_summary}"
@@ -443,8 +444,8 @@ async def synthesize_node(
 
     # Parse GDB response to determine exact vs similar
     gdb_data = _extract_gdb_from_messages(messages)
-    plan = state.get("plan") or {}
     other_tools = _format_non_gdb_tool_results(messages)
+    lang_label = synthesis_lang_label(script_lang, vocal_lang)
 
     if gdb_data and gdb_has_usable_answers(gdb_data):
         exact = gdb_data.get("exact_match") or {}
@@ -460,7 +461,7 @@ async def synthesize_node(
 
         llm_messages: list[BaseMessage] = [
             SystemMessage(content=EXACT_MATCH_REPHRASE_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(output_lang)),
+            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
             SystemMessage(content=summary_context),
         ]
         loc_ctx = main_agent_location_context_message(state.get("location"))
@@ -475,7 +476,7 @@ async def synthesize_node(
             HumanMessage(
                 content=(
                     f"{_SYNTHESIS_BODY_ONLY_REMINDER}\n\n"
-                    f"Farmer's question (language: {output_lang}):\n{user_text}\n\n"
+                    f"Farmer's question (vocal={vocal_lang}, script={script_lang}):\n{user_text}\n\n"
                     f"EXACT MATCH from Golden Database:\n"
                     f"Matched Question: {exact_question}\n"
                     f"Expert Answer: {exact_answer}"
@@ -490,9 +491,7 @@ async def synthesize_node(
             answer_text = _message_to_text(response)
             if not (answer_text or "").strip():
                 logger.info("Exact match LLM returned empty body — expert-queue canned reply")
-                return await _empty_gdb_synthesis_result(state, plan={**plan, "gdb_has_data": False}, lang_label=output_lang)
-
-            answer_text = _append_sources_and_warning(answer_text, gdb_data, output_lang)
+                return await _empty_gdb_synthesis_result(state, plan={**plan, "gdb_has_data": False})
 
             logger.info("Exact match synthesis complete (len=%d)", len(answer_text))
             return {
@@ -503,15 +502,14 @@ async def synthesize_node(
         except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
             logger.warning("Exact match synthesizer failed (%s: %s)", type(exc).__name__, exc)
             # Fall back: use exact answer as-is + sources
-            answer_text = _append_sources_and_warning(exact_answer, gdb_data, output_lang)
             return {
-                "messages": [AIMessage(content=answer_text)],
+                "messages": [AIMessage(content=exact_answer)],
                 "location": state.get("location"),
                 "plan": {**plan, "gdb_has_data": True},
             }
         except APIStatusError as exc:
             if exc.status_code >= 500:
-                answer_text = _append_sources_and_warning(exact_answer, gdb_data, output_lang)
+                answer_text = exact_answer
                 return {
                     "messages": [AIMessage(content=answer_text)],
                     "location": state.get("location"),
@@ -523,7 +521,7 @@ async def synthesize_node(
         # ── SIMILAR MATCH: Full synthesis ─────────────────────────────
         llm_messages: list[BaseMessage] = [
             SystemMessage(content=SIMILAR_MATCH_SYNTHESIS_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(output_lang)),
+            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
             SystemMessage(content=summary_context),
         ]
         loc_ctx = main_agent_location_context_message(state.get("location"))
@@ -554,20 +552,21 @@ async def synthesize_node(
                     state,
                     config,
                     user_text=user_text,
-                    output_lang=output_lang,
+                    vocal_language=vocal_lang,
+                    script_language=script_lang,
                     summary_context=summary_context,
                     messages=messages,
                 )
             logger.info(
                 "Similar match path has no pair answers and no specialist tools — expert-queue"
             )
-            return await _empty_gdb_synthesis_result(state, plan=plan, lang_label=output_lang)
+            return await _empty_gdb_synthesis_result(state, plan=plan)
 
         llm_messages.append(
             HumanMessage(
                 content=(
                     f"{_SYNTHESIS_BODY_ONLY_REMINDER}\n\n"
-                    f"Farmer's question (language: {output_lang}):\n{user_text}\n\n"
+                    f"Farmer's question (vocal={vocal_lang}, script={script_lang}):\n{user_text}\n\n"
                     f"SIMILAR MATCHES from Golden Database:\n{pairs_text}"
                     f"{other_tools_section}\n\n"
                     f"Select the most relevant pairs and synthesize a comprehensive answer."
@@ -581,9 +580,7 @@ async def synthesize_node(
             answer_text = _message_to_text(response)
             if not (answer_text or "").strip():
                 logger.info("Similar match LLM returned empty body — expert-queue canned reply")
-                return await _empty_gdb_synthesis_result(state, plan={**plan, "gdb_has_data": False}, lang_label=output_lang)
-
-            answer_text = _append_sources_and_warning(answer_text, gdb_data, output_lang)
+                return await _empty_gdb_synthesis_result(state, plan={**plan, "gdb_has_data": False})
 
             logger.info("Similar match synthesis complete (len=%d)", len(answer_text))
             return {
@@ -612,9 +609,10 @@ async def synthesize_node(
                 state,
                 config,
                 user_text=user_text,
-                output_lang=output_lang,
+                vocal_language=vocal_lang,
+                script_language=script_lang,
                 summary_context=summary_context,
                 messages=messages,
             )
         logger.info("No usable GDB and no specialist tools — returning expert-queue canned reply")
-        return await _empty_gdb_synthesis_result(state, plan=plan, lang_label=output_lang)
+        return await _empty_gdb_synthesis_result(state, plan=plan)

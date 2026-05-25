@@ -262,27 +262,19 @@ def route_after_tools(state: AjraSakhaState) -> str:
 
 
 async def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
-    """Deterministic terminal node: emits the reviewer-upload acknowledgement
-    plus the mandatory testing-version disclaimer when gdb has no match."""
-    messages = state.get("messages") or []
-    human = None
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            human = msg
-            break
-    user_text = _message_to_text(human) if human else ""
-    
-    from ajrasakha.agents.language import (
-        adetect_farmer_language,
-        get_localized_empty_reply_body,
-        get_localized_warning_text,
+    """Deterministic terminal node: sheet-localized expert-queue + testing disclaimer."""
+    from ajrasakha.agents.translation_catalog import (
+        get_testing_disclaimer,
+        get_two_hour_disclaimer,
+        language_pair_from_plan,
     )
-    lang_label = await adetect_farmer_language(user_text) if user_text else "English"
-    
-    body = get_localized_empty_reply_body(lang_label)
-    warning = get_localized_warning_text(lang_label)
+
+    plan = state.get("plan") or {}
+    script, vocal = language_pair_from_plan(plan)
+    body = get_two_hour_disclaimer(script, vocal)
+    warning = get_testing_disclaimer(script, vocal)
     content = f"{body}\n\n{warning}"
-    
+
     return {
         "messages": [AIMessage(content=content)],
         "location": state.get("location"),
@@ -404,6 +396,9 @@ def _build_graph():
         builder.add_node("execute_plan", execute_plan_node)
         builder.add_node("retrieval_sanitizer", retrieval_sanitizer_node)
         builder.add_node("synthesize", synthesize_node)
+        from ajrasakha.agents.translate_answer import translate_answer_node
+
+        builder.add_node("translate_answer", translate_answer_node)
 
         builder.add_edge(START, "planner")
         builder.add_conditional_edges(
@@ -431,8 +426,9 @@ def _build_graph():
                 "synthesize": "synthesize",
             },
         )
-        builder.add_edge("synthesize", END)
-        # builder.add_edge("synthesize", "sanitize_answer")
+        builder.add_edge("synthesize", "translate_answer")
+        builder.add_edge("translate_answer", END)
+        # builder.add_edge("translate_answer", "sanitize_answer")
 
     builder.add_edge("empty_gdb_reply", END)
     # builder.add_edge("sanitize_answer", END)

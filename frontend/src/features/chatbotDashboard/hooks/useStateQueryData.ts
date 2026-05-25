@@ -18,7 +18,7 @@ export interface DistrictAnalyticsResponse {
 
 export function useStateWiseAnalytics(
   state?: string,
-  source: "vicharanashala" | "annam" = "vicharanashala",
+  source: "vicharanashala" | "annam" | "whatsapp"= "vicharanashala",
   userType: "all" | "external" | "internal" = "all",
 ) {
   const { data, isLoading, error } = useQuery<
@@ -46,7 +46,6 @@ export function useStateWiseAnalytics(
       }
 
       params.set("source", source);
-
       if (userType !== "all") {
         params.set("userType", userType);
       }
