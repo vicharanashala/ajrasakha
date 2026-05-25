@@ -68,7 +68,7 @@ const UserGrowthChart = ({source}) => {
   const [hovered, setHovered] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const { data, isLoading, isError } = useUserGrowth(dateRange?.from, dateRange?.to);
-
+console.log("-----growith data------", data);
   if (isLoading) {
     return (
       <Card className="h-full min-h-[300px] flex items-center justify-center dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">

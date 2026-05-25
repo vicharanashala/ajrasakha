@@ -56,7 +56,7 @@ const UserQuestionsModal = ({
     10,
   );
 
-  console.log("UserQuestionModal data", fullData);
+  // console.log("UserQuestionModal data", fullData);
   const activeData = useMemo(() => {
     return viewType === "questions" ? fullData?.questions : fullData?.messages;
   }, [viewType, fullData]);

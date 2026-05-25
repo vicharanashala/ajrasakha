@@ -8,12 +8,14 @@ import {
   Body,
   Authorized,
   CurrentUser,
+  QueryParam,
 } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
 import { WHATSAPP_TYPES } from '../types.js';
 import type { IWhatsAppService } from '../interfaces/IWhatsAppService.js';
 import { IUser } from '#root/shared/index.js';
+import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
 
 @OpenAPI({
   tags: ['whatsapp'],
@@ -66,5 +68,56 @@ export class WhatsAppController {
     const userId = user._id.toString();
     await this.whatsappService.sendMessage(userId, body.phoneNumber, body.messageText);
     return { success: true, message: 'Message sent successfully' };
+  }
+
+  @OpenAPI({
+    summary:
+      'Fetch dummy inactive whatsapp users',
+
+    description:
+      'Fetches the users by mobile numbers who are inactive for more than last 3 days',
+  })
+  @Get('/inactive-users')
+  @HttpCode(200)
+  @Authorized()
+  async fetxhInactiveUsers(
+    @QueryParam('page') page = 1,
+    @QueryParam('limit') limit = 5,
+  ) {
+
+    const threeDaysAgo =
+      Date.now() -
+      3 * 24 * 60 * 60 * 1000;
+
+    const inactiveUsers =
+      WhatsappUsers.filter(item => {
+        return (
+          new Date(
+            item.lastMessageAt,
+          ).getTime() < threeDaysAgo
+        );
+      });
+    const total =
+      inactiveUsers.length;
+    const start =
+      (page - 1) * limit;
+    const end =
+      start + limit;
+    const paginatedUsers =
+      inactiveUsers.slice(start, end);
+    return {
+      users: paginatedUsers,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages:
+          Math.ceil(total / limit),
+        hasNextPage:
+          page * limit < total,
+        hasPrevPage:
+          page > 1,
+      },
+    };
   }
 }

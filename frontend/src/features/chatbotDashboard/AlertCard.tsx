@@ -20,6 +20,7 @@ interface AlertCardProps {
   lowFeedbackUsersCount?: number | null;
   onLowFeedbackClick?: () => void;
   source: "vicharanashala" | "annam" | "whatsapp";
+  onInactiveWhatsAppUsersClick?: () => void;
 }
 
 export function AlertCard({
@@ -31,6 +32,7 @@ export function AlertCard({
   lowFeedbackUsersCount,
   onLowFeedbackClick,
   source,
+  onInactiveWhatsAppUsersClick,
 }: AlertCardProps) {
   const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
 
@@ -60,7 +62,14 @@ export function AlertCard({
       {/* {source !== "whatsapp" && */}
       <div
         className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 cursor-pointer hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
-        onClick={() => onInactiveClick?.()}
+        // onClick={() => onInactiveClick?.()}
+        onClick={() => {
+          if (source === "whatsapp") {
+            onInactiveWhatsAppUsersClick?.();
+          } else {
+            onInactiveClick?.();
+          }
+        }}
       >
         <div className="flex items-center gap-2.5">
           <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/40">

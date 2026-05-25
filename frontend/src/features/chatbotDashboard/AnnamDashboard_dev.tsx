@@ -52,7 +52,8 @@ import {
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
-import { useQueryCategories } from "./hooks/useActiveUsersAnalytics";
+import { useInactiveWhatsappUsers, useQueryCategories } from "./hooks/useActiveUsersAnalytics";
+import { InactiveUsersModal } from "./InactiveUsersModal";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -87,7 +88,22 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     source,
     source === "annam" || source === "vicharanashala",
   );
-  const inactiveUsers = 15;
+  const [
+    inactiveUsersPage,
+    setInactiveUsersPage,
+  ] = useState(1);
+  const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage);
+  // console.log("---useInactiveWhatsappUsers---", inactiveWhatsappUsers  )
+  const [
+    isInactiveWhatsappModalOpen,
+    setIsInactiveWhatsappModalOpen,
+  ] = useState(false);
+  const handleWhatsappInactiveUsersClick =
+    useCallback(() => {
+      setInactiveUsersPage(1);
+      setIsInactiveWhatsappModalOpen(true);
+    }, []);
+
   const {data: queryCategories} = useQueryCategories(source);
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
   const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
@@ -514,7 +530,7 @@ useEffect(() => {
                     <AlertCard
                       alerts={data.alerts}
                       inactiveUsersLast3Days={
-                        source === "whatsapp" ? inactiveUsers : (data as any).inactiveUsersLast3Days ?? 0
+                        source === "whatsapp" ? inactiveWhatsappUsers?.pagination?.total : (data as any).inactiveUsersLast3Days ?? 0
                       }
                       onInactiveClick={handleInactiveUsersClick}
                       duplicateQuestionsCount={
@@ -526,6 +542,9 @@ useEffect(() => {
                       }
                       onLowFeedbackClick={handleLowFeedbackUsersClick}
                       source = {source}
+                      onInactiveWhatsAppUsersClick={
+                        handleWhatsappInactiveUsersClick
+                      }
                     />
                     {isDuplicateModalOpen && (
                       <DuplicateQuestionsModal
@@ -533,6 +552,21 @@ useEffect(() => {
                         source={source}
                       />
                     )}
+                    <InactiveUsersModal
+                      open={isInactiveWhatsappModalOpen}
+                      onOpenChange={
+                        setIsInactiveWhatsappModalOpen
+                      }
+                      users={
+                        inactiveWhatsappUsers?.users ?? []
+                      }
+                      pagination={
+                        inactiveWhatsappUsers?.pagination
+                      }
+                      onPageChange={
+                        setInactiveUsersPage
+                      }
+                    />
                   </div>
                 </div>
 

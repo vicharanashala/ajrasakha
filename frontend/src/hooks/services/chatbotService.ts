@@ -8,7 +8,7 @@ const API_BASE_URL = env.apiBaseUrl();
 
 export class ChatbotService {
   private _baseUrl = `${API_BASE_URL}/analytics`;
-
+  private _whatsAppBaseUrl = `${API_BASE_URL}/whatsapp`;
   async downloadChatbotReport(
     startDate: string,
     endDate: string,
@@ -112,6 +112,14 @@ export class ChatbotService {
     params.append("source", source);
     return apiFetch<any>(
       `${this._baseUrl}/query-categories?${params.toString()}`,
+    );
+  }
+
+  async getInactiveWhatsappUsers(
+    inactiveUsersPage: number
+  ): Promise<any> {
+    return apiFetch<any>(
+      `${this._whatsAppBaseUrl}/inactive-users?page=${inactiveUsersPage}&limit=5`,
     );
   }
 }

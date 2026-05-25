@@ -73,3 +73,14 @@ export const useQueryCategories = (source: string, enabled: boolean = true) => {
   });
 };
 
+export const useInactiveWhatsappUsers = (inactiveUsersPage: number) => {
+  return useQuery({
+    queryKey: ["whatsapp-inactive-users",
+      inactiveUsersPage,
+    ],
+    queryFn: () => {
+      return chatbotService.getInactiveWhatsappUsers(inactiveUsersPage);
+    },
+  });
+};
+
