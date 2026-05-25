@@ -51,6 +51,10 @@ import {
   DEFAULT_WEATHER_CONCERN_FILTERS,
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
+import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
+import { useInactiveWhatsappUsers, useQueryCategories } from "./hooks/useActiveUsersAnalytics";
+import { InactiveUsersModal } from "./InactiveUsersModal";
+import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -85,7 +89,23 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     source,
     source === "annam" || source === "vicharanashala",
   );
+  const [
+    inactiveUsersPage,
+    setInactiveUsersPage,
+  ] = useState(1);
+  const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage);
+  // console.log("---useInactiveWhatsappUsers---", inactiveWhatsappUsers  )
+  const [
+    isInactiveWhatsappModalOpen,
+    setIsInactiveWhatsappModalOpen,
+  ] = useState(false);
+  const handleWhatsappInactiveUsersClick =
+    useCallback(() => {
+      setInactiveUsersPage(1);
+      setIsInactiveWhatsappModalOpen(true);
+    }, []);
 
+  const {data: queryCategories} = useQueryCategories(source);
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
   const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
   const [responseAdherenceDate, setResponseAdherenceDate] = useState<string>(
@@ -107,12 +127,12 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const { data: trendsData, isLoading: trendsLoading } = useDashboardData(
     trendsFilters,
     source,
-    source === "annam" || source === "vicharanashala",
+    true,
   );
   const { data: faqsData, isLoading: faqsLoading } = useDashboardData(
     faqsFilters,
     source,
-    source === "annam" || source === "vicharanashala",
+    true,
   );
 
   const responseAdherenceFilters = useMemo(() => {
@@ -168,7 +188,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     data: topCrops,
     isLoading: isLoadingTopCrops,
     error: errorLoadingtopCrops,
-  } = useTopCrops();
+  } = useTopCrops(source);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   const [hovered, setHovered] = useState<string | null>(null);
@@ -290,6 +310,29 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const [weatherConcernFilters, setWeatherConcernFilters] =
     useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
 
+
+const queryCard =
+  data?.kpiRow1?.find(
+    (card) => card.id === "queries"
+  );
+
+const dailyAnalytics =
+  queryCard?.dailyAnalytics || [];
+
+const weeklyAnalytics =
+  queryCard?.weeklyAnalytics || [];
+
+const monthlyAnalytics =
+  queryCard?.monthlyAnalytics || [];
+
+useEffect(() => {
+  if (source === "whatsapp") {
+    setFilters((prev) => ({
+      ...prev,
+      userType: "all",
+    }));
+  }
+}, [source]);
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -361,43 +404,46 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     onSourceChange={onSourceChange}
                   />
 
-                  <SearchableSelect
-                    options={["External", "Internal"]}
-                    value={
-                      filters.userType === "all"
-                        ? "all"
-                        : filters.userType.charAt(0).toUpperCase() +
-                          filters.userType.slice(1)
-                    }
-                    onChange={(v) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        userType: (v === "all"
-                          ? "all"
-                          : v.toLowerCase()) as DashboardFilterValues["userType"],
-                      }))
-                    }
-                    placeholder="All Users"
-                    className="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
-                    activeClassName="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
-                  />
-                </div>
-              </div>
-
-              <DashboardFilters filters={filters} onFilterChange={setFilters} />
-              {(source === "annam" || source === "vicharanashala") && (
-                <div
-                  ref={(el) => {
-                    sectionRefs.current["overview"] = el;
-                  }}
-                  className="relative"
-                >
-                  {activeSegment && (
-                    <SegmentDetailBanner
-                      seg={activeSegment}
-                      onClose={clearSegment}
+                    <SearchableSelect
+                      options={
+                        source === "whatsapp"
+                          ? []
+                          : ["External", "Internal"]
+                      }
+                      value={
+                        filters.userType === "all"
+                          ? "All Users"
+                          : filters.userType.charAt(0).toUpperCase() +
+                            filters.userType.slice(1)
+                      }
+                      onChange={(v) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          userType: v.toLowerCase() as DashboardFilterValues["userType"],
+                        }))
+                      }
+                      placeholder="All Users"
                     />
-                  )}
+                  </div>
+                </div>
+
+                <DashboardFilters
+                  filters={filters}
+                  onFilterChange={setFilters}
+                />
+            {(source === "annam" || source === "vicharanashala" || source === "whatsapp") && (
+              <div
+                ref={(el) => {
+                  sectionRefs.current["overview"] = el;
+                }}
+                className="relative"
+              >
+                {activeSegment && (
+                  <SegmentDetailBanner
+                    seg={activeSegment}
+                    onClose={clearSegment}
+                  />
+                )}
 
                   <div
                     ref={(el) => {
@@ -409,23 +455,48 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                       <Spinner text="Fetching metrics..." fullScreen={false} />
                     )}
 
-                    {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
-                    {/* Uncomment the above line when data is dynamic and delete the below code */}
-                    <EightCardsComponent
-                      kpiRow1={kpiRow1WithOverlay}
-                      kpiRow2={kpiRow2WithOverlay}
-                    />
+                  {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
+                  {/* Uncomment the above line when data is dynamic and delete the below code */}
+                  {(source === "annam" || source === "vicharanashala") &&
+                   <EightCardsComponent
+                    kpiRow1={kpiRow1WithOverlay}
+                    kpiRow2={kpiRow2WithOverlay}
+                    source={source}
+                  />}
+                  {source === "whatsapp" && 
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
 
-                    <ResponseAdherenceTableCard
-                      data={
-                        (responseAdherenceData as any).responseAdherenceTable ??
-                        (data as any).responseAdherenceTable
-                      }
-                      selectedDate={responseAdherenceDate}
-                      onSelectedDateChange={setResponseAdherenceDate}
-                      isLoading={isResponseAdherenceLoading}
-                    />
-                  </div>
+                      <WhatsAppAnalyticsCard
+                        title="Daily Queries"
+                        analytics={dailyAnalytics}
+                        granularity="daily"
+                      />
+
+                      <WhatsAppAnalyticsCard
+                        title="Weekly Queries"
+                        analytics={weeklyAnalytics}
+                        granularity="weekly"
+                      />
+
+                      <WhatsAppAnalyticsCard
+                        title="Monthly Queries"
+                        analytics={monthlyAnalytics}
+                        granularity="monthly"
+                      />
+
+                    </div>
+                  }
+                {source !== "whatsapp" &&
+                  <ResponseAdherenceTableCard
+                    data={
+                      (responseAdherenceData as any).responseAdherenceTable ??
+                      (data as any).responseAdherenceTable
+                    }
+                    selectedDate={responseAdherenceDate}
+                    onSelectedDateChange={setResponseAdherenceDate}
+                    isLoading={isResponseAdherenceLoading}
+                  />}
+                </div>
 
                   {/* DAU trend + Alerts */}
                   <div
@@ -440,83 +511,111 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                     isLoading={dauLoading}
                     error={dauError}
                   /> */}
-                    {isGrowthVisible ? (
-                      <Suspense fallback={<Spinner />}>
-                        <LazyUserGrowthChart />
-                      </Suspense>
-                    ) : (
-                      <div className="h-[300px] flex items-center justify-center text-gray-400">
-                        {/* <Spinner text="Loading chart..." /> */}
-                        <div className="h-[300px] bg-gray-100 dark:bg-[#1a1a1a] animate-pulse rounded-xl" />
-                      </div>
-                    )}
-
-                    <div
-                      ref={(el) => {
-                        sectionRefs.current["bugs-ux"] = el;
-                      }}
-                    >
-                      <AlertCard
-                        alerts={data.alerts}
-                        inactiveUsersLast3Days={
-                          (data as any).inactiveUsersLast3Days ?? 0
-                        }
-                        onInactiveClick={handleInactiveUsersClick}
-                        duplicateQuestionsCount={
-                          (data as any).duplicateQuestionsCount ?? 0
-                        }
-                        onDuplicateClick={() => setIsDuplicateModalOpen(true)}
-                        lowFeedbackUsersCount={
-                          (data as any).lowFeedbackUsersCount ?? null
-                        }
-                        onLowFeedbackClick={handleLowFeedbackUsersClick}
-                      />
-                      {isDuplicateModalOpen && (
-                        <DuplicateQuestionsModal
-                          onClose={() => setIsDuplicateModalOpen(false)}
-                          source={source}
-                        />
-                      )}
+                  {/* {isGrowthVisible ? source === "whatsapp" ?(<div className="h-full w-full blur-sm opacity-90"></div>):( */}
+                  {isGrowthVisible ? (
+                    <Suspense fallback={<Spinner />}>
+                      <LazyUserGrowthChart source={source}/>
+                    </Suspense>
+                  ) : (
+                    <div className="h-[300px] flex items-center justify-center text-gray-400">
+                      {/* <Spinner text="Loading chart..." /> */}
+                      <div className="h-[300px] bg-gray-100 dark:bg-[#1a1a1a] animate-pulse rounded-xl" />
                     </div>
-                  </div>
+                  )}
 
-                  {/* Demographics */}
                   <div
                     ref={(el) => {
-                      sectionRefs.current["demographics"] = el;
+                      sectionRefs.current["bugs-ux"] = el;
                     }}
                   >
-                    <UserDemographicsSection
-                      data={{
-                        ageGroups: data.ageGroups,
-                        genderSplit: data.genderSplit,
-                        farmingExperience: data.farmingExperience,
-                        landHolding: (data as any).landHolding ?? [],
-                      }}
+                    <AlertCard
+                      alerts={data.alerts}
+                      inactiveUsersLast3Days={
+                        source === "whatsapp" ? inactiveWhatsappUsers?.pagination?.total : (data as any).inactiveUsersLast3Days ?? 0
+                      }
+                      onInactiveClick={handleInactiveUsersClick}
+                      duplicateQuestionsCount={
+                        (data as any).duplicateQuestionsCount ?? 0
+                      }
+                      onDuplicateClick={() => setIsDuplicateModalOpen(true)}
+                      lowFeedbackUsersCount={
+                        (data as any).lowFeedbackUsersCount ?? null
+                      }
+                      onLowFeedbackClick={handleLowFeedbackUsersClick}
+                      source = {source}
+                      onInactiveWhatsAppUsersClick={
+                        handleWhatsappInactiveUsersClick
+                      }
+                    />
+                    {isDuplicateModalOpen && (
+                      <DuplicateQuestionsModal
+                        onClose={() => setIsDuplicateModalOpen(false)}
+                        source={source}
+                      />
+                    )}
+                    <InactiveUsersModal
+                      open={isInactiveWhatsappModalOpen}
+                      onOpenChange={
+                        setIsInactiveWhatsappModalOpen
+                      }
+                      users={
+                        inactiveWhatsappUsers?.users ?? []
+                      }
+                      pagination={
+                        inactiveWhatsappUsers?.pagination
+                      }
+                      onPageChange={
+                        setInactiveUsersPage
+                      }
                     />
                   </div>
-                  {/* 2-col row */}
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4 items-stretch">
-                    <div className="lg:col-span-2">
-                      <PlatformDonutSegments rawData={data.platformInstalls} />
-                    </div>
-                    <div
-                      className="lg:col-span-2"
-                      ref={(el) => {
-                        sectionRefs.current["farmer-segments"] = el;
-                      }}
-                    >
-                      {/* Knowledge & Awareness */}
-                      <>
-                        <div className="rounded-xl border border-gray-200 bg-white dark:border-[#2a2a2a] dark:bg-[#1a1a1a] p-4 h-full relative">
-                          {/* Maximize Button */}
-                          <button
-                            onClick={() => setIsKnowledgeMaximized(true)}
-                            className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
-                            title="Maximize chart"
-                          >
-                            <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                          </button>
+                </div>
+
+                {/* Demographics */}
+                {source !== "whatsapp" && 
+                <div
+                  ref={(el) => {
+                    sectionRefs.current["demographics"] = el;
+                  }}
+                >
+                  <UserDemographicsSection
+                    data={{
+                      ageGroups: data.ageGroups,
+                      genderSplit: data.genderSplit,
+                      farmingExperience: data.farmingExperience,
+                      landHolding: (data as any).landHolding ?? [],
+                    }}
+                  />
+                </div>
+                }
+                {/* 2-col row */}
+                
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4 items-stretch">
+                  {source !== "whatsapp" && 
+                  <div className="lg:col-span-2">
+                    <PlatformDonutSegments
+                          rawData={data.platformInstalls}
+                        />
+                  </div>
+                  }
+                  {source !== "whatsapp" && 
+                  <div  
+                    className="lg:col-span-2"
+                    ref={(el) => {
+                      sectionRefs.current["farmer-segments"] = el;
+                    }}
+                  >
+                    {/* Knowledge & Awareness */}
+                    <>
+                      <div className="rounded-xl border border-gray-200 bg-white dark:border-[#2a2a2a] dark:bg-[#1a1a1a] p-4 h-full relative">
+                        {/* Maximize Button */}
+                        <button
+                          onClick={() => setIsKnowledgeMaximized(true)}
+                          className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
+                          title="Maximize chart"
+                        >
+                          <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                        </button>
 
                           <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
                             Knowledge & Awareness
@@ -1068,82 +1167,88 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                                                 : pct}
                                           </text>
 
-                                          <text
-                                            x={120}
-                                            y={138}
-                                            textAnchor="middle"
-                                            fontSize={20}
-                                            fill="#9ca3af"
-                                          >
-                                            {agriHovered === "yes"
-                                              ? "Aware"
-                                              : agriHovered === "no"
-                                                ? "Unaware"
-                                                : "TOTAL"}
-                                          </text>
-                                        </svg>
-                                        <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
-                                          Uses Agri Apps
-                                        </span>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
+                                        <text
+                                          x={120}
+                                          y={138}
+                                          textAnchor="middle"
+                                          fontSize={20}
+                                          fill="#9ca3af"
+                                        >
+                                          {agriHovered === "yes"
+                                            ? "Aware"
+                                            : agriHovered === "no"
+                                              ? "Unaware"
+                                              : "TOTAL"}
+                                        </text>
+                                      </svg>
+                                      <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
+                                        Uses Agri Apps
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
                               </div>
-                            </div>,
-                            document.body,
-                          )}
-                      </>
-                    </div>
-                    <div
-                      className="lg:col-span-2"
-                      ref={(el) => {
-                        sectionRefs.current["query-analysis"] = el;
-                      }}
-                    >
-                      <DashboardQueryCategories
-                        categories={data.queryCategories}
-                      />
-                    </div>
-
-                    <div
-                      ref={(el) => {
-                        sectionRefs.current["feedback-sentiment"] = el;
-                      }}
-                      className="lg:col-span-2"
-                    >
-                      <TopCropsCard
-                        topCrops={topCrops}
-                        isLoadingTopCrops={isLoadingTopCrops}
-                        errorLoadingtopCrops={errorLoadingtopCrops}
-                      />
-                    </div>
+                            </div>
+                          </div>,
+                          document.body,
+                        )}
+                    </>
                   </div>
-
-                  {/* Chatbot Quality & FAQ Analytics Section Header */}
-                  {/* Daily Trends & FAQ Leaderboard Grid */}
-                  {/* Row 1: Daily Trends & Feedback Data */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 mt-6">
-                    <DailyQuestionTrendsChart
-                      trends={(trendsData as any).dailyQuestionTrends}
-                      dateRange={trendsDateRange}
-                      onDateRangeChange={setTrendsDateRange}
-                      isLoading={trendsLoading}
-                    />
-
-                    <FeedbackCard
-                      title="Feedback Data"
-                      positiveFeedbacksCount={
-                        data?.feedbackData?.stats?.positiveCount
-                      }
-                      negativeFeedbacksCount={
-                        data?.feedbackData?.stats?.negativeCount
-                      }
-                      positiveFeedbacks={data?.feedbackData?.positiveFeedbacks}
-                      negativeFeedbacks={data?.feedbackData?.negativeFeedbacks}
-                      averageRating={data?.feedbackData?.stats?.averageRating}
+                  }
+                  <div
+                    className="lg:col-span-2"
+                    ref={(el) => {
+                      sectionRefs.current["query-analysis"] = el;
+                    }}
+                  >
+                    <DashboardQueryCategories
+                      categories={source === "whatsapp"? queryCategories: data.queryCategories}
                     />
                   </div>
+
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["feedback-sentiment"] = el;
+                    }}
+                    className="lg:col-span-2"
+                  >
+                    <TopCropsCard
+                      topCrops={topCrops}
+                      isLoadingTopCrops={isLoadingTopCrops}
+                      errorLoadingtopCrops={errorLoadingtopCrops}
+                    />
+                  </div>
+                </div>
+                
+                {/* Chatbot Quality & FAQ Analytics Section Header */}
+                {/* Daily Trends & FAQ Leaderboard Grid */}
+                {/* Row 1: Daily Trends & Feedback Data */}
+                <div className={ source === "whatsapp" ? "grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6": "grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 mt-6"}>
+                  <DailyQuestionTrendsChart
+                    trends={(trendsData as any).dailyQuestionTrends}
+                    dateRange={trendsDateRange}
+                    onDateRangeChange={setTrendsDateRange}
+                    isLoading={trendsLoading}
+                  />
+                {source !== "whatsapp" && 
+                  <FeedbackCard
+                    title="Feedback Data"
+                    positiveFeedbacksCount={
+                      data?.feedbackData?.stats?.positiveCount
+                    }
+                    negativeFeedbacksCount={
+                      data?.feedbackData?.stats?.negativeCount
+                    }
+                    positiveFeedbacks={
+                      data?.feedbackData?.positiveFeedbacks
+                    }
+                    negativeFeedbacks={
+                      data?.feedbackData?.negativeFeedbacks
+                    }
+                    averageRating={data?.feedbackData?.stats?.averageRating}
+                  /> 
+                }
+                </div>
 
                   {/* Row 2: State Analytics & FAQ Leaderboard */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
@@ -1179,45 +1284,55 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
                 channelSplit={data.channelSplit}
                 voiceAccuracy={data.voiceAccuracy}
               /> */}
-                    {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
-                    {/* <GeoCard states={data.geoStates} />*/}
-                    <div
-                      ref={(el) => {
-                        sectionRefs.current["app-health"] = el;
-                      }}
-                    >
-                      {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
-                    </div>
-                  </div>
-
-                  <div className="">
-                    <ActiveUsersChart
-                      source={source}
-                      userType={filters.userType}
-                    />
-                  </div>
-                  <div className="mt-4 mb-4">
-                    <WeatherConcernAnalyticsCard
-                      source={source}
-                      userType={filters.userType}
-                      filters={weatherConcernFilters}
-                      onFiltersChange={setWeatherConcernFilters}
-                    />
-                  </div>
+                  {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
+                  {/* <GeoCard states={data.geoStates} />*/}
                   <div
                     ref={(el) => {
-                      sectionRefs.current["user-details"] = el;
+                      sectionRefs.current["app-health"] = el;
                     }}
                   >
-                    <UserDetailsView
-                      source={source}
-                      initialFilters={userDetailsInitialFilters}
-                      userType={filters.userType}
-                    />
+                    {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
                   </div>
                 </div>
-              )}
-            </div>
+              {source !== "whatsapp" && 
+                <div className="">
+                  <ActiveUsersChart
+                    source={source}
+                    userType={filters.userType}
+                  />
+                  {/* <RetentionMetricsChart
+                    source={source}
+                    userType={filters.userType}
+                    /> */}
+                </div>
+
+                }
+                {source !== "whatsapp" && 
+                <div
+                  ref={(el) => {
+                    sectionRefs.current["user-details"] = el;
+                  }}
+                >
+                  <UserDetailsView
+                    source={source}
+                    initialFilters={userDetailsInitialFilters}
+                    userType={filters.userType}
+                  />
+                </div>
+              }
+              {source !== "whatsapp" && 
+                <div className="mt-4 mb-4">
+                  <WeatherConcernAnalyticsCard
+                    source={source}
+                    userType={filters.userType}
+                    filters={weatherConcernFilters}
+                    onFiltersChange={setWeatherConcernFilters}
+                  />
+                </div>
+                }
+              </div>
+            )}
+          </div>
           </div>
 
           {/* Commented out footer as requested:

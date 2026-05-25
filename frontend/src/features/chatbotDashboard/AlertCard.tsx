@@ -19,6 +19,8 @@ interface AlertCardProps {
   onDuplicateClick?: () => void;
   lowFeedbackUsersCount?: number | null;
   onLowFeedbackClick?: () => void;
+  source: "vicharanashala" | "annam" | "whatsapp";
+  onInactiveWhatsAppUsersClick?: () => void;
 }
 
 export function AlertCard({
@@ -29,6 +31,8 @@ export function AlertCard({
   onDuplicateClick,
   lowFeedbackUsersCount,
   onLowFeedbackClick,
+  source,
+  onInactiveWhatsAppUsersClick,
 }: AlertCardProps) {
   const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
 
@@ -55,9 +59,17 @@ export function AlertCard({
       </div>
 
       {/* Inactive Users Row */}
+      {/* {source !== "whatsapp" && */}
       <div
         className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 cursor-pointer hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
-        onClick={() => onInactiveClick?.()}
+        // onClick={() => onInactiveClick?.()}
+        onClick={() => {
+          if (source === "whatsapp") {
+            onInactiveWhatsAppUsersClick?.();
+          } else {
+            onInactiveClick?.();
+          }
+        }}
       >
         <div className="flex items-center gap-2.5">
           <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/40">
@@ -89,6 +101,7 @@ export function AlertCard({
         </div>
         <Badge label={inactiveUsersLast3Days.toLocaleString()} variant="red" />
       </div>
+      {/* } */}
 
       {/* Duplicate Questions Row */}
       <div
@@ -128,6 +141,7 @@ export function AlertCard({
       </div>
 
       {/* Low Feedback Users Row */}
+      {source !== "whatsapp" &&
       <div
         className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-950/30 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
         onClick={() => onLowFeedbackClick?.()}
@@ -163,8 +177,10 @@ export function AlertCard({
         </div>
         <Badge label={lowFeedbackUsersCount != null ? lowFeedbackUsersCount.toLocaleString() : '—'} variant="amber" />
       </div>
+      }
 
       {/* Domain Spikes Row — always rendered, shows top spike or a placeholder */}
+      {source !== "whatsapp" &&
       <div
         className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 cursor-pointer hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
         onClick={() => setIsSpikesModalOpen(true)}
@@ -214,7 +230,8 @@ export function AlertCard({
           </svg>
         </div>
       </div>
-
+      }
+      
       <div className="flex-1" />
 
       {isSpikesModalOpen && (

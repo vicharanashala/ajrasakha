@@ -30,7 +30,13 @@ from ajrasakha.agents.domains import (
     crop_counts_as_resolved,
     normalize_domain,
 )
-from ajrasakha.agents.language import detect_farmer_language
+from ajrasakha.agents.language import resolve_planner_language_pair
+from ajrasakha.agents.translation_catalog import (
+    OFFICIAL_LANGUAGES,
+    get_crop_follow_up,
+    get_state_follow_up,
+    language_pair_from_plan,
+)
 from ajrasakha.agents.location_context import (
     gps_state_from_location,
     latest_human_text,
@@ -89,6 +95,19 @@ class PlannerOutput(BaseModel):
             "English grammatically corrected query (if user's query is in another language, correct the English translation). "
             "ONLY refine spelling, syntax, or grammar errors. Do NOT do any fancy rephrasing or search extensions."
         )
+    )
+    vocal_language: str = Field(
+        default="English",
+        description=f"Spoken language the farmer uses. One of: {', '.join(OFFICIAL_LANGUAGES)}",
+    )
+    script_language: str = Field(
+        default="English",
+        description=(
+            "Writing system / alphabet of the farmer's message. One of OFFICIAL_LANGUAGES. "
+            "Latin/Roman letters for any Indian language → English (e.g. Romanized Telugu "
+            "'Barli pantalo aafids ni ela...' → script_language=English, vocal_language=Telugu). "
+            "Native Unicode script → same language name as vocal (e.g. both Telugu for Telugu script)."
+        ),
     )
 
 
@@ -152,6 +171,8 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "skip_synthesize": False,
         "rephrased_query": output.rephrased_query,
         "original_query_en": output.original_query_en,
+        "vocal_language": output.vocal_language,
+        "script_language": output.script_language,
     }
 
 
@@ -172,6 +193,8 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "skip_synthesize": False,
         "rephrased_query": user_query,
         "original_query_en": user_query,
+        "vocal_language": "English",
+        "script_language": "English",
     }
 
 
@@ -238,29 +261,22 @@ def _check_question_completeness(
     crop_resolved: Optional[str],
     crop_required: bool,
     has_gps: bool,
-    farmer_language: str = "English",
+    plan: PlannerPlan,
 ) -> tuple[bool, list[str], Optional[str]]:
     """Deterministic completeness check following the specified flow."""
+    script, vocal = language_pair_from_plan(plan)
     missing: list[str] = []
     follow_up: Optional[str] = None
 
     has_state = bool(state_resolved) or has_gps
     if not has_state:
         missing.append("location")
-        follow_up = (
-            "Which state are you in?"
-            if farmer_language == "English"
-            else "आप किस राज्य में हैं?"
-        )
+        follow_up = get_state_follow_up(script, vocal)
         return False, missing, follow_up
 
     if crop_required and not crop_counts_as_resolved(crop_resolved):
         missing.append("crop")
-        follow_up = (
-            "Which crop are you growing?"
-            if farmer_language == "English"
-            else "आप कौन सी फसल उगा रहे हैं?"
-        )
+        follow_up = get_crop_follow_up(script, vocal)
         return False, missing, follow_up
 
     return True, [], None
@@ -293,11 +309,12 @@ async def planner_node(
             "skip_synthesize": False,
             "rephrased_query": user_text,
             "original_query_en": user_text,
+            "vocal_language": "English",
+            "script_language": "English",
         }
         return {"plan": plan}
 
     location = state.get("location")
-    farmer_lang = detect_farmer_language(user_text)
 
     state_resolved = _resolve_state_deterministic(messages, location)
     crop_resolved = resolve_crop_for_turn(messages)
@@ -324,9 +341,10 @@ async def planner_node(
         HumanMessage(
             content=(
                 f"{deterministic_context}\n"
-                f"Latest farmer message (language: {farmer_lang}):\n{conv_block}\n\n"
+                f"Latest farmer message:\n{conv_block}\n\n"
                 f"Pick `domain` from the allowed list using this latest message only.\n"
-                f"Write follow_up_question in {farmer_lang} only when rules require it.\n"
+                "Set `vocal_language` and `script_language` from the official language list.\n"
+                "Leave `follow_up_question` empty when location/crop is missing — server uses the sheet.\n"
                 "Return the routing plan only."
             )
         )
@@ -336,6 +354,22 @@ async def planner_node(
         llm = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=config)
         plan = planner_output_to_plan(output)
+
+        prev_vocal = plan.get("vocal_language")
+        prev_script = plan.get("script_language")
+        vocal, script = resolve_planner_language_pair(
+            user_text, prev_vocal or "English", prev_script or "English"
+        )
+        if vocal != prev_vocal or script != prev_script:
+            logger.info(
+                "Planner language normalized from raw message: (%s, %s) -> (%s, %s)",
+                prev_vocal,
+                prev_script,
+                vocal,
+                script,
+            )
+        plan["vocal_language"] = vocal
+        plan["script_language"] = script
 
         if not plan.get("rephrased_query"):
             plan["rephrased_query"] = user_text
@@ -360,25 +394,20 @@ async def planner_node(
             crop_resolved=effective_crop,
             crop_required=crop_required,
             has_gps=has_gps,
-            farmer_language=farmer_lang,
+            plan=plan,
         )
 
         plan["is_complete"] = is_complete
         plan["missing_info"] = missing
         plan["follow_up_question"] = follow_up
 
-        plan = apply_planner_completeness_rules(
-            plan,
-            messages,
-            location,
-            farmer_language=farmer_lang,
-        )
+        plan = apply_planner_completeness_rules(plan, messages, location)
 
         plan["knowledge_base"] = True
 
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "
-            "state=%s crop=%s "
+            "state=%s crop=%s vocal=%s script=%s "
             "flags=(w=%s m=%s s=%s sch=%s chem=%s kb=%s) "
             "rephrased=%s missing=%s",
             plan.get("is_complete"),
@@ -386,6 +415,8 @@ async def planner_node(
             crop_required,
             entities.get("state"),
             entities.get("crop"),
+            plan.get("vocal_language"),
+            plan.get("script_language"),
             plan.get("weather"),
             plan.get("mandi"),
             plan.get("soil"),
@@ -410,13 +441,14 @@ def clarify_node(state: AjraSakhaState) -> dict:
     plan = state.get("plan") or {}
     question = (plan.get("follow_up_question") or "").strip()
     missing = plan.get("missing_info") or []
+    script, vocal = language_pair_from_plan(plan)
     if not question:
         if "location" in missing:
-            question = "Which state are you in?"
+            question = get_state_follow_up(script, vocal)
         elif "crop" in missing:
-            question = "Which crop are you growing?"
+            question = get_crop_follow_up(script, vocal)
         else:
-            question = "Which state are you in?"
+            question = get_state_follow_up(script, vocal)
     return {"messages": [AIMessage(content=question)]}
 
 

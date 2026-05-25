@@ -128,7 +128,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
 };
 
 interface UserDetailsViewProps {
-  source?: "vicharanashala" | "annam";
+  source?: "vicharanashala" | "annam" | "whatsapp";
   initialFilters?: Partial<UserDetailsFilters>;
   userType?: "all" | "external" | "internal";
 }
@@ -235,7 +235,7 @@ export function UserDetailsView({
     data: topCrops,
     isLoading: isLoadingTopCrops,
     error: errorLoadingTopCrops,
-  } = useTopCrops();
+  } = useTopCrops(source);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
