@@ -1301,8 +1301,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       (reportData.monthlyQueries || []).forEach((item: any) => {
         monthlySheet.addRow({
-          month: item.month ?? '',
-          queries: item.totalQueries ?? 0,
+          month: item.period ?? '',
+          queries: item.queryCount ?? 0,
         });
       });
 
@@ -1319,8 +1319,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       (reportData.weeklyQueries || []).forEach((item: any) => {
         weeklySheet.addRow({
-          week: item.week ?? '',
-          queries: item.totalQueries ?? 0,
+          week: item.period ?? '',
+          queries: item.queryCount ?? 0,
         });
       });
 
@@ -1337,8 +1337,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       (reportData.dailyQueries || []).forEach((item: any) => {
         dailySheet.addRow({
-          date: item.date ?? '',
-          queries: item.totalQueries ?? 0,
+          date: item.period ?? '',
+          queries: item.queryCount ?? 0,
         });
       });
 

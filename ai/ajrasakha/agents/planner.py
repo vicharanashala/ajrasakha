@@ -30,7 +30,12 @@ from ajrasakha.agents.domains import (
     crop_counts_as_resolved,
     normalize_domain,
 )
-from ajrasakha.agents.language import detect_farmer_language
+from ajrasakha.agents.language import (
+    detect_farmer_language,
+    adetect_farmer_language,
+    get_localized_state_question,
+    get_localized_crop_question,
+)
 from ajrasakha.agents.location_context import (
     gps_state_from_location,
     latest_human_text,
@@ -247,20 +252,12 @@ def _check_question_completeness(
     has_state = bool(state_resolved) or has_gps
     if not has_state:
         missing.append("location")
-        follow_up = (
-            "Which state are you in?"
-            if farmer_language == "English"
-            else "आप किस राज्य में हैं?"
-        )
+        follow_up = get_localized_state_question(farmer_language)
         return False, missing, follow_up
 
     if crop_required and not crop_counts_as_resolved(crop_resolved):
         missing.append("crop")
-        follow_up = (
-            "Which crop are you growing?"
-            if farmer_language == "English"
-            else "आप कौन सी फसल उगा रहे हैं?"
-        )
+        follow_up = get_localized_crop_question(farmer_language)
         return False, missing, follow_up
 
     return True, [], None
@@ -297,7 +294,7 @@ async def planner_node(
         return {"plan": plan}
 
     location = state.get("location")
-    farmer_lang = detect_farmer_language(user_text)
+    farmer_lang = await adetect_farmer_language(user_text)
 
     state_resolved = _resolve_state_deterministic(messages, location)
     crop_resolved = resolve_crop_for_turn(messages)
@@ -375,6 +372,7 @@ async def planner_node(
         )
 
         plan["knowledge_base"] = True
+        plan["farmer_language"] = farmer_lang
 
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "
@@ -410,13 +408,14 @@ def clarify_node(state: AjraSakhaState) -> dict:
     plan = state.get("plan") or {}
     question = (plan.get("follow_up_question") or "").strip()
     missing = plan.get("missing_info") or []
+    farmer_language = plan.get("farmer_language") or "English"
     if not question:
         if "location" in missing:
-            question = "Which state are you in?"
+            question = get_localized_state_question(farmer_language)
         elif "crop" in missing:
-            question = "Which crop are you growing?"
+            question = get_localized_crop_question(farmer_language)
         else:
-            question = "Which state are you in?"
+            question = get_localized_state_question(farmer_language)
     return {"messages": [AIMessage(content=question)]}
 
 

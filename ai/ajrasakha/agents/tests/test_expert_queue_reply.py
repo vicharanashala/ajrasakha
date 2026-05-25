@@ -91,8 +91,8 @@ def test_route_after_sanitizer_synthesize_when_weather_has_content():
     assert route_after_sanitizer(state) == "synthesize"
 
 
-def test_empty_gdb_reply_content():
-    result = empty_gdb_reply_node(_state_after_sanitizer_filter())
+async def test_empty_gdb_reply_content():
+    result = await empty_gdb_reply_node(_state_after_sanitizer_filter())
     text = result["messages"][0].content
     assert EXPERT_QUEUE_REPLY_MARKER in text
     assert "Thank You." in text

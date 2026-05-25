@@ -261,11 +261,30 @@ def route_after_tools(state: AjraSakhaState) -> str:
     return "ajrasakha"
 
 
-def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
+async def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
     """Deterministic terminal node: emits the reviewer-upload acknowledgement
     plus the mandatory testing-version disclaimer when gdb has no match."""
+    messages = state.get("messages") or []
+    human = None
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            human = msg
+            break
+    user_text = _message_to_text(human) if human else ""
+    
+    from ajrasakha.agents.language import (
+        adetect_farmer_language,
+        get_localized_empty_reply_body,
+        get_localized_warning_text,
+    )
+    lang_label = await adetect_farmer_language(user_text) if user_text else "English"
+    
+    body = get_localized_empty_reply_body(lang_label)
+    warning = get_localized_warning_text(lang_label)
+    content = f"{body}\n\n{warning}"
+    
     return {
-        "messages": [AIMessage(content=EMPTY_GDB_REPLY)],
+        "messages": [AIMessage(content=content)],
         "location": state.get("location"),
     }
 
