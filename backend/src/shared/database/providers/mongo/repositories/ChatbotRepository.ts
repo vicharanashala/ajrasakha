@@ -5665,30 +5665,57 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getRetentionMetrics(session?: ClientSession) {
+  async getRetentionMetrics(
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
+    requestType: string,
+    session?: ClientSession,
+  ) {
     try {
-      await this.init();
+      await this.init(source);
+      let matchStage: any = {};
+
+      if (userType === 'external') {
+        matchStage.email = {
+          $regex: '^rup',
+          $options: 'i',
+        };
+      }
 
       /**
-       * Last 3 months cohorts
+       * Internal Users
        */
-      const endDate = new Date();
-      const startDate = new Date();
+      if (userType === 'internal') {
+        matchStage.email = {
+          $not: {
+            $regex: '^rup',
+            $options: 'i',
+          },
+        };
+      }
 
-      startDate.setMonth(startDate.getMonth() - 3);
+      let format = '%Y-%m-%d';
+
+      if (requestType === 'monthly') {
+        format = '%Y-%m';
+      } else if (requestType === 'weekly') {
+        format = '%Y-W%V';
+      } else {
+        format = '%Y-%m-%d';
+      }
 
       const result = await this.users
         .aggregate(
           [
-            /**
-             * Users created in last 1 year
-             */
             {
               $match: {
                 createdAt: {
                   $gte: startDate,
                   $lte: endDate,
                 },
+                ...matchStage,
               },
             },
 
@@ -5701,8 +5728,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 signupDate: '$createdAt',
                 cohortDate: {
                   $dateToString: {
-                    // format: "%Y-%m-%d",
-                    format: '%Y-W%V',
+                    format,
                     date: '$createdAt',
                   },
                 },
@@ -5742,7 +5768,6 @@ export class ChatbotRepository implements IChatbotRepository {
                   {
                     $project: {
                       createdAt: 1,
-
                       daysAfterSignup: {
                         $dateDiff: {
                           startDate: {
@@ -5751,14 +5776,12 @@ export class ChatbotRepository implements IChatbotRepository {
                               unit: 'day',
                             },
                           },
-
                           endDate: {
                             $dateTrunc: {
                               date: '$createdAt',
                               unit: 'day',
                             },
                           },
-
                           unit: 'day',
                         },
                       },
@@ -5776,7 +5799,6 @@ export class ChatbotRepository implements IChatbotRepository {
                     },
                   },
                 ],
-
                 as: 'activities',
               },
             },
@@ -5787,16 +5809,13 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $project: {
                 cohortDate: 1,
-
                 retainedD1: {
                   $gt: [
                     {
                       $size: {
                         $filter: {
                           input: '$activities',
-
                           as: 'activity',
-
                           cond: {
                             $eq: ['$$activity.daysAfterSignup', 1],
                           },
@@ -5813,9 +5832,7 @@ export class ChatbotRepository implements IChatbotRepository {
                       $size: {
                         $filter: {
                           input: '$activities',
-
                           as: 'activity',
-
                           cond: {
                             $eq: ['$$activity.daysAfterSignup', 7],
                           },
@@ -5832,9 +5849,7 @@ export class ChatbotRepository implements IChatbotRepository {
                       $size: {
                         $filter: {
                           input: '$activities',
-
                           as: 'activity',
-
                           cond: {
                             $eq: ['$$activity.daysAfterSignup', 30],
                           },
@@ -5853,23 +5868,19 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $group: {
                 _id: '$cohortDate',
-
                 totalUsers: {
                   $sum: 1,
                 },
-
                 d1Users: {
                   $sum: {
                     $cond: ['$retainedD1', 1, 0],
                   },
                 },
-
                 d7Users: {
                   $sum: {
                     $cond: ['$retainedD7', 1, 0],
                   },
                 },
-
                 d30Users: {
                   $sum: {
                     $cond: ['$retainedD30', 1, 0],
@@ -5884,11 +5895,8 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $project: {
                 _id: 0,
-
                 cohortDate: '$_id',
-
                 totalUsers: 1,
-
                 d1Retention: {
                   $round: [
                     {
@@ -5955,6 +5963,7 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
+
   async getDailyAnalyticsForWhatsApp(start: Date, end: Date):Promise<any>{
 
     return await this.QuestionCollection.aggregate([

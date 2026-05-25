@@ -20,3 +20,11 @@ export type ActiveUsersQuery = {
   source?: string;
   userType?: string;
 };
+
+export type RetentionMetricsQuery = {
+  startDate?: string;
+  endDate?: string;
+  source?: string;
+  userType?: string;
+  requestType?: string;
+}

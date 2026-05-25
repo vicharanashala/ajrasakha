@@ -1180,9 +1180,21 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getRetentionMetrics() {
+  async getRetentionMetrics(    
+      startDate: Date,
+      endDate: Date,
+      source: string,
+      userType: string,
+      requestType: string,
+    ) {
     try {
-      return await this.chatbotRepository.getRetentionMetrics();
+      return await this.chatbotRepository.getRetentionMetrics(   
+         startDate,
+          endDate,
+          source,
+          userType,
+          requestType,
+      );
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch Retention Metrics: ${error}`,

@@ -37,7 +37,7 @@ import {
   TopCropsResponse,
   DistrictAnalyticsEntryResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
-import { ActiveUsersQuery, GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
+import { ActiveUsersQuery, GrowthQuery, GrowthResponse, RetentionMetricsQuery } from '../types/chatbot.type.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 
@@ -606,8 +606,27 @@ async getDistrictAnalyticsByState(
   @Get('/retention-metrics')
   @HttpCode(200)
   @Authorized()
-  async getRetentionMetrics(): Promise<any> {
-    return await this.chatbotService.getRetentionMetrics();
+  async getRetentionMetrics(@QueryParams() query: RetentionMetricsQuery): Promise<any> {
+    const startDate = new Date(query.startDate!);
+    const endDate = new Date(query.endDate!);
+    const source = query.source;
+    const userType = query.userType;
+    const requestType = query.requestType;
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new Error('Invalid startDate or endDate.');
+    }
+
+    if (startDate > endDate) {
+      throw new Error('startDate cannot be after endDate.');
+    }
+    return await this.chatbotService.getRetentionMetrics(    
+      startDate,
+      endDate,
+      source,
+      userType,
+      requestType
+    );
   }
 
 @Get('/user-questions-data')

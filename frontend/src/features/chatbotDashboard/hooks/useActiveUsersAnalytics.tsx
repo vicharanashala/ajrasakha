@@ -51,11 +51,29 @@ export const useWeeklyActiveUsersTrend = (startDate: Date, endDate:Date, source:
   });
 };
 
-export const useRetentionMetrics = (enabled: boolean = true) => {
+export const useRetentionMetrics = (
+    startDate: string,
+    endDate: string,
+    source: string,
+    userType: string,
+    requestType: string,
+    enabled: boolean = true) => {
   return useQuery({
-    queryKey: ["retention_metrics"],
+    queryKey: ["retention_metrics",
+      startDate,
+      endDate,
+      source,
+      userType,
+      requestType,
+    ],
     queryFn: () => {
-      return chatbotService.getRetentionMetrics();
+      return chatbotService.getRetentionMetrics(
+        startDate,
+        endDate,
+        source,
+        userType,
+        requestType,
+      );
     },
     enabled,
   });

@@ -104,8 +104,20 @@ export class ChatbotService {
     );
   }
 
-  async getRetentionMetrics(): Promise<any> {
-    return apiFetch<any>(`${this._baseUrl}/retention-metrics`);
+  async getRetentionMetrics(
+    startDate: string,
+    endDate: string,
+    source: string,
+    userType: string,
+    requestType: string,
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append("startDate", startDate);
+    params.append("endDate", endDate);
+    params.append("source", source);
+    params.append("userType", userType);
+    params.append("requestType", requestType);
+    return apiFetch<any>(`${this._baseUrl}/retention-metrics?${params.toString()}`);
   }
 
   async getQueryCategories(

@@ -54,6 +54,7 @@ import {
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
 import { useInactiveWhatsappUsers, useQueryCategories } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
+import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -1299,7 +1300,12 @@ useEffect(() => {
                     source={source}
                     userType={filters.userType}
                   />
+                  {/* <RetentionMetricsChart
+                    source={source}
+                    userType={filters.userType}
+                    /> */}
                 </div>
+
                 }
                 {source !== "whatsapp" && 
                 <div
