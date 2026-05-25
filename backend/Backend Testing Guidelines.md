@@ -20,13 +20,9 @@ The goal is simple:
 We currently support 3 types of tests.
 
 | Type | Purpose | File Name |
-
 |---|---|---|
-
 | Unit Test | Test service/business logic |`*.unit.test.ts`|
-
 | Integration Test | Test database/repository logic |`*.integration.test.ts`|
-
 | API Test | Test API endpoints/controllers |`*.api.test.ts`|
 
 ---
