@@ -398,27 +398,128 @@ async getDistrictAnalyticsByState(
     );
   }
 
+  // @Get('/download-chatbot-report')
+  // @Authorized()
+  // @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  // @OpenAPI({ summary: 'Download chatbot conversations as Excel (date range, max 1 month)' })
+  // async downloadChatbotReport(
+  //   @QueryParams() query: { startDate?: string; endDate?: string; source?: string; downloadFormat?: string },
+  //   @Res() response: any,
+  // ) {
+  //   if (!query.startDate || !query.endDate) {
+  //     response.status(400).json({ success: false, message: 'startDate and endDate are required' });
+  //     return;
+  //   }
+  //   const startDate = new Date(query.startDate);
+  //   const endDate = new Date(query.endDate);
+  //   const data = await this.chatbotService.generateChatbotExcelReport(startDate, endDate, query.source);
+  //   if (!data) {
+  //     response.status(200).json({ success: false, message: 'No data found for the selected date range' });
+  //     return;
+  //   }
+  //   return Buffer.from(data as ArrayBuffer);
+  // }
+
   @Get('/download-chatbot-report')
-  @Authorized()
-  @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  @OpenAPI({ summary: 'Download chatbot conversations as Excel (date range, max 1 month)' })
-  async downloadChatbotReport(
-    @QueryParams() query: { startDate?: string; endDate?: string; source?: string },
-    @Res() response: any,
-  ) {
+@Authorized()
+@OpenAPI({
+  summary:
+    'Download chatbot analytics report as Excel or PDF',
+})
+async downloadChatbotReport(
+  @QueryParams()
+  query: {
+    startDate?: string;
+    endDate?: string;
+    source?: string;
+    downloadFormat?: 'pdf' | 'xlsx';
+  },
+
+  @Res() response: any,
+) {
+  try {
     if (!query.startDate || !query.endDate) {
-      response.status(400).json({ success: false, message: 'startDate and endDate are required' });
-      return;
+      return response.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required',
+      });
     }
+
     const startDate = new Date(query.startDate);
     const endDate = new Date(query.endDate);
-    const data = await this.chatbotService.generateChatbotExcelReport(startDate, endDate, query.source);
-    if (!data) {
-      response.status(200).json({ success: false, message: 'No data found for the selected date range' });
-      return;
+
+    const format = query.downloadFormat || 'xlsx';
+
+    let data: ArrayBuffer | Buffer | null = null;
+
+    // ─────────────────────────────────────
+    // PDF
+    // ─────────────────────────────────────
+
+    if (format === 'pdf') {
+      data =
+        await this.chatbotService.generateChatbotAnalyticsPdfReport(
+          startDate,
+          endDate,
+          query.source,
+        );
+
+      if (!data) {
+        return response.status(200).json({
+          success: false,
+          message:
+            'No data found for selected date range',
+        });
+      }
+
+      response.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition':
+          `attachment; filename=chatbot-report-${Date.now()}.pdf`,
+      });
+
+      return response.send(data);
     }
-    return Buffer.from(data as ArrayBuffer);
+
+    // ─────────────────────────────────────
+    // EXCEL
+    // ─────────────────────────────────────
+
+    data =
+      await this.chatbotService.generateChatbotAnalyticsExcelReport(
+        startDate,
+        endDate,
+        query.source,
+      );
+
+    if (!data) {
+      return response.status(200).json({
+        success: false,
+        message:
+          'No data found for selected date range',
+      });
+    }
+
+    response.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+
+      'Content-Disposition':
+        `attachment; filename=chatbot-report-${Date.now()}.xlsx`,
+    });
+
+    return response.send(Buffer.from(data));
+  } catch (error) {
+    return response.status(500).json({
+      success: false,
+      message: 'Failed to download report',
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Unknown error',
+    });
   }
+}
 
   @OpenAPI({ 
     summary: 'Get user growth metrics',

@@ -1514,67 +1514,68 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyQueryCounts(
-    source = 'vicharanashala',
-    session?: ClientSession,
-    userType = 'all',
-  ): Promise<MonthlyQueryCountEntry[]> {
-    try {
-      await this.init(source);
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+): Promise<MonthlyQueryCountEntry[]> {
+  try {
+    await this.init(source);
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
 
-      const result = await this.messagesCollection
-        .aggregate(
-          [
-            {
-              $match: {
-                isCreatedByUser: true,
-              },
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              isCreatedByUser: true,
             },
+          },
 
-            ...userTypeLookupStages,
+          ...userTypeLookupStages,
 
-            {
-              $group: {
-                _id: {
-                  $dateToString: {
-                    format: '%Y-%m',
-                    date: '$createdAt',
-                    timezone: '+05:30',
-                  },
-                },
-
-                count: {
-                  $sum: 1,
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
                 },
               },
-            },
 
-            {
-              $project: {
-                month: '$_id',
-                count: 1,
-                _id: 0,
+              count: {
+                $sum: 1,
               },
             },
+          },
 
-            {
-              $sort: {
-                month: 1,
-              },
+          {
+            $project: {
+              month: '$_id',
+              count: 1,
+              _id: 0,
             },
-          ],
-          {session},
-        )
-        .toArray();
+          },
 
-      return result as MonthlyQueryCountEntry[];
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to get monthly query counts: ${error}`,
-      );
-    }
+          {
+            $sort: {
+              month: 1,
+            },
+          },
+        ],
+        {session},
+      )
+      .toArray();
+
+    return result as MonthlyQueryCountEntry[];
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get monthly query counts: ${error}`,
+    );
   }
+}
 
   async getQuerySummaryByPeriod(
     period: 'daily' | 'weekly' | 'monthly',
@@ -4652,6 +4653,29 @@ export class ChatbotRepository implements IChatbotRepository {
         `Failed to generate chatbot Excel report: ${error}`,
       );
     }
+  }
+
+  async generateChatBotData(startDate, endDate, days= 30, source = "vicharanashala", userType="all", month?:string, session?: ClientSession,){
+        const currentMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    console.log(startDate, endDate);
+    const kpiData = await this.getKpiSummary(source, session, userType="all" );
+    const monthlyQueries = await this.getMonthlyAnalytics(source, session, userType="all");
+    const weeklyQueries = await this.getWeeklyAnalytics(currentMonth, source, session, userType);
+    console.log("Weekly Queries ", weeklyQueries)
+    const dailyQueries = await this.getDailyAnalytics(currentMonth, source, session, userType);
+    console.log("Daily queries", dailyQueries)
+    const dauTrends = await this.getDailyUserTrend(days, source,session, userType)
+
+    const dataToShow = {
+      totalDownloads: kpiData.totalAppInstalls,
+      averageSession: kpiData.avgSessionDurationMin,
+      dau: dauTrends[dauTrends.length -1].count || 0,
+      monthlyQueries,
+      dailyQueries,
+      weeklyQueries
+    }
+
+    return dataToShow
   }
 
   async getIdsCreated(startDate: Date, endDate: Date, session?: ClientSession) {
