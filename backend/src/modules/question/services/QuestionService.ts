@@ -67,6 +67,7 @@ import {
   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
   TOTAL_EXPERTS_LIMIT,
 } from '#root/shared/constants/general.js';
+import { toTitleCase } from '#root/utils/ToTitlecase.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -901,6 +902,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         context,
         originalquestion = '',
       } = body;
+      console.log("Body ",body)
+      if(body.details){
+        body.details.state = toTitleCase(body.details.state);
+        body.details.crop = toTitleCase(body.details.crop as string);
+      }
       const messageId = messageIdFromBody;
       const bodyUserId = userIdFromBody;
       const referenceQuestionDetails = referenceQuestionDetailsFromBody;
@@ -1304,12 +1310,20 @@ export class QuestionService extends BaseService implements IQuestionService {
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
       // so they shouldn't inflate the transaction scope.
+      if (updates.details) {
+      if (updates.details.state) {
+        updates.details.state = toTitleCase(updates.details.state);
+      }
+      if (updates.details.district) {
+        updates.details.district = toTitleCase(updates.details.district);
+      }
       if (updates.details?.crop) {
         const rawCropName =
           typeof updates.details.crop === 'string'
             ? updates.details.crop
             : (updates.details.crop as any)?.name || '';
-        let normalised_crop = rawCropName.trim().toLowerCase();
+          const cleanCropName = toTitleCase(rawCropName);
+        let normalised_crop = cleanCropName.toLowerCase();
         if (rawCropName.trim()) {
           try {
             const existingCrop =
@@ -1318,9 +1332,9 @@ export class QuestionService extends BaseService implements IQuestionService {
               normalised_crop = existingCrop.name;
             } else {
               // Crop not found — auto-create it
-              const normalizedName = rawCropName.trim().toLowerCase();
-              await this.cropRepository.createCrop(normalizedName, '', []);
-              normalised_crop = normalizedName;
+              // const normalizedName = rawCropName.trim().toLowerCase();
+              await this.cropRepository.createCrop(cleanCropName, '', []);
+              normalised_crop = cleanCropName;
             }
           } catch (cropError: any) {
             console.error(
@@ -1329,10 +1343,10 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         }
-        updates.details.crop = rawCropName.trim();
+        updates.details.crop = cleanCropName;
         updates.details.normalised_crop = normalised_crop;
       }
-
+    }
       return this._withTransaction(async (session: ClientSession) => {
         const existingQuestion = await this.questionRepo.getById(
           questionId,
@@ -5371,56 +5385,56 @@ export class QuestionService extends BaseService implements IQuestionService {
         startBalanceWorkloadWorkers(flatAssignments);
         console.log(`[TimeBound] Triggered reallocation for ${flatAssignments.length} stuck submission(s)`);
 
-        // Notify all moderators and admins about stuck-question reallocations
-        try {
-          const [moderators, admins] = await Promise.all([
-            this.userRepo.findModerators(),
-            this.userRepo.findAdmins(),
-          ]);
-          const allRecipients = [...(moderators || []), ...(admins || [])];
-          console.log(`[TimeBound] Notifying ${allRecipients.length} moderators/admins about ${reallocationInfo.length} reallocation(s)`);
+      //   // Notify all moderators and admins about stuck-question reallocations
+      //   try {
+      //     const [moderators, admins] = await Promise.all([
+      //       this.userRepo.findModerators(),
+      //       this.userRepo.findAdmins(),
+      //     ]);
+      //     const allRecipients = [...(moderators || []), ...(admins || [])];
+      //     console.log(`[TimeBound] Notifying ${allRecipients.length} moderators/admins about ${reallocationInfo.length} reallocation(s)`);
 
-          const getName = async (id?: string | null): Promise<string> => {
-            if (!id) return 'Unknown';
-            try {
-              const u = await this.userRepo.findById(id);
-              if (!u) return 'Unknown';
-              const first = (u as any).firstName?.toString().trim() || '';
-              const last = (u as any).lastName?.toString().trim() || '';
-              const full = `${first} ${last}`.trim();
-              return full || 'Unknown';
-            } catch {
-              return 'Unknown';
-            }
-          };
+      //     const getName = async (id?: string | null): Promise<string> => {
+      //       if (!id) return 'Unknown';
+      //       try {
+      //         const u = await this.userRepo.findById(id);
+      //         if (!u) return 'Unknown';
+      //         const first = (u as any).firstName?.toString().trim() || '';
+      //         const last = (u as any).lastName?.toString().trim() || '';
+      //         const full = `${first} ${last}`.trim();
+      //         return full || 'Unknown';
+      //       } catch {
+      //         return 'Unknown';
+      //       }
+      //     };
 
-          for (const info of reallocationInfo) {
-            const [oldExpertName, newExpertName] = await Promise.all([
-              getName(info.oldExpertId),
-              getName(info.newExpertId),
-            ]);
-            const message = `${info.sourceLabel} question auto-reallocated from expert ${oldExpertName} to ${newExpertName}`;
-            const trimmedQuestion = (info.questionText || '').trim();
-            const title = trimmedQuestion
-              ? (trimmedQuestion.length > 80 ? `${trimmedQuestion.slice(0, 80)}...` : trimmedQuestion)
-              : 'Time-Bound Question Reallocated';
-            for (const recipient of allRecipients) {
-              const recipientId = recipient._id?.toString();
-              if (!recipientId) continue;
-              await this.notificationService.saveTheNotifications(
-                message,
-                title,
-                info.questionId,
-                recipientId,
-                'expert_replacement',
-              ).catch((err: any) => {
-                console.error(`[TimeBound] Failed to notify ${recipientId}:`, err?.message);
-              });
-            }
-          }
-        } catch (err: any) {
-          console.error(`[TimeBound] Failed to notify moderators/admins:`, err?.message);
-        }
+      //     for (const info of reallocationInfo) {
+      //       const [oldExpertName, newExpertName] = await Promise.all([
+      //         getName(info.oldExpertId),
+      //         getName(info.newExpertId),
+      //       ]);
+      //       const message = `${info.sourceLabel} question auto-reallocated from expert ${oldExpertName} to ${newExpertName}gggggg`;
+      //       const trimmedQuestion = (info.questionText || '').trim();
+      //       const title = trimmedQuestion
+      //         ? (trimmedQuestion.length > 80 ? `${trimmedQuestion.slice(0, 80)}...` : trimmedQuestion)
+      //         : 'Time-Bound Question Reallocated';
+      //       for (const recipient of allRecipients) {
+      //         const recipientId = recipient._id?.toString();
+      //         if (!recipientId) continue;
+      //         await this.notificationService.saveTheNotifications(
+      //           message,
+      //           title,
+      //           info.questionId,
+      //           recipientId,
+      //           'expert_replacement',
+      //         ).catch((err: any) => {
+      //           console.error(`[TimeBound] Failed to notify ${recipientId}:`, err?.message);
+      //         });
+      //       }
+      //     }
+      //   } catch (err: any) {
+      //     console.error(`[TimeBound] Failed to notify moderators/admins:`, err?.message);
+      //   }
       }
 
       const totalReallocated = flatAssignments.length + initialAllocated + reviewersAssigned;

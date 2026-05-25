@@ -2,6 +2,9 @@ import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Download, Smartphone, Apple, Maximize2, X } from "lucide-react";
+import { TotalQueriesModal } from "./components/TotalQueriesModal";
+import type { QueryGranularity } from "./components/TotalQueriesModal";
+import type { AnalyticsEntry } from "./utils/dashboardHelpers";
 
 type BadgeVariant = "green" | "red" | "amber" | "blue";
 
@@ -25,6 +28,16 @@ type KpiCardData = {
   dateRange?: string;
   badges?: { label: string; variant: BadgeVariant }[];
   icon?: string;
+  dailyAnalytics?: AnalyticsEntry[];
+  weeklyAnalytics?: AnalyticsEntry[];
+  monthlyAnalytics?: AnalyticsEntry[];
+  source?: "vicharanashala" | "annam" | "whatsapp";
+  userType?: "all" | "external" | "internal";
+  querySummaries?: {
+    daily: { label: string; totalQueries: number };
+    weekly: { label: string; totalQueries: number };
+    monthly: { label: string; totalQueries: number };
+  };
 };
 
 const badgeStyles: Record<BadgeVariant, { bg: string; text: string }> = {
@@ -46,7 +59,7 @@ const badgeStyles: Record<BadgeVariant, { bg: string; text: string }> = {
   },
 };
 
-function getDateRangeLabel(days = 30): string {
+export function getDateRangeLabel(days = 30): string {
   const end = new Date();
   const start = new Date();
   start.setDate(start.getDate() - days);
@@ -190,7 +203,7 @@ function Sparkline({
   );
 }
 
-function DeltaIcon({ dir }: { dir: KpiCardData["deltaDir"] }) {
+export function DeltaIcon({ dir }: { dir: KpiCardData["deltaDir"] }) {
   if (dir === "up") {
     return (
       <svg width={10} height={10} viewBox="0 0 10 10">
@@ -220,34 +233,7 @@ function getIcon(icon?: string, color?: string, size: number = 16) {
 }
 function KpiCard({ kpi }: { kpi: KpiCardData }) {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [granularity, setGranularity] = useState<
-    "weekly" | "daily" | "monthly"
-  >("daily");
-  // const deltaColor =
-  //   kpi.deltaDir === "up"
-  //     ? "#1E7A3C"
-  //     : kpi.deltaDir === "down"
-  //       ? "#A32D2D"
-  //       : "#888";
-
-
-
-      const activeDelta =
-  granularity === "monthly"
-    ? kpi.monthlyDelta
-    : kpi.delta;
-
-const activeDeltaDir =
-  granularity === "monthly"
-    ? kpi.monthlyDeltaDir
-    : kpi.deltaDir;
-
-      const deltaColor =
-  activeDeltaDir === "up"
-    ? "#1E7A3C"
-    : activeDeltaDir === "down"
-      ? "#A32D2D"
-      : "#888";
+  const [granularity, setGranularity] = useState<QueryGranularity>("daily");
 
   const activePoints =
     kpi.id === "queries"
@@ -266,6 +252,17 @@ const activeDeltaDir =
           ? kpi.monthlySparkLabels
           : kpi.sparkLabels
       : kpi.sparkLabels;
+
+  // Dynamic label and value based on granularity tab (queries card only)
+  const activeCardLabel =
+    kpi.id === "queries" && kpi.querySummaries
+      ? kpi.querySummaries[granularity]?.label ?? kpi.label
+      : kpi.label;
+
+  const activeCardValue =
+    kpi.id === "queries" && kpi.querySummaries
+      ? kpi.querySummaries[granularity]?.totalQueries?.toLocaleString() ?? kpi.value
+      : kpi.value;
 
   return (
     <>
@@ -299,20 +296,20 @@ const activeDeltaDir =
             )}
             <div className="flex flex-col gap-0.5">
               <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {kpi.label}
+                {activeCardLabel}
               </div>
               <div
                 className="text-2xl font-semibold dark:text-slate-100"
                 style={{ color: kpi.valueColor }}
               >
-                {kpi.value}
+                {activeCardValue}
               </div>
-              <div
+              {/* <div
                 className="flex items-center gap-1 text-xs dark:text-gray-300"
                 style={{ color: deltaColor }}
               >
                 {granularity !== "daily" && <DeltaIcon dir={activeDeltaDir} />} {granularity !== "daily" && activeDelta}
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -383,15 +380,40 @@ const activeDeltaDir =
         </CardContent>
 
         {/* // Remove this div when data is dynamic */}
-        {kpi.isDummy && (
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10 cursor-not-allowed">
-            <span className="text-white text-xs font-semibold tracking-wide"></span>
-          </div>
-        )}
+        
       </Card>
+
+      {isMaximized && kpi.id === "queries" && kpi.sparkPoints && (
+        <TotalQueriesModal
+          granularity={granularity}
+          onGranularityChange={setGranularity}
+          onClose={() => setIsMaximized(false)}
+          accentColor={kpi.accentColor}
+          valueColor={kpi.valueColor}
+          icon={getIcon(kpi.icon, kpi.accentColor, 28)}
+          label={kpi.label}
+          value={kpi.value}
+          analytics={{
+            daily: kpi.dailyAnalytics,
+            weekly: kpi.weeklyAnalytics,
+            monthly: kpi.monthlyAnalytics,
+          }}
+          source={kpi.source}
+          userType={kpi.userType}
+          summaries={kpi.querySummaries}
+          renderChart={() => (
+            <Sparkline
+              points={activePoints || []}
+              color={kpi.accentColor}
+              labels={activeLabels}
+            />
+          )}
+        />
+      )}
 
       {/* Maximized Modal */}
       {isMaximized &&
+        kpi.id !== "queries" &&
         kpi.sparkPoints &&
         createPortal(
           <div
@@ -425,87 +447,27 @@ const activeDeltaDir =
                     )}
                     <div className="min-w-0">
                       <div className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {kpi.label}
+                        {activeCardLabel}
                       </div>
                       <div
                         className="text-4xl font-semibold dark:text-slate-100"
                         style={{ color: kpi.valueColor }}
                       >
-                        {kpi.value}
+                        {activeCardValue}
                       </div>
                     </div>
                   </div>
 
-                  {/* Toggle for queries card */}
-                  {kpi.id === "queries" && kpi.dailySparkPoints && (
-                    <div className="flex items-center gap-1 rounded-full bg-gray-100 dark:bg-[#2a2a2a] p-1 flex-shrink-0">
-                      <button
-                        onClick={() => setGranularity("monthly")}
-                        className={`text-sm px-4 py-1.5 rounded-full font-medium transition-all ${
-                          granularity === "monthly"
-                            ? "bg-white dark:bg-[#3a3a3a] text-gray-800 dark:text-gray-100 shadow-sm"
-                            : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                        }`}
-                      >
-                        Monthly
-                      </button>
-
-                      <button
-                        onClick={() => setGranularity("weekly")}
-                        className={`text-sm px-4 py-1.5 rounded-full font-medium transition-all ${
-                          granularity === "weekly"
-                            ? "bg-white dark:bg-[#3a3a3a] text-gray-800 dark:text-gray-100 shadow-sm"
-                            : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                        }`}
-                      >
-                        Weekly
-                      </button>
-                      <button
-                        onClick={() => setGranularity("daily")}
-                        className={`text-sm px-4 py-1.5 rounded-full font-medium transition-all ${
-                          granularity === "daily"
-                            ? "bg-white dark:bg-[#3a3a3a] text-gray-800 dark:text-gray-100 shadow-sm"
-                            : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                        }`}
-                      >
-                        Daily
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div
-                  className="flex items-center gap-1.5 text-sm dark:text-gray-300"
-                  style={{ color: deltaColor }}
-                >
-                     {granularity !== "daily" && <DeltaIcon dir={activeDeltaDir} />} {granularity !== "daily" && activeDelta}
                 </div>
               </div>
 
-              {/* Chart (left) + Table (right) */}
+              {/* Chart (left/top) + Table (right/bottom) */}
               <div className="flex gap-4 items-start">
-                {/* Sparkline — 65% */}
+                {/* Sparkline */}
                 <div className="flex-[65] min-w-0">
                   <div className="h-48 relative">
                     <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700" />
                     <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700" />
-                    {/* <Sparkline
-                      points={
-                        kpi.id === "queries" &&
-                        granularity === "daily" &&
-                        kpi.dailySparkPoints?.length
-                          ? kpi.dailySparkPoints
-                          : kpi.sparkPoints
-                      }
-                      color={kpi.accentColor}
-                      labels={
-                        kpi.id === "queries" &&
-                        granularity === "daily" &&
-                        kpi.dailySparkLabels?.length
-                          ? kpi.dailySparkLabels
-                          : kpi.sparkLabels
-                      }
-                    /> */}
-
                     <Sparkline
                       points={activePoints || []}
                       color={kpi.accentColor}
@@ -525,64 +487,36 @@ const activeDeltaDir =
                   )}
                 </div>
 
-                {/* Table — 35% */}
+                {/* Table */}
                 <div className="flex-[35] min-w-0 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                           Date
                         </th>
-                        <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
+                        <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                           Value
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {/* {(kpi.id === "queries" &&
-                      granularity === "daily" &&
-                      kpi.dailySparkPoints?.length
-                        ? kpi.dailySparkPoints
-                        : kpi.sparkPoints
-                      ).map((value, idx) => {
-                        const label =
-                          (kpi.id === "queries" &&
-                          granularity === "daily" &&
-                          kpi.dailySparkLabels?.length
-                            ? kpi.dailySparkLabels
-                            : kpi.sparkLabels)?.[idx] || `Point ${idx + 1}`;
-                        return (
-                          <tr
-                            key={idx}
-                            className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                          >
-                            <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                              {label}
-                            </td>
-                            <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                              {value.toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      })} */}
                       {(activePoints || []).map((value, idx) => {
-                        const label = activeLabels?.[idx] || `Point ${idx + 1}`;
-
-                        return (
-                          <tr
-                            key={idx}
-                            className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                          >
-                            <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                              {label}
-                            </td>
-
-                            <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                              {value.toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                          const label = activeLabels?.[idx] || `Point ${idx + 1}`;
+                          return (
+                            <tr
+                              key={idx}
+                              className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                            >
+                              <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                                {label}
+                              </td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                                {value.toLocaleString()}
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -603,6 +537,20 @@ export function EightCardsComponent({
   kpiRow2: KpiCardData[];
 }) {
   const combinedKpis = [...kpiRow1, ...kpiRow2];
+  const customOrder = [
+    "totalInstalls",
+    "dau",
+    "queries",
+    "session",
+    "bugs",
+    "repeatQuery",
+    "states"]
+
+  combinedKpis.sort((a, b) => {
+    const idxA = customOrder.indexOf(a.id);
+    const idxB = customOrder.indexOf(b.id);
+    return idxA - idxB;
+  });
   return (
     <>
       {/* Original 2-row layout commented out as requested:

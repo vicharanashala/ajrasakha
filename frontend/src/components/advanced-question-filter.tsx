@@ -124,6 +124,7 @@ export type AdvanceFilterValues = {
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
   isOnHold?: boolean;
+  unallocatedQuestions?: boolean;
   pae_review?: boolean;
   is_non_agri?: boolean;
 };
@@ -781,6 +782,18 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   <span className="text-sm">Show questions on Hold</span>
                 </label>
 
+                {/* show unallocated questions */}
+                <label className="flex items-center gap-3">
+                  <Checkbox
+                    checked={advanceFilter.unallocatedQuestions ?? false}
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("unallocatedQuestions", checked === true)
+                    }
+                    className="h-3.5 w-3.5 border-primary"
+                  />
+                  <span className="text-sm">Show un-allocated questions</span>
+                </label>
+
               </div>
             </div>
 
@@ -822,7 +835,9 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                             ? "Show duplicate questions"
                             : key === "isOnHold"
                               ? "Show holded questions"
-                              : key === "states"
+                              : key === "unallocatedQuestions"
+                                ? "Show un-allocated questions"
+                                : key === "states"
                                 ? "state"
                                 : key === "normalisedCrops"
                                   ? "crop"
@@ -858,7 +873,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                                     : key === "hiddenQuestions" ||
                                       key === "duplicateQuestions" ||
                                       key === "closedInTwoHrs" ||
-                                      key === "isOnHold"
+                                      key === "isOnHold" ||
+                                      key === "unallocatedQuestions"
                                       ? false
                                       : "all",
                               )
@@ -899,6 +915,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   closedAtEnd: undefined,
                   consecutiveApprovals: "all",
                   autoAllocateFilter: "all",
+                  unallocatedQuestions: false,
                 });
                 onReset();
               }}

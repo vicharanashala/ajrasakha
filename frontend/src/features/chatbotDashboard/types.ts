@@ -1,4 +1,5 @@
 export type BadgeVariant = "green" | "red" | "amber" | "blue";
+import type { AnalyticsEntry } from "./utils/dashboardHelpers";
 
 export interface DemographicEntry {
   label: string;
@@ -60,8 +61,18 @@ export interface KpiCard {
   sparkPoints?: number[];
   sparkLabels?: string[];
   dateRange?: string;
+  dailyAnalytics?: AnalyticsEntry[];
+  weeklyAnalytics?: AnalyticsEntry[];
+  monthlyAnalytics?: AnalyticsEntry[];
+  source?: 'vicharanashala' | 'annam' | 'whatsapp';
+  userType?: 'all' | 'external' | 'internal';
   badges?: { label: string; variant: BadgeVariant }[];
   icon?: string;
+  querySummaries?: {
+    daily: { label: string; totalQueries: number };
+    weekly: { label: string; totalQueries: number };
+    monthly: { label: string; totalQueries: number };
+  };
 }
 export interface TopCropsResponse {
   totalQuestions: number;

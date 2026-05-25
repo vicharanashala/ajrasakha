@@ -16,6 +16,7 @@ from config import (
     LANGGRAPH_ASSISTANT_ID,
     LANGGRAPH_BASE_URL,
     LOCATION_SYNC_TO_DB,
+    QUESTION_SOURCE,
     REQUEST_TIMEOUT,
 )
 from mongo_user import update_user_location_if_changed
@@ -27,8 +28,17 @@ from reviewer_question import (
 
 logger = logging.getLogger("langgraph-openai-adapter")
 
-# Nodes whose streamed tokens must not be shown to the user (internal tool loop).
-_BLOCK_STREAM_NODES = frozenset({"tools"})
+# Farmer-facing graph nodes may stream tokens to the client.
+_FARMER_FACING_STREAM_NODES = frozenset({"synthesize", "clarify", "empty_gdb_reply"})
+# Internal nodes must never stream (sanitizer JSON, tool loop, planner, etc.).
+_BLOCK_STREAM_NODES = frozenset({
+    "tools",
+    "retrieval_sanitizer",
+    "planner",
+    "execute_plan",
+    "ensure_location",
+    "sanitize_answer",
+})
 
 
 def _langgraph_headers() -> dict[str, str]:
@@ -262,8 +272,11 @@ def build_run_config(
     request_headers: dict[str, str],
     thread_id: str,
 ) -> dict[str, Any]:
-    """LangGraph run config for long-term memory (see ajrasakha.py _load_long_term_summary)."""
-    configurable: dict[str, Any] = {"thread_id": thread_id}
+    """LangGraph run config for long-term memory and reviewer upload source."""
+    configurable: dict[str, Any] = {
+        "thread_id": thread_id,
+        "question_source": QUESTION_SOURCE,
+    }
     for key in ("x-user-id", "X-User-ID"):
         user_id = request_headers.get(key)
         if user_id and str(user_id).strip():
@@ -344,16 +357,76 @@ async def _thread_has_messages(client: httpx.AsyncClient, thread_id: str) -> boo
         return False
 
 
+def _langgraph_node_name(metadata: Any) -> str | None:
+    if not isinstance(metadata, dict):
+        return None
+    node = metadata.get("langgraph_node") or metadata.get("node")
+    return str(node) if node else None
+
+
+def _looks_like_sanitizer_json(text: str) -> bool:
+    """Detect retrieval_sanitizer batch JSON leaking into the message stream."""
+    cleaned = text.strip()
+    if not cleaned.startswith("["):
+        return False
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(data, list) or not data:
+        return False
+    first = data[0]
+    return isinstance(first, dict) and "pair_key" in first and "relevance_score" in first
+
+
+def _is_blocked_stream_node(metadata: Any) -> bool:
+    node = _langgraph_node_name(metadata)
+    return bool(node and node in _BLOCK_STREAM_NODES)
+
+
 def _should_emit_message_chunk(message_chunk: Any, metadata: Any) -> bool:
+    """True when this chunk belongs to a farmer-facing node with text content."""
     msg_type = _message_type(message_chunk).lower()
     if msg_type and msg_type not in ("ai", "aimessagechunk", "assistant"):
         return False
-    if isinstance(metadata, dict):
-        node = metadata.get("langgraph_node") or metadata.get("node")
-        if node in _BLOCK_STREAM_NODES:
-            return False
+    if _has_tool_calls(message_chunk):
+        return False
+    if _is_blocked_stream_node(metadata):
+        return False
     text = _extract_text_content(message_chunk)
-    return bool(text)
+    if not text or _looks_like_sanitizer_json(text):
+        return False
+    node = _langgraph_node_name(metadata)
+    if node:
+        return node in _FARMER_FACING_STREAM_NODES
+    # Some LangGraph chunks omit langgraph_node; allow prose, block known JSON.
+    return True
+
+
+def _stream_delta_content(streamed_so_far: str, chunk_text: str) -> str:
+    """Return only the new text to emit (handles token deltas and cumulative chunks)."""
+    if not chunk_text:
+        return ""
+    if not streamed_so_far:
+        return chunk_text
+    if chunk_text.startswith(streamed_so_far):
+        return chunk_text[len(streamed_so_far) :]
+    if streamed_so_far.endswith(chunk_text):
+        return ""
+    return chunk_text
+
+
+def _suffix_after_streamed(streamed: str, final: str) -> str:
+    """Post-processed tail (sources, disclaimers) not yet sent during token stream."""
+    if not final:
+        return ""
+    if not streamed:
+        return final
+    if final.startswith(streamed):
+        return final[len(streamed) :]
+    if streamed.startswith(final):
+        return ""
+    return final
 
 
 def _has_tool_calls(message: Any) -> bool:
@@ -498,7 +571,7 @@ async def stream_openai_from_langgraph(
                 response.raise_for_status()
 
             current_event: str | None = None
-            emitted_content = False
+            streamed_text = ""
             async for line in response.aiter_lines():
                 current_event, data = _parse_langgraph_sse_line(line, current_event)
                 if data is None:
@@ -518,21 +591,44 @@ async def stream_openai_from_langgraph(
                 if not _should_emit_message_chunk(message_chunk, metadata):
                     continue
 
-                text = _extract_text_content(message_chunk)
-                emitted_content = True
-                chunk = _openai_chunk(content=text, model=model, chunk_id=chunk_id)
+                chunk_text = _extract_text_content(message_chunk)
+                delta = _stream_delta_content(streamed_text, chunk_text)
+                if not delta:
+                    continue
+
+                streamed_text += delta
+                chunk = _openai_chunk(content=delta, model=model, chunk_id=chunk_id)
                 yield f"data: {json.dumps(chunk)}\n\n"
 
-            if not emitted_content:
-                fallback_line = await _emit_final_reply_fallback(
+            final_reply = ""
+            try:
+                messages = await fetch_thread_messages(
                     client,
                     thread_id,
-                    model=model,
-                    chunk_id=chunk_id,
-                    lg_headers=lg_headers,
+                    langgraph_base_url=LANGGRAPH_BASE_URL,
+                    langgraph_headers=lg_headers,
                 )
-                if fallback_line:
-                    yield fallback_line
+                final_reply = _final_ai_reply_from_messages(messages)
+            except httpx.HTTPError as exc:
+                logger.warning(
+                    "Failed to fetch thread state for stream tail (thread=%s): %s",
+                    thread_id,
+                    exc,
+                )
+
+            if not streamed_text and final_reply:
+                chunk = _openai_chunk(content=final_reply, model=model, chunk_id=chunk_id)
+                yield f"data: {json.dumps(chunk)}\n\n"
+            else:
+                tail = _suffix_after_streamed(streamed_text, final_reply)
+                if tail:
+                    chunk = _openai_chunk(content=tail, model=model, chunk_id=chunk_id)
+                    yield f"data: {json.dumps(chunk)}\n\n"
+                elif not streamed_text and not final_reply:
+                    logger.warning(
+                        "LangGraph run completed with no farmer-facing assistant text (thread=%s)",
+                        thread_id,
+                    )
 
         reviewer_question_id = await link_reviewer_question_after_run(
             client,

@@ -211,6 +211,9 @@ export interface IAnswerRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    state?: string[],
+    source?: string[],
+    status?: string[],
   ): Promise<{analytics: Analytics}>;
 
 
