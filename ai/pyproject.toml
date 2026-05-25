@@ -25,6 +25,7 @@ dependencies = [
     "langchain-mcp-adapters",
     "langchain-anthropic>=1.4.1",
     "motor>=3.7.1",
+    "openpyxl>=3.1.0",
 ]
 
 [build-system]

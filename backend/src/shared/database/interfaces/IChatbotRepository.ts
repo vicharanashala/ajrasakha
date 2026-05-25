@@ -280,7 +280,7 @@ export interface IChatbotRepository {
   /** Percentage breakdown of sessions by query category, sorted descending. */
   getQueryCategories(source?: string, session?: ClientSession, userType?: string): Promise<QueryCategoryEntry[]>;
 
-  getTopCrops(session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getTopCrops(source?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
@@ -376,6 +376,16 @@ export interface IChatbotRepository {
     session?: ClientSession,
   ): Promise<ChatbotConversationData[]>;
 
+  generateChatBotData(    
+    startDate: Date,
+    endDate: Date,
+    days: number,
+    userType: string,
+    month?: string,
+    source?: string,
+    session?: ClientSession,
+  )
+
   /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
   getUserDemographics(source?: string, session?: ClientSession, userType?: string): Promise<UserDemographics>;
 
@@ -400,6 +410,7 @@ export interface IChatbotRepository {
   /** Daily unique vs duplicate questions asked on the review system (source AJRASAKHA). */
   getDailyQuestionTrends(
     days?: number,
+    source?: string,
     session?: ClientSession,
     userType?: string,
     startTime?: string,
@@ -456,7 +467,13 @@ export interface IChatbotRepository {
 
   getWeeklyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
 
-  getRetentionMetrics (session?: ClientSession): Promise<any>
+  getRetentionMetrics (    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
+    requestType: string,
+    session?: ClientSession,
+  ): Promise<any>
 
   getQuerySummaryByPeriod(
     period: 'daily' | 'weekly' | 'monthly',

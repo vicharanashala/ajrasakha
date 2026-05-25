@@ -65,6 +65,9 @@ class PlannerPlan(TypedDict, total=False):
     rephrased_query: Optional[str]
     original_query_en: Optional[str]
     gdb_has_data: bool  # True when GDB returned exact or similar matches
+    vocal_language: Optional[str]  # Spoken language from planner (OFFICIAL_LANGUAGES)
+    script_language: Optional[str]  # Writing system from planner; use English for Latin/Roman
+    farmer_language: Optional[str]  # Deprecated: use vocal_language + script_language
 
 
 def merge_plan(

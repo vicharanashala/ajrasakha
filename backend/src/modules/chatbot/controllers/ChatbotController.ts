@@ -37,7 +37,7 @@ import {
   TopCropsResponse,
   DistrictAnalyticsEntryResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
-import { ActiveUsersQuery, GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
+import { ActiveUsersQuery, GrowthQuery, GrowthResponse, RetentionMetricsQuery } from '../types/chatbot.type.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 
@@ -330,8 +330,8 @@ async getDistrictAnalyticsByState(
   @Get('/top-crops')
   @HttpCode(200)
   @Authorized()
-  async getTopCrops() {
-    return this.chatbotService.getTopCrops();
+  async getTopCrops(@QueryParams() query: {source?: string },) {
+    return this.chatbotService.getTopCrops(query.source);
   }
 
   @OpenAPI({ 
@@ -398,27 +398,128 @@ async getDistrictAnalyticsByState(
     );
   }
 
+  // @Get('/download-chatbot-report')
+  // @Authorized()
+  // @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  // @OpenAPI({ summary: 'Download chatbot conversations as Excel (date range, max 1 month)' })
+  // async downloadChatbotReport(
+  //   @QueryParams() query: { startDate?: string; endDate?: string; source?: string; downloadFormat?: string },
+  //   @Res() response: any,
+  // ) {
+  //   if (!query.startDate || !query.endDate) {
+  //     response.status(400).json({ success: false, message: 'startDate and endDate are required' });
+  //     return;
+  //   }
+  //   const startDate = new Date(query.startDate);
+  //   const endDate = new Date(query.endDate);
+  //   const data = await this.chatbotService.generateChatbotExcelReport(startDate, endDate, query.source);
+  //   if (!data) {
+  //     response.status(200).json({ success: false, message: 'No data found for the selected date range' });
+  //     return;
+  //   }
+  //   return Buffer.from(data as ArrayBuffer);
+  // }
+
   @Get('/download-chatbot-report')
-  @Authorized()
-  @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  @OpenAPI({ summary: 'Download chatbot conversations as Excel (date range, max 1 month)' })
-  async downloadChatbotReport(
-    @QueryParams() query: { startDate?: string; endDate?: string; source?: string },
-    @Res() response: any,
-  ) {
+@Authorized()
+@OpenAPI({
+  summary:
+    'Download chatbot analytics report as Excel or PDF',
+})
+async downloadChatbotReport(
+  @QueryParams()
+  query: {
+    startDate?: string;
+    endDate?: string;
+    source?: string;
+    downloadFormat?: 'pdf' | 'xlsx';
+  },
+
+  @Res() response: any,
+) {
+  try {
     if (!query.startDate || !query.endDate) {
-      response.status(400).json({ success: false, message: 'startDate and endDate are required' });
-      return;
+      return response.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required',
+      });
     }
+
     const startDate = new Date(query.startDate);
     const endDate = new Date(query.endDate);
-    const data = await this.chatbotService.generateChatbotExcelReport(startDate, endDate, query.source);
-    if (!data) {
-      response.status(200).json({ success: false, message: 'No data found for the selected date range' });
-      return;
+
+    const format = query.downloadFormat || 'xlsx';
+
+    let data: ArrayBuffer | Buffer | null = null;
+
+    // ─────────────────────────────────────
+    // PDF
+    // ─────────────────────────────────────
+
+    if (format === 'pdf') {
+      data =
+        await this.chatbotService.generateChatbotAnalyticsPdfReport(
+          startDate,
+          endDate,
+          query.source,
+        );
+
+      if (!data) {
+        return response.status(200).json({
+          success: false,
+          message:
+            'No data found for selected date range',
+        });
+      }
+
+      response.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition':
+          `attachment; filename=chatbot-report-${Date.now()}.pdf`,
+      });
+
+      return response.send(data);
     }
-    return Buffer.from(data as ArrayBuffer);
+
+    // ─────────────────────────────────────
+    // EXCEL
+    // ─────────────────────────────────────
+
+    data =
+      await this.chatbotService.generateChatbotAnalyticsExcelReport(
+        startDate,
+        endDate,
+        query.source,
+      );
+
+    if (!data) {
+      return response.status(200).json({
+        success: false,
+        message:
+          'No data found for selected date range',
+      });
+    }
+
+    response.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+
+      'Content-Disposition':
+        `attachment; filename=chatbot-report-${Date.now()}.xlsx`,
+    });
+
+    return response.send(Buffer.from(data));
+  } catch (error) {
+    return response.status(500).json({
+      success: false,
+      message: 'Failed to download report',
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Unknown error',
+    });
   }
+}
 
   @OpenAPI({ 
     summary: 'Get user growth metrics',
@@ -469,12 +570,12 @@ async getDistrictAnalyticsByState(
         throw new Error('startDate cannot be after endDate.');
       }
 
-      const data = await this.chatbotService.getGrowth(30, startDate, endDate);
+      const data = await this.chatbotService.getGrowth(query.source, 30, startDate, endDate);
       return data;
     }
 
     const range = Number(query.range) || 30;
-    const data = await this.chatbotService.getGrowth(range);
+    const data = await this.chatbotService.getGrowth(query.source, range);
     return data
   }
 
@@ -606,8 +707,27 @@ async getDistrictAnalyticsByState(
   @Get('/retention-metrics')
   @HttpCode(200)
   @Authorized()
-  async getRetentionMetrics(): Promise<any> {
-    return await this.chatbotService.getRetentionMetrics();
+  async getRetentionMetrics(@QueryParams() query: RetentionMetricsQuery): Promise<any> {
+    const startDate = new Date(query.startDate!);
+    const endDate = new Date(query.endDate!);
+    const source = query.source;
+    const userType = query.userType;
+    const requestType = query.requestType;
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new Error('Invalid startDate or endDate.');
+    }
+
+    if (startDate > endDate) {
+      throw new Error('startDate cannot be after endDate.');
+    }
+    return await this.chatbotService.getRetentionMetrics(    
+      startDate,
+      endDate,
+      source,
+      userType,
+      requestType
+    );
   }
 
 @Get('/user-questions-data')
