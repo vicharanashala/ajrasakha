@@ -200,7 +200,33 @@ def text_matches_user_language(answer: str, user_message: str) -> bool:
         return answer_script == user_script
 
 
-def language_directive_for_synthesis(lang_label: str) -> str:
+def language_directive_for_synthesis(
+    vocal_language: str,
+    script_language: Optional[str] = None,
+    *,
+    lang_label: Optional[str] = None,
+) -> str:
+    """Force synthesizer to emit English body; translation uses vocal + script from plan."""
+    if lang_label is not None and script_language is None:
+        from ajrasakha.agents.translation_catalog import synthesis_lang_label
+        return _language_directive_legacy_label(lang_label)
+
+    from ajrasakha.agents.translation_catalog import synthesis_lang_label
+
+    script = (script_language or vocal_language or "English").strip()
+    vocal = (vocal_language or "English").strip()
+    label = synthesis_lang_label(script, vocal)
+    return (
+        "OUTPUT CONTRACT (NON-NEGOTIABLE):\n"
+        "Write ONLY the farming answer body in clear English.\n"
+        "Translate all tool facts into English in the body.\n"
+        "Do NOT add sources, testing disclaimers, 2-hour expert-queue text, or footers.\n"
+        f"A later step will deliver the answer to the farmer in vocal language {vocal} "
+        f"using script {script} (display label: {label})."
+    )
+
+
+def _language_directive_legacy_label(lang_label: str) -> str:
     """System text that forces the synthesizer to match the farmer's language and script."""
     
     if lang_label == "English":
@@ -439,26 +465,46 @@ _LOCALIZED_EXPERT_PREFIX = {
 }
 
 
-def get_localized_warning_text(lang_label: str) -> str:
-    """Return warning disclaimer text matching the query's script/language."""
-    # Sort longest key first so "Romanized Telugu" matches before "Telugu" etc.
-    for k, v in sorted(_LOCALIZED_WARNINGS.items(), key=lambda x: -len(x[0])):
-        if k.lower() == lang_label.lower():
-            return v
-    if "roman" in lang_label.lower() or "latin" in lang_label.lower() or lang_label == "Hinglish":
-        return _LOCALIZED_WARNINGS["Hinglish"]
-    return _LOCALIZED_WARNINGS["English"]
+def _pair_from_lang_label(lang_label: str) -> tuple[str, str]:
+    """Map legacy lang_label to (script, vocal) for catalog lookup."""
+    label = (lang_label or "English").strip()
+    if label == "English":
+        return "English", "English"
+    if label == "Hinglish":
+        return "English", "Hindi"
+    if label.startswith("Romanized "):
+        return "English", label.replace("Romanized ", "", 1).strip()
+    return label, label
 
 
-def get_localized_empty_reply_body(lang_label: str) -> str:
-    """Return expert-queue canned reply matching the query's script/language."""
-    # Sort longest key first so "Romanized Telugu" matches before "Telugu" etc.
-    for k, v in sorted(_LOCALIZED_EMPTY_REPLIES.items(), key=lambda x: -len(x[0])):
-        if k.lower() == lang_label.lower():
-            return v
-    if "roman" in lang_label.lower() or "latin" in lang_label.lower() or lang_label == "Hinglish":
-        return _LOCALIZED_EMPTY_REPLIES["Hinglish"]
-    return _LOCALIZED_EMPTY_REPLIES["English"]
+def get_localized_warning_text(
+    lang_label: str = "English",
+    *,
+    script_language: Optional[str] = None,
+    vocal_language: Optional[str] = None,
+) -> str:
+    """Return exact testing disclaimer from translated_languages.xlsx."""
+    from ajrasakha.agents.translation_catalog import get_testing_disclaimer
+
+    if script_language is not None and vocal_language is not None:
+        return get_testing_disclaimer(script_language, vocal_language)
+    script, vocal = _pair_from_lang_label(lang_label)
+    return get_testing_disclaimer(script, vocal)
+
+
+def get_localized_empty_reply_body(
+    lang_label: str = "English",
+    *,
+    script_language: Optional[str] = None,
+    vocal_language: Optional[str] = None,
+) -> str:
+    """Return exact 2-hour expert-queue text from translated_languages.xlsx."""
+    from ajrasakha.agents.translation_catalog import get_two_hour_disclaimer
+
+    if script_language is not None and vocal_language is not None:
+        return get_two_hour_disclaimer(script_language, vocal_language)
+    script, vocal = _pair_from_lang_label(lang_label)
+    return get_two_hour_disclaimer(script, vocal)
 
 
 def get_localized_sources_header(lang_label: str) -> str:
@@ -521,24 +567,30 @@ _LOCALIZED_CROP_QUESTIONS = {
 }
 
 
-def get_localized_state_question(lang_label: str) -> str:
-    """Return state follow-up question matching the query's script/language."""
-    # Sort longest key first so "Romanized Telugu" matches before "Telugu" etc.
-    for k, v in sorted(_LOCALIZED_STATE_QUESTIONS.items(), key=lambda x: -len(x[0])):
-        if k.lower() == lang_label.lower():
-            return v
-    if "roman" in lang_label.lower() or "latin" in lang_label.lower() or lang_label == "Hinglish":
-        return _LOCALIZED_STATE_QUESTIONS["Hinglish"]
-    return _LOCALIZED_STATE_QUESTIONS["English"]
+def get_localized_state_question(
+    lang_label: str = "English",
+    *,
+    script_language: Optional[str] = None,
+    vocal_language: Optional[str] = None,
+) -> str:
+    from ajrasakha.agents.translation_catalog import get_state_follow_up
+
+    if script_language is not None and vocal_language is not None:
+        return get_state_follow_up(script_language, vocal_language)
+    script, vocal = _pair_from_lang_label(lang_label)
+    return get_state_follow_up(script, vocal)
 
 
-def get_localized_crop_question(lang_label: str) -> str:
-    """Return crop follow-up question matching the query's script/language."""
-    # Sort longest key first so "Romanized Telugu" matches before "Telugu" etc.
-    for k, v in sorted(_LOCALIZED_CROP_QUESTIONS.items(), key=lambda x: -len(x[0])):
-        if k.lower() == lang_label.lower():
-            return v
-    if "roman" in lang_label.lower() or "latin" in lang_label.lower() or lang_label == "Hinglish":
-        return _LOCALIZED_CROP_QUESTIONS["Hinglish"]
-    return _LOCALIZED_CROP_QUESTIONS["English"]
+def get_localized_crop_question(
+    lang_label: str = "English",
+    *,
+    script_language: Optional[str] = None,
+    vocal_language: Optional[str] = None,
+) -> str:
+    from ajrasakha.agents.translation_catalog import get_crop_follow_up
+
+    if script_language is not None and vocal_language is not None:
+        return get_crop_follow_up(script_language, vocal_language)
+    script, vocal = _pair_from_lang_label(lang_label)
+    return get_crop_follow_up(script, vocal)
 
