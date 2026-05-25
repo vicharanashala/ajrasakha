@@ -1,5 +1,8 @@
 import * as dotenv from 'dotenv';
-dotenv.config(); // { path: `.env.${process.env.NODE_ENV}` }
+const envFile = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
+dotenv.config({path: envFile}); // { path: `.env.${process.env.NODE_ENV}` }
+
+console.log(`[env] Loaded environment file: ${envFile}`);
 
 export function env(key: string, defaultValue: null | string = null): string {
   return process.env[key] ?? (defaultValue as string);
