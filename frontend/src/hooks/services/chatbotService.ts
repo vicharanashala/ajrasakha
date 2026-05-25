@@ -135,7 +135,7 @@ export class ChatbotService {
     inactiveUsersPage: number
   ): Promise<any> {
     return apiFetch<any>(
-      `${this._whatsAppBaseUrl}/inactive-users?page=${inactiveUsersPage}&limit=5`,
+      `${this._whatsAppBaseUrl}/inactive-users?page=${inactiveUsersPage}&limit=10`,
     );
   }
 }
