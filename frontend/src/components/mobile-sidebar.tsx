@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bot,
   Clock,
+  Database,
   History,
   List,
   Menu,
@@ -122,6 +123,10 @@ export const MobileSidebar = ({
             icon: Bot,
           },
         ]
+      : []),
+
+    ...(user && (user.role === "moderator" || user.role === "admin")
+      ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
     ...(user ? [{ id: "history", label: "History", icon: History }] : []),
