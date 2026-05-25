@@ -55,6 +55,7 @@ import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
 import { useInactiveWhatsappUsers, useQueryCategories } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
+import { motion, AnimatePresence } from "framer-motion";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -801,6 +802,39 @@ useEffect(() => {
                         averageRating={data?.feedbackData?.stats?.averageRating}
                       />
                     )}
+                  </div>
+
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
+                      ref={(el) => {
+                        sectionRefs.current["query-analysis"] = el;
+                      }}
+                      className="h-full"
+                    >
+                      <DashboardQueryCategories
+                        categories={source === "whatsapp" ? queryCategories : data.queryCategories}
+                      />
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, ease: "easeOut", delay: 0.08 }}
+                      ref={(el) => {
+                        sectionRefs.current["feedback-sentiment"] = el;
+                      }}
+                      className="h-full"
+                    >
+                      <TopCropsCard
+                        topCrops={topCrops}
+                        isLoadingTopCrops={isLoadingTopCrops}
+                        errorLoadingtopCrops={errorLoadingtopCrops}
+                      />
+                    </motion.div>
                   </div>
 
                   {/* Chatbot Quality & FAQ Analytics Section Header */}
