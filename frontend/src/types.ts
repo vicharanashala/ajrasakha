@@ -583,6 +583,7 @@ export interface IDetailedQuestion {
     queue: IUserRef[];
   };
   pae_review?: boolean;
+  is_non_agri?: boolean;
   similarityScore?: number;        // percentage (0–100)
   referenceQuestionId?: string;
   referenceQuestion?: string
