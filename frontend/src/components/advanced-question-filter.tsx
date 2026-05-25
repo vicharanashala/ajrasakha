@@ -125,6 +125,7 @@ export type AdvanceFilterValues = {
   duplicateQuestions?: boolean;
   isOnHold?: boolean;
   pae_review?: boolean;
+  is_non_agri?: boolean;
 };
 
 

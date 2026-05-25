@@ -88,6 +88,10 @@ export class QuestionService {
       params.append("pae_review", "true");
     }
 
+    if (filter.is_non_agri === true) {
+      params.append("is_non_agri", "true");
+    }
+
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
     if (filter.states && filter.states.length > 0) {
@@ -760,6 +764,10 @@ export class QuestionService {
 
     if (filter.pae_review === true) {
       params.append("pae_review", "true");
+    }
+
+    if (filter.is_non_agri === true) {
+      params.append("is_non_agri", "true");
     }
 
     // states and normalisedCrops sent as JSON arrays in request body
