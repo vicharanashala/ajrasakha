@@ -333,15 +333,15 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       const from = format(downloadDateRange.from, "yyyy-MM-dd");
       const to = format(downloadDateRange.to, "yyyy-MM-dd");
       const blob = await svc.downloadChatbotReport(
-  from,
-  to,
-  source,
-  downloadFormat
-);
+        from,
+        to,
+        source,
+        downloadFormat,
+      );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `chatbot-report-${from}-to-${to}.${downloadFormat}`;;
+      a.download = `chatbot-report-${from}-to-${to}.${downloadFormat}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -497,21 +497,28 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           </DialogHeader>
           <div className="space-y-3 overflow-y-auto flex-1 py-2">
             <div className="flex items-center gap-2 text-xs bg-primary/5 p-2 rounded-md border border-primary/20">
-                <div className="flex gap-2">
-  <Button
-    variant={downloadFormat === "pdf" ? "default" : "outline"}
-    onClick={() => setDownloadFormat("pdf")}
-  >
-    PDF
-  </Button>
+              <div className="flex gap-2 items-center">
+                <Button
+                  variant={downloadFormat === "pdf" ? "default" : "outline"}
+                  onClick={() => setDownloadFormat("pdf")}
+                >
+                  PDF
+                </Button>
 
-  <Button
-    variant={downloadFormat === "xlsx" ? "default" : "outline"}
-    onClick={() => setDownloadFormat("xlsx")}
-  >
-    Excel
-  </Button>
-</div>
+                <Button
+                  variant={downloadFormat === "xlsx" ? "default" : "outline"}
+                  onClick={() => setDownloadFormat("xlsx")}
+                >
+                  Excel
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => setDownloadDateRange(undefined)}
+                >
+                  Reset
+                </Button>
+              </div>
               <CalendarIcon className="h-4 w-4 text-primary flex-shrink-0" />
               <span className="font-medium text-sm">
                 {downloadDateRange?.from && downloadDateRange?.to
@@ -557,7 +564,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               ) : (
                 <>
                   <Download className="h-4 w-4 mr-2" />
-                  Download Excel
+                  {downloadFormat === "pdf" ? "Download PDF" : "Download Excel"}
                 </>
               )}
             </Button>
@@ -754,7 +761,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                       <div
                         key={item.view}
                         onClick={() => {
-                            handleNavClick(item.view);
+                          handleNavClick(item.view);
                         }}
                         role="button"
                         tabIndex={0}

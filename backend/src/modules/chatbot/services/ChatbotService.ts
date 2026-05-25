@@ -1281,7 +1281,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         },
         {
           metric: 'Average Session Duration',
-          value: `${reportData.averageSession} min` || "0 min",
+          value: reportData.averageSession ?? 0,
         },
         {
           metric: 'Daily Active Users',
@@ -1380,8 +1380,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
         source,
         userType,
       );
-
-      console.log('reported date:', reportData);
 
       const doc = new PDFDocument({
         margin: 40,
