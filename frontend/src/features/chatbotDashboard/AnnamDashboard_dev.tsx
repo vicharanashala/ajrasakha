@@ -872,6 +872,17 @@ useEffect(() => {
                     </div>
                   )}
                   {source !== "whatsapp" && (
+                    <div className="mt-4 mb-4">
+                      <WeatherConcernAnalyticsCard
+                        source={source}
+                        userType={filters.userType}
+                        filters={weatherConcernFilters}
+                        onFiltersChange={setWeatherConcernFilters}
+                      />
+                    </div>
+                  )}
+                
+                  {source !== "whatsapp" && (
                     <div
                       ref={(el) => {
                         sectionRefs.current["user-details"] = el;
@@ -881,16 +892,6 @@ useEffect(() => {
                         source={source}
                         initialFilters={userDetailsInitialFilters}
                         userType={filters.userType}
-                      />
-                    </div>
-                  )}
-                  {source !== "whatsapp" && (
-                    <div className="mt-4 mb-4">
-                      <WeatherConcernAnalyticsCard
-                        source={source}
-                        userType={filters.userType}
-                        filters={weatherConcernFilters}
-                        onFiltersChange={setWeatherConcernFilters}
                       />
                     </div>
                   )}
