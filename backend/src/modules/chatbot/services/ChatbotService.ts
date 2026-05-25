@@ -22,6 +22,7 @@ import {
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 
 import PDFDocument from 'pdfkit';
+import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -134,7 +135,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         this.chatbotRepository.getFeedbackData(source, undefined, userType),
         this.chatbotRepository.getDailyQuestionTrends(
           days,
-          undefined,
+         source, undefined,
           userType,
           startTime,
           endTime,
@@ -357,9 +358,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTopCrops() {
+  async getTopCrops(source?: string) {
     try {
-      return await this.chatbotRepository.getTopCrops();
+      return await this.chatbotRepository.getTopCrops(source);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top crops: ${error}`);
     }
@@ -1484,6 +1485,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getGrowth(
+    source: string,
     range: number,
     startDate?: Date,
     endDate?: Date,
@@ -1491,7 +1493,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     return await this._withTransaction(async session => {
       const resolvedEndDate = endDate ? new Date(endDate) : new Date();
       const resolvedStartDate = startDate ? new Date(startDate) : new Date();
-
+      if(source === "whatsapp"){
+        return this.getWhatsappUserGrowth(resolvedStartDate, resolvedEndDate);
+      }
       if (!startDate) {
         resolvedStartDate.setDate(resolvedEndDate.getDate() - range);
       }
@@ -1551,6 +1555,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     try {
       return await this.chatbotRepository.getDailyQuestionTrends(
         days,
+        undefined,
         undefined,
         userType,
       );
@@ -1675,13 +1680,87 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getRetentionMetrics() {
+  async getRetentionMetrics(    
+      startDate: Date,
+      endDate: Date,
+      source: string,
+      userType: string,
+      requestType: string,
+    ) {
     try {
-      return await this.chatbotRepository.getRetentionMetrics();
+      return await this.chatbotRepository.getRetentionMetrics(   
+         startDate,
+          endDate,
+          source,
+          userType,
+          requestType,
+      );
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch Retention Metrics: ${error}`,
       );
     }
+  }
+
+  async getWhatsappUserGrowth(
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const labels: string[] = [];
+
+    const idsCreated: number[] = [];
+    const installs: number[] = [];
+    const activeUsers: number[] = [];
+
+    // Generate labels
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+      labels.push(
+        current.toISOString().split("T")[0],
+      );
+      current.setDate(
+        current.getDate() + 1,
+      );
+    }
+
+    for (const label of labels) {
+      // IDs Created
+      const createdCount = WhatsappUsers.filter(
+        (user) =>
+          user.firstMessageAt.startsWith(
+            label,
+          ),
+      ).length;
+      idsCreated.push(createdCount);
+
+      // Installs
+      // assuming install = first interaction
+      const installsCount = WhatsappUsers.filter(
+        (user) =>
+          user.firstMessageAt.startsWith(
+            label,
+          ),
+      ).length;
+      installs.push(installsCount);
+
+      // Active users
+      const activeCount = WhatsappUsers.filter(
+        (user) =>
+          user.lastMessageAt.startsWith(
+            label,
+          ),
+      ).length;
+      activeUsers.push(activeCount);
+    }
+
+    return {
+      labels,
+      series: {
+        idsCreated,
+        installs,
+        activeUsers,
+      },
+    };
   }
 }

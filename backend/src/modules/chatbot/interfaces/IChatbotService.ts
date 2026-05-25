@@ -73,7 +73,7 @@ export interface IChatbotService {
   getVoiceAccuracyByLanguage(source?: string): Promise<VoiceAccuracyEntry[]>;
   getGeoDistribution(source?: string): Promise<GeoStateEntry[]>;
   getQueryCategories(source?: string, userType?: string): Promise<QueryCategoryEntry[]>;
-  getTopCrops(): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getTopCrops(source?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   getDailyAnalytics(month?: string, source?: string, userType?: string): Promise<any[]>;
   getTodayQueryCount(source?: string, userType?: string): Promise<number>;
@@ -98,7 +98,7 @@ export interface IChatbotService {
 
   generateChatbotAnalyticsPdfReport(startDate: Date, endDate: Date, source?:string):Promise<Buffer>;
   generateChatbotAnalyticsExcelReport(startDate: Date, endDate: Date, source?: string):Promise<ArrayBuffer | null>;
-  getGrowth(range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
+  getGrowth(source: string, range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
   getDailyQuestionTrends(days?: number, userType?: string): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
@@ -136,6 +136,11 @@ export interface IChatbotService {
   getDailyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string):Promise<any>;
   getMonthlyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string): Promise<any>;
   getWeeklyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string): Promise<any>;
-  getRetentionMetrics(): Promise<any>;
+  getRetentionMetrics(  
+      startDate: Date,
+      endDate: Date,
+      source: string,
+      userType: string,
+      requestType: string,): Promise<any>;
   getUserQuestionsData(userEmail: string, source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
 }
