@@ -334,7 +334,11 @@ export class CropRepository implements ICropRepository {
 
       const escaped = CropRepository.escapeRegex(cropName.trim());
       //const regex = new RegExp(`^${escaped}$`, 'i');
-      const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+     // const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+    const regex = new RegExp(
+      `(^|\\s*,\\s*)${escaped}(\\s*,\\s*|$)`,
+      'i'
+    );
 
       const crop = await this.CropCollection.findOne({
         $and: [
