@@ -11,7 +11,11 @@ from ajrasakha.agents.plan_executor import (
     route_after_sanitizer,
     should_expert_queue_reply,
 )
-from ajrasakha.agents.prompts import EMPTY_GDB_REPLY, EXPERT_QUEUE_REPLY_MARKER, WARNING_TEXT
+from ajrasakha.agents.prompts import EXPERT_QUEUE_REPLY_MARKER
+from ajrasakha.agents.translation_catalog import (
+    get_testing_disclaimer,
+    get_two_hour_disclaimer,
+)
 from ajrasakha.agents.state import AjraSakhaState
 
 
@@ -96,6 +100,5 @@ async def test_empty_gdb_reply_content():
     text = result["messages"][0].content
     assert EXPERT_QUEUE_REPLY_MARKER in text
     assert "Thank You." in text
-    assert "Important Notice (Testing)" in text
-    assert WARNING_TEXT.strip() in text
-    assert text == EMPTY_GDB_REPLY
+    expected = f"{get_two_hour_disclaimer('English', 'English')}\n\n{get_testing_disclaimer('English', 'English')}"
+    assert text == expected
