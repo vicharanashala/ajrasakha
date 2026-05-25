@@ -32,6 +32,7 @@ export interface UserDetail {
   userId: string;
   name: string;
   email: string;
+  role?: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
 }

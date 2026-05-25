@@ -40,6 +40,7 @@ interface IUser {
   name?: string;
   username?: string;
   email?: string;
+  role?: string;
   createdAt: Date;
   updatedAt: Date;
   farmerProfile?: {
@@ -3523,6 +3524,7 @@ export class ChatbotRepository implements IChatbotRepository {
         userId: String(u._id),
         name: u.name || u.username || 'Unknown',
         email: u.email || '',
+        role: u.role || "",
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         createdAt: u.createdAt,
         farmerProfile: u.farmerProfile
@@ -5517,6 +5519,7 @@ export class ChatbotRepository implements IChatbotRepository {
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -5541,6 +5544,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<boolean> {
     try {
       await this.init(source);
+      const appUsersCollection = await this.db.getCollection<any>('users');
 
       const setPayload: Record<string, any> = {
         updatedAt: new Date(),
@@ -5550,6 +5554,13 @@ export class ChatbotRepository implements IChatbotRepository {
         const trimmedName = data.name.trim();
         if (trimmedName) {
           setPayload.name = trimmedName;
+        }
+      }
+
+      if (typeof data?.role === 'string') {
+        const trimmedRole = data.role.trim();
+        if (trimmedRole) {
+          setPayload.role = trimmedRole;
         }
       }
 

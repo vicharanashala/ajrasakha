@@ -618,6 +618,7 @@ async downloadChatbotReport(
     @Body()
     body: {
       name?: string;
+      role?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;

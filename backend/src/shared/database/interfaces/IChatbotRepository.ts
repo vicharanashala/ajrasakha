@@ -168,6 +168,7 @@ export interface UserDetailEntry {
   userId: string;
   name: string;
   email: string;
+  role?: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
@@ -457,6 +458,7 @@ export interface IChatbotRepository {
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: Partial<FarmerProfile>;
     },
   ): Promise<boolean>;
