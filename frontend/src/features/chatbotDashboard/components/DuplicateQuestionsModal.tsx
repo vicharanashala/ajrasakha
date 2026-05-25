@@ -10,7 +10,7 @@ import {
 
 interface DuplicateQuestionsModalProps {
   onClose: () => void;
-  source?: 'vicharanashala' | 'annam';
+  source?: 'vicharanashala' | 'annam' | 'whatsapp';
 }
 
 const DEFAULT_FILTERS: UserDetailsFilters = {
@@ -30,7 +30,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
 export function DuplicateQuestionsModal({ onClose, source = 'annam' }: DuplicateQuestionsModalProps) {
   const { data, isLoading, isError } = useDuplicateQuestions(true, source);
   const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
-
+  const currentOrigin = window.location.origin;
   const filtered = useMemo(() => {
     if (!data) return [];
     return data.filter(row => {
@@ -116,8 +116,24 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-[#1f1f1f] border-b border-gray-200 dark:border-[#2a2a2a]">
                 <tr>
-                  {['#', 'Farmer', 'Email', 'Village / Block', 'District / State', 'Question Asked', 'Similar To', 'Score'].map((h, i) => (
-                    <th
+              {/* {['#', 'Farmer', 'Email', 'Village / Block', 'District / State', 'Question Asked', 'Similar To', 'Score'].map((h, i) => ( */}
+                {[
+                  '#',
+                  source === 'whatsapp'
+                    ? 'Mobile Number'
+                    : 'Farmer',
+                  source === 'whatsapp'
+                    ? 'Thread ID'
+                    : 'Email',
+                  source === 'whatsapp'
+                    ? 'Created At'
+                    : 'Village / Block',
+                  'District / State',
+                  'Question Asked',
+                  'Similar To',
+                  'Score',
+                ].map((h, i) => (               
+                   <th
                       key={h}
                       className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 whitespace-nowrap ${i === 0 || i === 7 ? 'text-center' : 'text-left'}`}
                     >
@@ -135,17 +151,60 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
                     <td className="px-4 py-3 text-center text-xs text-gray-400 dark:text-gray-500 w-8 align-top">
                       {idx + 1}
                     </td>
+                      {/* <td className="px-4 py-3 align-top whitespace-nowrap">
+                        <span className="font-medium text-gray-800 dark:text-gray-100">
+                          {row.farmerName}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600 dark:text-gray-300">
+                        {row.email}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.village}</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{row.block}</div>
+                      </td> */}
+
                     <td className="px-4 py-3 align-top whitespace-nowrap">
-                      <span className="font-medium text-gray-800 dark:text-gray-100">
-                        {row.farmerName}
-                      </span>
+                      {source === 'whatsapp' ? (
+                        <a
+                          href={`${currentOrigin}/whatsapp-history?threadId="${row.mobileNumber}"`}   
+                          rel="noopener noreferrer"
+                          className="
+                            font-medium
+                            text-[#3AAA5A]
+                            hover:underline
+                          "
+                        >
+                          {row.mobileNumber}
+                        </a>
+                      ) : (
+                        <span className="font-medium text-gray-800 dark:text-gray-100">
+                          {row.farmerName}
+                        </span>
+                      )}
                     </td>
-                    <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600 dark:text-gray-300">
-                      {row.email}
+                    <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600 dark:text-gray-300 max-w-[220px]">
+                      {source === 'whatsapp'
+                        ? row.threadId
+                        : row.email}
                     </td>
+
                     <td className="px-4 py-3 align-top">
-                      <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.village}</div>
-                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{row.block}</div>
+                      {source === 'whatsapp' ? (
+                        <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                          {new Date(row.createdAt).toLocaleString()}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                            {row.village}
+                          </div>
+
+                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                            {row.block}
+                          </div>
+                        </>
+                      )}
                     </td>
                     <td className="px-4 py-3 align-top">
                       <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.district}</div>

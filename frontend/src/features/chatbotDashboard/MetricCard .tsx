@@ -562,7 +562,7 @@ export function EightCardsComponent({
     return idxA - idxB;
   });
 
-  console.log("Combinedkpis", combinedKpis);
+  // console.log("Combinedkpis", combinedKpis);
   return (
     <>
       {/* Original 2-row layout commented out as requested:

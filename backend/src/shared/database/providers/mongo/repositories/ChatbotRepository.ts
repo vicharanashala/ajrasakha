@@ -6329,6 +6329,7 @@ export class ChatbotRepository implements IChatbotRepository {
             originalQuestion?: string;
             similarityScore: number;
             createdAt: Date;
+            threadId?: string;
             details?: {
               state?: string;
               district?: string;
@@ -6339,6 +6340,7 @@ export class ChatbotRepository implements IChatbotRepository {
             originalQuestion: 1,
             similarityScore: 1,
             createdAt: 1,
+            threadId: 1,
             details: 1,
           })
           .sort({
@@ -6364,6 +6366,10 @@ export class ChatbotRepository implements IChatbotRepository {
           q.details?.district || "—",
         state:
           q.details?.state || "—",
+        threadId: q.threadId || "—",
+        mobileNumber: q.threadId
+          ? q.threadId.split("-")[0]
+          : "—",
       }));
       // console.log("--------------dupeQuestions------", result);
       return result;
