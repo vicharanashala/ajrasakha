@@ -1171,6 +1171,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       if (!reportData) return null;
 
+      console.log("Excel Report", reportData)
+
       // ─────────────────────────────────────────────────────────────
       // WORKBOOK SETUP
       // ─────────────────────────────────────────────────────────────

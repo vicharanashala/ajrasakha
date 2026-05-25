@@ -312,49 +312,112 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<"pdf" | "xlsx">("pdf");
 
+  // const handleDownload = async () => {
+  //   if (!downloadDateRange?.from || !downloadDateRange?.to) return;
+
+  //   const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
+  //   if (
+  //     downloadDateRange.to.getTime() - downloadDateRange.from.getTime() >
+  //     oneMonthMs
+  //   ) {
+  //     toast.error(
+  //       "Date range cannot exceed 1 month. Please select a shorter range.",
+  //     );
+  //     return;
+  //   }
+
+  //   setIsDownloading(true);
+  //   try {
+  //     toast.info("Preparing download...");
+  //     const svc = new ChatbotService();
+  //     const from = format(downloadDateRange.from, "yyyy-MM-dd");
+  //     const to = format(downloadDateRange.to, "yyyy-MM-dd");
+  //     const blob = await svc.downloadChatbotReport(
+  //       from,
+  //       to,
+  //       source,
+  //       downloadFormat,
+  //     );
+  //     const url = URL.createObjectURL(blob);
+  //     const a = document.createElement("a");
+  //     a.href = url;
+  //     a.download = `chatbot-report-${from}-to-${to}.${downloadFormat}`;
+  //     document.body.appendChild(a);
+  //     a.click();
+  //     document.body.removeChild(a);
+  //     URL.revokeObjectURL(url);
+  //     toast.success("Report downloaded successfully!");
+  //     setIsDownloadDialogOpen(false);
+  //     setDownloadDateRange(undefined);
+  //   } catch (e) {
+  //     toast.error(e instanceof Error ? e.message : "Download failed");
+  //   } finally {
+  //     setIsDownloading(false);
+  //   }
+  // };
+
   const handleDownload = async () => {
-    if (!downloadDateRange?.from || !downloadDateRange?.to) return;
+  const today = new Date();
 
-    const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
-    if (
-      downloadDateRange.to.getTime() - downloadDateRange.from.getTime() >
-      oneMonthMs
-    ) {
-      toast.error(
-        "Date range cannot exceed 1 month. Please select a shorter range.",
-      );
-      return;
-    }
+  const fromDate = downloadDateRange?.from || today;
+  const toDate = downloadDateRange?.to || today;
 
-    setIsDownloading(true);
-    try {
-      toast.info("Preparing download...");
-      const svc = new ChatbotService();
-      const from = format(downloadDateRange.from, "yyyy-MM-dd");
-      const to = format(downloadDateRange.to, "yyyy-MM-dd");
-      const blob = await svc.downloadChatbotReport(
-        from,
-        to,
-        source,
-        downloadFormat,
-      );
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `chatbot-report-${from}-to-${to}.${downloadFormat}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success("Report downloaded successfully!");
-      setIsDownloadDialogOpen(false);
-      setDownloadDateRange(undefined);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Download failed");
-    } finally {
-      setIsDownloading(false);
-    }
-  };
+  console.log (fromDate, toDate);
+
+  const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
+
+  if (toDate.getTime() - fromDate.getTime() > oneMonthMs) {
+    toast.error(
+      "Date range cannot exceed 1 month. Please select a shorter range.",
+    );
+
+    return;
+  }
+
+  setIsDownloading(true);
+
+  try {
+    toast.info("Preparing download...");
+
+    const svc = new ChatbotService();
+
+    const from = format(fromDate, "yyyy-MM-dd");
+    const to = format(toDate, "yyyy-MM-dd");
+
+    const blob = await svc.downloadChatbotReport(
+      from,
+      to,
+      source,
+      downloadFormat,
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+
+    a.href = url;
+
+    a.download = `chatbot-report-${from}-to-${to}.${downloadFormat}`;
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    document.body.removeChild(a);
+
+    URL.revokeObjectURL(url);
+
+    toast.success("Report downloaded successfully!");
+
+    setIsDownloadDialogOpen(false);
+
+    setDownloadDateRange(undefined);
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Download failed");
+  } finally {
+    setIsDownloading(false);
+  }
+};
 
   // Track mobile/desktop and auto-collapse on mobile
   useEffect(() => {
@@ -548,11 +611,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               </Button>
             </DialogClose>
             <Button
-              disabled={
-                !downloadDateRange?.from ||
-                !downloadDateRange?.to ||
-                isDownloading
-              }
+              disabled={isDownloading}
               className="w-full sm:w-auto"
               onClick={handleDownload}
             >

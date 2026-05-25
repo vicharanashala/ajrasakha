@@ -4830,9 +4830,11 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async generateChatBotData(startDate, endDate, days= 30, source = "vicharanashala", userType="all", month?:string, session?: ClientSession,){
         const currentMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    console.log(startDate, endDate);
+    console.log({
+      startDate: startDate,
+      endDate: endDate,
+    });
     const kpiData = await this.getKpiSummary(source, session, userType="all" );
-    console.log("Kpi Data is", kpiData)
     const monthlyQueries = await this.getMonthlyAnalytics(source, session, userType="all");
     const weeklyQueries = await this.getWeeklyAnalytics(currentMonth, source, session, userType);
     const dailyQueries = await this.getDailyAnalytics(currentMonth, source, session, userType);
