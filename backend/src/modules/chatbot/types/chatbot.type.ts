@@ -2,6 +2,7 @@ export type GrowthQuery = {
   range?: number;
   startDate?: string;
   endDate?: string;
+  source?: string;
 };
 
 export type GrowthResponse = {

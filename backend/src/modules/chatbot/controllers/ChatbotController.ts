@@ -469,12 +469,12 @@ async getDistrictAnalyticsByState(
         throw new Error('startDate cannot be after endDate.');
       }
 
-      const data = await this.chatbotService.getGrowth(30, startDate, endDate);
+      const data = await this.chatbotService.getGrowth(query.source, 30, startDate, endDate);
       return data;
     }
 
     const range = Number(query.range) || 30;
-    const data = await this.chatbotService.getGrowth(range);
+    const data = await this.chatbotService.getGrowth(query.source, range);
     return data
   }
 

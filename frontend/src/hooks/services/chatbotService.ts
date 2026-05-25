@@ -34,21 +34,24 @@ export class ChatbotService {
     return response.blob();
   }
 
-  async getUserGrowth(range: number): Promise<GrowthResponse | null> {
+  async getUserGrowth(source:string, range: number): Promise<GrowthResponse | null> {
     const params = new URLSearchParams();
 
     if (range) params.append("range", range.toString());
+    params.append("source", source);
 
     return apiFetch<GrowthResponse>(`${this._baseUrl}/user-growth?${params.toString()}`);
   }
 
   async getUserGrowthByDateRange(
+    source: string,
     startDate: string,
     endDate: string,
   ): Promise<GrowthResponse | null> {
     const params = new URLSearchParams();
     params.append("startDate", startDate);
     params.append("endDate", endDate);
+    params.append("source", source);
 
     return apiFetch<GrowthResponse>(`${this._baseUrl}/user-growth?${params.toString()}`);
   }
