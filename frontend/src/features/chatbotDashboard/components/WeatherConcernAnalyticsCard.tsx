@@ -10,6 +10,7 @@ import {
   Zap,
   X,
  CloudSun,
+ Info
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
@@ -267,7 +268,7 @@ export function WeatherConcernAnalyticsCard({
     data?.summary.topConcern &&
     data.summary.topConcern !== "Others"
       ? data.summary.topConcern
-      : "No dominant concern";
+      : "No top concern";
 
   const concernDistribution = useMemo(() => {
     const backendRows =
@@ -297,22 +298,48 @@ export function WeatherConcernAnalyticsCard({
       
   }, [data?.concernDistribution]);
 
-  const visibleConcerns = showAllConcerns
-    ? concernDistribution
-    : concernDistribution.slice(0, 4);
+const filteredConcerns = useMemo(() => {
+  return concernDistribution
+    .filter((item) => item.count > 0)
+    .sort((a, b) => {
+      // Always keep "Others" at the end
+      if (a.concern === "Others") return 1;
+      if (b.concern === "Others") return -1;
+
+      // Sort remaining concerns by count descending
+      return b.count - a.count;
+    });
+}, [concernDistribution]);
+
+const visibleConcerns = showAllConcerns
+  ? filteredConcerns
+  : filteredConcerns.slice(0, 4);
 
   return (
     <Card className="border border-border/60 bg-white shadow-sm dark:bg-[#1a1a1a]">
       <CardHeader className="border-b border-border/50 pb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-wide text-foreground">
-              <CloudSun className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-2">
+  <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-wide text-foreground">
+    <CloudSun className="h-5 w-5 text-primary" />
 
-              <span>
-                Weather Concern Analytics
-              </span>
-            </CardTitle>
+    <span>
+      Weather Concern Analytics
+    </span>
+  </CardTitle>
+
+  <div className="group relative">
+    <Info className="h-4 w-4 cursor-pointer text-muted-foreground" />
+
+    <div className="absolute left-6 top-0 z-20 hidden w-72 rounded-md border border-border bg-popover p-3 text-xs text-muted-foreground shadow-md group-hover:block">
+      Percentages may not total 100% because a
+      single user query can contain multiple
+      weather concerns. For example, one query
+      may mention both rain and flooding.
+    </div>
+  </div>
+</div>
 
             <p className="mt-1 text-xs text-muted-foreground">
               Concern distribution from
@@ -504,17 +531,28 @@ export function WeatherConcernAnalyticsCard({
                             </span>
 
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-foreground">
-                                {
-                                  item.concern
-                                }
-                              </p>
+  <div className="flex items-center gap-1">
+    <p className="truncate text-sm font-semibold text-foreground">
+      {item.concern}
+    </p>
 
-                              <p className="text-xs text-muted-foreground">
-                                {item.count.toLocaleString()}{" "}
-                                queries
-                              </p>
-                            </div>
+    {item.concern === "Others" && (
+      <div className="group relative">
+        <Info className="h-3.5 w-3.5 cursor-pointer text-muted-foreground" />
+
+        <div className="absolute left-5 top-0 z-20 hidden w-64 rounded-md border border-border bg-popover p-3 text-xs text-muted-foreground shadow-md group-hover:block">
+          Includes general weather queries
+(e.g. "what is the weather today?")
+and uncategorized weather queries.
+        </div>
+      </div>
+    )}
+  </div>
+
+  <p className="text-xs text-muted-foreground">
+    {item.count.toLocaleString()} queries
+  </p>
+</div>
                           </div>
 
                           <span className="text-xl font-semibold text-foreground">
@@ -538,7 +576,7 @@ export function WeatherConcernAnalyticsCard({
                 )}
               </div>
 
-              {concernDistribution.length >
+              {filteredConcerns.length >
                 4 && (
                 <div className="flex justify-center pt-4">
                   <Button
@@ -552,7 +590,7 @@ export function WeatherConcernAnalyticsCard({
                   >
                     {showAllConcerns
                       ? "Show Less"
-                      : `Show More (${concernDistribution.length - 4})`}
+                      : `Show More (${filteredConcerns.length - 4})`}
                   </Button>
                 </div>
               )}
