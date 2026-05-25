@@ -869,7 +869,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     details: IQuestion['details'],
     logData: Record<string, any>,
     session?: ClientSession,
-  ): Promise<{isDuplicate: boolean; duplicateData?: any}> {
+  ): Promise<{isDuplicate: boolean; duplicateData?: any; isNonAgri?: boolean; nonAgriData?: any}> {
     return checkDuplicateQuestionHelper(
       baseQuestion,
       details,
@@ -1163,6 +1163,12 @@ export class QuestionService extends BaseService implements IQuestionService {
               referenceQuestionId,
               referenceQuestion,
               referenceSource,
+            });
+            return;
+          }
+          if (duplicateResult?.isNonAgri) {
+            await this.questionRepo.updateQuestion(questionId, {
+              status: 'non_agri',
             });
             return;
           }

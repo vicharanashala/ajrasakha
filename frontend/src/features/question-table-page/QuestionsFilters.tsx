@@ -513,11 +513,8 @@ export const QuestionsFilters = ({
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,
-<<<<<<< HEAD
       is_non_agri: advanceFilter?.is_non_agri,
-=======
       unallocatedQuestions: advanceFilter?.unallocatedQuestions,
->>>>>>> 62123227d9abe709f4f5507c796071e6567d98b0
     });
   };
 

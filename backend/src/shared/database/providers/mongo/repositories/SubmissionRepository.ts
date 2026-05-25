@@ -3356,7 +3356,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $match: {
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft'] },
+          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri'] },
           'question.isOnHold': { $ne: true },
           'question.isAutoAllocate': {$eq: true}
         },
@@ -3390,7 +3390,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $match: {
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft'] },
+          'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft', 'non_agri'] },
           'question.isOnHold': { $ne: true },
         },
       },
