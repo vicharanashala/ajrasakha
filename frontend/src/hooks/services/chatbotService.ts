@@ -13,11 +13,12 @@ export class ChatbotService {
     startDate: string,
     endDate: string,
     source = 'vicharanashala',
+    downloadFormat: string,
   ): Promise<Blob> {
     const user = auth.currentUser;
     if (!user) throw new Error('Not authenticated');
     const token = await getIdToken(user);
-    const params = new URLSearchParams({ startDate, endDate, source });
+    const params = new URLSearchParams({ startDate, endDate, source, downloadFormat });
     const response = await fetch(
       `${this._baseUrl}/download-chatbot-report?${params.toString()}`,
       { headers: { Authorization: `Bearer ${token}` } },
