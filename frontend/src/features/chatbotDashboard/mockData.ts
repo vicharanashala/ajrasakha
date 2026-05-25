@@ -80,11 +80,11 @@ export const DASHBOARD_DATA = {
   ageGroups: [] as DemographicEntry[],
   genderSplit: [] as DemographicEntry[],
   farmingExperience: [] as DemographicEntry[],
-  landHolding: [
-    { label: 'Small', count: 1820, pct: 54.32 },
-    { label: 'Medium', count: 980, pct: 29.25 },
-    { label: 'Large', count: 550, pct: 16.42 },
-  ] as DemographicEntry[],
+  // landHolding: [
+  //   { label: 'Small', count: 1820, pct: 54.32 },
+  //   { label: 'Medium', count: 980, pct: 29.25 },
+  //   { label: 'Large', count: 550, pct: 16.42 },
+  // ] as DemographicEntry[],
   platformInstalls: [] as IPlatformInstallEntry[],
   domainSpikes: [
     { domain: "Insect–Pest Management", date: "2026-05-10", count: 1840, baseline: 420, spikePct: 338, location: "Ropar, Punjab" },

@@ -5254,17 +5254,21 @@ async getWeatherConcernAnalytics(
     const monthlyQueries = await this.getMonthlyAnalytics(source, session, userType="all");
     const weeklyQueries = await this.getWeeklyAnalytics(currentMonth, source, session, userType);
     const dailyQueries = await this.getDailyAnalytics(currentMonth, source, session, userType);
-    const dauTrends = await this.getDailyUserTrend(days, source,session, userType)
-    const averageSession = await this.getAvgSessionDurationV2(source, session, userType)
+    const dauTrends = await this.getDailyUserTrend(days, source,session, userType);
+    const averageSession = await this.getAvgSessionDurationV2(source, session, userType);
+    const demographicData = await this.getUserDemographics(source, session, userType);
     const dataToShow = {
       totalDownloads: kpiData.totalAppInstalls,
       averageSession: averageSession,
       dau: dauTrends[dauTrends.length -1].count || 0,
       monthlyQueries,
       dailyQueries,
-      weeklyQueries
+      weeklyQueries,
+      genderSplit: demographicData.genderSplit,
+      farmingExperience: demographicData.farmingExperience,
+      ageGroup: demographicData.ageGroups
     }
-
+    
     return dataToShow
   }
 
