@@ -331,7 +331,8 @@ export class QuestionRepository implements IQuestionRepository {
         duplicateQuestions,
         isOnHold,
         unallocatedQuestions,
-        pae_review
+        pae_review,
+        is_non_agri
       } = query;
       //  const filter: any = {};
       const filter: any = {
@@ -426,6 +427,16 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('status', status);
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
+
+      // --- Non-Agri tab filter ---
+      // When on Non-Agri tab → only show non_agri questions.
+      // On any OTHER tab (and no explicit status filter) → exclude non_agri questions
+      // so they don't leak into AJRASAKHA / WhatsApp / Outreach / Manual tabs.
+      if (is_non_agri === 'true' || is_non_agri === true) {
+        filter.status = 'non_agri';
+      } else if (filter.status === undefined) {
+        filter.status = { $ne: 'non_agri' };
+      }
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
         filter['details.state'] = { $in: body.states };
@@ -4770,6 +4781,13 @@ export class QuestionRepository implements IQuestionRepository {
         { pae_review: { $eq: false } },
         { pae_review: { $exists: false } }
       ];
+    }
+
+    // Apply is_non_agri filter exactly matching findDetailedQuestions logic
+    if (query.is_non_agri === 'true' || query.is_non_agri === true) {
+      filter.status = 'non_agri';
+    } else if (filter.status === undefined) {
+      filter.status = { $ne: 'non_agri' };
     }
 
     // Apply isOnHold filter exactly matching findDetailedQuestions logic
