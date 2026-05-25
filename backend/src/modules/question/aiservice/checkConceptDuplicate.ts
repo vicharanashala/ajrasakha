@@ -21,42 +21,87 @@ export async function checkConceptDuplicate(
     .map((q, i) => `${i + 1}. ${q}`)
     .join("\n");
 
-  const response = await client.chat.completions.create({
-    model: "google/gemma-4-E4B-it",
-    // model: "google/gemma-3-12b-it",
-    temperature: 0,
-    messages: [
-      {
-        role: "system",
-        content: `
-        You are an agricultural similar question finder.
+//   const response = await client.chat.completions.create({
+//     model: "google/gemma-4-E4B-it",
+//     // model: "google/gemma-3-12b-it",
+//     temperature: 0,
+//     messages: [
+//       {
+//         role: "system",
+//         content: `
+//         You are an agricultural similar question finder.
  
-        Your task:
-        Determine whether the input question is asking the EXACT SAME meaning as any candidate question, even if phrased differently.
+//         Your task:
+//         Determine whether the input question is asking the EXACT SAME meaning as any candidate question, even if phrased differently.
          
-        Output rules:
+//         Output rules:
          
-        * If a candidate question matches, return only the candidate number.
-        * If none match, return only: NONE
-        `
+//         * If a candidate question matches, return only the candidate number.
+//         * If none match, return only: NONE
+//         `
+//       },
+//       {
+//         role: "user",
+//         content: `
+// Input Question:
+// ${questionA}
+
+// Candidate Questions:
+// ${formattedQuestions}
+
+// Return ONLY the matching candidate number or NONE.
+// `
+//       }
+//     ]
+//   });
+
+
+  const response = await fetch(
+    'https://api.vicharanashala.org/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${aiConfig.vicharanashala_api_token}`,
       },
-      {
-        role: "user",
-        content: `
-Input Question:
-${questionA}
+      body: JSON.stringify({
+        model: 'MiniMaxAI/MiniMax-M2.7',
+        temperature: 0,
+        messages: [
+          {
+            role: 'system',
+            content: `
+  You are an agricultural similar question finder.
 
-Candidate Questions:
-${formattedQuestions}
+  Your task:
+  Determine whether the input question is asking the EXACT SAME meaning as any candidate question, even if phrased differently.
 
-Return ONLY the matching candidate number or NONE.
-`
-      }
-    ]
-  });
+  Output rules:
 
-  const result =
-    response.choices?.[0]?.message?.content?.trim() ?? "";
+  * If a candidate question matches, return only the candidate number.
+  * If none match, return only: NONE
+            `,
+          },
+          {
+            role: 'user',
+            content: `
+  Input Question:
+  ${questionA}
+
+  Candidate Questions:
+  ${formattedQuestions}
+
+  Return ONLY the matching candidate number or NONE.
+            `,
+          },
+        ],
+      }),
+    },
+  );
+   
+  const data: any = await response.json();
+
+  const result = data?.choices?.[0]?.message?.content?.trim() ?? '';
 
   console.log(`LLM response: "${result}"`);
 
