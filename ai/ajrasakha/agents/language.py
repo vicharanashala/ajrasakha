@@ -152,8 +152,8 @@ def _llm_detect_language(text: str) -> str:
         return "English"
     try:
         from langchain_anthropic import ChatAnthropic
-        from ajrasakha.agents.config import CLAUDE_MODEL
-        llm = ChatAnthropic(model=CLAUDE_MODEL)
+        from ajrasakha.agents.config import SANITIZER_MODEL
+        llm = ChatAnthropic(model=SANITIZER_MODEL)
         
         prompt = (
             "Analyze the following text from an Indian farmer and identify the underlying spoken language. "
@@ -195,8 +195,8 @@ async def _allm_detect_language(text: str) -> str:
         return "English"
     try:
         from langchain_anthropic import ChatAnthropic
-        from ajrasakha.agents.config import CLAUDE_MODEL
-        llm = ChatAnthropic(model=CLAUDE_MODEL)
+        from ajrasakha.agents.config import SANITIZER_MODEL
+        llm = ChatAnthropic(model=SANITIZER_MODEL)
         
         prompt = (
             "Analyze the following text from an Indian farmer and identify the underlying spoken language. "
