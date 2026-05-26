@@ -456,61 +456,44 @@ export class QuestionService extends BaseService implements IQuestionService {
     context: string,
   ): Promise<GeneratedQuestionResponse[]> {
     try {
-      let queryContext = context;
-      let extractedState: string | undefined;
-      let extractedCrop: string | undefined;
+      const agentSearchResponse = await axios.post(
+        'http://100.100.108.44:6002/agent_search',
+        { query: context },
+        { timeout: 100000 }
+      );
+      console.log('Agent Search Output:', JSON.stringify(agentSearchResponse.data, null, 2));
 
-      // Log context to agent_search
-      try {
-        const agentSearchResponse = await axios.post(
-          'http://100.100.108.44:6002/agent_search',
-          { query: context },
-          { timeout: 100000 }
-        );
-        console.log('Agent Search Output:', JSON.stringify(agentSearchResponse.data, null, 2));
+      const data = agentSearchResponse.data || {};
 
-        if (agentSearchResponse.data) {
-          queryContext = agentSearchResponse.data.extracted_question || context;
-          extractedState = agentSearchResponse.data.extracted_state;
-          extractedCrop = agentSearchResponse.data.extracted_crop;
-        }
-      } catch (err: any) {
-        console.error('Error calling agent_search:', err?.message);
+      // Send this in the appropriate format expected by the frontend
+      let formattedResponse: any[] = [];
+
+      if (Array.isArray(data)) {
+        formattedResponse = data.map((item: any) => ({
+          question: item.question || context,
+          answer: item.answer || item.response || JSON.stringify(item),
+          agri_specialist: item.agri_specialist || item.source || "AGRI_EXPERT",
+          referenceSource: item.referenceSource || "agent_search",
+          id: item.id || new ObjectId().toString()
+        }));
+      } else {
+        formattedResponse = [
+          {
+            question: data.extracted_question || data.question || context,
+            answer: data.answer || data.response || (typeof data === 'string' ? data : JSON.stringify(data)),
+            agri_specialist: data.agri_specialist || data.source || "AGRI_EXPERT",
+            referenceSource: data.referenceSource || "agent_search",
+            id: data.id || new ObjectId().toString()
+          }
+        ];
       }
-
-      // Use the same AI service method as regular questions
-      const questions = await this.aiService.getQuestionByContextForCall(queryContext, extractedState, extractedCrop);
-
-      // Format the response similar to getQuestionFromRawContext
-      const merged = [
-        ...(questions.reviewer || []).map((item: any) => ({
-          question: item.question,
-          answer: item.answer,
-          agri_specialist: item.source || "AGRI_EXPERT",
-          referenceSource: "reviewer",
-        })),
-
-        ...(questions.golden || []).map((item: any) => ({
-          question: item.question,
-          answer: item.answer,
-          agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
-          referenceSource: "golden",
-        })),
-
-        ...(questions.pop || []).map((item: any) => ({
-          question: "Reference Information",
-          answer: item.text,
-          agri_specialist: "POP_DOCUMENT",
-          referenceSource: "pop",
-        })),
-      ];
 
       // Deduplicate by question text
       const uniqueQuestions = Array.from(
-        new Map(merged.map(q => [q.question, q])).values(),
+        new Map(formattedResponse.map(q => [q.question, q])).values(),
       ).map(q => ({
         ...q,
-        id: new ObjectId().toString(),
+        id: q.id || new ObjectId().toString(),
       }));
 
       return uniqueQuestions;
