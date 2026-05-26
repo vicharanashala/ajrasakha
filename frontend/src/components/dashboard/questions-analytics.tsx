@@ -88,6 +88,20 @@ const colors = [
   "var(--color-chart-5)",
 ];
 
+// For items beyond the first 5 (which use the CSS chart vars above),
+// generate a unique HSL color from the item's index so every additional
+// crop/domain gets its own distinct color automatically.
+const extendedColor = (index: number): string => {
+  // Offset the index so we don't overlap with the 5 CSS-var hues (approx 0°,120°,60°,200°,30°)
+  const hue = ((index - 5) * 137.508 + 250) % 360; // golden-angle stepping, offset from chart vars
+  const saturation = 55 + (index % 3) * 8;          // 55 / 63 / 71 %
+  const lightness  = 42 + (index % 4) * 5;          // 42 / 47 / 52 / 57 %
+  return `hsl(${hue.toFixed(1)}, ${saturation}%, ${lightness}%)`;
+};
+
+const getItemColor = (index: number): string =>
+  index < colors.length ? colors[index] : extendedColor(index);
+
 // Custom tooltip for the domain pie chart — shows breakdown when hovering "Others"
 const DomainPieTooltip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
   if (!active || !payload?.length) return null;
@@ -344,12 +358,12 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 
   const processedCropWithColors = data.cropData.map((item, index) => ({
     ...item,
-    color: colors[index % colors.length],
+    color: getItemColor(index),
   }));
 
   const processedDomainWithColors = data.domainData.map((item, index) => ({
     ...item,
-    color: colors[index % colors.length],
+    color: getItemColor(index),
   }));
 
   return (
