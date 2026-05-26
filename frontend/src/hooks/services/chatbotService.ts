@@ -147,6 +147,12 @@ export class ChatbotService {
     );
   }
 
+  async getAllWhatsappUsers(): Promise<any> {
+    return apiFetch<any>(
+      `${this._whatsAppBaseUrl}/users`,
+    );
+  }
+
   async getClosedAndNotifedData(source: string): Promise<any>{
     const params = new URLSearchParams();
     params.append("source", source);

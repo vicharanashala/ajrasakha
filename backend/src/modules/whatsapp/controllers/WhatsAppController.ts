@@ -123,4 +123,27 @@ export class WhatsAppController {
 
     return await this.whatsappService.getUniqueUsers();
   }
+
+  @OpenAPI({
+    summary: 'Fetch all WhatsApp users',
+    description:
+      'Fetches all WhatsApp users. Falls back to dummy data on failure.',
+  })
+  @Get('/users')
+  @HttpCode(200)
+  @Authorized()
+  async fetchAllWhatsAppUsers(
+  ) {
+    try {
+      const response = await this.whatsappService.getAllUsers();
+      return {
+        users: response.data || [],
+      };
+    } catch (error) {
+      console.error('Error fetching all WhatsApp users from service, falling back to dummy data:', error);
+      return {
+        // users: WhatsappUsers,
+      };
+    }
+  }
 }
