@@ -5308,6 +5308,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         } else if (type === 'unallocated') {
           let assignedExpert: string | null = null;
           for (const expert of allExperts) {
+            if (expert?.special_task_force !== true) continue;
             const expertId = expert._id.toString();
             const currentCount = provisionalCounts.get(expertId) ?? 0;
             if (currentCount >= MAX_TIME_BOUND) continue;
