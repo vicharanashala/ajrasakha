@@ -456,6 +456,10 @@ export class QuestionService extends BaseService implements IQuestionService {
     context: string,
   ): Promise<GeneratedQuestionResponse[]> {
     try {
+      let queryContext = context;
+      let extractedState: string | undefined;
+      let extractedCrop: string | undefined;
+
       // Log context to agent_search
       try {
         const agentSearchResponse = await axios.post(
@@ -464,13 +468,18 @@ export class QuestionService extends BaseService implements IQuestionService {
           { timeout: 100000 }
         );
         console.log('Agent Search Output:', JSON.stringify(agentSearchResponse.data, null, 2));
+
+        if (agentSearchResponse.data) {
+          queryContext = agentSearchResponse.data.extracted_question || context;
+          extractedState = agentSearchResponse.data.extracted_state;
+          extractedCrop = agentSearchResponse.data.extracted_crop;
+        }
       } catch (err: any) {
         console.error('Error calling agent_search:', err?.message);
       }
 
-
       // Use the same AI service method as regular questions
-      const questions = await this.aiService.getQuestionByContextForCall(context);
+      const questions = await this.aiService.getQuestionByContextForCall(queryContext, extractedState, extractedCrop);
 
       // Format the response similar to getQuestionFromRawContext
       const merged = [

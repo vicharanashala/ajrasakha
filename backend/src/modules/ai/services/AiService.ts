@@ -41,6 +41,8 @@ export class AiService {
 
   async getQuestionByContextForCall(
     context: string,
+    state?: string,
+    crop?: string,
   ): Promise<QuestionSearchResponse> {
     // const response = await fetch(`${this._aiServerUrl}/questions`, {
     const response = await fetch(`${this._agentServerUrl}/search`, {
@@ -49,7 +51,9 @@ export class AiService {
       body: JSON.stringify({
         query: context,
         top_k: 5,
-        threshold: 0.8
+        threshold: 0.8,
+        state: state,
+        crop: crop
       }),
     });
     if (!response.ok)
