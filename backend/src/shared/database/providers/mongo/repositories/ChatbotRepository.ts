@@ -564,7 +564,6 @@ export class ChatbotRepository implements IChatbotRepository {
           session,
         ),
       ]);
-
       const messageMatch: any = {isDeleted: {$ne: true}};
       if (startTime || endTime) {
         messageMatch.createdAt = {};
@@ -2773,9 +2772,18 @@ async getWeatherConcernAnalytics(
     const monthDateMatch = monthRange
       ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
       : {};
-    const end = new Date();
-    const start = new Date();
+    const now = new Date();
+    const istNow = new Date(
+      now.toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      })
+    );
+    const start = new Date(istNow);
     start.setDate(start.getDate() - 30);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(istNow);
+    end.setHours(23, 59, 59, 999);
+
     if(source === "whatsapp"){
       return  await this.getDailyAnalyticsForWhatsApp(start, end);
     }
@@ -2997,9 +3005,17 @@ async getWeatherConcernAnalytics(
 
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
-    const end = new Date();
-    const start = new Date();
+    const now = new Date();
+    const istNow = new Date(
+      now.toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      })
+    );
+    const start = new Date(istNow);
     start.setDate(start.getDate() - 30);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(istNow);
+    end.setHours(23, 59, 59, 999);
     if(source === "whatsapp"){
       return  await this.getWeeklyAnalyticsForWhatsApp(start, end);
     }
@@ -6683,7 +6699,7 @@ async getWeatherConcernAnalytics(
   }
 
   async getDailyAnalyticsForWhatsApp(start: Date, end: Date):Promise<any>{
-
+console.log("-----start", start, end)
     return await this.QuestionCollection.aggregate([
     {
       $match: {
@@ -6699,7 +6715,8 @@ async getWeatherConcernAnalytics(
           _id: {
             $dateToString: {
               format: "%Y-%m-%d",
-              date: "$createdAt"
+              date: "$createdAt",
+              timezone: "+05:30",
             }
           },
 
