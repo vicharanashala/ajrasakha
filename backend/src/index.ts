@@ -21,8 +21,7 @@ import {fileURLToPath} from 'url';
 import { initJobs } from './bootstrap/jobs/index.js';
 import { apiReference } from '@scalar/express-api-reference';
 import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
-import dns from 'node:dns'
-dns.setServers(['8.8.8.8','1.1.1.1'])
+
 const app = express();
 
 app.get('/health', (_req, res) => {
