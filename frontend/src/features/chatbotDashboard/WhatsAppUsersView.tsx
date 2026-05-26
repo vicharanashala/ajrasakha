@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { X, Users, Filter, Search, Calendar, MessageSquare, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/atoms/button";
+import { useAllWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
+import { Spinner } from "@/components/atoms/spinner";
 import {
   Card,
   CardContent,
@@ -309,9 +311,18 @@ function WhatsAppUsersPreferenceFilter({
 export function WhatsAppUsersView() {
   const [filters, setFilters] = useState<WhatsAppFilters>(DEFAULT_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(12);
   const [sortBy, setSortBy] = useState<keyof WhatsAppUser>("lastMessageAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const { data: apiResponse, isLoading } = useAllWhatsappUsers();
+
+  const activeUsersData = useMemo<WhatsAppUser[]>(() => {
+    if (apiResponse?.users && apiResponse.users.length > 0) {
+      return apiResponse.users;
+    }
+    return WhatsappUsers;
+  }, [apiResponse]);
 
   const handleApplyFilters = (newFilters: WhatsAppFilters) => {
     setFilters(newFilters);
@@ -335,7 +346,7 @@ export function WhatsAppUsersView() {
 
   // 1. Filtering logic
   const filteredUsers = useMemo(() => {
-    return WhatsappUsers.filter((user) => {
+    return activeUsersData.filter((user) => {
       // Search text filter
       if (filters.search) {
         const query = filters.search.toLowerCase();
@@ -373,7 +384,7 @@ export function WhatsAppUsersView() {
 
       return true;
     });
-  }, [filters]);
+  }, [activeUsersData, filters]);
 
   // 2. Sorting logic
   const sortedUsers = useMemo(() => {
@@ -466,7 +477,12 @@ export function WhatsAppUsersView() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="rounded-lg border bg-card overflow-x-auto">
+          {isLoading && !apiResponse ? (
+            <div className="py-12">
+              <Spinner text="Fetching WhatsApp users..." fullScreen={false} />
+            </div>
+          ) : (
+            <div className="rounded-lg border bg-card overflow-x-auto">
             <Table className="min-w-[1000px]">
               <TableHeader className="bg-card sticky top-0 z-10">
                 <TableRow>
@@ -576,7 +592,8 @@ export function WhatsAppUsersView() {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -145,4 +145,10 @@ export class ChatbotService {
       `${this._whatsAppBaseUrl}/unique-users`,
     );
   }
+
+  async getAllWhatsappUsers(): Promise<any> {
+    return apiFetch<any>(
+      `${this._whatsAppBaseUrl}/users`,
+    );
+  }
 }
