@@ -25,15 +25,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/atoms/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../atoms/select";
 import { Label } from "../atoms/label";
-import { Activity, CalendarIcon, Download, Filter, MapPin } from "lucide-react";
+import { CalendarIcon, Download, Filter, MapPin } from "lucide-react";
 import { STATES, SOURCES, CROPS } from "../MetaData";
 import { ScrollArea } from "../atoms/scroll-area";
 import { Calendar } from "../atoms/calendar";
@@ -87,6 +80,20 @@ const colors = [
   "var(--color-chart-4)",
   "var(--color-chart-5)",
 ];
+
+// For items beyond the first 5 (which use the CSS chart vars above),
+// generate a unique HSL color from the item's index so every additional
+// crop/domain gets its own distinct color automatically.
+const extendedColor = (index: number): string => {
+  // Offset the index so we don't overlap with the 5 CSS-var hues (approx 0°,120°,60°,200°,30°)
+  const hue = ((index - 5) * 137.508 + 250) % 360; // golden-angle stepping, offset from chart vars
+  const saturation = 55 + (index % 3) * 8;          // 55 / 63 / 71 %
+  const lightness  = 42 + (index % 4) * 5;          // 42 / 47 / 52 / 57 %
+  return `hsl(${hue.toFixed(1)}, ${saturation}%, ${lightness}%)`;
+};
+
+const getItemColor = (index: number): string =>
+  index < colors.length ? colors[index] : extendedColor(index);
 
 // Custom tooltip for the domain pie chart — shows breakdown when hovering "Others"
 const DomainPieTooltip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
@@ -344,12 +351,12 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 
   const processedCropWithColors = data.cropData.map((item, index) => ({
     ...item,
-    color: colors[index % colors.length],
+    color: getItemColor(index),
   }));
 
   const processedDomainWithColors = data.domainData.map((item, index) => ({
     ...item,
-    color: colors[index % colors.length],
+    color: getItemColor(index),
   }));
 
   return (
@@ -401,29 +408,18 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   />
                 </div>
 
-                {/* Analytics Type */}
+                {/* Crop */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-primary" />
-                    Analytics Type
+                    <Filter className="h-4 w-4 text-primary" />
+                    Crop
                   </Label>
-                  <Select
-                    value={draftFilters.analyticsType}
-                    onValueChange={(value) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        analyticsType: value as "question" | "answer",
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
-                      <SelectValue placeholder="Select Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="question">Question</SelectItem>
-                      <SelectItem value="answer">Answer</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <MultiSelect
+                    items={CROP_OPTIONS}
+                    selected={draftFilters.crop}
+                    onChange={(val) => setDraftFilters((prev) => ({ ...prev, crop: val }))}
+                    placeholder="All Crops"
+                  />
                 </div>
 
                 {/* State */}
@@ -505,19 +501,6 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   )}
                 </div>
 
-                {/* Crop */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-primary" />
-                    Crop
-                  </Label>
-                  <MultiSelect
-                    items={CROP_OPTIONS}
-                    selected={draftFilters.crop}
-                    onChange={(val) => setDraftFilters((prev) => ({ ...prev, crop: val }))}
-                    placeholder="All Crops"
-                  />
-                </div>
               </div>
             <DialogFooter className="gap-2 pt-2 border-t">
               <Button variant="outline" onClick={handleClearFilters}>
