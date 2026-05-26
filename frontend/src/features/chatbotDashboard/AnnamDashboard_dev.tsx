@@ -804,7 +804,6 @@ useEffect(() => {
                     )}
                   </div>
 
-
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
@@ -816,14 +815,22 @@ useEffect(() => {
                       className="h-full"
                     >
                       <DashboardQueryCategories
-                        categories={source === "whatsapp" ? queryCategories : data.queryCategories}
+                        categories={
+                          source === "whatsapp"
+                            ? queryCategories
+                            : data.queryCategories
+                        }
                       />
                     </motion.div>
 
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, ease: "easeOut", delay: 0.08 }}
+                      transition={{
+                        duration: 0.4,
+                        ease: "easeOut",
+                        delay: 0.08,
+                      }}
                       ref={(el) => {
                         sectionRefs.current["feedback-sentiment"] = el;
                       }}
@@ -906,6 +913,16 @@ useEffect(() => {
                     </div>
                   )}
                   {source !== "whatsapp" && (
+                    <div className="mt-4 mb-4">
+                      <WeatherConcernAnalyticsCard
+                        source={source}
+                        userType={filters.userType}
+                        filters={weatherConcernFilters}
+                        onFiltersChange={setWeatherConcernFilters}
+                      />
+                    </div>
+                  )}
+                  {source !== "whatsapp" && (
                     <div
                       ref={(el) => {
                         sectionRefs.current["user-details"] = el;
@@ -915,16 +932,6 @@ useEffect(() => {
                         source={source}
                         initialFilters={userDetailsInitialFilters}
                         userType={filters.userType}
-                      />
-                    </div>
-                  )}
-                  {source !== "whatsapp" && (
-                    <div className="mt-4 mb-4">
-                      <WeatherConcernAnalyticsCard
-                        source={source}
-                        userType={filters.userType}
-                        filters={weatherConcernFilters}
-                        onFiltersChange={setWeatherConcernFilters}
                       />
                     </div>
                   )}
