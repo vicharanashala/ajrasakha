@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } fr
 import { cn } from "@/lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
+import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
 import { DashboardSidebar } from "./DashboardSidebar";
 import type { DashboardView } from "./DashboardSidebar";
@@ -272,11 +273,35 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     setActiveView("user-details");
   }, []);
 
+  // Fetch today's active farmers to get accurate DAU count based on profile and lastActiveAt
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const { data: todayActiveFarmersData } = useUserDetails(
+    todayStart,
+    todayEnd,
+    1,
+    1,
+    '',
+    source as any,
+    '',
+    '',
+    'all',
+    false,
+    false,
+    filters.userType as any,
+    'totalQuestions',
+    'desc',
+    true // activeTodayByProfile
+  );
+
   // Patch the DAU card to show "today / total" instead of just total
   const patchedKpiRow1 = useMemo(() => {
     if (!data?.kpiRow1) return data.kpiRow1;
-    const todayCount =
-      dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
+    const todayCount = todayActiveFarmersData?.totalUsers ?? null;
     return data.kpiRow1.map((card) => {
       if (card.id === "dau" && todayCount !== null) {
         return {
@@ -286,7 +311,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
       }
       return card;
     });
-  }, [data.kpiRow1, dauTrend]);
+  }, [data.kpiRow1, todayActiveFarmersData?.totalUsers]);
 
   // Remove these two variables when data is dynamic
   const kpiRow1WithOverlay = patchedKpiRow1

@@ -382,6 +382,7 @@ async getDistrictAnalyticsByState(
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
     const inactiveOnly = query.inactiveOnly === 'true';
     const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
+    const activeTodayByProfile = query.activeTodayByProfile === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
       query.endDate,
@@ -397,6 +398,7 @@ async getDistrictAnalyticsByState(
       query.userType,
       query.sortBy,
       query.sortOrder,
+      activeTodayByProfile,
     );
   }
 

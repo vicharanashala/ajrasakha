@@ -9,6 +9,7 @@ import type {
   IChatbotRepository,
   ChatbotConversationData,
   WeatherConcernAnalyticsFilters,
+  PaginatedUserDetails,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -25,7 +26,6 @@ import PDFDocument from 'pdfkit';
 import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
 import { WHATSAPP_TYPES } from '#root/modules/whatsapp/types.js';
 import { IWhatsAppService } from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
-
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -539,9 +539,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
     inactiveOnly = false,
     lowFeedbackOnly = false,
     userType = 'all',
-    sortBy = 'name',
-    sortOrder = 'asc',
-  ) {
+    sortBy = 'totalQuestions',
+    sortOrder = 'desc',
+    activeTodayByProfile = false,
+  ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
       const end = endDate ? new Date(endDate) : undefined;
@@ -561,6 +562,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         sortBy,
         sortOrder,
         lowFeedbackOnly,
+        activeTodayByProfile,
       );
       return data;
     } catch (error) {

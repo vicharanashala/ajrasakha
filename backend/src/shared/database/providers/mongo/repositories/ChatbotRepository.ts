@@ -3931,6 +3931,7 @@ async getWeatherConcernAnalytics(
     sortBy = 'createdAt',
     sortOrder = 'asc',
     lowFeedbackOnly = false,
+    activeTodayByProfile = false,
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -3968,10 +3969,25 @@ async getWeatherConcernAnalytics(
         countMap.set(String(entry._id), entry.totalQuestions);
       }
 
-      // Get users — optionally filtered by search, crop, village
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
       };
+
+      if (activeTodayByProfile) {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        userFilter.lastActiveAt = {
+          $gte: todayStart,
+          $lte: todayEnd,
+        };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          { farmerProfile: { $exists: true, $ne: null } },
+        ];
+      }
       if (search && search.trim()) {
         const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = {$regex: escaped, $options: 'i'};
