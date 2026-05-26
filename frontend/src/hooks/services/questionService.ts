@@ -213,6 +213,13 @@ export class QuestionService {
     });
   }
 
+  async generateQuestionsFromCallContext(query: string): Promise<GeneratedQuestion[] | null> {
+    return apiFetch<GeneratedQuestion[] | null>(`${this._baseUrl}/generate-by-call-context`, {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    });
+  }
+
   async addQuestion(
     newQuestionData: Partial<IDetailedQuestion> | FormData,
     isFormData = false,

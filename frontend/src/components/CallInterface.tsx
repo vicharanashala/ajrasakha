@@ -6,12 +6,13 @@ import { toast } from "sonner";
 import { Button } from "./atoms/button";
 import { RotateCcw, Send, MessageSquare, Globe, CheckCircle2, AlertCircle, HelpCircle, Lightbulb, User } from "lucide-react";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
-import { useGenerateQuestion } from "@/hooks/api/question/useGenerateQuestion";
+import { useGenerateCallQuestion } from "@/hooks/api/question/useGenerateCallQuestion";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { ScrollArea, ScrollBar } from "./atoms/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./atoms/accordion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
+import { Checkbox } from "./atoms/checkbox";
 import type { GeneratedQuestion } from "./voice-recorder-card";
 import Plivo from "plivo-browser-sdk";
 
@@ -23,8 +24,8 @@ export const CallInterface = () => {
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const lastTranscriptRef = useRef("");
-  const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } = useGenerateQuestion();
-  const [lastProcessedTranscriptIndex, setLastProcessedTranscriptIndex] = useState(0);
+  const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } = useGenerateCallQuestion();
+  const [selectedTranscriptIndices, setSelectedTranscriptIndices] = useState<Set<number>>(new Set());
 
   // Auto-scroll to bottom of chat bubbles
   useEffect(() => {
@@ -42,7 +43,7 @@ export const CallInterface = () => {
       const draft = transcriptsList
         .map((t) => {
           if (!t.translatedText?.trim()) return null;
-          const speaker = t.track === "inbound" ? "Caller" : "Agent";
+          const speaker = t.track === "inbound" ? "Farmer" : "Expert";
           return `${speaker}: ${t.translatedText}`;
         })
         .filter(Boolean)
@@ -63,7 +64,7 @@ export const CallInterface = () => {
       setTranscriptsList([]); // Clear the conversation view
       setQuestions([]);
       lastTranscriptRef.current = "";
-      setLastProcessedTranscriptIndex(0);
+      setSelectedTranscriptIndices(new Set());
       toast.success("Transcript submitted successfully!");
     } catch (error) {
       console.error(error);
@@ -76,25 +77,33 @@ export const CallInterface = () => {
     setTranscriptsList([]);
     setQuestions([]);
     lastTranscriptRef.current = "";
-    setLastProcessedTranscriptIndex(0);
   };
 
   const handleGenerateQuestions = async () => {
-    const newTranscripts = transcriptsList.slice(lastProcessedTranscriptIndex);
-    const liveTranscript = newTranscripts
+    if (selectedTranscriptIndices.size === 0) {
+      toast.info("Please select at least one transcript to generate questions.");
+      return;
+    }
+
+    const selectedTranscripts = Array.from(selectedTranscriptIndices)
+      .sort((a, b) => a - b)
+      .map(index => transcriptsList[index])
+      .filter(Boolean);
+
+    const liveTranscript = selectedTranscripts
       .map(t => t.translatedText || t.text || t.originalText)
       .filter(Boolean)
       .join(" ");
 
     if (!liveTranscript || liveTranscript.trim().length <= 10) {
-      toast.info("Not enough new transcript to generate questions.");
+      toast.info("Selected transcripts don't contain enough text.");
       return;
     }
 
     try {
       const qstns = await generateQuestions(liveTranscript);
       setQuestions(prev => [...prev, ...(qstns || [])]);
-      setLastProcessedTranscriptIndex(transcriptsList.length);
+      setSelectedTranscriptIndices(new Set());
     } catch (err) {
       console.error("Error generating question", err);
       toast.error("Failed to generate questions.");
@@ -130,7 +139,7 @@ export const CallInterface = () => {
       <IncomingCallBox
         onTranscriptChange={() => { }} // Not using direct strings anymore
         onOriginalTranscriptChange={() => { }}
-        onTranscriptsListChange={(list) => setTranscriptsList(list)}
+        onTranscriptsListChange={setTranscriptsList}
         onCallStateChange={(isActive) => setIsCallActive(isActive)}
       />
       <button onClick={() => handleRedial("+919606751041")}>Redial</button>
@@ -173,7 +182,20 @@ export const CallInterface = () => {
                 {transcriptsList.length > 0 ? (
                   transcriptsList.map((msg, index) => {
                     const isCaller = msg.track === "inbound";
-                    const speakerLabel = isCaller ? "Caller" : "Agent";
+                    const speakerLabel = isCaller ? "Farmer" : "Expert";
+                    const isSelected = selectedTranscriptIndices.has(index);
+
+                    const toggleSelection = () => {
+                      setSelectedTranscriptIndices(prev => {
+                        const newSet = new Set(prev);
+                        if (newSet.has(index)) {
+                          newSet.delete(index);
+                        } else {
+                          newSet.add(index);
+                        }
+                        return newSet;
+                      });
+                    };
 
                     return (
                       <div
@@ -181,7 +203,12 @@ export const CallInterface = () => {
                         className={`flex flex-col ${isCaller ? "items-start" : "items-end"} space-y-1.5 animate-in fade-in-50 slide-in-from-bottom-3 duration-300`}
                       >
                         {/* Speaker & Timestamp */}
-                        <div className="flex items-center gap-2 px-2 text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold tracking-wider uppercase">
+                        <div className={`flex items-center gap-2 px-2 text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold tracking-wider uppercase ${!isCaller ? "flex-row-reverse" : ""}`}>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelection()}
+                            className="h-3.5 w-3.5 cursor-pointer"
+                          />
                           <span>{speakerLabel}</span>
                           <span>•</span>
                           <span>
@@ -256,10 +283,10 @@ export const CallInterface = () => {
               </Tooltip>
               <div className="flex items-center gap-3">
                 <Badge variant="outline">{questions?.length} questions</Badge>
-                <Button 
-                  onClick={handleGenerateQuestions} 
-                  disabled={isGeneratingQuestions || transcriptsList.length === lastProcessedTranscriptIndex}
-                  size="sm" 
+                <Button
+                  onClick={handleGenerateQuestions}
+                  disabled={isGeneratingQuestions || selectedTranscriptIndices.size === 0}
+                  size="sm"
                   className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   {isGeneratingQuestions ? "Generating..." : "Generate question"}

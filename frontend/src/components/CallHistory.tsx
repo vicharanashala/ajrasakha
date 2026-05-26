@@ -131,7 +131,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
 
   const formatPhoneNumber = (phoneNumber: string) => {
     if (phoneNumber.includes('sip:annamuser1293525305518427216@phone.plivo.com')) {
-      return 'Agent';
+      return 'Expert';
     }
     return phoneNumber;
   };
@@ -329,7 +329,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                     {call.callDetails ? (
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                                          <h4 className="font-semibold text-sm mb-3 text-indigo-600 dark:text-indigo-400">Caller</h4>
+                                          <h4 className="font-semibold text-sm mb-3 text-indigo-600 dark:text-indigo-400">Farmer</h4>
                                           <div className="space-y-3 text-sm">
                                             <div>
                                               <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Original ({call.callDetails.caller?.detectedLanguage || 'unknown'})</span>
@@ -343,7 +343,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                         </div>
 
                                         <div className="bg-gradient-to-br from-indigo-50 to-white dark:from-zinc-900 dark:to-zinc-900 rounded-xl p-4 border border-indigo-100 dark:border-zinc-800 shadow-sm">
-                                          <h4 className="font-semibold text-sm mb-3 text-indigo-700 dark:text-indigo-400">Agent</h4>
+                                          <h4 className="font-semibold text-sm mb-3 text-indigo-700 dark:text-indigo-400">Expert</h4>
                                           <div className="space-y-3 text-sm">
                                             <div>
                                               <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Original ({call.callDetails.agent?.detectedLanguage || 'unknown'})</span>
