@@ -13,6 +13,7 @@ import { STATES, DISTRICTS } from "@/components/MetaData"
 type EditableUser = {
   userId: string;
   name: string;
+  role?: string;
   farmerProfile?: {
     farmerName?: string;
     age?: number;
@@ -42,6 +43,7 @@ interface EditFarmerModalProps {
   isSaving?: boolean;
   onSave: (payload: {
     name?: string;
+    role?: string;
     farmerProfile?: {
       farmerName?: string;
       age?: number;
@@ -67,6 +69,7 @@ interface EditFarmerModalProps {
 
 type FormState = {
   name: string;
+  role: string;
   farmerName: string;
   age: string;
   gender: string;
@@ -89,6 +92,7 @@ type FormState = {
 
 const EMPTY_FORM: FormState = {
   name: "",
+  role: "",
   farmerName: "",
   age: "",
   gender: "",
@@ -140,12 +144,15 @@ export function EditFarmerModal({
   onSave,
 }: EditFarmerModalProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
     if (!open || !user) return;
     const fp = user.farmerProfile;
+    setError("");
     setForm({
       name: user.name ?? "",
+      role: user.role ?? "",
       farmerName: fp?.farmerName ?? "",
       age: fp?.age != null ? String(fp.age) : "",
       gender: fp?.gender ?? "",
@@ -176,11 +183,19 @@ export function EditFarmerModal({
   };
 
   const handleSave = async () => {
+    const parsedAge = toNumber(form.age);
+    if (parsedAge != null && parsedAge <= 16) {
+      setError("Age must be greater than 16.");
+      return;
+    }
+
+    setError("");
     await onSave({
       name: form.name.trim() || undefined,
+      role: form.role.trim() || undefined,
       farmerProfile: {
         farmerName: form.farmerName.trim() || undefined,
-        age: toNumber(form.age),
+        age: parsedAge,
         gender: form.gender.trim() || undefined,
         villageName: form.villageName.trim() || undefined,
         blockName: form.blockName.trim() || undefined,
@@ -214,22 +229,38 @@ export function EditFarmerModal({
             onChange={(e) => handleChange("name", e.target.value)}
             placeholder="Name"
           />
+          <select
+            value={form.role}
+            onChange={(e) => handleChange("role", e.target.value)}
+            disabled
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Select Role</option>
+            <option value="FARMER">FARMER</option>
+            <option value="INTERNAL">INTERNAL</option>
+            <option value="COORDINATOR">COORDINATOR</option>
+          </select>
           <Input
             value={form.farmerName}
             onChange={(e) => handleChange("farmerName", e.target.value)}
             placeholder="Farmer Name"
           />
-          <Input
+          {/* <Input
             value={form.age}
             onChange={(e) => handleChange("age", e.target.value)}
             placeholder="Age"
             type="number"
           />
-          <Input
+          <select
             value={form.gender}
             onChange={(e) => handleChange("gender", e.target.value)}
-            placeholder="Gender"
-          />
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Select Gender</option>
+            <option value="MALE">MALE</option>
+            <option value="FEMALE">FEMALE</option>
+            <option value="OTHER">OTHER</option>
+          </select>
           <Input
             value={form.villageName}
             onChange={(e) => handleChange("villageName", e.target.value)}
@@ -313,14 +344,18 @@ export function EditFarmerModal({
             onChange={(e) => handleChange("platform", e.target.value)}
             placeholder="Platform"
           />
-          <Input
+          <select
             value={form.highestEducatedPerson}
-            onChange={(e) =>
-              handleChange("highestEducatedPerson", e.target.value)
-            }
-            placeholder="Highest Educated Person"
-          />
+            onChange={(e) => handleChange("highestEducatedPerson", e.target.value)}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Select Highest Education</option>
+            <option value="UNDER GRADUATE">UNDER GRADUATE</option>
+            <option value="GRADUATE">GRADUATE</option>
+            <option value="POST GRADUATE">POST GRADUATE</option>
+          </select>
         </div>
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
         <div className="space-y-3">
           <Input
@@ -359,7 +394,7 @@ export function EditFarmerModal({
               <option value="true">Yes</option>
               <option value="false">No</option>
             </select>
-          </div>
+          </div> */}
         </div>
 
         <DialogFooter>

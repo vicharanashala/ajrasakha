@@ -111,6 +111,7 @@ export interface IChatbotService {
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;

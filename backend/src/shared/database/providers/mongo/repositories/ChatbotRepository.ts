@@ -40,6 +40,7 @@ interface IUser {
   name?: string;
   username?: string;
   email?: string;
+  role?: string;
   createdAt: Date;
   updatedAt: Date;
   farmerProfile?: {
@@ -4002,6 +4003,7 @@ async getWeatherConcernAnalytics(
         userId: String(u._id),
         name: u.name || u.username || 'Unknown',
         email: u.email || '',
+        role: u.role || "",
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         createdAt: u.createdAt,
         farmerProfile: u.farmerProfile
@@ -5997,6 +5999,7 @@ async getWeatherConcernAnalytics(
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -6021,6 +6024,7 @@ async getWeatherConcernAnalytics(
   ): Promise<boolean> {
     try {
       await this.init(source);
+      const appUsersCollection = await this.db.getCollection<any>('users');
 
       const setPayload: Record<string, any> = {
         updatedAt: new Date(),
@@ -6030,6 +6034,13 @@ async getWeatherConcernAnalytics(
         const trimmedName = data.name.trim();
         if (trimmedName) {
           setPayload.name = trimmedName;
+        }
+      }
+
+      if (typeof data?.role === 'string') {
+        const trimmedRole = data.role.trim();
+        if (trimmedRole) {
+          setPayload.role = trimmedRole;
         }
       }
 
