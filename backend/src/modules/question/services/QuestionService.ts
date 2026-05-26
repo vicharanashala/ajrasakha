@@ -468,7 +468,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Send this in the appropriate format expected by the frontend
       let formattedResponse: any[] = [];
 
-      if (Array.isArray(data)) {
+      if (data && Array.isArray(data.results)) {
+        // Map the results array from the agent_search response
+        formattedResponse = data.results.map((item: any) => ({
+          question: item.question || data.extracted_question || context,
+          answer: item.answer || item.text || "Answer not available",
+          agri_specialist: item.source || "AGRI_EXPERT",
+          referenceSource: "agent_search",
+          id: item.id || new ObjectId().toString()
+        }));
+      } else if (Array.isArray(data)) {
         formattedResponse = data.map((item: any) => ({
           question: item.question || context,
           answer: item.answer || item.response || JSON.stringify(item),
@@ -476,11 +485,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           referenceSource: item.referenceSource || "agent_search",
           id: item.id || new ObjectId().toString()
         }));
-      } else {
+      } else if (data && typeof data === 'object') {
         formattedResponse = [
           {
             question: data.extracted_question || data.question || context,
-            answer: data.answer || data.response || (typeof data === 'string' ? data : JSON.stringify(data)),
+            answer: data.answer || data.response || JSON.stringify(data),
             agri_specialist: data.agri_specialist || data.source || "AGRI_EXPERT",
             referenceSource: data.referenceSource || "agent_search",
             id: data.id || new ObjectId().toString()
