@@ -17,7 +17,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig
 from langgraph.store.base import BaseStore
 
-from ajrasakha.agents.config import CLAUDE_MODEL
+from ajrasakha.agents.config import SYNTHESIZE_MODEL
 from ajrasakha.agents.language import language_directive_for_synthesis
 from ajrasakha.agents.translation_catalog import language_pair_from_plan, synthesis_lang_label
 from ajrasakha.agents.memory import load_long_term_summary
@@ -203,7 +203,7 @@ async def _synthesize_from_specialist_tools(
     llm_messages.append(HumanMessage(content=f"Tool results:\n{tool_block}"))
 
     try:
-        llm = ChatAnthropic(model=CLAUDE_MODEL)
+        llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
         response = await llm.ainvoke(llm_messages, config=config)
         answer_text = _message_to_text(response)
         logger.info("Tool-only synthesis complete (len=%d)", len(answer_text))
@@ -300,7 +300,7 @@ async def synthesize_node(
         )
 
         try:
-            llm = ChatAnthropic(model=CLAUDE_MODEL)
+            llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
             response = await llm.ainvoke(llm_messages, config=config)
             answer_text = _message_to_text(response)
             if not (answer_text or "").strip():
@@ -389,7 +389,7 @@ async def synthesize_node(
         )
 
         try:
-            llm = ChatAnthropic(model=CLAUDE_MODEL)
+            llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
             response = await llm.ainvoke(llm_messages, config=config)
             answer_text = _message_to_text(response)
             if not (answer_text or "").strip():

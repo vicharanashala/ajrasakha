@@ -21,7 +21,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import CLAUDE_MODEL
+from ajrasakha.agents.config import PLANNER_MODEL
 from ajrasakha.agents.crop_requirement import is_crop_specific_question
 from ajrasakha.agents.domains import (
     CROP_ALL_DOMAINS,
@@ -391,7 +391,7 @@ async def planner_node(
     )
 
     try:
-        llm = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(PlannerOutput)
+        llm = ChatAnthropic(model=PLANNER_MODEL).with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=config)
         plan = planner_output_to_plan(output)
 
