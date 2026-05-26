@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsInt, IsNumber, IsArray, IsBoolean, ValidateNested, Min } from 'class-validator';
+import { IsNotEmpty, IsString, IsInt, IsNumber, IsArray, IsBoolean, ValidateNested, Min, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JSONSchema } from 'class-validator-jsonschema';
 
@@ -333,6 +333,17 @@ export class UserDetailEntryResponse {
   })
   @IsString()
   email: string;
+
+  @JSONSchema({
+    description: 'User role',
+    example: 'FARMER',
+    type: 'string',
+    readOnly: true,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  role?: string;
 
   @JSONSchema({
     description: 'Total number of questions asked by this user',

@@ -52,10 +52,11 @@ import {
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
-import { useInactiveWhatsappUsers, useQueryCategories } from "./hooks/useActiveUsersAnalytics";
+import { useInactiveWhatsappUsers, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
 import { motion, AnimatePresence } from "framer-motion";
+import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -171,7 +172,6 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     isLoading: isResponseAdherenceLoading,
   } = useDashboardData(responseAdherenceFilters, source);
 
-  // console.log("Dashboard data:", data);
   const {
     data: dauTrend,
     isLoading: dauLoading,
@@ -334,6 +334,8 @@ useEffect(() => {
     }));
   }
 }, [source]);
+
+const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -465,6 +467,7 @@ useEffect(() => {
                     )}
                     {source === "whatsapp" && (
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+
                         <WhatsAppAnalyticsCard
                           title="Daily Queries"
                           analytics={dailyAnalytics}
@@ -481,6 +484,10 @@ useEffect(() => {
                           title="Monthly Queries"
                           analytics={monthlyAnalytics}
                           granularity="monthly"
+                        />
+
+                        <WhatsAppUniqueUsersCard 
+                          totalUsers={unqueWhatsAppUsers}
                         />
                       </div>
                     )}
@@ -804,7 +811,6 @@ useEffect(() => {
                     )}
                   </div>
 
-
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
@@ -816,14 +822,22 @@ useEffect(() => {
                       className="h-full"
                     >
                       <DashboardQueryCategories
-                        categories={source === "whatsapp" ? queryCategories : data.queryCategories}
+                        categories={
+                          source === "whatsapp"
+                            ? queryCategories
+                            : data.queryCategories
+                        }
                       />
                     </motion.div>
 
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, ease: "easeOut", delay: 0.08 }}
+                      transition={{
+                        duration: 0.4,
+                        ease: "easeOut",
+                        delay: 0.08,
+                      }}
                       ref={(el) => {
                         sectionRefs.current["feedback-sentiment"] = el;
                       }}
@@ -906,6 +920,16 @@ useEffect(() => {
                     </div>
                   )}
                   {source !== "whatsapp" && (
+                    <div className="mt-4 mb-4">
+                      <WeatherConcernAnalyticsCard
+                        source={source}
+                        userType={filters.userType}
+                        filters={weatherConcernFilters}
+                        onFiltersChange={setWeatherConcernFilters}
+                      />
+                    </div>
+                  )}
+                  {source !== "whatsapp" && (
                     <div
                       ref={(el) => {
                         sectionRefs.current["user-details"] = el;
@@ -915,16 +939,6 @@ useEffect(() => {
                         source={source}
                         initialFilters={userDetailsInitialFilters}
                         userType={filters.userType}
-                      />
-                    </div>
-                  )}
-                  {source !== "whatsapp" && (
-                    <div className="mt-4 mb-4">
-                      <WeatherConcernAnalyticsCard
-                        source={source}
-                        userType={filters.userType}
-                        filters={weatherConcernFilters}
-                        onFiltersChange={setWeatherConcernFilters}
                       />
                     </div>
                   )}

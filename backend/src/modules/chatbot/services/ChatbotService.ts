@@ -1,5 +1,5 @@
 import {injectable, inject} from 'inversify';
-import {InternalServerError} from 'routing-controllers';
+import {InternalServerError, BadRequestError} from 'routing-controllers';
 import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
@@ -23,6 +23,9 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 
 import PDFDocument from 'pdfkit';
 import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
+import { WHATSAPP_TYPES } from '#root/modules/whatsapp/types.js';
+import { IWhatsAppService } from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
+
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -33,6 +36,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     private readonly userRepository: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
+    @inject(WHATSAPP_TYPES.WhatsAppService)
+    private readonly whatsappService: IWhatsAppService,
   ) {
     super(mongoDatabase);
   }
@@ -1591,6 +1596,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -1617,6 +1623,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
       return await this.chatbotRepository.updateUser(userId, source, data);
     } catch (error) {
       throw new InternalServerError(`Failed to update user: ${error}`);
+    }
+  }
+
+  async addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      password: string;
+      role?: string;
+    },
+  ): Promise<boolean> {
+    try {
+      return await this.chatbotRepository.addUser(source, data);
+    } catch (error: any) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add user: ${error.message || error}`);
     }
   }
 
@@ -1723,10 +1748,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
         current.getDate() + 1,
       );
     }
+    const whatsAppUsers = await this.whatsappService.getAllUsers();
 
     for (const label of labels) {
       // IDs Created
-      const createdCount = WhatsappUsers.filter(
+      const createdCount = whatsAppUsers.data.filter(
         (user) =>
           user.firstMessageAt.startsWith(
             label,
@@ -1736,7 +1762,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       // Installs
       // assuming install = first interaction
-      const installsCount = WhatsappUsers.filter(
+      const installsCount = whatsAppUsers.data.filter(
         (user) =>
           user.firstMessageAt.startsWith(
             label,
@@ -1745,7 +1771,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       installs.push(installsCount);
 
       // Active users
-      const activeCount = WhatsappUsers.filter(
+      const activeCount = whatsAppUsers.data.filter(
         (user) =>
           user.lastMessageAt.startsWith(
             label,

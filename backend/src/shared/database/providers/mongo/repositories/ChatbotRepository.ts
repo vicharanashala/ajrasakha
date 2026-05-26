@@ -1,6 +1,6 @@
 import {inject, injectable} from 'inversify';
 import {Collection, ClientSession, ObjectId} from 'mongodb';
-import {InternalServerError} from 'routing-controllers';
+import {InternalServerError, BadRequestError} from 'routing-controllers';
 import {AnalyticsMongoDatabase} from '../AnalyticsMongoDatabase.js';
 import {AnnamDatabase} from '../AnnamDatabase.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -35,11 +35,15 @@ import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {DISTRICTS} from '#root/utils/districts.js';
 
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+
 interface IUser {
   _id?: any;
   name?: string;
   username?: string;
   email?: string;
+  role?: string;
   createdAt: Date;
   updatedAt: Date;
   farmerProfile?: {
@@ -564,7 +568,6 @@ export class ChatbotRepository implements IChatbotRepository {
           session,
         ),
       ]);
-
       const messageMatch: any = {isDeleted: {$ne: true}};
       if (startTime || endTime) {
         messageMatch.createdAt = {};
@@ -2773,9 +2776,18 @@ async getWeatherConcernAnalytics(
     const monthDateMatch = monthRange
       ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
       : {};
-    const end = new Date();
-    const start = new Date();
+    const now = new Date();
+    const istNow = new Date(
+      now.toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      })
+    );
+    const start = new Date(istNow);
     start.setDate(start.getDate() - 30);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(istNow);
+    end.setHours(23, 59, 59, 999);
+
     if(source === "whatsapp"){
       return  await this.getDailyAnalyticsForWhatsApp(start, end);
     }
@@ -2997,9 +3009,17 @@ async getWeatherConcernAnalytics(
 
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
-    const end = new Date();
-    const start = new Date();
+    const now = new Date();
+    const istNow = new Date(
+      now.toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      })
+    );
+    const start = new Date(istNow);
     start.setDate(start.getDate() - 30);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(istNow);
+    end.setHours(23, 59, 59, 999);
     if(source === "whatsapp"){
       return  await this.getWeeklyAnalyticsForWhatsApp(start, end);
     }
@@ -4002,6 +4022,7 @@ async getWeatherConcernAnalytics(
         userId: String(u._id),
         name: u.name || u.username || 'Unknown',
         email: u.email || '',
+        role: u.role || "",
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         createdAt: u.createdAt,
         farmerProfile: u.farmerProfile
@@ -5997,6 +6018,7 @@ async getWeatherConcernAnalytics(
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -6021,6 +6043,7 @@ async getWeatherConcernAnalytics(
   ): Promise<boolean> {
     try {
       await this.init(source);
+      const appUsersCollection = await this.db.getCollection<any>('users');
 
       const setPayload: Record<string, any> = {
         updatedAt: new Date(),
@@ -6030,6 +6053,13 @@ async getWeatherConcernAnalytics(
         const trimmedName = data.name.trim();
         if (trimmedName) {
           setPayload.name = trimmedName;
+        }
+      }
+
+      if (typeof data?.role === 'string') {
+        const trimmedRole = data.role.trim();
+        if (trimmedRole) {
+          setPayload.role = trimmedRole;
         }
       }
 
@@ -6074,6 +6104,77 @@ async getWeatherConcernAnalytics(
       return result.matchedCount > 0;
     } catch (error) {
       throw new InternalServerError(`Failed to update user: ${error}`);
+    }
+  }
+
+  async addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      password: string;
+      role?: string;
+    },
+  ): Promise<boolean> {
+    if (source === 'whatsapp') {
+      throw new BadRequestError('Add farmer functionality is not supported for whatsapp source');
+    }
+
+    try {
+      await this.init(source);
+      
+      const existingUser = await this.users.findOne({ email: data.email.trim().toLowerCase() });
+      if (existingUser) {
+        throw new BadRequestError('User with this email already exists');
+      }
+
+      const username = data.email.trim().split('@')[0];
+
+      const createPasswordHash = (password: string) => {
+        return bcrypt.hashSync(password, 10);
+      };
+
+      const hashedPassword = createPasswordHash(data.password);
+
+
+      const newUserDoc = {
+        name: data.name.trim(),
+        username: username,
+        email: data.email.trim().toLowerCase(),
+        emailVerified: false,
+        password: hashedPassword,
+        avatar: null,
+        provider: "local",
+        role: data.role || "FARMER",
+        plugins: [],
+        twoFactorEnabled: false,
+        termsAccepted: false,
+        secondTermsAccepted: false,
+        personalization: {
+          memories: true,
+          _id: new ObjectId()
+        },
+        farmerProfile: {
+          cropsCultivated: [],
+          platformHistory: []
+        },
+        backupCodes: [],
+        refreshToken: [],
+        favorites: [],
+        pushSubscriptions: [],
+        createdFrom: "REVIEW_SYSTEM",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        __v: 0
+      };
+
+      const result = await this.users.insertOne(newUserDoc);
+      return result.acknowledged;
+    } catch (error: any) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add user: ${error.message || error}`);
     }
   }
 
@@ -6683,7 +6784,7 @@ async getWeatherConcernAnalytics(
   }
 
   async getDailyAnalyticsForWhatsApp(start: Date, end: Date):Promise<any>{
-
+console.log("-----start", start, end)
     return await this.QuestionCollection.aggregate([
     {
       $match: {
@@ -6699,7 +6800,8 @@ async getWeatherConcernAnalytics(
           _id: {
             $dateToString: {
               format: "%Y-%m-%d",
-              date: "$createdAt"
+              date: "$createdAt",
+              timezone: "+05:30",
             }
           },
 

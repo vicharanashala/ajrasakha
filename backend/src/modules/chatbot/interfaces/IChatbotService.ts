@@ -111,6 +111,7 @@ export interface IChatbotService {
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -131,6 +132,14 @@ export interface IChatbotService {
         numberOfSmartphones?: number;
         platform?: string;
       };
+    },
+  ): Promise<boolean>;
+  addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      role?: string;
     },
   ): Promise<boolean>;
   getDailyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string):Promise<any>;

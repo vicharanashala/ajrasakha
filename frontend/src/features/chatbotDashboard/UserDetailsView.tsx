@@ -51,6 +51,8 @@ import { useTopCrops } from "./hooks/useTopCrops";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import UserQuestionsModal from "./UserQuestionModal";
 import { EditFarmerModal } from "./components/EditFarmerModal";
+import { AddFarmerModal } from "./components/AddFarmerModal";
+import { useAddUser } from "./hooks/useAddUser";
 
 const VISIBLE_CROPS = 2;
 
@@ -142,6 +144,8 @@ export function UserDetailsView({
   const isAdmin = currentUser?.role === "admin";
   const deleteUserMutation = useDeleteUser();
   const updateUserMutation = useUpdateUser();
+  const addUserMutation = useAddUser();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
     ...initialFilters,
@@ -340,6 +344,7 @@ export function UserDetailsView({
 
   const handleSaveEditedUser = async (payload: {
     name?: string;
+    role?: string;
     farmerProfile?: {
       farmerName?: string;
       age?: number;
@@ -369,6 +374,19 @@ export function UserDetailsView({
       data: payload,
     });
     setUserToEdit(null);
+  };
+
+  const handleAddUser = async (payload: {
+    email: string;
+    name: string;
+    password: string;
+    role?: string;
+  }) => {
+    await addUserMutation.mutateAsync({
+      source,
+      data: payload,
+    });
+    setIsAddModalOpen(false);
   };
 
   return (
@@ -849,6 +867,18 @@ export function UserDetailsView({
                   </Button>
                 )}
 
+                {isAdmin && (source === "annam" || source === "vicharanashala") && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-9 px-3 bg-primary hover:bg-primary/90 text-white font-medium shadow-sm transition-colors duration-200 flex items-center gap-1.5"
+                    onClick={() => setIsAddModalOpen(true)}
+                  >
+                    <Users className="h-4 w-4" />
+                    Add Farmer
+                  </Button>
+                )}
+
                 <UserDetailsPreferenceFilter
                   filters={filters}
                   onApply={handleApplyFilters}
@@ -1135,7 +1165,7 @@ export function UserDetailsView({
                           // setUserToEdit, setConfirmEmail, setUserToDelete, source, isAdmin) remain unchanged.
                           // Only the visuals are improved.
 
-                          <ContextMenu key={user.userId}>
+                          <ContextMenu key={user.userId} modal={false}>
                             <ContextMenuTrigger asChild>
                               <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
                                 {/* S.No */}
@@ -1201,9 +1231,9 @@ export function UserDetailsView({
                                   {fp?.gender ? (
                                     <span
                                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                        fp.gender === "Male"
+                                        fp.gender?.toUpperCase() === "MALE"
                                           ? "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
-                                          : fp.gender === "Female"
+                                          : fp.gender?.toUpperCase() === "FEMALE"
                                             ? "bg-pink-50 dark:bg-pink-950 text-pink-700 dark:text-pink-300"
                                             : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                                       }`}
@@ -1423,8 +1453,7 @@ export function UserDetailsView({
                               <ContextMenuContent>
                                 <ContextMenuItem
                                   className="cursor-pointer flex items-center gap-2"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
+                                  onSelect={() => {
                                     setUserToEdit(user);
                                   }}
                                 >
@@ -1433,8 +1462,7 @@ export function UserDetailsView({
                                 </ContextMenuItem>
                                 <ContextMenuItem
                                   className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
+                                  onSelect={() => {
                                     setConfirmEmail("");
                                     setUserToDelete({
                                       userId: user.userId,
@@ -1488,6 +1516,13 @@ export function UserDetailsView({
           </CardContent>
         </Card>
       </div>
+
+      <AddFarmerModal
+        open={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
+        isSaving={addUserMutation.isPending}
+        onSave={handleAddUser}
+      />
 
       <EditFarmerModal
         open={!!userToEdit}

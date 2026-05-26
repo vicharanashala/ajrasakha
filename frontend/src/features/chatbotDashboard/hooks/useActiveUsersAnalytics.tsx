@@ -102,3 +102,14 @@ export const useInactiveWhatsappUsers = (inactiveUsersPage: number) => {
   });
 };
 
+
+export const useUniqueWhatsappUsers = () => {
+  return useQuery({
+    queryKey: ["whatsapp-unique-users",
+    ],
+    queryFn: () => {
+      return chatbotService.getUniqueWhatsappUsers();
+    },
+  });
+};
+
