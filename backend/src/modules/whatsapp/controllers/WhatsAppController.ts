@@ -140,9 +140,9 @@ export class WhatsAppController {
         users: response.data || [],
       };
     } catch (error) {
-      console.error('Error fetching all WhatsApp users from service, falling back to dummy data:', error);
+      console.error('Error fetching all WhatsApp users from service, falling back to empty list:', error);
       return {
-        // users: WhatsappUsers,
+        users: [],
       };
     }
   }

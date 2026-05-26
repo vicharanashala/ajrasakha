@@ -110,7 +110,6 @@ export const WhatsappUsers: WhatsAppUser[] = [
     lastMessageText: "Which variety of wheat is best for Punjab?",
   },
 ];
-
 interface WhatsAppFilters {
   search: string;
   minMessageCount: string;
@@ -321,7 +320,7 @@ export function WhatsAppUsersView() {
     if (apiResponse?.users && apiResponse.users.length > 0) {
       return apiResponse.users;
     }
-    return WhatsappUsers;
+    return [];
   }, [apiResponse]);
 
   const handleApplyFilters = (newFilters: WhatsAppFilters) => {
@@ -480,6 +479,14 @@ export function WhatsAppUsersView() {
           {isLoading && !apiResponse ? (
             <div className="py-12">
               <Spinner text="Fetching WhatsApp users..." fullScreen={false} />
+            </div>
+          ) : activeUsersData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center border rounded-lg bg-card">
+              <Users className="h-10 w-10 text-muted-foreground/50 mb-3" />
+              <h3 className="font-medium text-sm text-foreground">No WhatsApp Users</h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                No WhatsApp user threads or message histories were found in the database.
+              </p>
             </div>
           ) : (
             <div className="rounded-lg border bg-card overflow-x-auto">
