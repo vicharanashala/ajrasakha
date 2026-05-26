@@ -180,7 +180,7 @@ export function AlertCard({
       }
 
       {/* Domain Spikes Row — always rendered, shows top spike or a placeholder */}
-      {source !== "whatsapp" &&
+      {/* {source !== "whatsapp" &&
       <div
         className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 cursor-pointer hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
         onClick={() => setIsSpikesModalOpen(true)}
@@ -230,13 +230,13 @@ export function AlertCard({
           </svg>
         </div>
       </div>
-      }
+      } */}
       
       <div className="flex-1" />
 
-      {isSpikesModalOpen && (
+      {/* {isSpikesModalOpen && (
         <DomainSpikesModal onClose={() => setIsSpikesModalOpen(false)} />
-      )}
+      )} */}
     </div>
   );
 }
