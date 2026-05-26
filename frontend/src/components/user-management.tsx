@@ -7,8 +7,11 @@ import {
   MapPin,
   Search,
   X,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Input } from "./atoms/input";
+import { Badge } from "./atoms/badge";
 import { UsersTable } from "./user-table";
 import {
   useGetAllExperts,
@@ -34,36 +37,41 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [sort, setSort] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [verifiedFilter, setVerifiedFilter] = useState<string>("ALL");
+  const [stfFilter, setStfFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
-  const LIMIT = 12;
+  const [limit, setLimit] = useState(12);
+  const [showSensitive, setShowSensitive] = useState(false);
   const states = STATES;
   const isAdmin = currentUser?.role === "admin";
   const isModerator = currentUser?.role === "moderator";
 
   const { data: adminUsers, isLoading: adminLoading } = useAdminGetAllUsers(
-    page,
-    LIMIT,
-    search,
-    sort,
-    filter,
-    roleFilter,
-    statusFilter,
-    { enabled: isAdmin }
-  );
- const toggleSort = (key: string) => {
-  if (key === "rank") {
-    setSort("");
-    return;
-  }
-  setSort((prev) => {
-    if (prev === `${key}_asc`) return `${key}_desc`;
-    return `${key}_asc`;
-  });
-};
+  page,
+  limit,
+  search,
+  sort,
+  filter,
+  roleFilter,
+  statusFilter,
+  verifiedFilter,
+  stfFilter,
+  { enabled: isAdmin }
+);
+  const toggleSort = (key: string) => {
+    if (key === "rank") {
+      setSort("");
+      return;
+    }
+    setSort((prev) => {
+      if (prev === `${key}_asc`) return `${key}_desc`;
+      return `${key}_asc`;
+    });
+  };
 
   const { data: expertDetails, isLoading: expertLoading } = useGetAllExperts(
     page,
-    LIMIT,
+    limit,
     search,
     sort,
     filter,
@@ -81,7 +89,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     if (currentUser?.role !== "expert") onReset();
   }, [debouncedSearch]);
 
-  const onReset = () => {};
+  const onReset = () => { };
 
   const handleViewMore = (userId: string) => {
     setSelectedUserId(userId);
@@ -103,13 +111,15 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     : expertDetails?.experts ?? [];
 
 
-    console.log("Admin users ->", adminUsers?.users);
-    console.log("Expert details ->", expertDetails?.experts); 
-    console.log("Table items ->", tableItems);
+  console.log("Admin users ->", adminUsers?.users);
+  console.log("Expert details ->", expertDetails?.experts);
+  console.log("Table items ->", tableItems);
 
   const isLoading = isAdmin ? adminLoading : expertLoading;
 
   const totalPages = isAdmin ? 1 : expertDetails?.totalPages || 0;
+
+
 
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
@@ -119,12 +129,13 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
           goBack={goBack}
           rankPosition={rankPostion}
           expertDetailsList={expertDetails}
+          currentUserRole={currentUser?.role}
         />
       ) : (
         <>
           <div className="flex flex-wrap items-start justify-between gap-4 w-full bg-card py-4 px-2 rounded">
             {/* LEFT — Search */}
-            <div className="flex-1 min-w-[250px] max-w-[400px] order-1">
+            <div className="flex items-center gap-3 flex-1 min-w-[250px] max-w-[500px] order-1">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 
@@ -147,10 +158,40 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                   </button>
                 )}
               </div>
+
+              {/* Toggle Phone & University columns — admin only */}
+              {isAdmin && (
+                <button
+                  onClick={() => setShowSensitive((v) => !v)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+                    showSensitive
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-input hover:text-foreground"
+                  }`}
+                >
+                  {showSensitive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showSensitive ? "Hide Info" : "Show Info"}
+                </button>
+              )}
             </div>
 
             {/* RIGHT — Sort + Filter Group */}
             <div className="flex items-center gap-4 order-2">
+              {/* Toggle Phone & University columns — moderator only (admin gets it next to search) */}
+              {!isAdmin && (
+                <button
+                  onClick={() => setShowSensitive((v) => !v)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+                    showSensitive
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-input hover:text-foreground"
+                  }`}
+                >
+                  {showSensitive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showSensitive ? "Hide Info" : "Show Info"}
+                </button>
+              )}
+
               {/* Filter */}
               <div className="flex items-center gap-3 w-[240px]">
                 <Label className="flex items-center gap-2 text-sm font-semibold whitespace-nowrap">
@@ -195,6 +236,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="moderator">Moderator</SelectItem>
                       <SelectItem value="expert">Expert</SelectItem>
+                      <SelectItem value="pae_expert">PAE Expert</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -215,7 +257,40 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                   </Select>
                 </div>
               )}
+
+              {/* Verification Filter */}
+              {isAdmin && (
+                <div className="flex items-center gap-3 w-[180px] relative">
+                  <Badge className="absolute -top-2 -right-1 h-4 text-[9px] px-1.5 py-0 bg-red-500 hover:bg-red-600 border-0 z-10 text-white">New</Badge>
+                  <Select value={verifiedFilter} onValueChange={(val) => { setVerifiedFilter(val); setPage(1); }}>
+                    <SelectTrigger className="bg-background px-3 py-2 w-full">
+                      <SelectValue placeholder="Verification" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Users</SelectItem>
+                      <SelectItem value="true">Verified</SelectItem>
+                      <SelectItem value="false">Not Verified</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
+            {/* STF Filter */}
+              {isAdmin && (
+                <div className="flex items-center gap-3 w-[180px] relative">
+                  <Badge className="absolute -top-2 -right-1 h-4 text-[9px] px-1.5 py-0 bg-red-500 hover:bg-red-600 border-0 z-10 text-white">New</Badge>
+                  <Select value={stfFilter} onValueChange={(val) => { setStfFilter(val); setPage(1); }}>
+                    <SelectTrigger className="bg-background px-3 py-2 w-full">
+                      <SelectValue placeholder="STF Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Users</SelectItem>
+                      <SelectItem value="true">STF Users</SelectItem>
+                      <SelectItem value="false">Non-STF Users</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
           </div>
 
           <UsersTable
@@ -224,7 +299,8 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
             currentPage={page}
             setCurrentPage={setPage}
             userRole={currentUser?.role!}
-            limit={LIMIT}
+            limit={limit}
+            setLimit={setLimit}
             totalPages={
               isAdmin
                 ? adminUsers?.totalPages || 1
@@ -235,6 +311,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
             setRankPosition={setRankPosition}
             onSort={toggleSort}
             sort={sort}
+            showSensitive={showSensitive}
           />
         </>
       )}

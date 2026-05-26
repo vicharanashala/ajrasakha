@@ -90,7 +90,7 @@ export function ThreadSidebar({
               <ThreadItem
                 key={thread.id}
                 thread={thread}
-                isActive={selectedThreadId === thread.id}
+                isActive={thread.id === selectedThreadId || thread.id === (selectedThreadId ?? '').split('-')[0]}
                 onClick={() => onThreadSelect(thread.id)}
               />
             ))

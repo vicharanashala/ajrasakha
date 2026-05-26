@@ -145,7 +145,6 @@ export function generateOpenAPISpec(
   routingControllersOptions: RoutingControllersOptions,
   validators: Function[] = [],
 ) {
-
   // Get metadata storage
   const storage = getMetadataArgsStorage();
 
@@ -157,7 +156,7 @@ export function generateOpenAPISpec(
   if (storage.params) {
     storage.params = storage.params.map((param: any) => {
       if (param.type === undefined || param.target === undefined) {
-        return { ...param, type: String, target: param.target || Object };
+        return {...param, type: String, target: param.target || Object};
       }
       return param;
     });
@@ -168,7 +167,7 @@ export function generateOpenAPISpec(
     // If no specific validators are provided, use all class-validator schemas
     schemas = validationMetadatasToSchemas({
       refPointerPrefix: '#/components/schemas/',
-      classTransformerMetadataStorage: defaultMetadataStorageTyped as any
+      classTransformerMetadataStorage: defaultMetadataStorageTyped as any,
     });
   } else {
     // If specific validators are provided, filter schemas based on them
@@ -308,7 +307,7 @@ export function generateOpenAPISpec(
       {
         name: 'Notifications',
         description: 'Operations for managing notifications',
-      }
+      },
     ],
     'x-tagGroups': [
       {
@@ -363,7 +362,6 @@ export function generateOpenAPISpec(
       },
     },
 
-    
     servers: getOpenApiServers(),
     security: [
       {
@@ -372,6 +370,20 @@ export function generateOpenAPISpec(
     ],
   });
 
+  // Remove auth module completely
+  Object.keys(spec.paths).forEach(path => {
+    if (path.startsWith('/auth')) {
+      delete spec.paths[path];
+    }
+  });
+
+  spec.tags = spec.tags?.filter((tag: any) => tag.name !== 'Authentication');
+
+  spec['x-tagGroups'] = spec['x-tagGroups']?.filter(
+    (group: any) => group.name !== 'Authentication',
+  );
+
+  
   const cleanedSpec = removeInvalidRefs(spec);
   //   const specLog = JSON.stringify(cleanedSpec, null, 2);
   // const logFile = fs.createWriteStream('openapi-spec.json');

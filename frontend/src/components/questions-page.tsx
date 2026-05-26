@@ -1,7 +1,7 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
 import { QuestionsTable } from "../features/question-table-page/questions-table";
 import { QuestionsFilters } from "../features/question-table-page/QuestionsFilters";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
 import type { IUser } from "@/types";
@@ -16,11 +16,13 @@ import {
 } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
+import { useBulkAllocatePaeExperts } from "@/hooks/api/question/useBulkAllocatePaeExperts";
 import { toast } from "sonner";
 import Spinner from "./atoms/spinner";
 import { ReviewLevelsTable } from "@/features/questions/components/review-level/ReviewLevelsTable";
 import { useGetQuestionsAndLevel } from "@/features/questions/hooks/useGetQuestionsAndLevel";
 import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLevel";
+import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 
 export const QuestionsPage = ({
   currentUser,
@@ -29,6 +31,13 @@ export const QuestionsPage = ({
   currentUser?: IUser;
   autoOpenQuestionId?: string | null;
 }) => {
+  const {
+    selectedQuestionId: routeQuestionId,
+    selectedCommentId: routeCommentId,
+    setSelectedQuestionId: setRouteQuestionId,
+    setSelectedCommentId: setRouteCommentId,
+    setSelectedQuestionType,
+  } = useSelectedQuestion();
 
   const getInitialSource = (): QuestionSourceFilter => {
     const sourceFromUrl = new URLSearchParams(window.location.search).get(
@@ -69,11 +78,12 @@ export const QuestionsPage = ({
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
+  const [unallocatedQuestions, setUnallocatedQuestions] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
+  const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
@@ -90,8 +100,14 @@ export const QuestionsPage = ({
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"all" | "review-level">("all");
   const [reviewPage, setReviewPage] = useState(1);
-  const [reviewLimit] = useState(12);
+  const [limit, setLimit] = useState(12);
   const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
+  const suppressAutoOpenRef = useRef(false);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setReviewPage(1);
+  }, [limit]);
 
   //handle sort by turn around time
   const [sort, setSort] = useState("");
@@ -120,8 +136,9 @@ export const QuestionsPage = ({
 
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
+  const { mutateAsync: bulkAllocatePaeExperts, isPending: isBulkAllocatingPae } =
+    useBulkAllocatePaeExperts();
 
-  const LIMIT = 12;
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -160,6 +177,8 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      unallocatedQuestions,
+      pae_review: paeReview,
     }),
     [
       status,
@@ -185,16 +204,19 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      unallocatedQuestions,
+      paeReview,
     ],
   );
 
   const {
     data: questionData,
     isLoading,
+    isFetching,
     refetch,
   } = useGetAllDetailedQuestions(
     currentPage,
-    LIMIT,
+    limit,
     filter,
     debouncedSearch,
     viewMode === "all",
@@ -209,7 +231,7 @@ export const QuestionsPage = ({
   const { data: reviewData, isLoading: isReviewLoading, refetch: refetchReviewLevels } =
     useGetQuestionsAndLevel(
       reviewPage,
-      reviewLimit,
+      limit,
       search,
       filter,
       viewMode === "review-level",
@@ -220,6 +242,14 @@ export const QuestionsPage = ({
     [reviewData],
   );
   useEffect(() => {
+    if (suppressAutoOpenRef.current) {
+      if (!autoOpenQuestionId) {
+        suppressAutoOpenRef.current = false;
+        setSelectedQuestionId("");
+      }
+      return;
+    }
+
     if (autoOpenQuestionId && autoOpenQuestionId !== selectedQuestionId) {
       setSelectedQuestionId(autoOpenQuestionId);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -273,7 +303,7 @@ export const QuestionsPage = ({
   };
 
   useEffect(() => {
-    if (pendingNav && !isLoading && !isReviewLoading && currentItems.length > 0) {
+    if (pendingNav && !isLoading && !isFetching && !isReviewLoading && currentItems.length > 0) {
       if (pendingNav === "next") {
         setSelectedQuestionId(currentItems[0]._id);
       } else {
@@ -307,6 +337,8 @@ export const QuestionsPage = ({
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     isOnHold?: boolean;
+    unallocatedQuestions?: boolean;
+    pae_review?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -337,6 +369,10 @@ export const QuestionsPage = ({
       setDuplicateQuestions(next.duplicateQuestions);
     if (next.isOnHold !== undefined)
       setIsOnHold(next.isOnHold);
+    if (next.unallocatedQuestions !== undefined)
+      setUnallocatedQuestions(next.unallocatedQuestions);
+    if ("pae_review" in next)
+      setPaeReview(next.pae_review);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -374,18 +410,22 @@ export const QuestionsPage = ({
     setHiddenQuestions(false);
     setDuplicateQuestions(false);
     setIsOnHold(false);
+    setPaeReview(undefined);
   };
 
   const handleViewMore = (questoinId: string) => {
     setSelectedQuestionId(questoinId);
   };
   const goBack = () => {
-    const url = new URL(window.location.href);
-    if (url.searchParams.has("comment")) {
-      url.searchParams.delete("comment");
-      window.history.replaceState({}, "", url.toString());
-      setSelectedQuestionId("");
-      return;
+    if (routeCommentId || routeQuestionId) {
+      suppressAutoOpenRef.current = true;
+    }
+    if (routeCommentId) {
+      setRouteCommentId(null);
+    }
+    if (routeQuestionId) {
+      setRouteQuestionId(null);
+      setSelectedQuestionType(null);
     }
     setSelectedQuestionId("");
   };
@@ -402,6 +442,28 @@ export const QuestionsPage = ({
       setIsSelectionModeOn(false);
     } catch (error) {
       console.error("Bulk delete error:", error);
+    }
+  };
+
+  const handleBulkAllocateToPae = async (paeExpertId: string) => {
+    if (!selectedQuestionIds || selectedQuestionIds.length === 0) {
+      toast.error("No questions selected.");
+      return;
+    }
+
+    try {
+      // Send all selected IDs directly — the worker validates draft status per question
+      // and skips non-draft ones. We must NOT filter through questionData (current page only).
+      await bulkAllocatePaeExperts({ questionIds: selectedQuestionIds, paeExpertId });
+      setSelectedQuestionIds([]);
+      setIsSelectionModeOn(false);
+      setTimeout(() => refetch(), 3000);
+      toast.success(
+        `Allocating ${selectedQuestionIds.length} question(s) to PAE in background.`,
+      );
+    } catch (error) {
+      console.error("Bulk PAE allocate error:", error);
+      toast.error("Failed to start PAE allocation. Please try again.");
     }
   };
 
@@ -445,10 +507,6 @@ export const QuestionsPage = ({
             crops={CROPS}
             refetch={() => {
               refetch();
-              setIsRefreshing(true);
-              setTimeout(() => {
-                setIsRefreshing(false);
-              }, 2000);
             }}
             totalQuestions={
               viewMode === "all"
@@ -462,6 +520,8 @@ export const QuestionsPage = ({
             setIsSelectionModeOn={setIsSelectionModeOn}
             setSelectedQuestionIds={setSelectedQuestionIds}
             bulkDeletingQuestions={bulkDeletingQuestions}
+            handleBulkAllocateToPae={handleBulkAllocateToPae}
+            isBulkAllocatingPae={isBulkAllocatingPae}
             viewMode={viewMode}
             setViewMode={setViewMode}
             onSort={toggleSort}
@@ -478,9 +538,9 @@ export const QuestionsPage = ({
               currentPage={currentPage}
               setCurrentPage={setCurrentPage}
               userRole={currentUser?.role!}
-              limit={LIMIT}
+              limit={limit}
               totalPages={questionData?.totalPages || 0}
-              isLoading={isLoading || isRefreshing || bulkDeletingQuestions}
+              isLoading={isLoading || isFetching || bulkDeletingQuestions}
               isBulkUpload={isBulkUpload}
               uploadedQuestionsCount={uploadedQuestionsCount}
               selectedQuestionIds={selectedQuestionIds}
@@ -491,6 +551,7 @@ export const QuestionsPage = ({
               sort={questionSort}
               onSort={toggleQuestionSort}
               view={view}
+              setLimit={setLimit}
             />
           ) : (
             <ReviewLevelsTable
@@ -502,7 +563,8 @@ export const QuestionsPage = ({
               onViewMore={handleViewMore}
               toggleSort={toggleSort}
               sort={sort}
-              limit={reviewLimit}
+              limit={limit}
+              onLimitChange={setLimit}
               view={view}
               onRefresh={refetchReviewLevels}
             />

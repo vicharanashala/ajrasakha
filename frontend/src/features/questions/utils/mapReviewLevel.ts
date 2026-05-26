@@ -8,6 +8,12 @@
       _id: q._id,
       question: q.question,
       status:q.status,
+      isDuplicate: Boolean(
+        q.similarityScore &&
+        q.referenceQuestionId &&
+        q.referenceQuestion &&
+        q.referenceSource
+      ),
       levels: q.reviewLevels.map(l =>
       l.value === "NA"
         ? "NA"

@@ -27,9 +27,7 @@ export const CropMultiSelect = ({
       getDisplayLabel={(sel) =>
         sel.length === 0
           ? "All Crops"
-          : sel.length === 1
-            ? sel[0]
-            : `${sel.length} crops selected`
+          : sel.join(", ")
       }
     />
   );

@@ -12,6 +12,7 @@ import {
   CurrentUser,
   Post,
   Param,
+  QueryParam,
   NotFoundError,
   Patch,
   UploadedFile,
@@ -20,6 +21,7 @@ import {
   Res,
   UseBefore,
   InternalServerError,
+  Req,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -36,6 +38,7 @@ import {
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   BulkDeleteQuestionDto,
   DateRangeRequest,
   GeneratedQuestionResponse,
@@ -45,7 +48,8 @@ import {
   QuestionResponse,
   RemoveAllocateBody,
   ApproveInitialAnswerBody,
-  ReplaceQueueExpertRequest
+  ReplaceQueueExpertRequest,
+  ReallocateExpertsSelectedQuestionsRequest,
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
 import {
@@ -64,6 +68,7 @@ import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { UserService } from '#root/modules/user/index.js';
 import { IContextService } from '#root/modules/context/interfaces/index.js';
+import { restoreBackupBson } from '#root/utils/DBMigration.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -180,6 +185,7 @@ export class QuestionController {
     file: Express.Multer.File,
     @Body() body: AddQuestionBodyDto,
     @CurrentUser() user: IUser,
+    @Req() req: any,
   ): Promise<Partial<any> | { message: string }> {
     const userId = user?._id?.toString();
 
@@ -207,6 +213,14 @@ export class QuestionController {
 
       const isOutreachQuestion =
         body.isOutreachQuestion === 'true';
+
+      // Read directly from req.body (multer-parsed) to avoid class-transformer dropping fields
+      const rawBody = req.body || {};
+      const allocationMode = rawBody.allocationMode || body.allocationMode || 'expert';
+      const paeExpertId: string | undefined = rawBody.paeExpertId || body.paeExpertId;
+      console.log('[BulkUpload] rawBody:', rawBody);
+      console.log('[BulkUpload] allocationMode:', allocationMode, '| paeExpertId:', paeExpertId);
+
 
       try {
         const mimetype = file.mimetype;
@@ -254,7 +268,9 @@ export class QuestionController {
           this.auditTrailsService,
           isRequiredAiInitialAnswer,
           isOutreachQuestion,
-          payload
+          payload,
+          allocationMode,
+          paeExpertId
         ));
 
         return {
@@ -285,13 +301,11 @@ export class QuestionController {
         );
       }
     } else {
-      let isDuplicate;
       let data;
 
       try {
         console.log("the controller body coming===", body)
         const result = await this.questionService.addQuestion(userId, body);
-        isDuplicate = result.isDuplicate;
         data = result.data;
       } catch (err: any) {
         auditPayload = {
@@ -307,20 +321,15 @@ export class QuestionController {
             errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
         };
-        this.auditTrailsService.createAuditTrail(auditPayload);
+        if (actorPayload !== null) {
+          this.auditTrailsService.createAuditTrail(auditPayload);
+        }
         if (err instanceof InternalServerError) {
           throw new InternalServerError(err.message);
         }
         throw new BadRequestError(
           err?.message || 'Failed to add question',
         );
-      }
-      if (isDuplicate) {
-        return {
-          success: true,
-          message: 'Your question is similar to an existing question.',
-          data,
-        };
       }
 
       auditPayload = {
@@ -362,6 +371,7 @@ export class QuestionController {
   @OpenAPI({ summary: 'ReAllocating questions which are delayed to those who has less workload' })
   async reAllocateLessWorkload(
     @CurrentUser() user: IUser,
+    @QueryParam('type') type?: string,
   ) {
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
@@ -376,7 +386,7 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const result = await this.questionService.balanceWorkload();
+      const result = await this.questionService.balanceWorkload(undefined, type);
       auditPayload = {
         ...auditPayload,
         changes: {
@@ -406,6 +416,27 @@ export class QuestionController {
       );
 
     }
+  }
+
+  @Get('/reallocation-preview')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get preview of questions and experts for reallocation' })
+  async getReallocationPreview(@QueryParam('type') type: string) {
+    return this.questionService.getReallocationPreview(type);
+  }
+
+  @Post('/reallocate-manual')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually reallocate questions to experts' })
+  async reallocateManual(
+    @Body() body: {
+      assignments: { submissionId: string; expertId: string }[];
+      inactiveExpertIds?: string[];
+    }
+  ) {
+    return this.questionService.manualReallocate(body.assignments, body.inactiveExpertIds);
   }
 
   @Get("/download-question-report")
@@ -559,6 +590,8 @@ export class QuestionController {
       status?: string;
       hiddenQuestions?: string;
       duplicateQuestions?: string;
+      startDate?: string;
+      endDate?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -592,6 +625,8 @@ export class QuestionController {
         status: query.status,
         hiddenQuestions: query.hiddenQuestions,
         duplicateQuestions: query.duplicateQuestions,
+        startDate: query.startDate,
+        endDate: query.endDate,
       });
     } catch (err: any) {
       auditPayload = {
@@ -685,7 +720,7 @@ export class QuestionController {
   ) {
     const { questionId } = params;
     const userId = user._id.toString();
-    const question = await this.questionService.getQuestionFullData(
+    const { question, approved_moderator } = await this.questionService.getQuestionFullData(
       questionId,
       userId,
     );
@@ -694,7 +729,7 @@ export class QuestionController {
       throw new NotFoundError(`Question with id ${questionId} not found`);
     }
 
-    return { success: true, data: question };
+    return { success: true, data: { ...question, approved_moderator } };
   }
 
   @Patch('/:questionId/toggle-auto-allocate')
@@ -783,6 +818,23 @@ export class QuestionController {
     return result.message;
   }
 
+  @Post('/bulk-pae-allocate')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Bulk allocate PAE experts to multiple draft questions' })
+  async bulkAllocatePaeExperts(
+    @Body() body: BulkPaeAllocateRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    const { _id: userId } = user;
+    const { questionIds, paeExpertId } = body;
+    return this.questionService.bulkAllocatePaeExperts(
+      userId.toString(),
+      questionIds,
+      paeExpertId,
+    );
+  }
+
   @Post('/:questionId/allocate-experts')
   @HttpCode(200)
   @Authorized()
@@ -818,7 +870,7 @@ export class QuestionController {
     };
     try {
       expertDetails = await Promise.all(experts.map((id) => this.userService.getUserById(id)));
-      questionDetails = await this.questionService.getQuestionById(questionId);
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
       result = await this.questionService.allocateExperts(
         userId.toString(),
         questionId,
@@ -852,7 +904,7 @@ export class QuestionController {
       ...auditPayload,
       context: {
         ...auditPayload.context,
-        question: questionDetails.text,
+        question: questionDetails.question,
       },
       changes: {
         ...auditPayload.changes,
@@ -1064,7 +1116,7 @@ export class QuestionController {
   async bulkDeleteQuestions(
     @Body() body: BulkDeleteQuestionDto,
     @CurrentUser() user: IUser,
-  ): Promise<{ deletedCount: number }> {
+  ): Promise<{ message: string; jobId: string }> {
     const { questionIds } = body;
     let prevQuestions;
     let response;
@@ -1087,7 +1139,7 @@ export class QuestionController {
     };
     try {
       prevQuestions = await Promise.all(questionIds.map(id => this.questionService.getQuestionById(id)));
-      response = await this.questionService.bulkDeleteQuestions(questionIds);
+      response = await this.questionService.bulkDeleteQuestions(user._id.toString(), questionIds);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
@@ -1479,4 +1531,58 @@ export class QuestionController {
     return result;
   }
 
+  //reallocate selected question to lessworkloads expert
+  @Post('/reAllocateSelectedQuestions')
+  @HttpCode(200)
+  @OpenAPI({ summary: 'ReAllocating selectedquestions to those who has less workload' })
+  async reAllocateSelectedQuestions(
+    @CurrentUser() user: IUser,
+    @Body() body: ReallocateExpertsSelectedQuestionsRequest,
+  ) {
+    const { questionIds } = body;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: AuditAction.REALLOCATE_QUESTIONS,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      createdAt: new Date(),
+    };
+    try {
+      const result = await this.questionService.balanceWorkloadSelectedQuestions(questionIds ?? []);
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          after: {
+            expertsInvolved: result.expertsInvolved,
+            submissionsProcessed: result.submissionsProcessed,
+          },
+        },
+        outcome: {
+          status: OutComeStatus.SUCCESS,
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    }
+    catch (err: any) {
+      console.log("Error in reAllocateSelectedQuestions:", err);
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorMessage: err?.message || 'Failed to process uploaded file',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      throw new BadRequestError(
+        err?.message || 'Failed to process uploaded file',
+      );
+
+    }
+  }
 }

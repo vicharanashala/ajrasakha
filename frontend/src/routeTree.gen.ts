@@ -12,8 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatsappHistoryRouteImport } from './routes/whatsapp-history'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProfileIndexRouteImport } from './routes/profile/index'
+import { Route as PaeExpertIndexRouteImport } from './routes/pae-expert/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
+import { Route as HistoryIndexRouteImport } from './routes/history/index'
+import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuditIndexRouteImport } from './routes/audit/index'
 
@@ -32,6 +35,11 @@ const ProfileIndexRoute = ProfileIndexRouteImport.update({
   path: '/profile/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PaeExpertIndexRoute = PaeExpertIndexRouteImport.update({
+  id: '/pae-expert/',
+  path: '/pae-expert/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NotificationsIndexRoute = NotificationsIndexRouteImport.update({
   id: '/notifications/',
   path: '/notifications/',
@@ -40,6 +48,16 @@ const NotificationsIndexRoute = NotificationsIndexRouteImport.update({
 const HomeIndexRoute = HomeIndexRouteImport.update({
   id: '/home/',
   path: '/home/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryIndexRoute = HistoryIndexRouteImport.update({
+  id: '/history/',
+  path: '/history/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FlagsReportedIndexRoute = FlagsReportedIndexRouteImport.update({
+  id: '/flags-reported/',
+  path: '/flags-reported/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
@@ -58,8 +76,11 @@ export interface FileRoutesByFullPath {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/flags-reported': typeof FlagsReportedIndexRoute
+  '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
   '/notifications': typeof NotificationsIndexRoute
+  '/pae-expert': typeof PaeExpertIndexRoute
   '/profile': typeof ProfileIndexRoute
 }
 export interface FileRoutesByTo {
@@ -67,8 +88,11 @@ export interface FileRoutesByTo {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/flags-reported': typeof FlagsReportedIndexRoute
+  '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
   '/notifications': typeof NotificationsIndexRoute
+  '/pae-expert': typeof PaeExpertIndexRoute
   '/profile': typeof ProfileIndexRoute
 }
 export interface FileRoutesById {
@@ -77,8 +101,11 @@ export interface FileRoutesById {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit/': typeof AuditIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/flags-reported/': typeof FlagsReportedIndexRoute
+  '/history/': typeof HistoryIndexRoute
   '/home/': typeof HomeIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
+  '/pae-expert/': typeof PaeExpertIndexRoute
   '/profile/': typeof ProfileIndexRoute
 }
 export interface FileRouteTypes {
@@ -88,8 +115,11 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/audit'
     | '/auth'
+    | '/flags-reported'
+    | '/history'
     | '/home'
     | '/notifications'
+    | '/pae-expert'
     | '/profile'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -97,8 +127,11 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/audit'
     | '/auth'
+    | '/flags-reported'
+    | '/history'
     | '/home'
     | '/notifications'
+    | '/pae-expert'
     | '/profile'
   id:
     | '__root__'
@@ -106,8 +139,11 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/audit/'
     | '/auth/'
+    | '/flags-reported/'
+    | '/history/'
     | '/home/'
     | '/notifications/'
+    | '/pae-expert/'
     | '/profile/'
   fileRoutesById: FileRoutesById
 }
@@ -116,8 +152,11 @@ export interface RootRouteChildren {
   WhatsappHistoryRoute: typeof WhatsappHistoryRoute
   AuditIndexRoute: typeof AuditIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
+  FlagsReportedIndexRoute: typeof FlagsReportedIndexRoute
+  HistoryIndexRoute: typeof HistoryIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
   NotificationsIndexRoute: typeof NotificationsIndexRoute
+  PaeExpertIndexRoute: typeof PaeExpertIndexRoute
   ProfileIndexRoute: typeof ProfileIndexRoute
 }
 
@@ -144,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pae-expert/': {
+      id: '/pae-expert/'
+      path: '/pae-expert'
+      fullPath: '/pae-expert'
+      preLoaderRoute: typeof PaeExpertIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notifications/': {
       id: '/notifications/'
       path: '/notifications'
@@ -156,6 +202,20 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history/': {
+      id: '/history/'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/flags-reported/': {
+      id: '/flags-reported/'
+      path: '/flags-reported'
+      fullPath: '/flags-reported'
+      preLoaderRoute: typeof FlagsReportedIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/': {
@@ -180,8 +240,11 @@ const rootRouteChildren: RootRouteChildren = {
   WhatsappHistoryRoute: WhatsappHistoryRoute,
   AuditIndexRoute: AuditIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
+  FlagsReportedIndexRoute: FlagsReportedIndexRoute,
+  HistoryIndexRoute: HistoryIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
   NotificationsIndexRoute: NotificationsIndexRoute,
+  PaeExpertIndexRoute: PaeExpertIndexRoute,
   ProfileIndexRoute: ProfileIndexRoute,
 }
 export const routeTree = rootRouteImport

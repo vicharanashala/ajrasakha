@@ -1,21 +1,22 @@
-import type { Segment, KpiCard, DemographicEntry, IPlatformInstallEntry } from "./types";
+import type { Segment, KpiCard, DemographicEntry, IPlatformInstallEntry, FeedbackData } from "./types";
+import type { DomainSpikeEntry } from "./components/DomainSpikesModal";
 
 export const DASHBOARD_DATA = {
   meta: { season: "Kharif 2025", lastSync: "2 min ago", datasetVersion: "GD-2025-Q3.14", llmVersion: "v2.4.1", p0Bugs: 3 },
   kpiRow1: [
     { id: "dau", label: "Active farmers (DAU)", value: "4.82 L", delta: "+18% vs last month", deltaDir: "up" as const, accentColor: "#3AAA5A", sparkPoints: [22,20,22,18,19,15,13,14,10,11,8,7,5] },
-    { id: "queries", label: "Daily queries", value: "1.24 L", delta: "+31% week-on-week", deltaDir: "up" as const, accentColor: "#378ADD", sparkPoints: [24,22,20,22,18,20,16,18,14,12,10,8,6] },
+    { id: "queries", label: "Daily queries", value: "1.24 L", delta: "+31% week-on-week", deltaDir: "up" as const, accentColor: "#378ADD", sparkPoints: [24,22,20,22,18,20,16,18,14,12,10,8,6], dailyAnalytics: [], weeklyAnalytics: [], monthlyAnalytics: [] },
     { id: "session", label: "Avg session duration", value: "6.4 min", delta: "Stable this week", deltaDir: "neutral" as const, accentColor: "#EF9F27", sparkPoints: [14,12,15,13,12,14,13,14,12,13,14,12,13] },
-    { id: "bugs", label: "Critical bugs open", value: "7", delta: "Needs immediate action", deltaDir: "down" as const, accentColor: "#E24B4A", badges: [{ label: "3 P0", variant: "red" as const }, { label: "4 P1", variant: "amber" as const }] },
+    // { id: "bugs", label: "Critical bugs open", value: "7", delta: "Needs immediate action", deltaDir: "down" as const, accentColor: "#E24B4A", badges: [{ label: "3 P0", variant: "red" as const }, { label: "4 P1", variant: "amber" as const }] },
   ] as KpiCard[],
   kpiRow2: [
     // { id: "csat", label: "CSAT rating", value: "4.2 ★", delta: "+0.3 pts this month", deltaDir: "up" as const, accentColor: "#1D9E75" },
-    { id: "totalInstalls", label: "Total Installs", value: "0", delta: "All platforms", deltaDir: "up" as const, accentColor: "#1D9E75", icon: "download" },
+    { id: "totalInstalls", label: "Total Installs", value: "0", delta: "Profiles submitted / Total users", deltaDir: "neutral" as const, accentColor: "#1D9E75", icon: "download" },
     // { id: "androidInstalls", label: "Android Installs", value: "5,820", delta: "90.2% of total", deltaDir: "up" as const, accentColor: "#3AAA5A", icon: "android" },
     // { id: "iosInstalls", label: "iOS Installs", value: "630", delta: "9.8% of total", deltaDir: "up" as const, accentColor: "#378ADD", icon: "apple" },
-    { id: "repeatQuery", label: "Repeat query rate", value: "28%", delta: "Target: <10% · gap", deltaDir: "down" as const, accentColor: "#EF9F27", valueColor: "#854F0B" },
+    // { id: "repeatQuery", label: "Repeat query rate", value: "28%", delta: "Target: <10% · gap", deltaDir: "down" as const, accentColor: "#EF9F27", valueColor: "#854F0B" },
     // { id: "voice", label: "Voice usage share", value: "61%", delta: "Primary mode", deltaDir: "up" as const, accentColor: "#378ADD" },
-    { id: "states", label: "States active", value: "19 / 28", delta: "3 new states added", deltaDir: "up" as const, accentColor: "#7C6FD4" },
+    // { id: "states", label: "States active", value: "19 / 28", delta: "3 new states added", deltaDir: "up" as const, accentColor: "#7C6FD4" },
   ] as KpiCard[],
   channelSplit: [
     { label: "Voice", pct: 61, color: "#3AAA5A" },
@@ -85,4 +86,37 @@ export const DASHBOARD_DATA = {
     { label: 'Large', count: 550, pct: 16.42 },
   ] as DemographicEntry[],
   platformInstalls: [] as IPlatformInstallEntry[],
+  domainSpikes: [
+    { domain: "Insect–Pest Management", date: "2026-05-10", count: 1840, baseline: 420, spikePct: 338, location: "Ropar, Punjab" },
+    { domain: "Disease Management", date: "2026-05-09", count: 1120, baseline: 310, spikePct: 261, location: "Ludhiana, Punjab" },
+    { domain: "Insect–Pest Management", date: "2026-05-08", count: 980, baseline: 420, spikePct: 133, location: "Amritsar, Punjab" },
+    { domain: "Fertilizer Use and Availability", date: "2026-05-07", count: 760, baseline: 380, spikePct: 100, location: "Karnal, Haryana" },
+    { domain: "Weed Management", date: "2026-05-06", count: 640, baseline: 290, spikePct: 121, location: "Hisar, Haryana" },
+    { domain: "Irrigation and Water Management", date: "2026-05-05", count: 590, baseline: 340, spikePct: 74, location: "Agra, Uttar Pradesh" },
+    { domain: "Market Prices, MSP & Marketing", date: "2026-05-04", count: 870, baseline: 450, spikePct: 93, location: "Pune, Maharashtra" },
+    { domain: "Climate, Weather & Stress Management", date: "2026-05-03", count: 1340, baseline: 500, spikePct: 168, location: "Nashik, Maharashtra" },
+    { domain: "Soil Health and Nutrient Management", date: "2026-05-02", count: 520, baseline: 280, spikePct: 86, location: "Guntur, Andhra Pradesh" },
+    { domain: "Seed and Variety Selection", date: "2026-05-01", count: 430, baseline: 210, spikePct: 105, location: "Warangal, Telangana" },
+  ] as DomainSpikeEntry[],
+  feedbackData: {
+  "positiveFeedbacks": [
+    {
+      "rating": "thumbsUp",
+      "tag": "accurate_reliable"
+    }
+  ],
+  "negativeFeedbacks": [
+    {
+      "rating": "thumbsDown",
+      "tag": "incorrect"
+    }
+  ],
+  "stats": {
+    "_id": null,
+    "positiveCount": 12,
+    "negativeCount": 3,
+    "averageRating": 0.8,
+    "totalFeedbacks": 15
+  }
+} as FeedbackData,
 };

@@ -12,7 +12,12 @@ interface BasicUser {
   role: IUser["role"];
   preference: IMyPreference;
   isBlocked:boolean,
+  status?: 'active' | 'in-active';
   special_task_force?:boolean
+  state?:string | null;
+  domain?:string | null;
+  mobile?: string;
+  university?: string;
 }
 export interface IUsersNameResponse {
   myPreference: IMyPreference;

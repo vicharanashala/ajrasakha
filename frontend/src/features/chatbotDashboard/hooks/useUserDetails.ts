@@ -20,6 +20,8 @@ export interface FarmerProfile {
   usesAgriApps?: boolean;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
+  platform?: string;
+  platformHistory?: { os: string; timestamp: string }[];
   location?: {
     latitude: number;
     longitude: number;
@@ -54,9 +56,10 @@ export function useUserDetails(
   village = '',
   profileCompleted: 'all' | 'yes' | 'no' = 'all',
   inactiveOnly = false,
+  lowFeedbackOnly = false,
   userType: 'all' | 'external' | 'internal' = 'all',
-  sortBy: 'totalQuestions' | 'name' = 'totalQuestions',
-  sortOrder: 'asc' | 'desc' = 'desc',
+  sortBy: 'totalQuestions' | 'name' = 'name',
+  sortOrder: 'asc' | 'desc' = 'asc',
 ) {
   const startISO = startDate?.toISOString();
   // Extend endDate to end of day (23:59:59.999) so the selected day is fully included.
@@ -66,7 +69,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, userType, sortBy, sortOrder],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder],
     staleTime: 30 * 1000,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
@@ -81,6 +84,7 @@ export function useUserDetails(
       if (village.trim()) params.set('village', village.trim());
       if (profileCompleted !== 'all') params.set('profileCompleted', profileCompleted);
       if (inactiveOnly) params.set('inactiveOnly', 'true');
+      if (lowFeedbackOnly) params.set('lowFeedbackOnly', 'true');
       if (userType !== 'all') params.set('userType', userType);
       params.set('sortBy', sortBy);
       params.set('sortOrder', sortOrder);

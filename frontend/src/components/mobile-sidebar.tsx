@@ -1,8 +1,10 @@
 import type { IUser } from "@/types";
 import {
+  AlertTriangle,
   BarChart3,
   Bot,
   Clock,
+  Database,
   History,
   List,
   Menu,
@@ -66,10 +68,7 @@ export const MobileSidebar = ({
     user?.role !== "expert" ? "performance" : "questions"
   );
   const handleClick = (value: string) => {
-    if (value.startsWith("chatbotanalytics")) {
-      const source = value.split("_")[1] as "vicharanashala" | "annam";
-
-      setChatbotSource(source);
+    if (value === "chatbotanalytics") {
       setTab("chatbotanalytics");
       setActiveTab(value);
     } else if (value === "whatsapp_history") {
@@ -111,7 +110,7 @@ export const MobileSidebar = ({
       : []),
 
     ...(user && user.role !== "expert"
-      ? [{ id: "request_queue", label: "Request Queue", icon: Clock }]
+      ? [{ id: "request_queue", label: "Flags Reported", icon: AlertTriangle }]
       : []),
 
     { id: "upload", label: "Agents Interface", icon: Upload },
@@ -119,16 +118,15 @@ export const MobileSidebar = ({
     ...(user && user.role !== "expert"
       ? [
           {
-            id: "chatbotanalytics_vicharanashala",
-            label: "Chatbot - Vicharanashala",
-            icon: Bot,
-          },
-          {
-            id: "chatbotanalytics_annam",
-            label: "Chatbot - Annam",
+            id: "chatbotanalytics",
+            label: "Chatbot Analytics",
             icon: Bot,
           },
         ]
+      : []),
+
+    ...(user && (user.role === "moderator" || user.role === "admin")
+      ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
     ...(user ? [{ id: "history", label: "History", icon: History }] : []),

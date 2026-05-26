@@ -136,6 +136,22 @@ export class GetGoldenDatasetQuery {
   @IsOptional()
   @IsString()
   selectedDay?: string;
+
+  @JSONSchema({
+    example: '10:30',
+    description: 'Custom start time in HH:mm format (24-hour)',
+  })
+  @IsOptional()
+  @IsString()
+  customStartDateTime?: string;
+
+  @JSONSchema({
+    example: '17:45',
+    description: 'Custom end time in HH:mm format (24-hour)',
+  })
+  @IsOptional()
+  @IsString()
+  customEndDateTime?: string;
 }
 
 export class GetContributionTrendQuery {
@@ -158,6 +174,24 @@ export class GetQuestionsAnalyticsQuery {
   @JSONSchema({example: 'question'})
   @IsEnum(['question', 'answer'])
   type!: 'question' | 'answer';
+
+  @JSONSchema({example: ['open', 'in-review'], description: 'Filter by question status (multi-select)'})
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  status?: string[];
+
+  @JSONSchema({example: ['Maharashtra', 'Gujarat'], description: 'Filter by state (multi-select)'})
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  state?: string[];
+
+  @JSONSchema({example: ['WHATSAPP', 'AJRASAKHA'], description: 'Filter by question source (multi-select)'})
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  source?: string[];
 }
 
 export class UserRoleOverview {
@@ -199,6 +233,22 @@ export class GoldenDatasetEntry {
   verified!: number;
 }
 
+export class QuestionStateBreakdownItem {
+  @JSONSchema({ description: 'Question state/status', example: 'open' })
+  status!: string;
+
+  @JSONSchema({ description: 'Count for the status', example: 12 })
+  count!: number;
+}
+
+export class QuestionStateBreakdownBySource {
+  @JSONSchema({ description: 'Question state breakdown for WhatsApp source' })
+  whatsapp!: QuestionStateBreakdownItem[];
+
+  @JSONSchema({ description: 'Question state breakdown for Ajrasakha source' })
+  ajrasakha!: QuestionStateBreakdownItem[];
+}
+
 export class GoldenDataset {
   @JSONSchema({description: 'Total count of verified answers'})
   verifiedEntries: number;
@@ -226,6 +276,28 @@ export class GoldenDataset {
 
   @JSONSchema({ description: 'Moderator breakdown with names and approval counts' })
   moderatorBreakdown?: { moderatorName: string, count: number }[];
+
+  @JSONSchema({ description: 'Question source breakdown showing counts from WhatsApp and Ajrasakha' })
+  questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Questions answered within 120 minutes by source' })
+  questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Average response time in minutes by source' })
+  averageResponseTime?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Questions answered after 120 minutes by source' })
+  questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number };
+
+  @JSONSchema({ description: 'Breakdown of question states separated by source' })
+  questionStateBreakdown?: QuestionStateBreakdownBySource;
+
+  @JSONSchema({ description: 'PAE (Principal Agri Experts) metrics totals' })
+  paeMetrics?: {
+    assigned: number;
+    submitted: number;
+    closed: number;
+  };
 }
 
 export class QuestionContributionTrend {
@@ -288,6 +360,31 @@ export class AnalyticsItem {
   @JSONSchema({description: 'Count for this item', example: 245})
   @IsInt()
   count!: number;
+
+  @JSONSchema({description: 'Breakdown of items grouped into Others (only present for the Others entry)', example: [{name: 'Sugarcane', count: 189}]})
+  otherItems?: { name: string; count: number }[];
+}
+
+export class AnalyticsTableRow {
+  state?: string;
+  crop?: string;
+  source?: string;
+  open!: number;
+  closed!: number;
+  inReview!: number;
+  delayed!: number;
+  reRouted!: number;
+  hold!: number;
+  paeSubmitted!: number;
+  draft!: number;
+  duplicate!: number;
+  total!: number;
+  /** Date of the most recently created question in this group */
+  lastPushedDate?: Date;
+  /** Date of the most recently closed question in this group */
+  lastClosedDate?: Date;
+  /** Percentage of questions that are closed: (closed / total) * 100 */
+  completionPct!: number;
 }
 
 export class Analytics {
@@ -302,6 +399,10 @@ export class Analytics {
   @JSONSchema({description: 'Domain wise analytics'})
   @IsArray()
   domainData!: AnalyticsItem[];
+
+  @JSONSchema({description: 'Tabular breakdown by state, crop, source with status counts'})
+  @IsArray()
+  tableData!: AnalyticsTableRow[];
 }
 
 export class DashboardResponse {

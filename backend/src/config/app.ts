@@ -1,4 +1,4 @@
-import {env} from '#root/utils/env.js';
+import { env } from '#root/utils/env.js';
 
 // src/constants/AppModule.ts (or a shared constants directory)
 
@@ -15,7 +15,7 @@ export const appConfig = {
   isProduction: env('NODE_ENV') === 'production',
   isStaging: env('NODE_ENV') === 'staging',
   isDevelopment: env('NODE_ENV') === 'development',
-  port: Number(env('PORT')) || Number(env('APP_PORT')) || 8080, 
+  port: Number(env('PORT')) || Number(env('APP_PORT')) || 8080,
   url: env('APP_URL'),
   origins: env('APP_ORIGINS')?.split(',') || ['http://localhost:5173, http://localhost:5174'],
   module: env('APP_MODULE') || 'all',
@@ -40,10 +40,11 @@ export const appConfig = {
   GCP_BACKUP_BUCKET: env('GCP_BACKUP_BUCKET') || null,
   ENABLE_DB_BACKUP: env('ENABLE_DB_BACKUP') == 'true' || false,
   ENABLE_AI_SERVER: env('ENABLE_AI_SERVER') == 'true' || false,
-  WA_WEBHOOK_API_KEY:env('WA_WEBHOOK_API_KEY')||"",
-  WA_WEBHOOK_API_URL:env("WA_WEBHOOK_API_URL")||null,
-  WEB_WEBHOOK_API_URL:env("WEB_WEBHOOK_API_URL")||"http://localhost:3080/api/webhooks/notifications",
-  WEB_WEBHOOK_API_KEY:env("WEB_WEBHOOK_API_KEY")||"",
+  WA_WEBHOOK_API_KEY: env('WA_WEBHOOK_API_KEY') || "",
+  WA_WEBHOOK_API_URL: env("WA_WEBHOOK_API_URL") || null,
+  WA_SEND_MESSAGE_WEBHOOK_API_URL: env("WA_SEND_MESSAGE_WEBHOOK_API_URL") || null,
+  WEB_WEBHOOK_API_URL: env("WEB_WEBHOOK_API_URL") || "http://localhost:3080/api/webhooks/notifications",
+  WEB_WEBHOOK_API_KEY: env("WEB_WEBHOOK_API_KEY") || "",
   langGraphUrl: `http://${env('LANGRAPH_SERVER_IP')}:${env('LANGRAPH_SERVER_PORT')}`,
   plivo: {
     streamUrl: env('PLIVO_STREAM_URL'),

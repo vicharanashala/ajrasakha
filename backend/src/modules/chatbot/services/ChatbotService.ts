@@ -1,50 +1,221 @@
-import { injectable, inject } from 'inversify';
-import { InternalServerError } from 'routing-controllers';
-import { CHATBOT_TYPES } from '../types.js';
-import type { IChatbotService, DashboardResponse } from '../interfaces/IChatbotService.js';
-import type { IChatbotRepository, ChatbotConversationData } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import {injectable, inject} from 'inversify';
+import {InternalServerError} from 'routing-controllers';
+import {CHATBOT_TYPES} from '../types.js';
+import type {
+  IChatbotService,
+  DashboardResponse,
+} from '../interfaces/IChatbotService.js';
+import type {
+  IChatbotRepository,
+  ChatbotConversationData,
+  WeatherConcernAnalyticsFilters,
+} from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
-import { GrowthResponse } from '../types/chatbot.type.js';
-import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { GLOBAL_TYPES } from '#root/types.js';
-import { getDateRange, mapToSeries } from '../utils/chatbot.utils.js';
+import {GrowthResponse} from '../types/chatbot.type.js';
+import {BaseService, MongoDatabase} from '#root/shared/index.js';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {
+  getDateLabelsBetween,
+  getDateRange,
+  mapToSeries,
+} from '../utils/chatbot.utils.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+
+import PDFDocument from 'pdfkit';
+import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotRepository)
     private readonly chatbotRepository: IChatbotRepository,
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepository: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
     super(mongoDatabase);
   }
 
-  async getDashboard(days = 30, source = 'vicharanashala', userType = 'all'): Promise<DashboardResponse> {
+  async getDashboard(
+    days = 30,
+    source = 'vicharanashala',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+    month?: string,
+  ): Promise<DashboardResponse> {
+    const currentMonth =
+      month ||
+      `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, avgSessionDurationMin, weeklySessionDuration, demographics, kccAndAgri, platformInstalls] =
-        await Promise.all([
-          this.chatbotRepository.getKpiSummary(source, undefined, userType),
-          this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType),
-          this.chatbotRepository.getChannelSplit(source),
-          this.chatbotRepository.getVoiceAccuracyByLanguage(source),
-          this.chatbotRepository.getGeoDistribution(source),
-          this.chatbotRepository.getQueryCategories(source),
-          this.chatbotRepository.getDailyQueryCounts(days, source, undefined, userType),
-          this.chatbotRepository.getTodayQueryCount(source, undefined, userType),
-          this.chatbotRepository.getWeeklyQueryCounts(source, undefined, userType),
-          // V2: inactivity-gap based session duration replaces the old value from getKpiSummary
-          this.chatbotRepository.getAvgSessionDurationV2(source, undefined, userType),
-          // V2: inactivity-gap based weekly breakdown replaces the old getWeeklyAvgSessionDuration
-          this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source, undefined, userType),
-          this.chatbotRepository.getUserDemographics(source, undefined, userType),
-          this.chatbotRepository.getKccAndAgriAppStats(source, undefined, userType),
-          this.chatbotRepository.getPlatformInstalls(source),
-        ]);
+      const [
+        kpi,
+        dau,
+        channelSplit,
+        voiceAccuracy,
+        geo,
+        queryCategories,
+        dailyQueries,
+        todayQueryCount,
+        weeklyQueries,
+        monthlyQueries,
+        avgSessionDurationMin,
+        weeklySessionDuration,
+        monthlySessionDuration,
+        demographics,
+        kccAndAgri,
+        platformInstalls,
+        domainSpikes,
+        feedbackData,
+        dailyQuestionTrends,
+        topFaqs,
+        topQuestionsFromCollection,
+        responseAdherenceTable,
+        dailySummary,
+        weeklySummary,
+        monthlySummary,
+      ] = await Promise.all([
+        this.chatbotRepository.getKpiSummary(
+          source,
+          undefined,
+          userType,
+          startTime,
+          endTime,
+        ),
+        this.chatbotRepository.getDailyActiveUsers(
+          days,
+          source,
+          undefined,
+          userType,
+        ),
+        this.chatbotRepository.getChannelSplit(source),
+        this.chatbotRepository.getVoiceAccuracyByLanguage(source),
+        this.chatbotRepository.getGeoDistribution(source),
+        this.chatbotRepository.getQueryCategories(source, undefined, userType),
+        this.chatbotRepository.getDailyAnalytics(
+          currentMonth,
+          source,
+          undefined,
+          userType,
+        ),
+        this.chatbotRepository.getTodayQueryCount(source, undefined, userType),
+        this.chatbotRepository.getWeeklyAnalytics(
+          currentMonth,
+          source,
+          undefined,
+          userType,
+        ),
+        this.chatbotRepository.getMonthlyAnalytics(source, undefined, userType),
+        this.chatbotRepository.getAvgSessionDurationV2(
+          source,
+          undefined,
+          userType,
+        ),
+        this.chatbotRepository.getWeeklyAvgSessionDurationV2(
+          Math.ceil(days / 7),
+          source,
+          undefined,
+          userType,
+        ),
+        this.chatbotRepository.getMonthlyAvgSessionDuration(
+          Math.ceil(days / 30),
+          source,
+          undefined,
+          userType,
+        ),
+        this.chatbotRepository.getUserDemographics(source, undefined, userType),
+        this.chatbotRepository.getKccAndAgriAppStats(
+          source,
+          undefined,
+          userType,
+        ),
+        this.chatbotRepository.getPlatformInstalls(source),
+        this.chatbotRepository.getDomainSpikes(60),
+        this.chatbotRepository.getFeedbackData(source, undefined, userType),
+        this.chatbotRepository.getDailyQuestionTrends(
+          days,
+         source, undefined,
+          userType,
+          startTime,
+          endTime,
+        ),
+        this.chatbotRepository.getTopFaqs(
+          source,
+          undefined,
+          userType,
+          startTime,
+          endTime,
+        ),
+        this.chatbotRepository.getTopQuestionsFromCollection(
+          source,
+          undefined,
+          userType,
+          startTime,
+          endTime,
+        ),
+        this.chatbotRepository
+          .getResponseAdherenceTable(
+            undefined,
+            userType,
+            startTime,
+            endTime,
+            source,
+          )
+          .catch(() => ({
+            date: '',
+            time: '',
+            timeWindow: '',
+            whatsappQueriesAsked: 0,
+            ajrasakhaQueriesAsked: 0,
+            whatsappPushedToReviewer: 0,
+            ajrasakhaPushedToReviewer: 0,
+            whatsappAnsweredWithin120Min: 0,
+            ajrasakhaAnsweredWithin120Min: 0,
+            whatsappMarkedDuplicate: 0,
+            ajrasakhaMarkedDuplicate: 0,
+            whatsappDynamicWeather: 0,
+            ajrasakhaDynamicWeather: 0,
+            whatsappDynamicMarket: 0,
+            ajrasakhaDynamicMarket: 0,
+            whatsappDynamicSchemes: 0,
+            ajrasakhaDynamicSchemes: 0,
+            whatsappNonGdbWithin120: 0,
+            ajrasakhaNonGdbWithin120: 0,
+            whatsappInReview: 0,
+            ajrasakhaInReview: 0,
+            whatsappOpen: 0,
+            ajrasakhaOpen: 0,
+            whatsappDelayed: 0,
+            ajrasakhaDelayed: 0,
+            whatsappAverageResponseMinutes: 0,
+            ajrasakhaAverageResponseMinutes: 0,
+            whatsappAdherencePct: 0,
+            ajrasakhaAdherencePct: 0,
+          })),
+        this.chatbotRepository.getQuerySummaryByPeriod(
+          'daily',
+          source,
+          undefined,
+          userType,
+        ),
+        this.chatbotRepository.getQuerySummaryByPeriod(
+          'weekly',
+          source,
+          undefined,
+          userType,
+        ),
+        this.chatbotRepository.getQuerySummaryByPeriod(
+          'monthly',
+          source,
+          undefined,
+          userType,
+        ),
+      ]);
 
       return {
         // Override avgSessionDurationMin in the KPI with the V2 value
-        kpi: { ...kpi, dailyQueries: todayQueryCount, avgSessionDurationMin },
+        kpi: {...kpi, dailyQueries: todayQueryCount, avgSessionDurationMin},
         dau,
         channelSplit,
         voiceAccuracy,
@@ -53,12 +224,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
         weeklySessionDuration,
         dailyQueries,
         weeklyQueries,
+        monthlyQueries: monthlyQueries,
+        monthlySessionDuration,
         ageGroups: demographics.ageGroups,
         genderSplit: demographics.genderSplit,
         farmingExperience: demographics.farmingExperience,
         kccAwareness: kccAndAgri.kccAwareness,
         agriAppUsage: kccAndAgri.agriAppUsage,
         platformInstalls,
+        domainSpikes,
+        feedbackData,
+        dailyQuestionTrends,
+        topFaqs,
+        topQuestionsFromCollection,
+        responseAdherenceTable,
+        querySummaries: {
+          daily: dailySummary,
+          weekly: weeklySummary,
+          monthly: monthlySummary,
+        },
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch dashboard data: ${error}`);
@@ -67,17 +251,32 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getKpiSummary(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getKpiSummary(source, undefined, userType);
+      return await this.chatbotRepository.getKpiSummary(
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch KPI summary: ${error}`);
     }
   }
 
-  async getDailyActiveUsers(days = 30, source = 'vicharanashala', userType = 'all') {
+  async getDailyActiveUsers(
+    days = 30,
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
     try {
-      return await this.chatbotRepository.getDailyActiveUsers(days, source, undefined, userType);
+      return await this.chatbotRepository.getDailyActiveUsers(
+        days,
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch daily active users: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch daily active users: ${error}`,
+      );
     }
   }
 
@@ -101,21 +300,67 @@ export class ChatbotService extends BaseService implements IChatbotService {
     try {
       return await this.chatbotRepository.getGeoDistribution(source);
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch geo distribution: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch geo distribution: ${error}`,
+      );
     }
   }
 
-  async getQueryCategories(source = 'vicharanashala') {
+  async getQueryCategories(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getQueryCategories(source);
+      return await this.chatbotRepository.getQueryCategories(
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch query categories: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch query categories: ${error}`,
+      );
     }
   }
 
-  async getTopCrops() {
+  async getWeatherConcernAnalytics(
+    filters: WeatherConcernAnalyticsFilters = {},
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
     try {
-      return await this.chatbotRepository.getTopCrops();
+      return await this.chatbotRepository.getWeatherConcernAnalytics(
+        filters,
+        source,
+        undefined,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch weather concern analytics: ${error}`,
+      );
+    }
+  }
+
+  async getDistrictAnalyticsByState(
+    source = 'vicharanashala',
+    state: string,
+    userType = 'all',
+  ) {
+    try {
+      return await this.chatbotRepository.getDistrictAnalyticsByState(
+        state,
+        source,
+        undefined,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch district analytics: ${error}`,
+      );
+    }
+  }
+
+  async getTopCrops(source?: string) {
+    try {
+      return await this.chatbotRepository.getTopCrops(source);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top crops: ${error}`);
     }
@@ -123,487 +368,1399 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeeklyAvgSessionDuration(weeks = 52, source = 'vicharanashala') {
     try {
-      return await this.chatbotRepository.getWeeklyAvgSessionDuration(weeks, source);
+      return await this.chatbotRepository.getWeeklyAvgSessionDuration(
+        weeks,
+        source,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch weekly session duration: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch weekly session duration: ${error}`,
+      );
     }
   }
 
-  async getDailyQueryCounts(days = 30, source = 'vicharanashala', userType = 'all') {
+  async getDailyAnalytics(
+    month?: string,
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
     try {
-      return await this.chatbotRepository.getDailyQueryCounts(days, source, undefined, userType);
+      return await this.chatbotRepository.getDailyAnalytics(
+        month,
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch daily query counts: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch daily analytics: ${error}`,
+      );
     }
   }
 
   async getTodayQueryCount(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getTodayQueryCount(source, undefined, userType);
+      return await this.chatbotRepository.getTodayQueryCount(
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch today query count: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch today query count: ${error}`,
+      );
     }
   }
 
-  async getDailyUserTrend(days = 30, source = 'vicharanashala', userType = 'all') {
+  async getDailyUserTrend(
+    days = 30,
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
     try {
-      return await this.chatbotRepository.getDailyUserTrend(days, source, undefined, userType);
+      return await this.chatbotRepository.getDailyUserTrend(
+        days,
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch daily user trend: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch daily user trend: ${error}`,
+      );
     }
   }
 
-  async getWeeklyQueryCounts(source = 'vicharanashala', userType = 'all') {
+  async getWeeklyAnalytics(
+    month?: string,
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
     try {
-      return await this.chatbotRepository.getWeeklyQueryCounts(source, undefined, userType);
+      return await this.chatbotRepository.getWeeklyAnalytics(
+        month,
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch weekly query counts: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch weekly analytics: ${error}`,
+      );
     }
   }
 
-  async getUserDetails(startDate?: string, endDate?: string, page = 1, limit = 10, search = '', source = 'vicharanashala', crop = '', village = '', profileCompleted = 'all', inactiveOnly = false, userType = 'all', sortBy = 'totalQuestions', sortOrder = 'desc') {
+  async getMonthlyAnalytics(source = 'vicharanashala', userType = 'all') {
+    try {
+      return await this.chatbotRepository.getMonthlyAnalytics(
+        source,
+        undefined,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch monthly analytics: ${error}`,
+      );
+    }
+  }
+
+  async getQueryAnalytics(
+    period: 'daily' | 'weekly' | 'monthly',
+    options: {
+      month?: string;
+      year?: number;
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+    },
+  ) {
+    const source = options.source ?? 'vicharanashala';
+    const userType = options.userType ?? 'all';
+    const page = Math.max(1, options.page ?? 1);
+    const limit = Math.max(1, options.limit ?? 10);
+
+    try {
+      const rows =
+        period === 'daily'
+          ? await this.chatbotRepository.getDailyAnalytics(
+              options.month,
+              source,
+              undefined,
+              userType,
+            )
+          : period === 'weekly'
+            ? await this.chatbotRepository.getWeeklyAnalytics(
+                options.month,
+                source,
+                undefined,
+                userType,
+              )
+            : await this.chatbotRepository.getMonthlyAnalytics(
+                source,
+                undefined,
+                userType,
+                options.year,
+              );
+
+      const total = rows.length;
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      const startIndex = (page - 1) * limit;
+
+      return {
+        data: rows.slice(startIndex, startIndex + limit),
+        page,
+        limit,
+        total,
+        totalPages,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch query analytics: ${error}`,
+      );
+    }
+  }
+
+  async getUserDetails(
+    startDate?: string,
+    endDate?: string,
+    page = 1,
+    limit = 10,
+    search = '',
+    source = 'vicharanashala',
+    crop = '',
+    village = '',
+    profileCompleted = 'all',
+    inactiveOnly = false,
+    lowFeedbackOnly = false,
+    userType = 'all',
+    sortBy = 'name',
+    sortOrder = 'asc',
+  ) {
     try {
       const start = startDate ? new Date(startDate) : undefined;
       const end = endDate ? new Date(endDate) : undefined;
-      return await this.chatbotRepository.getUserDetails(start, end, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, undefined, userType, sortBy, sortOrder);
+      const data = await this.chatbotRepository.getUserDetails(
+        start,
+        end,
+        page,
+        limit,
+        search,
+        source,
+        crop,
+        village,
+        profileCompleted,
+        inactiveOnly,
+        undefined,
+        userType,
+        sortBy,
+        sortOrder,
+        lowFeedbackOnly,
+      );
+      return data;
     } catch (error) {
       throw new InternalServerError(`Failed to fetch user details: ${error}`);
     }
   }
 
+  async getUserQuestionsData(
+    userEmail: string,
+    source = 'vicharanashala',
+    userType = 'all',
+    page = 1,
+    limit = 10,
+  ) {
+    const user = await this.chatbotRepository.getUserData(userEmail, source);
+
+    // Always fetch messages
+    const messages = await this.chatbotRepository.getUsersMessages(
+      userEmail,
+      source,
+      undefined,
+      userType,
+      page,
+      limit,
+    );
+
+    // No user found
+    if (!user) {
+      return {
+        questions: {
+          total: 0,
+          totalPages: 0,
+          currentPage: page,
+          limit,
+          items: [],
+        },
+
+        messages,
+      };
+    }
+
+    // Extract messageIds
+    const messageIds = await this.chatbotRepository.getAllUserMessageIds(
+      userEmail,
+      source,
+    );
+
+    // No linked messages
+    if (!messageIds.length) {
+      return {
+        questions: {
+          total: 0,
+          totalPages: 0,
+          currentPage: page,
+          limit,
+          items: [],
+        },
+
+        messages,
+      };
+    }
+
+    // Fetch questions using messageIds
+    const questions = await this.chatbotRepository.getUserQuestionsData(
+      messageIds,
+      source,
+      userType,
+      page,
+      limit,
+    );
+
+    console.log('Fetched questions', questions);
+
+    return {
+      questions,
+      messages,
+    };
+  }
+
   async getAvgSessionDurationV2(source = 'vicharanashala', userType = 'all') {
     try {
-      return await this.chatbotRepository.getAvgSessionDurationV2(source, undefined, userType);
+      return await this.chatbotRepository.getAvgSessionDurationV2(
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch avg session duration v2: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch avg session duration v2: ${error}`,
+      );
     }
   }
 
-  async getWeeklyAvgSessionDurationV2(weeks = 52, source = 'vicharanashala', userType = 'all') {
+  async getWeeklyAvgSessionDurationV2(
+    weeks = 52,
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
     try {
-      return await this.chatbotRepository.getWeeklyAvgSessionDurationV2(weeks, source, undefined, userType);
+      return await this.chatbotRepository.getWeeklyAvgSessionDurationV2(
+        weeks,
+        source,
+        undefined,
+        userType,
+      );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch weekly avg session duration v2: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch weekly avg session duration v2: ${error}`,
+      );
     }
   }
 
-  async generateChatbotExcelReport(
+  // async generateChatbotExcelReport(
+  //   startDate: Date,
+  //   endDate: Date,
+  //   source = 'vicharanashala',
+  // ): Promise<ArrayBuffer | null> {
+  //   try {
+  //     const rows = await this.chatbotRepository.generateChatbotExcelReport(
+  //       startDate,
+  //       endDate,
+  //       source,
+  //     );
+  //     if (!rows || rows.length === 0) return null;
+
+  //     // ── helpers ─────────────────────────────────────────────────────────────
+  //     const safeJson = (raw: any): any => {
+  //       try {
+  //         return raw ? JSON.parse(raw) : {};
+  //       } catch {
+  //         return {};
+  //       }
+  //     };
+
+  //     const truncate = (text: any, maxLen = 32000): string => {
+  //       if (!text) return '';
+  //       const s = String(text);
+  //       return s.length > maxLen ? s.slice(0, maxLen) + '… [TRUNCATED]' : s;
+  //     };
+
+  //     const extractLocation = (toolCalls: any[]) => {
+  //       for (const tc of toolCalls) {
+  //         if (tc.name === 'get_location_info_mcp_weather' && tc.output) {
+  //           try {
+  //             const out = JSON.parse(tc.output);
+  //             const locData = JSON.parse(out[0].text);
+  //             const loc = locData?.location ?? {};
+  //             return {
+  //               state: loc.state ?? '',
+  //               district: loc.county ?? '',
+  //               city: loc.city ?? '',
+  //             };
+  //           } catch {
+  //             /* skip */
+  //           }
+  //         }
+  //       }
+  //       return {state: '', district: '', city: ''};
+  //     };
+
+  //     const extractUploadDetails = (toolCalls: any[]) => {
+  //       for (const tc of toolCalls) {
+  //         if (tc.name === 'upload_question_to_reviewer_system_mcp_pop') {
+  //           const args = safeJson(tc.args);
+  //           const details = args.details ?? {};
+  //           return {
+  //             question_en: args.question ?? '',
+  //             state: args.state_name ?? '',
+  //             crop: args.crop ?? '',
+  //             district: details.district ?? '',
+  //             season: details.season ?? '',
+  //             domain: details.domain ?? '',
+  //           };
+  //         }
+  //       }
+  //       return {
+  //         question_en: '',
+  //         state: '',
+  //         crop: '',
+  //         district: '',
+  //         season: '',
+  //         domain: '',
+  //       };
+  //     };
+
+  //     const extractWeather = (toolCalls: any[]): string => {
+  //       for (const tc of toolCalls) {
+  //         if (tc.name === 'get_weather_forecast_mcp_weather' && tc.output) {
+  //           try {
+  //             const out = JSON.parse(tc.output);
+  //             return String(out[0]?.text ?? '').slice(0, 500);
+  //           } catch {
+  //             /* skip */
+  //           }
+  //         }
+  //       }
+  //       return '';
+  //     };
+
+  //     // ── styling helpers ──────────────────────────────────────────────────────
+  //     const HEADER_FILL: ExcelJS.Fill = {
+  //       type: 'pattern',
+  //       pattern: 'solid',
+  //       fgColor: {argb: 'FF1F4E79'},
+  //     };
+  //     const HEADER_FONT: Partial<ExcelJS.Font> = {
+  //       name: 'Calibri',
+  //       bold: true,
+  //       color: {argb: 'FFFFFFFF'},
+  //       size: 11,
+  //     };
+  //     const CELL_FONT: Partial<ExcelJS.Font> = {name: 'Calibri', size: 10};
+  //     const WRAP_ALIGN: Partial<ExcelJS.Alignment> = {
+  //       wrapText: true,
+  //       vertical: 'top',
+  //     };
+  //     const CENTER_ALIGN: Partial<ExcelJS.Alignment> = {
+  //       horizontal: 'center',
+  //       vertical: 'middle',
+  //       wrapText: true,
+  //     };
+  //     const THIN_BORDER: Partial<ExcelJS.Borders> = {
+  //       left: {style: 'thin'},
+  //       right: {style: 'thin'},
+  //       top: {style: 'thin'},
+  //       bottom: {style: 'thin'},
+  //     };
+
+  //     const styleHeader = (sheet: ExcelJS.Worksheet) => {
+  //       const row = sheet.getRow(1);
+  //       row.eachCell(cell => {
+  //         cell.font = HEADER_FONT;
+  //         cell.fill = HEADER_FILL;
+  //         cell.alignment = CENTER_ALIGN;
+  //         cell.border = THIN_BORDER;
+  //       });
+  //       sheet.autoFilter = {
+  //         from: {row: 1, column: 1},
+  //         to: {row: 1, column: sheet.columnCount},
+  //       };
+  //       sheet.views = [{state: 'frozen', ySplit: 1}];
+  //     };
+
+  //     const autoWidth = (sheet: ExcelJS.Worksheet, max = 60) => {
+  //       sheet.columns.forEach(col => {
+  //         let best = 12;
+  //         col.eachCell?.({includeEmpty: false}, cell => {
+  //           const lines = String(cell.value ?? '').split('\n');
+  //           const longest = Math.max(...lines.map(l => l.length));
+  //           best = Math.max(best, Math.min(longest + 2, max));
+  //         });
+  //         col.width = best;
+  //       });
+  //     };
+
+  //     // ── workbook setup ───────────────────────────────────────────────────────
+  //     const wb = new ExcelJS.Workbook();
+
+  //     const ws1 = wb.addWorksheet('Conversations');
+  //     ws1.columns = [
+  //       {header: 'S.No', key: 'sno', width: 6},
+  //       {header: 'Conversation ID', key: 'convId', width: 36},
+  //       {header: 'User Question (Original)', key: 'userQ', width: 40},
+  //       {header: 'User Question (English)', key: 'userQEn', width: 40},
+  //       {header: 'State', key: 'state', width: 16},
+  //       {header: 'District', key: 'district', width: 16},
+  //       {header: 'Crop', key: 'crop', width: 16},
+  //       {header: 'Season', key: 'season', width: 14},
+  //       {header: 'Domain', key: 'domain', width: 18},
+  //       {header: 'Location – State', key: 'locState', width: 16},
+  //       {header: 'Location – District', key: 'locDistrict', width: 16},
+  //       {header: 'Location – City', key: 'locCity', width: 16},
+  //       {header: 'Number of Tool Calls', key: 'toolCount', width: 12},
+  //       {header: 'Tool Names Used', key: 'toolNames', width: 40},
+  //       {header: 'Number of Think Steps', key: 'thinkCount', width: 12},
+  //       {header: 'Bot Response (Final Text)', key: 'botResponse', width: 60},
+  //       {header: 'Weather Forecast Preview', key: 'weather', width: 40},
+  //     ];
+
+  //     const ws2 = wb.addWorksheet('Tool Calls');
+  //     ws2.columns = [
+  //       {header: 'S.No', key: 'sno', width: 6},
+  //       {header: 'Conversation ID', key: 'convId', width: 36},
+  //       {header: 'User Question (Original)', key: 'userQ', width: 30},
+  //       {header: 'Tool Call Order', key: 'order', width: 10},
+  //       {header: 'Tool Name', key: 'name', width: 40},
+  //       {header: 'Tool Call ID', key: 'id', width: 30},
+  //       {header: 'Arguments (JSON)', key: 'args', width: 40},
+  //       {header: 'Progress', key: 'progress', width: 10},
+  //       {header: 'Output Preview', key: 'output', width: 50},
+  //     ];
+
+  //     const ws3 = wb.addWorksheet('Reviewer Data');
+  //     ws3.columns = [
+  //       {header: 'S.No', key: 'sno', width: 6},
+  //       {header: 'Conversation ID', key: 'convId', width: 36},
+  //       {header: 'User Question (Original)', key: 'userQ', width: 30},
+  //       {header: 'Reviewer Question ID', key: 'qId', width: 26},
+  //       {header: 'Reviewer Question Text', key: 'qText', width: 40},
+  //       {header: 'Reviewer Answer Text', key: 'aText', width: 50},
+  //       {header: 'Author', key: 'author', width: 18},
+  //       {header: 'Similarity Score', key: 'score', width: 14},
+  //       {header: 'Source 1 Name', key: 's1Name', width: 24},
+  //       {header: 'Source 1 Link', key: 's1Link', width: 40},
+  //       {header: 'Source 2 Name', key: 's2Name', width: 24},
+  //       {header: 'Source 2 Link', key: 's2Link', width: 40},
+  //     ];
+
+  //     const ws4 = wb.addWorksheet('FAQ Videos');
+  //     ws4.columns = [
+  //       {header: 'S.No', key: 'sno', width: 6},
+  //       {header: 'Conversation ID', key: 'convId', width: 36},
+  //       {header: 'User Question (Original)', key: 'userQ', width: 30},
+  //       {header: 'FAQ Title', key: 'title', width: 30},
+  //       {header: 'FAQ Link', key: 'link', width: 40},
+  //       {header: 'FAQ Query', key: 'query', width: 30},
+  //       {header: 'FAQ English Answer', key: 'answer', width: 50},
+  //       {header: 'Similarity Score', key: 'score', width: 14},
+  //     ];
+
+  //     const ws5 = wb.addWorksheet('POP Data');
+  //     ws5.columns = [
+  //       {header: 'S.No', key: 'sno', width: 6},
+  //       {header: 'Conversation ID', key: 'convId', width: 36},
+  //       {header: 'User Question (Original)', key: 'userQ', width: 30},
+  //       {header: 'POP Text', key: 'text', width: 50},
+  //       {header: 'Similarity Score', key: 'score', width: 14},
+  //       {header: 'Page No', key: 'page', width: 10},
+  //       {header: 'Source', key: 'source', width: 40},
+  //       {header: 'Source Name', key: 'sourceName', width: 24},
+  //       {header: 'Topics', key: 'topics', width: 30},
+  //     ];
+
+  //     const ws6 = wb.addWorksheet('Golden Data');
+  //     ws6.columns = [
+  //       {header: 'S.No', key: 'sno', width: 6},
+  //       {header: 'Conversation ID', key: 'convId', width: 36},
+  //       {header: 'User Question (Original)', key: 'userQ', width: 30},
+  //       {header: 'Golden Question Text', key: 'qText', width: 40},
+  //       {header: 'Golden Answer Text', key: 'aText', width: 50},
+  //       {header: 'Author', key: 'author', width: 18},
+  //       {header: 'Similarity Score', key: 'score', width: 14},
+  //       {header: 'Source Name', key: 'sName', width: 24},
+  //       {header: 'Source Link', key: 'sLink', width: 40},
+  //     ];
+
+  //     let tcRow = 2,
+  //       revRow = 2,
+  //       faqRow = 2,
+  //       popRow = 2,
+  //       goldRow = 2;
+
+  //     rows.forEach((item, idx) => {
+  //       const convId = item.conversationId;
+  //       const userQ =
+  //         item.farmerQuestions.find(t => t && t.trim().length > 0) ?? '';
+  //       const contentBlocks: any[] =
+  //         Array.isArray(item.mcpToolCalls) && item.mcpToolCalls.length > 0
+  //           ? Array.isArray(item.mcpToolCalls[0])
+  //             ? item.mcpToolCalls[0]
+  //             : []
+  //           : [];
+
+  //       // classify content blocks
+  //       const toolCallsRaw: any[] = [];
+  //       const thinkTexts: string[] = [];
+  //       const responseTexts: string[] = [];
+
+  //       for (const block of contentBlocks) {
+  //         if (!block || typeof block !== 'object') continue;
+  //         if (block.type === 'tool_call' && block.tool_call) {
+  //           toolCallsRaw.push({
+  //             id: block.tool_call.id ?? '',
+  //             name: block.tool_call.name ?? '',
+  //             args: block.tool_call.args ?? '',
+  //             progress: block.tool_call.progress ?? '',
+  //             output: block.tool_call.output ?? '',
+  //           });
+  //         } else if (block.type === 'think') {
+  //           thinkTexts.push(block.think ?? '');
+  //         } else if (block.type === 'text') {
+  //           responseTexts.push(block.text ?? '');
+  //         }
+  //       }
+
+  //       const uploadInfo = extractUploadDetails(toolCallsRaw);
+  //       const loc = extractLocation(toolCallsRaw);
+  //       const weatherPreview = extractWeather(toolCallsRaw);
+  //       const toolNames = toolCallsRaw.map(tc => tc.name).join(', ');
+  //       const finalResponse = responseTexts.join('\n\n---\n\n');
+
+  //       // Sheet 1
+  //       ws1.addRow({
+  //         sno: idx + 1,
+  //         convId,
+  //         userQ: truncate(userQ, 10000),
+  //         userQEn: truncate(uploadInfo.question_en, 10000),
+  //         state: uploadInfo.state,
+  //         district: uploadInfo.district,
+  //         crop: uploadInfo.crop,
+  //         season: uploadInfo.season,
+  //         domain: uploadInfo.domain,
+  //         locState: loc.state,
+  //         locDistrict: loc.district,
+  //         locCity: loc.city,
+  //         toolCount: toolCallsRaw.length,
+  //         toolNames,
+  //         thinkCount: thinkTexts.length,
+  //         botResponse: truncate(finalResponse),
+  //         weather: truncate(weatherPreview, 5000),
+  //       });
+
+  //       // Sheet 2
+  //       toolCallsRaw.forEach((tc, order) => {
+  //         let outputText = '';
+  //         if (tc.output) {
+  //           try {
+  //             const parsed = JSON.parse(tc.output);
+  //             outputText =
+  //               Array.isArray(parsed) && parsed.length > 0
+  //                 ? (parsed[0].text ?? String(parsed))
+  //                 : String(parsed);
+  //           } catch {
+  //             outputText = String(tc.output);
+  //           }
+  //         }
+  //         ws2.addRow({
+  //           sno: tcRow - 1,
+  //           convId,
+  //           userQ: truncate(userQ, 2000),
+  //           order: order + 1,
+  //           name: tc.name,
+  //           id: tc.id,
+  //           args: truncate(tc.args, 5000),
+  //           progress: tc.progress,
+  //           output: truncate(outputText, 5000),
+  //         });
+  //         tcRow++;
+  //       });
+
+  //       // Sheet 3
+  //       toolCallsRaw.forEach(tc => {
+  //         if (
+  //           tc.name === 'get_context_from_reviewer_dataset_mcp_reviewer' &&
+  //           tc.output
+  //         ) {
+  //           try {
+  //             const out = JSON.parse(tc.output);
+  //             const results = JSON.parse(out[0].text);
+  //             if (Array.isArray(results)) {
+  //               results.forEach((r: any) => {
+  //                 const sources = r.sources ?? [];
+  //                 ws3.addRow({
+  //                   sno: revRow - 1,
+  //                   convId,
+  //                   userQ: truncate(userQ, 2000),
+  //                   qId: r.question_id ?? '',
+  //                   qText: truncate(r.question_text ?? '', 10000),
+  //                   aText: truncate(r.answer_text ?? ''),
+  //                   author: r.author ?? '',
+  //                   score: r.similarity_score ?? '',
+  //                   s1Name:
+  //                     sources[0]?.source_name ?? sources[0]?.sourceName ?? '',
+  //                   s1Link: sources[0]?.source ?? '',
+  //                   s2Name:
+  //                     sources[1]?.source_name ?? sources[1]?.sourceName ?? '',
+  //                   s2Link: sources[1]?.source ?? '',
+  //                 });
+  //                 revRow++;
+  //               });
+  //             }
+  //           } catch {
+  //             /* skip */
+  //           }
+  //         }
+  //       });
+
+  //       // Sheet 4
+  //       toolCallsRaw.forEach(tc => {
+  //         if (tc.name === 'search_faq_mcp_faq-videos' && tc.output) {
+  //           try {
+  //             const out = JSON.parse(tc.output);
+  //             const faqData = JSON.parse(out[0].text);
+  //             const results = faqData.results ?? [];
+  //             results.forEach((r: any) => {
+  //               ws4.addRow({
+  //                 sno: faqRow - 1,
+  //                 convId,
+  //                 userQ: truncate(userQ, 2000),
+  //                 title: r.title ?? '',
+  //                 link: r.link ?? '',
+  //                 query: r.query ?? '',
+  //                 answer: truncate(r.english_answer ?? '', 10000),
+  //                 score: r.similarity_score ?? '',
+  //               });
+  //               faqRow++;
+  //             });
+  //           } catch {
+  //             /* skip */
+  //           }
+  //         }
+  //       });
+
+  //       // Sheet 5
+  //       toolCallsRaw.forEach(tc => {
+  //         if (
+  //           tc.name === 'get_context_from_package_of_practices_mcp_pop' &&
+  //           tc.output
+  //         ) {
+  //           try {
+  //             const out = JSON.parse(tc.output);
+  //             const results = JSON.parse(out[0].text);
+  //             if (Array.isArray(results)) {
+  //               results.forEach((r: any) => {
+  //                 const meta = r.meta_data ?? {};
+  //                 ws5.addRow({
+  //                   sno: popRow - 1,
+  //                   convId,
+  //                   userQ: truncate(userQ, 2000),
+  //                   text: truncate(r.text ?? ''),
+  //                   score: meta.similarity_score ?? '',
+  //                   page: meta.page_no ?? '',
+  //                   source: meta.source ?? '',
+  //                   sourceName: meta.source_name ?? '',
+  //                   topics: Array.isArray(meta.topics)
+  //                     ? meta.topics.join(', ')
+  //                     : '',
+  //                 });
+  //                 popRow++;
+  //               });
+  //             }
+  //           } catch {
+  //             /* skip */
+  //           }
+  //         }
+  //       });
+
+  //       // Sheet 6
+  //       toolCallsRaw.forEach(tc => {
+  //         if (
+  //           tc.name === 'get_context_from_golden_dataset_mcp_golden' &&
+  //           tc.output
+  //         ) {
+  //           try {
+  //             const out = JSON.parse(tc.output);
+  //             const results = JSON.parse(out[0].text ?? '');
+  //             if (Array.isArray(results)) {
+  //               results.forEach((r: any) => {
+  //                 const sources = r.sources ?? [];
+  //                 ws6.addRow({
+  //                   sno: goldRow - 1,
+  //                   convId,
+  //                   userQ: truncate(userQ, 2000),
+  //                   qText: truncate(r.question_text ?? '', 10000),
+  //                   aText: truncate(r.answer_text ?? ''),
+  //                   author: r.author ?? '',
+  //                   score: r.similarity_score ?? '',
+  //                   sName:
+  //                     sources[0]?.source_name ?? sources[0]?.sourceName ?? '',
+  //                   sLink: sources[0]?.source ?? '',
+  //                 });
+  //                 goldRow++;
+  //               });
+  //             }
+  //           } catch {
+  //             /* skip */
+  //           }
+  //         }
+  //       });
+  //     });
+
+  //     // Style all sheets
+  //     [ws1, ws2, ws3, ws4, ws5, ws6].forEach(ws => {
+  //       styleHeader(ws);
+  //       ws.eachRow((row, rowNum) => {
+  //         if (rowNum === 1) return;
+  //         row.eachCell(cell => {
+  //           cell.font = CELL_FONT;
+  //           cell.alignment = WRAP_ALIGN;
+  //           cell.border = THIN_BORDER;
+  //         });
+  //       });
+  //       autoWidth(ws);
+  //     });
+
+  //     return wb.xlsx.writeBuffer() as Promise<ArrayBuffer>;
+  //   } catch (error) {
+  //     throw new InternalServerError(
+  //       `Failed to generate chatbot Excel report: ${error}`,
+  //     );
+  //   }
+  // }
+
+  async generateChatbotAnalyticsExcelReport(
     startDate: Date,
     endDate: Date,
     source = 'vicharanashala',
+    userType = 'all',
+    month?: string,
   ): Promise<ArrayBuffer | null> {
     try {
-      const rows = await this.chatbotRepository.generateChatbotExcelReport(startDate, endDate, source);
-      if (!rows || rows.length === 0) return null;
+      // ─────────────────────────────────────────────────────────────
+      // FETCH REPORT DATA
+      // ─────────────────────────────────────────────────────────────
 
-      // ── helpers ─────────────────────────────────────────────────────────────
-      const safeJson = (raw: any): any => {
-        try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+      const reportData = await this.chatbotRepository.generateChatBotData(
+        startDate,
+        endDate,
+        30,
+        source,
+        userType,
+      );
+
+      if (!reportData) return null;
+
+      console.log("Excel Report", reportData)
+
+      // ─────────────────────────────────────────────────────────────
+      // WORKBOOK SETUP
+      // ─────────────────────────────────────────────────────────────
+
+      const wb = new ExcelJS.Workbook();
+
+      wb.creator = 'Chatbot Analytics System';
+      wb.created = new Date();
+
+      // ─────────────────────────────────────────────────────────────
+      // STYLES
+      // ─────────────────────────────────────────────────────────────
+
+      const HEADER_FILL: ExcelJS.Fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: {argb: 'FF1F4E79'},
       };
 
-      const truncate = (text: any, maxLen = 32000): string => {
-        if (!text) return '';
-        const s = String(text);
-        return s.length > maxLen ? s.slice(0, maxLen) + '… [TRUNCATED]' : s;
+      const HEADER_FONT: Partial<ExcelJS.Font> = {
+        name: 'Calibri',
+        bold: true,
+        color: {argb: 'FFFFFFFF'},
+        size: 11,
       };
 
-      const extractLocation = (toolCalls: any[]) => {
-        for (const tc of toolCalls) {
-          if (tc.name === 'get_location_info_mcp_weather' && tc.output) {
-            try {
-              const out = JSON.parse(tc.output);
-              const locData = JSON.parse(out[0].text);
-              const loc = locData?.location ?? {};
-              return { state: loc.state ?? '', district: loc.county ?? '', city: loc.city ?? '' };
-            } catch { /* skip */ }
-          }
-        }
-        return { state: '', district: '', city: '' };
+      const CELL_FONT: Partial<ExcelJS.Font> = {
+        name: 'Calibri',
+        size: 10,
       };
 
-      const extractUploadDetails = (toolCalls: any[]) => {
-        for (const tc of toolCalls) {
-          if (tc.name === 'upload_question_to_reviewer_system_mcp_pop') {
-            const args = safeJson(tc.args);
-            const details = args.details ?? {};
-            return {
-              question_en: args.question ?? '',
-              state: args.state_name ?? '',
-              crop: args.crop ?? '',
-              district: details.district ?? '',
-              season: details.season ?? '',
-              domain: details.domain ?? '',
-            };
-          }
-        }
-        return { question_en: '', state: '', crop: '', district: '', season: '', domain: '' };
+      const WRAP_ALIGN: Partial<ExcelJS.Alignment> = {
+        wrapText: true,
+        vertical: 'middle',
       };
 
-      const extractWeather = (toolCalls: any[]): string => {
-        for (const tc of toolCalls) {
-          if (tc.name === 'get_weather_forecast_mcp_weather' && tc.output) {
-            try {
-              const out = JSON.parse(tc.output);
-              return String(out[0]?.text ?? '').slice(0, 500);
-            } catch { /* skip */ }
-          }
-        }
-        return '';
+      const CENTER_ALIGN: Partial<ExcelJS.Alignment> = {
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true,
       };
 
-      // ── styling helpers ──────────────────────────────────────────────────────
-      const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E79' } };
-      const HEADER_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-      const CELL_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 10 };
-      const WRAP_ALIGN: Partial<ExcelJS.Alignment> = { wrapText: true, vertical: 'top' };
-      const CENTER_ALIGN: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle', wrapText: true };
       const THIN_BORDER: Partial<ExcelJS.Borders> = {
-        left: { style: 'thin' }, right: { style: 'thin' },
-        top: { style: 'thin' }, bottom: { style: 'thin' },
+        left: {style: 'thin'},
+        right: {style: 'thin'},
+        top: {style: 'thin'},
+        bottom: {style: 'thin'},
       };
 
       const styleHeader = (sheet: ExcelJS.Worksheet) => {
         const row = sheet.getRow(1);
-        row.eachCell((cell) => {
+
+        row.eachCell(cell => {
           cell.font = HEADER_FONT;
           cell.fill = HEADER_FILL;
           cell.alignment = CENTER_ALIGN;
           cell.border = THIN_BORDER;
         });
-        sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: sheet.columnCount } };
-        sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+        sheet.views = [{state: 'frozen', ySplit: 1}];
+
+        sheet.autoFilter = {
+          from: {row: 1, column: 1},
+          to: {row: 1, column: sheet.columnCount},
+        };
       };
 
-      const autoWidth = (sheet: ExcelJS.Worksheet, max = 60) => {
-        sheet.columns.forEach((col) => {
-          let best = 12;
-          col.eachCell?.({ includeEmpty: false }, (cell) => {
-            const lines = String(cell.value ?? '').split('\n');
-            const longest = Math.max(...lines.map((l) => l.length));
-            best = Math.max(best, Math.min(longest + 2, max));
-          });
-          col.width = best;
-        });
-      };
+      const styleRows = (sheet: ExcelJS.Worksheet) => {
+        sheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
 
-      // ── workbook setup ───────────────────────────────────────────────────────
-      const wb = new ExcelJS.Workbook();
-
-      const ws1 = wb.addWorksheet('Conversations');
-      ws1.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 40 },
-        { header: 'User Question (English)', key: 'userQEn', width: 40 },
-        { header: 'State', key: 'state', width: 16 },
-        { header: 'District', key: 'district', width: 16 },
-        { header: 'Crop', key: 'crop', width: 16 },
-        { header: 'Season', key: 'season', width: 14 },
-        { header: 'Domain', key: 'domain', width: 18 },
-        { header: 'Location – State', key: 'locState', width: 16 },
-        { header: 'Location – District', key: 'locDistrict', width: 16 },
-        { header: 'Location – City', key: 'locCity', width: 16 },
-        { header: 'Number of Tool Calls', key: 'toolCount', width: 12 },
-        { header: 'Tool Names Used', key: 'toolNames', width: 40 },
-        { header: 'Number of Think Steps', key: 'thinkCount', width: 12 },
-        { header: 'Bot Response (Final Text)', key: 'botResponse', width: 60 },
-        { header: 'Weather Forecast Preview', key: 'weather', width: 40 },
-      ];
-
-      const ws2 = wb.addWorksheet('Tool Calls');
-      ws2.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 30 },
-        { header: 'Tool Call Order', key: 'order', width: 10 },
-        { header: 'Tool Name', key: 'name', width: 40 },
-        { header: 'Tool Call ID', key: 'id', width: 30 },
-        { header: 'Arguments (JSON)', key: 'args', width: 40 },
-        { header: 'Progress', key: 'progress', width: 10 },
-        { header: 'Output Preview', key: 'output', width: 50 },
-      ];
-
-      const ws3 = wb.addWorksheet('Reviewer Data');
-      ws3.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 30 },
-        { header: 'Reviewer Question ID', key: 'qId', width: 26 },
-        { header: 'Reviewer Question Text', key: 'qText', width: 40 },
-        { header: 'Reviewer Answer Text', key: 'aText', width: 50 },
-        { header: 'Author', key: 'author', width: 18 },
-        { header: 'Similarity Score', key: 'score', width: 14 },
-        { header: 'Source 1 Name', key: 's1Name', width: 24 },
-        { header: 'Source 1 Link', key: 's1Link', width: 40 },
-        { header: 'Source 2 Name', key: 's2Name', width: 24 },
-        { header: 'Source 2 Link', key: 's2Link', width: 40 },
-      ];
-
-      const ws4 = wb.addWorksheet('FAQ Videos');
-      ws4.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 30 },
-        { header: 'FAQ Title', key: 'title', width: 30 },
-        { header: 'FAQ Link', key: 'link', width: 40 },
-        { header: 'FAQ Query', key: 'query', width: 30 },
-        { header: 'FAQ English Answer', key: 'answer', width: 50 },
-        { header: 'Similarity Score', key: 'score', width: 14 },
-      ];
-
-      const ws5 = wb.addWorksheet('POP Data');
-      ws5.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 30 },
-        { header: 'POP Text', key: 'text', width: 50 },
-        { header: 'Similarity Score', key: 'score', width: 14 },
-        { header: 'Page No', key: 'page', width: 10 },
-        { header: 'Source', key: 'source', width: 40 },
-        { header: 'Source Name', key: 'sourceName', width: 24 },
-        { header: 'Topics', key: 'topics', width: 30 },
-      ];
-
-      const ws6 = wb.addWorksheet('Golden Data');
-      ws6.columns = [
-        { header: 'S.No', key: 'sno', width: 6 },
-        { header: 'Conversation ID', key: 'convId', width: 36 },
-        { header: 'User Question (Original)', key: 'userQ', width: 30 },
-        { header: 'Golden Question Text', key: 'qText', width: 40 },
-        { header: 'Golden Answer Text', key: 'aText', width: 50 },
-        { header: 'Author', key: 'author', width: 18 },
-        { header: 'Similarity Score', key: 'score', width: 14 },
-        { header: 'Source Name', key: 'sName', width: 24 },
-        { header: 'Source Link', key: 'sLink', width: 40 },
-      ];
-
-      let tcRow = 2, revRow = 2, faqRow = 2, popRow = 2, goldRow = 2;
-
-      rows.forEach((item, idx) => {
-        const convId = item.conversationId;
-        const userQ = item.farmerQuestions.find((t) => t && t.trim().length > 0) ?? '';
-        const contentBlocks: any[] = Array.isArray(item.mcpToolCalls) && item.mcpToolCalls.length > 0
-          ? (Array.isArray(item.mcpToolCalls[0]) ? item.mcpToolCalls[0] : [])
-          : [];
-
-        // classify content blocks
-        const toolCallsRaw: any[] = [];
-        const thinkTexts: string[] = [];
-        const responseTexts: string[] = [];
-
-        for (const block of contentBlocks) {
-          if (!block || typeof block !== 'object') continue;
-          if (block.type === 'tool_call' && block.tool_call) {
-            toolCallsRaw.push({
-              id: block.tool_call.id ?? '',
-              name: block.tool_call.name ?? '',
-              args: block.tool_call.args ?? '',
-              progress: block.tool_call.progress ?? '',
-              output: block.tool_call.output ?? '',
-            });
-          } else if (block.type === 'think') {
-            thinkTexts.push(block.think ?? '');
-          } else if (block.type === 'text') {
-            responseTexts.push(block.text ?? '');
-          }
-        }
-
-        const uploadInfo = extractUploadDetails(toolCallsRaw);
-        const loc = extractLocation(toolCallsRaw);
-        const weatherPreview = extractWeather(toolCallsRaw);
-        const toolNames = toolCallsRaw.map((tc) => tc.name).join(', ');
-        const finalResponse = responseTexts.join('\n\n---\n\n');
-
-        // Sheet 1
-        ws1.addRow({
-          sno: idx + 1,
-          convId,
-          userQ: truncate(userQ, 10000),
-          userQEn: truncate(uploadInfo.question_en, 10000),
-          state: uploadInfo.state,
-          district: uploadInfo.district,
-          crop: uploadInfo.crop,
-          season: uploadInfo.season,
-          domain: uploadInfo.domain,
-          locState: loc.state,
-          locDistrict: loc.district,
-          locCity: loc.city,
-          toolCount: toolCallsRaw.length,
-          toolNames,
-          thinkCount: thinkTexts.length,
-          botResponse: truncate(finalResponse),
-          weather: truncate(weatherPreview, 5000),
-        });
-
-        // Sheet 2
-        toolCallsRaw.forEach((tc, order) => {
-          let outputText = '';
-          if (tc.output) {
-            try {
-              const parsed = JSON.parse(tc.output);
-              outputText = Array.isArray(parsed) && parsed.length > 0
-                ? (parsed[0].text ?? String(parsed))
-                : String(parsed);
-            } catch { outputText = String(tc.output); }
-          }
-          ws2.addRow({
-            sno: tcRow - 1,
-            convId,
-            userQ: truncate(userQ, 2000),
-            order: order + 1,
-            name: tc.name,
-            id: tc.id,
-            args: truncate(tc.args, 5000),
-            progress: tc.progress,
-            output: truncate(outputText, 5000),
-          });
-          tcRow++;
-        });
-
-        // Sheet 3
-        toolCallsRaw.forEach((tc) => {
-          if (tc.name === 'get_context_from_reviewer_dataset_mcp_reviewer' && tc.output) {
-            try {
-              const out = JSON.parse(tc.output);
-              const results = JSON.parse(out[0].text);
-              if (Array.isArray(results)) {
-                results.forEach((r: any) => {
-                  const sources = r.sources ?? [];
-                  ws3.addRow({
-                    sno: revRow - 1, convId,
-                    userQ: truncate(userQ, 2000),
-                    qId: r.question_id ?? '',
-                    qText: truncate(r.question_text ?? '', 10000),
-                    aText: truncate(r.answer_text ?? ''),
-                    author: r.author ?? '',
-                    score: r.similarity_score ?? '',
-                    s1Name: sources[0]?.source_name ?? sources[0]?.sourceName ?? '',
-                    s1Link: sources[0]?.source ?? '',
-                    s2Name: sources[1]?.source_name ?? sources[1]?.sourceName ?? '',
-                    s2Link: sources[1]?.source ?? '',
-                  });
-                  revRow++;
-                });
-              }
-            } catch { /* skip */ }
-          }
-        });
-
-        // Sheet 4
-        toolCallsRaw.forEach((tc) => {
-          if (tc.name === 'search_faq_mcp_faq-videos' && tc.output) {
-            try {
-              const out = JSON.parse(tc.output);
-              const faqData = JSON.parse(out[0].text);
-              const results = faqData.results ?? [];
-              results.forEach((r: any) => {
-                ws4.addRow({
-                  sno: faqRow - 1, convId,
-                  userQ: truncate(userQ, 2000),
-                  title: r.title ?? '',
-                  link: r.link ?? '',
-                  query: r.query ?? '',
-                  answer: truncate(r.english_answer ?? '', 10000),
-                  score: r.similarity_score ?? '',
-                });
-                faqRow++;
-              });
-            } catch { /* skip */ }
-          }
-        });
-
-        // Sheet 5
-        toolCallsRaw.forEach((tc) => {
-          if (tc.name === 'get_context_from_package_of_practices_mcp_pop' && tc.output) {
-            try {
-              const out = JSON.parse(tc.output);
-              const results = JSON.parse(out[0].text);
-              if (Array.isArray(results)) {
-                results.forEach((r: any) => {
-                  const meta = r.meta_data ?? {};
-                  ws5.addRow({
-                    sno: popRow - 1, convId,
-                    userQ: truncate(userQ, 2000),
-                    text: truncate(r.text ?? ''),
-                    score: meta.similarity_score ?? '',
-                    page: meta.page_no ?? '',
-                    source: meta.source ?? '',
-                    sourceName: meta.source_name ?? '',
-                    topics: Array.isArray(meta.topics) ? meta.topics.join(', ') : '',
-                  });
-                  popRow++;
-                });
-              }
-            } catch { /* skip */ }
-          }
-        });
-
-        // Sheet 6
-        toolCallsRaw.forEach((tc) => {
-          if (tc.name === 'get_context_from_golden_dataset_mcp_golden' && tc.output) {
-            try {
-              const out = JSON.parse(tc.output);
-              const results = JSON.parse(out[0].text ?? '');
-              if (Array.isArray(results)) {
-                results.forEach((r: any) => {
-                  const sources = r.sources ?? [];
-                  ws6.addRow({
-                    sno: goldRow - 1, convId,
-                    userQ: truncate(userQ, 2000),
-                    qText: truncate(r.question_text ?? '', 10000),
-                    aText: truncate(r.answer_text ?? ''),
-                    author: r.author ?? '',
-                    score: r.similarity_score ?? '',
-                    sName: sources[0]?.source_name ?? sources[0]?.sourceName ?? '',
-                    sLink: sources[0]?.source ?? '',
-                  });
-                  goldRow++;
-                });
-              }
-            } catch { /* skip */ }
-          }
-        });
-      });
-
-      // Style all sheets
-      [ws1, ws2, ws3, ws4, ws5, ws6].forEach((ws) => {
-        styleHeader(ws);
-        ws.eachRow((row, rowNum) => {
-          if (rowNum === 1) return;
-          row.eachCell((cell) => {
+          row.eachCell(cell => {
             cell.font = CELL_FONT;
             cell.alignment = WRAP_ALIGN;
             cell.border = THIN_BORDER;
           });
         });
-        autoWidth(ws);
+      };
+
+      const autoWidth = (sheet: ExcelJS.Worksheet, max = 40) => {
+        sheet.columns.forEach(column => {
+          let width = 12;
+
+          column.eachCell?.({includeEmpty: false}, cell => {
+            const cellLength = String(cell.value ?? '').length;
+            width = Math.max(width, Math.min(cellLength + 2, max));
+          });
+
+          column.width = width;
+        });
+      };
+
+      // ─────────────────────────────────────────────────────────────
+      // SUMMARY SHEET
+      // ─────────────────────────────────────────────────────────────
+
+      const summarySheet = wb.addWorksheet('Summary');
+
+      summarySheet.columns = [
+        {header: 'Metric', key: 'metric', width: 30},
+        {header: 'Value', key: 'value', width: 20},
+      ];
+
+      summarySheet.addRows([
+        {
+          metric: 'Total Downloads',
+          value: reportData.totalDownloads ?? 0,
+        },
+        {
+          metric: 'Average Session Duration',
+          value: reportData.averageSession ?? 0,
+        },
+        {
+          metric: 'Daily Active Users',
+          value: reportData.dau ?? 0,
+        },
+      ]);
+
+      // ─────────────────────────────────────────────────────────────
+      // MONTHLY QUERIES SHEET
+      // ─────────────────────────────────────────────────────────────
+
+      const monthlySheet = wb.addWorksheet('Monthly Queries');
+
+      monthlySheet.columns = [
+        {header: 'Month', key: 'month', width: 20},
+        {header: 'Total Queries', key: 'queries', width: 20},
+      ];
+
+      (reportData. monthlyQueries || []).forEach((item: any) => {
+        monthlySheet.addRow({
+          month: item.period ?? '',
+          queries: item.queryCount ?? 0,
+        });
       });
+
+      // ─────────────────────────────────────────────────────────────
+      // WEEKLY QUERIES SHEET
+      // ─────────────────────────────────────────────────────────────
+
+      const weeklySheet = wb.addWorksheet('Weekly Queries');
+
+      weeklySheet.columns = [
+        {header: 'Week', key: 'week', width: 20},
+        {header: 'Total Queries', key: 'queries', width: 20},
+      ];
+
+      (reportData.weeklyQueries || []).forEach((item: any) => {
+        weeklySheet.addRow({
+          week: item.period ?? '',
+          queries: item.queryCount ?? 0,
+        });
+      });
+
+      // ─────────────────────────────────────────────────────────────
+      // DAILY QUERIES SHEET
+      // ─────────────────────────────────────────────────────────────
+
+      const dailySheet = wb.addWorksheet('Daily Queries');
+
+      dailySheet.columns = [
+        {header: 'Date', key: 'date', width: 20},
+        {header: 'Total Queries', key: 'queries', width: 20},
+      ];
+
+      (reportData.dailyQueries || []).forEach((item: any) => {
+        dailySheet.addRow({
+          date: item.period ?? '',
+          queries: item.queryCount ?? 0,
+        });
+      });
+
+      // ─────────────────────────────────────────────────────────────
+      // STYLE ALL SHEETS
+      // ─────────────────────────────────────────────────────────────
+
+      [summarySheet, monthlySheet, weeklySheet, dailySheet].forEach(sheet => {
+        styleHeader(sheet);
+        styleRows(sheet);
+        autoWidth(sheet);
+      });
+
+      // ─────────────────────────────────────────────────────────────
+      // RETURN BUFFER
+      // ─────────────────────────────────────────────────────────────
 
       return wb.xlsx.writeBuffer() as Promise<ArrayBuffer>;
     } catch (error) {
-      throw new InternalServerError(`Failed to generate chatbot Excel report: ${error}`);
+      throw new InternalServerError(
+        `Failed to generate chatbot analytics Excel report: ${error}`,
+      );
     }
   }
 
-  async getGrowth(range:number):Promise<GrowthResponse> {
-    return await this._withTransaction(async (session) => {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(endDate.getDate() - range);
-      const labels = getDateRange(range)
+  async generateChatbotAnalyticsPdfReport(
+    startDate: Date,
+    endDate: Date,
+    source = 'vicharanashala',
+    userType = 'all',
+    month?: string,
+  ): Promise<Buffer> {
+    try {
+      const reportData = await this.chatbotRepository.generateChatBotData(
+        startDate,
+        endDate,
+        30,
+        source,
+        userType,
+      );
+
+      const doc = new PDFDocument({
+        margin: 40,
+        size: 'A4',
+      });
+
+      const buffers: Buffer[] = [];
+
+      doc.on('data', buffers.push.bind(buffers));
+
+      const pdfPromise = new Promise<Buffer>(resolve => {
+        doc.on('end', () => {
+          resolve(Buffer.concat(buffers));
+        });
+      });
+
+      // ─────────────────────────────────────
+      // TITLE
+      // ─────────────────────────────────────
+
+      doc.fontSize(20).text('Chatbot Analytics Report', {
+        align: 'center',
+      });
+
+      doc.moveDown(2);
+
+      // ─────────────────────────────────────
+      // SUMMARY
+      // ─────────────────────────────────────
+
+      doc.fontSize(16).text('Summary', {
+        underline: true,
+      });
+
+      doc.moveDown();
+
+      doc.fontSize(12);
+
+      doc.text(`Total Downloads: ${reportData.totalDownloads ?? 0}`);
+
+      doc.text(`Average Session Duration: ${reportData.averageSession ?? 0} min`);
+
+      doc.text(`Daily Active Users: ${reportData.dau ?? 0}`);
+
+      doc.moveDown(2);
+
+      // ─────────────────────────────────────
+      // MONTHLY QUERIES
+      // ─────────────────────────────────────
+
+      doc.fontSize(16).text('Monthly Queries', {
+        underline: true,
+      });
+
+      doc.moveDown();
+
+      reportData.monthlyQueries?.forEach((item: any) => {
+        doc.text(`Period ${item.period}:  Query Asked ${item.queryCount}`);
+      });
+
+      doc.moveDown(2);
+
+      // ─────────────────────────────────────
+      // WEEKLY QUERIES
+      // ─────────────────────────────────────
+
+      doc.fontSize(16).text('Weekly Queries', {
+        underline: true,
+      });
+
+      doc.moveDown();
+
+      reportData.weeklyQueries?.forEach((item: any) => {
+        doc.text(`Period ${item.period}:  Queries Asked ${item.queryCount}`);
+      });
+
+      doc.moveDown(2);
+
+      // ─────────────────────────────────────
+      // DAILY QUERIES
+      // ─────────────────────────────────────
+
+      doc.fontSize(16).text('Daily Queries', {
+        underline: true,
+      });
+
+      doc.moveDown();
+
+      reportData.dailyQueries?.forEach((item: any) => {
+        doc.text(`Period ${item.period}:  Queries Asked ${item.queryCount}`);
+      });
+
+      doc.end();
+
+      return pdfPromise;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to generate chatbot analytics PDF report: ${error}`,
+      );
+    }
+  }
+
+  async getGrowth(
+    source: string,
+    range: number,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<GrowthResponse> {
+    return await this._withTransaction(async session => {
+      const resolvedEndDate = endDate ? new Date(endDate) : new Date();
+      const resolvedStartDate = startDate ? new Date(startDate) : new Date();
+      if(source === "whatsapp"){
+        return this.getWhatsappUserGrowth(resolvedStartDate, resolvedEndDate);
+      }
+      if (!startDate) {
+        resolvedStartDate.setDate(resolvedEndDate.getDate() - range);
+      }
+
+      const labels =
+        startDate && endDate
+          ? getDateLabelsBetween(resolvedStartDate, resolvedEndDate)
+          : getDateRange(range);
+
       const [idsData, installsData, activeUsersData] = await Promise.all([
-        this.chatbotRepository.getIdsCreated(startDate, endDate, session),
-        this.chatbotRepository.getInstalls(startDate, endDate, session),
-        this.chatbotRepository.getActiveUsers(startDate, endDate, session),
-      ])
+        this.chatbotRepository.getIdsCreated(
+          resolvedStartDate,
+          resolvedEndDate,
+          session,
+        ),
+        this.chatbotRepository.getInstalls(
+          resolvedStartDate,
+          resolvedEndDate,
+          session,
+        ),
+        this.chatbotRepository.getActiveUsers(
+          resolvedStartDate,
+          resolvedEndDate,
+          session,
+        ),
+      ]);
       return {
         labels,
-        series:{
-          idsCreated:mapToSeries(labels, idsData),
-          installs:mapToSeries(labels, installsData),
-          activeUsers:mapToSeries(labels, activeUsersData)
-        }
-      }
-    })
+        series: {
+          idsCreated: mapToSeries(labels, idsData),
+          installs: mapToSeries(labels, installsData),
+          activeUsers: mapToSeries(labels, activeUsersData),
+        },
+      };
+    });
+  }
+
+  async getDuplicateQuestions(source = 'annam') {
+    try {
+      return await this.chatbotRepository.getDuplicateQuestions(source);
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch duplicate questions: ${error}`,
+      );
+    }
+  }
+
+  async getDomainSpikes(days = 60) {
+    try {
+      return await this.chatbotRepository.getDomainSpikes(days);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch domain spikes: ${error}`);
+    }
+  }
+
+  async getDailyQuestionTrends(days = 30, userType = 'all') {
+    try {
+      return await this.chatbotRepository.getDailyQuestionTrends(
+        days,
+        undefined,
+        undefined,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch daily question trends: ${error}`,
+      );
+    }
+  }
+
+  async getTopFaqs(source = 'vicharanashala', userType = 'all') {
+    try {
+      return await this.chatbotRepository.getTopFaqs(
+        source,
+        undefined,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
+    }
+  }
+
+  async deleteUser(userId: string, source: string): Promise<boolean> {
+    try {
+      return await this.chatbotRepository.deleteUser(userId, source);
+    } catch (error) {
+      throw new InternalServerError(`Failed to delete user: ${error}`);
+    }
+  }
+
+  async updateUser(
+    userId: string,
+    source: string,
+    data: {
+      name?: string;
+      farmerProfile?: {
+        farmerName?: string;
+        age?: number;
+        gender?: string;
+        villageName?: string;
+        blockName?: string;
+        district?: string;
+        state?: string;
+        phoneNo?: string;
+        languagePreference?: string;
+        yearsOfExperience?: number;
+        cropsCultivated?: string[];
+        primaryCrop?: string;
+        secondaryCrop?: string;
+        awarenessOfKCC?: boolean;
+        usesAgriApps?: boolean;
+        highestEducatedPerson?: string;
+        numberOfSmartphones?: number;
+        platform?: string;
+      };
+    },
+  ): Promise<boolean> {
+    try {
+      return await this.chatbotRepository.updateUser(userId, source, data);
+    } catch (error) {
+      throw new InternalServerError(`Failed to update user: ${error}`);
+    }
+  }
+
+  async getDailyActiveUsersTrend(
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
+  ) {
+    try {
+      return await this.chatbotRepository.getDailyActiveUsersTrend(
+        startDate,
+        endDate,
+        source,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch Daily Active Users Trend: ${error}`,
+      );
+    }
+  }
+
+  async getMonthlyActiveUsersTrend(
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
+  ) {
+    try {
+      return await this.chatbotRepository.getMonthlyActiveUsersTrend(
+        startDate,
+        endDate,
+        source,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch Monthly Active Users Trend: ${error}`,
+      );
+    }
+  }
+
+  async getWeeklyActiveUsersTrend(
+    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
+  ) {
+    try {
+      return await this.chatbotRepository.getWeeklyActiveUsersTrend(
+        startDate,
+        endDate,
+        source,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch Weekly Active Users Trend: ${error}`,
+      );
+    }
+  }
+
+  async getRetentionMetrics(    
+      startDate: Date,
+      endDate: Date,
+      source: string,
+      userType: string,
+      requestType: string,
+    ) {
+    try {
+      return await this.chatbotRepository.getRetentionMetrics(   
+         startDate,
+          endDate,
+          source,
+          userType,
+          requestType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch Retention Metrics: ${error}`,
+      );
+    }
+  }
+
+  async getWhatsappUserGrowth(
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const labels: string[] = [];
+
+    const idsCreated: number[] = [];
+    const installs: number[] = [];
+    const activeUsers: number[] = [];
+
+    // Generate labels
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+      labels.push(
+        current.toISOString().split("T")[0],
+      );
+      current.setDate(
+        current.getDate() + 1,
+      );
+    }
+
+    for (const label of labels) {
+      // IDs Created
+      const createdCount = WhatsappUsers.filter(
+        (user) =>
+          user.firstMessageAt.startsWith(
+            label,
+          ),
+      ).length;
+      idsCreated.push(createdCount);
+
+      // Installs
+      // assuming install = first interaction
+      const installsCount = WhatsappUsers.filter(
+        (user) =>
+          user.firstMessageAt.startsWith(
+            label,
+          ),
+      ).length;
+      installs.push(installsCount);
+
+      // Active users
+      const activeCount = WhatsappUsers.filter(
+        (user) =>
+          user.lastMessageAt.startsWith(
+            label,
+          ),
+      ).length;
+      activeUsers.push(activeCount);
+    }
+
+    return {
+      labels,
+      series: {
+        idsCreated,
+        installs,
+        activeUsers,
+      },
+    };
   }
 }

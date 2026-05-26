@@ -317,7 +317,7 @@ class QuestionResponse {
   text!: string;
 
   @IsOptional()
-  @IsEnum(['low', 'medium', 'high'])
+  @IsEnum(['low', 'medium', 'high', 'critical'])
   priority?: IQuestionPriority;
 
   @IsString()
@@ -371,14 +371,22 @@ class QuestionResponse {
   @IsOptional()
   isAutoAllocate?: boolean;
 }
+class ReferenceQuestionDetailDto {
+  @IsMongoId()
+  _id!: string;
+
+  @IsBoolean()
+  duplicate!: boolean;
+}
+
 class AddQuestionBodyDto {
   @IsString()
   @IsOptional()
   question!: string;
 
   @IsOptional()
-  @IsEnum(['low', 'medium', 'high'])
-  priority!: 'low' | 'medium' | 'high';
+  @IsEnum(['low', 'medium', 'high', 'critical'])
+  priority!: 'low' | 'medium' | 'high' | 'critical';
 
   @IsOptional()
   @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP', 'OUTREACH'])
@@ -405,6 +413,15 @@ class AddQuestionBodyDto {
   @IsBooleanString()
   isOutreachQuestion?: string;
 
+  @IsOptional()
+  @IsIn(['expert', 'draft', 'pae_expert'])
+  allocationMode?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsMongoId()
+  paeExpertId?: string;
+
   @IsString()
   @IsOptional()
   createdAt?: string;
@@ -413,7 +430,24 @@ class AddQuestionBodyDto {
   @IsOptional()
   originalquestion?: string;
 
-  
+  @IsString()
+  @IsOptional()
+  messageId?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsMongoId()
+  userId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReferenceQuestionDetailDto)
+  referenceQuestionDetails?: ReferenceQuestionDetailDto[];
+
+  @IsString()
+  @IsOptional()
+  popContext?: string;
 }
 
 class GenerateQuestionsBody {
@@ -431,6 +465,15 @@ class ExpertInput {
 
 class AllocateExpertsRequest {
   experts!: string[];
+}
+class BulkPaeAllocateRequest {
+  @IsArray()
+  @IsMongoId({ each: true })
+  questionIds!: string[];
+
+  @IsNotEmpty()
+  @IsMongoId()
+  paeExpertId!: string;
 }
 class RemoveAllocateBody {
   @IsNumber()
@@ -747,6 +790,22 @@ class GetDetailedQuestionsQuery {
 
   @IsOptional()
   isOnHold?: string;
+
+  @JSONSchema({
+    description: 'filter unallocated questions (empty queue or last history status != in-review)',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  unallocatedQuestions?: string;
+
+  @JSONSchema({
+    description: 'filter questions assigned to PAE experts',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  pae_review?: string;
 }
 
 export interface IQuestionWithAnswerTexts {
@@ -799,6 +858,13 @@ export class ApproveInitialAnswerBody {
   answer :string;
 }
 
+class ReallocateExpertsSelectedQuestionsRequest {
+  @IsNotEmpty()
+  @IsArray()
+  @IsString({ each: true })
+  questionIds!: string[];
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -807,6 +873,7 @@ export const QUESTION_VALIDATORS = [
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
@@ -818,6 +885,7 @@ export const QUESTION_VALIDATORS = [
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
   ApproveInitialAnswerBody,
+  ReallocateExpertsSelectedQuestionsRequest,
 ];
 
 export {
@@ -829,6 +897,7 @@ export {
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkPaeAllocateRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
@@ -836,4 +905,5 @@ export {
   HistoryItem,
   BulkDeleteQuestionDto,
   DateRangeRequest,
+  ReallocateExpertsSelectedQuestionsRequest,
 };

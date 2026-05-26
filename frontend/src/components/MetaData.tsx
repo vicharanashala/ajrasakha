@@ -79,39 +79,59 @@ export const VILLAGES = [
 
 export const DOMAINS = [
   "Agriculture Mechanization",
+  "Agricultural Schemes & Subsidies",
   "Bio-Pesticides and Bio-Fertilizers",
   "Crop Insurance",
   "Cultural Practices",
+  "Cultural and Crop Management Practices",
+  "Climate, Weather & Stress Management",
+  "Credit, Loan & Insurance",
+  "Disease Management",
   "Fertilizer Use and Availability",
   "Field Preparation",
+  "Farm Tools & Mechanisation",
+  "Irrigation and Water Management",
+  "Insect–Pest Management",
+  "Market Prices, MSP & Marketing",
   "Nutrient Management",
   "Organic Farming",
+  "Organic and Natural Farming",
   "Plant Protection",
   "Post Harvest Preservation",
+  "Post-Harvest Management & Storage",
   "Seeds",
+  "Seed and Variety Selection",
   "Soil Health Card",
   "Soil Testing",
+  "Soil Health and Nutrient Management",
   "Sowing Time and Weather",
   "Storage",
   "Varieties",
   "Water Management",
   "Weed Management",
-  "Market Information"
+  "Market Information",
+  "Others"
 ];
 export const STATES = [
   "Andhra Pradesh",
   "Arunachal Pradesh",
   "Assam",
+  "Andaman and Nicobar Islands",
   "Bihar",
   "Chhattisgarh",
+  "Chandigarh",
   "Delhi",
+  "Dadra and Nagar Haveli and Daman and Diu",
   "Goa",
   "Gujarat",
   "Haryana",
   "Himachal Pradesh",
   "Jharkhand",
+  "Jammu and Kashmir",
   "Karnataka",
   "Kerala",
+  "Ladakh",
+  "Lakshadweep",
   "Madhya Pradesh",
   "Maharashtra",
   "Manipur",
@@ -120,6 +140,7 @@ export const STATES = [
   "Nagaland",
   "Odisha",
   "Punjab",
+  "Puducherry",
   "Rajasthan",
   "Sikkim",
   "Tamil Nadu",
@@ -151,6 +172,42 @@ export const SEASONS = [
   "Wet Season"
 ];
 
+export const WEATHER_CONCERNS = {
+  rain: "rain",
+  heavyRain: "heavy rain",
+  flood: "flood",
+  waterlogging: "waterlogging",
+  monsoon: "monsoon",
+  heat: "heat",
+  temperature: "temperature",
+  cold: "cold",
+  frost: "frost",
+  hotWeather: "hot weather",
+  humidity: "humidity",
+  moisture: "moisture",
+  wind: "wind",
+  storm: "storm",
+  cyclone: "cyclone",
+} as const;
+
+export const WEATHER_CONCERN_LABELS: Record<keyof typeof WEATHER_CONCERNS, string> = {
+  rain: "Rain",
+  heavyRain: "Heavy Rain",
+  flood: "Flood",
+  waterlogging: "Waterlogging",
+  monsoon: "Monsoon",
+  heat: "Heat",
+  temperature: "Temperature",
+  cold: "Cold",
+  frost: "Frost",
+  hotWeather: "Hot Weather",
+  humidity: "Humidity",
+  moisture: "Moisture",
+  wind: "Wind",
+  storm: "Storm",
+  cyclone: "Cyclone",
+};
+
 export const Review_Level=[
   "Level 0",
   "Level 1",
@@ -165,11 +222,15 @@ export const Review_Level=[
 
 ]
 export const STATUS=[
+  "draft",
   "open",
   "in-review",
   "delayed",
-  "closed",
-  "re-routed"
+  "re-routed",
+  "pae_submitted",
+  //"pae_closed",
+  "pass",
+ // "closed"
 ]
 export const Review_Level_QAI=[
   "Author",
@@ -270,3 +331,26 @@ export const DISTRICTS: Record<string, string[]> = {
     "Alipurduar", "Bankura", "Birbhum", "Cooch Behar", "Dakshin Dinajpur (South Dinajpur)", "Darjeeling", "Hooghly", "Howrah", "Jalpaiguri", "Jhargram", "Kalimpong", "Kolkata", "Malda", "Murshidabad", "Nadia", "North 24 Parganas", "Paschim Bardhaman (West Bardhaman)", "Paschim Medinipur (West Medinipur)", "Purba Bardhaman (East Bardhaman)", "Purba Medinipur (East Medinipur)", "Purulia", "South 24 Parganas", "Uttar Dinajpur (North Dinajpur)"
   ]
 };
+export const SOURCES = [
+  "AJRASAKHA",
+  "WHATSAPP",
+  "OUTREACH",
+  "AGRI_EXPERT",
+];
+
+export const pae_domains=[
+  "Agricultural Schemes & Subsidies",
+  "Climate, Weather & Stress Management",
+  "Credit, Loan & Insurance",
+  "Cultural and Crop Management Practices",
+  "Disease Management",
+  "Farm Tools & Mechanisation",
+  "Insect–Pest Management",
+  "Irrigation and Water Management",
+  "Market Prices, MSP & Marketing",
+  "Organic and Natural Farming",
+  "Post-Harvest Management & Storage",
+  "Seed and Variety Selection",
+  "Soil Health and Nutrient Management",
+  "Weed Management"
+]

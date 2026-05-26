@@ -8,9 +8,9 @@ import {
   ValidateNested,
   IsNotEmpty
 } from 'class-validator';
-import {Type, Transform} from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { NotificationRetentionType } from '#root/shared/index.js';
-import { UserRole } from '#root/shared/interfaces/models.js';
+import { ICropRef, UserRole } from '#root/shared/interfaces/models.js';
 
 class PreferenceDto {
   @IsOptional()
@@ -18,12 +18,11 @@ class PreferenceDto {
   state?: string;
 
   @IsOptional()
-  @IsString()
-  crop?: string;
+  // @IsString()
+  crop?: string | ICropRef;
 
   @IsOptional()
-  @IsString()
-  domain?: string;
+  domain?: string | string[];
 }
 
 // User DTO
@@ -36,7 +35,7 @@ class UserDto {
 
   @IsString()
   email: string;
-  
+
   @IsString()
   role: string;
 
@@ -45,10 +44,10 @@ class UserDto {
   @Type(() => PreferenceDto)
   preference: PreferenceDto;
 
-  isBlocked:boolean
+  isBlocked: boolean
 
-  special_task_force:boolean
-  
+  special_task_force: boolean
+
   special_task_force_moderator: boolean
 }
 
@@ -60,14 +59,14 @@ class UsersNameResponseDto {
   myPreference: PreferenceDto;
 
   @IsArray()
-  @ValidateNested({each: true})
+  @ValidateNested({ each: true })
   @Type(() => UserDto)
   users: UserDto[];
   totalUsers: number;
   totalPages: number;
 }
 
-class NotificationDeletePreferenceDTO{
+class NotificationDeletePreferenceDTO {
   @IsOptional()
   @IsEnum(["3d", "1w", "2w", "1m", "never"], {
     message:
@@ -76,59 +75,64 @@ class NotificationDeletePreferenceDTO{
   preference?: NotificationRetentionType;
 }
 
-class UpdatePenaltyAndIncentive{
-  @IsEnum(['penalty','incentive'],{
-    message:"type must be either penalty or incentive"
+class UpdatePenaltyAndIncentive {
+  @IsEnum(['penalty', 'incentive'], {
+    message: "type must be either penalty or incentive"
   })
-  type:'penalty' | 'incentive'
+  type: 'penalty' | 'incentive'
 
   @IsString()
   userId: string;
 }
 
-class BlockUnblockBody{
+class BlockUnblockBody {
   @IsString()
-  action:string
+  action: string
 
   @IsOptional()
-  userId:string
+  userId: string
 }
-class ExpertReviewLevelDto{
+class ExpertReviewLevelDto {
   @IsOptional()
-  userId:string
+  userId: string
 
-  
+
   @IsOptional()
   startTime?: string;
 
- 
+
   @IsOptional()
   endTime?: string;
 
   @IsOptional()
-  crop:string
+  crop: string
 
   @IsOptional()
-  normalised_crop:string
+  normalised_crop: string
 
   @IsOptional()
-  season:string
+  season: string
 
   @IsOptional()
-  state:string
+  state: string
 
   @IsOptional()
-  district:string
+  district: string
 
   @IsOptional()
-  status:string
+  status: string
   @IsOptional()
-  domain:string
+  domain: string
   @IsOptional()
-  role:string
+  role: string
 }
 
-export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody];
+class VerifyUserBody {
+  @IsBoolean()
+  isVerified: boolean;
+}
+
+export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, VerifyUserBody];
 
 class UpdateUserDto {
   @IsOptional()
@@ -138,17 +142,23 @@ class UpdateUserDto {
   firstName?: string;
 
   @IsOptional()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value?.trim()
+  )
   @IsString()
-  @IsNotEmpty({ message: 'Last name cannot be empty or spaces' })
+  // @IsNotEmpty({ message: 'Last name cannot be empty or spaces' })
   lastName?: string;
 
   @IsOptional()
-  @IsEnum(['expert', 'moderator', 'admin'])
+  @IsEnum(['expert', 'moderator', 'admin', 'pae_expert'],)
   role?: UserRole;
   @IsOptional()
   @IsString()
   avatar?: string;
 }
 
-export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody,ExpertReviewLevelDto, UpdateUserDto};
+export class ToggleUserRoleDto {
+  role!: UserRole;
+}
+
+export { PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, ExpertReviewLevelDto, UpdateUserDto, VerifyUserBody };

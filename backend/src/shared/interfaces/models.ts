@@ -1,14 +1,24 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert';
+export type QuestionStatus =
+  | 'open'
+  | 'in-review'
+  | 'closed'
+  | 'delayed'
+  | 're-routed'
+  | 'hold'
+  | 'pae_submitted'
+  | 'draft'
+  | 'pass'
+  | 'duplicate';
 export interface IPreference {
   state: string;
   crop: string;
-  domain: string;
+  domain: string | string[];
 }
 export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
-export type UserStatus = "active" | "in-active";
+export type UserStatus = 'active' | 'in-active';
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
@@ -27,12 +37,15 @@ export interface IUser {
   createdAt?: Date;
   updatedAt?: Date;
   status?: UserStatus;
-  special_task_force?:boolean
-  special_task_force_moderator?: boolean
-  avatar?: string
+  special_task_force?: boolean;
+  special_task_force_moderator?: boolean;
+  avatar?: string;
+  mobile?: string;
+  university?: string;
+  isVerified?: boolean;
 }
 
-export type IQuestionPriority = 'low' | 'medium' | 'high';
+export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface IQuestionMetrics {
   mean_similarity: number;
@@ -41,7 +54,11 @@ export interface IQuestionMetrics {
   collusion_score: number;
 }
 
-export type QuestionSource = 'AJRASAKHA' | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
+export type QuestionSource =
+  | 'AJRASAKHA'
+  | 'AGRI_EXPERT'
+  | 'WHATSAPP'
+  | 'OUTREACH';
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -69,17 +86,30 @@ export interface IQuestion {
   closedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
-  isHidden?:false;
-  passingRemark?:string;
-  isOnHold?:boolean;
-  messageId?:string;
-  phoneNumber?:string;
+  isHidden?: false;
+  passingRemark?: string;
+  isOnHold?: boolean;
+  messageId?: string;
+  threadId?: string;
   /** Wall-clock moment the current hold segment started (SLA timer freezes until unhold). */
-  holdAt?:Date | null;
+  holdAt?: Date | null;
   /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
   accumulatedHoldMs?: number;
-  originalQuestion?:string
+  originalQuestion?: string;
   authors_history?: IAuthorsHistory[];
+  /** for duplicate quesitons */
+  similarityScore?: number; // percentage (0–100)
+  referenceQuestionId?: ObjectId;
+  referenceQuestion?: string;
+  referenceSource?: string;
+  saved_to_draft?: boolean;
+  pae_review?: boolean;
+  firstAllocationAt?: Date;
+  referenceQuestionDetails?: Array<{
+    _id: ObjectId | string;
+    duplicate: boolean;
+  }>;
+  popContext?: string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -88,13 +118,13 @@ export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
-  page?: number;
+  page?: string | number;
 }
-export interface PreviousAnswersItem{
-  modifiedBy:string | ObjectId;
-  oldAnswer:string;
-  newAnswer:string;
-  modifiedAt?:Date
+export interface PreviousAnswersItem {
+  modifiedBy: string | ObjectId;
+  oldAnswer: string;
+  newAnswer: string;
+  modifiedAt?: Date;
 }
 export interface IAnswer {
   _id?: string | ObjectId;
@@ -107,8 +137,8 @@ export interface IAnswer {
   approvedBy?: string | ObjectId;
   status?: string;
   answer: string;
-  reRouted?:boolean;
-  modifications?:PreviousAnswersItem[];
+  reRouted?: boolean;
+  modifications?: PreviousAnswersItem[];
   sources: SourceItem[];
   embedding: number[];
   createdAt?: Date;
@@ -139,7 +169,7 @@ export interface IReview {
   createdAt?: Date;
   updatedAt?: Date;
   status?: string;
-  reRoutedReview?:boolean
+  reRoutedReview?: boolean;
 }
 
 export interface IPreviousAllocations {
@@ -192,6 +222,7 @@ export interface IQuestionSubmission {
   lastRespondedBy: string | ObjectId;
   history: ISubmissionHistory[];
   queue: (string | ObjectId)[];
+  reviewDelayNotificationSent?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -246,11 +277,13 @@ export type INotificationType =
   | 'review_modified'
   | 're-routed'
   | 're-routed-rejected-expert'
-  |'re-routed-rejected-moderator'
-  |'re-routed-answer-created'
+  | 're-routed-rejected-moderator'
+  | 're-routed-answer-created'
   | 'question_from_whatsapp'
   | 'question_from_ajrasakha'
   | 'expert_replacement'
+  | 'user_verification'
+  | 'delayed_question';
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
@@ -293,37 +326,37 @@ export type RerouteStatus =
   | 'expert_completed'
   | 'moderator_rejected'
   | 'moderator_approved'
-  |"approved"
-  |"rejected"
-  |"modified"
-  |"in-review";
+  | 'approved'
+  | 'rejected'
+  | 'modified'
+  | 'in-review';
 export interface IRerouteHistory {
-    reroutedBy: ObjectId|string;        // Moderator
-    reroutedTo: ObjectId |string;        // Expert
-    reroutedAt: Date|string;
-  answerId?: ObjectId | string
+  reroutedBy: ObjectId | string; // Moderator
+  reroutedTo: ObjectId | string; // Expert
+  reroutedAt: Date | string;
+  answerId?: ObjectId | string;
   status: RerouteStatus;
-    moderatorRejectionReason?:string;
-  rejectionReason?: string;    // Only when expert rejects
-  comment?: string;            // Mandatory when moderator reroutes
+  moderatorRejectionReason?: string;
+  rejectionReason?: string; // Only when expert rejects
+  comment?: string; // Mandatory when moderator reroutes
 
-    updatedAt: Date|string;             // Updated on every status change
+  updatedAt: Date | string; // Updated on every status change
 }
 export interface IReroute {
-    _id?: ObjectId|string;
+  _id?: ObjectId | string;
 
-    answerId: ObjectId|string;          // Which answer is being rerouted
-    questionId: ObjectId|string;
+  answerId: ObjectId | string; // Which answer is being rerouted
+  questionId: ObjectId | string;
 
   reroutes: IRerouteHistory[]; // Timeline of reroutes
 
-    createdAt: Date|string;
-    updatedAt: Date|string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 export interface LevelReportStat {
-  month: string,
-  data:{
+  month: string;
+  data: {
     level: number; // history index (1–10)
     approvedCount: number;
     rejectedCount: number;
@@ -333,21 +366,20 @@ export interface LevelReportStat {
     rejectedPercentage: number;
     modifiedPercentage: number;
     avgTimeTakenMinutes: number; // average time in minutes
-  }[]
+  }[];
 }
 export interface IQuestionEmbedding {
   _id: ObjectId;
   embedding: number[];
 }
 export interface ISimilarQuestion extends IQuestion {
-  similarityScore: number;        // percentage (0–100)
+  similarityScore: number; // percentage (0–100)
   referenceQuestionId: ObjectId;
-  referenceQuestion:string
+  referenceQuestion: string;
   referenceSource: string;
-    // matched original question
+  // matched original question
 }
 export interface AddQuestionResult {
-  isDuplicate: boolean;
   data: Partial<IQuestion>;
 }
 
@@ -359,12 +391,12 @@ export interface IChatbotSession {
   _id?: ObjectId | string;
   userId: ObjectId | string;
   channel: ChatbotChannel;
-  language: string;           // e.g. 'hindi' | 'telugu' | 'marathi' | 'bhojpuri'
-  state: string;              // e.g. 'UP' | 'MH'
+  language: string; // e.g. 'hindi' | 'telugu' | 'marathi' | 'bhojpuri'
+  state: string; // e.g. 'UP' | 'MH'
   crop?: string;
-  queryCategory: string;      // e.g. 'pest_disease' | 'fertilizer_dosage'
+  queryCategory: string; // e.g. 'pest_disease' | 'fertilizer_dosage'
   sessionDurationSec: number;
-  csatScore?: number;         // 1–5
+  csatScore?: number; // 1–5
   voiceAccuracyScore?: number; // 0–100, only for voice channel
   isRepeatQuery: boolean;
   createdAt: Date;
@@ -375,20 +407,21 @@ export interface ICropRef {
 }
 
 export interface ICropAlias {
-  language: string;                 // BCP-47 code e.g. "te-IN"
-  region: string;                   // e.g. "Andhra and Telangana"
-  english_representation: string;   // romanised / English representation e.g. "vari"
-  native_representation: string;    // native script e.g. "వరి"
+  language: string; // BCP-47 code e.g. "te-IN"
+  region: string; // e.g. "Andhra and Telangana"
+  english_representation: string; // romanised / English representation e.g. "vari"
+  native_representation: string; // native script e.g. "వరి"
 }
 
-export type CropType = 'crop' | 'chemical' | 'other';
+export type CropType = 'crop' | 'chemical' | (string & {});
 
 export interface ICrop {
   _id?: ObjectId | string;
   name: string;
-  type?: CropType;                    // 'crop' (default) | 'chemical' | 'other'
-  status?: 'Restricted' | 'Banned';  // only relevant when type === 'chemical'
-  aliases: (ICropAlias | string)[];  // string = legacy format; ICropAlias = new format
+  type?: CropType; // 'crop' (default) | 'chemical' | any custom string
+  status?: string; // only relevant when type === 'chemical', any custom string
+  aliases: (ICropAlias | string)[]; // string = legacy format; ICropAlias = new format
+  crops?: string[]; // associated crops (only for type === 'chemical')
   createdBy?: ObjectId | string;
   updatedBy?: ObjectId | string;
   createdAt?: Date;
@@ -410,17 +443,17 @@ export interface IChemical {
   _id?: ObjectId | string;
   name: string;
   status: ChemicalStatus;
-  aliases?: (ICropAlias | string)[];  // optional structured aliases
+  aliases?: (ICropAlias | string)[]; // optional structured aliases
   createdBy?: ObjectId | string;
   createdAt?: Date;
   updatedAt?: Date;
   chemical_audit_history?: IChemicalAuditHistory[];
 }
 export interface ISource {
-  source: string;     // URL or document reference
-  page?: number;      // optional (some sources may not have page)
-  title?: string;     // optional (future-proof)
-  type?: string;      // optional (pdf, link, doc, etc.)
+  source: string; // URL or document reference
+  page?: string | number; // optional (some sources may not have page)
+  title?: string; // optional (future-proof)
+  type?: string; // optional (pdf, link, doc, etc.)
 }
 
 export interface IAuthor {
@@ -430,7 +463,7 @@ export interface IAuthor {
 
 export interface ICheckStatusResponse {
   question_id: string;
-  status: 'pending' | 'closed'|'not_found';
+  status: 'pending' | 'closed' | 'not_found';
   answer: string | null;
   sources: ISource[];
   author: IAuthor | null;
@@ -444,9 +477,23 @@ export interface ICheckStatusResponse {
   message?: string | null;
 }
 
-
-
 export interface IcheckStatusResponseDto {
   success: boolean;
   data: ICheckStatusResponse;
+}
+
+export interface WhatsappUser {
+  phoneNumber: string;
+  messageCount: number;
+  firstMessageAt: string;
+  lastMessageAt: string;
+  lastMessageText: string;
+}
+
+export interface WhatsappUsersResponse {
+  data: WhatsappUser[];
+  total: number;
+  skip: number;
+  limit: number;
+  isPaginated: boolean;
 }

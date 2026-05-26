@@ -1,6 +1,6 @@
 import {appConfig} from '#root/config/app.js';
 import {dbConfig} from '#root/config/db.js';
-import {createLocalBackup} from '#root/utils/backup-cron.js';
+import {createClusterBackup} from '#root/utils/backup-cron.js';
 // import {sendEmailNotification} from '#root/utils/mailer.js';
 import cron from 'node-cron';
 import { getContainer } from '../loadModules.js';
@@ -23,7 +23,7 @@ cron.schedule(
       // await userRepository.unBlockExperts()
       const ENABLE_DB_BACKUP = appConfig.ENABLE_DB_BACKUP;
       if (ENABLE_DB_BACKUP) {
-        await createLocalBackup(URI, DB);
+        await createClusterBackup(URI);
         console.log('🎉 Backup Job Completed Successfully');
       } else {
         console.log('Skipped backup ENABLE_DB_BACKUP==', ENABLE_DB_BACKUP);

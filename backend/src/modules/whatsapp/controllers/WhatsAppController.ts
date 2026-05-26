@@ -2,21 +2,27 @@ import 'reflect-metadata';
 import {
   JsonController,
   Get,
+  Post,
   HttpCode,
   Param,
+  Body,
   Authorized,
+  CurrentUser,
+  QueryParam,
 } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
 import { WHATSAPP_TYPES } from '../types.js';
 import type { IWhatsAppService } from '../interfaces/IWhatsAppService.js';
+import { IUser } from '#root/shared/index.js';
+import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
 
 @OpenAPI({
   tags: ['whatsapp'],
   description: 'WhatsApp history endpoints',
 })
 @injectable()
-@JsonController('/whatsapp', { transformResponse: false })
+@JsonController('/whatsapp', {transformResponse: false})
 export class WhatsAppController {
   constructor(
     @inject(WHATSAPP_TYPES.WhatsAppService)
@@ -36,12 +42,74 @@ export class WhatsAppController {
 
   @OpenAPI({
     summary: 'Get WhatsApp thread details',
-    description: 'Retrieves message history for a specific WhatsApp thread from LangGraph.',
+    description:
+      'Retrieves message history for a specific WhatsApp thread from LangGraph.',
   })
-  @Get('/threads/:threadId')
+  @Get('/threads/:threadId/:date')
   @HttpCode(200)
   @Authorized()
-  async getThreadDetails(@Param('threadId') threadId: string) {
-    return this.whatsappService.getThreadDetails(threadId);
+  async getThreadDetails(
+    @Param('threadId') threadId: string,
+    @Param('date') date: string,
+  ) {
+    return this.whatsappService.getThreadDetails(threadId, date);
+  }
+
+  @OpenAPI({
+    summary: 'Send a WhatsApp message',
+    description: 'Sends a direct WhatsApp message to a specific phone number.',
+  })
+  @Post('/send-message')
+  @HttpCode(200)
+  @Authorized()
+  async sendMessage(
+    @Body() body: {phoneNumber: string; messageText: string},
+    @CurrentUser() user: IUser,
+  ) {
+    const userId = user._id.toString();
+    await this.whatsappService.sendMessage(
+      userId,
+      body.phoneNumber,
+      body.messageText,
+    );
+    return {success: true, message: 'Message sent successfully'};
+  }
+
+  @OpenAPI({
+    summary: 'Fetch dummy inactive whatsapp users',
+
+    description:
+      'Fetches the users by mobile numbers who are inactive for more than last 3 days',
+  })
+  @Get('/inactive-users')
+  @HttpCode(200)
+  @Authorized()
+  async fetxhInactiveUsers(
+    @QueryParam('page') page = 1,
+    @QueryParam('limit') limit = 2,
+  ) {
+    const skip = (page - 1) * limit;
+
+    const response = await this.whatsappService.getInactiveUsers(skip, limit);
+
+    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+
+    const inactiveUsers = response.data.filter(item => {
+      return new Date(item.lastMessageAt).getTime() < threeDaysAgo;
+    });
+
+    const total = inactiveUsers.length;
+
+    return {
+      users: inactiveUsers,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPrevPage: page > 1,
+      },
+    };
   }
 }

@@ -18,7 +18,11 @@ import { ClientSession, ObjectId } from 'mongodb';
 
 export interface IQuestionService {
   /** Bulk insert questions (CSV / upload / AI generated) */
-  createBulkQuestions(userId: string, questions: any[], isOutreachQuestion?: boolean): Promise<string[]>;
+  createBulkQuestions(
+    userId: string,
+    questions: any[],
+    isOutreachQuestion?: boolean,
+  ): Promise<string[]>;
 
   /** Add dummy questions linked to a context */
   addDummyQuestions(
@@ -39,7 +43,10 @@ export interface IQuestionService {
   ): Promise<QuestionResponse[]>;
 
   /** Paginated + searchable question list */
-  getDetailedQuestions(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{
+  getDetailedQuestions(
+    query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
+  ): Promise<{
     questions: IQuestion[];
     totalPages: number;
   }>;
@@ -77,10 +84,12 @@ export interface IQuestionService {
     questionId: string,
     session?: any,
     batchSize?: number,
-  ): Promise<{ data?: ObjectId[], status: boolean }>;
+  ): Promise<{ data?: ObjectId[]; status: boolean }>;
 
   /** Toggle auto allocation on/off */
-  toggleAutoAllocate(questionId: string): Promise<{ message: string, data?: ObjectId[] }>;
+  toggleAutoAllocate(
+    questionId: string,
+  ): Promise<{ message: string; data?: ObjectId[] }>;
 
   /** Manually allocate experts */
   allocateExperts(
@@ -88,6 +97,13 @@ export interface IQuestionService {
     questionId: string,
     experts: string[],
   ): Promise<IQuestionSubmission>;
+
+  /** Bulk allocate a PAE expert to multiple draft questions via background worker */
+  bulkAllocatePaeExperts(
+    userId: string,
+    questionIds: string[],
+    paeExpertId: string,
+  ): Promise<{ jobId: string; message: string }>;
 
   /** Remove expert from allocation queue */
   removeExpertFromQueue(
@@ -112,14 +128,20 @@ export interface IQuestionService {
     session?: any,
   ): Promise<{ deletedCount: number }>;
 
-  /** Bulk delete (max 50) */
-  bulkDeleteQuestions(questionIds: string[]): Promise<{ deletedCount: number }>;
+  /** Bulk delete (no limit, background worker) */
+  bulkDeleteQuestions(
+    userId: string,
+    questionIds: string[],
+  ): Promise<{ jobId: string; message: string }>;
 
   /** Fetch question with answers, history & permissions */
   getQuestionFullData(
     questionId: string,
     userId: string,
-  ): Promise<IQuestion | null>;
+  ): Promise<{
+    question: IQuestion | null;
+    approved_moderator: { name: string; email: string };
+  }>;
 
   /** Get expert’s allocated question page */
   getAllocatedQuestionPage(userId: string, questionId: string): Promise<any>;
@@ -136,6 +158,7 @@ export interface IQuestionService {
 
   balanceWorkload(
     session?: ClientSession,
+    type?: string,
   ): Promise<{
     message: string;
     expertsInvolved: number;
@@ -172,6 +195,8 @@ export interface IQuestionService {
     hiddenQuestions?: string;
     duplicateQuestions?: string;
     isOnHold?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,
@@ -179,16 +204,36 @@ export interface IQuestionService {
   ): Promise<ArrayBuffer | null>;
   getMatchedQuestion(questionId, userId);
 
-  checkStatus(questionIds)
+  checkStatus(questionIds);
 
-  holdQuestion(questionId: string, userId: string, action: "hold" | "unhold"): Promise<{ id: string }>
+  holdQuestion(
+    questionId: string,
+    userId: string,
+    action: 'hold' | 'unhold',
+  ): Promise<{ id: string }>;
   checkSubmissionExists(questionId: string): Promise<boolean>;
 
   /** Returns total question count and per-status breakdown with filters applied */
-  getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>;
+  getQuestionStatusSummary(
+    query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
+  ): Promise<{
+    totalQuestions: number;
+    statuses: { status: string; count: number }[];
+  }>;
 
   getExprtIdByIndex(questionId: string, index: number): Promise<string | null>;
-  generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer: string }>;
+  generateAiInitialAnswer(
+    questionId: string,
+  ): Promise<{ aiInitialAnswer: string }>;
 
-  approveAiInitialAnswer(questionId: string, answer: string)
+  approveAiInitialAnswer(questionId: string, answer: string);
+
+  getReallocationPreview(type: string): Promise<any>;
+  manualReallocate(
+    assignments: { submissionId: string; expertId: string }[],
+    inactiveExpertIds?: string[],
+  ): Promise<{ message: string; submissionsProcessed: number }>;
+
+  balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number }>;
 }

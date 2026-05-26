@@ -21,6 +21,7 @@ type Props = {
   toggleSort: (key: string) => void;
 
   limit: number;
+  onLimitChange: (limit: number) => void;
   view: "table" | "grid";
   onRefresh?: () => void;
 };
@@ -35,6 +36,7 @@ export function ReviewLevelsTable({
   toggleSort,
   sort,
   limit,
+  onLimitChange,
   view,
   onRefresh,
 }: Props) {
@@ -107,6 +109,8 @@ export function ReviewLevelsTable({
         currentPage={page}
         totalPages={totalPages}
         onPageChange={onPageChange}
+        limit={limit}
+        onLimitChange={onLimitChange}
       />
     </div>
   );

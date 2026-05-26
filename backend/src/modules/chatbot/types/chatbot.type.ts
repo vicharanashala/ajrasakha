@@ -1,5 +1,8 @@
 export type GrowthQuery = {
-  range: number; // 30 | 60 | 90
+  range?: number;
+  startDate?: string;
+  endDate?: string;
+  source?: string;
 };
 
 export type GrowthResponse = {
@@ -10,3 +13,18 @@ export type GrowthResponse = {
     activeUsers: number[];
   };
 };
+
+export type ActiveUsersQuery = {
+  startDate?: string;
+  endDate?: string;
+  source?: string;
+  userType?: string;
+};
+
+export type RetentionMetricsQuery = {
+  startDate?: string;
+  endDate?: string;
+  source?: string;
+  userType?: string;
+  requestType?: string;
+}

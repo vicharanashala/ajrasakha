@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
 from sentence_transformers import SentenceTransformer
+import anthropic
+import json
 import logging
 import os
 import time
@@ -37,6 +39,15 @@ GOLDEN_VECTOR_INDEX_NAME = os.getenv("GOLDEN_VECTOR_INDEX_NAME", "vector_index")
 # used when building your Atlas vector index.
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-large-en")
 
+# --- Anthropic (for /agent_search extraction) ---
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+anthropic_client: anthropic.Anthropic | None = None
+if ANTHROPIC_API_KEY:
+    anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    log.info("Anthropic client initialised (model=claude-haiku-4-5-20251001)")
+else:
+    log.warning("ANTHROPIC_API_KEY not set — /agent_search will be unavailable")
+
 reviewer_client = MongoClient(MONGO_URI)
 reviewer_collection = reviewer_client[DB_NAME][COLLECTION_NAME]
 
@@ -49,8 +60,8 @@ model = SentenceTransformer(EMBEDDING_MODEL_NAME)
 
 class SearchRequest(BaseModel):
     query: str
-    top_k: int = 5
-    threshold: float = 0.8
+    top_k: int = 10
+    threshold: float = 0.7
     # Reviewer + golden: optional district/state/crop/domain/season (see schema).
     # PoP has no district — only state + attributes apply. Wildcard districts still
     # require crop/domain/season when those are sent.
@@ -207,21 +218,42 @@ def _fetch_k(request: SearchRequest) -> int:
     return request.top_k
 
 
-def _reviewer_passes_filters(request: SearchRequest, item: QAItem) -> bool:
-    d = item.details or {}
-    if not _passes_location_filter(
-        d.get("district"),
-        d.get("state"),
-        request.district,
-        request.state,
-    ):
-        return False
-    return _passes_attribute_filters(
-        request,
-        crop=d.get("crop"),
-        domain=d.get("domain"),
-        season=d.get("season"),
-    )
+def build_reviewer_filter_query(request: SearchRequest) -> dict:
+    conditions = [{"status": "closed"}]
+    
+    if _want(request.state):
+        st = _want(request.state)
+        conditions.append({"details.state": {"$in": [st, st.title(), st.lower(), st.upper()]}})
+        
+    if _want(request.district):
+        dt = _want(request.district)
+        wildcards = ["All", "General", "Unknown", "FAQ", "Not specified", "Multiple", "N/A", "#N/A", "not provided"]
+        all_wildcards = wildcards + [w.lower() for w in wildcards] + [w.upper() for w in wildcards]
+        conditions.append({
+            "$or": [
+                {"details.district": {"$in": [dt, dt.title(), dt.lower(), dt.upper()]}},
+                {"details.district": {"$in": all_wildcards}}
+            ]
+        })
+
+    if _want(request.crop):
+        cr = _want(request.crop)
+        conditions.append({
+            "$or": [
+                {"details.normalised_crop": {"$in": [cr, cr.lower(), cr.title()]}},
+                {"details.crop": {"$in": [cr, cr.lower(), cr.title()]}}
+            ]
+        })
+        
+    if _want(request.domain):
+        dm = _want(request.domain)
+        conditions.append({"details.domain": {"$in": [dm, dm.title(), dm.lower()]}})
+        
+    if _want(request.season):
+        sn = _want(request.season)
+        conditions.append({"details.season": {"$in": [sn, sn.title(), sn.lower()]}})
+
+    return {"$and": conditions}
 
 
 def _golden_passes_filters(request: SearchRequest, item: GoldenQAItem) -> bool:
@@ -339,12 +371,13 @@ def search_questions(request: SearchRequest):
     query_text = f"Represent this sentence for searching relevant passages: {request.query}"
     query_embedding = model.encode(query_text, normalize_embeddings=True).tolist()
 
-    pool_k = _fetch_k(request)
+    filter_query = build_reviewer_filter_query(request)
     results = _vector_search(
         collection=reviewer_collection,
         query_embedding=query_embedding,
-        top_k=pool_k,
+        top_k=request.top_k,
         index_name=VECTOR_INDEX_NAME,
+        filter_query=filter_query,
         project={
             "_id": 1,
             "question": 1,
@@ -356,104 +389,15 @@ def search_questions(request: SearchRequest):
         },
     )
 
-    log.info("[/search] reviewer fetched=%d (pool_k=%d)", len(results), pool_k)
-
-    if not results:
-        log.info("[/search] returning 0 results (%.0fms)", (time.perf_counter() - t0) * 1000)
-        return []
-    items = [serialize_doc(doc) for doc in results]
-    before_filter = len(items)
-    if _any_request_filters(request):
-        items = [x for x in items if _reviewer_passes_filters(request, x)]
-        log.info("[/search] reviewer after filters=%d (dropped %d)", len(items), before_filter - len(items))
-    items = items[: request.top_k]
+    items = [
+        serialize_doc(doc)
+        for doc in results
+        if float(doc.get("score", 0.0) or 0.0) >= request.threshold
+    ]
+    items.sort(key=lambda x: x.score, reverse=True)
     log.info("[/search] returning %d results (%.0fms)", len(items), (time.perf_counter() - t0) * 1000)
     return items
 
-
-# @app.post("/search_all", response_model=MultiSearchResponse)
-# def search_all(request: SearchRequest):
-#     if not request.query.strip():
-#         raise HTTPException(status_code=400, detail="Query must not be empty.")
-#     if request.top_k <= 0:
-#         raise HTTPException(status_code=400, detail="top_k must be > 0.")
-#     if not (0.0 <= request.threshold <= 1.0):
-#         raise HTTPException(status_code=400, detail="threshold must be between 0 and 1.")
-
-#     query_text = f"Represent this sentence for searching relevant passages: {request.query}"
-#     query_embedding = model.encode(query_text, normalize_embeddings=True).tolist()
-
-#     reviewer_raw = _vector_search(
-#         collection=reviewer_collection,
-#         query_embedding=query_embedding,
-#         top_k=request.top_k,
-#         index_name=VECTOR_INDEX_NAME,
-#         project={
-#             "_id": 1,
-#             "question": 1,
-#             "text": 1,
-#             "details": 1,
-#             "status": 1,
-#             "source": 1,
-#             "score": {"$meta": "vectorSearchScore"},
-#         },
-#     )
-#     reviewer_items = [
-#         serialize_doc(d)
-#         for d in reviewer_raw
-#         if float(d.get("score", 0.0) or 0.0) >= request.threshold
-#     ]
-
-#     golden_raw = _vector_search(
-#         collection=golden_qa_collection,
-#         query_embedding=query_embedding,
-#         top_k=request.top_k,
-#         index_name=GOLDEN_VECTOR_INDEX_NAME,
-#         project={
-#             "text": 1,
-#             "metadata": 1,
-#             "score": {"$meta": "vectorSearchScore"},
-#         },
-#     )
-#     golden_items: list[GoldenQAItem] = []
-#     for d in golden_raw:
-#         score = float(d.get("score", 0.0) or 0.0)
-#         if score < request.threshold:
-#             continue
-#         text = d.get("text", "") or ""
-#         q, a = _parse_golden_qa_text(text)
-#         golden_items.append(
-#             GoldenQAItem(
-#                 text=text,
-#                 question=q,
-#                 answer=a,
-#                 metadata=d.get("metadata", {}) or {},
-#                 score=score,
-#             )
-#         )
-
-#     pop_raw = _vector_search(
-#         collection=golden_pop_collection,
-#         query_embedding=query_embedding,
-#         top_k=request.top_k,
-#         index_name=GOLDEN_VECTOR_INDEX_NAME,
-#         project={
-#             "text": 1,
-#             "metadata": 1,
-#             "score": {"$meta": "vectorSearchScore"},
-#         },
-#     )
-#     pop_items = [
-#         PopItem(
-#             text=(d.get("text", "") or ""),
-#             metadata=(d.get("metadata", {}) or {}),
-#             score=float(d.get("score", 0.0) or 0.0),
-#         )
-#         for d in pop_raw
-#         if float(d.get("score", 0.0) or 0.0) >= request.threshold
-#     ]
-
-#     return MultiSearchResponse(reviewer=reviewer_items, golden=golden_items, pop=pop_items)
 
 
 @app.post("/search_all", response_model=MultiSearchResponse)
@@ -489,8 +433,9 @@ def search_all(request: SearchRequest):
     reviewer_raw = _vector_search(
         collection=reviewer_collection,
         query_embedding=query_embedding,
-        top_k=pool_k,
+        top_k=request.top_k,
         index_name=VECTOR_INDEX_NAME,
+        filter_query=build_reviewer_filter_query(request),
         project={
             "_id": 1,
             "question": 1,
@@ -519,10 +464,6 @@ def search_all(request: SearchRequest):
     reviewer_items.sort(key=lambda x: x.score, reverse=True)
 
     reviewer_before = len(reviewer_items)
-    if has_filters:
-        reviewer_items = [
-            x for x in reviewer_items if _reviewer_passes_filters(request, x)
-        ]
 
     reviewer_items = reviewer_items[: request.top_k]
     log.info("[/search_all] REVIEWER  fetched=%d  below_threshold=%d  no_answer=%d  "
@@ -644,6 +585,152 @@ def search_all(request: SearchRequest):
         golden=golden_items,
         pop=pop_items,
     )
+
+# ---------------------------------------------------------------------------
+#  /agent_search — transcript → extract (question, state, crop) → /search
+# ---------------------------------------------------------------------------
+
+_EXTRACT_TOOL = {
+    "name": "extract_farmer_query",
+    "description": (
+        "Extract a concise agricultural question, the Indian state, "
+        "and the crop name from a call-center conversation transcript."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "question": {
+                "type": "string",
+                "description": (
+                    "A concise, clear agricultural question that captures "
+                    "the farmer's core problem or query from the transcript."
+                ),
+            },
+            "state": {
+                "type": "string",
+                "description": (
+                    "The Indian state mentioned in the transcript. "
+                    'Return "All" if no specific state is mentioned.'
+                ),
+            },
+            "crop": {
+                "type": "string",
+                "description": (
+                    "The crop name mentioned in the transcript. "
+                    'Return "All" if no specific crop is mentioned.'
+                ),
+            },
+        },
+        "required": ["question", "state", "crop"],
+    },
+}
+
+_EXTRACT_SYSTEM_PROMPT = """You are an agricultural call-center transcript analyst.
+
+You will receive a conversation transcript between a farmer and an agricultural expert at a call center (in English).
+
+Your job is to:
+1. **Frame a concise agricultural question** that captures the farmer's core problem or query.
+   - Focus on the main issue: pest, disease, fertilizer, irrigation, seed variety, etc.
+   - Keep it short and searchable (one clear question).
+2. **Identify the Indian state** where the farmer is located.
+   - Use the exact state name (e.g. "Punjab", "West Bengal", "Maharashtra").
+   - If the state is NOT mentioned or unclear, return "All".
+3. **Identify the crop** the farmer is asking about.
+   - Use the common English name (e.g. "Wheat", "Rice", "Chilli", "Cotton").
+   - If the crop is NOT mentioned or unclear, return "All".
+
+You MUST call the extract_farmer_query tool with your findings."""
+
+
+def _extract_from_transcript(transcript: str) -> dict:
+    """Call Claude 3.5 Haiku to extract (question, state, crop) from transcript."""
+    response = anthropic_client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=300,
+        system=_EXTRACT_SYSTEM_PROMPT,
+        tools=[_EXTRACT_TOOL],
+        tool_choice={"type": "tool", "name": "extract_farmer_query"},
+        messages=[{"role": "user", "content": transcript}],
+    )
+
+    # tool_use block is guaranteed because of tool_choice
+    for block in response.content:
+        if block.type == "tool_use":
+            return block.input
+
+    # Fallback (should never reach here with tool_choice set)
+    raise ValueError("LLM did not return a tool_use block")
+
+
+class AgentSearchRequest(BaseModel):
+    query: str
+    top_k: int = 10
+    threshold: float = 0.7
+
+
+class AgentSearchResponse(BaseModel):
+    extracted_question: str
+    extracted_state: str
+    extracted_crop: str
+    results: list[QAItem]
+
+
+@app.post("/agent_search", response_model=AgentSearchResponse)
+def agent_search(request: AgentSearchRequest):
+    """Accept a conversation transcript, extract a farmer query via LLM,
+    then run semantic search and return results."""
+    t0 = time.perf_counter()
+
+    if not anthropic_client:
+        raise HTTPException(
+            status_code=503,
+            detail="ANTHROPIC_API_KEY not configured — /agent_search is unavailable.",
+        )
+
+    if not request.query.strip():
+        raise HTTPException(status_code=400, detail="Query (transcript) must not be empty.")
+
+    # --- Step 1: Extract question, state, crop via LLM ---
+    t_llm = time.perf_counter()
+    try:
+        extracted = _extract_from_transcript(request.query)
+    except Exception as e:
+        log.error("[/agent_search] LLM extraction failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"LLM extraction failed: {e}")
+
+    question = extracted.get("question", request.query)
+    state = extracted.get("state", "All")
+    crop = extracted.get("crop", "All")
+
+    log.info(
+        "[/agent_search] LLM extracted  question=%r  state=%r  crop=%r  (%.0fms)",
+        question[:80], state, crop, (time.perf_counter() - t_llm) * 1000,
+    )
+
+    # --- Step 2: Build SearchRequest and call existing search ---
+    search_req = SearchRequest(
+        query=question,
+        top_k=request.top_k,
+        threshold=request.threshold,
+        state=state if state != "All" else None,
+        crop=crop if crop != "All" else None,
+    )
+
+    results = search_questions(search_req)
+
+    log.info(
+        "[/agent_search] returning %d results  (total %.0fms)",
+        len(results), (time.perf_counter() - t0) * 1000,
+    )
+
+    return AgentSearchResponse(
+        extracted_question=question,
+        extracted_state=state,
+        extracted_crop=crop,
+        results=results,
+    )
+
 
 @app.get("/health")
 def health():

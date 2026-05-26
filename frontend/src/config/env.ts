@@ -1,3 +1,5 @@
+import { resolveEnv } from "./runtime-env";
+
 // Add all .env keys here
 type EnvKey =
   // Common
@@ -23,13 +25,16 @@ type EnvKey =
   | "VITE_PLIVO_ENDPOINT_USERNAME"
   | "VITE_PLIVO_ENDPOINT_PASSWORD"
   | "VITE_PLIVO_STREAM_URL"
-  | "VITE_TARGET_USER_ID";
+  | "VITE_TARGET_USER_ID"
+  // FAQ / POP processing servers
+  | "VITE_FAQ_API_URL"
+  | "VITE_POP_API_URL";
 
 /**
  * Internal getter (single source of truth)
  */
 function getEnv(key: EnvKey, required = true): string {
-  const value = import.meta.env[key];
+  const value = resolveEnv(key, import.meta.env[key]);
 
   if (!value && required) {
     alert("Missing required environment variable");
@@ -65,4 +70,6 @@ export const env = {
     streamUrl: () => getEnv("VITE_PLIVO_STREAM_URL"),
     targetUserId: () => getEnv("VITE_TARGET_USER_ID", false),
   },
+  faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false),
+  popApiUrl: () => getEnv("VITE_POP_API_URL", false),
 };

@@ -1,30 +1,86 @@
-import { injectable } from 'inversify';
 import axios from 'axios';
 import { appConfig } from '#root/config/app.js';
 import type { IWhatsAppService, Thread, Message, ToolCall } from '../interfaces/IWhatsAppService.js';
-import { InternalServerError } from 'routing-controllers';
+import { InternalServerError, NotFoundError, UnauthorizedError } from 'routing-controllers';
 import { aiConfig } from '#root/config/ai.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { inject, injectable } from 'inversify';
+import { WhatsappUser, WhatsappUsersResponse } from '#root/shared/index.js';
 
 @injectable()
 export class WhatsAppService implements IWhatsAppService {
+  constructor(
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
+  ) {}
   // private readonly baseUrl = aiConfig.serverIP;
   private readonly baseUrl =
     'http://' + aiConfig.serverIP + ':' + aiConfig.whatsAppServerPort;
+  private readonly WHATSAPP_SERVER_URL = aiConfig.WHATSAPP_SERVER_URL;
+  private readonly WA_WEBHOOK_API_KEY = appConfig.WA_WEBHOOK_API_KEY;
 
   async getThreads(): Promise<Thread[]> {
     try {
       const response = await axios.get(`${this.baseUrl}/threads`);
       const data = response.data;
 
-      const threads: Thread[] = (data.threads as any[])
-        .filter((t: any) => /^\d{12}$/.test(t.thread_id))
-        .map((t: any) => ({
-          id: t.thread_id,
-          phoneNumber: t.thread_id,
-          lastMessage: t.metadata.thread_name || 'No message available',
-          lastMessageTimestamp: new Date(t.updated_at),
-          unreadCount: 0,
-        }));
+      // const threads: Thread[] = (data.threads as any[])
+      //   .filter((t: any) =>
+      //     /^\d{12}$/.test(t.thread_id) &&
+      //     t.metadata &&
+      //     Object.keys(t.metadata).length > 0 &&
+      //     t.updated_at !== null
+      //   )
+      //   .map((t: any) => ({
+      //     id: t.thread_id,
+      //     phoneNumber: t.thread_id,
+      //     lastMessage: t.metadata.thread_name || 'No message available',
+      //     lastMessageTimestamp: new Date(t.updated_at),
+      //     unreadCount: 0,
+      //   }));
+      const uniqueThreadsMap = new Map<string, Thread>();
+
+      (data.threads as any[])
+        .filter(
+          (t: any) =>
+            /^\d{12}(-\d{4}-\d{2}-\d{2})?$/.test(t.thread_id) &&
+            t.metadata &&
+            Object.keys(t.metadata).length > 0 &&
+            t.updated_at !== null,
+        )
+        .forEach((t: any) => {
+          const phoneNumber = t.thread_id.split('-')[0];
+
+          // Keep latest updated thread for each phone number
+          const existing = uniqueThreadsMap.get(phoneNumber);
+
+          if (
+            !existing ||
+            new Date(t.updated_at) > existing.lastMessageTimestamp
+          ) {
+            let lastMessageDate = '';
+            if (t.thread_id.includes('-')) {
+              lastMessageDate = t.thread_id.split('-').slice(1).join('-');
+            } else {
+              lastMessageDate = new Date(t.updated_at).toLocaleDateString(
+                'en-CA',
+                {timeZone: 'Asia/Kolkata'},
+              );
+            }
+
+            uniqueThreadsMap.set(phoneNumber, {
+              id: phoneNumber,
+              phoneNumber,
+              lastMessage: t.metadata.thread_name || 'No message available',
+              lastMessageTimestamp: new Date(t.updated_at),
+              lastMessageDate,
+              unreadCount: 0,
+            });
+          }
+        });
+
+      const threads: Thread[] = Array.from(uniqueThreadsMap.values());
 
       return threads;
     } catch (error) {
@@ -33,23 +89,34 @@ export class WhatsAppService implements IWhatsAppService {
     }
   }
 
-  async getThreadDetails(threadId: string): Promise<Message[]> {
+  async getThreadDetails(
+    phoneNumber: string,
+    date: string,
+  ): Promise<Message[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/threads/${threadId}/state`);
+      let threadId = phoneNumber;
+      if (!threadId.includes('-')) {
+        threadId = `${phoneNumber}-${date}`;
+      }
+
+      const response = await axios.get(
+        `${this.baseUrl}/threads/${threadId}/state`,
+      );
       const data = response.data;
 
-      const messages = data.values.messages as any[];
+      const messages = (data.values?.messages as any[]) || [];
       const formattedMessages: Message[] = [];
 
       // 1. First, map all tool responses in the entire thread
       const toolResponsesMap: Record<string, any> = {};
       messages.forEach((msg: any) => {
         if (msg.type === 'tool') {
-          let response = msg.artifact?.structured_content?.result || msg.content;
+          let response =
+            msg.artifact?.structured_content?.result || msg.content;
           if (typeof response === 'string' && response.startsWith('{')) {
             try {
               response = JSON.parse(response);
-            } catch (e) { }
+            } catch (e) {}
           }
           toolResponsesMap[msg.tool_call_id] = response;
         }
@@ -79,16 +146,17 @@ export class WhatsAppService implements IWhatsAppService {
               ? msg.content
               : Array.isArray(msg.content)
                 ? msg.content
-                  .filter((c: any) => c.type === 'text')
-                  .map((c: any) => c.text)
-                  .join('\n')
+                    .filter((c: any) => c.type === 'text')
+                    .map((c: any) => c.text)
+                    .join('\n')
                 : '';
 
           if (content || toolCalls.length > 0) {
             formattedMessages.push({
               id: msg.id || `a-${idx}`,
               role: 'assistant',
-              content: content || (toolCalls.length > 0 ? 'Executing tools...' : ''),
+              content:
+                content || (toolCalls.length > 0 ? 'Executing tools...' : ''),
               timestamp: new Date(data.created_at || Date.now()),
               toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
             });
@@ -97,9 +165,110 @@ export class WhatsAppService implements IWhatsAppService {
       });
 
       return formattedMessages;
-    } catch (error) {
-      console.error(`Error fetching thread details for ${threadId} from LangGraph:`, error);
-      throw new InternalServerError(`Failed to fetch thread details from LangGraph`);
+    } catch (error: any) {
+      // Thread not found
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        throw new NotFoundError(
+          `No thread history found for ${phoneNumber} on ${date}`,
+        );
+      }
+
+      // LangGraph server errors
+      if (axios.isAxiosError(error) && error.response?.status >= 500) {
+        throw new InternalServerError(
+          `LangGraph service is currently unavailable`,
+        );
+      }
+
+      // Network / connection issues
+      if (axios.isAxiosError(error) && !error.response) {
+        throw new InternalServerError(`Unable to connect to LangGraph service`);
+      }
+
+      // Fallback
+      throw new InternalServerError(
+        `Failed to fetch thread details for ${phoneNumber}`,
+      );
+    }
+  }
+
+  async sendMessage(
+    userId: string,
+    phoneNumber: string,
+    messageText: string,
+  ): Promise<void> {
+    try {
+      const user = await this.userRepo.findById(userId);
+
+      if (!user || user.role == 'expert')
+        throw new UnauthorizedError(
+          "You don't have permission to send message!",
+        );
+
+      const sendBy = user.firstName + ' ' + user.lastName;
+
+      const response = await fetch(appConfig.WA_SEND_MESSAGE_WEBHOOK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-api-key': appConfig.WA_WEBHOOK_API_KEY,
+        },
+        body: JSON.stringify({
+          phoneNumber,
+          messageText,
+          sendBy,
+          userId: user._id.toString(),
+        }),
+      });
+      const contentType = response.headers.get('content-type');
+
+      let responseData;
+
+      if (contentType && contentType.includes('application/json')) {
+        responseData = await response.json();
+      } else {
+        responseData = await response.text();
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to send message: ${response.status} - ${responseData}`,
+        );
+      }
+    } catch (error: any) {
+      console.error(
+        `Error sending WhatsApp message to ${phoneNumber}:`,
+        error.response?.data || error.message,
+      );
+      const detail = error.response?.data?.message || error.message;
+      throw new InternalServerError(`WhatsApp API Error: ${detail}`);
+    }
+  }
+
+  async getInactiveUsers(
+    skip: number,
+    limit: number,
+  ): Promise<WhatsappUsersResponse> {
+    
+    try {
+      const response = await axios.get(`${this.WHATSAPP_SERVER_URL}/whatsapp/users`, {
+        params: {
+          isPaginated: true,
+          skip,
+          limit,
+        },
+        headers: {
+          'x-internal-api-key': this.WA_WEBHOOK_API_KEY,
+        },
+      });
+
+      const usersResponse = response.data as WhatsappUsersResponse;
+
+      return usersResponse;    
+      } catch (error) {
+      console.error('Error fetching inactive WhatsApp users:', error);
+
+      throw new InternalServerError('Failed to fetch inactive WhatsApp users');
     }
   }
 }

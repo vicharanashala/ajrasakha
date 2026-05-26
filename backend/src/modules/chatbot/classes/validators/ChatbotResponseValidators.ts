@@ -90,6 +90,33 @@ export class KpiSummaryResponse {
   })
   @IsNumber()
   inactiveUsersLast3Days: number;
+
+  @JSONSchema({
+    description: 'Number of users who have never given any feedback',
+    example: 1200,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  lowFeedbackUsersCount: number;
+
+  @JSONSchema({
+    description: 'Average questions asked per user per day',
+    example: 1.45,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  avgQuestionsPerUserDay?: number;
+
+  @JSONSchema({
+    description: 'Total number of repeated queries',
+    example: 450,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  repeatQueryCount?: number;
 }
 
 // ─── Daily Active Users Entry ─────────────────────────────────────────────────
@@ -193,13 +220,22 @@ export class QueryCategoryEntryResponse {
   label: string;
 
   @JSONSchema({
-    description: 'Percentage of queries in this category',
-    example: 28.5,
+    description: 'Total number of primary/unique questions in this category',
+    example: 45,
     type: 'number',
     readOnly: true,
   })
   @IsNumber()
-  pct: number;
+  questionCount: number;
+
+  @JSONSchema({
+    description: 'Total number of duplicate questions in this category',
+    example: 12,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  duplicateQuestionCount: number;
 }
 
 // ─── Weekly Session Duration Entry ──────────────────────────────────────────────
@@ -376,6 +412,101 @@ export class PaginatedUserDetailsResponse {
   totalQuestions: number;
 }
 
+// ─── Daily Question Trend Entry ───────────────────────────────────────────────
+
+export class DailyQuestionTrendEntryResponse {
+  @JSONSchema({
+    description: 'Date in YYYY-MM-DD format',
+    example: '2025-01-15',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  day: string;
+
+  @JSONSchema({
+    description: 'Number of unique questions asked on this day',
+    example: 124,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  uniqueCount: number;
+
+  @JSONSchema({
+    description: 'Number of duplicate questions asked on this day',
+    example: 32,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  duplicateCount: number;
+}
+
+// ─── Top FAQ Entry ────────────────────────────────────────────────────────────
+
+export class TopFaqEntryResponse {
+  @JSONSchema({
+    description: 'The user message/question text',
+    example: 'What is the best fertilizer for tomato plants?',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  question: string;
+
+  @JSONSchema({
+    description: 'Frequency of this question',
+    example: 45,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  count: number;
+}
+
+export class ResponseAdherenceTableResponse {
+  @JSONSchema({ description: 'Total WhatsApp questions asked in the filtered range', example: 46, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappQuestionAsked: number;
+
+  @JSONSchema({ description: 'Total Ajrasakha questions asked in the filtered range', example: 47, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaQuestionAsked: number;
+
+  @JSONSchema({ description: 'WhatsApp questions answered within 120 minutes', example: 37, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappAnsweredWithin120Min: number;
+
+  @JSONSchema({ description: 'Ajrasakha questions answered within 120 minutes', example: 41, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaAnsweredWithin120Min: number;
+
+  @JSONSchema({ description: 'Average WhatsApp response time in minutes', example: 102, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappAverageResponseMinutes: number;
+
+  @JSONSchema({ description: 'Average Ajrasakha response time in minutes', example: 102, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaAverageResponseMinutes: number;
+
+  @JSONSchema({ description: 'WhatsApp questions still in process', example: 9, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappInProcessCount: number;
+
+  @JSONSchema({ description: 'Ajrasakha questions still in process', example: 6, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaInProcessCount: number;
+
+  @JSONSchema({ description: 'WhatsApp adherence percentage', example: 80.43, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappAdherencePct: number;
+
+  @JSONSchema({ description: 'Ajrasakha adherence percentage', example: 87.23, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaAdherencePct: number;
+}
+
 // ─── Dashboard Response ─────────────────────────────────────────────────────────
 
 export class DashboardResponseSchema {
@@ -475,6 +606,48 @@ export class DashboardResponseSchema {
   @ValidateNested({ each: true })
   @Type(() => WeeklyQueryCountEntryResponse)
   weeklyQueries: WeeklyQueryCountEntryResponse[];
+
+  @JSONSchema({
+    description: 'Daily unique vs duplicate question trends asked by users',
+    type: 'array',
+    items: { type: 'object' },
+    readOnly: true,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DailyQuestionTrendEntryResponse)
+  dailyQuestionTrends: DailyQuestionTrendEntryResponse[];
+
+  @JSONSchema({
+    description: '10 most frequently asked questions leaderboard',
+    type: 'array',
+    items: { type: 'object' },
+    readOnly: true,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TopFaqEntryResponse)
+  topFaqs: TopFaqEntryResponse[];
+
+  @JSONSchema({
+    description: '10 most frequently asked questions from the questions collection',
+    type: 'array',
+    items: { type: 'object' },
+    readOnly: true,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TopFaqEntryResponse)
+  topQuestionsFromCollection: TopFaqEntryResponse[];
+
+  @JSONSchema({
+    description: 'Source-wise response adherence metrics table',
+    type: 'object',
+    readOnly: true,
+  })
+  @ValidateNested()
+  @Type(() => ResponseAdherenceTableResponse)
+  responseAdherenceTable?: ResponseAdherenceTableResponse;
 }
 
 // ─── Top Crops Response ───────────────────────────────────────────────────────
@@ -521,6 +694,46 @@ export class TopCropsResponse {
   topCrops: TopCropEntryResponse[];
 }
 
+export class DistrictAnalyticsEntryResponse {
+  @JSONSchema({
+    description: 'District name',
+    example: 'Bengaluru Urban',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  district: string;
+
+  @JSONSchema({
+    description: 'Total number of questions from this district',
+    example: 523,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  totalQuestions: number;
+
+  @JSONSchema({
+    description: 'Number of unique (primary) questions from this district',
+    example: 412,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  uniqueQuestions: number;
+
+  @JSONSchema({
+    description: 'Number of duplicate questions from this district',
+    example: 111,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  duplicateQuestions: number;
+}
+
+
+
 // ─── Export all validators ────────────────────────────────────────────────────
 
 export const CHATBOT_RESPONSE_VALIDATORS = [
@@ -539,4 +752,7 @@ export const CHATBOT_RESPONSE_VALIDATORS = [
   DashboardResponseSchema,
   TopCropEntryResponse,
   TopCropsResponse,
+  DailyQuestionTrendEntryResponse,
+  TopFaqEntryResponse,
+  ResponseAdherenceTableResponse,
 ];

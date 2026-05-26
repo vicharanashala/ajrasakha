@@ -120,7 +120,6 @@ export class AiService {
   async getEmbedding(text: string): Promise<{ embedding: number[] }> {
     try {
       const fullUrl = `${this._aiServerUrl}/embed`;
-      console.log("FULL FETCH URL:", fullUrl);
       const response = await fetch(fullUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,9 +137,10 @@ export class AiService {
       return data;
     } catch (error) {
       console.error('AI embedding request failed:', error);
-      throw new InternalServerError(
+     /* throw new InternalServerError(
         'Failed to generate embedding from the AI server. Please try again later.',
-      );
+      );*/
+      return { embedding: [] };
     }
   }
 
@@ -267,7 +267,7 @@ export class AiService {
   }
 
   async fetchWhatsAppMessage(
-    phoneNumber: string,
+    threadId: string,
     questionId: string
   ): Promise<{
     messageId: string;
@@ -314,8 +314,7 @@ export class AiService {
         checkpoint_id: string;
       }
 
-      const fullUrl = `${this._whatsAppServerUrl}/threads/${phoneNumber}/state`;
-      console.log("Fetching WhatsApp state from:", fullUrl);
+      const fullUrl = `${this._whatsAppServerUrl}/threads/${threadId}/state`;
 
       const response = await fetch(fullUrl);
 
@@ -325,14 +324,12 @@ export class AiService {
       }
 
       const data = (await response.json()) as AgriFlowResponse;
-
       if (!data?.values || !Array.isArray(data.values.messages)) {
         console.warn("Invalid API response", data);
         return null;
       }
 
       const messages = data.values.messages;
-
       const extractId = (id: any): string | null => {
         if (typeof id === 'string') return id;
         if (!id) return null;
@@ -435,7 +432,7 @@ export class AiService {
           }
 
           //  AI text answer
-          if (typeof msg.content === "string") {
+          if (typeof msg.content === "string" && !msg.content.startsWith("THIS IS AN AGRI EXPERT GENERATED MESSAGE")) {
             structuredContent.push({
               type: "ai",
               text: msg.content,

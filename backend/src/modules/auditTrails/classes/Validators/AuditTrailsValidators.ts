@@ -64,3 +64,18 @@ export class AuditTrailUserIdParams {
     @IsNotEmpty()
     userId: string;
 }
+
+
+export class AuditTrailsShiftReportResponse {
+
+  @IsString()
+  message: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  // @Type(() => any)
+  @JSONSchema({
+    description: "List of audit trails shift-based report"
+  })
+  data: any;
+}

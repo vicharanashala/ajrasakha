@@ -30,6 +30,7 @@ export interface IQuestionSubmissionRepository {
     questionId: string,
     userSubmissionData: ISubmissionHistory,
     session?: ClientSession,
+    reviewDelayNotificationSent?: boolean
   ): Promise<void>;
 
   /**
@@ -104,6 +105,16 @@ export interface IQuestionSubmissionRepository {
   ): Promise<IQuestionSubmission | null>;
 
   /**
+   * Find all submissions where the given expert appears in the queue.
+   * @param expertId - Expert user id
+   * @param session - Optional MongoDB session for transaction
+   */
+  findByQueuedExpertId(
+    expertId: string,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
+
+  /**
    * to get count of what level review level passed
    */
   getReviewWiseCount(): Promise<IReviewWiseStats>;
@@ -165,4 +176,22 @@ export interface IQuestionSubmissionRepository {
     },
     session?: ClientSession,
   ): Promise<void>;
+  findSubmissionsByActiveReviewers(
+    expertIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
+
+  findSubmissionsWithExpertsInQueue(
+    expertIds: string[],
+    session?: ClientSession,
+    limit?: number,
+  ): Promise<IQuestionSubmission[]>;
+
+  findReallocationQuestionsByIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
+
+  getDelayedReviews(session?: ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]>;
+  markDelayedNotificationsSent(notifiedSubmissionIds: ObjectId[], session?: ClientSession): Promise<void>;
 }

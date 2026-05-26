@@ -74,8 +74,8 @@ export class AuditTrailsService
       actor: {
         ...audit.actor,
         id: ObjectId.isValid(audit.actor?.id)
-          ? new ObjectId(String(audit.actor.id))
-          : audit.actor.id,
+          ? new ObjectId(String(audit.actor?.id))
+          : audit.actor?.id,
       },
       context: {
         ...audit.context,
@@ -136,7 +136,7 @@ export class AuditTrailsService
       ...audit,
       actor: {
         ...audit.actor,
-        id: audit.actor?.id ? String(audit.actor.id) : audit.actor?.id,
+        id: audit.actor?.id ? String(audit.actor?.id) : audit.actor?.id,
       },
       context: {
         ...audit.context,
@@ -222,5 +222,18 @@ export class AuditTrailsService
       data: auditTrails.data.map(audit => this.normalizeAudit(audit)),
       totalDocuments: auditTrails.totalDocuments,
     };
+  }
+
+  async getShiftBasedAuditActionCounts(
+    startDate: string,
+    // endDate: string,
+    shift: string,
+  ): Promise<any> {
+    // Implement the logic to get shift based audit action counts
+    return this.auditTrailsRepository.getShiftBasedAuditActionCounts(
+      startDate,
+      // endDate,
+      shift,
+    );
   }
 }

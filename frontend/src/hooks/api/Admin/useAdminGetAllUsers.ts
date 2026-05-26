@@ -11,12 +11,14 @@ export const useAdminGetAllUsers = (
   filter: string,
   role: string,
   isBlocked: string,
+  isVerified: string,
+  isSTF: string,
   options: { enabled?: boolean } = {}
 ) => {
   return useQuery({
-    queryKey: ["admin", page, limit, search, sort, filter, role, isBlocked],
+    queryKey: ["admin", page, limit, search, sort, filter, role, isBlocked, isVerified, isSTF],
     queryFn: () =>
-      adminUserService.getAllUsers(page, limit, search, sort, filter, role, isBlocked),
+      adminUserService.getAllUsers(page, limit, search, sort, filter, role, isBlocked, isVerified, isSTF),
     enabled: options.enabled ?? true,
   });
 };

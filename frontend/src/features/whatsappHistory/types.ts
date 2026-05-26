@@ -12,6 +12,7 @@ export interface Message {
   content: string;
   timestamp: Date;
   toolCalls?: ToolCall[];
+  status?: 'sending' | 'sent' | 'error';
 }
 
 export interface Thread {
@@ -19,5 +20,6 @@ export interface Thread {
   phoneNumber: string;
   lastMessage: string;
   lastMessageTimestamp: Date;
+  lastMessageDate?: string;
   unreadCount?: number;
 }

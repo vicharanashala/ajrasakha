@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { useState } from 'react';
 import type { Message } from '../types';
 import { cn } from '@/lib/utils';
-import { Bot, User, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
+import { Bot, User, ChevronDown, ChevronUp, Terminal, Clock, Check, AlertCircle, CheckCheck } from 'lucide-react';
 
 interface ChatMessageProps {
   message: Message;
@@ -135,11 +135,23 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
           <div
             className={cn(
-              "text-[9px] mt-1.5 flex justify-end font-medium opacity-70",
+              "text-[9px] mt-1.5 flex justify-end items-center gap-1 font-medium opacity-70",
               isAssistant ? "text-muted-foreground" : "text-primary-foreground"
             )}
           >
             {format(message.timestamp, "hh:mm a")}
+            {isAssistant && message.status === 'sending' && (
+              <Clock size={10} className="animate-pulse" />
+            )}
+            {isAssistant && message.status === 'error' && (
+              <AlertCircle size={10} className="text-destructive" />
+            )}
+            {isAssistant && !message.status && message.id.startsWith('temp-') && (
+              <Check size={10} />
+            )}
+            {isAssistant && !message.id.startsWith('temp-') && message.role === 'assistant' && (
+              <CheckCheck size={12} className="text-green-500" />
+            )}
           </div>
         </div>
       </div>

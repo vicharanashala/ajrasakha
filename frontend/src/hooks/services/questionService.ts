@@ -83,6 +83,11 @@ export class QuestionService {
     params.append("duplicateQuestions", String(filter.duplicateQuestions));
 
     params.append("isOnHold", String(filter.isOnHold));
+    params.append("unallocatedQuestions", String(filter.unallocatedQuestions));
+
+    if (filter.pae_review === true) {
+      params.append("pae_review", "true");
+    }
 
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
@@ -291,6 +296,16 @@ export class QuestionService {
       },
     );
   }
+  async bulkAllocatePaeExperts(
+    questionIds: string[],
+    paeExpertId: string,
+  ): Promise<{ jobId: string; message: string }> {
+    return apiFetch(`${this._baseUrl}/bulk-pae-allocate`, {
+      method: "POST",
+      body: JSON.stringify({ questionIds, paeExpertId }),
+    });
+  }
+
   async allocateReRouteExperts(
     questionId: string,
     expertId: string,
@@ -337,7 +352,7 @@ export class QuestionService {
   }
 
   async bulkDeleteQuestions(questionIds: string[]) {
-    return apiFetch<{ deletedCount: number }>(`${this._baseUrl}/bulk`, {
+    return apiFetch<{ message: string; jobId: string }>(`${this._baseUrl}/bulk`, {
       method: "DELETE",
       body: JSON.stringify({ questionIds }),
     });
@@ -401,10 +416,22 @@ export class QuestionService {
       params.append("dateRange", filter.dateRange);
     return apiFetch(`${this._baseUrl}?${params.toString()}`);
   }
-  async reAllocateLessWorkload(): Promise<WorkloadBalanceResponse | null> {
+  async reAllocateLessWorkload(type?: string): Promise<WorkloadBalanceResponse | null> {
+    const params = new URLSearchParams();
+    if (type) params.append("type", type);
+    const queryString = params.toString();
     return apiFetch<WorkloadBalanceResponse | null>(
-      `${this._baseUrl}/reAllocateLessWorkload`,
+      `${this._baseUrl}/reAllocateLessWorkload${queryString ? `?${queryString}` : ""}`,
       { method: "POST" },
+    );
+  }
+  async reAllocateExpertsSelectedQuestions(questionIds: string[]): Promise<WorkloadBalanceResponse | null> {
+    return apiFetch<WorkloadBalanceResponse | null>(
+      `${this._baseUrl}/reAllocateSelectedQuestions`,
+      {
+        method: "POST",
+        body: JSON.stringify({ questionIds }),
+      },
     );
   }
 
@@ -589,8 +616,16 @@ export class QuestionService {
     status?: string;
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
+    startDate?: string;
+    endDate?: string;
   }): Promise<Blob> {
     const params = new URLSearchParams();
+    if (filters.startDate) {
+      params.append("startDate", filters.startDate);
+    }
+    if (filters.endDate) {
+      params.append("endDate", filters.endDate);
+    }
     if (filters.state && filters.state !== "all") {
       params.append("state", filters.state);
     }
@@ -717,6 +752,11 @@ export class QuestionService {
     params.append("hiddenQuestions", String(filter.hiddenQuestions));
     params.append("duplicateQuestions", String(filter.duplicateQuestions));
     params.append("isOnHold", String(filter.isOnHold));
+    params.append("unallocatedQuestions", String(filter.unallocatedQuestions));
+
+    if (filter.pae_review === true) {
+      params.append("pae_review", "true");
+    }
 
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
@@ -775,5 +815,19 @@ export class QuestionService {
 
   return data;
 }
+
+  async getReallocationPreview(type: string): Promise<any> {
+    return apiFetch<any>(`${this._baseUrl}/reallocation-preview?type=${type}`);
+  }
+
+  async manualReallocate(body: { 
+    assignments: { submissionId: string; expertId: string }[];
+    inactiveExpertIds?: string[];
+  }): Promise<any> {
+    return apiFetch<any>(`${this._baseUrl}/reallocate-manual`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+  }
 
 }

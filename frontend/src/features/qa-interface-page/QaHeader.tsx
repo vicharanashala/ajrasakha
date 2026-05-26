@@ -45,6 +45,7 @@ type QaHeaderProps={
   questionItemRefs: React.MutableRefObject<Record<string, HTMLDivElement>>;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
   onToggleCollapse: () => void;
+  hideControls?: boolean;
 }
 const QaPreferencesDialog = ({
   reviewLevel,
@@ -233,12 +234,46 @@ const QaQuestionItem = ({
   selectedQuestion,
   onQuestionSelect,
   setQuestionRef,
+  hidePriority = false,
 }: {
   question: any;
   selectedQuestion: string | null;
   onQuestionSelect: (id: string) => void;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
+  hidePriority?: boolean;
 }) => {
+
+ const sourceStyles = {
+  AJRASAKHA: {
+    border: "border-blue-500",
+    hover: "hover:border-blue-500/70",
+    selected: "border-blue-500 ring-blue-500/20 bg-blue-500/5",
+  },
+  WHATSAPP: {
+    border: "border-green-500",
+    hover: "hover:border-green-500/70",
+    selected: "border-green-500 ring-green-500/20 bg-green-500/5",
+  },
+  OUTREACH: {
+    border: "border-orange-500",
+    hover: "hover:border-orange-500/70",
+    selected: "border-orange-500 ring-orange-500/20 bg-orange-500/5",
+  },
+  AGRI_EXPERT: {
+    border: "border-gray-500",
+    hover: "hover:border-gray-500/70",
+    selected: "border-gray-500 ring-gray-500/20 bg-gray-500/5",
+  },
+  DEFAULT: {
+    border: "border-yellow-500",
+    hover: "hover:border-yellow-500/70",
+    selected: "border-yellow-500 ring-yellow-500/20 bg-yellow-500/5",
+  },
+};
+
+const currentStyle =
+  sourceStyles[question.source as keyof typeof sourceStyles] ||
+  sourceStyles.DEFAULT;
   
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
@@ -254,16 +289,32 @@ const QaQuestionItem = ({
 
   return (
     <div
-      key={question?.id}
-      ref={(el) => setQuestionRef(question?.id || "", el)}
-      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
-        selectedQuestion === question?.id
-          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
-          : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
-      }`}
-    >
+  key={question?.id}
+  ref={(el) => setQuestionRef(question?.id || "", el)}
+  className={`relative group rounded-xl border border-l-4
+    ${currentStyle.border}
+    transition-all duration-200 overflow-hidden
+    ${
+      selectedQuestion === question?.id
+        ? `${currentStyle.selected} shadow-md ring-2`
+        : `bg-card ${currentStyle.hover} hover:bg-accent/20 hover:shadow-sm`
+    }
+  `}
+>
       {selectedQuestion === question?.id && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+       <div
+  className={`absolute left-0 top-0 bottom-0 w-1 ${
+    question.source === "AJRASAKHA"
+      ? "bg-blue-500"
+      : question.source === "WHATSAPP"
+      ? "bg-green-500"
+      : question.source === "OUTREACH"
+      ? "bg-orange-500"
+      : question.source === "AGRI_EXPERT"
+      ? "bg-gray-500"
+      : "bg-yellow-500"
+  }`}
+/>
       )}
 
       <div className="p-4">
@@ -275,6 +326,11 @@ const QaQuestionItem = ({
           />
 
           <div className="flex-1 min-w-0">
+            {question.pae_review && question.status === "re-routed" && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 mb-1">
+                PAE Reroute
+              </span>
+            )}
             <Label
               htmlFor={question?.id}
               className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
@@ -293,11 +349,13 @@ const QaQuestionItem = ({
         </div>
         <div className="mt-1 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
           <div className="items-center gap-1.5 flex">
-            {question?.priority && (
+            {question?.priority && !hidePriority && (
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                  question.priority === "high"
-                    ? "bg-red-500/10 text-red-600 border-red-500/30"
+                  question.priority === "critical"
+                    ? "bg-red-600/10 text-red-700 border-red-700/30 text-[12px]"
+                    : question.priority === "high"
+                    ? "bg-orange-500/10 text-orange-600 border-orange-500/30"
                     : question.priority === "medium"
                     ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
                     : "bg-green-500/10 text-green-600 border-green-500/30"
@@ -393,6 +451,7 @@ export const QaHeader=({ questions,
   scrollRef,
   setQuestionRef,
   onToggleCollapse,
+  hideControls = false,
 }:QaHeaderProps)=>{
   return(
     <div>
@@ -418,25 +477,29 @@ export const QaHeader=({ questions,
                 </div>
               </TooltipProvider>
 
-              <Select value={actionType} onValueChange={onActionTypeChange}>
-                <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 min-w-fit shrink-0">
-                  <SelectValue placeholder="Select action" />
-                </SelectTrigger>
+              {!hideControls && (
+                <Select value={actionType} onValueChange={onActionTypeChange}>
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 min-w-fit shrink-0">
+                    <SelectValue placeholder="Select action" />
+                  </SelectTrigger>
 
-                <SelectContent>
-                  <SelectItem value="allocated">Allocated Questions</SelectItem>
-                  <SelectItem value="reroute">ReRouted Questions</SelectItem>
-                </SelectContent>
-              </Select>
-             
+                  <SelectContent>
+                    <SelectItem value="allocated">Allocated Questions</SelectItem>
+                    <SelectItem value="reroute">ReRouted Questions</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <QaPreferencesDialog
-                  reviewLevel={reviewLevel}
-                  source={source}
-                  states={states}
-                  crops={crops}
-                  onFilterChange={onFilterChange}
-                />
+                {!hideControls && (
+                  <QaPreferencesDialog
+                    reviewLevel={reviewLevel}
+                    source={source}
+                    states={states}
+                    crops={crops}
+                    onFilterChange={onFilterChange}
+                  />
+                )}
 
                 <Button 
                   variant="outline"
@@ -545,6 +608,7 @@ export const QaHeader=({ questions,
                       selectedQuestion={selectedQuestion}
                       onQuestionSelect={onQuestionSelect}
                       setQuestionRef={setQuestionRef}
+                      hidePriority={hideControls}
                     />
                   ))}
                 </RadioGroup>

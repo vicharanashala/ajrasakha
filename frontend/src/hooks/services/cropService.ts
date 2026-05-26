@@ -1,5 +1,7 @@
 import { apiFetch } from "../api/api-fetch";
 import { env } from "@/config/env";
+import { auth } from "@/config/firebase";
+import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -13,22 +15,22 @@ export interface ICropAlias {
 export interface ICropResponse {
   _id?: string;
   name: string;
-  type?: "crop" | "chemical" | "other";
-  otherType?: string;
-  status?: "Restricted" | "Banned";
+  status?: string;
+  type?: string;
   aliases: (ICropAlias | string)[];  // string = legacy format from older crops
   createdBy?: string;
   updatedBy?: string;
   createdAt?: string;
   updatedAt?: string;
+  crops?: string[];
 }
 
 export interface ICreateCropPayload {
   name: string;
-  type?: "crop" | "chemical" | "other";
-  otherType?: string;
-  status?: "Restricted" | "Banned";
+  status?: string;
+  type?: string;
   aliases?: ICropAlias[];
+  crops?: string[];
 }
 
 export interface ICreateCropResponse {
@@ -46,6 +48,16 @@ export interface IGetAllCropsResponse {
 export interface IUpdateCropPayload {
   name?: string;
   aliases?: (ICropAlias | string)[];
+  crops?: string[];
+  status?: string;
+}
+
+export interface IBulkUploadCropResponse {
+  success: boolean;
+  message: string;
+  jobId: string;
+  count: number;
+  isBulkUpload: true;
 }
 
 export class CropService {
@@ -65,12 +77,34 @@ export class CropService {
     });
   }
 
+  async bulkUploadCrops(file: File, type: "crop" | "chemical"): Promise<IBulkUploadCropResponse | null> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+    return apiFetch<IBulkUploadCropResponse>(this._baseUrl, {
+      method: "POST",
+      body: formData,
+    });
+  }
+
+  async downloadList(type: 'crop' | 'chemical'): Promise<Blob> {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) throw new Error("User not authenticated");
+    const token = await getIdToken(firebaseUser);
+    const response = await fetch(`${this._baseUrl}/download?type=${type}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error(`Failed to download ${type} list`);
+    return response.blob();
+  }
+
   async getAllCrops(query?: {
     search?: string;
     sort?: string;
     page?: number;
     limit?: number;
-    type?: "crop" | "chemical" | "other";
+    type?: string;
   }): Promise<IGetAllCropsResponse | null> {
     const params = new URLSearchParams();
     if (query?.search) params.append("search", query.search);

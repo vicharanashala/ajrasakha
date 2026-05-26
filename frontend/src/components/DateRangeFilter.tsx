@@ -1,7 +1,7 @@
 import React from "react";
 import type { DateRange } from "react-day-picker";
 import { Label } from "./atoms/label";
-import { CalendarIcon, ChevronDown, ChevronUp, Clock, RefreshCcw } from "lucide-react";
+import { AlertTriangle, CalendarIcon, ChevronDown, ChevronUp, Clock, Info, RefreshCcw } from "lucide-react";
 import { Button } from "./atoms/button";
 import { format } from "date-fns";
 import { Calendar } from "./atoms/calendar";
@@ -13,17 +13,25 @@ interface DateRangeFilterProps {
   // The handler to update the parent state
   handleDialogChange: (key: string, value: any) => void;
   className?: string;
-  customName?:string;
-  type?:string
+  customName?: string;
+  type?: string;
+  /** Optional helper text shown below the date button */
+  helperText?: string;
+  /** When true, shows a warning banner inside the calendar dropdown */
+  showWarning?: boolean;
+  /** Warning message to display when showWarning is true */
+  warningMessage?: string;
 }
-
 
 export const DateRangeFilter = ({
   advanceFilter,
   handleDialogChange,
   className,
   customName,
-  type
+  type,
+  helperText,
+  showWarning,
+  warningMessage,
 }: DateRangeFilterProps) => {
   const [isCalendarVisible, setIsCalendarVisible] = React.useState(false);
   // Convert the flat startTime/endTime into the DateRange object for the Calendar
@@ -109,9 +117,25 @@ const handleDateSelect = (range: DateRange | undefined) => {
         </span>
       </Button>
 
-      {/* Conditional Rendering of the Calendar */}
+      {/* Helper text — only rendered when helperText prop is provided */}
+      {helperText && (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Info className="h-3 w-3 shrink-0 text-primary/60" />
+          {helperText}
+        </p>
+      )}
+
+      {/* Calendar dropdown */}
       {isCalendarVisible && (
         <div className="absolute right-0 z-[100] mt-2 border rounded-lg bg-popover text-popover-foreground shadow-lg w-[280px] sm:w-[320px]">
+
+          {/* Warning banner — only rendered when showWarning is true */}
+          {showWarning && warningMessage && (
+            <div className="flex items-start gap-2 mx-3 mt-3 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <p className="text-xs leading-snug">{warningMessage}</p>
+            </div>
+          )}
 
           <Calendar
             initialFocus

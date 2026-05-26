@@ -4,6 +4,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { sendPaeAssignmentEmail } from '#root/utils/buildPaeAssignmentEmail.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +39,8 @@ export const startBackgroundProcessing = (
   isRequiredAiInitialAnswer: boolean,
   isOutreachQuestion: boolean = false,
   payload: any[],
+  allocationMode: string = 'expert',
+  paeExpertId?: string,
 ) => {  if (!payload?.length) return;
 
   const jobId = Date.now().toString();
@@ -57,6 +60,12 @@ export const startBackgroundProcessing = (
     successIds: [] as string[],
     duplicateCount: 0,
     errors: [] as any[],
+  };
+
+  const paeAggregate = {
+    email: null as string | null,
+    firstName: null as string | null,
+    questionTexts: [] as string[],
   };
 
   // Determine optimal concurrency
@@ -83,7 +92,9 @@ export const startBackgroundProcessing = (
         mongoUri: process.env.DB_URL!,
         dbName: process.env.DB_NAME!,
         isRequiredAiInitialAnswer,
-        isOutreachQuestion
+        isOutreachQuestion,
+        allocationMode,
+        paeExpertId,
       },
     });
 
@@ -103,6 +114,11 @@ export const startBackgroundProcessing = (
       }
       if (msg?.error) {
         aggregateResults.errors.push(msg.error);
+      }
+      if (msg?.paeAssignedQuestionTexts?.length) {
+        paeAggregate.questionTexts.push(...msg.paeAssignedQuestionTexts);
+        if (!paeAggregate.email) paeAggregate.email = msg.paeEmail;
+        if (!paeAggregate.firstName) paeAggregate.firstName = msg.paeFirstName;
       }
     });
 
@@ -154,6 +170,14 @@ export const startBackgroundProcessing = (
         auditService.createAuditTrail(auditPayload).catch(err => {
           console.error('Failed to create audit trail for bulk upload:', err);
         });
+
+        if (paeAggregate.email && paeAggregate.questionTexts.length > 0) {
+          sendPaeAssignmentEmail(
+            paeAggregate.email,
+            paeAggregate.firstName ?? '',
+            paeAggregate.questionTexts,
+          ).catch(err => console.error('Failed to send PAE assignment email:', err));
+        }
       }
     });
   });

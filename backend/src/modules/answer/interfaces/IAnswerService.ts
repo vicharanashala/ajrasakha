@@ -56,6 +56,11 @@ export interface IAnswerService {
     updates: UpdateAnswerBody,
   ): Promise<{modifiedCount: number} | {insertedId: string}>;
 
+  approveLLMAnswer(
+    userId: string,
+    updates: UpdateAnswerBody,
+  ): Promise<{modifiedCount: number}>;
+
   deleteAnswer(
     questionId: string,
     answerId: string,

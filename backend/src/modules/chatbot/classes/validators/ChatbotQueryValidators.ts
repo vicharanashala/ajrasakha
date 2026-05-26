@@ -12,8 +12,30 @@ export class DashboardQueryDto {
 
   @JSONSchema({ example: 'vicharanashala', description: 'Data source to query' })
   @IsOptional()
-  @IsIn(['vicharanashala', 'annam'])
-  source: 'vicharanashala' | 'annam' = 'vicharanashala';
+  @IsIn(['vicharanashala', 'annam', 'whatsapp'])
+  source: 'vicharanashala' | 'annam' | 'whatsapp'= 'vicharanashala';
+
+  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @IsOptional()
+  @IsIn(['all', 'external', 'internal'])
+  userType: 'all' | 'external' | 'internal' = 'all';
+
+  @JSONSchema({ example: '2026-05-18T10:00:00Z', description: 'Filter start time (ISO string)' })
+  @IsOptional()
+  @IsString()
+  startTime?: string;
+
+  @JSONSchema({ example: '2026-05-19T10:00:00Z', description: 'Filter end time (ISO string)' })
+  @IsOptional()
+  @IsString()
+  endTime?: string;
+}
+
+export class SourceQueryDto {
+  @JSONSchema({ example: 'vicharanashala', description: 'Data source to query' })
+  @IsOptional()
+  @IsIn(['vicharanashala', 'annam', 'whatsapp'])
+  source: 'vicharanashala' | 'annam' | 'whatsapp' = 'vicharanashala';
 
   @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
   @IsOptional()
@@ -21,16 +43,73 @@ export class DashboardQueryDto {
   userType: 'all' | 'external' | 'internal' = 'all';
 }
 
-export class SourceQueryDto {
-  @JSONSchema({ example: 'vicharanashala', description: 'Data source to query' })
-  @IsOptional()
-  @IsIn(['vicharanashala', 'annam'])
-  source: 'vicharanashala' | 'annam' = 'vicharanashala';
+export class QueryAnalyticsQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 'daily', description: 'Analytics period: daily, weekly, or monthly' })
+  @IsIn(['daily', 'weekly', 'monthly'])
+  period: 'daily' | 'weekly' | 'monthly' = 'daily';
 
-  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @JSONSchema({ example: '2026-05', description: 'Month filter for daily and weekly analytics (YYYY-MM)' })
   @IsOptional()
-  @IsIn(['all', 'external', 'internal'])
-  userType: 'all' | 'external' | 'internal' = 'all';
+  @IsString()
+  month?: string;
+
+  @JSONSchema({ example: 2026, description: 'Year filter for monthly analytics' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  year?: number;
+
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+}
+
+export class WeatherConcernAnalyticsQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 'Kharif', description: 'Filter by season' })
+  @IsOptional()
+  @IsString()
+  season?: string;
+
+  @JSONSchema({ example: 'Punjab', description: 'Filter by farmer state' })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @JSONSchema({ example: 'Rupnagar', description: 'Filter by farmer district' })
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @JSONSchema({ example: 'Erattupetta', description: 'Filter by farmer block' })
+  @IsOptional()
+  @IsString()
+  block?: string;
+
+  @JSONSchema({ example: 'Poonjar', description: 'Filter by farmer village' })
+  @IsOptional()
+  @IsString()
+  village?: string;
+
+  @JSONSchema({ example: '2026-07-01T00:00:00.000Z', description: 'Filter weather queries from this date/time' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @JSONSchema({ example: '2026-07-31T23:59:59.999Z', description: 'Filter weather queries through this date/time' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
 }
 
 export class UserDetailsQueryDto {
@@ -65,8 +144,8 @@ export class UserDetailsQueryDto {
 
   @JSONSchema({ example: 'vicharanashala', description: 'Data source to query' })
   @IsOptional()
-  @IsIn(['vicharanashala', 'annam'])
-  source: 'vicharanashala' | 'annam' = 'vicharanashala';
+  @IsIn(['vicharanashala', 'annam', 'whatsapp'])
+  source: 'vicharanashala' | 'annam' | 'whatsapp'= 'vicharanashala';
 
   @JSONSchema({ example: 'rice', description: 'Filter by crop (matches cropsCultivated, primaryCrop, secondaryCrop)' })
   @IsOptional()
@@ -87,6 +166,11 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsString()
   inactiveOnly?: string;
+
+  @JSONSchema({ example: 'false', description: 'If true, return only users who have never given any feedback' })
+  @IsOptional()
+  @IsString()
+  lowFeedbackOnly?: string;
 
   @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
   @IsOptional()

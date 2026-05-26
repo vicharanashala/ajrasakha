@@ -6,18 +6,18 @@ await import('./instrument.js');
 
 import * as Sentry from '@sentry/node';
 import express from 'express';
-import {useExpressServer, RoutingControllersOptions} from 'routing-controllers';
-import {appConfig} from './config/app.js';
-import {loggingHandler} from './shared/middleware/loggingHandler.js';
-import {HttpErrorHandler} from './shared/index.js';
-import {loadAppModules} from './bootstrap/loadModules.js';
-import {printStartupSummary} from './utils/logDetails.js';
-import type {CorsOptions} from 'cors';
-import {authorizationChecker} from './shared/functions/authorizationChecker.js';
-import {currentUserChecker} from './shared/functions/currentUserChecker.js';
+import { useExpressServer, RoutingControllersOptions } from 'routing-controllers';
+import { appConfig } from './config/app.js';
+import { loggingHandler } from './shared/middleware/loggingHandler.js';
+import { HttpErrorHandler } from './shared/index.js';
+import { loadAppModules } from './bootstrap/loadModules.js';
+import { printStartupSummary } from './utils/logDetails.js';
+import type { CorsOptions } from 'cors';
+import { authorizationChecker } from './shared/functions/authorizationChecker.js';
+import { currentUserChecker } from './shared/functions/currentUserChecker.js';
 import { InternalApiAuth } from './shared/index.js';
 import path from 'path';
-import {fileURLToPath} from 'url';
+import { fileURLToPath } from 'url';
 import { initJobs } from './bootstrap/jobs/index.js';
 import { apiReference } from '@scalar/express-api-reference';
 import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
@@ -27,9 +27,9 @@ import { initWebSocket } from './bootstrap/websocket.js';
 
 const app = express();
 
-// app.use(express.urlencoded({ extended: true }));
-// app.use(express.json());
-
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 app.use(loggingHandler);
 
@@ -60,7 +60,7 @@ app.use((req, res, next) => {
 });
 
 
-const {controllers, validators} = await loadAppModules(
+const { controllers, validators } = await loadAppModules(
   appConfig.module.toLowerCase(),
 );
 

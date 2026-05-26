@@ -1,3 +1,5 @@
+import { WhatsappUser, WhatsappUsersResponse } from "#root/shared/index.js";
+
 export interface ToolCall {
   name: string;
   args: Record<string, any>;
@@ -18,10 +20,17 @@ export interface Thread {
   phoneNumber: string;
   lastMessage: string;
   lastMessageTimestamp: Date;
+  lastMessageDate?: string;
   unreadCount?: number;
 }
 
 export interface IWhatsAppService {
   getThreads(): Promise<Thread[]>;
-  getThreadDetails(threadId: string): Promise<Message[]>;
+  getThreadDetails(phoneNumber: string, date: string): Promise<Message[]>;
+  sendMessage(
+    userId: string,
+    phoneNumber: string,
+    messageText: string,
+  ): Promise<void>;
+  getInactiveUsers(skip: number, limit: number): Promise<WhatsappUsersResponse>;
 }
