@@ -45,7 +45,10 @@ export function AlertCard({
     : null;
 
   return (
-    <div className="h-full flex flex-col bg-card text-card-foreground rounded-xl border shadow-sm dark:bg-[#1a1a1a] dark:border-[#2a2a2a] p-4">
+    <div
+      className="h-full flex flex-col text-card-foreground rounded-xl border shadow-sm  dark:border-[#2a2a2a] p-4 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+"
+    >
       {/* Header */}
       <div className="flex items-start justify-between mb-3.5">
         <div className="min-w-0 flex-1 mr-2">
@@ -137,50 +140,64 @@ export function AlertCard({
             </div>
           </div>
         </div>
-        <Badge label={duplicateQuestionsCount != null ? duplicateQuestionsCount.toLocaleString() : '—'} variant="amber" />
+        <Badge
+          label={
+            duplicateQuestionsCount != null
+              ? duplicateQuestionsCount.toLocaleString()
+              : "—"
+          }
+          variant="amber"
+        />
       </div>
 
       {/* Low Feedback Users Row */}
-      {source !== "whatsapp" &&
-      <div
-        className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-950/30 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
-        onClick={() => onLowFeedbackClick?.()}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 dark:bg-orange-900/40">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-orange-600 dark:text-orange-400"
-            >
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-gray-900 dark:text-gray-50">
-              Low Feedback Users
+      {source !== "whatsapp" && (
+        <div
+          className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-950/30 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
+          onClick={() => onLowFeedbackClick?.()}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 dark:bg-orange-900/40">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-orange-600 dark:text-orange-400"
+              >
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
             </div>
-            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-              Users who have never given feedback
+            <div>
+              <div className="text-xs font-medium text-gray-900 dark:text-gray-50">
+                Low Feedback Users
+              </div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                Users who have never given feedback
+              </div>
             </div>
           </div>
+          <Badge
+            label={
+              lowFeedbackUsersCount != null
+                ? lowFeedbackUsersCount.toLocaleString()
+                : "—"
+            }
+            variant="amber"
+          />
         </div>
-        <Badge label={lowFeedbackUsersCount != null ? lowFeedbackUsersCount.toLocaleString() : '—'} variant="amber" />
-      </div>
-      }
+      )}
 
       {/* Domain Spikes Row — always rendered, shows top spike or a placeholder */}
-      {source !== "whatsapp" &&
+      {/* {source !== "whatsapp" &&
       <div
         className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 cursor-pointer hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
         onClick={() => setIsSpikesModalOpen(true)}
@@ -230,13 +247,13 @@ export function AlertCard({
           </svg>
         </div>
       </div>
-      }
-      
+      } */}
+
       <div className="flex-1" />
 
-      {isSpikesModalOpen && (
+      {/* {isSpikesModalOpen && (
         <DomainSpikesModal onClose={() => setIsSpikesModalOpen(false)} />
-      )}
+      )} */}
     </div>
   );
 }

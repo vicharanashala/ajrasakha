@@ -102,3 +102,33 @@ export const useInactiveWhatsappUsers = (inactiveUsersPage: number) => {
   });
 };
 
+
+export const useUniqueWhatsappUsers = () => {
+  return useQuery({
+    queryKey: ["whatsapp-unique-users",
+    ],
+    queryFn: () => {
+      return chatbotService.getUniqueWhatsappUsers();
+    },
+  });
+};
+
+export const useAllWhatsappUsers = () => {
+  return useQuery({
+    queryKey: ["whatsapp-all-users"],
+    queryFn: () => {
+      return chatbotService.getAllWhatsappUsers();
+    },
+  });
+};
+
+export const useClosedAndNotifedData = (source: string)=>{
+  return useQuery({
+    queryKey: ["closed-notified-data",
+      source,
+    ],
+    queryFn: () => {
+      return chatbotService.getClosedAndNotifedData(source);
+    },
+  });
+}

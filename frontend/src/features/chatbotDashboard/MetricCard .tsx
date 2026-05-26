@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/atoms/card";
 import { Download, Smartphone, Apple, Maximize2, X } from "lucide-react";
 import { TotalQueriesModal } from "./components/TotalQueriesModal";
+import { ActiveFarmersTable } from "./components/ActiveFarmersTable";
 import type { QueryGranularity } from "./components/TotalQueriesModal";
 import type { AnalyticsEntry } from "./utils/dashboardHelpers";
 
@@ -569,8 +570,10 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
                 </div>
               </div>
 
-              {/* Chart (left/top) + Table (right/bottom) */}
-              <div className="flex gap-4 items-start">
+              {/* Main Content Area */}
+              <div className="flex flex-col gap-6">
+                {/* Top Section: Chart (left/top) + Table (right/bottom) */}
+                <div className="flex gap-4 items-start">
                 {/* Sparkline */}
                 <div className="flex-[65] min-w-0">
                   <div className="h-48 relative">
@@ -595,39 +598,49 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
                   )}
                 </div>
 
-                {/* Table */}
-                <div className="flex-[35] min-w-0 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                          Date
-                        </th>
-                        <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                          Value
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(activePoints || []).map((value, idx) => {
-                        const label = activeLabels?.[idx] || `Point ${idx + 1}`;
-                        return (
-                          <tr
-                            key={idx}
-                            className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                          >
-                            <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                              {label}
-                            </td>
-                            <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                              {value.toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                {/* Date/Value Table */}
+                <div className="flex-[35] min-w-0">
+                  <div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                            Date
+                          </th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                            Value
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(activePoints || []).map((value, idx) => {
+                          const label = activeLabels?.[idx] || `Point ${idx + 1}`;
+                          return (
+                            <tr
+                              key={idx}
+                              className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                            >
+                              <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                                {label}
+                              </td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                                {value.toLocaleString()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
+              </div>
+
+              {/* Bottom Section: Active Farmers Table (Full Width) */}
+              {kpi.id === "dau" && (
+                <div className="w-full mt-4">
+                  <ActiveFarmersTable source={source} userType={kpi.userType || "all"} />
+                </div>
+              )}
               </div>
             </div>
           </div>,

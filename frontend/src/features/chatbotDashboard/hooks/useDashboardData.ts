@@ -326,6 +326,7 @@ function transformApiResponse(
         sparkPoints,
         sparkLabels: dauLabels,
         dateRange: dauRange,
+        userType,
       };
     }
     if (card.id === "queries") {

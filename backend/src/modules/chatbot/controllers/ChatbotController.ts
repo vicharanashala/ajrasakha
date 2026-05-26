@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import {
   JsonController,
   Get,
+  Post,
   HttpCode,
   QueryParams,
   Authorized,
@@ -12,6 +13,7 @@ import {
   Param,
   Patch,
   Body,
+  BadRequestError,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -380,6 +382,7 @@ async getDistrictAnalyticsByState(
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
     const inactiveOnly = query.inactiveOnly === 'true';
     const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
+    const activeTodayByProfile = query.activeTodayByProfile === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
       query.endDate,
@@ -395,6 +398,7 @@ async getDistrictAnalyticsByState(
       query.userType,
       query.sortBy,
       query.sortOrder,
+      activeTodayByProfile,
     );
   }
 
@@ -433,6 +437,7 @@ async downloadChatbotReport(
     endDate?: string;
     source?: string;
     downloadFormat?: 'pdf' | 'xlsx';
+    state?: string
   },
 
   @Res() response: any,
@@ -447,8 +452,10 @@ async downloadChatbotReport(
 
     const startDate = new Date(query.startDate);
     const endDate = new Date(query.endDate);
-
+    const state = query.state
     const format = query.downloadFormat || 'xlsx';
+
+    console.log("state is", state)
 
     let data: ArrayBuffer | Buffer | null = null;
 
@@ -461,6 +468,7 @@ async downloadChatbotReport(
         await this.chatbotService.generateChatbotAnalyticsPdfReport(
           startDate,
           endDate,
+          state,
           query.source,
         );
 
@@ -489,6 +497,7 @@ async downloadChatbotReport(
       await this.chatbotService.generateChatbotAnalyticsExcelReport(
         startDate,
         endDate,
+        state,
         query.source,
       );
 
@@ -618,6 +627,7 @@ async downloadChatbotReport(
     @Body()
     body: {
       name?: string;
+      role?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -645,6 +655,46 @@ async downloadChatbotReport(
     }
     const success = await this.chatbotService.updateUser(userId, source, body);
     return { success, message: success ? 'User updated successfully' : 'Failed to update user' };
+  }
+
+  @OpenAPI({
+    summary: 'Add a new farmer',
+    description: 'Creates a new farmer in the selected database source (restricted to annam/vicharanashala).',
+  })
+  @Post('/users')
+  @HttpCode(201)
+  @Authorized(['admin'])
+  async addUser(
+    @QueryParam('source') source: string,
+    @Body()
+    body: {
+      email: string;
+      name: string;
+      password: string
+      role?: string;
+    },
+  ) {
+    if (!source) {
+      source = 'vicharanashala';
+    }
+    if (source === 'whatsapp') {
+      throw new BadRequestError('Add farmer functionality is not supported for whatsapp source');
+    }
+    if (!body.email || !body.email.trim()) {
+      throw new BadRequestError('Email is required');
+    }
+    if (!body.name || !body.name.trim()) {
+      throw new BadRequestError('Name is required');
+    }
+    try {
+      const success = await this.chatbotService.addUser(source, body);
+      return { success, message: success ? 'User created successfully' : 'Failed to create user' };
+    } catch (error: any) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   @Get('/daily-active-users-trend')
@@ -768,4 +818,14 @@ async getUserQuestionsData(
     Number(limit),
   );
 }
+
+  @Get('/closed-notified-data')
+  @HttpCode(200)
+  @Authorized()
+  async getClosedAndNotifedData(
+    @QueryParam('source')
+    source: string= 'vicharanashala',
+  ): Promise<any> {
+    return await this.chatbotService.getClosedAndNotifedData(source);
+  }
 }

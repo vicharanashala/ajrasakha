@@ -3,6 +3,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  TooltipProvider,
 } from "@/components/atoms/tooltip";
 
 type AnalyticsItem = {
@@ -26,7 +27,6 @@ export function WhatsAppAnalyticsCard({
 }: WhatsAppAnalyticsCardProps) {
   const latest = analytics.at(-1);
   const totalQueries = latest?.queryCount || 0;
-
   const maxPoint = Math.max(...analytics.map((item) => item.queryCount), 1);
 
   const formatLabel = (period: string) => {
@@ -63,6 +63,21 @@ export function WhatsAppAnalyticsCard({
     monthly: "Current Month Queries",
   };
 
+  const formatCloseTime = (minutes: number) => {
+    if (minutes < 60) {
+      return `${minutes}m`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    if (remainingMinutes === 0) {
+      return `${hours}h`;
+    }
+
+    return `${hours}h ${remainingMinutes.toFixed(0)}m`;
+  };
+
   return (
     <Card
       className="
@@ -72,6 +87,7 @@ export function WhatsAppAnalyticsCard({
         bg-background/80
         backdrop-blur
         overflow-x-auto
+         h-fit
       "
     >
       <CardHeader className="pb-2">
@@ -83,15 +99,47 @@ export function WhatsAppAnalyticsCard({
         >
           {currentLabelMap[granularity]}
         </div>
-
         <div
           className="
+    flex
+    items-center
+    gap-2
+    text-sm
+    text-muted-foreground
+    justify-between
+  "
+        >
+          <div
+            className="
             text-5xl
             font-bold
             tracking-tight
           "
-        >
-          {totalQueries}
+          >
+            {totalQueries}
+          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="
+            flex h-4 w-4 cursor-pointer
+            items-center justify-center
+            rounded-full border text-[10px]
+          "
+                >
+                  i
+                </span>
+              </TooltipTrigger>
+
+              <TooltipContent className="max-w-[260px]">
+                <p>
+                  Displays query trends along with question counts, closed
+                  questions, and average closure time for the selected period.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </CardHeader>
 
@@ -179,7 +227,7 @@ export function WhatsAppAnalyticsCard({
                         <span className="text-muted-foreground">Avg Close</span>
 
                         <span className="font-medium">
-                          {item.averageCloseTimeMinutes}m
+                          {formatCloseTime(item.averageCloseTimeMinutes)}
                         </span>
                       </div>
                     </div>

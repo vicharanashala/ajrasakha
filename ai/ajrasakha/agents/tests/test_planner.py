@@ -1,5 +1,7 @@
 """Unit tests for planner routing and plan execution (no live LLM)."""
 
+import json
+
 import pytest
 
 from ajrasakha.agents.plan_executor import (
@@ -247,6 +249,37 @@ def test_format_tool_results_collects_after_tool_call_ai_message():
     assert "39.3" in block
     assert "weather" in block.lower()
     assert block != "(No tool results)"
+
+
+def test_format_tool_results_omits_gdb_author_and_source():
+    """GDB JSON is not passed to tool-only synthesis; sources live in translate_answer."""
+    gdb_payload = {
+        "is_exact": True,
+        "exact_match": {
+            "question": "Q",
+            "answer": "Expert answer text",
+            "details": {
+                "author_name": "Dr. Agri",
+                "source_name": "SKUAST",
+                "source_link": "https://example.com/doc",
+            },
+        },
+    }
+    messages = [
+        HumanMessage(content="crop question"),
+        ToolMessage(
+            content=json.dumps(gdb_payload),
+            tool_call_id="gdb-1",
+            name="gdb",
+        ),
+        ToolMessage(content="Rain: 5mm", tool_call_id="w-1", name="weather"),
+    ]
+    block = _format_tool_results_for_synthesizer(messages)
+    assert "Dr. Agri" not in block
+    assert "SKUAST" not in block
+    assert "Expert answer text" not in block
+    assert "gdb" not in block.lower()
+    assert "Rain: 5mm" in block
 
 
 def test_compiled_graph_uses_planner_pipeline_by_default():

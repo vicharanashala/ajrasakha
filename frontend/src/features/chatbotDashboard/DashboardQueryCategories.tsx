@@ -98,39 +98,42 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     const maxTotal = Math.max(...totals, 1);
 
     return (
-        <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full">
-            {/* Header */}
-            <div className="flex items-start justify-between mb-4">
-                <div>
-                    <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">
-                        Query categories
-                    </div>
-                    <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                        Dynamic Agriculture Domains (Top 15)
-                    </div>
-                </div>
-
+      <div
+        className="          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+ border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full"
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">
+              Query categories
             </div>
-
-            {/* Progress bars — scrollable */}
-            <ScrollArea className="flex-1 max-h-[300px] pr-1">
-                {activeCategories.map((q, index) => {
-                    const total = q.questionCount + q.duplicateQuestionCount;
-                    const pct = (total / maxTotal) * 100;
-                    const color = q.color || PREMIUM_PALETTE[index % PREMIUM_PALETTE.length];
-
-                    return (
-                        <ProgressBar
-                            key={q.label}
-                            label={q.label}
-                            pct={pct}
-                            color={color}
-                            questionCount={q.questionCount}
-                            duplicateQuestionCount={q.duplicateQuestionCount}
-                        />
-                    );
-                })}
-            </ScrollArea>
+            <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+              Dynamic Agriculture Domains (Top 15)
+            </div>
+          </div>
         </div>
+
+        {/* Progress bars — scrollable */}
+        <ScrollArea className="flex-1 max-h-[300px] pr-1">
+          {activeCategories.map((q, index) => {
+            const total = q.questionCount + q.duplicateQuestionCount;
+            const pct = (total / maxTotal) * 100;
+            const color =
+              q.color || PREMIUM_PALETTE[index % PREMIUM_PALETTE.length];
+
+            return (
+              <ProgressBar
+                key={q.label}
+                label={q.label}
+                pct={pct}
+                color={color}
+                questionCount={q.questionCount}
+                duplicateQuestionCount={q.duplicateQuestionCount}
+              />
+            );
+          })}
+        </ScrollArea>
+      </div>
     );
 };

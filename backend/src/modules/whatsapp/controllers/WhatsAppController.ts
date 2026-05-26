@@ -76,8 +76,7 @@ export class WhatsAppController {
   }
 
   @OpenAPI({
-    summary: 'Fetch dummy inactive whatsapp users',
-
+    summary: 'Fetch inactive whatsapp users',
     description:
       'Fetches the users by mobile numbers who are inactive for more than last 3 days',
   })
@@ -89,9 +88,7 @@ export class WhatsAppController {
     @QueryParam('limit') limit = 2,
   ) {
     const skip = (page - 1) * limit;
-
-    const response = await this.whatsappService.getInactiveUsers(skip, limit);
-
+    const response = await this.whatsappService.getInactiveUsers(skip, limit); 
     const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
 
     const inactiveUsers = response.data.filter(item => {
@@ -111,5 +108,42 @@ export class WhatsAppController {
         hasPrevPage: page > 1,
       },
     };
+  }
+
+  @OpenAPI({
+    summary: 'Fetch unique whatsapp users',
+    description:
+      'Fetches the unique users by mobile numbers',
+  })
+  @Get('/unique-users')
+  @HttpCode(200)
+  @Authorized()
+  async fetchUnqiueWhatsAppUsers(
+  ) {
+
+    return await this.whatsappService.getUniqueUsers();
+  }
+
+  @OpenAPI({
+    summary: 'Fetch all WhatsApp users',
+    description:
+      'Fetches all WhatsApp users. Falls back to dummy data on failure.',
+  })
+  @Get('/users')
+  @HttpCode(200)
+  @Authorized()
+  async fetchAllWhatsAppUsers(
+  ) {
+    try {
+      const response = await this.whatsappService.getAllUsers();
+      return {
+        users: response.data || [],
+      };
+    } catch (error) {
+      console.error('Error fetching all WhatsApp users from service, falling back to empty list:', error);
+      return {
+        users: [],
+      };
+    }
   }
 }

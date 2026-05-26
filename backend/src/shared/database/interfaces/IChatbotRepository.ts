@@ -129,6 +129,8 @@ export interface FeedbackEntry {
 export interface FeedbackData{
   positiveFeedbacks: FeedbackEntry[];
   negativeFeedbacks: FeedbackEntry[];
+  positiveFeedbackCounts: {tag: string, count: any}[],
+  negativeFeedbackCounts: {tag: string, count: any}[],
   stats: {
     "_id"?: null | ObjectId,
     positiveCount: number,
@@ -168,6 +170,7 @@ export interface UserDetailEntry {
   userId: string;
   name: string;
   email: string;
+  role?: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
@@ -358,6 +361,7 @@ export interface IChatbotRepository {
     sortBy?: string,
     sortOrder?: string,
     lowFeedbackOnly?: boolean,
+    activeTodayByProfile?: boolean,
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
@@ -382,6 +386,7 @@ export interface IChatbotRepository {
     days: number,
     userType: string,
     month?: string,
+    state?: string,
     source?: string,
     session?: ClientSession,
   )
@@ -457,7 +462,17 @@ export interface IChatbotRepository {
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: Partial<FarmerProfile>;
+    },
+  ): Promise<boolean>;
+  addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      password: string;
+      role?: string;
     },
   ): Promise<boolean>;
 
@@ -481,6 +496,12 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<{ label: string; totalQueries: number }>;
+
+  getClosedVsTotalQuestions(source: string):Promise<any>;
+
+  getNotifiedVsClosed(source?: string):Promise<any>;
+
+  getClosedInLastTwoHours(source?: string): Promise<any>;
 }
 
 export interface ChatbotConversationData {

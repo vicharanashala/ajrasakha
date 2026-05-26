@@ -134,6 +134,7 @@ export const useGetQuestionsAnalytics = (query: {
   status?: string[];
   state?: string[];
   source?: string[];
+  crop?: string[];
 }) => {
   return useQuery({
     queryKey: ["dashboard", "questions-analytics", query],

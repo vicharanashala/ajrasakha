@@ -258,7 +258,7 @@ const UserGrowthChart = ({source}) => {
 
   return (
     <>
-      <Card className={"flex flex-col h-full bg-white dark:bg-[#1a1a1a] shadow-sm overflow-hidden relative dark:border-[#2a2a2a]"}>
+      <Card className={"flex flex-col h-full  shadow-sm overflow-hidden relative dark:border-[#2a2a2a]  bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300"}>
         <button
           onClick={() => setIsMaximized(true)}
           className="absolute top-4 right-4 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"

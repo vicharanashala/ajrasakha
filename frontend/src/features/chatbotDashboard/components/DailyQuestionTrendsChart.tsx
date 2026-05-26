@@ -78,7 +78,10 @@ export function DailyQuestionTrendsChart({
   };
 
   return (
-    <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[400px]">
+    <Card
+      className="border border-border/60  backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[400px]          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+"
+    >
       <CardHeader className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 border-b border-border/40 gap-4 shrink-0">
         <div>
           <CardTitle className="text-base font-semibold tracking-wide text-foreground">
@@ -102,19 +105,18 @@ export function DailyQuestionTrendsChart({
                 >
                   <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-[#3AAA5A]" />
                   <span className="truncate">
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
-                      ) : (
-                        format(dateRange.from, "MMM dd")
-                      )
-                    ) : (
-                      "All time"
-                    )}
+                    {dateRange?.from
+                      ? dateRange.to
+                        ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
+                        : format(dateRange.from, "MMM dd")
+                      : "All time"}
                   </span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 border-border bg-[#18181b]" align="end">
+              <PopoverContent
+                className="w-auto p-0 border-border bg-[#18181b]"
+                align="end"
+              >
                 <Calendar
                   initialFocus
                   mode="range"
@@ -173,25 +175,56 @@ export function DailyQuestionTrendsChart({
 
         {!trends || trends.length === 0 ? (
           <div className="w-full h-[300px] sm:h-full flex flex-col justify-center items-center">
-            <p className="text-muted-foreground text-sm">No daily question trend data available.</p>
-            <p className="text-xs text-muted-foreground/50 mt-1">Try adjusting the date range to see results</p>
+            <p className="text-muted-foreground text-sm">
+              No daily question trend data available.
+            </p>
+            <p className="text-xs text-muted-foreground/50 mt-1">
+              Try adjusting the date range to see results
+            </p>
           </div>
         ) : (
           <div className="w-full h-[300px] sm:h-full relative">
             <ResponsiveContainer width="100%" height="100%">
               {chartType === "area" ? (
-                <AreaChart data={trends} margin={{ top: 10, right: 10, left: -10, bottom: 15 }}>
+                <AreaChart
+                  data={trends}
+                  margin={{ top: 10, right: 10, left: -10, bottom: 15 }}
+                >
                   <defs>
-                    <linearGradient id="colorUnique" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                    <linearGradient
+                      id="colorUnique"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="#10b981"
+                        stopOpacity={0.25}
+                      />
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="colorDuplicate" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25} />
+                    <linearGradient
+                      id="colorDuplicate"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="#f59e0b"
+                        stopOpacity={0.25}
+                      />
                       <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="rgba(255,255,255,0.04)"
+                  />
                   <XAxis
                     dataKey="day"
                     tickFormatter={formatDateLabel}
@@ -227,8 +260,15 @@ export function DailyQuestionTrendsChart({
                   />
                 </AreaChart>
               ) : (
-                <BarChart data={trends} margin={{ top: 10, right: 10, left: -10, bottom: 15 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
+                <BarChart
+                  data={trends}
+                  margin={{ top: 10, right: 10, left: -10, bottom: 15 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="rgba(255,255,255,0.04)"
+                  />
                   <XAxis
                     dataKey="day"
                     tickFormatter={formatDateLabel}

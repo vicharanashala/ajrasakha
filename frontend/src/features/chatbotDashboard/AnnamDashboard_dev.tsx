@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } fr
 import { cn } from "@/lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
+import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
 import { DashboardSidebar } from "./DashboardSidebar";
 import type { DashboardView } from "./DashboardSidebar";
@@ -20,6 +21,7 @@ import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
+import { WhatsAppUsersView } from "./WhatsAppUsersView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
 // import { UserGrowthChart } from "./components/UserGrowthChart";
 const LazyUserGrowthChart = React.lazy(
@@ -52,10 +54,14 @@ import {
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
-import { useInactiveWhatsappUsers, useQueryCategories } from "./hooks/useActiveUsersAnalytics";
+import { useClosedAndNotifedData, useInactiveWhatsappUsers, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
 import { motion, AnimatePresence } from "framer-motion";
+import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
+import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
+import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
+import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -95,7 +101,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     setInactiveUsersPage,
   ] = useState(1);
   const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage);
-  // console.log("---useInactiveWhatsappUsers---", inactiveWhatsappUsers  )
+  const {data: closedAndNotifedData} = useClosedAndNotifedData(source);
   const [
     isInactiveWhatsappModalOpen,
     setIsInactiveWhatsappModalOpen,
@@ -171,7 +177,6 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     isLoading: isResponseAdherenceLoading,
   } = useDashboardData(responseAdherenceFilters, source);
 
-  // console.log("Dashboard data:", data);
   const {
     data: dauTrend,
     isLoading: dauLoading,
@@ -272,11 +277,35 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     setActiveView("user-details");
   }, []);
 
+  // Fetch today's active farmers to get accurate DAU count based on profile and lastActiveAt
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const { data: todayActiveFarmersData } = useUserDetails(
+    todayStart,
+    todayEnd,
+    1,
+    1,
+    '',
+    source as any,
+    '',
+    '',
+    'all',
+    false,
+    false,
+    filters.userType as any,
+    'totalQuestions',
+    'desc',
+    true // activeTodayByProfile
+  );
+
   // Patch the DAU card to show "today / total" instead of just total
   const patchedKpiRow1 = useMemo(() => {
     if (!data?.kpiRow1) return data.kpiRow1;
-    const todayCount =
-      dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
+    const todayCount = todayActiveFarmersData?.totalUsers ?? null;
     return data.kpiRow1.map((card) => {
       if (card.id === "dau" && todayCount !== null) {
         return {
@@ -286,7 +315,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
       }
       return card;
     });
-  }, [data.kpiRow1, dauTrend]);
+  }, [data.kpiRow1, todayActiveFarmersData?.totalUsers]);
 
   // Remove these two variables when data is dynamic
   const kpiRow1WithOverlay = patchedKpiRow1
@@ -334,6 +363,8 @@ useEffect(() => {
     }));
   }
 }, [source]);
+
+const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -465,6 +496,7 @@ useEffect(() => {
                     )}
                     {source === "whatsapp" && (
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+
                         <WhatsAppAnalyticsCard
                           title="Daily Queries"
                           analytics={dailyAnalytics}
@@ -482,8 +514,35 @@ useEffect(() => {
                           analytics={monthlyAnalytics}
                           granularity="monthly"
                         />
+
                       </div>
                     )}
+                    <div
+                        className={`grid gap-4 mb-6 ${
+                          source === "whatsapp"
+                            ? "grid-cols-1 lg:grid-cols-[1fr_1fr_1.4fr_1.4fr]"
+                            : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
+                        }`}
+                      >
+                      {source === "whatsapp" && 
+                        <WhatsAppUniqueUsersCard 
+                          totalUsers={unqueWhatsAppUsers}
+                      />}
+
+                      <ClosedInLastTwoHoursCard
+                        count = {closedAndNotifedData?.closedInLastTwoHours}
+                        totalClosed={closedAndNotifedData?.closedVsTotalQuestions?.closedQuestions}
+                      />
+                      <ClosedQuestionsCard
+                        closedQuestions = {closedAndNotifedData?.closedVsTotalQuestions?.closedQuestions}
+                        totalQuestions={closedAndNotifedData?.closedVsTotalQuestions?.totalQuestions}
+                      />
+                      <CustomerNotificationsCard
+                        notified={closedAndNotifedData?.notifiedVsClosed?.notified}
+                        notNotified={closedAndNotifedData?.notifiedVsClosed?.notNotified}
+                        untrackedClosedQuestions={closedAndNotifedData?.notifiedVsClosed?.untrackedClosedQuestions}
+                      />
+                    </div>
                     {source !== "whatsapp" && (
                       <ResponseAdherenceTableCard
                         data={
@@ -804,7 +863,6 @@ useEffect(() => {
                     )}
                   </div>
 
-
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
@@ -816,14 +874,22 @@ useEffect(() => {
                       className="h-full"
                     >
                       <DashboardQueryCategories
-                        categories={source === "whatsapp" ? queryCategories : data.queryCategories}
+                        categories={
+                          source === "whatsapp"
+                            ? queryCategories
+                            : data.queryCategories
+                        }
                       />
                     </motion.div>
 
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, ease: "easeOut", delay: 0.08 }}
+                      transition={{
+                        duration: 0.4,
+                        ease: "easeOut",
+                        delay: 0.08,
+                      }}
                       ref={(el) => {
                         sectionRefs.current["feedback-sentiment"] = el;
                       }}
@@ -906,6 +972,16 @@ useEffect(() => {
                     </div>
                   )}
                   {source !== "whatsapp" && (
+                    <div className="mt-4 mb-4">
+                      <WeatherConcernAnalyticsCard
+                        source={source}
+                        userType={filters.userType}
+                        filters={weatherConcernFilters}
+                        onFiltersChange={setWeatherConcernFilters}
+                      />
+                    </div>
+                  )}
+                  {source !== "whatsapp" && (
                     <div
                       ref={(el) => {
                         sectionRefs.current["user-details"] = el;
@@ -918,14 +994,13 @@ useEffect(() => {
                       />
                     </div>
                   )}
-                  {source !== "whatsapp" && (
-                    <div className="mt-4 mb-4">
-                      <WeatherConcernAnalyticsCard
-                        source={source}
-                        userType={filters.userType}
-                        filters={weatherConcernFilters}
-                        onFiltersChange={setWeatherConcernFilters}
-                      />
+                  {source === "whatsapp" && (
+                    <div
+                      ref={(el) => {
+                        sectionRefs.current["user-details"] = el;
+                      }}
+                    >
+                      <WhatsAppUsersView />
                     </div>
                   )}
                 </div>
