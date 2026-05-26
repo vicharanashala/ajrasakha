@@ -1,7 +1,18 @@
 import os
 from typing import Any, Optional
 
-CLAUDE_MODEL = "claude-sonnet-4-5-20250929"
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
+
+# Fast model for simple tasks (routing, classification, translation)
+CLAUDE_FAST = os.getenv("CLAUDE_FAST", "claude-haiku-4-5-20251001")
+
+# Task-specific model assignments
+SYNTHESIZE_MODEL = CLAUDE_FAST        # Fast for rephrasing/simple synthesis
+PLANNER_MODEL = CLAUDE_MODEL          # Routing/classification - Haiku sufficient
+SANITIZER_MODEL = CLAUDE_FAST        # Relevance scoring - Haiku sufficient
+TRANSLATE_MODEL = CLAUDE_MODEL       # Keep Sonnet - translation quality important
+CROP_CLASSIFY_MODEL = CLAUDE_FAST    # Binary classification - Haiku sufficient
+
 REMOTE_IP = os.getenv("REMOTE_IP", "100.100.108.44")
 
 # Reviewer upload channel when LangGraph configurable.question_source is unset

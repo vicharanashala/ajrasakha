@@ -45,7 +45,8 @@ def _render_message(message: Any) -> str:
 
 
 async def summarize_history(state: SummaryState) -> dict:
-    llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
+    from ajrasakha.agents.config import SANITIZER_MODEL
+    llm = ChatAnthropic(model=SANITIZER_MODEL)
     thread_messages = list(state.get("messages", []))
     rendered_messages: list[str] = []
 
