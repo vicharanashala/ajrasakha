@@ -1,0 +1,154 @@
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
+
+interface AddFarmerModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isSaving?: boolean;
+  onSave: (payload: {
+    email: string;
+    name: string;
+    role?: string;
+  }) => void | Promise<void>;
+}
+
+export function AddFarmerModal({
+  open,
+  onOpenChange,
+  isSaving = false,
+  onSave,
+}: AddFarmerModalProps) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setEmail("");
+      setErrors({});
+    }
+  }, [open]);
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!name.trim()) {
+      newErrors.name = "Name is required.";
+    }
+    if (!email.trim()) {
+      newErrors.email = "Email is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      newErrors.email = "Please enter a valid email address.";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validate()) return;
+    await onSave({
+      name: name.trim(),
+      email: email.trim(),
+      role: "FARMER",
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md w-[95vw] p-6 rounded-2xl bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-[#2a2a2a] shadow-xl">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+            Add Farmer
+          </DialogTitle>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Create a new farmer profile. The credentials will be registered.
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+              Full Name <span className="text-red-500">*</span>
+            </label>
+            <Input
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (errors.name) {
+                  setErrors((prev) => ({ ...prev, name: "" }));
+                }
+              }}
+              placeholder="e.g. Abiram K"
+              className={`h-10 rounded-xl px-3 text-sm border bg-transparent ${
+                errors.name 
+                  ? "border-red-500 focus-visible:ring-red-500" 
+                  : "border-slate-200 dark:border-white/[0.08]"
+              }`}
+            />
+            {errors.name && (
+              <span className="text-xs text-red-500 font-medium pl-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                {errors.name}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+              Email Address <span className="text-red-500">*</span>
+            </label>
+            <Input
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errors.email) {
+                  setErrors((prev) => ({ ...prev, email: "" }));
+                }
+              }}
+              placeholder="e.g. abiramk@gmail.com"
+              type="email"
+              className={`h-10 rounded-xl px-3 text-sm border bg-transparent ${
+                errors.email 
+                  ? "border-red-500 focus-visible:ring-red-500" 
+                  : "border-slate-200 dark:border-white/[0.08]"
+              }`}
+            />
+            {errors.email && (
+              <span className="text-xs text-red-500 font-medium pl-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                {errors.email}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="pt-6 flex justify-end gap-3 border-t border-slate-100 dark:border-white/[0.05]">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+            className="h-9 px-4 rounded-xl text-sm"
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="button" 
+            onClick={handleSave} 
+            disabled={isSaving}
+            className="h-9 px-5 rounded-xl text-sm bg-primary hover:bg-primary/95 text-white"
+          >
+            {isSaving ? "Adding..." : "Add Farmer"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

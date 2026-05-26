@@ -1,5 +1,5 @@
 import {injectable, inject} from 'inversify';
-import {InternalServerError} from 'routing-controllers';
+import {InternalServerError, BadRequestError} from 'routing-controllers';
 import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
@@ -1623,6 +1623,24 @@ export class ChatbotService extends BaseService implements IChatbotService {
       return await this.chatbotRepository.updateUser(userId, source, data);
     } catch (error) {
       throw new InternalServerError(`Failed to update user: ${error}`);
+    }
+  }
+
+  async addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      role?: string;
+    },
+  ): Promise<boolean> {
+    try {
+      return await this.chatbotRepository.addUser(source, data);
+    } catch (error: any) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add user: ${error.message || error}`);
     }
   }
 

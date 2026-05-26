@@ -1,6 +1,6 @@
 import {inject, injectable} from 'inversify';
 import {Collection, ClientSession, ObjectId} from 'mongodb';
-import {InternalServerError} from 'routing-controllers';
+import {InternalServerError, BadRequestError} from 'routing-controllers';
 import {AnalyticsMongoDatabase} from '../AnalyticsMongoDatabase.js';
 import {AnnamDatabase} from '../AnnamDatabase.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -6101,6 +6101,68 @@ async getWeatherConcernAnalytics(
       return result.matchedCount > 0;
     } catch (error) {
       throw new InternalServerError(`Failed to update user: ${error}`);
+    }
+  }
+
+  async addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      role?: string;
+    },
+  ): Promise<boolean> {
+    if (source === 'whatsapp') {
+      throw new BadRequestError('Add farmer functionality is not supported for whatsapp source');
+    }
+
+    try {
+      await this.init(source);
+      
+      const existingUser = await this.users.findOne({ email: data.email.trim() });
+      if (existingUser) {
+        throw new BadRequestError('User with this email already exists');
+      }
+
+      const username = data.email.trim().split('@')[0];
+      
+      const newUserDoc = {
+        name: data.name.trim(),
+        username: username,
+        email: data.email.trim(),
+        emailVerified: false,
+        password: "$2a$10$RzYzCyybQyyk.X8cWgrP6Oi0uEQyUGtZX9rko41ThsomK.an5LTeq",
+        avatar: null,
+        provider: "local",
+        role: data.role || "FARMER",
+        plugins: [],
+        twoFactorEnabled: false,
+        termsAccepted: false,
+        secondTermsAccepted: false,
+        personalization: {
+          memories: true,
+          _id: new ObjectId()
+        },
+        farmerProfile: {
+          cropsCultivated: [],
+          platformHistory: []
+        },
+        backupCodes: [],
+        refreshToken: [],
+        favorites: [],
+        pushSubscriptions: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        __v: 0
+      };
+
+      const result = await this.users.insertOne(newUserDoc);
+      return result.acknowledged;
+    } catch (error: any) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add user: ${error.message || error}`);
     }
   }
 
