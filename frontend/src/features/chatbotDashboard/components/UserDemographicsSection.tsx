@@ -272,7 +272,7 @@ export function UserDemographicsSection({ data }: Props) {
   const landSegments = (data.landHolding ?? []).map((d) => ({ ...d, color: LAND_COLORS[d.label] ?? "#6B7280" }));
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
       <DemographicCard title="Age Group" segments={ageSegments} type="donut" />
       <DemographicCard title="Gender Split" segments={genderSegments} type="donut" />
       <DemographicCard title="Farming Experience" segments={expSegments} type="bar" />
