@@ -8,6 +8,7 @@ import {
 } from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
+import { Eye, EyeOff } from "lucide-react";
 
 interface AddFarmerModalProps {
   open: boolean;
@@ -16,6 +17,7 @@ interface AddFarmerModalProps {
   onSave: (payload: {
     email: string;
     name: string;
+    password: string;
     role?: string;
   }) => void | Promise<void>;
 }
@@ -28,36 +30,74 @@ export function AddFarmerModal({
 }: AddFarmerModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
-
+  const [showPassword, setShowPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   // Reset form when modal opens/closes
   useEffect(() => {
     if (open) {
       setName("");
       setEmail("");
+      setPassword("");
+      setConfirmPassword("");
       setErrors({});
     }
   }, [open]);
 
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    if (!name.trim()) {
-      newErrors.name = "Name is required.";
-    }
-    if (!email.trim()) {
-      newErrors.email = "Email is required.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      newErrors.email = "Please enter a valid email address.";
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+const validate = () => {
+  const newErrors: Record<string, string> = {};
+
+  // Name
+  if (!name.trim()) {
+    newErrors.name = "Name is required.";
+  }
+
+  // Email
+  if (!email.trim()) {
+    newErrors.email = "Email is required.";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    newErrors.email = "Please enter a valid email address.";
+  }
+
+  // Password
+  if (!password.trim()) {
+    newErrors.password = "Password is required.";
+  } else if (password.length < 8) {
+    newErrors.password =
+      "Password must be at least 8 characters.";
+  } else if (!/[A-Z]/.test(password)) {
+    newErrors.password =
+      "Password must contain at least one uppercase letter.";
+  } else if (!/[a-z]/.test(password)) {
+    newErrors.password =
+      "Password must contain at least one lowercase letter.";
+  } else if (!/[0-9]/.test(password)) {
+    newErrors.password =
+      "Password must contain at least one number.";
+  }
+
+  // Confirm Password
+  if (!confirmPassword.trim()) {
+    newErrors.confirmPassword =
+      "Please confirm your password.";
+  } else if (password !== confirmPassword) {
+    newErrors.confirmPassword =
+      "Passwords do not match.";
+  }
+
+  setErrors(newErrors);
+
+  return Object.keys(newErrors).length === 0;
+};
 
   const handleSave = async () => {
     if (!validate()) return;
     await onSave({
       name: name.trim(),
       email: email.trim(),
+      password,
       role: "FARMER",
     });
   };
@@ -127,7 +167,104 @@ export function AddFarmerModal({
               </span>
             )}
           </div>
-        </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+              Password <span className="text-red-500">*</span>
+            </label>
+
+            <div className="relative">
+              <Input
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+
+                  if (errors.password) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      password: "",
+                    }));
+                  }
+                }}
+                placeholder="********"
+                type={showPassword ? "text" : "password"}
+                className={`h-10 rounded-xl px-3 pr-10 text-sm border bg-transparent ${
+                  errors.password
+                    ? "border-red-500 focus-visible:ring-red-500"
+                    : "border-slate-200 dark:border-white/[0.08]"
+                }`}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+
+            {errors.password && (
+              <span className="text-xs text-red-500 font-medium pl-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                {errors.password}
+              </span>
+            )}
+          </div>
+
+           <div className="flex flex-col gap-1.5">
+    <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+      Confirm Password <span className="text-red-500">*</span>
+    </label>
+
+    <div className="relative">
+      <Input
+        value={confirmPassword}
+        onChange={(e) => {
+          setConfirmPassword(e.target.value);
+
+          if (errors.confirmPassword) {
+            setErrors((prev) => ({
+              ...prev,
+              confirmPassword: "",
+            }));
+          }
+        }}
+        placeholder="********"
+        type={showConfirmPassword ? "text" : "password"}
+        className={`h-10 rounded-xl px-3 pr-10 text-sm border bg-transparent ${
+          errors.confirmPassword
+            ? "border-red-500 focus-visible:ring-red-500"
+            : "border-slate-200 dark:border-white/[0.08]"
+        }`}
+      />
+
+      <button
+        type="button"
+        onClick={() =>
+          setShowConfirmPassword((prev) => !prev)
+        }
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+      >
+        {showConfirmPassword ? (
+          <EyeOff className="h-4 w-4" />
+        ) : (
+          <Eye className="h-4 w-4" />
+        )}
+      </button>
+    </div>
+
+    {errors.confirmPassword && (
+      <span className="text-xs text-red-500 font-medium pl-1 animate-in fade-in slide-in-from-top-1 duration-200">
+        {errors.confirmPassword}
+      </span>
+    )}
+  </div>
+
+         </div>
 
         <DialogFooter className="pt-6 flex justify-end gap-3 border-t border-slate-100 dark:border-white/[0.05]">
           <Button

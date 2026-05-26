@@ -15,6 +15,7 @@ export function useAddUser() {
       data: {
         email: string;
         name: string;
+        password: string
         role?: string;
       };
     }) => {

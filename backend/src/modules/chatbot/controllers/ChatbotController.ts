@@ -663,6 +663,7 @@ async downloadChatbotReport(
     body: {
       email: string;
       name: string;
+      password: string
       role?: string;
     },
   ) {

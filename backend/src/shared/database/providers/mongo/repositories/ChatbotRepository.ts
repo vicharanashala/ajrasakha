@@ -35,6 +35,9 @@ import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {DISTRICTS} from '#root/utils/districts.js';
 
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+
 interface IUser {
   _id?: any;
   name?: string;
@@ -6109,6 +6112,7 @@ async getWeatherConcernAnalytics(
     data: {
       email: string;
       name: string;
+      password: string;
       role?: string;
     },
   ): Promise<boolean> {
@@ -6119,19 +6123,26 @@ async getWeatherConcernAnalytics(
     try {
       await this.init(source);
       
-      const existingUser = await this.users.findOne({ email: data.email.trim() });
+      const existingUser = await this.users.findOne({ email: data.email.trim().toLowerCase() });
       if (existingUser) {
         throw new BadRequestError('User with this email already exists');
       }
 
       const username = data.email.trim().split('@')[0];
-      
+
+      const createPasswordHash = (password: string) => {
+        return bcrypt.hashSync(password, 10);
+      };
+
+      const hashedPassword = createPasswordHash(data.password);
+
+
       const newUserDoc = {
         name: data.name.trim(),
         username: username,
-        email: data.email.trim(),
+        email: data.email.trim().toLowerCase(),
         emailVerified: false,
-        password: "$2a$10$RzYzCyybQyyk.X8cWgrP6Oi0uEQyUGtZX9rko41ThsomK.an5LTeq",
+        password: hashedPassword,
         avatar: null,
         provider: "local",
         role: data.role || "FARMER",
@@ -6151,6 +6162,7 @@ async getWeatherConcernAnalytics(
         refreshToken: [],
         favorites: [],
         pushSubscriptions: [],
+        createdFrom: "REVIEW_SYSTEM",
         createdAt: new Date(),
         updatedAt: new Date(),
         __v: 0

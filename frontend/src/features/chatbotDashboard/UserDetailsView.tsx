@@ -379,6 +379,7 @@ export function UserDetailsView({
   const handleAddUser = async (payload: {
     email: string;
     name: string;
+    password: string;
     role?: string;
   }) => {
     await addUserMutation.mutateAsync({

@@ -1631,6 +1631,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     data: {
       email: string;
       name: string;
+      password: string;
       role?: string;
     },
   ): Promise<boolean> {

@@ -467,6 +467,7 @@ export interface IChatbotRepository {
     data: {
       email: string;
       name: string;
+      password: string;
       role?: string;
     },
   ): Promise<boolean>;
