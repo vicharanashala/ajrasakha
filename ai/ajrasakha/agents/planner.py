@@ -410,6 +410,7 @@ async def planner_node(
         plan = apply_planner_completeness_rules(plan, messages, location)
 
         plan["knowledge_base"] = True
+        plan["soil"] = False
 
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "
