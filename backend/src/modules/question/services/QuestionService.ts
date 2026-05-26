@@ -5284,6 +5284,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             if (expertId === currentExpertId) continue;
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
+            if(!history.length && expert?.special_task_force !== true) continue;
             const currentCount = provisionalCounts.get(expertId) ?? 0;
             if (currentCount >= MAX_TIME_BOUND) continue;
             assignedExpert = expertId;
