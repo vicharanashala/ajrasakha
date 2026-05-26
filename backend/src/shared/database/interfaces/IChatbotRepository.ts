@@ -492,6 +492,12 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<{ label: string; totalQueries: number }>;
+
+  getClosedVsTotalQuestions(source: string):Promise<any>;
+
+  getNotifiedVsClosed(source?: string):Promise<any>;
+
+  getClosedInLastTwoHours(source?: string): Promise<any>;
 }
 
 export interface ChatbotConversationData {

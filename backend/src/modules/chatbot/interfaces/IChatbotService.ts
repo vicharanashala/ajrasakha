@@ -152,4 +152,5 @@ export interface IChatbotService {
       userType: string,
       requestType: string,): Promise<any>;
   getUserQuestionsData(userEmail: string, source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
+  getClosedAndNotifedData(source?: string): Promise<any> 
 }

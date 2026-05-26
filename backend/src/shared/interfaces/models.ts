@@ -110,6 +110,7 @@ export interface IQuestion {
     duplicate: boolean;
   }>;
   popContext?: string;
+  isCustomerNotified?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
