@@ -115,7 +115,7 @@ export const useUniqueWhatsappUsers = () => {
 
 export const useClosedAndNotifedData = (source: string)=>{
   return useQuery({
-    queryKey: ["whatsapp-unique-users",
+    queryKey: ["closed-notified-data",
       source,
     ],
     queryFn: () => {

@@ -7262,7 +7262,7 @@ async getWeatherConcernAnalytics(
           },
         },
       ]).toArray();
-console.log(source,"getClosedVsTotalQuestions---", result)
+
       return result[0];
     } catch(error){
         throw new InternalServerError(
@@ -7349,7 +7349,7 @@ console.log(source,"getClosedVsTotalQuestions---", result)
   }
 
   async getClosedInLastTwoHours(source?: string): Promise<any> {
-    console.log("-----source--", source)
+
     try {
       await this.initReviewSystem();
 
