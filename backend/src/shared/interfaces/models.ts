@@ -12,6 +12,7 @@ export type QuestionStatus =
   | 'draft'
   | 'pass'
   | 'duplicate';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted'|'draft'| 'pass' | 'duplicate' | 'non_agri' | 'pending';
 export interface IPreference {
   state: string;
   crop: string;
