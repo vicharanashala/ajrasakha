@@ -53,7 +53,7 @@ export function ClosedInLastTwoHoursCard({
           >
             <motion.div
               className="
-                text-5xl
+                text-3xl
                 font-bold
                 tracking-tight
                 "
