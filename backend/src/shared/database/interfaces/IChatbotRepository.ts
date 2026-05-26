@@ -462,6 +462,15 @@ export interface IChatbotRepository {
       farmerProfile?: Partial<FarmerProfile>;
     },
   ): Promise<boolean>;
+  addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      password: string;
+      role?: string;
+    },
+  ): Promise<boolean>;
 
   getDailyActiveUsersTrend  (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession):Promise<any>
 

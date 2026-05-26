@@ -69,6 +69,7 @@ export const Dashboard = () => {
   const [analyticsStatus, setAnalyticsStatus] = useState<string[]>([]);
   const [analyticsState, setAnalyticsState] = useState<string[]>([]);
   const [analyticsSource, setAnalyticsSource] = useState<string[]>([]);
+  const [analyticsCrop, setAnalyticsCrop] = useState<string[]>([]);
 
   // ---- Heat map state filters ----- //
   const [heatMapDate, setHeatMapDate] = useState<DateRange>({
@@ -99,6 +100,7 @@ export const Dashboard = () => {
     status: analyticsStatus,
     state: analyticsState,
     source: analyticsSource,
+    crop: analyticsCrop,
   });
 
 
@@ -314,6 +316,8 @@ export const Dashboard = () => {
               setAnalyticsState={setAnalyticsState}
               analyticsSource={analyticsSource}
               setAnalyticsSource={setAnalyticsSource}
+              analyticsCrop={analyticsCrop}
+              setAnalyticsCrop={setAnalyticsCrop}
               data={
                 analyticsData ?? { cropData: [], stateData: [], domainData: [], tableData: [] }
               }

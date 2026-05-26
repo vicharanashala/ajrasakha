@@ -13,6 +13,7 @@ from ajrasakha.agents.plan_executor import (
 )
 from ajrasakha.agents.prompts import EXPERT_QUEUE_REPLY_MARKER
 from ajrasakha.agents.answer_footers import build_expert_queue_content
+from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.translate_answer import translate_answer_node
 from ajrasakha.agents.translation_catalog import (
     get_testing_disclaimer,
@@ -97,13 +98,13 @@ def test_route_after_sanitizer_synthesize_when_weather_has_content():
     assert route_after_sanitizer(state) == "synthesize"
 
 
-async def test_empty_gdb_reply_sets_expert_queue_placeholder():
+async def test_empty_gdb_reply_sets_translate_path():
     result = await empty_gdb_reply_node(_state_after_sanitizer_filter())
     assert result["messages"][0].content == ""
-    assert result["plan"].get("expert_queue") is True
+    assert result["plan"].get("translate_path") == TRANSLATE_PATH_EMPTY_GDB
 
 
-async def test_translate_answer_expert_queue_content():
+async def test_translate_answer_empty_gdb_path_content():
     state = _state_after_sanitizer_filter()
     placeholder = await empty_gdb_reply_node(state)
     merged = {**state, **placeholder}

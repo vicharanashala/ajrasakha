@@ -136,6 +136,7 @@ export class PerformaneService {
     status?: string[];
     state?: string[];
     source?: string[];
+    crop?: string[];
   }): Promise<QuestionsAnalytics | null> {
     const body: Record<string, unknown> = { type: query.type };
     if (query.startTime) body.startTime = formatDateLocal(query.startTime);
@@ -143,6 +144,7 @@ export class PerformaneService {
     if (query.status?.length) body.status = query.status;
     if (query.state?.length) body.state = query.state;
     if (query.source?.length) body.source = query.source;
+    if (query.crop?.length) body.crop = query.crop;
 
     return apiFetch<QuestionsAnalytics>(
       `${this._baseUrl}/questions-analytics`,
