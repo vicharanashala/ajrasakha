@@ -86,14 +86,14 @@ def build_expert_queue_content(script_language: str, vocal_language: str) -> str
     return f"{body}\n\n{testing}"
 
 
-def finalize_farmer_answer(
+def finalize_synthesis_answer(
     body: str,
     *,
     script_language: str,
     vocal_language: str,
     gdb_data: Optional[dict],
 ) -> str:
-    """After translate: body → GDB sources (author) → testing disclaimer from sheet."""
+    """Synthesize path: translated body → GDB sources (author) → testing disclaimer only."""
     out = (body or "").strip()
     if not out:
         return out
@@ -106,3 +106,7 @@ def finalize_farmer_answer(
     if testing.strip():
         return f"{out}\n\n{testing}"
     return out
+
+
+# Backward-compatible alias
+finalize_farmer_answer = finalize_synthesis_answer

@@ -10,10 +10,9 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from ajrasakha.agents.answer_footers import build_expert_queue_content, finalize_farmer_answer
+from ajrasakha.agents.answer_footers import build_expert_queue_content, finalize_synthesis_answer
 from ajrasakha.agents.config import CLAUDE_MODEL
-from ajrasakha.agents.plan_executor import should_expert_queue_reply
-from ajrasakha.agents.state import AjraSakhaState
+from ajrasakha.agents.state import AjraSakhaState, TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.translation_catalog import language_pair_from_plan, needs_translation
 
 logger = logging.getLogger(__name__)
@@ -67,10 +66,31 @@ def _extract_gdb_from_messages(messages: list[BaseMessage]) -> Optional[dict]:
 
 _TRANSLATE_SYSTEM_PROMPT = """You translate agricultural advisories for Indian farmers.
 
+
 Rules:
 - Output ONLY the translated advisory body.
 - Preserve numbers, URLs, chemical names, and units exactly.
-- Do NOT add disclaimers, sources, footers, or expert-queue messages."""
+- Do not add any other text or formatting to the output.
+
+
+Vocal Language: The language the farmer speaks and understands when listening.
+Script Language: The writing system/alphabet used in the farmer's message on screen.
+
+Examples:
+
+Hindi Vocal + English Script
+Example Text: Mujhe gehu ki kheti ke baare mein batayein
+Hindi Vocal + Hindi Script
+Example Text: मुझे गेहूं की खेती के बारे में बताएं
+Punjabi Vocal + English Script
+Example Text: Main apne khet vich chawal di kheti kive karaan?
+English Vocal + English Script
+Example Text: How can I improve wheat production in my farm?
+Tamil Vocal + English Script
+Example Text: Naan eppadi paddy cultivate pannalam?
+Telugu Vocal + Telugu Script
+Example Text: నేను వరి పంటను ఎలా పండించాలి?
+"""
 
 
 async def _translate_body(
@@ -123,43 +143,47 @@ async def translate_answer_node(
     final_msg = _last_farmer_facing_ai(messages)
     gdb_data = _extract_gdb_from_messages(messages)
 
-    if should_expert_queue_reply(state) or plan.get("expert_queue"):
+    # Path A: empty_gdb_reply only — sheet 2-hour + testing (no translate LLM)
+    if plan.get("translate_path") == TRANSLATE_PATH_EMPTY_GDB:
         logger.info(
-            "translate_answer: expert-queue — sheet 2-hour + testing (script=%s vocal=%s)",
+            "translate_answer: path=empty_gdb — sheet 2-hour + testing (script=%s vocal=%s)",
             script,
             vocal,
         )
         content = build_expert_queue_content(script, vocal)
         return _reply_message(content, final_msg, state)
 
+    # Path B: synthesize — translate body + GDB sources + testing only
     if final_msg is None:
         return {}
 
     body = _message_to_text(final_msg)
     if not body.strip():
+        logger.warning("translate_answer: path=synthesis but empty body — no-op")
         return {}
 
     try:
         if needs_translation(script, vocal):
             logger.info(
-                "translate_answer: vocal=%s script=%s (translating body)",
+                "translate_answer: path=synthesis — translating body (vocal=%s script=%s)",
                 vocal,
                 script,
             )
             body = await _translate_body(body, vocal, script, config)
         else:
-            logger.info("translate_answer: English/English — passthrough")
+            logger.info("translate_answer: path=synthesis — English/English passthrough")
 
-        content = finalize_farmer_answer(
+        content = finalize_synthesis_answer(
             body,
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
         )
+        logger.info("translate_answer: path=synthesis — final len=%d", len(content))
         return _reply_message(content, final_msg, state)
     except (APITimeoutError, APIConnectionError) as exc:
-        logger.warning("translate_answer failed (%s) — body + sheet footers", exc)
-        content = finalize_farmer_answer(
+        logger.warning("translate_answer failed (%s) — untranslated body + synthesis footers", exc)
+        content = finalize_synthesis_answer(
             _message_to_text(final_msg),
             script_language=script,
             vocal_language=vocal,
@@ -168,10 +192,10 @@ async def translate_answer_node(
         return _reply_message(content, final_msg, state)
     except APIStatusError as exc:
         logger.warning(
-            "translate_answer API error (%s) — untranslated body + sheet footers",
+            "translate_answer API error (%s) — untranslated body + synthesis footers",
             exc,
         )
-        content = finalize_farmer_answer(
+        content = finalize_synthesis_answer(
             _message_to_text(final_msg),
             script_language=script,
             vocal_language=vocal,

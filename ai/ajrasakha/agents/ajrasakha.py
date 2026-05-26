@@ -262,11 +262,16 @@ def route_after_tools(state: AjraSakhaState) -> str:
 
 
 async def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
-    """Planner graph: empty body + expert_queue flag for translate_answer footers."""
+    """Planner graph: empty body; translate_answer adds sheet 2-hour + testing."""
     from ajrasakha.agents.answer_footers import build_expert_queue_content
+    from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
     from ajrasakha.agents.translation_catalog import language_pair_from_plan
 
-    plan = {**(state.get("plan") or {}), "expert_queue": True}
+    plan = {
+        **(state.get("plan") or {}),
+        "translate_path": TRANSLATE_PATH_EMPTY_GDB,
+        "expert_queue": False,
+    }
     if use_planner_graph():
         return {
             "messages": [AIMessage(content="")],
@@ -276,6 +281,7 @@ async def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
     script, vocal = language_pair_from_plan(plan)
     return {
         "messages": [AIMessage(content=build_expert_queue_content(script, vocal))],
+        "plan": plan,
         "location": state.get("location"),
     }
 
