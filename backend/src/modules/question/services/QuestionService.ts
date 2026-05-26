@@ -61,6 +61,7 @@ import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
 import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
 import { checkDuplicateQuestionHelper } from '../helpers/duplicateQuestionHelper.js';
+import axios from 'axios';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -446,6 +447,70 @@ export class QuestionService extends BaseService implements IQuestionService {
     }));
     return uniqueQuestions;
   }
+
+
+  /**
+   * Generate questions from call context (audio transcription)
+   */
+  async getQuestionFromCallContext(
+    context: string,
+  ): Promise<GeneratedQuestionResponse[]> {
+    try {
+      // Log context to agent_search
+      try {
+        const agentSearchResponse = await axios.post(
+          'http://100.100.108.44:6002/agent_search',
+          { query: context },
+          { timeout: 100000 }
+        );
+        console.log('Agent Search Output:', JSON.stringify(agentSearchResponse.data, null, 2));
+      } catch (err: any) {
+        console.error('Error calling agent_search:', err?.message);
+      }
+
+
+      // Use the same AI service method as regular questions
+      const questions = await this.aiService.getQuestionByContextForCall(context);
+
+      // Format the response similar to getQuestionFromRawContext
+      const merged = [
+        ...(questions.reviewer || []).map((item: any) => ({
+          question: item.question,
+          answer: item.answer,
+          agri_specialist: item.source || "AGRI_EXPERT",
+          referenceSource: "reviewer",
+        })),
+
+        ...(questions.golden || []).map((item: any) => ({
+          question: item.question,
+          answer: item.answer,
+          agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
+          referenceSource: "golden",
+        })),
+
+        ...(questions.pop || []).map((item: any) => ({
+          question: "Reference Information",
+          answer: item.text,
+          agri_specialist: "POP_DOCUMENT",
+          referenceSource: "pop",
+        })),
+      ];
+
+      // Deduplicate by question text
+      const uniqueQuestions = Array.from(
+        new Map(merged.map(q => [q.question, q])).values(),
+      ).map(q => ({
+        ...q,
+        id: new ObjectId().toString(),
+      }));
+
+      return uniqueQuestions;
+    } catch (error) {
+      console.error('Failed to generate questions from call context:', error);
+      throw new InternalServerError('Failed to generate questions from call context');
+    }
+  }
+
 
   /*async addQuestion(
     userId: string,
@@ -2231,9 +2296,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             { authorId: new ObjectId(newExpertId) },
             session
           );
-          }
+        }
 
-        
+
         try {
           // Prepare notification data
           const truncatedQuestionText = this.truncateQuestionText(question.question);
@@ -2250,10 +2315,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           await Promise.all([
             // 1. Assign penalty to replaced expert
             this.userService.updatePenaltyAndIncentive(currentAuthorId!.toString(), 'penalty'),
-            
+
             // 2. Assign incentive to new expert
             this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
-            
+
             // 3. Send notification to replaced expert (with error handling)
             this.notificationService.saveTheNotifications(
               replacedExpertMessage,
@@ -2266,7 +2331,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               // Return resolved promise to not break Promise.all
               return Promise.resolve();
             }),
-            
+
             // 4. Send notification to new expert (with error handling)
             this.notificationService.saveTheNotifications(
               newExpertMessage,
@@ -2306,7 +2371,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const lastHistoryEntry = questionSubmission.history[questionSubmission.history.length - 1];
       const lastReviewerInQueue = lastHistoryEntry?.updatedBy?.toString();
       const currentExpertId = questionSubmission.queue[queueIndex]?.toString();
-      
+
 
       // Validate that the reviewer to be replaced matches the current active reviewer
       // The last reviewer in queue must be the one being replaced (validation rule)
@@ -2321,8 +2386,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // 4. Check if this is the current active level (only current can be replaced)
       // Current active level is determined by history length (convert to 1-based since controller sends 1-based)
-      const currentActiveIndex = questionSubmission.history.length-1;
- 
+      const currentActiveIndex = questionSubmission.history.length - 1;
+
       if (levelIndex !== currentActiveIndex) {
         console.warn(
           `[replaceQueueExpert] Cannot replace - level ${levelIndex} is not active (active: ${currentActiveIndex})`
@@ -2357,8 +2422,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (validationHistoryEntry) {
         const lastAssignmentTime = new Date(validationHistoryEntry.createdAt);
         const hoursSinceAssignment = (now.getTime() - lastAssignmentTime.getTime()) / (1000 * 60 * 60);
-        
-        
+
+
         if (hoursSinceAssignment < 2) {
           console.warn(
             `[replaceQueueExpert] Time constraint not met - only ${hoursSinceAssignment.toFixed(2)} hours since assignment (requires 2 hours)`
@@ -2415,7 +2480,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         const resultId = shouldReplace ? new ObjectId(newExpertId) : new ObjectId(id.toString());
         return resultId;
       });
-      
+
 
       // Step 5: Build updated history with previousAllocations
       const updatedHistory = [...submissionHistory];
@@ -2461,7 +2526,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         updateData,
         session,
       );
-      
+
       try {
         // Prepare notification data
         const truncatedQuestionText = this.truncateQuestionText(question.question);
@@ -2478,10 +2543,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         await Promise.all([
           // 1. Assign penalty to replaced expert
           this.userService.updatePenaltyAndIncentive(currentExpertId, 'penalty'),
-          
+
           // 2. Assign incentive to new expert
           this.userService.updatePenaltyAndIncentive(newExpertId, 'incentive'),
-          
+
           // 3. Send notification to replaced expert (with error handling)
           this.notificationService.saveTheNotifications(
             replacedExpertMessage,
@@ -2494,7 +2559,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             // Return resolved promise to not break Promise.all
             return Promise.resolve();
           }),
-          
+
           // 4. Send notification to new expert (with error handling)
           this.notificationService.saveTheNotifications(
             newExpertMessage,

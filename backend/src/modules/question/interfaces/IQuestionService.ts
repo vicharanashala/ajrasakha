@@ -13,8 +13,8 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import {QuestionLevelResponse} from '#root/modules/question/classes/transformers/QuestionLevel.js';
-import {ClientSession, ObjectId} from 'mongodb';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
+import { ClientSession, ObjectId } from 'mongodb';
 
 export interface IQuestionService {
   /** Bulk insert questions (CSV / upload / AI generated) */
@@ -49,6 +49,11 @@ export interface IQuestionService {
     context: string,
   ): Promise<GeneratedQuestionResponse[]>;
 
+  /** Generate questions from call context (AI) */
+  getQuestionFromCallContext(
+    context: string,
+  ): Promise<GeneratedQuestionResponse[]>;
+
   /** Create a new question */
   addQuestion(
     userId: string,
@@ -72,7 +77,7 @@ export interface IQuestionService {
     questionId: string,
     session?: any,
     batchSize?: number,
-  ): Promise<{data?: ObjectId[], status: boolean}>;
+  ): Promise<{ data?: ObjectId[], status: boolean }>;
 
   /** Toggle auto allocation on/off */
   toggleAutoAllocate(questionId: string): Promise<{ message: string, data?: ObjectId[] }>;
@@ -183,7 +188,7 @@ export interface IQuestionService {
   getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>;
 
   getExprtIdByIndex(questionId: string, index: number): Promise<string | null>;
-  generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer : string}>;
+  generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer: string }>;
 
   approveAiInitialAnswer(questionId: string, answer: string)
 }
