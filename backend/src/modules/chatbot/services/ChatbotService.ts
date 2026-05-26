@@ -23,6 +23,9 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 
 import PDFDocument from 'pdfkit';
 import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
+import { WHATSAPP_TYPES } from '#root/modules/whatsapp/types.js';
+import { IWhatsAppService } from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
+
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -33,6 +36,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     private readonly userRepository: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
+    @inject(WHATSAPP_TYPES.WhatsAppService)
+    private readonly whatsappService: IWhatsAppService,
   ) {
     super(mongoDatabase);
   }
@@ -1724,10 +1729,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
         current.getDate() + 1,
       );
     }
+    const whatsAppUsers = await this.whatsappService.getAllUsers();
 
     for (const label of labels) {
       // IDs Created
-      const createdCount = WhatsappUsers.filter(
+      const createdCount = whatsAppUsers.data.filter(
         (user) =>
           user.firstMessageAt.startsWith(
             label,
@@ -1737,7 +1743,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       // Installs
       // assuming install = first interaction
-      const installsCount = WhatsappUsers.filter(
+      const installsCount = whatsAppUsers.data.filter(
         (user) =>
           user.firstMessageAt.startsWith(
             label,
@@ -1746,7 +1752,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       installs.push(installsCount);
 
       // Active users
-      const activeCount = WhatsappUsers.filter(
+      const activeCount = whatsAppUsers.data.filter(
         (user) =>
           user.lastMessageAt.startsWith(
             label,
