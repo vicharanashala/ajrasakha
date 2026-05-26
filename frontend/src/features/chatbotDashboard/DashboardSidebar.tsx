@@ -11,7 +11,7 @@ import { Calendar } from "@/components/atoms/calendar";
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Download, Loader2, CalendarIcon, Shapes } from "lucide-react";
+import { Download, Loader2, CalendarIcon, Shapes, Info } from "lucide-react";
 import { toast } from "sonner";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 import {
@@ -565,8 +565,33 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           </DialogHeader>
           <div className="space-y-3 overflow-y-auto flex-1 py-2">
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium">Select State</label>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Select State</label>
 
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p>
+                          Once a state is selected, data for all districts under
+                          that state will be added automatically. This will not
+                          be used to filter questions in other analytics
+                          metrics. After selecting a state, an additional table
+                          will be displayed showing all districts under the
+                          selected state along with their query distribution.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <select
                 value={selectedState}
                 onChange={(e) => setSelectedState(e.target.value)}
