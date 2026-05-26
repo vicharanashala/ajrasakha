@@ -7,11 +7,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from ajrasakha.agents.language import (
-    get_localized_expert_prefix,
-    get_localized_source_prefix,
-    get_localized_sources_header,
-)
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.translation_catalog import (
     get_testing_disclaimer,
@@ -20,31 +15,35 @@ from ajrasakha.agents.translation_catalog import (
 )
 
 
-def _format_source_attribution(details: dict, lang_label: str = "English") -> str:
-    """Format source name (with embedded link) + author name for final output."""
+SOURCES_HEADER_EN = (
+    "The answer I provided is sourced only from the following approved materials."
+)
+SOURCE_PREFIX_EN = "📚 Source:"
+EXPERT_PREFIX_EN = "👨‍🌾 Agri Expert:"
+
+
+def _format_source_attribution(details: dict) -> str:
+    """Format source name (with embedded link) + author name for final output (English-only)."""
     lines: list[str] = []
     source_name = details.get("source_name")
     source_link = details.get("source_link")
     author_name = details.get("author_name")
 
-    src_prefix = get_localized_source_prefix(lang_label)
-    exp_prefix = get_localized_expert_prefix(lang_label)
-
     if source_name and source_link:
-        lines.append(f"{src_prefix} {source_name} ({source_link})")
+        lines.append(f"{SOURCE_PREFIX_EN} {source_name} ({source_link})")
     elif source_name:
-        lines.append(f"{src_prefix} {source_name}")
+        lines.append(f"{SOURCE_PREFIX_EN} {source_name}")
     elif source_link:
-        lines.append(f"{src_prefix} {source_link}")
+        lines.append(f"{SOURCE_PREFIX_EN} {source_link}")
 
     if author_name:
-        lines.append(f"{exp_prefix} {author_name}")
+        lines.append(f"{EXPERT_PREFIX_EN} {author_name}")
 
     return "\n".join(lines)
 
 
-def collect_all_sources(gdb_data: dict, lang_label: str = "English") -> str:
-    """Collect source attribution from exact match and all similar pairs."""
+def collect_all_sources(gdb_data: dict) -> str:
+    """Collect source attribution (English-only) from exact match and all similar pairs."""
     seen: set[tuple] = set()
     attribution_lines: list[str] = []
 
@@ -55,7 +54,7 @@ def collect_all_sources(gdb_data: dict, lang_label: str = "English") -> str:
         if key in seen:
             return
         seen.add(key)
-        line = _format_source_attribution(details, lang_label)
+        line = _format_source_attribution(details)
         if line:
             attribution_lines.append(line)
 
@@ -75,8 +74,8 @@ def collect_all_sources(gdb_data: dict, lang_label: str = "English") -> str:
     if not attribution_lines:
         return ""
 
-    header = get_localized_sources_header(lang_label)
-    return header + "\n\n".join(attribution_lines)
+    # Header and prefixes are fixed English strings by design.
+    return f"{SOURCES_HEADER_EN}\n\n" + "\n\n".join(attribution_lines)
 
 
 def build_expert_queue_content(script_language: str, vocal_language: str) -> str:
@@ -97,11 +96,10 @@ def finalize_synthesis_answer(
     out = (body or "").strip()
     if not out:
         return out
-    lang_label = synthesis_lang_label(script_language, vocal_language)
     if gdb_data and gdb_has_usable_answers(gdb_data):
-        source_block = collect_all_sources(gdb_data, lang_label)
+        source_block = collect_all_sources(gdb_data)
         if source_block:
-            out = f"{out}\n{source_block}"
+            out = f"{out}\n\n{source_block}"
     testing = get_testing_disclaimer(script_language, vocal_language)
     if testing.strip():
         return f"{out}\n\n{testing}"
