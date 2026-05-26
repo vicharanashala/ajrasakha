@@ -769,4 +769,14 @@ async getUserQuestionsData(
     Number(limit),
   );
 }
+
+  @Get('/closed-notified-data')
+  @HttpCode(200)
+  @Authorized()
+  async getClosedAndNotifedData(
+    @QueryParam('source')
+    source: string= 'vicharanashala',
+  ): Promise<any> {
+    return await this.chatbotService.getClosedAndNotifedData(source);
+  }
 }

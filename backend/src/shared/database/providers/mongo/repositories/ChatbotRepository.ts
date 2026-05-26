@@ -6710,7 +6710,7 @@ async getWeatherConcernAnalytics(
   }
 
   async getDailyAnalyticsForWhatsApp(start: Date, end: Date):Promise<any>{
-console.log("-----start", start, end)
+
     return await this.QuestionCollection.aggregate([
     {
       $match: {
@@ -7227,6 +7227,152 @@ console.log("-----start", start, end)
 
       throw new InternalServerError(
         `Failed to get WhatsApp duplicate questions count: ${error}`,
+      );
+    }
+  }
+
+  async getClosedVsTotalQuestions(source: string):Promise<any>{
+    try{
+      await this.initReviewSystem();
+      const matchStage: any = {};
+      if (source !== "whatsapp") {
+        source = "AJRASAKHA"
+      }
+      matchStage.source = source.toUpperCase();
+      const result = await this.QuestionCollection.aggregate([
+        {
+          $match: matchStage,
+        },
+        {
+          $group: {
+            _id: null,
+            totalQuestions: { $sum: 1 },
+            closedQuestions: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'closed'] }, 1, 0],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            totalQuestions: 1,
+            closedQuestions: 1,
+          },
+        },
+      ]).toArray();
+console.log(source,"getClosedVsTotalQuestions---", result)
+      return result[0];
+    } catch(error){
+        throw new InternalServerError(
+        `Failed to get closed vs total questions count: ${error}`,
+      );
+    }
+  }
+
+  async getNotifiedVsClosed(source?: string):Promise<any> {
+    try {
+      await this.initReviewSystem();
+
+      const matchStage: any = {};
+      if (source !== "whatsapp") {
+        source = "AJRASAKHA"
+      }
+      matchStage.source = source.toUpperCase();
+
+      const [result] = await this.QuestionCollection.aggregate([
+        {
+          $match: matchStage,
+        },
+        {
+          $group: {
+            _id: null,
+            notNotified: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ['$status', 'closed'] },
+                      { $eq: ['$isCustomerNotified', false] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            notified: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ['$status', 'closed'] },
+                      { $eq: ['$isCustomerNotified', true] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            notNotified: 1,
+            notified: 1,
+          },
+        },
+      ]).toArray();
+
+      const untrackedClosedQuestions = await this.QuestionCollection.countDocuments({
+        ...matchStage,
+        status: 'closed',
+        isCustomerNotified: { $exists: false },
+      });
+
+
+      return {
+        ...(result || {
+          closed: 0,
+          notified: 0,
+        }),
+        untrackedClosedQuestions,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get notified vs closed count: ${error}`,
+      );
+    }
+  }
+
+  async getClosedInLastTwoHours(source?: string): Promise<any> {
+    console.log("-----source--", source)
+    try {
+      await this.initReviewSystem();
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+      const matchStage: any = {
+        status: 'closed',
+        closedAt: { $gte: twoHoursAgo },
+      };
+
+      if (source !== "whatsapp") {
+        source = "AJRASAKHA"
+      }
+      matchStage.source = source.toUpperCase();
+
+      const count = await this.QuestionCollection.countDocuments(
+        matchStage,
+      );
+
+      return count;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get closed questions in last two hours: ${error}`,
       );
     }
   }

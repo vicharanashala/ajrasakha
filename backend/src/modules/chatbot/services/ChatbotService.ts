@@ -1770,4 +1770,22 @@ export class ChatbotService extends BaseService implements IChatbotService {
       },
     };
   }
+
+  async getClosedAndNotifedData(source?: string): Promise<any> {
+    const [
+      closedVsTotalQuestions,
+      notifiedVsClosed,
+      closedInLastTwoHours,
+    ] = await Promise.all([
+      this.chatbotRepository.getClosedVsTotalQuestions(source),
+      this.chatbotRepository.getNotifiedVsClosed(source),
+      this.chatbotRepository.getClosedInLastTwoHours(source),
+    ]);
+
+    return {
+      closedVsTotalQuestions,
+      notifiedVsClosed,
+      closedInLastTwoHours,
+    };
+  }
 }

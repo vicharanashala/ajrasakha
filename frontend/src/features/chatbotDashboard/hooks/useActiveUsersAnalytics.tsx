@@ -113,3 +113,13 @@ export const useUniqueWhatsappUsers = () => {
   });
 };
 
+export const useClosedAndNotifedData = (source: string)=>{
+  return useQuery({
+    queryKey: ["whatsapp-unique-users",
+      source,
+    ],
+    queryFn: () => {
+      return chatbotService.getClosedAndNotifedData(source);
+    },
+  });
+}

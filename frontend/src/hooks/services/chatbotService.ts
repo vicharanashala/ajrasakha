@@ -145,4 +145,12 @@ export class ChatbotService {
       `${this._whatsAppBaseUrl}/unique-users`,
     );
   }
+
+  async getClosedAndNotifedData(source: string): Promise<any>{
+    const params = new URLSearchParams();
+    params.append("source", source);
+    return apiFetch<any>(
+      `${this._baseUrl}/closed-notified-data?${params.toString()}`,
+    );
+  }
 }
