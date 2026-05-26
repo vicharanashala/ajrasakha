@@ -53,11 +53,14 @@ import {
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
-import { useInactiveWhatsappUsers, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
+import { useClosedAndNotifedData, useInactiveWhatsappUsers, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
 import { motion, AnimatePresence } from "framer-motion";
 import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
+import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
+import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
+import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -97,7 +100,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     setInactiveUsersPage,
   ] = useState(1);
   const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage);
-  // console.log("---useInactiveWhatsappUsers---", inactiveWhatsappUsers  )
+  const {data: closedAndNotifedData} = useClosedAndNotifedData(source);
   const [
     isInactiveWhatsappModalOpen,
     setIsInactiveWhatsappModalOpen,
@@ -487,11 +490,34 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                           granularity="monthly"
                         />
 
-                        <WhatsAppUniqueUsersCard 
-                          totalUsers={unqueWhatsAppUsers}
-                        />
                       </div>
                     )}
+                    <div
+                        className={`grid gap-4 mb-6 ${
+                          source === "whatsapp"
+                            ? "grid-cols-1 lg:grid-cols-[1fr_1fr_1.4fr_1.4fr]"
+                            : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
+                        }`}
+                      >
+                      {source === "whatsapp" && 
+                        <WhatsAppUniqueUsersCard 
+                          totalUsers={unqueWhatsAppUsers}
+                      />}
+
+                      <ClosedInLastTwoHoursCard
+                        count = {closedAndNotifedData?.closedInLastTwoHours}
+                        totalClosed={closedAndNotifedData?.closedVsTotalQuestions?.closedQuestions}
+                      />
+                      <ClosedQuestionsCard
+                        closedQuestions = {closedAndNotifedData?.closedVsTotalQuestions?.closedQuestions}
+                        totalQuestions={closedAndNotifedData?.closedVsTotalQuestions?.totalQuestions}
+                      />
+                      <CustomerNotificationsCard
+                        notified={closedAndNotifedData?.notifiedVsClosed?.notified}
+                        notNotified={closedAndNotifedData?.notifiedVsClosed?.notNotified}
+                        untrackedClosedQuestions={closedAndNotifedData?.notifiedVsClosed?.untrackedClosedQuestions}
+                      />
+                    </div>
                     {source !== "whatsapp" && (
                       <ResponseAdherenceTableCard
                         data={
