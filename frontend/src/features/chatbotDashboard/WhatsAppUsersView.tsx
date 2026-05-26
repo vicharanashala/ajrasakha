@@ -110,7 +110,6 @@ export const WhatsappUsers: WhatsAppUser[] = [
     lastMessageText: "Which variety of wheat is best for Punjab?",
   },
 ];
-
 interface WhatsAppFilters {
   search: string;
   minMessageCount: string;
@@ -321,7 +320,7 @@ export function WhatsAppUsersView() {
     if (apiResponse?.users && apiResponse.users.length > 0) {
       return apiResponse.users;
     }
-    return WhatsappUsers;
+    return [];
   }, [apiResponse]);
 
   const handleApplyFilters = (newFilters: WhatsAppFilters) => {
