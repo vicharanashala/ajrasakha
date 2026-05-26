@@ -11,7 +11,7 @@ import { Calendar } from "@/components/atoms/calendar";
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Download, Loader2, CalendarIcon, Shapes } from "lucide-react";
+import { Download, Loader2, CalendarIcon, Shapes, Info } from "lucide-react";
 import { toast } from "sonner";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 import {
@@ -20,6 +20,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
+
+import { STATES } from "../../components/MetaData";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -311,7 +313,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   >(undefined);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<"pdf" | "xlsx">("pdf");
-
+  const [selectedState, setSelectedState] = useState<string>("All States");
   // const handleDownload = async () => {
   //   if (!downloadDateRange?.from || !downloadDateRange?.to) return;
 
@@ -357,67 +359,68 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   // };
 
   const handleDownload = async () => {
-  const today = new Date();
+    const today = new Date();
 
-  const fromDate = downloadDateRange?.from || today;
-  const toDate = downloadDateRange?.to || today;
+    const fromDate = downloadDateRange?.from || today;
+    const toDate = downloadDateRange?.to || today;
 
-  console.log (fromDate, toDate);
+    console.log(fromDate, toDate);
 
-  const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
+    const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
 
-  if (toDate.getTime() - fromDate.getTime() > oneMonthMs) {
-    toast.error(
-      "Date range cannot exceed 1 month. Please select a shorter range.",
-    );
+    if (toDate.getTime() - fromDate.getTime() > oneMonthMs) {
+      toast.error(
+        "Date range cannot exceed 1 month. Please select a shorter range.",
+      );
 
-    return;
-  }
+      return;
+    }
 
-  setIsDownloading(true);
+    setIsDownloading(true);
 
-  try {
-    toast.info("Preparing download...");
+    try {
+      toast.info("Preparing download...");
 
-    const svc = new ChatbotService();
+      const svc = new ChatbotService();
 
-    const from = format(fromDate, "yyyy-MM-dd");
-    const to = format(toDate, "yyyy-MM-dd");
+      const from = format(fromDate, "yyyy-MM-dd");
+      const to = format(toDate, "yyyy-MM-dd");
 
-    const blob = await svc.downloadChatbotReport(
-      from,
-      to,
-      source,
-      downloadFormat,
-    );
+      const blob = await svc.downloadChatbotReport(
+        from,
+        to,
+        source,
+        downloadFormat,
+        selectedState,
+      );
 
-    const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
 
-    const a = document.createElement("a");
+      const a = document.createElement("a");
 
-    a.href = url;
+      a.href = url;
 
-    a.download = `chatbot-report-${from}-to-${to}.${downloadFormat}`;
+      a.download = `chatbot-report-${from}-to-${to}.${downloadFormat}`;
 
-    document.body.appendChild(a);
+      document.body.appendChild(a);
 
-    a.click();
+      a.click();
 
-    document.body.removeChild(a);
+      document.body.removeChild(a);
 
-    URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
 
-    toast.success("Report downloaded successfully!");
+      toast.success("Report downloaded successfully!");
 
-    setIsDownloadDialogOpen(false);
+      setIsDownloadDialogOpen(false);
 
-    setDownloadDateRange(undefined);
-  } catch (e) {
-    toast.error(e instanceof Error ? e.message : "Download failed");
-  } finally {
-    setIsDownloading(false);
-  }
-};
+      setDownloadDateRange(undefined);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Download failed");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   // Track mobile/desktop and auto-collapse on mobile
   useEffect(() => {
@@ -481,6 +484,8 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 
   // On mobile when expanded: overlay mode. Otherwise: inline mode.
   const isOverlay = isMobile && !collapsed;
+
+  const states = ["All States", ...STATES];
 
   // Sidebar content (shared between inline and overlay modes)
   const sidebarContent = (
@@ -559,6 +564,50 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             </div>
           </DialogHeader>
           <div className="space-y-3 overflow-y-auto flex-1 py-2">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Select State</label>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p>
+                          Once a state is selected, data for all districts under
+                          that state will be added automatically. This will not
+                          be used to filter questions in other analytics
+                          metrics. After selecting a state, an additional table
+                          will be displayed showing all districts under the
+                          selected state along with their query distribution.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <select
+                value={selectedState}
+                onChange={(e) => setSelectedState(e.target.value)}
+                className="
+      h-10 rounded-md border border-input bg-background
+      px-3 py-2 text-sm
+      focus:outline-none focus:ring-2 focus:ring-primary
+    "
+              >
+                {states.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-center gap-2 text-xs bg-primary/5 p-2 rounded-md border border-primary/20">
               <div className="flex gap-2 items-center">
                 <Button
@@ -583,7 +632,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 </Button>
               </div>
               <CalendarIcon className="h-4 w-4 text-primary flex-shrink-0" />
-              <span className="font-medium text-sm">
+              <span className="font-medium text-sm flex flex-col">
                 {downloadDateRange?.from && downloadDateRange?.to
                   ? `${format(downloadDateRange.from, "MMM dd, yyyy")} - ${format(downloadDateRange.to, "MMM dd, yyyy")}`
                   : "No date range selected"}

@@ -96,8 +96,8 @@ export interface IChatbotService {
   getWeeklyAvgSessionDurationV2(weeks?: number, source?: string, userType?: string): Promise<WeeklySessionDurationEntry[]>;
   // generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
 
-  generateChatbotAnalyticsPdfReport(startDate: Date, endDate: Date, source?:string):Promise<Buffer>;
-  generateChatbotAnalyticsExcelReport(startDate: Date, endDate: Date, source?: string):Promise<ArrayBuffer | null>;
+  generateChatbotAnalyticsPdfReport(startDate: Date, endDate: Date, source?:string, state?:string):Promise<Buffer>;
+  generateChatbotAnalyticsExcelReport(startDate: Date, endDate: Date, state:string, source?: string):Promise<ArrayBuffer | null>;
   getGrowth(source: string, range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
@@ -152,4 +152,5 @@ export interface IChatbotService {
       userType: string,
       requestType: string,): Promise<any>;
   getUserQuestionsData(userEmail: string, source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
+  getClosedAndNotifedData(source?: string): Promise<any> 
 }

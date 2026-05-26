@@ -1823,28 +1823,49 @@ answer: ${updates.answer}`;
         sources: updates.sources ?? [],
       };
 
-
+      let isCustomerNotified = false;
       if (question.source === 'WHATSAPP') {
-        await triggerWebhook(
-          appConfig.WA_WEBHOOK_API_URL,
-          appConfig.WA_WEBHOOK_API_KEY,
-          webhookPayload,
-          'WhatsApp',
-        );
+        try{
+          await triggerWebhook(
+            appConfig.WA_WEBHOOK_API_URL,
+            appConfig.WA_WEBHOOK_API_KEY,
+            webhookPayload,
+            'WhatsApp',
+          );
+          isCustomerNotified = true;
+        } catch(err){
+          isCustomerNotified = false;
+          console.log("Error occured while notifying customer(WHATSAPP): ", err);
+        }
       }
 
       if (question.source === 'AJRASAKHA') {
-        await triggerWebhook(
-          appConfig.WEB_WEBHOOK_API_URL,
-          appConfig.WEB_WEBHOOK_API_KEY,
-          {
-            ...webhookPayload,
-            question: question.question,
-            messageId: question.messageId,
-          },
-          'Browser',
-        );
+        try{
+          await triggerWebhook(
+            appConfig.WEB_WEBHOOK_API_URL,
+            appConfig.WEB_WEBHOOK_API_KEY,
+            {
+              ...webhookPayload,
+              question: question.question,
+              messageId: question.messageId,
+            },
+            'Browser',
+          );
+          isCustomerNotified = true;
+        } catch(err){
+          isCustomerNotified = false;
+          console.log("Error occured while notifying customer(AJRASAKHA): ", err);
+        }
       }
+
+      await this.questionRepo.updateQuestion(
+        questionId,
+        {
+          isCustomerNotified,
+        },
+        session,
+        false,
+      );
 
       return result;
     });
