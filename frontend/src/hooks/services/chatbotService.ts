@@ -139,4 +139,11 @@ export class ChatbotService {
       `${this._whatsAppBaseUrl}/inactive-users?page=${inactiveUsersPage}&limit=10`,
     );
   }
+
+  async getUniqueWhatsappUsers(
+  ): Promise<any> {
+    return apiFetch<any>(
+      `${this._whatsAppBaseUrl}/unique-users`,
+    );
+  }
 }

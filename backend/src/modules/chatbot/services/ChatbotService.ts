@@ -27,6 +27,9 @@ import {access} from 'node:fs';
 import {aiConfig} from '#root/config/ai.js';
 import {appConfig} from '#root/config/app.js';
 import axios from 'axios';
+import { WHATSAPP_TYPES } from '#root/modules/whatsapp/types.js';
+import { IWhatsAppService } from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
+
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -37,6 +40,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     private readonly userRepository: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
+    @inject(WHATSAPP_TYPES.WhatsAppService)
+    private readonly whatsappService: IWhatsAppService,
   ) {
     super(mongoDatabase);
   }
@@ -2270,6 +2275,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -2395,24 +2401,34 @@ export class ChatbotService extends BaseService implements IChatbotService {
       labels.push(current.toISOString().split('T')[0]);
       current.setDate(current.getDate() + 1);
     }
+    const whatsAppUsers = await this.whatsappService.getAllUsers();
 
     for (const label of labels) {
       // IDs Created
-      const createdCount = WhatsappUsers.filter(user =>
-        user.firstMessageAt.startsWith(label),
+      const createdCount = whatsAppUsers.data.filter(
+        (user) =>
+          user.firstMessageAt.startsWith(
+            label,
+          ),
       ).length;
       idsCreated.push(createdCount);
 
       // Installs
       // assuming install = first interaction
-      const installsCount = WhatsappUsers.filter(user =>
-        user.firstMessageAt.startsWith(label),
+      const installsCount = whatsAppUsers.data.filter(
+        (user) =>
+          user.firstMessageAt.startsWith(
+            label,
+          ),
       ).length;
       installs.push(installsCount);
 
       // Active users
-      const activeCount = WhatsappUsers.filter(user =>
-        user.lastMessageAt.startsWith(label),
+      const activeCount = whatsAppUsers.data.filter(
+        (user) =>
+          user.lastMessageAt.startsWith(
+            label,
+          ),
       ).length;
       activeUsers.push(activeCount);
     }

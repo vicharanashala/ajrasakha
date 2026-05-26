@@ -40,6 +40,7 @@ interface IUser {
   name?: string;
   username?: string;
   email?: string;
+  role?: string;
   createdAt: Date;
   updatedAt: Date;
   farmerProfile?: {
@@ -564,7 +565,6 @@ export class ChatbotRepository implements IChatbotRepository {
           session,
         ),
       ]);
-
       const messageMatch: any = {isDeleted: {$ne: true}};
       if (startTime || endTime) {
         messageMatch.createdAt = {};
@@ -1439,69 +1439,133 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getQueryCategories(
-    _source = 'vicharanashala',
-    session?: ClientSession,
-    userType = 'all',
-  ): Promise<QueryCategoryEntry[]> {
-    try {
-      await this.initReviewSystem();
+  _source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+): Promise<QueryCategoryEntry[]> {
+  try {
+    await this.initReviewSystem();
 
-      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-      if(_source !== "whatsapp"){
-        _source = 'AJRASAKHA'
-      }
-      else{
-        _source = 'WHATSAPP'
-      }
-      const pipeline = [
-        {
-          $match: {
-            source: _source,
-            'details.domain': {$exists: true, $nin: [null, '']},
+    const lookupStages =
+      this.buildQuestionUserTypeLookupStages(userType);
+
+    const pipeline = [
+      {
+        $match: {
+          source: 'AJRASAKHA',
+          'details.domain': {
+            $exists: true,
+            $nin: [null, ''],
           },
         },
-        ...lookupStages,
-        {
-          $project: {
-            domain: '$details.domain',
-            isDuplicate: {
-              $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
+      },
+
+      ...lookupStages,
+
+      {
+        $project: {
+          domain: '$details.domain',
+
+          isDuplicate: {
+            $cond: [
+              {$eq: ['$status', 'duplicate']},
+              1,
+              0,
+            ],
+          },
+        },
+      },
+
+      {
+        $group: {
+          _id: '$domain',
+
+          totalCount: {
+            $sum: 1,
+          },
+
+          duplicateCount: {
+            $sum: '$isDuplicate',
+          },
+
+          uniqueCount: {
+            $sum: {
+              $cond: [
+                {$eq: ['$isDuplicate', 0]},
+                1,
+                0,
+              ],
             },
           },
         },
-        {
-          $group: {
-            _id: '$domain',
-            totalCount: {$sum: 1},
-            duplicateCount: {$sum: '$isDuplicate'},
-            uniqueCount: {
-              $sum: {
-                $cond: [{$eq: ['$isDuplicate', 0]}, 1, 0],
-              },
-            },
-          },
-        },
-        {
-          $sort: {totalCount: -1},
-        },
-        {
-          $limit: 15,
-        },
-      ];
+      },
 
-      const raw = await this.QuestionCollection.aggregate(pipeline, {
-        session,
-      }).toArray();
+      {
+        $sort: {
+          totalCount: -1,
+        },
+      },
+    ];
 
-      return raw.map(item => ({
+    const raw =
+      await this.QuestionCollection.aggregate(
+        pipeline,
+        {session},
+      ).toArray();
+
+    // Top 15 domains
+    const top15 = raw.slice(0, 15);
+
+    // Remaining domains
+    const remainingDomains = raw.slice(15);
+
+    // Response for top 15
+    const result: QueryCategoryEntry[] =
+      top15.map(item => ({
         label: item._id,
         questionCount: item.uniqueCount,
-        duplicateQuestionCount: item.duplicateCount,
+        duplicateQuestionCount:
+          item.duplicateCount,
       }));
-    } catch (error) {
-      throw new Error(`Failed to fetch query categories: ${error}`);
+
+    // Aggregate remaining domains
+    if (remainingDomains.length > 0) {
+      const remainingAggregation =
+        remainingDomains.reduce(
+          (acc, item) => ({
+            totalQuestions:
+              acc.totalQuestions +
+              item.uniqueCount,
+
+            totalDuplicates:
+              acc.totalDuplicates +
+              item.duplicateCount,
+          }),
+
+          {
+            totalQuestions: 0,
+            totalDuplicates: 0,
+          },
+        );
+
+      result.push({
+        label: 'Remaining Categories',
+
+        questionCount:
+          remainingAggregation.totalQuestions,
+
+        duplicateQuestionCount:
+          remainingAggregation.totalDuplicates,
+      });
     }
+
+    return result;
+  } catch (error) {
+    throw new Error(
+      `Failed to fetch query categories: ${error}`,
+    );
   }
+}
 
   async getDistrictAnalyticsByState(
     _source = 'vicharanashala',
@@ -2709,9 +2773,18 @@ async getWeatherConcernAnalytics(
     const monthDateMatch = monthRange
       ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
       : {};
-    const end = new Date();
-    const start = new Date();
+    const now = new Date();
+    const istNow = new Date(
+      now.toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      })
+    );
+    const start = new Date(istNow);
     start.setDate(start.getDate() - 30);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(istNow);
+    end.setHours(23, 59, 59, 999);
+
     if(source === "whatsapp"){
       return  await this.getDailyAnalyticsForWhatsApp(start, end);
     }
@@ -2933,9 +3006,17 @@ async getWeatherConcernAnalytics(
 
     const userTypeLookupStages =
       this.buildUserTypeLookupStages(userType);
-    const end = new Date();
-    const start = new Date();
+    const now = new Date();
+    const istNow = new Date(
+      now.toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      })
+    );
+    const start = new Date(istNow);
     start.setDate(start.getDate() - 30);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(istNow);
+    end.setHours(23, 59, 59, 999);
     if(source === "whatsapp"){
       return  await this.getWeeklyAnalyticsForWhatsApp(start, end);
     }
@@ -4236,6 +4317,7 @@ async getWeatherConcernAnalytics(
         userId: String(u._id),
         name: u.name || u.username || 'Unknown',
         email: u.email || '',
+        role: u.role || "",
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         createdAt: u.createdAt,
         farmerProfile: u.farmerProfile
@@ -6254,6 +6336,7 @@ async getWeatherConcernAnalytics(
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -6278,6 +6361,7 @@ async getWeatherConcernAnalytics(
   ): Promise<boolean> {
     try {
       await this.init(source);
+      const appUsersCollection = await this.db.getCollection<any>('users');
 
       const setPayload: Record<string, any> = {
         updatedAt: new Date(),
@@ -6287,6 +6371,13 @@ async getWeatherConcernAnalytics(
         const trimmedName = data.name.trim();
         if (trimmedName) {
           setPayload.name = trimmedName;
+        }
+      }
+
+      if (typeof data?.role === 'string') {
+        const trimmedRole = data.role.trim();
+        if (trimmedRole) {
+          setPayload.role = trimmedRole;
         }
       }
 
@@ -6940,7 +7031,7 @@ async getWeatherConcernAnalytics(
   }
 
   async getDailyAnalyticsForWhatsApp(start: Date, end: Date):Promise<any>{
-
+console.log("-----start", start, end)
     return await this.QuestionCollection.aggregate([
     {
       $match: {
@@ -6956,7 +7047,8 @@ async getWeatherConcernAnalytics(
           _id: {
             $dateToString: {
               format: "%Y-%m-%d",
-              date: "$createdAt"
+              date: "$createdAt",
+              timezone: "+05:30",
             }
           },
 
