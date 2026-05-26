@@ -647,6 +647,7 @@ async downloadChatbotReport(
         highestEducatedPerson?: string;
         numberOfSmartphones?: number;
         platform?: string;
+        landhold?: number;
       };
     },
   ) {
