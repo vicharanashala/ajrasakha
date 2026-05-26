@@ -20,6 +20,7 @@ import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
+import { WhatsAppUsersView } from "./WhatsAppUsersView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
 // import { UserGrowthChart } from "./components/UserGrowthChart";
 const LazyUserGrowthChart = React.lazy(
@@ -940,6 +941,15 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                         initialFilters={userDetailsInitialFilters}
                         userType={filters.userType}
                       />
+                    </div>
+                  )}
+                  {source === "whatsapp" && (
+                    <div
+                      ref={(el) => {
+                        sectionRefs.current["user-details"] = el;
+                      }}
+                    >
+                      <WhatsAppUsersView />
                     </div>
                   )}
                 </div>
