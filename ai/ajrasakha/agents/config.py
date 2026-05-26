@@ -8,7 +8,7 @@ CLAUDE_FAST = os.getenv("CLAUDE_FAST", "claude-haiku-4-5-20251001")
 
 # Task-specific model assignments
 SYNTHESIZE_MODEL = CLAUDE_FAST        # Fast for rephrasing/simple synthesis
-PLANNER_MODEL = CLAUDE_FAST          # Routing/classification - Haiku sufficient
+PLANNER_MODEL = CLAUDE_MODEL          # Routing/classification - Haiku sufficient
 SANITIZER_MODEL = CLAUDE_FAST        # Relevance scoring - Haiku sufficient
 TRANSLATE_MODEL = CLAUDE_MODEL       # Keep Sonnet - translation quality important
 CROP_CLASSIFY_MODEL = CLAUDE_FAST    # Binary classification - Haiku sufficient
