@@ -51,6 +51,8 @@ import { useTopCrops } from "./hooks/useTopCrops";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import UserQuestionsModal from "./UserQuestionModal";
 import { EditFarmerModal } from "./components/EditFarmerModal";
+import { AddFarmerModal } from "./components/AddFarmerModal";
+import { useAddUser } from "./hooks/useAddUser";
 
 const VISIBLE_CROPS = 2;
 
@@ -142,6 +144,8 @@ export function UserDetailsView({
   const isAdmin = currentUser?.role === "admin";
   const deleteUserMutation = useDeleteUser();
   const updateUserMutation = useUpdateUser();
+  const addUserMutation = useAddUser();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
     ...initialFilters,
@@ -370,6 +374,19 @@ export function UserDetailsView({
       data: payload,
     });
     setUserToEdit(null);
+  };
+
+  const handleAddUser = async (payload: {
+    email: string;
+    name: string;
+    password: string;
+    role?: string;
+  }) => {
+    await addUserMutation.mutateAsync({
+      source,
+      data: payload,
+    });
+    setIsAddModalOpen(false);
   };
 
   return (
@@ -847,6 +864,18 @@ export function UserDetailsView({
                   >
                     <X className="h-4 w-4 mr-1.5" />
                     Clear Filters
+                  </Button>
+                )}
+
+                {isAdmin && (source === "annam" || source === "vicharanashala") && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-9 px-3 bg-primary hover:bg-primary/90 text-white font-medium shadow-sm transition-colors duration-200 flex items-center gap-1.5"
+                    onClick={() => setIsAddModalOpen(true)}
+                  >
+                    <Users className="h-4 w-4" />
+                    Add Farmer
                   </Button>
                 )}
 
@@ -1487,6 +1516,13 @@ export function UserDetailsView({
           </CardContent>
         </Card>
       </div>
+
+      <AddFarmerModal
+        open={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
+        isSaving={addUserMutation.isPending}
+        onSave={handleAddUser}
+      />
 
       <EditFarmerModal
         open={!!userToEdit}
