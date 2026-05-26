@@ -129,6 +129,8 @@ export interface FeedbackEntry {
 export interface FeedbackData{
   positiveFeedbacks: FeedbackEntry[];
   negativeFeedbacks: FeedbackEntry[];
+  positiveFeedbackCounts: {tag: string, count: any}[],
+  negativeFeedbackCounts: {tag: string, count: any}[],
   stats: {
     "_id"?: null | ObjectId,
     positiveCount: number,
@@ -383,6 +385,7 @@ export interface IChatbotRepository {
     days: number,
     userType: string,
     month?: string,
+    state?: string,
     source?: string,
     session?: ClientSession,
   )

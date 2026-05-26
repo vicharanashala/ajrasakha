@@ -3441,142 +3441,440 @@ async getWeatherConcernAnalytics(
   }
 }
 
+  // async getFeedbackData(
+  //   source = 'vicharanashala',
+  //   session?: ClientSession,
+  //   userType = 'all',
+  // ): Promise<FeedbackData> {
+  //   try {
+  //     await this.init(source);
+
+  //     const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+  //     const result = await this.messagesCollection
+  //       .aggregate(
+  //         [
+  //           {
+  //             $match: {
+  //               feedback: {$exists: true},
+  //               isCreatedByUser: false,
+  //               isDeleted: {$ne: true},
+  //             },
+  //           },
+
+  //           ...userTypeLookupStages,
+
+  //           {
+  //             $addFields: {
+  //               numericRating: {
+  //                 $switch: {
+  //                   branches: [
+  //                     {
+  //                       case: {
+  //                         $eq: ['$feedback.rating', 'thumbsUp'],
+  //                       },
+  //                       then: 1,
+  //                     },
+  //                     {
+  //                       case: {
+  //                         $eq: ['$feedback.rating', 'thumbsDown'],
+  //                       },
+  //                       then: 0,
+  //                     },
+  //                   ],
+  //                   default: null,
+  //                 },
+  //               },
+  //             },
+  //           },
+
+  //           {
+  //             $facet: {
+  //               positiveFeedbacks: [
+  //                 {
+  //                   $match: {
+  //                     'feedback.rating': 'thumbsUp',
+  //                   },
+  //                 },
+  //                 {
+  //                   $project: {
+  //                     _id: 0,
+  //                     rating: '$feedback.rating',
+  //                     tag: '$feedback.tag',
+  //                   },
+  //                 },
+  //               ],
+
+  //               negativeFeedbacks: [
+  //                 {
+  //                   $match: {
+  //                     'feedback.rating': 'thumbsDown',
+  //                   },
+  //                 },
+  //                 {
+  //                   $project: {
+  //                     _id: 0,
+  //                     rating: '$feedback.rating',
+  //                     tag: '$feedback.tag',
+  //                   },
+  //                 },
+  //               ],
+
+  //               stats: [
+  //                 {
+  //                   $group: {
+  //                     _id: null,
+
+  //                     positiveCount: {
+  //                       $sum: {
+  //                         $cond: [
+  //                           {
+  //                             $eq: ['$feedback.rating', 'thumbsUp'],
+  //                           },
+  //                           1,
+  //                           0,
+  //                         ],
+  //                       },
+  //                     },
+
+  //                     negativeCount: {
+  //                       $sum: {
+  //                         $cond: [
+  //                           {
+  //                             $eq: ['$feedback.rating', 'thumbsDown'],
+  //                           },
+  //                           1,
+  //                           0,
+  //                         ],
+  //                       },
+  //                     },
+
+  //                     averageRating: {
+  //                       $avg: '$numericRating',
+  //                     },
+
+  //                     totalFeedbacks: {
+  //                       $sum: 1,
+  //                     },
+  //                   },
+  //                 },
+  //               ],
+  //             },
+  //           },
+  //         ],
+  //         {session},
+  //       )
+  //       .toArray();
+
+  //     const data = result[0];
+
+  //     return {
+  //       positiveFeedbacks: data.positiveFeedbacks,
+  //       negativeFeedbacks: data.negativeFeedbacks,
+  //       stats: data.stats[0],
+  //     };
+  //   } catch (error) {
+  //     throw new InternalServerError(`Failed to get feedback data: ${error}`);
+  //   }
+  // }
+
   async getFeedbackData(
-    source = 'vicharanashala',
-    session?: ClientSession,
-    userType = 'all',
-  ): Promise<FeedbackData> {
-    try {
-      await this.init(source);
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+): Promise<FeedbackData> {
+  try {
+    await this.init(source);
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
 
-      const result = await this.messagesCollection
-        .aggregate(
-          [
-            {
-              $match: {
-                feedback: {$exists: true},
-                isCreatedByUser: false,
-                isDeleted: {$ne: true},
-              },
+    // ─────────────────────────────────────
+    // FEEDBACK TAG CONFIG
+    // ─────────────────────────────────────
+
+    const FEEDBACK_TAGS = {
+      positive: [
+        'accurate_reliable',
+        'clear_well_written',
+        'attention_to_detail',
+        'creative_solution',
+      ],
+
+      negative: [
+        'inaccurate',
+        'not_matched',
+        'bad_style',
+        'missing_image',
+        'unjustified_refusal',
+        'not_helpful',
+      ],
+    };
+
+    // ─────────────────────────────────────
+    // AGGREGATION
+    // ─────────────────────────────────────
+
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              feedback: { $exists: true },
+              isCreatedByUser: false,
+              isDeleted: { $ne: true },
             },
+          },
 
-            ...userTypeLookupStages,
+          ...userTypeLookupStages,
 
-            {
-              $addFields: {
-                numericRating: {
-                  $switch: {
-                    branches: [
-                      {
-                        case: {
-                          $eq: ['$feedback.rating', 'thumbsUp'],
-                        },
-                        then: 1,
+          {
+            $addFields: {
+              numericRating: {
+                $switch: {
+                  branches: [
+                    {
+                      case: {
+                        $eq: [
+                          '$feedback.rating',
+                          'thumbsUp',
+                        ],
                       },
-                      {
-                        case: {
-                          $eq: ['$feedback.rating', 'thumbsDown'],
-                        },
-                        then: 0,
+                      then: 1,
+                    },
+
+                    {
+                      case: {
+                        $eq: [
+                          '$feedback.rating',
+                          'thumbsDown',
+                        ],
                       },
-                    ],
-                    default: null,
-                  },
+                      then: 0,
+                    },
+                  ],
+
+                  default: null,
                 },
               },
             },
+          },
 
-            {
-              $facet: {
-                positiveFeedbacks: [
-                  {
-                    $match: {
-                      'feedback.rating': 'thumbsUp',
+          {
+            $facet: {
+              // ───────────────────────────
+              // EXISTING RAW DATA
+              // ───────────────────────────
+
+              positiveFeedbacks: [
+                {
+                  $match: {
+                    'feedback.rating': 'thumbsUp',
+                  },
+                },
+
+                {
+                  $project: {
+                    _id: 0,
+                    rating: '$feedback.rating',
+                    tag: '$feedback.tag',
+                  },
+                },
+              ],
+
+              negativeFeedbacks: [
+                {
+                  $match: {
+                    'feedback.rating': 'thumbsDown',
+                  },
+                },
+
+                {
+                  $project: {
+                    _id: 0,
+                    rating: '$feedback.rating',
+                    tag: '$feedback.tag',
+                  },
+                },
+              ],
+
+              // ───────────────────────────
+              // NEW COUNT DATA
+              // ───────────────────────────
+
+              positiveFeedbackCounts: [
+                {
+                  $match: {
+                    'feedback.rating': 'thumbsUp',
+                  },
+                },
+
+                {
+                  $group: {
+                    _id: '$feedback.tag',
+
+                    count: {
+                      $sum: 1,
                     },
                   },
-                  {
-                    $project: {
-                      _id: 0,
-                      rating: '$feedback.rating',
-                      tag: '$feedback.tag',
+                },
+
+                {
+                  $project: {
+                    _id: 0,
+                    tag: '$_id',
+                    count: 1,
+                  },
+                },
+              ],
+
+              negativeFeedbackCounts: [
+                {
+                  $match: {
+                    'feedback.rating': 'thumbsDown',
+                  },
+                },
+
+                {
+                  $group: {
+                    _id: '$feedback.tag',
+
+                    count: {
+                      $sum: 1,
                     },
                   },
-                ],
+                },
 
-                negativeFeedbacks: [
-                  {
-                    $match: {
-                      'feedback.rating': 'thumbsDown',
-                    },
+                {
+                  $project: {
+                    _id: 0,
+                    tag: '$_id',
+                    count: 1,
                   },
-                  {
-                    $project: {
-                      _id: 0,
-                      rating: '$feedback.rating',
-                      tag: '$feedback.tag',
-                    },
-                  },
-                ],
+                },
+              ],
 
-                stats: [
-                  {
-                    $group: {
-                      _id: null,
+              // ───────────────────────────
+              // STATS
+              // ───────────────────────────
 
-                      positiveCount: {
-                        $sum: {
-                          $cond: [
-                            {
-                              $eq: ['$feedback.rating', 'thumbsUp'],
-                            },
-                            1,
-                            0,
-                          ],
-                        },
+              stats: [
+                {
+                  $group: {
+                    _id: null,
+
+                    positiveCount: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $eq: [
+                              '$feedback.rating',
+                              'thumbsUp',
+                            ],
+                          },
+                          1,
+                          0,
+                        ],
                       },
+                    },
 
-                      negativeCount: {
-                        $sum: {
-                          $cond: [
-                            {
-                              $eq: ['$feedback.rating', 'thumbsDown'],
-                            },
-                            1,
-                            0,
-                          ],
-                        },
-                      },
-
-                      averageRating: {
-                        $avg: '$numericRating',
-                      },
-
-                      totalFeedbacks: {
-                        $sum: 1,
+                    negativeCount: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $eq: [
+                              '$feedback.rating',
+                              'thumbsDown',
+                            ],
+                          },
+                          1,
+                          0,
+                        ],
                       },
                     },
+
+                    averageRating: {
+                      $avg: '$numericRating',
+                    },
+
+                    totalFeedbacks: {
+                      $sum: 1,
+                    },
                   },
-                ],
-              },
+                },
+              ],
             },
-          ],
-          {session},
-        )
-        .toArray();
+          },
+        ],
+        { session },
+      )
+      .toArray();
 
-      const data = result[0];
+    const data = result[0];
 
-      return {
-        positiveFeedbacks: data.positiveFeedbacks,
-        negativeFeedbacks: data.negativeFeedbacks,
-        stats: data.stats[0],
-      };
-    } catch (error) {
-      throw new InternalServerError(`Failed to get feedback data: ${error}`);
-    }
+    // ─────────────────────────────────────
+    // NORMALIZE MISSING TAGS
+    // ─────────────────────────────────────
+
+    const normalizeFeedbackCounts = (
+      existing: any[],
+      expectedTags: string[],
+    ) => {
+      return expectedTags.map(tag => {
+        const found = existing.find(
+          item => item.tag === tag,
+        );
+
+        return {
+          tag,
+          count: found?.count ?? 0,
+        };
+      });
+    };
+
+    const positiveFeedbackCounts =
+      normalizeFeedbackCounts(
+        data.positiveFeedbackCounts || [],
+        FEEDBACK_TAGS.positive,
+      );
+
+    const negativeFeedbackCounts =
+      normalizeFeedbackCounts(
+        data.negativeFeedbackCounts || [],
+        FEEDBACK_TAGS.negative,
+      );
+
+    // ─────────────────────────────────────
+    // RETURN
+    // ─────────────────────────────────────
+
+    return {
+      // Existing frontend data
+      positiveFeedbacks:
+        data.positiveFeedbacks || [],
+
+      negativeFeedbacks:
+        data.negativeFeedbacks || [],
+
+      // New aggregated count data
+      positiveFeedbackCounts,
+
+      negativeFeedbackCounts,
+
+      // Stats
+      stats: data.stats?.[0] || {
+        positiveCount: 0,
+        negativeCount: 0,
+        averageRating: 0,
+        totalFeedbacks: 0,
+      },
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get feedback data: ${error}`,
+    );
   }
+}
 
   async getTodayQueryCount(
     source = 'vicharanashala',
@@ -5329,27 +5627,50 @@ async getWeatherConcernAnalytics(
     }
   }
 
-  async generateChatBotData(startDate, endDate, days= 30, source = "vicharanashala", userType="all", month?:string, session?: ClientSession,){
+  async generateChatBotData(startDate, endDate, days= 30, source = "vicharanashala", userType="all", month?:string, state?: string, session?: ClientSession,){
         const currentMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     console.log({
       startDate: startDate,
       endDate: endDate,
     });
+    console.log("current month", currentMonth)
+    // let districtAnalytics;
     const kpiData = await this.getKpiSummary(source, session, userType="all" );
     const monthlyQueries = await this.getMonthlyAnalytics(source, session, userType="all");
     const weeklyQueries = await this.getWeeklyAnalytics(currentMonth, source, session, userType);
+    console.log("Weekly queries", weeklyQueries)
     const dailyQueries = await this.getDailyAnalytics(currentMonth, source, session, userType);
-    const dauTrends = await this.getDailyUserTrend(days, source,session, userType)
-    const averageSession = await this.getAvgSessionDurationV2(source, session, userType)
+    console.log("dailyQueries", dailyQueries)
+    const dauTrends = await this.getDailyUserTrend(days, source,session, userType);
+    const averageSession = await this.getAvgSessionDurationV2(source, session, userType);
+    const demographicData = await this.getUserDemographics(source, session, userType);
+    const queryCatagoryData = await this.getQueryCategories(source, session, userType);
+    const topCrops = await this.getTopCrops(source, session);
+    const topTenFaqs = await this.getTopQuestionsFromCollection(source, session, userType)
+    const districtAnalytics = await this.getDistrictAnalyticsByState(source, state, session, userType)
+    const feedbackData = await this.getFeedbackData(source, session, userType)
     const dataToShow = {
       totalDownloads: kpiData.totalAppInstalls,
       averageSession: averageSession,
       dau: dauTrends[dauTrends.length -1].count || 0,
+      feedback: feedbackData.stats.totalFeedbacks,
+      positiveFeedBackCount: feedbackData.stats.positiveCount,
+      negativeFeedBackCount: feedbackData.stats.negativeCount,
+      feedbackAccpetancePct: ((feedbackData.stats.averageRating)*100).toFixed(2),
       monthlyQueries,
       dailyQueries,
-      weeklyQueries
+      weeklyQueries,
+      genderSplit: demographicData.genderSplit,
+      farmingExperience: demographicData.farmingExperience,
+      ageGroup: demographicData.ageGroups,
+      queryCatagoryData,
+      topCrops,
+      topTenFaqs,
+      districtAnalytics,
+      positiveFeedback: feedbackData.positiveFeedbackCounts,
+      negativeFeedback: feedbackData.negativeFeedbackCounts,
     }
-
+    
     return dataToShow
   }
 
