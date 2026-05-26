@@ -60,7 +60,10 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 - **Native script:** `script_language` and `vocal_language` match (e.g. both Hindi for Devanagari).
 - **Fixed strings** (exact cells, no LLM paraphrase): testing disclaimer, 2-hour expert-queue text, state/crop follow-ups — keyed by `(script_language, vocal_language)`.
 - **Synthesis** writes an English advisory body only (no sources, no testing disclaimer, no 2-hour text).
-- **translate_answer** translates the body when needed (LLM sees body only). Footers are deterministic in `answer_footers.py`: GDB source/author block, then testing disclaimer from the sheet. Expert-queue uses sheet 2-hour + testing (no translate LLM).
+- **translate_answer** has two deterministic paths (see `plan.translate_path`):
+  - **`empty_gdb_reply`** sets `translate_path=empty_gdb` → sheet **2-hour + testing** only (no translate LLM).
+  - **`synthesize`** → translate body when needed → GDB **sources + author** → sheet **testing disclaimer** only (no 2-hour on this path).
+- Expert-queue turns route to `empty_gdb_reply` only (not synthesize).
 - `USE_PLANNER_GRAPH=false`: legacy single-LLM `ajrasakha` + `tools` loop.
 
 ## Synthesizer
