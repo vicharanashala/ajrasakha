@@ -1021,7 +1021,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           question,
           priority,
           source,
-          status: 'open',
+          status: source === 'AJRASAKHA' || source === 'WHATSAPP' ? 'pending' : 'open',
           totalAnswersCount: 0,
           contextId,
           details,
@@ -1172,11 +1172,14 @@ export class QuestionService extends BaseService implements IQuestionService {
             });
             return;
           }
+          // Valid agri question, no duplicate — promote from 'pending' to 'open'
+          await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         } catch (duplicateError: any) {
           console.error(
             '[processQuestionInBackground] Duplicate check failed, proceeding as open:',
             duplicateError.message,
           );
+          await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         }
 
         const [allModerators, taskForceModerators] = await Promise.all([
