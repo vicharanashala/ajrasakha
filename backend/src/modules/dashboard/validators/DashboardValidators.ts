@@ -192,6 +192,12 @@ export class GetQuestionsAnalyticsQuery {
   @IsArray()
   @IsString({each: true})
   source?: string[];
+
+  @JSONSchema({example: ['Paddy', 'Wheat'], description: 'Filter by crop (multi-select)'})
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  crop?: string[];
 }
 
 export class UserRoleOverview {

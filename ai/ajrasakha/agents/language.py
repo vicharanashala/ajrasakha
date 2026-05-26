@@ -375,183 +375,24 @@ Soil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.
 Government schemes from https://www.myscheme.gov.in/. 
 Other agricultural information and advisories are expert-verified by Annam.ai. 
 
-Users should independently validate recommendations before acting.""",
-
-    "Hinglish": """⚠️ *Important Notice (Testing)* ⚠️
-
-Yeh AjraSakha application abhi under development hai aur sirf testing aur validation ke liye hai.
-Salah experimental hain aur abhi chuni hui states mein badi faslon ke liye hain.
-Mausam ka data IMD se liya gaya hai.
-Mandi ka data eNAM, Agmarknet, aur State APMCs se hai.
-Mitti ki sehat ki jankari https://soilhealth.dac.gov.in/fertilizer-dosage se hai.
-Sarkari yojanaayein https://www.myscheme.gov.in/ se hain.
-Baki kheti ki jankari aur salah Annam.ai dwara expert-verified hain.
-
-Users ko koi bhi kadam uthane se pehle khud jankari ki pushti karni chahiye.""",
-
-    "Hindi": """⚠️ *महत्वपूर्ण सूचना (परीक्षण)* ⚠️
-
-यह अजरासखा (AjraSakha) एप्लीकेशन अभी विकास के अधीन है और केवल परीक्षण और सत्यापन के लिए है।
-सलाह प्रायोगिक हैं और वर्तमान में चयनित राज्यों में प्रमुख फसलों को कवर करती हैं।
-मौसम का डेटा IMD से लिया गया है।
-मंडी का डेटा eNAM, Agmarknet और राज्य APMCs से है।
-मृदा स्वास्थ्य मार्गदर्शन https://soilhealth.dac.gov.in/fertilizer-dosage से है।
-सरकारी योजनाएं https://www.myscheme.gov.in/ से हैं।
-अन्य कृषि जानकारी और सलाह Annam.ai द्वारा विशेषज्ञ-सत्यापित हैं।
-
-उपयोगकर्ताओं को कोई भी कदम उठाने से पहले स्वतंत्र रूप से सिफारिशों को सत्यापित करना चाहिए।""",
-
-    "Punjabi": """⚠️ *ਖਾਸ ਨੋਟਿਸ (ਟੈਸਟਿੰਗ)* ⚠️
-
-ਇਹ ਅਜਰਾਸਖਾ (AjraSakha) ਐਪਲੀਕੇਸ਼ਨ ਅਜੇ ਵਿਕਾਸ ਅਧੀਨ ਹੈ ਅਤੇ ਸਿਰਫ ਟੈਸਟਿੰਗ ਅਤੇ ਤਸਦੀਕ ਲਈ ਹੈ।
-ਸਲਾਹਾਂ ਪ੍ਰਯੋਗਾਤਮਕ ਹਨ ਅਤੇ ਵਰਤਮਾਨ ਵਿੱਚ ਚੁਣੇ ਹੋਏ ਰਾਜਾਂ ਵਿੱਚ ਮੁੱਖ ਫਸਲਾਂ ਨੂੰ ਕਵਰ ਕਰਦੀਆਂ ਹਨ।
-ਮੌਸਮ ਦਾ ਡੇਟਾ IMD ਤੋਂ ਲਿਆ ਗਿਆ ਹੈ।
-ਮੰਡੀ ਦਾ ਡੇਟਾ eNAM, Agmarknet ਅਤੇ ਰਾਜ ਦੇ APMCs ਤੋਂ ਹੈ।
-ਮਿੱਟੀ ਦੀ ਸਿਹਤ ਸੰਬੰਧੀ ਮਾਰਗਦਰਸ਼ਨ https://soilhealth.dac.gov.in/fertilizer-dosage ਤੋਂ ਹੈ।
-ਸਰਕਾਰੀ ਸਕੀਮਾਂ https://www.myscheme.gov.in/ ਤੋਂ ਹਨ।
-ਹੋਰ ਖੇਤੀਬਾੜੀ ਜਾਣਕਾਰੀ ਅਤੇ ਸਲਾਹਾਂ Annam.ai ਦੁਆਰਾ ਮਾਹਰ-ਪ੍ਰਮਾਣਿਤ ਹਨ।
-
-ਉਪਭੋਗਤਾਵਾਂ ਨੂੰ ਕੋਈ ਵੀ ਕਦਮ ਚੁੱਕਣ ਤੋਂ ਪਹਿਲਾਂ ਸੁਤੰਤਰ ਤੌਰ 'ਤੇ ਸਿਫ਼ਾਰਸ਼ਾਂ ਦੀ ਪੁਸ਼ਟੀ ਕਰਨੀ ਚਾਹੀਦੀ ਹੈ।""",
-
-    "Romanized Punjabi": """⚠️ *Important Notice (Testing)* ⚠️
-
-Eh AjraSakha application aje under development hai te sirf testing te validation layi hai.
-Salah experimental han te hale chune hoye states vich vaddiya fasla layi han.
-Mausam da data IMD ton leya gya hai.
-Mandi da data eNAM, Agmarknet, te State APMCs ton hai.
-Mitti di sehat di jankari https://soilhealth.dac.gov.in/fertilizer-dosage ton hai.
-Sarkari schemes https://www.myscheme.gov.in/ ton han.
-Baki kheti di jankari te salah Annam.ai valon expert-verified han.
-
-Users nu koi vi kadam chukan ton pehla khud jankari di tasdeek karni chahidi hai.""",
-
-    "Tamil": """⚠️ *முக்கிய அறிவிப்பு (சோதனை)* ⚠️
-
-இந்த அஜ்ராசகா (AjraSakha) செயலி தற்போது உருவாக்கத்தில் உள்ளது மற்றும் சோதனை மற்றும் சரிபார்ப்புக்கு மட்டுமேயானது.
-ஆலோசனைகள் சோதனை ரீதியானவை மற்றும் தற்போது தேர்ந்தெடுக்கப்பட்ட மாநிலங்களில் உள்ள முக்கிய பயிர்களை மட்டுமே உள்ளடக்கியது.
-வானிலை தரவு IMD-யிலிருந்து பெறப்பட்டது.
-சந்தைத் தரவு eNAM, Agmarknet மற்றும் மாநில APMC-களிலிருந்து பெறப்பட்டது.
-மண்வள வழிகாட்டுதல் https://soilhealth.dac.gov.in/fertilizer-dosage இலிருந்து பெறப்பட்டது.
-அரசு திட்டங்கள் https://www.myscheme.gov.in/ இலிருந்து பெறப்பட்டது.
-இதர விவசாய தகவல்கள் மற்றும் ஆலோசனைகள் Annam.ai ஆல் நிபுணத்துவம் பெற்று சரிபார்க்கப்பட்டது.
-
-பயனர்கள் எந்த ஒரு செயலையும் செய்வதற்கு முன் பரிந்துரைகளை சுயாதீனமாக சரிபார்க்க வேண்டும்.""",
-
-    "Romanized Tamil": """⚠️ *Important Notice (Testing)* ⚠️
-
-Indha AjraSakha seiyali tharpothu uruvakkathil ullathu matrum sothanai verification-ukkaga mattume.
-Aalosanai sothanai muraiyilanavaigal, ithu tharpothu thernthu edukapatta manilangalil ulla mukkiya payirkalai mattume ulladakkiyathu.
-Vaanilai tharavu IMD-yilirundhu perappattathu.
-Sandhai tharavu eNAM, Agmarknet, matrum State APMC-galilirundhu perappattathu.
-Man vala vazhikaattuthal https://soilhealth.dac.gov.in/fertilizer-dosage ilirundhu perappattathu.
-Arasu thittangal https://www.myscheme.gov.in/ ilirundhu perappattathu.
-Idhara vivasaya thagavalgal matrum aalosanaigal Annam.ai-al expert-verified seiyappattadhu.
-
-Payanargal entha oru seiyalaiyum seivadhu munnar parinthuraigalai suyadheenamaaga sari paarkka vendum.""",
-
-    "Telugu": """⚠️ *ముఖ్య గమనిక (టెస్టింగ్)* ⚠️
-
-ఈ అజ్రాసఖ (AjraSakha) అప్లికేషన్ ఇంకా అభివృద్ధి దశలో ఉంది మరియు కేవలం టెస్టింగ్ మరియు పరిశీలన కోసం మాత్రమే ఉద్దేశించబడింది.
-సలహాలు ప్రయోగాత్మకమైనవి మరియు ప్రస్తుతం ఎంపిక చేసిన రాష్ట్రాల్లోని ప్రధాన పంటలకు మాత్రమే వర్తిస్తాయి.
-హవామాన డేటా IMD నుండి సేకరించబడింది.
-మార్కెట్ డేటా eNAM, Agmarknet మరియు రాష్ట్ర APMCల నుండి తీసుకోబడింది.
-నేల ఆరోగ్య మార్గదర్శకత్వం https://soilhealth.dac.gov.in/fertilizer-dosage నుండి తీసుకోబడింది.
-ప్రభుత్వ పథకాలు https://www.myscheme.gov.in/ నుండి తీసుకోబడ్డాయి.
-ఇతర వ్యవసాయ సమాచారం మరియు సలహాలు Annam.ai చేత నిపుణుల ద్వారా ధృవీకరించబడ్డాయి.
-
-వినియోగదారులు సిఫార్సులను పాటించే ముందు స్వంతంగా సరిచూసుకోవాలి.""",
-
-    "Romanized Telugu": """⚠️ *Important Notice (Testing)* ⚠️
-
-Ee AjraSakha application inka under development lo undhi te testing te validation kosam mathrame.
-Salahalu experimental vi te prasthutham select chesina states lo major crops kosam mathrame undhi.
-Havamana data IMD nundi thesukobadindhi.
-Market data eNAM, Agmarknet, te State APMClu nundi undhi.
-Nela arogya margadarsakathvam https://soilhealth.dac.gov.in/fertilizer-dosage nundi undhi.
-Prabhuthva padhathalu https://www.myscheme.gov.in/ nundi unnai.
-Inka ithara vyavasaya samacharam te salahalu Annam.ai dwara expert-verified.
-
-Users recommendation patinche mundhu swanthanga sari chusukovali.""",
-
-    "Bengali": """⚠️ *গুরুত্বপূর্ণ বিজ্ঞপ্তি (পরীক্ষামূলক)* ⚠️
-
-এই অজরাসখা (AjraSakha) অ্যাপ্লিকেশন এখনও উন্নয়নাধীন এবং শুধুমাত্র পরীক্ষা ও যাচাইয়ের জন্য।
-পরামর্শগুলি পরীক্ষামূলক এবং বর্তমানে নির্বাচিত রাজ্যগুলিতে প্রধান ফসলগুলি কভার করে।
-আবহাওয়ার তথ্য IMD থেকে নেওয়া হয়েছে।
-বাজারের তথ্য eNAM, Agmarknet এবং রাজ্য APMCগুলি থেকে নেওয়া হয়েছে।
-মাটির স্বাস্থ্য বিষয়ক নির্দেশিকা https://soilhealth.dac.gov.in/fertilizer-dosage থেকে নেওয়া হয়েছে।
-সরকারি প্রকল্পগুলি https://www.myscheme.gov.in/ থেকে নেওয়া হয়েছে।
-অন্যান্য কৃষি তথ্য ও পরামর্শ Annam.ai দ্বারা বিশেষজ্ঞ-যাচাইকৃত।
-
-ব্যবহারকারীদের কোনো পদক্ষেপ নেওয়ার আগে সুপারিশগুলি স্বাধীনভাবে যাচাই করা উচিত।""",
-
-    "Romanized Bengali": """⚠️ *Important Notice (Testing)* ⚠️
-
-Ei AjraSakha application ekhono under development-e ache ebong shudhumatro testing ebong validation-er jonyo.
-Poramorshogulo porikhamulok ebong ekhon nirbachito rajyogulote prodhan fasholgulokey cover kore.
-Aabohawaar tothyo IMD theke newa hoyeche.
-Bazarer tothyo eNAM, Agmarknet ebong State APMC theke newa hoyeche.
-Maatir swasthyo bishoyok nirdeshipka https://soilhealth.dac.gov.in/fertilizer-dosage theke newa hoyeche.
-Sorkar prakalpa https://www.myscheme.gov.in/ theke newa hoyeche.
-Onyanya krishi tothyo o poramorsh Annam.ai-er dwara bishesogger dwara confirmed.
-
-Byaboharkaridera jekono podam neowar aage suparishgulo swadhinbhabe yachai kora uchit."""
+Users should independently validate recommendations before acting."""
 }
 
 _LOCALIZED_EMPTY_REPLIES = {
     "English": "Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.\nThank You.",
-    "Hinglish": "Aapka sawal annam.ai par hamare agri expert ke sath share kar diya gaya hai. Aapko 2 ghante ke andar uttar mil jayega.\nDhanyawad.",
-    "Hindi": "आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा कर दिया गया है। आपको 2 घंटे के भीतर उत्तर मिल जाएगा।\nधन्यवाद।",
-    "Punjabi": "ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟੇ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲ ਜਾਵੇਗਾ।\nਧੰਨਵਾਦ।",
-    "Romanized Punjabi": "Tuhada sawal annam.ai te sade agri expert nal share kar ditta gya hai. Tuhanu 2 ghante de andar jawab mil jayega.\nDhanyawad.",
-    "Tamil": "உங்கள் கேள்வி annam.ai இல் உள்ள எங்களது விவசாய நிபுணருடன் பகிர்ந்து கொள்ளப்பட்டுள்ளது. 2 மணி நேரத்திற்குள் உங்களுக்கு பதில் கிடைக்கும்.\nநன்றி.",
-    "Romanized Tamil": "Ungal kelvi annam.ai-il ulla engal vivasaya expert-udan pagirndhu kollappattadhu. Ungalukku 2 mani nerathil badhil kidaikkum.\nNandri.",
-    "Telugu": "మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల లోపు సమాధానం లభిస్తుంది.\nధన్యవాదాలు.",
-    "Romanized Telugu": "Mee prasna annam.ai loni ma vyavasaya expert tho share cheyabadindhi. Neeku 2 gantala lopala samadhanam labhisthundhi.\nDhanyalu.",
-    "Bengali": "আপনার প্রশ্ন annam.ai-তে আমাদের কৃষি বিশেষজ্ঞের সাথে শেয়ার করা হয়েছে। আপনি ২ ঘন্টার মধ্যে উত্তর পাবেন।\nধন্যবাদ।",
-    "Romanized Bengali": "Apnar prosno annam.ai-te amader krishi bisesogger sathe share kora hoyeche. Apni 2 ghontar modhye uttor paben.\nDhanyabad."
 }
 
 _LOCALIZED_SOURCES_HEADERS = {
     "English": "\nThe answer I provided is sourced only from the following approved materials.\n",
-    "Hinglish": "\nMaine jo uttar diya hai, woh sirf niche diye gaye approved materials se liya gaya hai.\n",
-    "Hindi": "\nमेरे द्वारा प्रदान किया गया उत्तर केवल निम्नलिखित स्वीकृत सामग्री से लिया गया है।\n",
-    "Punjabi": "\nਮੇਰੇ ਦੁਆਰਾ ਦਿੱਤਾ ਗਿਆ ਜਵਾਬ ਸਿਰਫ ਹੇਠ ਲਿਖੀਆਂ ਪ੍ਰਵਾਨਿਤ ਸਮੱਗਰੀਆਂ ਤੋਂ ਲਿਆ ਗਿਆ ਹੈ।\n",
-    "Romanized Punjabi": "\nMain jo jawab ditta hai, oh sirf heth ditti approved material ton leya gya hai.\n",
-    "Tamil": "\nநான் வழங்கிய பதில் பின்வரும் அங்கீகரிக்கப்பட்ட பொருட்களிலிருந்து மட்டுமே பெறப்பட்டது.\n",
-    "Romanized Tamil": "\nNaan vazhangiya badhil pinvarum angigarikkapatta porulgalilirundhu mattume perappattadhu.\n",
-    "Telugu": "\nనేను అందించిన సమాధానం క్రింది ఆమోదించబడిన పదార్థాల నుండి మాత్రమే సేకరించబడింది.\n",
-    "Romanized Telugu": "\nNenu andhinchina samadhanam kindhi approved materials nundi mathrame thesukobadindhi.\n",
-    "Bengali": "\nআমার দেওয়া উত্তর শুধুমাত্র নিচের অনুমোদিত উপকরণ থেকে নেওয়া হয়েছে।\n",
-    "Romanized Bengali": "\nAmi je uttar diyechi, seta shudhumatro niche dewa approved materials theke newa hoyeche.\n"
 }
 
 _LOCALIZED_SOURCE_PREFIX = {
     "English": "📚 Source:",
     "Hinglish": "📚 Source:",
-    "Hindi": "📚 स्रोत:",
-    "Punjabi": "📚 ਸਰੋਤ:",
-    "Romanized Punjabi": "📚 Source:",
-    "Tamil": "📚 ஆதாரம்:",
-    "Romanized Tamil": "📚 Source:",
-    "Telugu": "📚 మూలం:",
-    "Romanized Telugu": "📚 Source:",
-    "Bengali": "📚 উৎস:",
-    "Romanized Bengali": "📚 Source:"
 }
 
 _LOCALIZED_EXPERT_PREFIX = {
     "English": "👨‍🌾 Agri Expert:",
-    "Hinglish": "👨‍🌾 Agri Expert:",
-    "Hindi": "👨‍🌾 कृषि विशेषज्ञ:",
-    "Punjabi": "👨‍🌾 ਖੇਤੀਬਾੜੀ ਮਾਹਰ:",
-    "Romanized Punjabi": "👨‍🌾 Agri Expert:",
-    "Tamil": "👨‍🌾 விவசாய நிபுணர்:",
-    "Romanized Tamil": "👨‍🌾 Agri Expert:",
-    "Telugu": "👨‍🌾 వ్యవసాయ నిపుణుడు:",
-    "Romanized Telugu": "👨‍🌾 Agri Expert:",
-    "Bengali": "👨‍🌾 কৃষি বিশেষজ্ঞ:",
-    "Romanized Bengali": "👨‍🌾 Agri Expert:"
 }
 
 
@@ -630,30 +471,10 @@ def get_localized_expert_prefix(lang_label: str) -> str:
 
 _LOCALIZED_STATE_QUESTIONS = {
     "English": "Which state are you in?",
-    "Hinglish": "Aap kis state se hain?",
-    "Hindi": "आप किस राज्य से हैं?",
-    "Punjabi": "ਤੁਸੀਂ ਕਿਸ ਰਾਜ ਤੋਂ ਹੋ?",
-    "Romanized Punjabi": "Tusi kis state ton ho?",
-    "Tamil": "நீங்கள் எந்த மாநிலத்தைச் சேர்ந்தவர்?",
-    "Romanized Tamil": "Neenga endha state-ilirundhu varreenga?",
-    "Telugu": "మీరు ఏ రాష్ట్రానికి చెందినవారు?",
-    "Romanized Telugu": "Meeru ye state nundi unnar?",
-    "Bengali": "আপনি কোন রাজ্যে আছেন?",
-    "Romanized Bengali": "Apni kon state-e achen?"
 }
 
 _LOCALIZED_CROP_QUESTIONS = {
     "English": "Which crop are you growing?",
-    "Hinglish": "Aap kaunsi fasal uga rahe hain?",
-    "Hindi": "आप कौन सी फसल उगा रहे हैं?",
-    "Punjabi": "ਤੁਸੀਂ ਕਿਹੜੀ ਫਸਲ ਉਗਾ ਰਹੇ ਹੋ?",
-    "Romanized Punjabi": "Tusi kehdi fasal uga rahe ho?",
-    "Tamil": "நீங்கள் என்ன பயிர் வளர்க்கிறீர்கள்?",
-    "Romanized Tamil": "Neenga enna payir valarkireenga?",
-    "Telugu": "మీరు ఏ పంట పండిస్తున్నారు?",
-    "Romanized Telugu": "Meeru ye panta pandisthunnaru?",
-    "Bengali": "আপনি কোন ফসল চাষ করছেন?",
-    "Romanized Bengali": "Apni kon fasal chash korchen?"
 }
 
 
@@ -683,4 +504,3 @@ def get_localized_crop_question(
         return get_crop_follow_up(script_language, vocal_language)
     script, vocal = _pair_from_lang_label(lang_label)
     return get_crop_follow_up(script, vocal)
-

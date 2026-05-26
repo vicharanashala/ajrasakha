@@ -1,5 +1,5 @@
 import {injectable, inject} from 'inversify';
-import {InternalServerError} from 'routing-controllers';
+import {InternalServerError, BadRequestError} from 'routing-controllers';
 import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
@@ -2312,6 +2312,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      password: string;
+      role?: string;
+    },
+  ): Promise<boolean> {
+    try {
+      return await this.chatbotRepository.addUser(source, data);
+    } catch (error: any) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add user: ${error.message || error}`);
+    }
+  }
+
   async getDailyActiveUsersTrend(
     startDate: Date,
     endDate: Date,
@@ -2438,6 +2457,24 @@ export class ChatbotService extends BaseService implements IChatbotService {
         installs,
         activeUsers,
       },
+    };
+  }
+
+  async getClosedAndNotifedData(source?: string): Promise<any> {
+    const [
+      closedVsTotalQuestions,
+      notifiedVsClosed,
+      closedInLastTwoHours,
+    ] = await Promise.all([
+      this.chatbotRepository.getClosedVsTotalQuestions(source),
+      this.chatbotRepository.getNotifiedVsClosed(source),
+      this.chatbotRepository.getClosedInLastTwoHours(source),
+    ]);
+
+    return {
+      closedVsTotalQuestions,
+      notifiedVsClosed,
+      closedInLastTwoHours,
     };
   }
 }

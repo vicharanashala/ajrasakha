@@ -173,6 +173,8 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "original_query_en": output.original_query_en,
         "vocal_language": output.vocal_language,
         "script_language": output.script_language,
+        "translate_path": None,
+        "expert_queue": False,
     }
 
 
@@ -195,6 +197,8 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "original_query_en": user_query,
         "vocal_language": "English",
         "script_language": "English",
+        "translate_path": None,
+        "expert_queue": False,
     }
 
 
@@ -311,6 +315,8 @@ async def planner_node(
             "original_query_en": user_text,
             "vocal_language": "English",
             "script_language": "English",
+            "translate_path": None,
+            "expert_queue": False,
         }
         return {"plan": plan}
 
@@ -404,6 +410,7 @@ async def planner_node(
         plan = apply_planner_completeness_rules(plan, messages, location)
 
         plan["knowledge_base"] = True
+        plan["soil"] = False
 
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "

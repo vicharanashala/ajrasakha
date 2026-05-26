@@ -134,6 +134,14 @@ export interface IChatbotService {
       };
     },
   ): Promise<boolean>;
+  addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      role?: string;
+    },
+  ): Promise<boolean>;
   getDailyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string):Promise<any>;
   getMonthlyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string): Promise<any>;
   getWeeklyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string): Promise<any>;
@@ -144,4 +152,5 @@ export interface IChatbotService {
       userType: string,
       requestType: string,): Promise<any>;
   getUserQuestionsData(userEmail: string, source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
+  getClosedAndNotifedData(source?: string): Promise<any> 
 }

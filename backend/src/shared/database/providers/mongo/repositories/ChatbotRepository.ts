@@ -1,6 +1,6 @@
 import {inject, injectable} from 'inversify';
 import {Collection, ClientSession, ObjectId} from 'mongodb';
-import {InternalServerError} from 'routing-controllers';
+import {InternalServerError, BadRequestError} from 'routing-controllers';
 import {AnalyticsMongoDatabase} from '../AnalyticsMongoDatabase.js';
 import {AnnamDatabase} from '../AnnamDatabase.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -34,6 +34,9 @@ import type {
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {DISTRICTS} from '#root/utils/districts.js';
+
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 interface IUser {
   _id?: any;
@@ -6425,6 +6428,77 @@ async getWeatherConcernAnalytics(
     }
   }
 
+  async addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      password: string;
+      role?: string;
+    },
+  ): Promise<boolean> {
+    if (source === 'whatsapp') {
+      throw new BadRequestError('Add farmer functionality is not supported for whatsapp source');
+    }
+
+    try {
+      await this.init(source);
+      
+      const existingUser = await this.users.findOne({ email: data.email.trim().toLowerCase() });
+      if (existingUser) {
+        throw new BadRequestError('User with this email already exists');
+      }
+
+      const username = data.email.trim().split('@')[0];
+
+      const createPasswordHash = (password: string) => {
+        return bcrypt.hashSync(password, 10);
+      };
+
+      const hashedPassword = createPasswordHash(data.password);
+
+
+      const newUserDoc = {
+        name: data.name.trim(),
+        username: username,
+        email: data.email.trim().toLowerCase(),
+        emailVerified: false,
+        password: hashedPassword,
+        avatar: null,
+        provider: "local",
+        role: data.role || "FARMER",
+        plugins: [],
+        twoFactorEnabled: false,
+        termsAccepted: false,
+        secondTermsAccepted: false,
+        personalization: {
+          memories: true,
+          _id: new ObjectId()
+        },
+        farmerProfile: {
+          cropsCultivated: [],
+          platformHistory: []
+        },
+        backupCodes: [],
+        refreshToken: [],
+        favorites: [],
+        pushSubscriptions: [],
+        createdFrom: "REVIEW_SYSTEM",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        __v: 0
+      };
+
+      const result = await this.users.insertOne(newUserDoc);
+      return result.acknowledged;
+    } catch (error: any) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add user: ${error.message || error}`);
+    }
+  }
+
   async getDailyActiveUsersTrend(
     startDate: Date,
     endDate: Date,
@@ -7031,7 +7105,7 @@ async getWeatherConcernAnalytics(
   }
 
   async getDailyAnalyticsForWhatsApp(start: Date, end: Date):Promise<any>{
-console.log("-----start", start, end)
+
     return await this.QuestionCollection.aggregate([
     {
       $match: {
@@ -7548,6 +7622,152 @@ console.log("-----start", start, end)
 
       throw new InternalServerError(
         `Failed to get WhatsApp duplicate questions count: ${error}`,
+      );
+    }
+  }
+
+  async getClosedVsTotalQuestions(source: string):Promise<any>{
+    try{
+      await this.initReviewSystem();
+      const matchStage: any = {};
+      if (source !== "whatsapp") {
+        source = "AJRASAKHA"
+      }
+      matchStage.source = source.toUpperCase();
+      const result = await this.QuestionCollection.aggregate([
+        {
+          $match: matchStage,
+        },
+        {
+          $group: {
+            _id: null,
+            totalQuestions: { $sum: 1 },
+            closedQuestions: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'closed'] }, 1, 0],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            totalQuestions: 1,
+            closedQuestions: 1,
+          },
+        },
+      ]).toArray();
+
+      return result[0];
+    } catch(error){
+        throw new InternalServerError(
+        `Failed to get closed vs total questions count: ${error}`,
+      );
+    }
+  }
+
+  async getNotifiedVsClosed(source?: string):Promise<any> {
+    try {
+      await this.initReviewSystem();
+
+      const matchStage: any = {};
+      if (source !== "whatsapp") {
+        source = "AJRASAKHA"
+      }
+      matchStage.source = source.toUpperCase();
+
+      const [result] = await this.QuestionCollection.aggregate([
+        {
+          $match: matchStage,
+        },
+        {
+          $group: {
+            _id: null,
+            notNotified: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ['$status', 'closed'] },
+                      { $eq: ['$isCustomerNotified', false] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            notified: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ['$status', 'closed'] },
+                      { $eq: ['$isCustomerNotified', true] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            notNotified: 1,
+            notified: 1,
+          },
+        },
+      ]).toArray();
+
+      const untrackedClosedQuestions = await this.QuestionCollection.countDocuments({
+        ...matchStage,
+        status: 'closed',
+        isCustomerNotified: { $exists: false },
+      });
+
+
+      return {
+        ...(result || {
+          closed: 0,
+          notified: 0,
+        }),
+        untrackedClosedQuestions,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get notified vs closed count: ${error}`,
+      );
+    }
+  }
+
+  async getClosedInLastTwoHours(source?: string): Promise<any> {
+
+    try {
+      await this.initReviewSystem();
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+      const matchStage: any = {
+        status: 'closed',
+        closedAt: { $gte: twoHoursAgo },
+      };
+
+      if (source !== "whatsapp") {
+        source = "AJRASAKHA"
+      }
+      matchStage.source = source.toUpperCase();
+
+      const count = await this.QuestionCollection.countDocuments(
+        matchStage,
+      );
+
+      return count;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get closed questions in last two hours: ${error}`,
       );
     }
   }

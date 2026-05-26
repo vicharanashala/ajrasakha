@@ -1,13 +1,20 @@
 import { Card, CardHeader } from "@/components/atoms/card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 
-type WhatsAppUniqueUsersCardProps = {
-  totalUsers: number;
+type ClosedInLastTwoHoursCardProps = {
+  count: number;
+  totalClosed: number;
 };
 
-export function WhatsAppUniqueUsersCard({
-  totalUsers,
-}: WhatsAppUniqueUsersCardProps) {
+export function ClosedInLastTwoHoursCard({
+  count,
+  totalClosed,
+}: ClosedInLastTwoHoursCardProps) {
   return (
     <Card
       className="
@@ -16,17 +23,12 @@ export function WhatsAppUniqueUsersCard({
         rounded-2xl
         bg-background/80
         backdrop-blur
-         h-fit
-      "
+        h-fit      
+        "
     >
       <CardHeader className="pb-10">
-        <div
-          className="
-            text-sm
-            text-muted-foreground
-          "
-        >
-          Total WhatsApp Users
+        <div className="text-sm text-muted-foreground">
+          Closed in Last 2 Hours
         </div>
 
         <div
@@ -34,6 +36,7 @@ export function WhatsAppUniqueUsersCard({
             flex
             items-center
             justify-between
+            gap-2
           "
         >
           <div
@@ -43,7 +46,7 @@ export function WhatsAppUniqueUsersCard({
               tracking-tight
             "
           >
-            {totalUsers}
+            {count} / {totalClosed}
           </div>
 
           <TooltipProvider>
@@ -60,10 +63,8 @@ export function WhatsAppUniqueUsersCard({
                 </span>
               </TooltipTrigger>
 
-              <TooltipContent className="max-w-[260px]">
-                <p>
-                  Total distinct WhatsApp users in the system.
-                </p>
+              <TooltipContent className="max-w-[240px]">
+                <p>Questions closed during the last two hours.</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
