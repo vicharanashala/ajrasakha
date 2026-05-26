@@ -433,6 +433,7 @@ async downloadChatbotReport(
     endDate?: string;
     source?: string;
     downloadFormat?: 'pdf' | 'xlsx';
+    state?: string
   },
 
   @Res() response: any,
@@ -447,8 +448,10 @@ async downloadChatbotReport(
 
     const startDate = new Date(query.startDate);
     const endDate = new Date(query.endDate);
-
+    const state = query.state
     const format = query.downloadFormat || 'xlsx';
+
+    console.log("state is", state)
 
     let data: ArrayBuffer | Buffer | null = null;
 
@@ -461,6 +464,7 @@ async downloadChatbotReport(
         await this.chatbotService.generateChatbotAnalyticsPdfReport(
           startDate,
           endDate,
+          state,
           query.source,
         );
 
@@ -489,6 +493,7 @@ async downloadChatbotReport(
       await this.chatbotService.generateChatbotAnalyticsExcelReport(
         startDate,
         endDate,
+        state,
         query.source,
       );
 

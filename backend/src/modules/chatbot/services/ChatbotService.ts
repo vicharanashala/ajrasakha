@@ -24,6 +24,9 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 import PDFDocument from 'pdfkit';
 import {WhatsappUsers} from '#root/utils/dummyWhatsAppUsers.js';
 import {access} from 'node:fs';
+import {aiConfig} from '#root/config/ai.js';
+import {appConfig} from '#root/config/app.js';
+import axios from 'axios';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -38,111 +41,288 @@ export class ChatbotService extends BaseService implements IChatbotService {
     super(mongoDatabase);
   }
 
-  private drawTable(doc: PDFKit.PDFDocument, title: string, data: any[]) {
-    doc.fontSize(16).text(title, {
-      underline: true,
-    });
+  private drawTable(
+    doc: PDFKit.PDFDocument,
+    title: string,
+    data: any[],
+    state?: string,
+  ) {
+    console.log('drawing table with state', state);
+    const tableConfigs: Record<
+      string,
+      {
+        headers: string[];
+        fields: string[];
+        widths: number[];
+        showTotal?: boolean;
+      }
+    > = {
+      'Monthly Queries': {
+        headers: ['Period', 'Query Count'],
+        fields: ['period', 'queryCount'],
+        widths: [250, 200],
+      },
 
-    doc.moveDown();
+      'Weekly Queries': {
+        headers: ['Period', 'Query Count'],
+        fields: ['period', 'queryCount'],
+        widths: [250, 200],
+      },
+
+      'Daily Queries': {
+        headers: ['Period', 'Query Count'],
+        fields: ['period', 'queryCount'],
+        widths: [250, 200],
+      },
+
+      'Gender Split': {
+        headers: ['Gender', 'Count'],
+        fields: ['label', 'count'],
+        widths: [250, 200],
+        showTotal: true,
+      },
+
+      'Farming Experience': {
+        headers: ['Experience', 'Number of Farmer'],
+        fields: ['label', 'count'],
+        widths: [250, 200],
+        showTotal: true,
+      },
+
+      'Age Group': {
+        headers: ['Age', 'Data'],
+        fields: ['label', 'count'],
+        widths: [250, 200],
+        showTotal: true,
+      },
+
+      'Query Catagories': {
+        headers: ['Query Type', 'Unique', 'Duplicate'],
+        fields: ['label', 'questionCount', 'duplicateQuestionCount'],
+        widths: [300, 80, 80],
+      },
+
+      'Top Crops': {
+        headers: ['Crop Name', 'Count'],
+        fields: ['name', 'count'],
+        widths: [220, 220],
+        showTotal: true,
+      },
+      'Top Faqs': {
+        headers: ['Question', 'Count'],
+        fields: ['question', 'count'],
+        widths: [260, 220],
+      },
+
+      Analytics: {
+        headers: ['District', 'Unique Count', 'Duplicate Count', 'Total'],
+        fields: [
+          'district',
+          'uniqueQuestions',
+          'duplicateQuestions',
+          'totalQuestions',
+        ],
+        widths: [180, 110, 110, 80],
+      },
+      'Positive Feedback': {
+        headers: ['Feedback Type', 'Count'],
+        fields: ['tag', 'count'],
+        widths: [320, 140],
+      },
+
+      'Negative Feedback': {
+        headers: ['Feedback Type', 'Count'],
+        fields: ['tag', 'count'],
+        widths: [320, 140],
+      },
+    };
+
+    const feedbackLabelMap: Record<string, string> = {
+      accurate_reliable: 'Accurate and Reliable',
+
+      clear_well_written: 'Clear and Well-Written',
+
+      attention_to_detail: 'Attention to Detail',
+
+      creative_solution: 'Creative Solution',
+
+      inaccurate: 'Inaccurate or Incorrect',
+
+      not_matched: "Didn't Match Question",
+
+      bad_style: 'Poor Style or Tone',
+
+      missing_image: 'Expected an Image',
+
+      unjustified_refusal: 'Refused with Reason',
+
+      not_helpful: 'Lacked Useful Information',
+    };
+
+    const config = tableConfigs[title];
+
+    if (!config) return;
 
     const startX = 50;
     let currentY = doc.y;
+    const rowHeight = 30;
 
-    const col1Width = 220;
-    const col2Width = 220;
-    const rowHeight = 25;
-    let total: number;
-    if (
-      title === 'Gender Split' ||
-      title === 'Farming Experience' ||
-      title === 'Age Group'
-    ) {
-      total = data.reduce((acc, obj) => acc + obj.count, 0);
+    // ─────────────────────────────────────
+    // TITLE
+    // ─────────────────────────────────────
+
+    doc.fontSize(16).font('Helvetica-Bold').text(title, startX, currentY);
+
+    currentY += 30;
+
+    let total: number | string;
+    if (title === 'Analytics' && state) {
+      doc
+        .font('Helvetica')
+        .fontSize(11)
+        .text(`State: ${state}`, startX, currentY);
+
+      currentY += 25;
     }
 
-    // Header
-    doc.rect(startX, currentY, col1Width, rowHeight).stroke();
+    // ─────────────────────────────────────
+    // HEADER DRAWER
+    // ─────────────────────────────────────
 
-    doc.rect(startX + col1Width, currentY, col2Width, rowHeight).stroke();
+    const drawHeader = () => {
+      let currentX = startX;
 
-    if (
-      title === 'Monthly Queries' ||
-      title === 'Weekly Queries' ||
-      title === 'Daily Queries'
-    ) {
-      doc.fontSize(12).text('Period', startX + 10, currentY + 7);
+      config.headers.forEach((header, index) => {
+        const width = config.widths[index];
 
-      doc.text('Query Count', startX + col1Width + 10, currentY + 7);
-    } else if (title === 'Gender Split') {
-      doc.fontSize(12).text('Gender', startX + 10, currentY + 7);
-      doc.text('Count', startX + col1Width + 10, currentY + 7);
-    } else if (title === 'Farming Experience') {
-      doc.fontSize(12).text('Experience', startX + 10, currentY + 7);
-      doc.text('Number of Farmer', startX + col1Width + 10, currentY + 7);
-    } else if (title === 'Age Group') {
-      doc.fontSize(12).text('Age', startX + 10, currentY + 7);
-      doc.text('Data', startX + col1Width + 10, currentY + 7);
-    }
-    currentY += rowHeight;
+        doc.rect(currentX, currentY, width, rowHeight).stroke();
 
-    // Rows
-    data.forEach(item => {
-      doc.rect(startX, currentY, col1Width, rowHeight).stroke();
+        doc
+          .fontSize(12)
+          .font('Helvetica-Bold')
+          .text(header, currentX + 8, currentY + 8, {
+            width: width - 16,
+            align: 'left',
+          });
 
-      doc.rect(startX + col1Width, currentY, col2Width, rowHeight).stroke();
-
-      if (
-        title === 'Monthly Queries' ||
-        title === 'Weekly Queries' ||
-        title === 'Daily Queries'
-      ) {
-        doc.text(item.period ?? '-', startX + 10, currentY + 7);
-
-        doc.text(
-          String(item.queryCount ?? 0),
-          startX + col1Width + 10,
-          currentY + 7,
-        );
-      } else if (
-        title === 'Gender Split' ||
-        title === 'Farming Experience' ||
-        title === 'Age Group'
-      ) {
-        doc.text(item.label, startX + 10, currentY + 7);
-        doc.text(
-          String(item.count ?? 0),
-          startX + col1Width + 10,
-          currentY + 7,
-        );
-      }
+        currentX += width;
+      });
 
       currentY += rowHeight;
+    };
 
-      // Prevent overflow
-      if (currentY > 720) {
+    drawHeader();
+
+    // ─────────────────────────────────────
+    // ROWS
+    // ─────────────────────────────────────
+
+    data.forEach(item => {
+      // Dynamic row height for long FAQs
+      let dynamicRowHeight = rowHeight;
+
+      if (title === 'Top Faqs') {
+        dynamicRowHeight = 55;
+      }
+
+      // Check BEFORE rendering row
+      if (currentY + dynamicRowHeight > 720) {
         doc.addPage();
 
         currentY = 50;
+
+        // Redraw title
+        doc.fontSize(16).font('Helvetica-Bold').text(title, startX, currentY);
+
+        currentY += 30;
+
+        // Redraw analytics state
+        if (title === 'Analytics' && state) {
+          doc
+            .font('Helvetica')
+            .fontSize(11)
+            .text(`State: ${state}`, startX, currentY);
+
+          currentY += 25;
+        }
+
+        // Redraw header
+        drawHeader();
       }
+
+      let currentX = startX;
+
+      config.fields.forEach((field, index) => {
+        const width = config.widths[index];
+
+        doc.rect(currentX, currentY, width, dynamicRowHeight).stroke();
+
+        let value =
+          field === 'tag'
+            ? (feedbackLabelMap[item[field]] ?? item[field])
+            : String(item[field] ?? '-');
+
+        doc
+          .font('Helvetica')
+          .fontSize(11)
+          .text(value, currentX + 8, currentY + 8, {
+            width: width - 16,
+            align: 'left',
+          });
+
+        currentX += width;
+      });
+
+      currentY += dynamicRowHeight;
     });
 
-    if (
-      title === 'Gender Split' ||
-      title === 'Farming Experience' ||
-      title === 'Age Group'
-    ) {
-      doc.moveDown(0.5);
+    // ─────────────────────────────────────
+    // TOTAL
+    // ─────────────────────────────────────
+
+    if (config.showTotal) {
+      total = data.reduce((acc, item) => acc + (item.count ?? 0), 0);
+
+      currentY += 10;
 
       doc
+        .font('Helvetica-Bold')
         .fontSize(10)
-        .text(`Total = ${total}`, startX + col1Width + 10, currentY + 5, {
-          width: col2Width - 20,
-          align: 'left',
-        });
-
-      currentY += 20;
+        .text(`$Total = ${total}`, startX + config.widths[0] + 10, currentY);
     }
-    doc.moveDown(2);
+
+    doc.moveDown(3);
+  }
+
+  private readonly baseUrl =
+    'http://' + aiConfig.serverIP + ':' + aiConfig.whatsAppServerPort;
+  private readonly WHATSAPP_SERVER_URL = aiConfig.WHATSAPP_SERVER_URL;
+  private readonly WA_WEBHOOK_API_KEY = appConfig.WA_WEBHOOK_API_KEY;
+
+  private async getInactiveUsers() {
+    try {
+      const response = await axios.get(
+        `${this.WHATSAPP_SERVER_URL}/whatsapp/users`,
+        {
+          params: {
+            isPaginated: false,
+            skip: 0,
+            limit: 100,
+          },
+          headers: {
+            'x-internal-api-key': this.WA_WEBHOOK_API_KEY,
+          },
+        },
+      );
+
+      const usersResponse = response.data;
+
+      return usersResponse;
+    } catch (error) {
+      console.error('Error fetching inactive WhatsApp users:', error);
+
+      throw new InternalServerError('Failed to fetch inactive WhatsApp users');
+    }
   }
 
   async getDashboard(
@@ -1261,6 +1441,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async generateChatbotAnalyticsExcelReport(
     startDate: Date,
     endDate: Date,
+    state: string,
     source = 'vicharanashala',
     userType = 'all',
     month?: string,
@@ -1270,12 +1451,16 @@ export class ChatbotService extends BaseService implements IChatbotService {
       // FETCH REPORT DATA
       // ─────────────────────────────────────────────────────────────
 
+      console.log("State", state)
+
       const reportData = await this.chatbotRepository.generateChatBotData(
         startDate,
         endDate,
         30,
         source,
         userType,
+        undefined,
+        state,
       );
 
       if (!reportData) return null;
@@ -1397,6 +1582,18 @@ export class ChatbotService extends BaseService implements IChatbotService {
         {
           metric: 'Daily Active Users',
           value: reportData.dau ?? 0,
+        },
+        {metric: "Total Feedbacks",
+         value: reportData.feedback 
+        },
+        {metric: "Total Positive Feedback",
+         value: reportData.positiveFeedBackCount 
+        },
+        {metric: "Total Negative Feedback",
+         value: reportData.negativeFeedBackCount 
+        },
+        {metric: "Positive Percentage",
+         value: reportData.feedbackAccpetancePct 
         },
       ]);
 
@@ -1555,6 +1752,196 @@ export class ChatbotService extends BaseService implements IChatbotService {
         currentRow,
       );
 
+      const queryCategorySheet = wb.addWorksheet('Query Categories');
+
+      queryCategorySheet.columns = [
+        {
+          header: 'Query Type',
+          key: 'label',
+          width: 40,
+        },
+        {
+          header: 'Unique Queries',
+          key: 'unique',
+          width: 20,
+        },
+        {
+          header: 'Duplicate Queries',
+          key: 'duplicate',
+          width: 20,
+        },
+      ];
+
+      (reportData.queryCatagoryData || []).forEach((item: any) => {
+        queryCategorySheet.addRow({
+          label: item.label ?? '',
+          unique: item.questionCount ?? 0,
+          duplicate: item.duplicateQuestionCount ?? 0,
+        });
+      });
+
+      const cropsSheet = wb.addWorksheet('Top Crops');
+
+      cropsSheet.columns = [
+        {
+          header: 'Crop Name',
+          key: 'name',
+          width: 35,
+        },
+        {
+          header: 'Count',
+          key: 'count',
+          width: 15,
+        },
+      ];
+
+      (reportData.topCrops?.topCrops || []).forEach((item: any) => {
+        cropsSheet.addRow({
+          name: item.name ?? '',
+          count: item.count ?? 0,
+        });
+      });
+
+      const faqSheet = wb.addWorksheet('Top FAQs');
+
+      faqSheet.columns = [
+        {
+          header: 'Question',
+          key: 'question',
+          width: 80,
+        },
+        {
+          header: 'Count',
+          key: 'count',
+          width: 15,
+        },
+      ];
+
+      (reportData.topTenFaqs || []).forEach((item: any) => {
+        faqSheet.addRow({
+          question: item.question ?? '',
+          count: item.count ?? 0,
+        });
+      });
+
+      const analyticsSheet = wb.addWorksheet('Analytics');
+
+      analyticsSheet.columns = [
+        {
+          header: 'District',
+          key: 'district',
+          width: 35,
+        },
+        {
+          header: 'Unique Questions',
+          key: 'unique',
+          width: 20,
+        },
+        {
+          header: 'Duplicate Questions',
+          key: 'duplicate',
+          width: 20,
+        },
+        {
+          header: 'Total Questions',
+          key: 'total',
+          width: 20,
+        },
+      ];
+
+      analyticsSheet.addRow({
+        district: `State: ${state || 'N/A'}`,
+      });
+
+      (reportData.districtAnalytics || []).forEach((item: any) => {
+        analyticsSheet.addRow({
+          district: item.district ?? '',
+          unique: item.uniqueQuestions ?? 0,
+          duplicate: item.duplicateQuestions ?? 0,
+          total: item.totalQuestions ?? 0,
+        });
+      });
+
+      const feedbackSheet = wb.addWorksheet('Feedback');
+
+      const feedbackLabelMap: Record<string, string> = {
+        accurate_reliable: 'Accurate and Reliable',
+
+        clear_well_written: 'Clear and Well-Written',
+
+        attention_to_detail: 'Attention to Detail',
+
+        creative_solution: 'Creative Solution',
+
+        inaccurate: 'Inaccurate or Incorrect',
+
+        not_matched: "Didn't Match Question",
+
+        bad_style: 'Poor Style or Tone',
+
+        missing_image: 'Expected an Image',
+
+        unjustified_refusal: 'Refused with Reason',
+
+        not_helpful: 'Lacked Useful Information',
+      };
+
+      feedbackSheet.mergeCells('A1:B1');
+
+      feedbackSheet.getCell('A1').value = 'Positive Feedback';
+
+      feedbackSheet.getCell('A1').font = {
+        bold: true,
+        size: 14,
+      };
+
+      feedbackSheet.columns = [
+        {
+          header: 'Feedback Type',
+          key: 'type',
+          width: 40,
+        },
+        {
+          header: 'Count',
+          key: 'count',
+          width: 15,
+        },
+      ];
+
+      feedbackSheet.addRow(['Feedback Type', 'Count']);
+
+      (reportData.positiveFeedback || []).forEach((item: any) => {
+        feedbackSheet.addRow({
+          type: feedbackLabelMap[item.tag] ?? item.tag,
+          count: item.count ?? 0,
+        });
+      });
+
+      const negativeStartRow = feedbackSheet.rowCount + 3;
+
+      feedbackSheet.mergeCells(`A${negativeStartRow}:B${negativeStartRow}`);
+
+      feedbackSheet.getCell(`A${negativeStartRow}`).value = 'Negative Feedback';
+
+      feedbackSheet.getCell(`A${negativeStartRow}`).font = {
+        bold: true,
+        size: 14,
+      };
+
+      const negativeHeaderRow = feedbackSheet.getRow(negativeStartRow + 1);
+
+      negativeHeaderRow.getCell(1).value = 'Feedback Type';
+
+      negativeHeaderRow.getCell(2).value = 'Count';
+
+      (reportData.negativeFeedback || []).forEach((item: any, idx: number) => {
+        const row = feedbackSheet.getRow(negativeStartRow + 2 + idx);
+
+        row.getCell(1).value = feedbackLabelMap[item.tag] ?? item.tag;
+
+        row.getCell(2).value = item.count ?? 0;
+      });
+
       // ─────────────────────────────────────────────────────────────
       // STYLE ALL SHEETS
       // ─────────────────────────────────────────────────────────────
@@ -1565,6 +1952,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
         weeklySheet,
         dailySheet,
         demographicsSheet,
+        queryCategorySheet,
+        cropsSheet,
+        faqSheet,
+        analyticsSheet,
+        feedbackSheet,
       ].forEach(sheet => {
         styleHeader(sheet);
         styleRows(sheet);
@@ -1586,19 +1978,27 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async generateChatbotAnalyticsPdfReport(
     startDate: Date,
     endDate: Date,
+    state: string,
     source = 'vicharanashala',
     userType = 'all',
     month?: string,
   ): Promise<Buffer> {
     try {
+      console.log('PDF report generated with state', state);
       const reportData = await this.chatbotRepository.generateChatBotData(
         startDate,
         endDate,
         30,
         source,
         userType,
+        undefined,
+        state,
       );
 
+      console.log('reportDate', reportData);
+
+      // const inactiveUsers = await this.getInactiveUsers()
+      // console.log("Inactive users list", inactiveUsers);
       const doc = new PDFDocument({
         margin: 40,
         size: 'A4',
@@ -1643,6 +2043,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
       );
 
       doc.text(`Daily Active Users: ${reportData.dau ?? 0}`);
+
+      doc.text(`Total Feedbacks: ${reportData.feedback ?? 0}`);
+
+      doc.text(
+        `Total positive feedback: ${reportData.positiveFeedBackCount ?? 0}`,
+      );
+
+      doc.text(
+        `Total negative feedback: ${reportData.negativeFeedBackCount ?? 0}`,
+      );
+
+      doc.text(
+        `Average Acceptance percentage: ${reportData.feedbackAccpetancePct ?? 0}%`,
+      );
 
       doc.moveDown(2);
 
@@ -1709,6 +2123,35 @@ export class ChatbotService extends BaseService implements IChatbotService {
       this.drawTable(doc, 'Age Group', reportData.ageGroup || []);
 
       // doc.moveDown(2)
+
+      this.drawTable(
+        doc,
+        'Query Catagories',
+        reportData.queryCatagoryData || [],
+      );
+
+      this.drawTable(doc, 'Top Crops', reportData.topCrops.topCrops || []);
+
+      this.drawTable(doc, 'Top Faqs', reportData.topTenFaqs || []);
+
+      this.drawTable(
+        doc,
+        'Analytics',
+        reportData.districtAnalytics || [],
+        state,
+      );
+
+      this.drawTable(
+        doc,
+        'Positive Feedback',
+        reportData.positiveFeedback || [],
+      );
+
+      this.drawTable(
+        doc,
+        'Negative Feedback',
+        reportData.negativeFeedback || [],
+      );
 
       doc.end();
 
