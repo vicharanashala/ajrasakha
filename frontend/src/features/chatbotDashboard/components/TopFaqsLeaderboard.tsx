@@ -351,85 +351,143 @@ export function TopFaqsLeaderboard({
 
       {isFaqModalOpen &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-[#121212] border border-border dark:border-[#2a2a2a] rounded-2xl w-full max-w-4xl h-[75vh] flex flex-col shadow-2xl animate-in scale-in duration-200 overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-[#1a1a1a]">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500">
-                    <RefreshCw className="w-4 h-4 text-amber-500" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
+            {/* Modal Container */}
+            <div className="relative w-full max-w-4xl h-[78vh] overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50 to-slate-100 shadow-[0_20px_80px_rgba(15,23,42,0.18)] dark:border-white/[0.06] dark:bg-[#121212] dark:from-[#18181b] dark:via-[#161616] dark:to-[#121212] dark:shadow-black/40 flex flex-col animate-in zoom-in-95 duration-200">
+              {/* Glow Layer */}
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.08),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(55,138,221,0.08),transparent_28%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.12),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(55,138,221,0.12),transparent_28%)]" />
+
+              {/* Header */}
+              <div className="relative z-10 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.03] backdrop-blur-xl px-6 py-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-500 shadow-sm dark:border-amber-500/20 dark:bg-amber-500/10">
+                    <RefreshCw className="w-5 h-5" />
                   </div>
+
                   <div>
-                    <h3 className="text-base font-semibold text-gray-100">
+                    <h3 className="text-lg font-semibold tracking-tight text-slate-800 dark:text-gray-100">
                       Frequently Asked Queries
                     </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Top chatbot messages ranked by occurrence (Query Repeat
-                      Rate: {Number(repeatQueryRatePct).toFixed(1)}%)
+
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-muted-foreground">
+                      Top chatbot messages ranked by occurrence
+                      <span className="ml-1 font-semibold text-amber-600 dark:text-amber-400">
+                        ({Number(repeatQueryRatePct).toFixed(1)}% repeat rate)
+                      </span>
                     </p>
                   </div>
                 </div>
+
+                {/* Close Button */}
                 <button
                   onClick={() => setIsFaqModalOpen(false)}
-                  className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-100 transition-colors"
+                  className="
+          flex items-center justify-center
+          h-10 w-10
+          rounded-xl
+          border border-slate-200
+          bg-white/80
+          text-slate-500
+          shadow-sm
+          transition-all duration-200
+          hover:bg-slate-100
+          hover:text-slate-900
+          hover:shadow-md
+          dark:border-white/[0.06]
+          dark:bg-white/[0.04]
+          dark:text-gray-400
+          dark:hover:bg-white/[0.08]
+          dark:hover:text-white
+        "
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-hidden p-6 bg-[#161616]">
+              {/* Content */}
+              <div className="relative z-10 flex-1 overflow-hidden p-6">
                 {faqs.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
-                    <MessageCircle className="w-10 h-10 text-muted-foreground/25 mb-3" />
-                    <p className="text-sm font-medium text-muted-foreground/60">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                      <MessageCircle className="w-7 h-7 text-slate-400 dark:text-muted-foreground/30" />
+                    </div>
+
+                    <p className="mt-5 text-sm font-semibold text-slate-700 dark:text-muted-foreground/70">
                       No frequently asked messages found
                     </p>
-                    <p className="text-xs text-muted-foreground/40 mt-1">
+
+                    <p className="mt-1 text-xs text-slate-500 dark:text-muted-foreground/40">
                       Try adjusting the date range to see results
                     </p>
                   </div>
                 ) : (
                   <ScrollArea className="h-full w-full pr-4">
-                    <div className="space-y-4">
+                    <div className="space-y-4 pb-2">
                       {faqs.map((item, index) => {
                         const faqMaxCount = faqs.length > 0 ? faqs[0].count : 1;
+
                         const heatAlpha = Math.max(
                           0.06,
-                          (item.count / faqMaxCount) * 0.2,
+                          (item.count / faqMaxCount) * 0.18,
                         );
+
                         const isTop3 = index < 3;
+
                         return (
                           <div
                             key={index}
-                            className="flex items-start gap-4 p-4 rounded-xl border border-[#2a2a2a] bg-[#1d1d1d] hover:bg-[#232323] transition-all duration-200 group"
+                            className="
+                    group relative
+                    flex items-start gap-4
+                    rounded-2xl
+                    border border-slate-200/70
+                    bg-white/80
+                    p-4
+                    shadow-sm
+                    transition-all duration-200
+                    hover:-translate-y-[1px]
+                    hover:border-slate-300
+                    hover:bg-white
+                    hover:shadow-lg
+                    dark:border-white/[0.06]
+                    dark:bg-white/[0.03]
+                    dark:hover:border-white/[0.10]
+                    dark:hover:bg-white/[0.05]
+                  "
                           >
+                            {/* soft hover glow */}
+                            <div className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.05),transparent_35%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.08),transparent_35%)]" />
+
                             {getRankBadge(index)}
 
-                            <div className="flex-1 min-w-0">
-                              {/* Speech bubble style message */}
+                            <div className="relative z-10 flex-1 min-w-0">
+                              {/* Bubble */}
                               <div
-                                className="relative rounded-2xl rounded-tl-sm px-4 py-3 border border-white/[0.06]"
+                                className="relative rounded-2xl rounded-tl-sm border border-slate-200/70 px-4 py-3 dark:border-white/[0.06]"
                                 style={{
                                   backgroundColor: `rgba(58, 170, 90, ${heatAlpha})`,
                                 }}
                               >
                                 <div className="flex items-start justify-between gap-3">
-                                  <p className="text-sm text-gray-100 font-medium leading-relaxed break-words">
+                                  <p className="text-sm font-medium leading-relaxed break-words text-slate-700 dark:text-gray-100">
                                     {item.question}
                                   </p>
+
                                   <span
-                                    className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border shrink-0 mt-0.5 ${
+                                    className={`inline-flex items-center gap-1.5 shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold shadow-sm ${
                                       isTop3
-                                        ? "bg-[#3AAA5A]/10 border-[#3AAA5A]/25 text-[#3AAA5A]"
-                                        : "bg-[#378ADD]/10 border-[#378ADD]/25 text-[#378ADD]"
+                                        ? "border-[#3AAA5A]/25 bg-[#3AAA5A]/10 text-[#3AAA5A]"
+                                        : "border-[#378ADD]/20 bg-[#378ADD]/10 text-[#378ADD]"
                                     }`}
                                   >
                                     <MessageSquare className="w-3.5 h-3.5" />
                                     {item.count.toLocaleString()}
                                   </span>
                                 </div>
-                                {/* Bubble tail */}
+
+                                {/* Bubble Tail */}
                                 <div
-                                  className="absolute -left-2 top-3 w-4 h-4 rotate-45 border-l border-b border-white/[0.06]"
+                                  className="absolute -left-2 top-3 h-4 w-4 rotate-45 border-b border-l border-slate-200/70 dark:border-white/[0.06]"
                                   style={{
                                     backgroundColor: `rgba(58, 170, 90, ${heatAlpha})`,
                                   }}
