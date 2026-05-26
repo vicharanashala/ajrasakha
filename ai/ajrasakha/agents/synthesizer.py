@@ -178,7 +178,7 @@ async def _synthesize_from_specialist_tools(
     user_text: str,
     vocal_language: str,
     script_language: str,
-    summary_context: str,
+    # summary_context: str,
     messages: list[BaseMessage],
 ) -> dict:
     """Synthesize from weather/market/soil/schemes tools when GDB has no usable answer."""
@@ -187,7 +187,7 @@ async def _synthesize_from_specialist_tools(
     llm_messages: list[BaseMessage] = [
         SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
         SystemMessage(content=language_directive_for_synthesis(vocal_language, script_language)),
-        SystemMessage(content=summary_context),
+        # SystemMessage(content=summary_context),
     ]
     loc_ctx = main_agent_location_context_message(state.get("location"))
     if loc_ctx:
@@ -250,11 +250,11 @@ async def synthesize_node(
         repr(user_text[:80]),
     )
     long_term_summary = await load_long_term_summary(store, config)
-    summary_context = (
-        f"Long-term memory:\n{long_term_summary}"
-        if long_term_summary
-        else "Long-term memory: none"
-    )
+    # summary_context = (
+    #     f"Long-term memory:\n{long_term_summary}"
+    #     if long_term_summary
+    #     else "Long-term memory: none"
+    # )
 
     # Parse GDB response to determine exact vs similar
     gdb_data = _extract_gdb_from_messages(messages)
@@ -275,8 +275,8 @@ async def synthesize_node(
 
         llm_messages: list[BaseMessage] = [
             SystemMessage(content=EXACT_MATCH_REPHRASE_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
-            SystemMessage(content=summary_context),
+            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang))
+            # SystemMessage(content=summary_context),
         ]
         loc_ctx = main_agent_location_context_message(state.get("location"))
         if loc_ctx:
@@ -335,8 +335,8 @@ async def synthesize_node(
         # ── SIMILAR MATCH: Full synthesis ─────────────────────────────
         llm_messages: list[BaseMessage] = [
             SystemMessage(content=SIMILAR_MATCH_SYNTHESIS_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
-            SystemMessage(content=summary_context),
+            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang))
+            # SystemMessage(content=summary_context),
         ]
         loc_ctx = main_agent_location_context_message(state.get("location"))
         if loc_ctx:
@@ -368,7 +368,7 @@ async def synthesize_node(
                     user_text=user_text,
                     vocal_language=vocal_lang,
                     script_language=script_lang,
-                    summary_context=summary_context,
+                    # summary_context=summary_context,
                     messages=messages,
                 )
             logger.info(
@@ -425,7 +425,7 @@ async def synthesize_node(
                 user_text=user_text,
                 vocal_language=vocal_lang,
                 script_language=script_lang,
-                summary_context=summary_context,
+                # summary_context=summary_context,
                 messages=messages,
             )
         logger.info("No usable GDB and no specialist tools — returning expert-queue canned reply")

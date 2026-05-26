@@ -38,10 +38,10 @@ from ajrasakha.agents.translation_catalog import (
     language_pair_from_plan,
 )
 from ajrasakha.agents.location_context import (
+    extract_state_from_text,
     gps_state_from_location,
     latest_human_text,
     main_agent_location_context_message,
-    resolve_state_for_turn,
 )
 from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
@@ -202,12 +202,44 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
     }
 
 
+def _extract_state_from_history(
+    messages: list[BaseMessage],
+    max_turns: int = 4,
+) -> Optional[str]:
+    """Extract state from last N human messages (most recent first).
+
+    Returns state from the FIRST mention found
+    when walking backwards from the most recent message.
+    """
+    human_messages = [msg for msg in messages if isinstance(msg, HumanMessage)]
+    recent = human_messages[-max_turns:] if len(human_messages) > max_turns else human_messages
+    for msg in reversed(recent):
+        text = _message_to_text(msg)
+        state = extract_state_from_text(text)
+        if state:
+            return state
+    return None
+
+
 def _resolve_state_deterministic(
     messages: list[BaseMessage],
     location: Optional[dict],
+    prev_entities: Optional[PlannerEntities] = None,
 ) -> Optional[str]:
-    """Deterministically resolve state: latest message text, then GPS thread location."""
-    return resolve_state_for_turn(latest_human_text(messages), location)
+    """Deterministically resolve state: prev_entities (previous turns), then latest text, then history, then GPS."""
+    # Priority 0: State from previous planner turns (carry-over from clarification)
+    if prev_entities and prev_entities.get("state"):
+        return prev_entities.get("state")
+    # Priority 1: Latest message only
+    state_from_latest = extract_state_from_text(latest_human_text(messages))
+    if state_from_latest:
+        return state_from_latest
+    # Priority 2: Conversation history (last 4 human turns)
+    state_from_history = _extract_state_from_history(messages, max_turns=4)
+    if state_from_history:
+        return state_from_history
+    # Priority 3: GPS thread location
+    return gps_state_from_location(location)
 
 
 async def _apply_domain_and_crop_async(
@@ -321,8 +353,10 @@ async def planner_node(
         return {"plan": plan}
 
     location = state.get("location")
+    # Extract previous entities BEFORE LLM call so state can be carried forward
+    prev_entities: PlannerEntities = dict(state.get("plan", {}).get("entities") or {})
 
-    state_resolved = _resolve_state_deterministic(messages, location)
+    state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
     crop_resolved = resolve_crop_for_turn(messages)
 
     has_gps = bool(
@@ -382,7 +416,7 @@ async def planner_node(
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
 
-        entities = merge_entities_from_rephrased_query(plan, messages, location)
+        entities = merge_entities_from_rephrased_query(plan, messages, location, prev_entities)
         plan["entities"] = entities
 
         plan, domain, crop_required = await _apply_domain_and_crop_async(
@@ -407,7 +441,7 @@ async def planner_node(
         plan["missing_info"] = missing
         plan["follow_up_question"] = follow_up
 
-        plan = apply_planner_completeness_rules(plan, messages, location)
+        plan = apply_planner_completeness_rules(plan, messages, location, prev_entities)
 
         plan["knowledge_base"] = True
         plan["soil"] = False
