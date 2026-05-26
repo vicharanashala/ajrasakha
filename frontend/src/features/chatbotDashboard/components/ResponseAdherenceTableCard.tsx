@@ -543,7 +543,10 @@ export function ResponseAdherenceTableCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
     >
-      <Card className="group mb-4 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/10 shadow-sm transition-all duration-300 hover:shadow-md">
+      <Card
+        className="group mb-4 overflow-hidden rounded-2xl border border-border/60  bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+"
+      >
         <Accordion type="single" collapsible>
           <AccordionItem value="response-adherence" className="border-none">
             {/* ── Card Header ── */}

@@ -32,8 +32,12 @@ export function CustomerNotificationsCard({
       bg-background/80
       backdrop-blur
       h-fit      
+      bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+
     "
       >
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+
         <CardHeader className="pb-4">
           {/* Header */}
           <motion.div
@@ -43,7 +47,10 @@ export function CustomerNotificationsCard({
             transition={{ duration: 0.35, delay: 0.1 }}
           >
             <div className="text-sm text-muted-foreground">
-              Customer Notifications
+              <div className="flex items-center gap-2">
+                <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+                Customer Notifications
+              </div>
             </div>
 
             <TooltipProvider>

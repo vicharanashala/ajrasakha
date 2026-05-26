@@ -17,7 +17,6 @@ export function ClosedInLastTwoHoursCard({
   totalClosed,
 }: ClosedInLastTwoHoursCardProps) {
   return (
-
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -28,11 +27,13 @@ export function ClosedInLastTwoHoursCard({
           border
           border-border
           rounded-2xl
-          bg-background/80
-          backdrop-blur
-          h-fit      
+          h-fit 
+          pb-6
+          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
           "
       >
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+
         <CardHeader className="pb-10">
           <motion.div
             className="text-sm text-muted-foreground"
@@ -40,7 +41,10 @@ export function ClosedInLastTwoHoursCard({
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            Closed within 2 Hours
+            <div className="flex items-center gap-2 mb-2">
+              <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+              Closed within 2 Hours
+            </div>
           </motion.div>
 
           <div
@@ -59,7 +63,12 @@ export function ClosedInLastTwoHoursCard({
                 "
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: 0.15, type: "spring", stiffness: 200 }}
+              transition={{
+                duration: 0.4,
+                delay: 0.15,
+                type: "spring",
+                stiffness: 200,
+              }}
               key={`${count}-${totalClosed}`}
             >
               {count} / {totalClosed}
@@ -83,7 +92,7 @@ export function ClosedInLastTwoHoursCard({
                 </TooltipTrigger>
 
                 <TooltipContent className="max-w-[240px]">
-                  <p>Questions closed during the last two hours.</p>
+                  <p>Questions closed within 2hours</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
