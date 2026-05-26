@@ -313,7 +313,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   >(undefined);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<"pdf" | "xlsx">("pdf");
-  const [selectedState, setSelectedState] = useState<string>("Punjab");
+  const [selectedState, setSelectedState] = useState<string>("All States");
   // const handleDownload = async () => {
   //   if (!downloadDateRange?.from || !downloadDateRange?.to) return;
 
@@ -485,6 +485,8 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   // On mobile when expanded: overlay mode. Otherwise: inline mode.
   const isOverlay = isMobile && !collapsed;
 
+  const states = ["All States", ...STATES];
+
   // Sidebar content (shared between inline and overlay modes)
   const sidebarContent = (
     <aside
@@ -574,7 +576,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       focus:outline-none focus:ring-2 focus:ring-primary
     "
               >
-                {STATES.map((state) => (
+                {states.map((state) => (
                   <option key={state} value={state}>
                     {state}
                   </option>

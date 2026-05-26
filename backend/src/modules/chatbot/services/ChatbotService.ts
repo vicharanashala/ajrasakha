@@ -27,9 +27,8 @@ import {access} from 'node:fs';
 import {aiConfig} from '#root/config/ai.js';
 import {appConfig} from '#root/config/app.js';
 import axios from 'axios';
-import { WHATSAPP_TYPES } from '#root/modules/whatsapp/types.js';
-import { IWhatsAppService } from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
-
+import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
+import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -119,7 +118,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         widths: [260, 220],
       },
 
-      Analytics: {
+      "District Analytics": {
         headers: ['District', 'Unique Count', 'Duplicate Count', 'Total'],
         fields: [
           'district',
@@ -164,9 +163,16 @@ export class ChatbotService extends BaseService implements IChatbotService {
       not_helpful: 'Lacked Useful Information',
     };
 
+    const analyticsStateLabel =
+      state && state !== 'All States'
+        ? `District categories of ${state}`
+        : 'No state selected';
+
     const config = tableConfigs[title];
 
     if (!config) return;
+
+    
 
     const startX = 50;
     let currentY = doc.y;
@@ -181,11 +187,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
     currentY += 30;
 
     let total: number | string;
-    if (title === 'Analytics' && state) {
+    if (title === 'District Analytics') {
       doc
         .font('Helvetica')
         .fontSize(11)
-        .text(`State: ${state}`, startX, currentY);
+        .text(analyticsStateLabel, startX, currentY);
 
       currentY += 25;
     }
@@ -242,11 +248,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
         currentY += 30;
 
         // Redraw analytics state
-        if (title === 'Analytics' && state) {
+        if (title === 'District Analytics') {
           doc
             .font('Helvetica')
             .fontSize(11)
-            .text(`State: ${state}`, startX, currentY);
+            .text(analyticsStateLabel, startX, currentY);
 
           currentY += 25;
         }
@@ -1456,7 +1462,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       // FETCH REPORT DATA
       // ─────────────────────────────────────────────────────────────
 
-      console.log("State", state)
+      console.log('State', state);
 
       const reportData = await this.chatbotRepository.generateChatBotData(
         startDate,
@@ -1588,17 +1594,18 @@ export class ChatbotService extends BaseService implements IChatbotService {
           metric: 'Daily Active Users',
           value: reportData.dau ?? 0,
         },
-        {metric: "Total Feedbacks",
-         value: reportData.feedback 
+        {metric: 'Total Feedbacks', value: reportData.feedback},
+        {
+          metric: 'Total Positive Feedback',
+          value: reportData.positiveFeedBackCount,
         },
-        {metric: "Total Positive Feedback",
-         value: reportData.positiveFeedBackCount 
+        {
+          metric: 'Total Negative Feedback',
+          value: reportData.negativeFeedBackCount,
         },
-        {metric: "Total Negative Feedback",
-         value: reportData.negativeFeedBackCount 
-        },
-        {metric: "Positive Percentage",
-         value: reportData.feedbackAccpetancePct 
+        {
+          metric: 'Positive Percentage',
+          value: reportData.feedbackAccpetancePct,
         },
       ]);
 
@@ -1829,7 +1836,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         });
       });
 
-      const analyticsSheet = wb.addWorksheet('Analytics');
+      const analyticsSheet = wb.addWorksheet('District Analytics');
 
       analyticsSheet.columns = [
         {
@@ -1855,7 +1862,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       ];
 
       analyticsSheet.addRow({
-        district: `State: ${state || 'N/A'}`,
+        district: `${state === "All States"? "N/A": state}`,
       });
 
       (reportData.districtAnalytics || []).forEach((item: any) => {
@@ -2141,7 +2148,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       this.drawTable(
         doc,
-        'Analytics',
+        'District Analytics',
         reportData.districtAnalytics || [],
         state,
       );
@@ -2405,30 +2412,21 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
     for (const label of labels) {
       // IDs Created
-      const createdCount = whatsAppUsers.data.filter(
-        (user) =>
-          user.firstMessageAt.startsWith(
-            label,
-          ),
+      const createdCount = whatsAppUsers.data.filter(user =>
+        user.firstMessageAt.startsWith(label),
       ).length;
       idsCreated.push(createdCount);
 
       // Installs
       // assuming install = first interaction
-      const installsCount = whatsAppUsers.data.filter(
-        (user) =>
-          user.firstMessageAt.startsWith(
-            label,
-          ),
+      const installsCount = whatsAppUsers.data.filter(user =>
+        user.firstMessageAt.startsWith(label),
       ).length;
       installs.push(installsCount);
 
       // Active users
-      const activeCount = whatsAppUsers.data.filter(
-        (user) =>
-          user.lastMessageAt.startsWith(
-            label,
-          ),
+      const activeCount = whatsAppUsers.data.filter(user =>
+        user.lastMessageAt.startsWith(label),
       ).length;
       activeUsers.push(activeCount);
     }
