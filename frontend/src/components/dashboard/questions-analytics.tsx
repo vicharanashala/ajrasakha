@@ -25,13 +25,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/atoms/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../atoms/select";
 import { Label } from "../atoms/label";
 import { Activity, CalendarIcon, Download, Filter, MapPin } from "lucide-react";
 import { STATES, SOURCES, CROPS } from "../MetaData";
@@ -421,23 +414,9 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                     <Activity className="h-4 w-4 text-primary" />
                     Analytics Type
                   </Label>
-                  <Select
-                    value={draftFilters.analyticsType}
-                    onValueChange={(value) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        analyticsType: value as "question" | "answer",
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
-                      <SelectValue placeholder="Select Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="question">Question</SelectItem>
-                      <SelectItem value="answer">Answer</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground">
+                    Question
+                  </div>
                 </div>
 
                 {/* State */}
