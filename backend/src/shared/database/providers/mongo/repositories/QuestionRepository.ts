@@ -3572,6 +3572,7 @@ export class QuestionRepository implements IQuestionRepository {
     status?: string[],
     state?: string[],
     source?: string[],
+    crop?: string[],
   ): Promise<{ analytics: Analytics }> {
     await this.init();
 
@@ -3579,7 +3580,7 @@ export class QuestionRepository implements IQuestionRepository {
     if (startTime) filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
     if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
 
-    const matchStage: any = { status: { $ne: 'pass' } };
+    const matchStage: any = {};
     if (status?.length) {
       matchStage.status = { $in: status };
     }
@@ -3591,6 +3592,12 @@ export class QuestionRepository implements IQuestionRepository {
     }
     if (source?.length) {
       matchStage.source = { $in: source };
+    }
+    if (crop?.length) {
+      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      matchStage['details.crop'] = {
+        $in: crop.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')),
+      };
     }
 
     const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
