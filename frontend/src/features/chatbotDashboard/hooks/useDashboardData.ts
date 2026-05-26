@@ -421,7 +421,7 @@ export function useDashboardData(
   const endISO = filters?.endTime?.toISOString();
   const userType = filters?.userType ?? "all";
 
-  const { data, isLoading, error } = useQuery<DashboardDataType, Error>({
+  const { data, isLoading, isFetching, error } = useQuery<DashboardDataType, Error>({
     queryKey: [
       "dashboard-data",
       filters?.village ?? "all",
@@ -467,5 +467,5 @@ export function useDashboardData(
   // Use memoized fallback so consumers always get a stable reference
   const safeData = useMemo(() => data ?? DASHBOARD_DATA, [data]);
 
-  return { data: safeData, isLoading, error: error ?? null };
+  return { data: safeData, isLoading, isFetching, error: error ?? null };
 }

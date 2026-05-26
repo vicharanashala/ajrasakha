@@ -91,7 +91,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-  const { data, isLoading, error } = useDashboardData(
+  const { data, isLoading, isFetching, error } = useDashboardData(
     filters,
     source,
     source === "annam" || source === "vicharanashala",
@@ -131,12 +131,12 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     endTime: faqsDateRange?.to,
   }), [filters, faqsDateRange]);
 
-  const { data: trendsData, isLoading: trendsLoading } = useDashboardData(
+  const { data: trendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDashboardData(
     trendsFilters,
     source,
     true,
   );
-  const { data: faqsData, isLoading: faqsLoading } = useDashboardData(
+  const { data: faqsData, isLoading: faqsLoading, isFetching: faqsFetching } = useDashboardData(
     faqsFilters,
     source,
     true,
@@ -175,6 +175,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const {
     data: responseAdherenceData,
     isLoading: isResponseAdherenceLoading,
+    isFetching: isResponseAdherenceFetching,
   } = useDashboardData(responseAdherenceFilters, source);
 
   const {
@@ -479,10 +480,12 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                     ref={(el) => {
                       sectionRefs.current["overview"] = el;
                     }}
-                    className="relative"
+                    className={`relative transition-all duration-300 ${isFetching ? "opacity-50 blur-sm pointer-events-none" : ""}`}
                   >
-                    {isLoading && (
-                      <Spinner text="Fetching metrics..." fullScreen={false} />
+                    {(isLoading || isFetching) && (
+                      <div className="absolute inset-0 z-50 flex items-center justify-center">
+                        <Spinner text="Fetching metrics..." fullScreen={false} />
+                      </div>
                     )}
 
                     {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
@@ -552,7 +555,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                         }
                         selectedDate={responseAdherenceDate}
                         onSelectedDateChange={setResponseAdherenceDate}
-                        isLoading={isResponseAdherenceLoading}
+                        isLoading={isResponseAdherenceLoading || isResponseAdherenceFetching}
                       />
                     )}
                   </div>
