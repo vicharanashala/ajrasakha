@@ -26,7 +26,7 @@ import {
   TabsTrigger,
 } from "@/components/atoms/tabs";
 import { Label } from "../atoms/label";
-import { Activity, CalendarIcon, Download, Filter, MapPin } from "lucide-react";
+import { CalendarIcon, Download, Filter, MapPin } from "lucide-react";
 import { STATES, SOURCES, CROPS } from "../MetaData";
 import { ScrollArea } from "../atoms/scroll-area";
 import { Calendar } from "../atoms/calendar";
@@ -408,15 +408,18 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   />
                 </div>
 
-                {/* Analytics Type */}
+                {/* Crop */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-primary" />
-                    Analytics Type
+                    <Filter className="h-4 w-4 text-primary" />
+                    Crop
                   </Label>
-                  <div className="flex items-center h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground">
-                    Question
-                  </div>
+                  <MultiSelect
+                    items={CROP_OPTIONS}
+                    selected={draftFilters.crop}
+                    onChange={(val) => setDraftFilters((prev) => ({ ...prev, crop: val }))}
+                    placeholder="All Crops"
+                  />
                 </div>
 
                 {/* State */}
@@ -498,19 +501,6 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   )}
                 </div>
 
-                {/* Crop */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-primary" />
-                    Crop
-                  </Label>
-                  <MultiSelect
-                    items={CROP_OPTIONS}
-                    selected={draftFilters.crop}
-                    onChange={(val) => setDraftFilters((prev) => ({ ...prev, crop: val }))}
-                    placeholder="All Crops"
-                  />
-                </div>
               </div>
             <DialogFooter className="gap-2 pt-2 border-t">
               <Button variant="outline" onClick={handleClearFilters}>
