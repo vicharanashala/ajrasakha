@@ -232,6 +232,7 @@ export function EditFarmerModal({
           <select
             value={form.role}
             onChange={(e) => handleChange("role", e.target.value)}
+            disabled
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">Select Role</option>
@@ -244,7 +245,7 @@ export function EditFarmerModal({
             onChange={(e) => handleChange("farmerName", e.target.value)}
             placeholder="Farmer Name"
           />
-          <Input
+          {/* <Input
             value={form.age}
             onChange={(e) => handleChange("age", e.target.value)}
             placeholder="Age"
@@ -393,7 +394,7 @@ export function EditFarmerModal({
               <option value="true">Yes</option>
               <option value="false">No</option>
             </select>
-          </div>
+          </div> */}
         </div>
 
         <DialogFooter>
