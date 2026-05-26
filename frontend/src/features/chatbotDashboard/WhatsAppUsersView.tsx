@@ -480,6 +480,14 @@ export function WhatsAppUsersView() {
             <div className="py-12">
               <Spinner text="Fetching WhatsApp users..." fullScreen={false} />
             </div>
+          ) : activeUsersData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center border rounded-lg bg-card">
+              <Users className="h-10 w-10 text-muted-foreground/50 mb-3" />
+              <h3 className="font-medium text-sm text-foreground">No WhatsApp Users</h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                No WhatsApp user threads or message histories were found in the database.
+              </p>
+            </div>
           ) : (
             <div className="rounded-lg border bg-card overflow-x-auto">
             <Table className="min-w-[1000px]">
