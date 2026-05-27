@@ -48,7 +48,7 @@ export class AiService {
     domain?: string,
   ): Promise<QuestionSearchResponse> {
 
-    const response = await fetch(`${this._agentServerUrl}/search_all`, {
+    const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
