@@ -59,6 +59,19 @@ def _normalize_crop_state(crop: str, state: str) -> tuple[str, str]:
     return crop, state
 
 
+def _author_display_name(user_document: dict | None) -> Optional[str]:
+    """Full expert name: name field, else firstName + lastName."""
+    if not user_document:
+        return None
+    name = (user_document.get("name") or "").strip()
+    if name:
+        return name
+    first = (user_document.get("firstName") or "").strip()
+    last = (user_document.get("lastName") or "").strip()
+    full = " ".join(part for part in (first, last) if part)
+    return full or None
+
+
 async def _get_answer_text_sources_and_author_name(question_id: str):
     answer_document = await answers_collection.find_one(
         {
@@ -70,14 +83,20 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
             "answer": 1,
         },
     )
-    user_document = await users_collection.find_one(
-        {
-            "_id": ObjectId(answer_document["authorId"])
-        }
-    )
-    author_name = user_document['firstName']
-    sources = answer_document["sources"]
-    answer = answer_document["answer"]
+    if not answer_document:
+        return None, [], None
+
+    author_name = None
+    author_id = answer_document.get("authorId")
+    if author_id:
+        user_document = await users_collection.find_one(
+            {"_id": ObjectId(author_id)},
+            {"firstName": 1, "lastName": 1, "name": 1},
+        )
+        author_name = _author_display_name(user_document)
+
+    sources = answer_document.get("sources")
+    answer = answer_document.get("answer")
 
     return answer, sources, author_name
 

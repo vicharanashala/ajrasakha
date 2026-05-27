@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } fr
 import { cn } from "@/lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
+import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
 import { DashboardSidebar } from "./DashboardSidebar";
 import type { DashboardView } from "./DashboardSidebar";
@@ -20,6 +21,7 @@ import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
+import { WhatsAppUsersView } from "./WhatsAppUsersView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
 // import { UserGrowthChart } from "./components/UserGrowthChart";
 const LazyUserGrowthChart = React.lazy(
@@ -89,7 +91,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-  const { data, isLoading, error } = useDashboardData(
+  const { data, isLoading, isFetching, error } = useDashboardData(
     filters,
     source,
     source === "annam" || source === "vicharanashala",
@@ -129,12 +131,12 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     endTime: faqsDateRange?.to,
   }), [filters, faqsDateRange]);
 
-  const { data: trendsData, isLoading: trendsLoading } = useDashboardData(
+  const { data: trendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDashboardData(
     trendsFilters,
     source,
     true,
   );
-  const { data: faqsData, isLoading: faqsLoading } = useDashboardData(
+  const { data: faqsData, isLoading: faqsLoading, isFetching: faqsFetching } = useDashboardData(
     faqsFilters,
     source,
     true,
@@ -173,6 +175,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const {
     data: responseAdherenceData,
     isLoading: isResponseAdherenceLoading,
+    isFetching: isResponseAdherenceFetching,
   } = useDashboardData(responseAdherenceFilters, source);
 
   const {
@@ -275,11 +278,35 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     setActiveView("user-details");
   }, []);
 
+  // Fetch today's active farmers to get accurate DAU count based on profile and lastActiveAt
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const { data: todayActiveFarmersData } = useUserDetails(
+    todayStart,
+    todayEnd,
+    1,
+    1,
+    '',
+    source as any,
+    '',
+    '',
+    'all',
+    false,
+    false,
+    filters.userType as any,
+    'totalQuestions',
+    'desc',
+    true // activeTodayByProfile
+  );
+
   // Patch the DAU card to show "today / total" instead of just total
   const patchedKpiRow1 = useMemo(() => {
     if (!data?.kpiRow1) return data.kpiRow1;
-    const todayCount =
-      dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
+    const todayCount = todayActiveFarmersData?.totalUsers ?? null;
     return data.kpiRow1.map((card) => {
       if (card.id === "dau" && todayCount !== null) {
         return {
@@ -289,7 +316,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
       }
       return card;
     });
-  }, [data.kpiRow1, dauTrend]);
+  }, [data.kpiRow1, todayActiveFarmersData?.totalUsers]);
 
   // Remove these two variables when data is dynamic
   const kpiRow1WithOverlay = patchedKpiRow1
@@ -453,10 +480,12 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                     ref={(el) => {
                       sectionRefs.current["overview"] = el;
                     }}
-                    className="relative"
+                    className={`relative transition-all duration-300 ${isFetching ? "opacity-50 blur-sm pointer-events-none" : ""}`}
                   >
-                    {isLoading && (
-                      <Spinner text="Fetching metrics..." fullScreen={false} />
+                    {(isLoading || isFetching) && (
+                      <div className="absolute inset-0 z-50 flex items-center justify-center">
+                        <Spinner text="Fetching metrics..." fullScreen={false} />
+                      </div>
                     )}
 
                     {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
@@ -526,7 +555,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                         }
                         selectedDate={responseAdherenceDate}
                         onSelectedDateChange={setResponseAdherenceDate}
-                        isLoading={isResponseAdherenceLoading}
+                        isLoading={isResponseAdherenceLoading || isResponseAdherenceFetching}
                       />
                     )}
                   </div>
@@ -966,6 +995,15 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                         initialFilters={userDetailsInitialFilters}
                         userType={filters.userType}
                       />
+                    </div>
+                  )}
+                  {source === "whatsapp" && (
+                    <div
+                      ref={(el) => {
+                        sectionRefs.current["user-details"] = el;
+                      }}
+                    >
+                      <WhatsAppUsersView />
                     </div>
                   )}
                 </div>

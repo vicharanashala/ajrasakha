@@ -179,6 +179,17 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
           </span>
         </div>
       </div>
+
+      {/* PROGRESS BAR VISUALIZATION */}
+      <div className="w-full bg-gray-100 dark:bg-[#2A2A2A] rounded-full h-1.5 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500 ease-out"
+          style={{
+            width: `${pct}%`,
+            backgroundColor: color,
+          }}
+        />
+      </div>
     </div>
   );
 };
@@ -207,7 +218,10 @@ export const DashboardStateWiseAnalytics = (
   }, [districts]);
 
   return (
-    <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[500px]">
+    <Card
+      className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[500px]          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+"
+    >
       {/* HEADER */}
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/40 shrink-0">
         <div>
@@ -322,12 +336,11 @@ export const DashboardStateWiseAnalytics = (
 
       {/* CONTENT */}
       <CardContent className="pt-4 flex-1 min-h-0 relative flex flex-col">
+        {/* LOADING */}
 
-      {/* LOADING */}
-
-      {isLoading && (
-        <div
-          className="
+        {isLoading && (
+          <div
+            className="
             flex-1
             flex
             items-center
@@ -335,16 +348,16 @@ export const DashboardStateWiseAnalytics = (
             text-sm
             text-gray-500
           "
-        >
-          Loading analytics...
-        </div>
-      )}
+          >
+            Loading analytics...
+          </div>
+        )}
 
-      {/* EMPTY */}
+        {/* EMPTY */}
 
-      {!isLoading && districts.length === 0 && (
-        <div
-          className="
+        {!isLoading && districts.length === 0 && (
+          <div
+            className="
               flex-1
               flex
               items-center
@@ -353,32 +366,32 @@ export const DashboardStateWiseAnalytics = (
               text-gray-500
               dark:text-gray-400
             "
-        >
-          No district data found
-        </div>
-      )}
+          >
+            No district data found
+          </div>
+        )}
 
-      {/* DATA */}
+        {/* DATA */}
 
-      {!isLoading && districts.length > 0 && (
-        <ScrollArea className="flex-1 pr-3 h-full w-full">
-          {districts.map((district, index) => {
-            const pct = (district.totalQuestions / maxTotal) * 100;
+        {!isLoading && districts.length > 0 && (
+          <ScrollArea className="flex-1 pr-3 h-full w-full">
+            {districts.map((district, index) => {
+              const pct = (district.totalQuestions / maxTotal) * 100;
 
-            return (
-              <ProgressBar
-                key={district.district}
-                district={district.district}
-                totalQuestions={district.totalQuestions}
-                uniqueQuestions={district.uniqueQuestions}
-                duplicateQuestions={district.duplicateQuestions}
-                pct={pct}
-                color={PREMIUM_PALETTE[index % PREMIUM_PALETTE.length]}
-              />
-            );
-          })}
-        </ScrollArea>
-      )}
+              return (
+                <ProgressBar
+                  key={district.district}
+                  district={district.district}
+                  totalQuestions={district.totalQuestions}
+                  uniqueQuestions={district.uniqueQuestions}
+                  duplicateQuestions={district.duplicateQuestions}
+                  pct={pct}
+                  color={PREMIUM_PALETTE[index % PREMIUM_PALETTE.length]}
+                />
+              );
+            })}
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );

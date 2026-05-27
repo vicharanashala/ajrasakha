@@ -177,6 +177,11 @@ export class UserDetailsQueryDto {
   @IsIn(['all', 'external', 'internal'])
   userType: 'all' | 'external' | 'internal' = 'all';
 
+  @JSONSchema({ example: 'false', description: 'If true, filter users by lastActiveAt is today and has farmerProfile' })
+  @IsOptional()
+  @IsString()
+  activeTodayByProfile?: string;
+
   @JSONSchema({ example: 'totalQuestions', description: 'Sort by field: totalQuestions or name' })
   @IsOptional()
   @IsIn(['totalQuestions', 'name'])

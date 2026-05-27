@@ -113,6 +113,15 @@ export const useUniqueWhatsappUsers = () => {
   });
 };
 
+export const useAllWhatsappUsers = () => {
+  return useQuery({
+    queryKey: ["whatsapp-all-users"],
+    queryFn: () => {
+      return chatbotService.getAllWhatsappUsers();
+    },
+  });
+};
+
 export const useClosedAndNotifedData = (source: string)=>{
   return useQuery({
     queryKey: ["closed-notified-data",

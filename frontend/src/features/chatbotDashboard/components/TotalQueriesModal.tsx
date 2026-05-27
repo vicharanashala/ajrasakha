@@ -223,11 +223,11 @@ function getColumns(
       render: (entry) => entry.closedQuestions.toLocaleString(),
     },
     {
-      key: "averageCloseTimeMinutes",
+      key: "averageCloseTime",
       header: "Avg. Closing Time",
       align: "right",
       className: "font-medium text-gray-900 dark:text-gray-100",
-      render: (entry) => `${entry.averageCloseTimeMinutes} min`,
+      render: (entry) => entry.averageCloseTime || "0 minutes",
     },
   ];
 }
@@ -428,7 +428,9 @@ export function TotalQueriesModal({
               </button>
             </div>
           </div>
-
+          <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
+            Queries can be classified by source (Annam / Vicharanashala), but questions cannot always be accurately classified by source because the review system database is shared across platforms.
+          </div>
           <ReusableDataTable
             columns={columns}
             data={queryAnalytics?.data ?? []}

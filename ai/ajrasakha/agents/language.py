@@ -152,8 +152,8 @@ def _llm_detect_language(text: str) -> str:
         return "English"
     try:
         from langchain_anthropic import ChatAnthropic
-        from ajrasakha.agents.config import CLAUDE_MODEL
-        llm = ChatAnthropic(model=CLAUDE_MODEL)
+        from ajrasakha.agents.config import SANITIZER_MODEL
+        llm = ChatAnthropic(model=SANITIZER_MODEL)
         
         prompt = (
             "Analyze the following text from an Indian farmer and identify the underlying spoken language. "
@@ -195,8 +195,8 @@ async def _allm_detect_language(text: str) -> str:
         return "English"
     try:
         from langchain_anthropic import ChatAnthropic
-        from ajrasakha.agents.config import CLAUDE_MODEL
-        llm = ChatAnthropic(model=CLAUDE_MODEL)
+        from ajrasakha.agents.config import SANITIZER_MODEL
+        llm = ChatAnthropic(model=SANITIZER_MODEL)
         
         prompt = (
             "Analyze the following text from an Indian farmer and identify the underlying spoken language. "
@@ -382,19 +382,6 @@ _LOCALIZED_EMPTY_REPLIES = {
     "English": "Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.\nThank You.",
 }
 
-_LOCALIZED_SOURCES_HEADERS = {
-    "English": "\nThe answer I provided is sourced only from the following approved materials.\n",
-}
-
-_LOCALIZED_SOURCE_PREFIX = {
-    "English": "📚 Source:",
-    "Hinglish": "📚 Source:",
-}
-
-_LOCALIZED_EXPERT_PREFIX = {
-    "English": "👨‍🌾 Agri Expert:",
-}
-
 
 def _pair_from_lang_label(lang_label: str) -> tuple[str, str]:
     """Map legacy lang_label to (script, vocal) for catalog lookup."""
@@ -436,35 +423,6 @@ def get_localized_empty_reply_body(
         return get_two_hour_disclaimer(script_language, vocal_language)
     script, vocal = _pair_from_lang_label(lang_label)
     return get_two_hour_disclaimer(script, vocal)
-
-
-def get_localized_sources_header(lang_label: str) -> str:
-    """Return the sourcing disclaimer header matching the script/language."""
-    # Sort longest key first so "Romanized Telugu" matches before "Telugu" etc.
-    for k, v in sorted(_LOCALIZED_SOURCES_HEADERS.items(), key=lambda x: -len(x[0])):
-        if k.lower() == lang_label.lower():
-            return v
-    if "roman" in lang_label.lower() or "latin" in lang_label.lower() or lang_label == "Hinglish":
-        return _LOCALIZED_SOURCES_HEADERS["Hinglish"]
-    return _LOCALIZED_SOURCES_HEADERS["English"]
-
-
-def get_localized_source_prefix(lang_label: str) -> str:
-    """Return the Source prefix matching the script/language."""
-    # Sort longest key first so "Romanized Telugu" matches before "Telugu" etc.
-    for k, v in sorted(_LOCALIZED_SOURCE_PREFIX.items(), key=lambda x: -len(x[0])):
-        if k.lower() == lang_label.lower():
-            return v
-    return "📚 Source:"
-
-
-def get_localized_expert_prefix(lang_label: str) -> str:
-    """Return the Agri Expert prefix matching the script/language."""
-    # Sort longest key first so "Romanized Punjabi" matches before "Punjabi" etc.
-    for k, v in sorted(_LOCALIZED_EXPERT_PREFIX.items(), key=lambda x: -len(x[0])):
-        if k.lower() == lang_label.lower():
-            return v
-    return "👨‍🌾 Agri Expert:"
 
 
 # ── Localized Questions for State and Crop ─────────────────────────────────

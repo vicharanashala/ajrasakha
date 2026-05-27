@@ -37,6 +37,7 @@ export interface DashboardResponse {
   farmingExperience: DemographicEntry[];
   kccAwareness: DemographicEntry[];
   agriAppUsage: DemographicEntry[];
+  landHolding: DemographicEntry[];
   platformInstalls: PlatformInstallEntry[];
   domainSpikes: DomainSpikeEntry[];
   feedbackData: FeedbackData;
@@ -91,13 +92,13 @@ export interface IChatbotService {
     },
   ): Promise<QueryAnalyticsResponse>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string,sortBy?:string, sortOrder?:string): Promise<PaginatedUserDetails>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string,sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string, userType?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(weeks?: number, source?: string, userType?: string): Promise<WeeklySessionDurationEntry[]>;
   // generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
 
-  generateChatbotAnalyticsPdfReport(startDate: Date, endDate: Date, source?:string):Promise<Buffer>;
-  generateChatbotAnalyticsExcelReport(startDate: Date, endDate: Date, source?: string):Promise<ArrayBuffer | null>;
+  generateChatbotAnalyticsPdfReport(startDate: Date, endDate: Date, source?:string, state?:string):Promise<Buffer>;
+  generateChatbotAnalyticsExcelReport(startDate: Date, endDate: Date, state:string, source?: string):Promise<ArrayBuffer | null>;
   getGrowth(source: string, range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
@@ -131,6 +132,7 @@ export interface IChatbotService {
         highestEducatedPerson?: string;
         numberOfSmartphones?: number;
         platform?: string;
+        landhold?: number;
       };
     },
   ): Promise<boolean>;

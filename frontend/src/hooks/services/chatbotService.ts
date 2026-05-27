@@ -14,11 +14,12 @@ export class ChatbotService {
     endDate: string,
     source = 'vicharanashala',
     downloadFormat: string,
+    state: string
   ): Promise<Blob> {
     const user = auth.currentUser;
     if (!user) throw new Error('Not authenticated');
     const token = await getIdToken(user);
-    const params = new URLSearchParams({ startDate, endDate, source, downloadFormat });
+    const params = new URLSearchParams({ startDate, endDate, source, downloadFormat, state });
     const response = await fetch(
       `${this._baseUrl}/download-chatbot-report?${params.toString()}`,
       { headers: { Authorization: `Bearer ${token}` } },
@@ -143,6 +144,12 @@ export class ChatbotService {
   ): Promise<any> {
     return apiFetch<any>(
       `${this._whatsAppBaseUrl}/unique-users`,
+    );
+  }
+
+  async getAllWhatsappUsers(): Promise<any> {
+    return apiFetch<any>(
+      `${this._whatsAppBaseUrl}/users`,
     );
   }
 

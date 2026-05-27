@@ -10,7 +10,7 @@ export interface AnalyticsEntry {
   queryCount: number;
   totalQuestions: number;
   closedQuestions: number;
-  averageCloseTimeMinutes: number;
+  averageCloseTime: string;
 }
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────

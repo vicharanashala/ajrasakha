@@ -17,7 +17,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig
 from langgraph.store.base import BaseStore
 
-from ajrasakha.agents.config import CLAUDE_MODEL
+from ajrasakha.agents.config import SYNTHESIZE_MODEL
 from ajrasakha.agents.language import language_directive_for_synthesis
 from ajrasakha.agents.translation_catalog import language_pair_from_plan, synthesis_lang_label
 from ajrasakha.agents.memory import load_long_term_summary
@@ -178,7 +178,7 @@ async def _synthesize_from_specialist_tools(
     user_text: str,
     vocal_language: str,
     script_language: str,
-    summary_context: str,
+    # summary_context: str,
     messages: list[BaseMessage],
 ) -> dict:
     """Synthesize from weather/market/soil/schemes tools when GDB has no usable answer."""
@@ -187,7 +187,7 @@ async def _synthesize_from_specialist_tools(
     llm_messages: list[BaseMessage] = [
         SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
         SystemMessage(content=language_directive_for_synthesis(vocal_language, script_language)),
-        SystemMessage(content=summary_context),
+        # SystemMessage(content=summary_context),
     ]
     loc_ctx = main_agent_location_context_message(state.get("location"))
     if loc_ctx:
@@ -203,7 +203,7 @@ async def _synthesize_from_specialist_tools(
     llm_messages.append(HumanMessage(content=f"Tool results:\n{tool_block}"))
 
     try:
-        llm = ChatAnthropic(model=CLAUDE_MODEL)
+        llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
         response = await llm.ainvoke(llm_messages, config=config)
         answer_text = _message_to_text(response)
         logger.info("Tool-only synthesis complete (len=%d)", len(answer_text))
@@ -250,11 +250,11 @@ async def synthesize_node(
         repr(user_text[:80]),
     )
     long_term_summary = await load_long_term_summary(store, config)
-    summary_context = (
-        f"Long-term memory:\n{long_term_summary}"
-        if long_term_summary
-        else "Long-term memory: none"
-    )
+    # summary_context = (
+    #     f"Long-term memory:\n{long_term_summary}"
+    #     if long_term_summary
+    #     else "Long-term memory: none"
+    # )
 
     # Parse GDB response to determine exact vs similar
     gdb_data = _extract_gdb_from_messages(messages)
@@ -275,8 +275,8 @@ async def synthesize_node(
 
         llm_messages: list[BaseMessage] = [
             SystemMessage(content=EXACT_MATCH_REPHRASE_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
-            SystemMessage(content=summary_context),
+            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang))
+            # SystemMessage(content=summary_context),
         ]
         loc_ctx = main_agent_location_context_message(state.get("location"))
         if loc_ctx:
@@ -300,7 +300,7 @@ async def synthesize_node(
         )
 
         try:
-            llm = ChatAnthropic(model=CLAUDE_MODEL)
+            llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
             response = await llm.ainvoke(llm_messages, config=config)
             answer_text = _message_to_text(response)
             if not (answer_text or "").strip():
@@ -335,8 +335,8 @@ async def synthesize_node(
         # ── SIMILAR MATCH: Full synthesis ─────────────────────────────
         llm_messages: list[BaseMessage] = [
             SystemMessage(content=SIMILAR_MATCH_SYNTHESIS_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
-            SystemMessage(content=summary_context),
+            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang))
+            # SystemMessage(content=summary_context),
         ]
         loc_ctx = main_agent_location_context_message(state.get("location"))
         if loc_ctx:
@@ -368,7 +368,7 @@ async def synthesize_node(
                     user_text=user_text,
                     vocal_language=vocal_lang,
                     script_language=script_lang,
-                    summary_context=summary_context,
+                    # summary_context=summary_context,
                     messages=messages,
                 )
             logger.info(
@@ -389,7 +389,7 @@ async def synthesize_node(
         )
 
         try:
-            llm = ChatAnthropic(model=CLAUDE_MODEL)
+            llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
             response = await llm.ainvoke(llm_messages, config=config)
             answer_text = _message_to_text(response)
             if not (answer_text or "").strip():
@@ -425,7 +425,7 @@ async def synthesize_node(
                 user_text=user_text,
                 vocal_language=vocal_lang,
                 script_language=script_lang,
-                summary_context=summary_context,
+                # summary_context=summary_context,
                 messages=messages,
             )
         logger.info("No usable GDB and no specialist tools — returning expert-queue canned reply")

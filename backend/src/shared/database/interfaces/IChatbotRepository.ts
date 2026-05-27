@@ -129,6 +129,8 @@ export interface FeedbackEntry {
 export interface FeedbackData{
   positiveFeedbacks: FeedbackEntry[];
   negativeFeedbacks: FeedbackEntry[];
+  positiveFeedbackCounts: {tag: string, count: any}[],
+  negativeFeedbackCounts: {tag: string, count: any}[],
   stats: {
     "_id"?: null | ObjectId,
     positiveCount: number,
@@ -162,6 +164,7 @@ export interface FarmerProfile {
     latitude: number;
     longitude: number;
   };
+  landhold?: number;
 }
 
 export interface UserDetailEntry {
@@ -193,6 +196,7 @@ export interface UserDemographics {
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
+  landHolding: DemographicEntry[];
 }
 
 export interface KccAndAgriAppStats {
@@ -359,6 +363,7 @@ export interface IChatbotRepository {
     sortBy?: string,
     sortOrder?: string,
     lowFeedbackOnly?: boolean,
+    activeTodayByProfile?: boolean,
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
@@ -383,6 +388,7 @@ export interface IChatbotRepository {
     days: number,
     userType: string,
     month?: string,
+    state?: string,
     source?: string,
     session?: ClientSession,
   )

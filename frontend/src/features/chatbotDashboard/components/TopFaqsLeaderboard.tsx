@@ -92,7 +92,10 @@ export function TopFaqsLeaderboard({
   };
 
   return (
-    <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[500px]">
+    <Card
+      className="border border-border/60 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[500px]           bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+"
+    >
       <CardHeader className="pb-3 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-2.5">
           <Award className="w-5 h-5 text-amber-500 shrink-0" />
