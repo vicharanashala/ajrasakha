@@ -6,7 +6,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from pydantic import BaseModel
 from typing import Optional
 
-from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
+from ajrasakha.agents.config import SANITIZER_MODEL, MCP_URLS
 from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
 from ajrasakha.agents.prompts import SCHEMES_SYSTEM_PROMPT
 from langchain.agents import create_agent
@@ -20,7 +20,7 @@ schemes_mcp = MultiServerMCPClient(
     }
 )
 
-llm = ChatAnthropic(model=CLAUDE_MODEL)
+llm = ChatAnthropic(model=SANITIZER_MODEL)
 
 _schemes_agent_graph = None  # lazy init
 

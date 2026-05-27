@@ -2,7 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/car
 import type { UserDemographics } from "../types";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, X, Info } from "lucide-react";
+
 
 const AGE_COLORS: Record<string, string> = {
   "18-30": "#3AAA5A",
@@ -168,14 +169,16 @@ interface Props {
   data: UserDemographics;
 }
 
-function DemographicCard({ 
-  title, 
-  segments, 
-  type 
-}: { 
-  title: string; 
-  segments: { label: string; count: number; pct: number; color: string }[]; 
-  type: 'donut' | 'bar';
+function DemographicCard({
+  title,
+  segments,
+  type,
+  infoText,
+}: {
+  title: string;
+  segments: { label: string; count: number; pct: number; color: string }[];
+  type: "donut" | "bar";
+  infoText?: string;
 }) {
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -200,9 +203,36 @@ function DemographicCard({
           <div className="flex items-center gap-2">
             <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
 
-            <CardTitle className="text-sm font-semibold tracking-tight text-foreground/90">
-              {title}
-            </CardTitle>
+            <div className="flex items-center gap-1.5">
+              <CardTitle className="text-sm font-semibold tracking-tight text-foreground/90">
+                {title}
+              </CardTitle>
+
+              {infoText && (
+                <div className="relative group/info">
+                  <Info className="w-3.5 h-3.5 text-muted-foreground cursor-pointer" />
+
+                  <div className="absolute left-5 top-1/2 -translate-y-1/2 z-50 hidden group-hover/info:block w-64 rounded-md border border-border bg-background p-3 text-xs shadow-lg">
+                    <div className="space-y-1 text-muted-foreground">
+                      <p>
+                        <span className="font-medium text-foreground">Small:</span>{" "}
+                        0 to {"<"} 2 acres
+                      </p>
+
+                      <p>
+                        <span className="font-medium text-foreground">Medium:</span>{" "}
+                        2 to {"<"} 10 acres
+                      </p>
+
+                      <p>
+                        <span className="font-medium text-foreground">Large:</span>{" "}
+                        ≥ 10 acres
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </CardHeader>
 
@@ -276,7 +306,11 @@ export function UserDemographicsSection({ data }: Props) {
       <DemographicCard title="Age Group" segments={ageSegments} type="donut" />
       <DemographicCard title="Gender Split" segments={genderSegments} type="donut" />
       <DemographicCard title="Farming Experience" segments={expSegments} type="bar" />
-      <DemographicCard title="Land Holding" segments={landSegments} type="donut" />
-    </div>
+      <DemographicCard
+        title="Land Holding"
+        segments={landSegments}
+        type="donut"
+        infoText="Land holding size classification"
+      />    </div>
   );
 }

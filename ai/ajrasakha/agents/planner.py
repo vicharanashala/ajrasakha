@@ -21,13 +21,15 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import CLAUDE_MODEL
+from ajrasakha.agents.config import PLANNER_MODEL
 from ajrasakha.agents.crop_requirement import is_crop_specific_question
 from ajrasakha.agents.domains import (
     CROP_ALL_DOMAINS,
     CROP_REQUIRED_DOMAINS,
-    apply_tool_flags_from_domain,
+    domain_requires_crop,
+    apply_tool_flags_from_domains,
     crop_counts_as_resolved,
+    is_crop_placeholder,
     normalize_domain,
 )
 from ajrasakha.agents.language import resolve_planner_language_pair
@@ -70,9 +72,14 @@ class PlannerEntitiesOutput(BaseModel):
 
 
 class PlannerOutput(BaseModel):
-    domain: str = Field(
-        default="General",
-        description="Exactly one value from ALLOWED_DOMAINS in ajrasakha.agents.domains",
+    domains: list[str] = Field(
+        default_factory=lambda: ["General"],
+        description=(
+            "1-3 values from ALLOWED_DOMAINS in ajrasakha.agents.domains "
+            "(most relevant first)."
+        ),
+        min_length=1,
+        max_length=3,
     )
     weather: bool = False
     mandi: bool = False
@@ -155,8 +162,23 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
     if output.entities.chemicals:
         entities["chemicals"] = list(output.entities.chemicals)
 
+    raw_domains = list(output.domains or []) or ["General"]
+    normalized_domains: list[str] = []
+    seen: set[str] = set()
+    for d in raw_domains:
+        nd = normalize_domain(d)
+        if nd in seen:
+            continue
+        seen.add(nd)
+        normalized_domains.append(nd)
+        if len(normalized_domains) >= 3:
+            break
+    if not normalized_domains:
+        normalized_domains = ["General"]
+
     return {
-        "domain": normalize_domain(output.domain),
+        "domain": normalized_domains[0],  # Backward-compatible single-domain view
+        "domains": normalized_domains,
         "weather": output.weather,
         "mandi": output.mandi,
         "soil": output.soil,
@@ -181,6 +203,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
 def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPlan:
     return {
         "domain": "General",
+        "domains": ["General"],
         "weather": False,
         "mandi": False,
         "soil": False,
@@ -249,12 +272,25 @@ async def _apply_domain_and_crop_async(
     crop_prefilled: Optional[str],
     config: RunnableConfig,
 ) -> tuple[PlannerPlan, str, bool]:
-    """Normalize domain, derive flags, apply CROP_ALL / CROP_REQUIRED crop rules."""
-    domain = normalize_domain(plan.get("domain") or "General")
-    plan["domain"] = domain
+    """Normalize domains, derive flags, apply CROP_ALL / CROP_REQUIRED crop rules."""
+    domains_raw = plan.get("domains") or [plan.get("domain") or "General"]
+    domains: list[str] = []
+    seen: set[str] = set()
+    for d in domains_raw:
+        nd = normalize_domain(d)
+        if nd in seen:
+            continue
+        seen.add(nd)
+        domains.append(nd)
+        if len(domains) >= 3:
+            break
+    if not domains:
+        domains = ["General"]
 
-    tool_flags = apply_tool_flags_from_domain(domain)
-    plan.update(tool_flags)
+    plan["domains"] = domains
+    plan["domain"] = domains[0]
+
+    plan.update(apply_tool_flags_from_domains(domains))
     if ENABLE_CHEMICAL_CHECKER and plan.get("chemical_checker", False):
         plan["chemical_checker"] = True
     else:
@@ -266,30 +302,29 @@ async def _apply_domain_and_crop_async(
     original = plan.get("original_query_en") or user_text
 
     crop_required = False
+    crop_required_any = any(domain_requires_crop(d) for d in domains)
 
-    if domain in CROP_ALL_DOMAINS:
-        entities["crop"] = "all"
-        crop_required = False
-    elif domain in CROP_REQUIRED_DOMAINS:
+    # Always-ask safety rule: if ANY selected domain requires a crop and crop is missing,
+    # we must ask for crop (no classifier-based skipping).
+    if crop_required_any:
         crop = crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
-        if crop and crop_counts_as_resolved(crop):
+        if crop and crop_counts_as_resolved(crop) and not is_crop_placeholder(crop):
             entities["crop"] = (
                 "all" if crop.lower() == "all"
                 else crop[0].upper() + crop[1:].lower()
             )
             crop_required = False
         else:
-            crop_required = await is_crop_specific_question(
-                question, original, domain, config=config
-            )
-            if not crop_required:
-                entities["crop"] = "all"
+            crop_required = True
+    elif domains[0] in CROP_ALL_DOMAINS:
+        entities["crop"] = "all"
+        crop_required = False
     else:
         entities["crop"] = "all"
         crop_required = False
 
     plan["entities"] = entities
-    return plan, domain, crop_required
+    return plan, domains[0], crop_required
 
 
 def _check_question_completeness(
@@ -310,7 +345,9 @@ def _check_question_completeness(
         follow_up = get_state_follow_up(script, vocal)
         return False, missing, follow_up
 
-    if crop_required and not crop_counts_as_resolved(crop_resolved):
+    if crop_required and (
+        not crop_counts_as_resolved(crop_resolved) or is_crop_placeholder(crop_resolved)
+    ):
         missing.append("crop")
         follow_up = get_crop_follow_up(script, vocal)
         return False, missing, follow_up
@@ -391,7 +428,7 @@ async def planner_node(
     )
 
     try:
-        llm = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(PlannerOutput)
+        llm = ChatAnthropic(model=PLANNER_MODEL).with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=config)
         plan = planner_output_to_plan(output)
 

@@ -653,11 +653,13 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
 export function EightCardsComponent({
   kpiRow1,
   kpiRow2,
-  source
+  source,
+  isLoading
 }: {
   kpiRow1: KpiCardData[];
   kpiRow2: KpiCardData[];
   source: string;
+  isLoading: boolean;
 }) {
   const combinedKpis = [...kpiRow1, ...kpiRow2];
   const customOrder = [
@@ -674,7 +676,32 @@ export function EightCardsComponent({
     const idxB = customOrder.indexOf(b.id);
     return idxA - idxB;
   });
+if (isLoading) {
+  return (
+    <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="rounded-2xl border border-border/50 bg-card p-5 animate-pulse min-h-[220px]"
+        >
+          <div className="flex items-start justify-between mb-4">
+            <div className="space-y-2 flex-1">
+              <div className="h-3 w-24 rounded bg-muted" />
+              <div className="h-8 w-20 rounded bg-muted" />
+            </div>
 
+            <div className="h-10 w-10 rounded-xl bg-muted" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="h-2 w-full rounded bg-muted" />
+            <div className="h-2 w-3/4 rounded bg-muted" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
   // console.log("Combinedkpis", combinedKpis);
   return (
     <>

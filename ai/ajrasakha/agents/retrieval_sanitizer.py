@@ -11,7 +11,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
-from ajrasakha.agents.config import CLAUDE_MODEL
+from ajrasakha.agents.config import SANITIZER_MODEL
 from ajrasakha.agents.prompts import RETRIEVAL_SANITIZER_SYSTEM_PROMPT
 from ajrasakha.agents.state import (
     AjraSakhaState,
@@ -196,7 +196,7 @@ def _apply_scores(
     scores: Optional[dict[str, float]],
     reasons: Optional[dict[str, str]] = None,
 ) -> list[RetrievalSanitizerEvaluation]:
-    """Drop pairs below threshold; fail open when scores missing or LLM parse failed."""
+    """Keep only the single highest-confidence pair above threshold."""
     evaluations: list[RetrievalSanitizerEvaluation] = []
     reasons = reasons or {}
 
@@ -214,6 +214,8 @@ def _apply_scores(
             )
         return evaluations
 
+    # First pass: evaluate all pairs and track those above threshold
+    scored_pairs: list[tuple[str, dict, float, str]] = []
     for key, pair in pairs:
         score = scores.get(key)
         reason_text = reasons.get(key, "")
@@ -229,10 +231,15 @@ def _apply_scores(
                 )
             )
             continue
+
         if score >= RELEVANCE_THRESHOLD:
             logger.info(
-                "retrieval_sanitizer: keeping %s (score=%.3f)", key, score
+                "retrieval_sanitizer: %s above threshold (score=%.3f >= %.2f)",
+                key,
+                score,
+                RELEVANCE_THRESHOLD,
             )
+            scored_pairs.append((key, pair, score, reason_text))
             evaluations.append(
                 _evaluation_entry(
                     key,
@@ -259,6 +266,30 @@ def _apply_scores(
                     action="dropped",
                 )
             )
+
+    # Second pass: select only the single highest-confidence pair
+    if scored_pairs:
+        best_key, best_pair, best_score, best_reason = max(scored_pairs, key=lambda x: x[2])
+        # Remove all other above-threshold pairs from gdb_data
+        for key, _, _, _ in scored_pairs:
+            if key != best_key:
+                gdb_data.pop(key, None)
+        # Renumber: always store the best pair as similar_pair1 so synthesizer finds it
+        if best_key != "similar_pair1":
+            gdb_data.pop(best_key, None)
+            gdb_data["similar_pair1"] = best_pair
+            logger.info(
+                "renumbered %s → similar_pair1 (score=%.3f)",
+                best_key,
+                best_score,
+            )
+        # Mark superseded pairs in evaluations
+        for eval_entry in evaluations:
+            if eval_entry["pair_key"] != "similar_pair1" and eval_entry.get("action") == "kept":
+                eval_entry["action"] = "superseded"
+                eval_entry["reason"] = (
+                    f"Superseded by similar_pair1 with higher confidence (score={best_score:.3f})"
+                )
 
     _recompute_is_similar(gdb_data)
     return evaluations
@@ -409,7 +440,7 @@ async def retrieval_sanitizer_node(
     llm_parse_ok = False
     llm_error: Optional[str] = None
     try:
-        llm = ChatAnthropic(model=CLAUDE_MODEL)
+        llm = ChatAnthropic(model=SANITIZER_MODEL)
         response = await llm.ainvoke(llm_messages, config=config)
         scores, reasons = _parse_batch_results(_message_to_text(response))
         llm_parse_ok = scores is not None

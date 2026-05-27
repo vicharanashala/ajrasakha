@@ -37,6 +37,7 @@ export interface DashboardResponse {
   farmingExperience: DemographicEntry[];
   kccAwareness: DemographicEntry[];
   agriAppUsage: DemographicEntry[];
+  landHolding: DemographicEntry[];
   platformInstalls: PlatformInstallEntry[];
   domainSpikes: DomainSpikeEntry[];
   feedbackData: FeedbackData;
@@ -131,6 +132,7 @@ export interface IChatbotService {
         highestEducatedPerson?: string;
         numberOfSmartphones?: number;
         platform?: string;
+        landhold?: number;
       };
     },
   ): Promise<boolean>;
