@@ -20,49 +20,8 @@ import Plivo from "plivo-browser-sdk";
 export const CallInterface = () => {
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
   const [editableTranslatedTranscript, setEditableTranslatedTranscript] = useState("");
-  const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([
-    {
-      track: "outbound",
-      text: "Hello, welcome to the agri helpline.",
-      originalText: "Hello, welcome to the agri helpline.",
-      translatedText: "Hello, welcome to the agri helpline.",
-      detectedLanguage: "en",
-      timestamp: new Date().toISOString()
-    },
-    {
-      track: "inbound",
-      text: "Namaste. I am a farmer from Agra, UP. My potato crop is getting these black spots on the leaves, and the plants look burnt.",
-      originalText: "Namaste. I am a farmer from Agra, UP. My potato crop is getting these black spots on the leaves, and the plants look burnt.",
-      translatedText: "Namaste. I am a farmer from Agra, UP. My potato crop is getting these black spots on the leaves, and the plants look burnt.",
-      detectedLanguage: "en",
-      timestamp: new Date().toISOString()
-    },
-    {
-      track: "outbound",
-      text: "That sounds concerning. Is the weather currently foggy or very humid there?",
-      originalText: "That sounds concerning. Is the weather currently foggy or very humid there?",
-      translatedText: "That sounds concerning. Is the weather currently foggy or very humid there?",
-      detectedLanguage: "en",
-      timestamp: new Date().toISOString()
-    },
-    {
-      track: "inbound",
-      text: "Yes, it has been very cold and foggy for the last few days.",
-      originalText: "Yes, it has been very cold and foggy for the last few days.",
-      translatedText: "Yes, it has been very cold and foggy for the last few days.",
-      detectedLanguage: "en",
-      timestamp: new Date().toISOString()
-    },
-    {
-      track: "outbound",
-      text: "Okay, let me check the recommended treatment for you in the live conversation, just for now testing purpose",
-      originalText: "Okay, let me check the recommended treatment for you in the live conversation, just for now testing purpose",
-      translatedText: "Okay, let me check the recommended treatment for you in the live conversation, just for now testing purpose",
-      detectedLanguage: "en",
-      timestamp: new Date().toISOString()
-    }
-  ]);
-  const [isCallActive, setIsCallActive] = useState(true);
+  const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([]);
+  const [isCallActive, setIsCallActive] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const lastTranscriptRef = useRef("");
@@ -213,15 +172,7 @@ export const CallInterface = () => {
       <IncomingCallBox
         onTranscriptChange={() => { }} // Not using direct strings anymore
         onOriginalTranscriptChange={() => { }}
-        onTranscriptsListChange={(list) => {
-          setTranscriptsList((prev) => {
-            // Prevent wiping out the initial mock data on component mount
-            if (list.length === 0 && prev.length > 0 && prev[0].text === "Hello, welcome to the agri helpline.") {
-              return prev;
-            }
-            return list;
-          });
-        }}
+        onTranscriptsListChange={(list) => setTranscriptsList(list)}
         onCallStateChange={(isActive) => setIsCallActive(isActive)}
       />
       <button onClick={() => handleRedial("+919606751041")}>Redial</button>
@@ -443,9 +394,17 @@ export const CallInterface = () => {
                                 <HelpCircle className="h-4 w-4" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground leading-relaxed">
-                                  {qn.question}
-                                </p>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <p className="text-sm font-medium text-foreground leading-relaxed">
+                                    {qn.question}
+                                  </p>
+                                  {qn.agri_specialist && qn.agri_specialist !== "Unknown" && qn.agri_specialist !== "AGRI_EXPERT" && (
+                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider whitespace-nowrap self-start sm:self-auto">
+                                      <User className="w-3 h-3" />
+                                      {qn.agri_specialist}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
 
