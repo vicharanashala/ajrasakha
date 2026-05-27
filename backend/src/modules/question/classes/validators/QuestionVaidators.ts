@@ -454,6 +454,14 @@ class GenerateQuestionsBody {
   @IsString()
   @MinLength(10)
   query!: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  crop?: string;
 }
 class ExpertInput {
   @IsString()

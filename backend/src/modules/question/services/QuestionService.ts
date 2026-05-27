@@ -68,6 +68,7 @@ import {
   TOTAL_EXPERTS_LIMIT,
 } from '#root/shared/constants/general.js';
 import { toTitleCase } from '#root/utils/ToTitlecase.js';
+import axios from 'axios';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -470,11 +471,17 @@ export class QuestionService extends BaseService implements IQuestionService {
    */
   async getQuestionFromCallContext(
     context: string,
+    state?: string,
+    crop?: string,
   ): Promise<GeneratedQuestionResponse[]> {
     try {
+      const payload: any = { query: context };
+      if (state) payload.state = state;
+      if (crop) payload.crop = crop;
+
       const agentSearchResponse = await axios.post(
-        'http://100.100.108.44:6002/agent_search',
-        { query: context },
+        'http://100.100.108.44:6002/search',
+        payload,
         { timeout: 100000 }
       );
       console.log('Agent Search Output:', JSON.stringify(agentSearchResponse.data, null, 2));
@@ -484,7 +491,31 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Send this in the appropriate format expected by the frontend
       let formattedResponse: any[] = [];
 
-      if (data && Array.isArray(data.results)) {
+      if (data && (Array.isArray(data.reviewer) || Array.isArray(data.golden) || Array.isArray(data.pop))) {
+        formattedResponse = [
+          ...(data.reviewer || []).map((item: any) => ({
+            question: item.question,
+            answer: item.answer || item.text,
+            agri_specialist: item.agri_expert || item.agri_specialist || item.source || 'AGRI_EXPERT',
+            referenceSource: 'reviewer',
+            id: item.id || new ObjectId().toString()
+          })),
+          ...(data.golden || []).map((item: any) => ({
+            question: item.question,
+            answer: item.answer || item.text,
+            agri_specialist: item.agri_expert || item.agri_specialist || item.metadata?.['Agri Specialist'] || 'Unknown',
+            referenceSource: 'golden',
+            id: item.id || new ObjectId().toString()
+          })),
+          ...(data.pop || []).map((item: any) => ({
+            question: 'Reference Information',
+            answer: item.text,
+            agri_specialist: 'POP_DOCUMENT',
+            referenceSource: 'pop',
+            id: item.id || new ObjectId().toString()
+          })),
+        ];
+      } else if (data && Array.isArray(data.results)) {
         // Map the results array from the agent_search response
         formattedResponse = data.results.map((item: any) => ({
           question: item.question || data.extracted_question || context,
@@ -525,6 +556,23 @@ export class QuestionService extends BaseService implements IQuestionService {
     } catch (error) {
       console.error('Failed to generate questions from call context:', error);
       throw new InternalServerError('Failed to generate questions from call context');
+    }
+  }
+
+
+  async getCallSummary(
+    query: string
+  ): Promise<any> {
+    try {
+      const extractResponse = await axios.post(
+        'http://100.100.108.44:6002/extract',
+        { query },
+        { timeout: 100000 }
+      );
+      return extractResponse.data;
+    } catch (error) {
+      console.error('Failed to generate call summary:', error);
+      throw new InternalServerError('Failed to generate call summary');
     }
   }
 

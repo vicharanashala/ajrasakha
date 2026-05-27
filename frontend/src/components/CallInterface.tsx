@@ -4,9 +4,10 @@ import type { CallTranscript } from "./IncomingCallBox";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { toast } from "sonner";
 import { Button } from "./atoms/button";
-import { RotateCcw, Send, MessageSquare, Globe, CheckCircle2, AlertCircle, HelpCircle, Lightbulb, User } from "lucide-react";
+import { RotateCcw, Send, MessageSquare, Globe, CheckCircle2, AlertCircle, HelpCircle, Lightbulb, User, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
 import { useGenerateCallQuestion } from "@/hooks/api/question/useGenerateCallQuestion";
+import { useGenerateCallSummary } from "@/hooks/api/question/useGenerateCallSummary";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { ScrollArea, ScrollBar } from "./atoms/scroll-area";
@@ -19,13 +20,60 @@ import Plivo from "plivo-browser-sdk";
 export const CallInterface = () => {
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
   const [editableTranslatedTranscript, setEditableTranslatedTranscript] = useState("");
-  const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([]);
-  const [isCallActive, setIsCallActive] = useState(false);
+  const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([
+    {
+      track: "outbound",
+      text: "Hello, welcome to the agri helpline.",
+      originalText: "Hello, welcome to the agri helpline.",
+      translatedText: "Hello, welcome to the agri helpline.",
+      detectedLanguage: "en",
+      timestamp: new Date().toISOString()
+    },
+    {
+      track: "inbound",
+      text: "Namaste. I am a farmer from Agra, UP. My potato crop is getting these black spots on the leaves, and the plants look burnt.",
+      originalText: "Namaste. I am a farmer from Agra, UP. My potato crop is getting these black spots on the leaves, and the plants look burnt.",
+      translatedText: "Namaste. I am a farmer from Agra, UP. My potato crop is getting these black spots on the leaves, and the plants look burnt.",
+      detectedLanguage: "en",
+      timestamp: new Date().toISOString()
+    },
+    {
+      track: "outbound",
+      text: "That sounds concerning. Is the weather currently foggy or very humid there?",
+      originalText: "That sounds concerning. Is the weather currently foggy or very humid there?",
+      translatedText: "That sounds concerning. Is the weather currently foggy or very humid there?",
+      detectedLanguage: "en",
+      timestamp: new Date().toISOString()
+    },
+    {
+      track: "inbound",
+      text: "Yes, it has been very cold and foggy for the last few days.",
+      originalText: "Yes, it has been very cold and foggy for the last few days.",
+      translatedText: "Yes, it has been very cold and foggy for the last few days.",
+      detectedLanguage: "en",
+      timestamp: new Date().toISOString()
+    },
+    {
+      track: "outbound",
+      text: "Okay, let me check the recommended treatment for you in the live conversation, just for now testing purpose",
+      originalText: "Okay, let me check the recommended treatment for you in the live conversation, just for now testing purpose",
+      translatedText: "Okay, let me check the recommended treatment for you in the live conversation, just for now testing purpose",
+      detectedLanguage: "en",
+      timestamp: new Date().toISOString()
+    }
+  ]);
+  const [isCallActive, setIsCallActive] = useState(true);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const lastTranscriptRef = useRef("");
   const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } = useGenerateCallQuestion();
-  const [selectedTranscriptIndices, setSelectedTranscriptIndices] = useState<Set<number>>(new Set());
+  const { mutateAsync: generateSummary, isPending: isGeneratingSummary } = useGenerateCallSummary();
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
+  const [editableSummaryText, setEditableSummaryText] = useState("");
+  const [extractedState, setExtractedState] = useState("");
+  const [extractedCrop, setExtractedCrop] = useState("");
+  const [hasGeneratedQuestions, setHasGeneratedQuestions] = useState(false);
 
   // Auto-scroll to bottom of chat bubbles
   useEffect(() => {
@@ -64,7 +112,11 @@ export const CallInterface = () => {
       setTranscriptsList([]); // Clear the conversation view
       setQuestions([]);
       lastTranscriptRef.current = "";
-      setSelectedTranscriptIndices(new Set());
+      setIsSummaryOpen(false);
+      setEditableSummaryText("");
+      setExtractedState("");
+      setExtractedCrop("");
+      setHasGeneratedQuestions(false);
       toast.success("Transcript submitted successfully!");
     } catch (error) {
       console.error(error);
@@ -77,36 +129,58 @@ export const CallInterface = () => {
     setTranscriptsList([]);
     setQuestions([]);
     lastTranscriptRef.current = "";
+    setIsSummaryOpen(false);
+    setEditableSummaryText("");
+    setExtractedState("");
+    setExtractedCrop("");
+    setHasGeneratedQuestions(false);
   };
 
   const handleGenerateQuestions = async () => {
-    if (selectedTranscriptIndices.size === 0) {
-      toast.info("Please select at least one transcript to generate questions.");
-      return;
-    }
-
-    const selectedTranscripts = Array.from(selectedTranscriptIndices)
-      .sort((a, b) => a - b)
-      .map(index => transcriptsList[index])
-      .filter(Boolean);
-
-    const liveTranscript = selectedTranscripts
-      .map(t => t.translatedText || t.text || t.originalText)
-      .filter(Boolean)
-      .join(" ");
-
-    if (!liveTranscript || liveTranscript.trim().length <= 10) {
-      toast.info("Selected transcripts don't contain enough text.");
+    if (!editableSummaryText.trim()) {
+      toast.info("Summary is empty. Please summarize the conversation first.");
       return;
     }
 
     try {
-      const qstns = await generateQuestions(liveTranscript);
+      const qstns = await generateQuestions({
+        transcript: editableSummaryText,
+        state: extractedState,
+        crop: extractedCrop
+      });
       setQuestions(prev => [...prev, ...(qstns || [])]);
-      setSelectedTranscriptIndices(new Set());
+      setHasGeneratedQuestions(true);
     } catch (err) {
       console.error("Error generating question", err);
       toast.error("Failed to generate questions.");
+    }
+  };
+
+  const handleSummarize = async () => {
+    if (transcriptsList.length === 0) {
+      toast.info("No transcripts available to summarize.");
+      return;
+    }
+    setIsSummaryOpen(true);
+    setIsSummaryExpanded(true);
+    setHasGeneratedQuestions(false);
+
+    const allTranscriptText = transcriptsList
+      .map(t => {
+        const speaker = t.track === "inbound" ? "Farmer" : "Expert";
+        return `${speaker}: ${t.translatedText || t.text || t.originalText}`;
+      })
+      .filter(Boolean)
+      .join("\n");
+
+    try {
+      const summary = await generateSummary(allTranscriptText);
+      setEditableSummaryText(summary?.extracted_question || "");
+      setExtractedState(summary?.extracted_state || "");
+      setExtractedCrop(summary?.extracted_crop || "");
+    } catch (err) {
+      console.error("Error generating summary", err);
+      toast.error("Failed to generate summary.");
     }
   };
 
@@ -139,35 +213,53 @@ export const CallInterface = () => {
       <IncomingCallBox
         onTranscriptChange={() => { }} // Not using direct strings anymore
         onOriginalTranscriptChange={() => { }}
-        onTranscriptsListChange={setTranscriptsList}
+        onTranscriptsListChange={(list) => {
+          setTranscriptsList((prev) => {
+            // Prevent wiping out the initial mock data on component mount
+            if (list.length === 0 && prev.length > 0 && prev[0].text === "Hello, welcome to the agri helpline.") {
+              return prev;
+            }
+            return list;
+          });
+        }}
         onCallStateChange={(isActive) => setIsCallActive(isActive)}
       />
       <button onClick={() => handleRedial("+919606751041")}>Redial</button>
 
       {/* Premium Read-Only Chat-Bubble Conversation View */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
+        <Card className="h-fit border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
           <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4">
             <CardTitle className="text-sm font-semibold flex items-center justify-between">
               <span className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
                 <MessageSquare className={`h-4 w-4 ${isCallActive ? "animate-pulse" : ""}`} />
                 Live Conversation Dialogue
               </span>
-              {isCallActive ? (
-                <span className="flex items-center gap-1.5 text-xs text-emerald-500 dark:text-emerald-400 font-semibold uppercase tracking-wider animate-pulse">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  Streaming Live
-                </span>
-              ) : transcriptsList.length > 0 ? (
-                <span className="flex items-center gap-1.5 text-xs text-zinc-500 font-semibold uppercase tracking-wider">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Call Concluded
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider">
-                  Inactive
-                </span>
-              )}
+              <div className="flex items-center gap-4">
+                {isCallActive ? (
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-500 dark:text-emerald-400 font-semibold uppercase tracking-wider animate-pulse">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    Streaming Live
+                  </span>
+                ) : transcriptsList.length > 0 ? (
+                  <span className="flex items-center gap-1.5 text-xs text-zinc-500 font-semibold uppercase tracking-wider">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Call Concluded
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider">
+                    Inactive
+                  </span>
+                )}
+                <Button
+                  onClick={handleSummarize}
+                  disabled={isGeneratingSummary || transcriptsList.length === 0}
+                  size="sm"
+                  className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  {isGeneratingSummary ? "Summarizing..." : "Summarize"}
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
           <div
@@ -183,20 +275,6 @@ export const CallInterface = () => {
                   transcriptsList.map((msg, index) => {
                     const isCaller = msg.track === "inbound";
                     const speakerLabel = isCaller ? "Farmer" : "Expert";
-                    const isSelected = selectedTranscriptIndices.has(index);
-
-                    const toggleSelection = () => {
-                      setSelectedTranscriptIndices(prev => {
-                        const newSet = new Set(prev);
-                        if (newSet.has(index)) {
-                          newSet.delete(index);
-                        } else {
-                          newSet.add(index);
-                        }
-                        return newSet;
-                      });
-                    };
-
                     return (
                       <div
                         key={index}
@@ -204,11 +282,6 @@ export const CallInterface = () => {
                       >
                         {/* Speaker & Timestamp */}
                         <div className={`flex items-center gap-2 px-2 text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold tracking-wider uppercase ${!isCaller ? "flex-row-reverse" : ""}`}>
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => toggleSelection()}
-                            className="h-3.5 w-3.5 cursor-pointer"
-                          />
                           <span>{speakerLabel}</span>
                           <span>•</span>
                           <span>
@@ -231,7 +304,7 @@ export const CallInterface = () => {
                           </p>
 
                           {/* Original text & language metadata (Secondary) */}
-                          {msg.originalText && msg.originalText.trim() !== msg.translatedText?.trim() && (
+                          {msg.originalText && (
                             <div className={`mt-2.5 pt-2 border-t text-[12px] flex flex-col gap-1 ${isCaller
                               ? "border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400"
                               : "border-white/20 text-white/80"
@@ -267,148 +340,195 @@ export const CallInterface = () => {
           </div>
         </Card>
 
-        <Card className="min-h-[80%] md:h-auto border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
-          <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4">
-            <CardTitle className="flex items-center justify-between text-sm font-semibold">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex items-center gap-2 text-primary">
-                    <HelpCircle className="h-4 w-4" />
-                    Live Questions
+        <div className="space-y-6 flex flex-col h-full">
+          {isSummaryOpen && (
+            <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 animate-in fade-in-50 slide-in-from-top-2">
+              <CardHeader
+                className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4 cursor-pointer hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 transition-colors"
+                onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+              >
+                <CardTitle className="flex items-center justify-between text-sm font-semibold">
+                  <span className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                    <FileText className="h-4 w-4" />
+                    Conversation Summary
                   </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  These are questions generated from your transcript
-                </TooltipContent>
-              </Tooltip>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline">{questions?.length} questions</Badge>
-                <Button
-                  onClick={handleGenerateQuestions}
-                  disabled={isGeneratingQuestions || selectedTranscriptIndices.size === 0}
-                  size="sm"
-                  className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
-                >
-                  {isGeneratingQuestions ? "Generating..." : "Generate question"}
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-
-          <CardContent className="h-full overflow-hidden p-6 bg-zinc-50/20 dark:bg-zinc-950/20">
-            {isGeneratingQuestions && transcriptsList.length > 0 ? (
-              <div className="flex flex-col h-[400px] text-center text-muted-foreground space-y-4">
-                <Skeleton className="h-24 w-full rounded-md" />
-                <Skeleton className="h-24 w-full rounded-md" />
-                <Skeleton className="h-24 w-full rounded-md" />
-              </div>
-            ) : (
-              <ScrollArea className="h-[400px] w-full">
-                {!questions || questions?.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground mt-10">
-                    <Lightbulb className="h-10 w-10 mb-4 opacity-50" />
-                    <p className="text-sm">
-                      Click "Generate question" to fetch AI insights from the current conversation.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4 pb-10">
-                    {questions?.map((qn, index) => (
-                      <div
-                        key={`${qn.question}-${qn.id + index}`}
-                        className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:shadow-md transition-all duration-300 overflow-hidden"
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-transparent">
+                    {isSummaryExpanded ? <ChevronUp className="h-4 w-4 text-zinc-500" /> : <ChevronDown className="h-4 w-4 text-zinc-500" />}
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isSummaryExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}>
+                <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
+                  {isGeneratingSummary ? (
+                    <div className="flex flex-col space-y-3">
+                      <Skeleton className="h-4 w-3/4 rounded-md" />
+                      <Skeleton className="h-4 w-full rounded-md" />
+                      <Skeleton className="h-4 w-5/6 rounded-md" />
+                    </div>
+                  ) : (
+                    <textarea
+                      value={editableSummaryText}
+                      onChange={(e) => setEditableSummaryText(e.target.value)}
+                      readOnly={hasGeneratedQuestions}
+                      className={`w-full p-3 text-sm leading-relaxed rounded-xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all duration-300 dark:text-zinc-100 shadow-inner ${hasGeneratedQuestions
+                        ? "min-h-[60px] max-h-[100px] resize-none overflow-y-auto bg-zinc-50/50 dark:bg-zinc-900/50 opacity-90 text-zinc-600 dark:text-zinc-400 text-xs"
+                        : "min-h-[150px] resize-y overflow-y-auto focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
+                        }`}
+                      placeholder="Conversation summary will appear here..."
+                    />
+                  )}
+                  {!hasGeneratedQuestions && (
+                    <div className="flex justify-end mt-4">
+                      <Button
+                        onClick={handleGenerateQuestions}
+                        disabled={isGeneratingQuestions || !editableSummaryText.trim() || isGeneratingSummary}
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 transition-all font-medium h-9 px-4 rounded-lg"
                       >
-                        <div className="p-4">
-                          <div className="flex items-start gap-3 mb-3">
-                            <div className="text-indigo-600 dark:text-indigo-400 mt-1">
-                              <HelpCircle className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-foreground leading-relaxed">
-                                {qn.question}
-                              </p>
-                            </div>
-                          </div>
-
-                          <Accordion
-                            type="single"
-                            collapsible
-                            className="w-full"
-                          >
-                            <AccordionItem
-                              value="answer"
-                              className="border-none"
-                            >
-                              <AccordionTrigger className="py-2 px-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-xs font-semibold tracking-wide uppercase hover:no-underline">
-                                <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                                  <svg
-                                    className="w-3.5 h-3.5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                    />
-                                  </svg>
-                                  View Details
-                                </div>
-                              </AccordionTrigger>
-
-                              <AccordionContent className="pt-3 pb-1">
-                                <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/50 rounded-lg p-3 space-y-2 mb-3">
-                                  <div className="flex justify-between items-center w-full px-1">
-                                    <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold text-xs tracking-wider uppercase">
-                                      <Globe className="w-3.5 h-3.5" />
-                                      <span>Reference Source</span>
-                                    </div>
-                                  </div>
-                                  <p className="text-[13px] text-emerald-800 dark:text-emerald-300 leading-relaxed px-1">
-                                    {qn.referenceSource || "Nil"}
-                                  </p>
-                                </div>
-                              </AccordionContent>
-
-                              <AccordionContent className="pt-0 pb-1">
-                                <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-900/50 rounded-lg p-3 space-y-2">
-                                  <div className="flex justify-between items-center w-full px-1">
-                                    <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 font-semibold text-xs tracking-wider uppercase">
-                                      <MessageSquare className="w-3.5 h-3.5" />
-                                      <span>Specialist Answer</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                      <User className="w-3 h-3" />
-                                      <span>
-                                        {qn.agri_specialist || "Unknown"}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <p className="text-[13px] text-indigo-800 dark:text-indigo-300 leading-relaxed px-1">
-                                    {qn.answer || "Nil"}
-                                  </p>
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <ScrollBar orientation="vertical" />
-              </ScrollArea>
-            )}
-
-            {(questions?.length || 0) > 0 && (
-              <div className="text-center text-xs text-muted-foreground pt-4 font-medium uppercase tracking-wider">
-                <p>Questions generated from conversation</p>
+                        {isGeneratingQuestions ? "Generating..." : "Generate question"}
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </Card>
+          )}
+
+          <Card className="flex-1 min-h-[400px] md:h-auto border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
+            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4">
+              <CardTitle className="flex items-center justify-between text-sm font-semibold">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-2 text-primary">
+                      <HelpCircle className="h-4 w-4" />
+                      Live Questions
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    These are questions generated from your transcript
+                  </TooltipContent>
+                </Tooltip>
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline">{questions?.length} questions</Badge>
+                </div>
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="h-full overflow-hidden p-6 bg-zinc-50/20 dark:bg-zinc-950/20">
+              {isGeneratingQuestions && transcriptsList.length > 0 ? (
+                <div className="flex flex-col h-[400px] text-center text-muted-foreground space-y-4">
+                  <Skeleton className="h-24 w-full rounded-md" />
+                  <Skeleton className="h-24 w-full rounded-md" />
+                  <Skeleton className="h-24 w-full rounded-md" />
+                </div>
+              ) : (
+                <ScrollArea className="h-[400px] w-full">
+                  {!questions || questions?.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground mt-10">
+                      <Lightbulb className="h-10 w-10 mb-4 opacity-50" />
+                      <p className="text-sm">
+                        Click "Generate question" to fetch AI insights from the current conversation.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 pb-10">
+                      {questions?.map((qn, index) => (
+                        <div
+                          key={`${qn.question}-${qn.id + index}`}
+                          className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:shadow-md transition-all duration-300 overflow-hidden"
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start gap-3 mb-3">
+                              <div className="text-indigo-600 dark:text-indigo-400 mt-1">
+                                <HelpCircle className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-foreground leading-relaxed">
+                                  {qn.question}
+                                </p>
+                              </div>
+                            </div>
+
+                            <Accordion
+                              type="single"
+                              collapsible
+                              className="w-full"
+                            >
+                              <AccordionItem
+                                value="answer"
+                                className="border-none"
+                              >
+                                <AccordionTrigger className="py-2 px-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-xs font-semibold tracking-wide uppercase hover:no-underline">
+                                  <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                                    <svg
+                                      className="w-3.5 h-3.5"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                      />
+                                    </svg>
+                                    View Details
+                                  </div>
+                                </AccordionTrigger>
+
+                                <AccordionContent className="pt-3 pb-1">
+                                  <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/50 rounded-lg p-3 space-y-2 mb-3">
+                                    <div className="flex justify-between items-center w-full px-1">
+                                      <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold text-xs tracking-wider uppercase">
+                                        <Globe className="w-3.5 h-3.5" />
+                                        <span>Reference Source</span>
+                                      </div>
+                                    </div>
+                                    <p className="text-[13px] text-emerald-800 dark:text-emerald-300 leading-relaxed px-1">
+                                      {qn.referenceSource || "Nil"}
+                                    </p>
+                                  </div>
+                                </AccordionContent>
+
+                                <AccordionContent className="pt-0 pb-1">
+                                  <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-900/50 rounded-lg p-3 space-y-2">
+                                    <div className="flex justify-between items-center w-full px-1">
+                                      <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 font-semibold text-xs tracking-wider uppercase">
+                                        <MessageSquare className="w-3.5 h-3.5" />
+                                        <span>Specialist Answer</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                        <User className="w-3 h-3" />
+                                        <span>
+                                          {qn.agri_specialist || "Unknown"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <p className="text-[13px] text-indigo-800 dark:text-indigo-300 leading-relaxed px-1">
+                                      {qn.answer || "Nil"}
+                                    </p>
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <ScrollBar orientation="vertical" />
+                </ScrollArea>
+              )}
+
+              {(questions?.length || 0) > 0 && (
+                <div className="text-center text-xs text-muted-foreground pt-4 font-medium uppercase tracking-wider">
+                  <p>Questions generated from conversation</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {!isCallActive && transcriptsList.length > 0 && (

@@ -7,10 +7,12 @@ const questionService = new QuestionService();
 export const useGenerateCallQuestion = () => {
   return useMutation({
     mutationKey: ["generateCallQuestions"],
-    mutationFn: async (
-      transcript: string
-    ): Promise<GeneratedQuestion[] | null> => {
-      return await questionService.generateQuestionsFromCallContext(transcript);
+    mutationFn: async (params: {
+      transcript: string;
+      state?: string;
+      crop?: string;
+    }): Promise<GeneratedQuestion[] | null> => {
+      return await questionService.generateQuestionsFromCallContext(params.transcript, params.state, params.crop);
     },
   });
 };

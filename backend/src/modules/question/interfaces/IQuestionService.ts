@@ -59,7 +59,13 @@ export interface IQuestionService {
   /** Generate questions from call context (AI) */
   getQuestionFromCallContext(
     context: string,
+    state?: string,
+    crop?: string,
   ): Promise<GeneratedQuestionResponse[]>;
+
+  getCallSummary(
+    query: string,
+  ): Promise<any>;
 
   /** Create a new question */
   addQuestion(

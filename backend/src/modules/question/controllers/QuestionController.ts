@@ -173,7 +173,17 @@ export class QuestionController {
   async getQuestionFromCallContext(
     @Body() body: GenerateQuestionsBody,
   ): Promise<GeneratedQuestionResponse[]> {
-    return this.questionService.getQuestionFromCallContext(body.query);
+    return this.questionService.getQuestionFromCallContext(body.query, body.state, body.crop);
+  }
+
+  @Post('/call-summary')
+  @HttpCode(200)
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Generate call summary from raw transcript' })
+  async getCallSummary(
+    @Body() body: GenerateQuestionsBody,
+  ): Promise<any> {
+    return this.questionService.getCallSummary(body.query);
   }
 
   @Post('/')

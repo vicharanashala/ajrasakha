@@ -69,8 +69,8 @@ export const initWebSocket = (server: Server) => {
         const finalOutboundTranslation = plivoService.getTranslation(callId.toString(), 'outbound');
 
         console.log(`[BACKEND LOG] Complete Call Summary:`);
-        console.log(`Caller: ${finalInboundTranscript} [Translation: ${finalInboundTranslation}]`);
-        console.log(`Agent: ${finalOutboundTranscript} [Translation: ${finalOutboundTranslation}]`);
+        console.log(`Farmer: ${finalInboundTranscript} [Translation: ${finalInboundTranslation}]`);
+        console.log(`Expert: ${finalOutboundTranscript} [Translation: ${finalOutboundTranslation}]`);
 
         // Broadcast final transcript with both languages
         Array.from(wss.clients).forEach((client: any) => {
@@ -79,9 +79,9 @@ export const initWebSocket = (server: Server) => {
               type: 'call_end',
               callId,
               // Maintain backward compatibility for single field properties
-              finalTranscript: `Caller: ${finalInboundTranscript}\nAgent: ${finalOutboundTranscript}`,
-              originalText: `Caller: ${finalInboundTranscript}\nAgent: ${finalOutboundTranscript}`,
-              translatedText: `Caller: ${finalInboundTranslation}\nAgent: ${finalOutboundTranslation}`,
+              finalTranscript: `Farmer: ${finalInboundTranscript}\nExpert: ${finalOutboundTranscript}`,
+              originalText: `Farmer: ${finalInboundTranscript}\nExpert: ${finalOutboundTranscript}`,
+              translatedText: `Farmer: ${finalInboundTranslation}\nExpert: ${finalOutboundTranslation}`,
               // Add structured fields
               caller: {
                 transcript: finalInboundTranscript,
@@ -138,7 +138,7 @@ export const initWebSocket = (server: Server) => {
               timestamp: new Date().toISOString()
             };
 
-            const label = result.track === 'inbound' ? 'Caller' : 'Agent';
+            const label = result.track === 'inbound' ? 'Farmer' : 'Expert';
             // console.log(`[BACKEND LOG] ${label}: ${result.originalText} [Translation: ${result.translatedText}]`);
 
             // Append live transcription to the text log
