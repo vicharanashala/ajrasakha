@@ -1727,50 +1727,54 @@ answer: ${updates.answer}`;
           session,
         );
 
-        // Re-fire webhook so downstream consumers see the updated final answer.
-        const editAuthor = await this.userRepo.findById(
-          existing.authorId.toString(),
-          session,
-        );
-        const editWebhookPayload = {
-          question_id: question._id.toString(),
-          status: 'closed',
-          answer: updates.answer ?? '',
-          author:
-            `${editAuthor?.firstName ?? ''} ${editAuthor?.lastName ?? ''}`.trim() ||
-            'Expert',
-          sources: updates.sources ?? [],
-        };
-
-        if (question.source === 'WHATSAPP') {
-          try {
-            await triggerWebhook(
-              appConfig.WA_WEBHOOK_API_URL,
-              appConfig.WA_WEBHOOK_API_KEY,
-              editWebhookPayload,
-              'WhatsApp',
-            );
-          } catch (err) {
-            console.log('Error occurred while notifying customer on edit (WHATSAPP):', err);
-          }
-        }
-
-        if (question.source === 'AJRASAKHA') {
-          try {
-            await triggerWebhook(
-              appConfig.WEB_WEBHOOK_API_URL,
-              appConfig.WEB_WEBHOOK_API_KEY,
-              {
-                ...editWebhookPayload,
-                question: question.question,
-                messageId: question.messageId,
-              },
-              'Browser',
-            );
-          } catch (err) {
-            console.log('Error occurred while notifying customer on edit (AJRASAKHA):', err);
-          }
-        }
+        // NOTE: Re-firing the WhatsApp / Ajrasakha webhook on edit is disabled
+        // for now — undecided whether the farmer should be re-notified when a
+        // moderator edits an already-delivered final answer. Re-enable by
+        // un-commenting the block below if/when that decision is made.
+        //
+        // const editAuthor = await this.userRepo.findById(
+        //   existing.authorId.toString(),
+        //   session,
+        // );
+        // const editWebhookPayload = {
+        //   question_id: question._id.toString(),
+        //   status: 'closed',
+        //   answer: updates.answer ?? '',
+        //   author:
+        //     `${editAuthor?.firstName ?? ''} ${editAuthor?.lastName ?? ''}`.trim() ||
+        //     'Expert',
+        //   sources: updates.sources ?? [],
+        // };
+        //
+        // if (question.source === 'WHATSAPP') {
+        //   try {
+        //     await triggerWebhook(
+        //       appConfig.WA_WEBHOOK_API_URL,
+        //       appConfig.WA_WEBHOOK_API_KEY,
+        //       editWebhookPayload,
+        //       'WhatsApp',
+        //     );
+        //   } catch (err) {
+        //     console.log('Error occurred while notifying customer on edit (WHATSAPP):', err);
+        //   }
+        // }
+        //
+        // if (question.source === 'AJRASAKHA') {
+        //   try {
+        //     await triggerWebhook(
+        //       appConfig.WEB_WEBHOOK_API_URL,
+        //       appConfig.WEB_WEBHOOK_API_KEY,
+        //       {
+        //         ...editWebhookPayload,
+        //         question: question.question,
+        //         messageId: question.messageId,
+        //       },
+        //       'Browser',
+        //     );
+        //   } catch (err) {
+        //     console.log('Error occurred while notifying customer on edit (AJRASAKHA):', err);
+        //   }
+        // }
 
         return editResult;
       }
