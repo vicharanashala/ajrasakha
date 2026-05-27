@@ -2779,8 +2779,8 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'AJRASAKHA',
-              messageId: { $exists: true, $ne: null },
-              threadId: { $exists: true, $ne: null },
+              // messageId: { $exists: true, $ne: null },
+              // threadId: { $exists: true, $ne: null },
               ...monthDateMatch,
             },
           },
@@ -3003,8 +3003,8 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'AJRASAKHA',
-              messageId: { $exists: true, $ne: null },
-              threadId: { $exists: true, $ne: null },
+              // messageId: { $exists: true, $ne: null },
+              // threadId: { $exists: true, $ne: null },
               ...monthDateMatch,
             },
           },
@@ -3221,8 +3221,8 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'AJRASAKHA',
-              messageId: { $exists: true, $ne: null },
-              threadId: { $exists: true, $ne: null },
+              // messageId: { $exists: true, $ne: null },
+              // threadId: { $exists: true, $ne: null },
               ...yearDateMatch,
             },
           },
