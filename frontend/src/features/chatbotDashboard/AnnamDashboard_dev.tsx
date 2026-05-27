@@ -62,6 +62,7 @@ import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -84,6 +85,59 @@ const parseInputDateToLocalDate = (value: string): Date => {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);
 };
+
+
+
+const loadingSkeletonRows = [
+  {
+    cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-4",
+    items: [{ span: "", height: "140px" }, { span: "", height: "140px" }, { span: "", height: "140px" }, { span: "", height: "140px" }],
+  },
+  {
+    cols: "grid-cols-1 lg:grid-cols-3",
+    items: [{ span: "", height: "220px" }, { span: "", height: "220px" }, { span: "", height: "220px" }],
+  },
+  {
+    cols: "grid-cols-1 xl:grid-cols-4",
+    items: [
+      { span: "xl:col-span-3", height: "260px" },
+      { span: "", height: "260px" },
+    ],
+  },
+  {
+    cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-4",
+    items: [{ span: "", height: "180px" }, { span: "", height: "180px" }, { span: "", height: "180px" }, { span: "", height: "180px" }],
+  },
+  {
+    cols: "grid-cols-1 lg:grid-cols-3",
+    items: [{ span: "", height: "220px" }, { span: "", height: "220px" }, { span: "", height: "220px" }],
+  },
+  {
+    cols: "grid-cols-1 lg:grid-cols-2",
+    items: [{ span: "", height: "260px" }, { span: "", height: "260px" }],
+  },
+  {
+    cols: "grid-cols-1",
+    items: [{ span: "", height: "320px" }],
+  },
+  {
+    cols: "grid-cols-1 lg:grid-cols-2",
+    items: [{ span: "", height: "240px" }, { span: "", height: "240px" }],
+  },
+  {
+    cols: "grid-cols-1",
+    items: [{ span: "", height: "260px" }],
+  },
+  {
+    cols: "grid-cols-1",
+    items: [{ span: "", height: "300px" }],
+  },
+  {
+    cols: "grid-cols-1",
+    items: [{ span: "", height: "280px" }],
+  },
+];
+
 
 export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam' | 'whatsapp'; onSourceChange?: (source: 'vicharanashala' | 'annam' | 'whatsapp') => void }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
@@ -365,6 +419,8 @@ useEffect(() => {
   }
 }, [source]);
 
+
+
 const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
@@ -480,11 +536,29 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                     ref={(el) => {
                       sectionRefs.current["overview"] = el;
                     }}
-                    className={`relative transition-all duration-300 ${isFetching ? "opacity-50 blur-sm pointer-events-none" : ""}`}
+                    className={`relative transition-all duration-300 }`}
                   >
-                    {(isLoading || isFetching) && (
+                    {/* {(isLoading || isFetching) && (
                       <div className="absolute inset-0 z-50 flex items-center justify-center">
-                        <Spinner text="Fetching metrics..." fullScreen={false} />
+                        <Spinner text="Fetching metrics asdfasdfasdfads..." fullScreen={false} />
+                      </div>
+                    )} */}
+                    {(isLoading || isFetching) && (
+                      <div className="space-y-5 animate-pulse">
+                        {loadingSkeletonRows.map((row, rowIndex) => (
+                          <div
+                            key={rowIndex}
+                            className={`grid gap-5 ${row.cols}`}
+                          >
+                            {row.items.map((item, itemIndex) => (
+                              <Skeleton
+                                key={itemIndex}
+                                className={`w-full rounded-2xl ${item.span}`}
+                                style={{ height: item.height }}
+                              />
+                            ))}
+                          </div>
+                        ))}
                       </div>
                     )}
 
@@ -499,7 +573,6 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                     )}
                     {source === "whatsapp" && (
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-
                         <WhatsAppAnalyticsCard
                           title="Daily Queries"
                           analytics={dailyAnalytics}
@@ -517,34 +590,53 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                           analytics={monthlyAnalytics}
                           granularity="monthly"
                         />
-
                       </div>
                     )}
                     <div
-                        className={`grid gap-4 mb-6 ${
-                          source === "whatsapp"
-                            ? "grid-cols-1 lg:grid-cols-[1fr_1fr_1.4fr_1.4fr]"
-                            : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
-                        }`}
-                      >
-                      {source === "whatsapp" && 
-                        <WhatsAppUniqueUsersCard 
+                      className={`grid gap-4 mb-6 ${
+                        source === "whatsapp"
+                          ? "grid-cols-1 lg:grid-cols-[1fr_1fr_1.4fr_1.4fr]"
+                          : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
+                      }`}
+                    >
+                      {source === "whatsapp" && (
+                        <WhatsAppUniqueUsersCard
                           totalUsers={unqueWhatsAppUsers}
-                      />}
+                        />
+                      )}
 
                       <ClosedInLastTwoHoursCard
-                        count = {closedAndNotifedData?.closedInLastTwoHours}
-                        totalClosed={closedAndNotifedData?.closedVsTotalQuestions?.closedQuestions}
+                        count={closedAndNotifedData?.closedInLastTwoHours}
+                        totalClosed={
+                          closedAndNotifedData?.closedVsTotalQuestions
+                            ?.closedQuestions
+                        }
                       />
                       <ClosedQuestionsCard
-                        closedQuestions = {closedAndNotifedData?.closedVsTotalQuestions?.closedQuestions}
-                        totalQuestions={closedAndNotifedData?.closedVsTotalQuestions?.totalQuestions}
-                        inReview={closedAndNotifedData?.closedVsTotalQuestions?.inReviewQuestions}
+                        closedQuestions={
+                          closedAndNotifedData?.closedVsTotalQuestions
+                            ?.closedQuestions
+                        }
+                        totalQuestions={
+                          closedAndNotifedData?.closedVsTotalQuestions
+                            ?.totalQuestions
+                        }
+                        inReview={
+                          closedAndNotifedData?.closedVsTotalQuestions
+                            ?.inReviewQuestions
+                        }
                       />
                       <CustomerNotificationsCard
-                        notified={closedAndNotifedData?.notifiedVsClosed?.notified}
-                        notNotified={closedAndNotifedData?.notifiedVsClosed?.notNotified}
-                        untrackedClosedQuestions={closedAndNotifedData?.notifiedVsClosed?.untrackedClosedQuestions}
+                        notified={
+                          closedAndNotifedData?.notifiedVsClosed?.notified
+                        }
+                        notNotified={
+                          closedAndNotifedData?.notifiedVsClosed?.notNotified
+                        }
+                        untrackedClosedQuestions={
+                          closedAndNotifedData?.notifiedVsClosed
+                            ?.untrackedClosedQuestions
+                        }
                       />
                     </div>
                     {source !== "whatsapp" && (
@@ -556,7 +648,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                         }
                         selectedDate={responseAdherenceDate}
                         onSelectedDateChange={setResponseAdherenceDate}
-                        isLoading={isResponseAdherenceLoading || isResponseAdherenceFetching}
+                        isLoading={
+                          isResponseAdherenceLoading ||
+                          isResponseAdherenceFetching
+                        }
                       />
                     )}
                   </div>
@@ -663,7 +758,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                           sectionRefs.current["farmer-segments"] = el;
                         }}
                       >
-                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
+                        {/* <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" /> */}
 
                         <div className="relative h-full rounded-xl border border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
                           <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
