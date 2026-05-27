@@ -902,7 +902,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         context,
         originalquestion = '',
       } = body;
-      console.log("Body ",body)
       if(body.details){
         body.details.state = toTitleCase(body.details.state);
         body.details.crop = toTitleCase(body.details.crop as string);
@@ -913,6 +912,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const popContext = popContextFromBody;
       console.log('the body coming=====', body);
 
+      
       if (!details) {
         const b: any = body;
         details = {
