@@ -50,6 +50,7 @@ class RetrievalSanitizerAudit(TypedDict, total=False):
 
 class PlannerPlan(TypedDict, total=False):
     domain: Optional[str]
+    domains: list[str]  # Canonical domains, ordered (max ~3)
     weather: bool
     mandi: bool
     soil: bool

@@ -629,11 +629,11 @@ _PLANNER_LANGUAGES_DOC = "\n".join(f"- {lang}" for lang in OFFICIAL_LANGUAGES)
 PLANNER_SYSTEM_PROMPT = f"""
 You are the planner agent responsible for analyzing incoming farmer queries, determining the question completness.
 
-**Domain (REQUIRED — pick exactly one string from this list):**
+**Domains (REQUIRED — pick 1-3 strings from this list, most relevant first):**
 {_PLANNER_DOMAINS_DOC}
 
-- Set `domain` from the **rephrased_query**.
-- Tool flags (`weather`, `mandi`, `soil`, `schemes`, `knowledge_base`) are derived server-side from `domain`; leave them false in your output.
+- Set `domains` from the **rephrased_query**.
+- Tool flags (`weather`, `mandi`, `soil`, `schemes`, `knowledge_base`) are derived server-side from `domains`; leave them false in your output.
 - **chemical_checker**: Always leave false (ban-status checks are disabled server-side for now).
 
 **Translation & Rephrasing Rules (CRITICAL for non-English queries):**
