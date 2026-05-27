@@ -1841,14 +1841,17 @@ answer: ${updates.answer}`;
         }
       }
 
-      await this.questionRepo.updateQuestion(
-        questionId,
-        {
-          isCustomerNotified,
-        },
-        session,
-        false,
-      );
+      if(question.source === 'AJRASAKHA' || question.source === "WHATSAPP"){
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {
+            isCustomerNotified,
+          },
+          session,
+          false,
+        );
+      }
+
 
       return result;
     });

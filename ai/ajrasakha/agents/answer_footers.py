@@ -23,13 +23,22 @@ EXPERT_PREFIX_EN = "👨‍🌾 Agri Expert:"
 
 
 def _format_source_attribution(details: dict) -> str:
-    """Format source name (with embedded link) + author name for final output (English-only)."""
+    """Format source name (with embedded link) + author name for final output (English-only).
+
+    When source_name is "Database Document", only show the link — hide the label.
+    """
     lines: list[str] = []
     source_name = details.get("source_name")
     source_link = details.get("source_link")
     author_name = details.get("author_name")
 
-    if source_name and source_link:
+    is_db_doc = (source_name or "").strip().lower() == "database document"
+
+    if is_db_doc:
+        # Only show the link, skip the "Database Document" label entirely
+        if source_link:
+            lines.append(f"{SOURCE_PREFIX_EN} {source_link}")
+    elif source_name and source_link:
         lines.append(f"{SOURCE_PREFIX_EN} {source_name} ({source_link})")
     elif source_name:
         lines.append(f"{SOURCE_PREFIX_EN} {source_name}")
@@ -43,14 +52,19 @@ def _format_source_attribution(details: dict) -> str:
 
 
 def collect_all_sources(gdb_data: dict) -> str:
-    """Collect source attribution (English-only) from exact match and all similar pairs."""
+    """Collect source attribution (English-only) from exact match and all similar pairs.
+
+    Handles details as both a single dict (legacy) and a list of dicts (new format).
+    Deduplicates by (source_name, source_link, author_name) to avoid collapsing
+    different sources that share the same name.
+    """
     seen: set[tuple] = set()
     attribution_lines: list[str] = []
 
     def _add_details(details: dict) -> None:
         if not details:
             return
-        key = (details.get("source_name"), details.get("author_name"))
+        key = (details.get("source_name"), details.get("source_link"), details.get("author_name"))
         if key in seen:
             return
         seen.add(key)
@@ -58,9 +72,18 @@ def collect_all_sources(gdb_data: dict) -> str:
         if line:
             attribution_lines.append(line)
 
+    def _process_details_field(details_raw) -> None:
+        """Handle details as a list of dicts or a single dict."""
+        if isinstance(details_raw, list):
+            for d in details_raw:
+                if isinstance(d, dict):
+                    _add_details(d)
+        elif isinstance(details_raw, dict):
+            _add_details(details_raw)
+
     exact = gdb_data.get("exact_match") or {}
     if (exact.get("answer") or "").strip():
-        _add_details(exact.get("details") or {})
+        _process_details_field(exact.get("details") or {})
 
     for i in range(1, 6):
         pair = gdb_data.get(f"similar_pair{i}")
@@ -69,7 +92,7 @@ def collect_all_sources(gdb_data: dict) -> str:
             and isinstance(pair, dict)
             and (pair.get("answer") or "").strip()
         ):
-            _add_details(pair.get("details") or {})
+            _process_details_field(pair.get("details") or {})
 
     if not attribution_lines:
         return ""

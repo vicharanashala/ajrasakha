@@ -10,15 +10,14 @@ import { motion } from "framer-motion";
 type ClosedQuestionsCardProps = {
   closedQuestions: number;
   totalQuestions: number;
+  inReview: number;
 };
 
 export function ClosedQuestionsCard({
   closedQuestions,
   totalQuestions,
+  inReview,
 }: ClosedQuestionsCardProps) {
-  const openQuestions =
-    totalQuestions - closedQuestions;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -66,7 +65,7 @@ export function ClosedQuestionsCard({
                 </TooltipTrigger>
 
                 <TooltipContent className="max-w-[260px]">
-                  <p>Distribution of total, closed, and open questions.</p>
+                  <p>Distribution of total, closed, and in-review questions.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -138,7 +137,7 @@ export function ClosedQuestionsCard({
               </motion.span>
             </motion.div>
 
-            {/* Open */}
+            {/* in-review */}
             <motion.div
               className="flex flex-1 flex-col"
               variants={{
@@ -154,7 +153,7 @@ export function ClosedQuestionsCard({
                       whileHover={{ scale: 1.05 }}
                       className="text-xs text-muted-foreground cursor-help w-fit"
                     >
-                      Open
+                      In review
                     </motion.span>
                   </TooltipTrigger>
 
@@ -165,7 +164,7 @@ export function ClosedQuestionsCard({
               </TooltipProvider>
 
               <motion.span
-                key={Math.max(openQuestions, 0)}
+                key={Math.max(inReview, 0)}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.35, ease: "easeOut" }}
@@ -175,7 +174,7 @@ export function ClosedQuestionsCard({
                   tracking-tight
                 "
               >
-                {Math.max(openQuestions, 0)}
+                {Math.max(inReview, 0)}
               </motion.span>
             </motion.div>
           </motion.div>

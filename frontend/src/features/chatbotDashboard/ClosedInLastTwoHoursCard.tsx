@@ -28,7 +28,7 @@ export function ClosedInLastTwoHoursCard({
           border-border
           rounded-2xl
           h-fit 
-          pb-6
+          pb-7
           bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
           "
       >

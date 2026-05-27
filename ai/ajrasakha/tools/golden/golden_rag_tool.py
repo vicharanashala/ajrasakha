@@ -391,7 +391,7 @@ def _parse_sources(sources_raw, author_name) -> list[dict]:
     author = author_name or "Unknown"
     if not sources_raw:
         details.append({
-            "source_name": "Database Document",
+            "source_name": None,
             "source_link": "",
             "author_name": author
         })
@@ -402,7 +402,7 @@ def _parse_sources(sources_raw, author_name) -> list[dict]:
             i = 0
             while i < len(sources_raw):
                 link = sources_raw[i]
-                name = sources_raw[i+1] if i + 1 < len(sources_raw) else "Database Document"
+                name = sources_raw[i+1] if i + 1 < len(sources_raw) else None
                 details.append({
                     "source_name": name,
                     "source_link": link,
@@ -413,19 +413,19 @@ def _parse_sources(sources_raw, author_name) -> list[dict]:
             for s in sources_raw:
                 if isinstance(s, dict):
                     details.append({
-                        "source_name": s.get("source_name") or s.get("name") or "Database Document",
-                        "source_link": s.get("source") or s.get("link") or s.get("url") or "",
+                        "source_name": s.get("source_name") or s.get("name") or None,
+                        "source_link": s.get("source_link") or s.get("source") or s.get("link") or s.get("url") or "",
                         "author_name": author
                     })
                 elif isinstance(s, str):
                     details.append({
-                        "source_name": "Database Document",
+                        "source_name": None,
                         "source_link": s,
                         "author_name": author
                     })
     else:
         details.append({
-            "source_name": "Database Document",
+            "source_name": None,
             "source_link": str(sources_raw),
             "author_name": author
         })
