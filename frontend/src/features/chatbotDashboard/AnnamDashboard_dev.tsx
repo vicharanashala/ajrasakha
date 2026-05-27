@@ -1104,10 +1104,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             source={source}
                             userType={filters.userType}
                           />
-                          {/* <RetentionMetricsChart
+                          <RetentionMetricsChart
                     source={source}
                     userType={filters.userType}
-                    /> */}
+                    />
                         </div>
                       )}
                       {source !== "whatsapp" && (
