@@ -40,6 +40,7 @@ MCP_URLS = {
     "soil":       f"http://{REMOTE_IP}:9008/mcp",
     "enam":       f"http://{REMOTE_IP}:9002/mcp",
     "agmarknet":  f"http://{REMOTE_IP}:9006/mcp",
+    "mandi":      f"http://{REMOTE_IP}:9010/mcp",
     "reviewer":   f"http://{REMOTE_IP}:9007/mcp",
     "location":   f"http://{REMOTE_IP}:9000/mcp",
     "schemes":    f"http://{REMOTE_IP}:9009/mcp",
