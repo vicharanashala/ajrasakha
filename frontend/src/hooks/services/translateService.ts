@@ -9,6 +9,7 @@ export async function translateService(
   sourceLang?: string,
 ): Promise<string> {
   if (!text.trim()) return text;
+  if(targetLang === 'en-IN') return text;
   if (text.length > MAX_TOTAL_CHARS)
     throw new Error(`Text is too long to translate (max ${MAX_TOTAL_CHARS} characters)`);
 
