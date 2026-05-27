@@ -539,6 +539,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       outerRadius={100}
                       dataKey="count"
                       stroke="none"
+                      animationDuration={500}
                     >
 
                       {processedCropWithColors.map((entry, index) => (
@@ -585,7 +586,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         </div>
 
                         <span className="font-semibold text-foreground">
-                          <CountUp key={`crop-${key}`} end={item.count} duration={2} preserveValue />
+                          <CountUp key={`crop-${key}`} end={item.count} duration={0.5} preserveValue />
                         </span>
                       </div>
                     ))}
@@ -626,6 +627,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   dataKey="count"
                   fill="var(--color-chart-2)"
                   radius={[8, 8, 0, 0]}
+                  animationDuration={500}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -649,6 +651,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       outerRadius={100}
                       dataKey="count"
                       stroke="none"
+                      animationDuration={500}
                     >
 
                       {processedDomainWithColors.map((entry, index) => (
@@ -685,7 +688,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         </div>
 
                         <span className="font-semibold text-foreground">
-                          <CountUp key={`domainBreakdown-${key}`} end={item.count} duration={2} preserveValue />
+                          <CountUp key={`domainBreakdown-${key}`} end={item.count} duration={0.5} preserveValue />
                         </span>
                       </div>
                     ))}
