@@ -7712,7 +7712,6 @@ export class ChatbotRepository implements IChatbotRepository {
           $lte: [{$subtract: ['$closedAt', '$createdAt']}, 2 * 60 * 60 * 1000],
         },
       });
-console.log("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<", count, "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
       return count;
     } catch (error) {
       throw new InternalServerError(

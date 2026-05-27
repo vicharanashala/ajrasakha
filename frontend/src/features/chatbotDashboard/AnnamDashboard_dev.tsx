@@ -532,575 +532,617 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                     />
                   )}
 
-                  <div
-                    ref={(el) => {
-                      sectionRefs.current["overview"] = el;
-                    }}
-                    className={`relative transition-all duration-300 }`}
-                  >
-                    {/* {(isLoading || isFetching) && (
+                  {isFetching && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center">
+                      {/* <Spinner
+                        text="Preparing dashboard insights and refreshing analytics..."
+                        fullScreen={false}
+                      /> */}
+                      {loadingSkeletonRows.map((row, rowIndex) => (
+                        <div
+                          key={rowIndex}
+                          className={`grid gap-5 ${row.cols}`}
+                        >
+                          {row.items.map((item, itemIndex) => (
+                            <Skeleton
+                              key={itemIndex}
+                              className={`w-full rounded-2xl ${item.span}`}
+                              style={{ height: item.height }}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {isLoading ? (
+                    <div className="space-y-5 animate-pulse">
+                      {loadingSkeletonRows.map((row, rowIndex) => (
+                        <div
+                          key={rowIndex}
+                          className={`grid gap-5 ${row.cols}`}
+                        >
+                          {row.items.map((item, itemIndex) => (
+                            <Skeleton
+                              key={itemIndex}
+                              className={`w-full rounded-2xl ${item.span}`}
+                              style={{ height: item.height }}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        ref={(el) => {
+                          sectionRefs.current["overview"] = el;
+                        }}
+                        className={`relative transition-all duration-300 }`}
+                      >
+                        {/* {(isLoading || isFetching) && (
                       <div className="absolute inset-0 z-50 flex items-center justify-center">
                         <Spinner text="Fetching metrics asdfasdfasdfads..." fullScreen={false} />
                       </div>
                     )} */}
-                    {(isLoading || isFetching) && (
-                      <div className="space-y-5 animate-pulse">
-                        {loadingSkeletonRows.map((row, rowIndex) => (
-                          <div
-                            key={rowIndex}
-                            className={`grid gap-5 ${row.cols}`}
-                          >
-                            {row.items.map((item, itemIndex) => (
-                              <Skeleton
-                                key={itemIndex}
-                                className={`w-full rounded-2xl ${item.span}`}
-                                style={{ height: item.height }}
-                              />
-                            ))}
+
+                        {/* <EightCardsComponent
+                      kpiRow1={patchedKpiRow1}
+                      kpiRow2={data.kpiRow2}
+                    /> */}
+                        {/* Uncomment the above line when data is dynamic and delete the below code */}
+                        {(source === "annam" ||
+                          source === "vicharanashala") && (
+                          <EightCardsComponent
+                            kpiRow1={kpiRow1WithOverlay}
+                            kpiRow2={kpiRow2WithOverlay}
+                            source={source}
+                            isLoading={isFetching}
+                          />
+                        )}
+                        {source === "whatsapp" && (
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                            <WhatsAppAnalyticsCard
+                              title="Daily Queries"
+                              analytics={dailyAnalytics}
+                              granularity="daily"
+                              
+                            />
+
+                            <WhatsAppAnalyticsCard
+                              title="Weekly Queries"
+                              analytics={weeklyAnalytics}
+                              granularity="weekly"
+                              
+
+                            />
+
+                            <WhatsAppAnalyticsCard
+                              title="Monthly Queries"
+                              analytics={monthlyAnalytics}
+                              granularity="monthly"
+                              
+                            />
                           </div>
-                        ))}
+                        )}
+                        <div
+                          className={`grid gap-4 mb-6 ${
+                            source === "whatsapp"
+                              ? "grid-cols-1 lg:grid-cols-[1fr_1fr_1.4fr_1.4fr]"
+                              : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
+                          }`}
+                        >
+                          {source === "whatsapp" && (
+                            <WhatsAppUniqueUsersCard
+                              totalUsers={unqueWhatsAppUsers}
+                            />
+                          )}
+
+                          <ClosedInLastTwoHoursCard
+                            count={closedAndNotifedData?.closedInLastTwoHours}
+                            totalClosed={
+                              closedAndNotifedData?.closedVsTotalQuestions
+                                ?.closedQuestions
+                            }
+                          />
+                          <ClosedQuestionsCard
+                            closedQuestions={
+                              closedAndNotifedData?.closedVsTotalQuestions
+                                ?.closedQuestions
+                            }
+                            totalQuestions={
+                              closedAndNotifedData?.closedVsTotalQuestions
+                                ?.totalQuestions
+                            }
+                            inReview={
+                              closedAndNotifedData?.closedVsTotalQuestions
+                                ?.inReviewQuestions
+                            }
+                          />
+                          <CustomerNotificationsCard
+                            notified={
+                              closedAndNotifedData?.notifiedVsClosed?.notified
+                            }
+                            notNotified={
+                              closedAndNotifedData?.notifiedVsClosed
+                                ?.notNotified
+                            }
+                            untrackedClosedQuestions={
+                              closedAndNotifedData?.notifiedVsClosed
+                                ?.untrackedClosedQuestions
+                            }
+                          />
+                        </div>
+                        {source !== "whatsapp" && (
+                          <ResponseAdherenceTableCard
+                            data={
+                              (responseAdherenceData as any)
+                                .responseAdherenceTable ??
+                              (data as any).responseAdherenceTable
+                            }
+                            selectedDate={responseAdherenceDate}
+                            onSelectedDateChange={setResponseAdherenceDate}
+                            isLoading={
+                              isResponseAdherenceLoading ||
+                              isResponseAdherenceFetching
+                            }
+                          />
+                        )}
                       </div>
-                    )}
 
-                    {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
-                    {/* Uncomment the above line when data is dynamic and delete the below code */}
-                    {(source === "annam" || source === "vicharanashala") && (
-                      <EightCardsComponent
-                        kpiRow1={kpiRow1WithOverlay}
-                        kpiRow2={kpiRow2WithOverlay}
-                        source={source}
-                      />
-                    )}
-                    {source === "whatsapp" && (
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                        <WhatsAppAnalyticsCard
-                          title="Daily Queries"
-                          analytics={dailyAnalytics}
-                          granularity="daily"
-                        />
-
-                        <WhatsAppAnalyticsCard
-                          title="Weekly Queries"
-                          analytics={weeklyAnalytics}
-                          granularity="weekly"
-                        />
-
-                        <WhatsAppAnalyticsCard
-                          title="Monthly Queries"
-                          analytics={monthlyAnalytics}
-                          granularity="monthly"
-                        />
-                      </div>
-                    )}
-                    <div
-                      className={`grid gap-4 mb-6 ${
-                        source === "whatsapp"
-                          ? "grid-cols-1 lg:grid-cols-[1fr_1fr_1.4fr_1.4fr]"
-                          : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
-                      }`}
-                    >
-                      {source === "whatsapp" && (
-                        <WhatsAppUniqueUsersCard
-                          totalUsers={unqueWhatsAppUsers}
-                        />
-                      )}
-
-                      <ClosedInLastTwoHoursCard
-                        count={closedAndNotifedData?.closedInLastTwoHours}
-                        totalClosed={
-                          closedAndNotifedData?.closedVsTotalQuestions
-                            ?.closedQuestions
-                        }
-                      />
-                      <ClosedQuestionsCard
-                        closedQuestions={
-                          closedAndNotifedData?.closedVsTotalQuestions
-                            ?.closedQuestions
-                        }
-                        totalQuestions={
-                          closedAndNotifedData?.closedVsTotalQuestions
-                            ?.totalQuestions
-                        }
-                        inReview={
-                          closedAndNotifedData?.closedVsTotalQuestions
-                            ?.inReviewQuestions
-                        }
-                      />
-                      <CustomerNotificationsCard
-                        notified={
-                          closedAndNotifedData?.notifiedVsClosed?.notified
-                        }
-                        notNotified={
-                          closedAndNotifedData?.notifiedVsClosed?.notNotified
-                        }
-                        untrackedClosedQuestions={
-                          closedAndNotifedData?.notifiedVsClosed
-                            ?.untrackedClosedQuestions
-                        }
-                      />
-                    </div>
-                    {source !== "whatsapp" && (
-                      <ResponseAdherenceTableCard
-                        data={
-                          (responseAdherenceData as any)
-                            .responseAdherenceTable ??
-                          (data as any).responseAdherenceTable
-                        }
-                        selectedDate={responseAdherenceDate}
-                        onSelectedDateChange={setResponseAdherenceDate}
-                        isLoading={
-                          isResponseAdherenceLoading ||
-                          isResponseAdherenceFetching
-                        }
-                      />
-                    )}
-                  </div>
-
-                  {/* DAU trend + Alerts */}
-                  <div
-                    ref={(el) => {
-                      sectionRefs.current["usage-patterns"] = el;
-                      growthRef.current = el;
-                    }}
-                    className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
-                  >
-                    {/* <DailyActiveUsers
+                      {/* DAU trend + Alerts */}
+                      <div
+                        ref={(el) => {
+                          sectionRefs.current["usage-patterns"] = el;
+                          growthRef.current = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
+                      >
+                        {/* <DailyActiveUsers
                     data={dauTrend}
                     isLoading={dauLoading}
                     error={dauError}
                   /> */}
-                    {/* {isGrowthVisible ? source === "whatsapp" ?(<div className="h-full w-full blur-sm opacity-90"></div>):( */}
-                    {isGrowthVisible ? (
-                      <Suspense fallback={<Spinner />}>
-                        <LazyUserGrowthChart source={source} />
-                      </Suspense>
-                    ) : (
-                      <div className="h-[300px] flex items-center justify-center text-gray-400">
-                        {/* <Spinner text="Loading chart..." /> */}
-                        <div className="h-[300px] bg-gray-100 dark:bg-[#1a1a1a] animate-pulse rounded-xl" />
-                      </div>
-                    )}
-
-                    <div
-                      ref={(el) => {
-                        sectionRefs.current["bugs-ux"] = el;
-                      }}
-                    >
-                      <AlertCard
-                        alerts={data.alerts}
-                        inactiveUsersLast3Days={
-                          source === "whatsapp"
-                            ? inactiveWhatsappUsers?.pagination?.total
-                            : ((data as any).inactiveUsersLast3Days ?? 0)
-                        }
-                        onInactiveClick={handleInactiveUsersClick}
-                        duplicateQuestionsCount={
-                          (data as any).duplicateQuestionsCount ?? 0
-                        }
-                        onDuplicateClick={() => setIsDuplicateModalOpen(true)}
-                        lowFeedbackUsersCount={
-                          (data as any).lowFeedbackUsersCount ?? null
-                        }
-                        onLowFeedbackClick={handleLowFeedbackUsersClick}
-                        source={source}
-                        onInactiveWhatsAppUsersClick={
-                          handleWhatsappInactiveUsersClick
-                        }
-                      />
-                      {isDuplicateModalOpen && (
-                        <DuplicateQuestionsModal
-                          onClose={() => setIsDuplicateModalOpen(false)}
-                          source={source}
-                        />
-                      )}
-                      <InactiveUsersModal
-                        open={isInactiveWhatsappModalOpen}
-                        onOpenChange={setIsInactiveWhatsappModalOpen}
-                        users={inactiveWhatsappUsers?.users ?? []}
-                        pagination={inactiveWhatsappUsers?.pagination}
-                        onPageChange={setInactiveUsersPage}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Demographics */}
-                  {source !== "whatsapp" && (
-                    <div
-                      ref={(el) => {
-                        sectionRefs.current["demographics"] = el;
-                      }}
-                    >
-                      <UserDemographicsSection
-                        data={{
-                          ageGroups: data.ageGroups,
-                          genderSplit: data.genderSplit,
-                          farmingExperience: data.farmingExperience,
-                          landHolding: (data as any).landHolding ?? [],
-                        }}
-                      />
-                    </div>
-                  )}
-                  {/* 2-col row */}
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 auto-rows-fr items-stretch">
-                    {source !== "whatsapp" && (
-                      <div className="h-full">
-                        <PlatformDonutSegments
-                          rawData={data.platformInstalls}
-                        />
-                      </div>
-                    )}
-
-                    {source !== "whatsapp" && (
-                      <div
-                        className="h-full group"
-                        ref={(el) => {
-                          sectionRefs.current["farmer-segments"] = el;
-                        }}
-                      >
-                        {/* <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" /> */}
-
-                        <div className="relative h-full rounded-xl border border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
-                          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-
-                          <div className="flex items-center gap-2 mb-5">
-                            <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-                            <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                              Knowledge & Awareness
-                            </h3>
+                        {/* {isGrowthVisible ? source === "whatsapp" ?(<div className="h-full w-full blur-sm opacity-90"></div>):( */}
+                        {/* {isGrowthVisible ? ( */}
+                          <Suspense fallback={<Spinner />}>
+                            <LazyUserGrowthChart source={source} />
+                          </Suspense>
+                        {/* ) : (
+                          <div className="h-[300px] flex items-center justify-center text-gray-400">
+                            <div className="h-[300px] bg-gray-100 dark:bg-[#1a1a1a] animate-pulse rounded-xl" />
                           </div>
+                        )} */}
 
-                          <div className="flex flex-wrap gap-6 justify-center items-center h-[calc(100%-3rem)] overflow-hidden">
-                            {[
-                              {
-                                label: "KCC Awareness",
-                                data: data.kccAwareness,
-                                hovered,
-                                setHover: setHovered,
-                                color: "hsl(142 71% 45%)",
-                                gradId: "kccGrad",
-                              },
-                              {
-                                label: "Uses Agri Apps",
-                                data: data.agriAppUsage,
-                                hovered: agriHovered,
-                                setHover: setAgriHovered,
-                                color: "hsl(217 91% 60%)",
-                                gradId: "agriGrad",
-                              },
-                            ].map(
-                              ({
-                                label,
-                                data: d,
-                                hovered: h,
-                                setHover,
-                                color,
-                                gradId,
-                              }) => {
-                                const yes = d?.[0]?.count || 0;
-                                const no = d?.[1]?.count || 0;
-                                const total = yes + no;
-                                const r = 45,
-                                  cx = 60,
-                                  cy = 60;
-                                const circ = 2 * Math.PI * r;
-                                const yesDash = total
-                                  ? (yes / total) * circ
-                                  : 0;
-                                const noDash = total ? (no / total) * circ : 0;
-                                const yesPct = total
-                                  ? Math.round((yes / total) * 100)
-                                  : 0;
-
-                                return (
-                                  <div
-                                    key={label}
-                                    className="flex flex-col items-center gap-3 min-w-0 group/chart"
-                                  >
-                                    <div className="relative">
-                                      {/* Soft glow */}
-
-                                      <svg
-                                        viewBox="0 0 120 120"
-                                        className="relative w-[120px] h-[120px]"
-                                      >
-                                        <defs>
-                                          <linearGradient
-                                            id={gradId}
-                                            x1="0%"
-                                            y1="0%"
-                                            x2="100%"
-                                            y2="100%"
-                                          >
-                                            <stop
-                                              offset="0%"
-                                              stopColor={color}
-                                              stopOpacity="1"
-                                            />
-                                            <stop
-                                              offset="100%"
-                                              stopColor={color}
-                                              stopOpacity="0.7"
-                                            />
-                                          </linearGradient>
-                                        </defs>
-
-                                        {/* Track */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          className="stroke-muted"
-                                          strokeWidth={10}
-                                        />
-
-                                        {/* Yes arc */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke={`url(#${gradId})`}
-                                          strokeWidth={h === "yes" ? 13 : 10}
-                                          strokeLinecap="round"
-                                          strokeDasharray={`${yesDash} ${circ}`}
-                                          transform={`rotate(-90 ${cx} ${cy})`}
-                                          className="cursor-pointer transition-[stroke-width] duration-200"
-                                          onMouseEnter={() => setHover("yes")}
-                                          onMouseLeave={() => setHover(null)}
-                                        />
-
-                                        {/* No arc */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          className="stroke-muted-foreground/40 cursor-pointer transition-[stroke-width] duration-200"
-                                          strokeWidth={h === "no" ? 13 : 10}
-                                          strokeLinecap="round"
-                                          strokeDasharray={`${noDash} ${circ}`}
-                                          strokeDashoffset={-yesDash}
-                                          transform={`rotate(-90 ${cx} ${cy})`}
-                                          onMouseEnter={() => setHover("no")}
-                                          onMouseLeave={() => setHover(null)}
-                                        />
-
-                                        {/* Center text */}
-                                        <text
-                                          x={cx}
-                                          y={cy - 2}
-                                          textAnchor="middle"
-                                          className="fill-foreground font-bold tabular-nums"
-                                          fontSize={h ? 16 : 20}
-                                        >
-                                          {h === "yes"
-                                            ? yes
-                                            : h === "no"
-                                              ? no
-                                              : total}
-                                        </text>
-                                        <text
-                                          x={cx}
-                                          y={cy + 12}
-                                          textAnchor="middle"
-                                          className="fill-muted-foreground"
-                                          fontSize={8}
-                                          style={{
-                                            letterSpacing: "0.1em",
-                                            textTransform: "uppercase",
-                                          }}
-                                        >
-                                          {h === "yes"
-                                            ? "Yes"
-                                            : h === "no"
-                                              ? "No"
-                                              : "Total"}
-                                        </text>
-                                      </svg>
-                                    </div>
-
-                                    <div className="flex flex-col items-center gap-1">
-                                      <span className="text-xs font-medium text-foreground">
-                                        {label}
-                                      </span>
-                                      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
-                                        <span
-                                          className="w-1.5 h-1.5 rounded-full"
-                                          style={{ backgroundColor: color }}
-                                        />
-                                        {yesPct}% Yes
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              },
-                            )}
-                          </div>
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["bugs-ux"] = el;
+                          }}
+                        >
+                          <AlertCard
+                            alerts={data.alerts}
+                            inactiveUsersLast3Days={
+                              source === "whatsapp"
+                                ? inactiveWhatsappUsers?.pagination?.total
+                                : ((data as any).inactiveUsersLast3Days ?? 0)
+                            }
+                            onInactiveClick={handleInactiveUsersClick}
+                            duplicateQuestionsCount={
+                              (data as any).duplicateQuestionsCount ?? 0
+                            }
+                            onDuplicateClick={() =>
+                              setIsDuplicateModalOpen(true)
+                            }
+                            lowFeedbackUsersCount={
+                              (data as any).lowFeedbackUsersCount ?? null
+                            }
+                            onLowFeedbackClick={handleLowFeedbackUsersClick}
+                            source={source}
+                            onInactiveWhatsAppUsersClick={
+                              handleWhatsappInactiveUsersClick
+                            }
+                          />
+                          {isDuplicateModalOpen && (
+                            <DuplicateQuestionsModal
+                              onClose={() => setIsDuplicateModalOpen(false)}
+                              source={source}
+                            />
+                          )}
+                          <InactiveUsersModal
+                            open={isInactiveWhatsappModalOpen}
+                            onOpenChange={setIsInactiveWhatsappModalOpen}
+                            users={inactiveWhatsappUsers?.users ?? []}
+                            pagination={inactiveWhatsappUsers?.pagination}
+                            onPageChange={setInactiveUsersPage}
+                          />
                         </div>
                       </div>
-                    )}
 
-                    {source !== "whatsapp" && (
-                      <FeedbackCard
-                        title="Feedback Data"
-                        positiveFeedbacksCount={
-                          data?.feedbackData?.stats?.positiveCount
-                        }
-                        negativeFeedbacksCount={
-                          data?.feedbackData?.stats?.negativeCount
-                        }
-                        positiveFeedbacks={
-                          data?.feedbackData?.positiveFeedbacks
-                        }
-                        negativeFeedbacks={
-                          data?.feedbackData?.negativeFeedbacks
-                        }
-                        averageRating={data?.feedbackData?.stats?.averageRating}
-                      />
-                    )}
-                  </div>
+                      {/* Demographics */}
+                      {source !== "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["demographics"] = el;
+                          }}
+                        >
+                          <UserDemographicsSection
+                            data={{
+                              ageGroups: data.ageGroups,
+                              genderSplit: data.genderSplit,
+                              farmingExperience: data.farmingExperience,
+                              landHolding: (data as any).landHolding ?? [],
+                            }}
+                          />
+                        </div>
+                      )}
+                      {/* 2-col row */}
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, ease: "easeOut" }}
-                      ref={(el) => {
-                        sectionRefs.current["query-analysis"] = el;
-                      }}
-                      className="h-full"
-                    >
-                      <DashboardQueryCategories
-                        categories={
-                          source === "whatsapp"
-                            ? queryCategories
-                            : data.queryCategories
-                        }
-                      />
-                    </motion.div>
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 auto-rows-fr items-stretch">
+                        {source !== "whatsapp" && (
+                          <div className="h-full">
+                            <PlatformDonutSegments
+                              rawData={data.platformInstalls}
+                            />
+                          </div>
+                        )}
 
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 0.4,
-                        ease: "easeOut",
-                        delay: 0.08,
-                      }}
-                      ref={(el) => {
-                        sectionRefs.current["feedback-sentiment"] = el;
-                      }}
-                      className="h-full"
-                    >
-                      <TopCropsCard
-                        topCrops={topCrops}
-                        isLoadingTopCrops={isLoadingTopCrops}
-                        errorLoadingtopCrops={errorLoadingtopCrops}
-                      />
-                    </motion.div>
-                  </div>
+                        {source !== "whatsapp" && (
+                          <div
+                            className="h-full group"
+                            ref={(el) => {
+                              sectionRefs.current["farmer-segments"] = el;
+                            }}
+                          >
+                            {/* <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" /> */}
 
-                  {/* Chatbot Quality & FAQ Analytics Section Header */}
-                  {/* Daily Trends & FAQ Leaderboard Grid */}
-                  {/* Row 1: Daily Trends & Feedback Data */}
-                  <div className="grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6">
-                    <DailyQuestionTrendsChart
-                      trends={(trendsData as any).dailyQuestionTrends}
-                      dateRange={trendsDateRange}
-                      onDateRangeChange={setTrendsDateRange}
-                      isLoading={trendsLoading}
-                    />
-                  </div>
+                            <div className="relative h-full rounded-xl border border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
-                  {/* Row 2: State Analytics & FAQ Leaderboard */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-                    <DashboardStateWiseAnalytics
-                      source={source}
-                      userType={filters.userType}
-                    />
+                            <div className="flex items-center gap-2 mb-5">
+                              <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+                              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                Knowledge & Awareness
+                              </h3>
+                            </div>
 
-                    <TopFaqsLeaderboard
-                      faqs={(faqsData as any).topFaqs}
-                      topQuestionsFromCollection={
-                        (faqsData as any).topQuestionsFromCollection
-                      }
-                      repeatQueryCount={(faqsData as any).repeatQueryCount}
-                      repeatQueryRatePct={(faqsData as any).repeatQueryRatePct}
-                      avgQuestionsPerUserDay={
-                        (faqsData as any).avgQuestionsPerUserDay
-                      }
-                      dateRange={faqsDateRange}
-                      onDateRangeChange={setFaqsDateRange}
-                      isLoading={faqsLoading}
-                    />
-                  </div>
+                            <div className="flex flex-wrap gap-6 justify-center items-center h-[calc(100%-3rem)] overflow-hidden">
+                              {[
+                                {
+                                  label: "KCC Awareness",
+                                  data: data.kccAwareness,
+                                  hovered,
+                                  setHover: setHovered,
+                                  color: "hsl(142 71% 45%)",
+                                  gradId: "kccGrad",
+                                },
+                                {
+                                  label: "Uses Agri Apps",
+                                  data: data.agriAppUsage,
+                                  hovered: agriHovered,
+                                  setHover: setAgriHovered,
+                                  color: "hsl(217 91% 60%)",
+                                  gradId: "agriGrad",
+                                },
+                              ].map(
+                                ({
+                                  label,
+                                  data: d,
+                                  hovered: h,
+                                  setHover,
+                                  color,
+                                  gradId,
+                                }) => {
+                                  const yes = d?.[0]?.count || 0;
+                                  const no = d?.[1]?.count || 0;
+                                  const total = yes + no;
+                                  const r = 45,
+                                    cx = 60,
+                                    cy = 60;
+                                  const circ = 2 * Math.PI * r;
+                                  const yesDash = total
+                                    ? (yes / total) * circ
+                                    : 0;
+                                  const noDash = total
+                                    ? (no / total) * circ
+                                    : 0;
+                                  const yesPct = total
+                                    ? Math.round((yes / total) * 100)
+                                    : 0;
 
-                  {/* Geo + Health */}
-                  <div
-                    ref={(el) => {
-                      sectionRefs.current["geo-intelligence"] = el;
-                    }}
-                    className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
-                  >
-                    {/* <ChannelSplitCard
+                                  return (
+                                    <div
+                                      key={label}
+                                      className="flex flex-col items-center gap-3 min-w-0 group/chart"
+                                    >
+                                      <div className="relative">
+                                        {/* Soft glow */}
+
+                                        <svg
+                                          viewBox="0 0 120 120"
+                                          className="relative w-[120px] h-[120px]"
+                                        >
+                                          <defs>
+                                            <linearGradient
+                                              id={gradId}
+                                              x1="0%"
+                                              y1="0%"
+                                              x2="100%"
+                                              y2="100%"
+                                            >
+                                              <stop
+                                                offset="0%"
+                                                stopColor={color}
+                                                stopOpacity="1"
+                                              />
+                                              <stop
+                                                offset="100%"
+                                                stopColor={color}
+                                                stopOpacity="0.7"
+                                              />
+                                            </linearGradient>
+                                          </defs>
+
+                                          {/* Track */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            className="stroke-muted"
+                                            strokeWidth={10}
+                                          />
+
+                                          {/* Yes arc */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            stroke={`url(#${gradId})`}
+                                            strokeWidth={h === "yes" ? 13 : 10}
+                                            strokeLinecap="round"
+                                            strokeDasharray={`${yesDash} ${circ}`}
+                                            transform={`rotate(-90 ${cx} ${cy})`}
+                                            className="cursor-pointer transition-[stroke-width] duration-200"
+                                            onMouseEnter={() => setHover("yes")}
+                                            onMouseLeave={() => setHover(null)}
+                                          />
+
+                                          {/* No arc */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            className="stroke-muted-foreground/40 cursor-pointer transition-[stroke-width] duration-200"
+                                            strokeWidth={h === "no" ? 13 : 10}
+                                            strokeLinecap="round"
+                                            strokeDasharray={`${noDash} ${circ}`}
+                                            strokeDashoffset={-yesDash}
+                                            transform={`rotate(-90 ${cx} ${cy})`}
+                                            onMouseEnter={() => setHover("no")}
+                                            onMouseLeave={() => setHover(null)}
+                                          />
+
+                                          {/* Center text */}
+                                          <text
+                                            x={cx}
+                                            y={cy - 2}
+                                            textAnchor="middle"
+                                            className="fill-foreground font-bold tabular-nums"
+                                            fontSize={h ? 16 : 20}
+                                          >
+                                            {h === "yes"
+                                              ? yes
+                                              : h === "no"
+                                                ? no
+                                                : total}
+                                          </text>
+                                          <text
+                                            x={cx}
+                                            y={cy + 12}
+                                            textAnchor="middle"
+                                            className="fill-muted-foreground"
+                                            fontSize={8}
+                                            style={{
+                                              letterSpacing: "0.1em",
+                                              textTransform: "uppercase",
+                                            }}
+                                          >
+                                            {h === "yes"
+                                              ? "Yes"
+                                              : h === "no"
+                                                ? "No"
+                                                : "Total"}
+                                          </text>
+                                        </svg>
+                                      </div>
+
+                                      <div className="flex flex-col items-center gap-1">
+                                        <span className="text-xs font-medium text-foreground">
+                                          {label}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+                                          <span
+                                            className="w-1.5 h-1.5 rounded-full"
+                                            style={{ backgroundColor: color }}
+                                          />
+                                          {yesPct}% Yes
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                },
+                              )}
+                            </div>
+                          </div>
+                           </div>
+                        )}
+
+                        {source !== "whatsapp" && (
+                          <FeedbackCard
+                            title="Feedback Data"
+                            positiveFeedbacksCount={
+                              data?.feedbackData?.stats?.positiveCount
+                            }
+                            negativeFeedbacksCount={
+                              data?.feedbackData?.stats?.negativeCount
+                            }
+                            positiveFeedbacks={
+                              data?.feedbackData?.positiveFeedbacks
+                            }
+                            negativeFeedbacks={
+                              data?.feedbackData?.negativeFeedbacks
+                            }
+                            averageRating={
+                              data?.feedbackData?.stats?.averageRating
+                            }
+                          />
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.4, ease: "easeOut" }}
+                          ref={(el) => {
+                            sectionRefs.current["query-analysis"] = el;
+                          }}
+                          className="h-full"
+                        >
+                          <DashboardQueryCategories
+                            categories={
+                              source === "whatsapp"
+                                ? queryCategories
+                                : data.queryCategories
+                            }
+                          />
+                        </motion.div>
+
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.4,
+                            ease: "easeOut",
+                            delay: 0.08,
+                          }}
+                          ref={(el) => {
+                            sectionRefs.current["feedback-sentiment"] = el;
+                          }}
+                          className="h-full"
+                        >
+                          <TopCropsCard
+                            topCrops={topCrops}
+                            isLoadingTopCrops={isLoadingTopCrops}
+                            errorLoadingtopCrops={errorLoadingtopCrops}
+                          />
+                        </motion.div>
+                      </div>
+
+                      {/* Chatbot Quality & FAQ Analytics Section Header */}
+                      {/* Daily Trends & FAQ Leaderboard Grid */}
+                      {/* Row 1: Daily Trends & Feedback Data */}
+                      <div className="grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6">
+                        <DailyQuestionTrendsChart
+                          trends={(trendsData as any).dailyQuestionTrends}
+                          dateRange={trendsDateRange}
+                          onDateRangeChange={setTrendsDateRange}
+                          isLoading={trendsLoading}
+                        />
+                      </div>
+
+                      {/* Row 2: State Analytics & FAQ Leaderboard */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                        <DashboardStateWiseAnalytics
+                          source={source}
+                          userType={filters.userType}
+                        />
+
+                        <TopFaqsLeaderboard
+                          faqs={(faqsData as any).topFaqs}
+                          topQuestionsFromCollection={
+                            (faqsData as any).topQuestionsFromCollection
+                          }
+                          repeatQueryCount={(faqsData as any).repeatQueryCount}
+                          repeatQueryRatePct={
+                            (faqsData as any).repeatQueryRatePct
+                          }
+                          avgQuestionsPerUserDay={
+                            (faqsData as any).avgQuestionsPerUserDay
+                          }
+                          dateRange={faqsDateRange}
+                          onDateRangeChange={setFaqsDateRange}
+                          isLoading={faqsLoading}
+                        />
+                      </div>
+
+                      {/* Geo + Health */}
+                      <div
+                        ref={(el) => {
+                          sectionRefs.current["geo-intelligence"] = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
+                      >
+                        {/* <ChannelSplitCard
                 channelSplit={data.channelSplit}
                 voiceAccuracy={data.voiceAccuracy}
               /> */}
-                    {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
-                    {/* <GeoCard states={data.geoStates} />*/}
-                    <div
-                      ref={(el) => {
-                        sectionRefs.current["app-health"] = el;
-                      }}
-                    >
-                      {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
-                    </div>
-                  </div>
-                  {source !== "whatsapp" && (
-                    <div className="">
-                      <ActiveUsersChart
-                        source={source}
-                        userType={filters.userType}
-                      />
-                      {/* <RetentionMetricsChart
+                        {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
+                        {/* <GeoCard states={data.geoStates} />*/}
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["app-health"] = el;
+                          }}
+                        >
+                          {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
+                        </div>
+                      </div>
+                      {source !== "whatsapp" && (
+                        <div className="">
+                          <ActiveUsersChart
+                            source={source}
+                            userType={filters.userType}
+                          />
+                          {/* <RetentionMetricsChart
                     source={source}
                     userType={filters.userType}
                     /> */}
-                    </div>
-                  )}
-                  {source !== "whatsapp" && (
-                    <div className="mt-4 mb-4">
-                      <WeatherConcernAnalyticsCard
-                        source={source}
-                        userType={filters.userType}
-                        filters={weatherConcernFilters}
-                        onFiltersChange={setWeatherConcernFilters}
-                      />
-                    </div>
-                  )}
-                  {source !== "whatsapp" && (
-                    <div
-                      ref={(el) => {
-                        sectionRefs.current["user-details"] = el;
-                      }}
-                    >
-                      <UserDetailsView
-                        source={source}
-                        initialFilters={userDetailsInitialFilters}
-                        userType={filters.userType}
-                      />
-                    </div>
-                  )}
-                  {source === "whatsapp" && (
-                    <div
-                      ref={(el) => {
-                        sectionRefs.current["user-details"] = el;
-                      }}
-                    >
-                      <WhatsAppUsersView />
-                    </div>
+                        </div>
+                      )}
+                      {source !== "whatsapp" && (
+                        <div className="mt-4 mb-4">
+                          <WeatherConcernAnalyticsCard
+                            source={source}
+                            userType={filters.userType}
+                            filters={weatherConcernFilters}
+                            onFiltersChange={setWeatherConcernFilters}
+                          />
+                        </div>
+                      )}
+                      {source !== "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["user-details"] = el;
+                          }}
+                        >
+                          <UserDetailsView
+                            source={source}
+                            initialFilters={userDetailsInitialFilters}
+                            userType={filters.userType}
+                          />
+                        </div>
+                      )}
+                      {source === "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["user-details"] = el;
+                          }}
+                        >
+                          <WhatsAppUsersView />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
