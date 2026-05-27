@@ -7591,6 +7591,15 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [{$eq: ['$status', 'closed']}, 1, 0],
               },
             },
+            inReviewQuestions: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$status', 'in-review'] },
+                  1,
+                  0,
+                ],
+              },
+            },
           },
         },
         {
@@ -7598,6 +7607,7 @@ export class ChatbotRepository implements IChatbotRepository {
             _id: 0,
             totalQuestions: 1,
             closedQuestions: 1,
+            inReviewQuestions: 1,
           },
         },
       ]).toArray();
