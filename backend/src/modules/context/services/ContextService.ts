@@ -86,15 +86,22 @@ export class ContextService extends BaseService implements IContextService {
     // Languages exclusive to sarvam-translate:v1 (supports 22 languages)
     // mayura:v1 supports only 11 languages but auto-detects source language
     const SARVAM_ONLY_LANGS = new Set([
-      'as-IN', 'brx-IN', 'doi-IN', 'kok-IN',
-      'ks-IN', 'mai-IN', 'mni-IN', 'ne-IN',
-      'sa-IN', 'sat-IN', 'sd-IN', 'ur-IN',
+      'en-IN', 'hi-IN', 'bn-IN',
+      'gu-IN', 'kn-IN', 'ml-IN',
+      'mr-IN', 'od-IN', 'pa-IN',
+      'ta-IN', 'te-IN', 'as-IN',
+      'doi-IN', 'kok-IN', 'ks-IN',
+      'mai-IN', 'mni-IN', 'ne-IN',
+      'sa-IN', 'sat-IN', 'sd-IN',
+      'ur-IN', 'brx-IN',
     ]);
 
     const useSarvamModel = SARVAM_ONLY_LANGS.has(targetLang);
     const model = useSarvamModel ? 'sarvam-translate:v1' : 'mayura:v1';
     const source_language_code = useSarvamModel ? (sourceLang ?? 'en-IN') : 'auto';
     // API character limits: mayura:v1 = 1000, sarvam-translate:v1 = 2000
+
+    if(targetLang === 'en-IN') return { translated_text: text };
     const maxChars = useSarvamModel ? 1900 : 900;
 
     const chunks = this._splitIntoChunks(text, maxChars);
