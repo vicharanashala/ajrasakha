@@ -21,7 +21,7 @@ export const useUserGrowth = (
         return chatbotService.getUserGrowthByDateRange(source, startISO, endISO);
       }
 
-      return chatbotService.getUserGrowth(source, 30);
+      return chatbotService.getUserGrowth(source, 3650);
     },
     enabled,
   });

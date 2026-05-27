@@ -179,6 +179,17 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
           </span>
         </div>
       </div>
+
+      {/* PROGRESS BAR VISUALIZATION */}
+      <div className="w-full bg-gray-100 dark:bg-[#2A2A2A] rounded-full h-1.5 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500 ease-out"
+          style={{
+            width: `${pct}%`,
+            backgroundColor: color,
+          }}
+        />
+      </div>
     </div>
   );
 };
