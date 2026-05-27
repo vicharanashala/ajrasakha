@@ -11,27 +11,24 @@ Given a natural-language query, returns the top-N most relevant questions ranked
 
 ## Endpoints
 
-### 1. `POST /agent_search` (Recommended)
+### 1. `POST /extract` (Human-in-the-Loop)
 
-Accepts a raw conversation transcript (e.g., between a farmer and an expert), uses the local **Gemma LLM** to extract the core question, state, and crop, and then performs a highly targeted pre-filtered vector search.
+Designed for Human-in-the-Loop (HITL) architectures. Accepts a raw conversation transcript, uses the local **Gemma LLM** to extract the core question, state, and crop, and then immediately runs them through the sanitization pipeline.
+
+The frontend should present these extracted, sanitized values to a human agent for verification or modification before submitting them to `/search`.
 
 **Request body**
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `query` | string | yes | — | Raw conversation transcript or question |
-| `top_k` | integer | no | `10` | Maximum number of results to return |
-| `threshold` | float | no | `0.70` | Minimum cosine similarity score (0-1) |
-| `sanitized` | boolean | no | `false` | When true, passes the extracted state/crop through a 3-tier sanitization pipeline (Normalization -> Fuzzy Match -> Gemma LLM Fallback) to map them to valid database strings before searching |
 
 **Example request**
 ```bash
-curl -X POST http://127.0.0.1:8001/agent_search \
+curl -X POST http://127.0.0.1:8001/extract \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Farmer: My wheat crop in Punjab has yellow leaves. What should I do?",
-    "top_k": 5,
-    "threshold": 0.75
+    "query": "Farmer: My wheat crop in Punjab has yellow leaves. What should I do?"
   }'
 ```
 
@@ -40,43 +37,7 @@ curl -X POST http://127.0.0.1:8001/agent_search \
 {
   "extracted_question": "What should I do for yellow leaves in wheat crop?",
   "extracted_state": "Punjab",
-  "extracted_crop": "Wheat",
-  "reviewer": [
-    {
-      "id": "69258d...",
-      "question": "What is the treatment for yellow rust in wheat?",
-      "text": "...",
-      "answer": "Apply...",
-      "details": {
-        "state": "Punjab",
-        "district": "Ludhiana",
-        "crop": "Wheat",
-        "season": "Rabi",
-        "domain": "Crop Protection"
-      },
-      "status": "closed",
-      "source": "AGRI_EXPERT",
-      "score": 0.931,
-      "agri_expert": "Satarupa Saha",
-      "sources": [
-        {
-          "source": "https://agritech.tnau.ac.in/...",
-          "page": null,
-          "source_name": "Crop Protection TNAU"
-        }
-      ]
-    }
-  ],
-  "golden": [
-    {
-       "text": "...",
-       "question": "...",
-       "answer": "...",
-       "metadata": {},
-       "score": 0.852
-    }
-  ],
-  "pop": []
+  "extracted_crop": "Wheat"
 }
 ```
 

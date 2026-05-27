@@ -766,27 +766,20 @@ def _extract_from_transcript(transcript: str) -> dict:
     raise ValueError("LLM returned empty response")
 
 
-class AgentSearchRequest(BaseModel):
+class ExtractRequest(BaseModel):
     query: str
-    top_k: int = 10
-    threshold: float = 0.7
-    sanitized: bool = False
-    mode: str = ""
 
 
-class AgentSearchResponse(BaseModel):
+class ExtractResponse(BaseModel):
     extracted_question: str
     extracted_state: str
     extracted_crop: str
-    reviewer: list[QAItem]
-    golden: list[GoldenQAItem]
-    pop: list[PopItem] | None = None
 
 
-@app.post("/agent_search", response_model=AgentSearchResponse, response_model_exclude_none=True)
-def agent_search(request: AgentSearchRequest):
-    """Accept a conversation transcript, extract a farmer query via LLM,
-    then run semantic search and return results."""
+@app.post("/extract", response_model=ExtractResponse)
+def extract_query(request: ExtractRequest):
+    """Accept a conversation transcript, extract question, state, and crop,
+    and sanitize them. Returns the sanitized values to the frontend."""
     t0 = time.perf_counter()
 
     if not request.query.strip():
@@ -797,7 +790,7 @@ def agent_search(request: AgentSearchRequest):
     try:
         extracted = _extract_from_transcript(request.query)
     except Exception as e:
-        log.error("[/agent_search] LLM extraction failed: %s", e)
+        log.error("[/extract] LLM extraction failed: %s", e)
         raise HTTPException(status_code=502, detail=f"LLM extraction failed: {e}")
 
     question = extracted.get("question", request.query)
@@ -805,35 +798,30 @@ def agent_search(request: AgentSearchRequest):
     crop = extracted.get("crop", "All")
 
     log.info(
-        "[/agent_search] LLM extracted  question=%r  state=%r  crop=%r  (%.0fms)",
+        "[/extract] LLM extracted  question=%r  state=%r  crop=%r  (%.0fms)",
         question[:80], state, crop, (time.perf_counter() - t_llm) * 1000,
     )
 
-    # --- Step 2: Build SearchRequest and call unified search ---
-    search_req = SearchRequest(
-        query=question,
-        top_k=request.top_k,
-        threshold=request.threshold,
-        state=state if state != "All" else None,
-        crop=crop if crop != "All" else None,
-        mode=request.mode,
-        sanitized=request.sanitized,
-    )
+    # --- Step 2: Sanitize state and crop ---
+    # We run them through the 3-tier sanitization pipeline here
+    # so the frontend dropdowns can pre-select exact matching strings.
+    final_state = state
+    final_crop = crop
+    
+    _ensure_cache()
+    if state != "All":
+        final_state = sanitize_filter_value(state, "state", _VALID_STATES_CACHE) or state
+    
+    if crop != "All":
+        final_crop = sanitize_filter_value(crop, "crop", _VALID_CROPS_CACHE) or crop
+        
+    log.info("[/extract] Final sanitized values: state=%r, crop=%r (total %.0fms)", 
+             final_state, final_crop, (time.perf_counter() - t0) * 1000)
 
-    multi_response = search_unified(search_req)
-
-    log.info(
-        "[/agent_search] returning %d reviewer, %d golden results (total %.0fms)",
-        len(multi_response.reviewer), len(multi_response.golden), (time.perf_counter() - t0) * 1000,
-    )
-
-    return AgentSearchResponse(
+    return ExtractResponse(
         extracted_question=question,
-        extracted_state=state,
-        extracted_crop=crop,
-        reviewer=multi_response.reviewer,
-        golden=multi_response.golden,
-        pop=multi_response.pop,
+        extracted_state=final_state,
+        extracted_crop=final_crop,
     )
 
 
