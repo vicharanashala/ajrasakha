@@ -20,6 +20,8 @@ let repo: CropRepository;
 let createdDocId: string;
 
 beforeAll(async () => {
+  console.log('DB_URL:', DB_URL);
+  console.log('DB_NAME:', DB_NAME);
   db = new MongoDatabase(DB_URL, DB_NAME);
   await db.init();
   repo = new CropRepository(db as any);
@@ -38,32 +40,50 @@ afterAll(async () => {
 }, 30000);
 
 describe('CropRepository integration (prod_copy_db)', () => {
-
   it('createCrop — inserts a new doc and returns it', async () => {
     const crop = await repo.createCrop(
       TEST_CROP_NAME,
       CREATED_BY,
       [
-        { language: 'en-IN', region: '', english_representation: TEST_ALIAS_1, native_representation: TEST_ALIAS_1 },
-        { language: 'en-IN', region: '', english_representation: TEST_ALIAS_2, native_representation: TEST_ALIAS_2 },
+        {
+          language: 'en-IN',
+          region: '',
+          english_representation: TEST_ALIAS_1,
+          native_representation: TEST_ALIAS_1,
+        },
+        {
+          language: 'en-IN',
+          region: '',
+          english_representation: TEST_ALIAS_2,
+          native_representation: TEST_ALIAS_2,
+        },
       ],
+      'crop',
     );
 
     expect(crop._id).toBeDefined();
     expect(crop.name).toBe(TEST_CROP_NAME_LOWER);
-    expect(crop.aliases.some(a => typeof a !== 'string' && a.english_representation === TEST_ALIAS_1.toLowerCase())).toBe(true);
+    expect(
+      crop.aliases.some(
+        a =>
+          typeof a !== 'string' &&
+          a.english_representation === TEST_ALIAS_1.toLowerCase(),
+      ),
+    ).toBe(true);
 
     createdDocId = crop._id!.toString();
   }, 30000);
 
   it('createCrop — throws on duplicate name', async () => {
-    await expect(
-      repo.createCrop(TEST_CROP_NAME, CREATED_BY),
-    ).rejects.toThrow('already exists');
+    await expect(repo.createCrop(TEST_CROP_NAME, CREATED_BY)).rejects.toThrow(
+      'already exists',
+    );
   }, 30000);
 
   it('getAllCrops — returns list including the created crop', async () => {
-    const {crops, totalCount} = await repo.getAllCrops({search: TEST_CROP_NAME_LOWER});
+    const {crops, totalCount} = await repo.getAllCrops({
+      search: TEST_CROP_NAME_LOWER,
+    });
 
     expect(totalCount).toBeGreaterThanOrEqual(1);
     expect(crops.some(c => c.name === TEST_CROP_NAME_LOWER)).toBe(true);
@@ -84,12 +104,32 @@ describe('CropRepository integration (prod_copy_db)', () => {
   it('updateCrop — updates aliases and returns updated doc', async () => {
     const updated = await repo.updateCrop(
       createdDocId,
-      {aliases: [{ language: 'en-IN', region: '', english_representation: 'UpdatedAlias', native_representation: 'UpdatedAlias' }]},
+      {
+        aliases: [
+          {
+            language: 'en-IN',
+            region: '',
+            english_representation: 'UpdatedAlias',
+            native_representation: 'UpdatedAlias',
+          },
+        ],
+      },
       CREATED_BY,
     );
 
     expect(updated).not.toBeNull();
-    expect(updated!.aliases.some(a => typeof a !== 'string' && a.english_representation === 'updatedalias')).toBe(true);
-    expect(updated!.aliases.some(a => typeof a !== 'string' && a.english_representation === TEST_ALIAS_1.toLowerCase())).toBe(false);
+    expect(
+      updated!.aliases.some(
+        a =>
+          typeof a !== 'string' && a.english_representation === 'updatedalias',
+      ),
+    ).toBe(true);
+    expect(
+      updated!.aliases.some(
+        a =>
+          typeof a !== 'string' &&
+          a.english_representation === TEST_ALIAS_1.toLowerCase(),
+      ),
+    ).toBe(false);
   }, 30000);
 });
