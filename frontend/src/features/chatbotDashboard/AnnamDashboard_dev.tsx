@@ -539,6 +539,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                       <ClosedQuestionsCard
                         closedQuestions = {closedAndNotifedData?.closedVsTotalQuestions?.closedQuestions}
                         totalQuestions={closedAndNotifedData?.closedVsTotalQuestions?.totalQuestions}
+                        inReview={closedAndNotifedData?.closedVsTotalQuestions?.inReviewQuestions}
                       />
                       <CustomerNotificationsCard
                         notified={closedAndNotifedData?.notifiedVsClosed?.notified}
