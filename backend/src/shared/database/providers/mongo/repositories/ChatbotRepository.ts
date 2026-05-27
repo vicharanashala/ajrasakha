@@ -6504,28 +6504,28 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getDailyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
     session?: ClientSession,
   ) {
     try {
       await this.init(source);
 
-      /**
-       * Last 365 days
-       */
-      // const endDate = new Date();
-      // const startDate = new Date();
-      // startDate.setDate(startDate.getDate() - 365);
-
       const matchStage: any = {
         lastActiveAt: {
-          $gte: startDate,
-          $lte: endDate,
+          $ne: null,
         },
       };
+
+      if (startDate && endDate) {
+        matchStage.lastActiveAt = {
+          $ne: null,
+          $gte: startDate,
+          $lte: endDate,
+        };
+      }
 
       /**
        * External Users
@@ -6592,34 +6592,28 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getWeeklyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
     session?: ClientSession,
   ) {
     try {
       await this.init(source);
 
-      /**
-       * Last 12 weeks
-       */
-      // const endDate = new Date();
-      // const startDate = new Date();
-
-      // const DAYS_IN_WEEK = 7;
-      // const TOTAL_WEEKS = 52;
-
-      // startDate.setDate(
-      //   startDate.getDate() - (DAYS_IN_WEEK * TOTAL_WEEKS),
-      // );
-
       const matchStage: any = {
         lastActiveAt: {
-          $gte: startDate,
-          $lte: endDate,
+          $ne: null,
         },
       };
+
+      if (startDate && endDate) {
+        matchStage.lastActiveAt = {
+          $ne: null,
+          $gte: startDate,
+          $lte: endDate,
+        };
+      }
 
       /**
        * External Users
@@ -6723,28 +6717,28 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
     session?: ClientSession,
   ) {
     try {
       await this.init(source);
 
-      /**
-       * Last 12 months
-       */
-      // const endDate = new Date();
-      // const startDate = new Date();
-      // startDate.setMonth(startDate.getMonth() - 12);
-
       const matchStage: any = {
         lastActiveAt: {
-          $gte: startDate,
-          $lte: endDate,
+          $ne: null,
         },
       };
+
+      if (startDate && endDate) {
+        matchStage.lastActiveAt = {
+          $ne: null,
+          $gte: startDate,
+          $lte: endDate,
+        };
+      }
 
       /**
        * External Users
@@ -6810,17 +6804,30 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getRetentionMetrics(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
     requestType: string,
+    startDate?: Date,
+    endDate?: Date,
     session?: ClientSession,
   ) {
     try {
       await this.init(source);
       let matchStage: any = {};
+      let createdAtFilter: any = null;
 
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+
+        createdAtFilter = {
+          $gte: start,
+          $lte: end,
+        };
+      }
       if (userType === 'external') {
         matchStage.email = {
           $regex: '^rup',
@@ -6855,10 +6862,9 @@ export class ChatbotRepository implements IChatbotRepository {
           [
             {
               $match: {
-                createdAt: {
-                  $gte: startDate,
-                  $lte: endDate,
-                },
+              ...(createdAtFilter && {
+                createdAt: createdAtFilter,
+              }),
                 ...matchStage,
               },
             },
@@ -6961,7 +6967,7 @@ export class ChatbotRepository implements IChatbotRepository {
                           input: '$activities',
                           as: 'activity',
                           cond: {
-                            $eq: ['$$activity.daysAfterSignup', 1],
+                            $gte: ['$$activity.daysAfterSignup', 1]
                           },
                         },
                       },
@@ -6978,7 +6984,7 @@ export class ChatbotRepository implements IChatbotRepository {
                           input: '$activities',
                           as: 'activity',
                           cond: {
-                            $eq: ['$$activity.daysAfterSignup', 7],
+                            $gte: ['$$activity.daysAfterSignup', 7]
                           },
                         },
                       },
@@ -6995,7 +7001,7 @@ export class ChatbotRepository implements IChatbotRepository {
                           input: '$activities',
                           as: 'activity',
                           cond: {
-                            $eq: ['$$activity.daysAfterSignup', 30],
+                            $gte: ['$$activity.daysAfterSignup', 30]
                           },
                         },
                       },
@@ -7100,7 +7106,7 @@ export class ChatbotRepository implements IChatbotRepository {
         )
         .toArray();
 
-      return result;
+        return result;
     } catch (error) {
       throw new InternalServerError(
         `Failed to get retention metrics: ${error}`,

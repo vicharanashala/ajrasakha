@@ -702,82 +702,74 @@ async downloadChatbotReport(
   @HttpCode(200)
   @Authorized()
   async getDailyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = query.startDate ? new Date(query.startDate) : new Date(0);
-    const endDate = query.endDate ? new Date(query.endDate) : new Date();
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
     const source = query.source;
     const userType = query.userType;
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      throw new Error('Invalid startDate or endDate.');
-    }
 
-    if (startDate > endDate) {
-      throw new Error('startDate cannot be after endDate.');
-    }
-
-    return await this.chatbotService.getDailyActiveUsersTrend(startDate, endDate, source, userType);
+    return await this.chatbotService.getDailyActiveUsersTrend( source, userType, startDate, endDate,);
   }
 
   @Get('/monthly-active-users-trend')
   @HttpCode(200)
   @Authorized()
   async getMonthlyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = query.startDate ? new Date(query.startDate) : new Date(0);
-    const endDate = query.endDate ? new Date(query.endDate) : new Date();
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
     const source = query.source;
     const userType = query.userType;
 
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      throw new Error('Invalid startDate or endDate.');
-    }
-
-    if (startDate > endDate) {
-      throw new Error('startDate cannot be after endDate.');
-    }
-    return await this.chatbotService.getMonthlyActiveUsersTrend(startDate, endDate, source, userType);
+    return await this.chatbotService.getMonthlyActiveUsersTrend( source, userType, startDate, endDate);
   }
 
   @Get('/weekly-active-users-trend')
   @HttpCode(200)
   @Authorized()
   async getWeeklyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = query.startDate ? new Date(query.startDate) : new Date(0);
-    const endDate = query.endDate ? new Date(query.endDate) : new Date();
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
     const source = query.source;
     const userType = query.userType;
 
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      throw new Error('Invalid startDate or endDate.');
-    }
-
-    if (startDate > endDate) {
-      throw new Error('startDate cannot be after endDate.');
-    }
-    return await this.chatbotService.getWeeklyActiveUsersTrend(startDate, endDate, source, userType);
+    return await this.chatbotService.getWeeklyActiveUsersTrend( source, userType, startDate, endDate);
   }
 
   @Get('/retention-metrics')
   @HttpCode(200)
   @Authorized()
   async getRetentionMetrics(@QueryParams() query: RetentionMetricsQuery): Promise<any> {
-    const startDate = new Date(query.startDate!);
-    const endDate = new Date(query.endDate!);
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
     const source = query.source;
     const userType = query.userType;
     const requestType = query.requestType;
 
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      throw new Error('Invalid startDate or endDate.');
-    }
-
-    if (startDate > endDate) {
-      throw new Error('startDate cannot be after endDate.');
-    }
     return await this.chatbotService.getRetentionMetrics(    
-      startDate,
-      endDate,
       source,
       userType,
-      requestType
+      requestType,
+      startDate,
+      endDate,
     );
   }
 

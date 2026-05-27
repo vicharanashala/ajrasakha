@@ -59,63 +59,83 @@ export class ChatbotService {
   }
 
   async getDailyActiveUsersTrend(
+    source: string,
+    userType: string,
     startDate?: string,
     endDate?: string,
-    source?: string,
-    userType?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    if (startDate) params.append("startDate", startDate);
-    if (endDate) params.append("endDate", endDate);
-    if (source) params.append("source", source);
-    if (userType) params.append("userType", userType);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+    params.append("source", source);
+    params.append("userType", userType);
       return apiFetch<any>(
       `${this._baseUrl}/daily-active-users-trend?${params.toString()}`,
     );
   }
 
   async getMonthlyActiveUsersTrend(
+    source: string,
+    userType: string,
     startDate?: string,
     endDate?: string,
-    source?: string,
-    userType?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    if (startDate) params.append("startDate", startDate);
-    if (endDate) params.append("endDate", endDate);
-    if (source) params.append("source", source);
-    if (userType) params.append("userType", userType);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+      params.append("source", source);
+      params.append("userType", userType);
     return apiFetch<any>(
       `${this._baseUrl}/monthly-active-users-trend?${params.toString()}`,
     );
   }
 
   async getWeeklyActiveUsersTrend(
+    source: string,
+    userType: string,
     startDate?: string,
     endDate?: string,
-    source?: string,
-    userType?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    if (startDate) params.append("startDate", startDate);
-    if (endDate) params.append("endDate", endDate);
-    if (source) params.append("source", source);
-    if (userType) params.append("userType", userType);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+      params.append("source", source);
+      params.append("userType", userType);
     return apiFetch<any>(
       `${this._baseUrl}/weekly-active-users-trend?${params.toString()}`,
     );
   }
 
   async getRetentionMetrics(
-    startDate: string,
-    endDate: string,
     source: string,
     userType: string,
     requestType: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append("startDate", startDate);
-    params.append("endDate", endDate);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
     params.append("source", source);
     params.append("userType", userType);
     params.append("requestType", requestType);
