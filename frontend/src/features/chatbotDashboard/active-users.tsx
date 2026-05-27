@@ -136,10 +136,7 @@ export const ActiveUsersChart = ({
   }, [type]);
 
   const resetDateRange = () => {
-    setDateRange({
-      from: subDays(new Date(), 90),
-      to: new Date(),
-    });
+    setDateRange(undefined);
   };
 
   const renderDateRangePicker = () => (
@@ -183,7 +180,7 @@ export const ActiveUsersChart = ({
         variant="outline"
         size="icon"
         onClick={resetDateRange}
-        title="Reset to last 30 days"
+        title="Reset date range"
         className="
         shrink-0
         bg-gray-100 dark:bg-[#2a2a2a]

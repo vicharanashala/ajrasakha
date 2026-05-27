@@ -702,8 +702,8 @@ async downloadChatbotReport(
   @HttpCode(200)
   @Authorized()
   async getDailyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = new Date(query.startDate!);
-    const endDate = new Date(query.endDate!);
+    const startDate = query.startDate ? new Date(query.startDate) : new Date(0);
+    const endDate = query.endDate ? new Date(query.endDate) : new Date();
     const source = query.source;
     const userType = query.userType;
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
@@ -721,8 +721,8 @@ async downloadChatbotReport(
   @HttpCode(200)
   @Authorized()
   async getMonthlyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = new Date(query.startDate!);
-    const endDate = new Date(query.endDate!);
+    const startDate = query.startDate ? new Date(query.startDate) : new Date(0);
+    const endDate = query.endDate ? new Date(query.endDate) : new Date();
     const source = query.source;
     const userType = query.userType;
 
@@ -740,8 +740,8 @@ async downloadChatbotReport(
   @HttpCode(200)
   @Authorized()
   async getWeeklyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = new Date(query.startDate!);
-    const endDate = new Date(query.endDate!);
+    const startDate = query.startDate ? new Date(query.startDate) : new Date(0);
+    const endDate = query.endDate ? new Date(query.endDate) : new Date();
     const source = query.source;
     const userType = query.userType;
 
