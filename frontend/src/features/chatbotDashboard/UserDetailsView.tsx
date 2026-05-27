@@ -741,17 +741,17 @@ export function UserDetailsView({
                                     onClick={() => {
                                       setSelectedUser(user);
                                       setQuestionModalOpen(true);
+                                      console.log("Button clicked")
                                     }}
                                     className={`inline-flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full text-xs font-semibold transition-colors ${
                                       user.totalQuestions > 0
                                         ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
-                                        : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default pointer-events-none"
+                                        : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default"
                                     }`}
-                                    disabled={user.totalQuestions === 0}
                                     title={
-                                      user.totalQuestions > 0
-                                        ? "View queries"
-                                        : undefined
+                                      
+                                        "View queries"
+                                    
                                     }
                                   >
                                     {user.totalQuestions.toLocaleString()}

@@ -30,6 +30,7 @@ import {appConfig} from '#root/config/app.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
+import { triggerWebhook } from '#root/modules/answer/utils/triggerWebhook.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -938,6 +939,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       messages,
     };
   }
+
+ 
 
   async getAvgSessionDurationV2(source = 'vicharanashala', userType = 'all') {
     try {
@@ -2463,6 +2466,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
       },
     };
   }
+
+   async notifyUser(userEmail: string, messageId: string, message:string): Promise<any>{
+    const user = await this.chatbotRepository.getUserData(userEmail, "vicharanashala")
+    const webhookPayload={
+      customMessage: message,
+      userid: user.userId
+    }
+    const response = await triggerWebhook(
+      appConfig.WEB_WEBHOOK_API_URL,
+      appConfig.WEB_WEBHOOK_API_KEY,
+      {
+        ...webhookPayload,
+        question: " ",
+        messageId
+      },
+      'Browser',
+    )
+    return response
+   }
 
   async getClosedAndNotifedData(source?: string): Promise<any> {
     const [
