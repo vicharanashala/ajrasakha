@@ -4,11 +4,8 @@ import { useState } from "react";
 
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
-
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
-
 import { Loader2, CalendarIcon, RefreshCcw } from "lucide-react";
-
 import {
   Card,
   CardContent,
@@ -16,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-
 import {
   ChartContainer,
   ChartLegend,
@@ -25,17 +21,13 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/atoms/chart";
-
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/atoms/popover";
-
 import { Button } from "@/components/atoms/button";
-
 import { Calendar } from "@/components/atoms/calendar";
-
 import {
   Select,
   SelectContent,
@@ -43,14 +35,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-
 import { useRetentionMetrics } from "@/features/chatbotDashboard/hooks/useActiveUsersAnalytics";
 
 const chartConfig = {
@@ -235,11 +225,11 @@ export const RetentionMetricsChart = ({
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="daily">Daily Retention</SelectItem>
+                <SelectItem value="daily">Daily Cohorts</SelectItem>
 
-                <SelectItem value="weekly">Weekly Retention</SelectItem>
+                <SelectItem value="weekly">Weekly Cohorts</SelectItem>
 
-                <SelectItem value="monthly">Monthly Retention</SelectItem>
+                <SelectItem value="monthly">Monthly Cohorts</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -285,6 +275,8 @@ export const RetentionMetricsChart = ({
                     axisLine={false}
                     tickMargin={8}
                     minTickGap={20}
+                    padding={{ right: 30, left:30 }}
+                    interval={data.length < 15 ? 0 : "preserveStartEnd"}
                     tickFormatter={(value) => {
                       if (requestType === "weekly") {
                         const [year, week] = value.split("-W");
@@ -292,11 +284,7 @@ export const RetentionMetricsChart = ({
                         return `${year.slice(2)} W${week}`;
                       }
 
-                      if (requestType === "monthly") {
-                        return value;
-                      }
-
-                      return value.slice(5);
+                      return value;
                     }}
                   />
 

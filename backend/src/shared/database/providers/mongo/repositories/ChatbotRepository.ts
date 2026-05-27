@@ -6820,7 +6820,11 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(source);
       let matchStage: any = {};
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
 
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
       if (userType === 'external') {
         matchStage.email = {
           $regex: '^rup',
@@ -6856,8 +6860,8 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $match: {
                 createdAt: {
-                  $gte: startDate,
-                  $lte: endDate,
+                  $gte: start,
+                  $lte: end,
                 },
                 ...matchStage,
               },
@@ -6961,7 +6965,7 @@ export class ChatbotRepository implements IChatbotRepository {
                           input: '$activities',
                           as: 'activity',
                           cond: {
-                            $eq: ['$$activity.daysAfterSignup', 1],
+                            $gte: ['$$activity.daysAfterSignup', 1]
                           },
                         },
                       },
@@ -6978,7 +6982,7 @@ export class ChatbotRepository implements IChatbotRepository {
                           input: '$activities',
                           as: 'activity',
                           cond: {
-                            $eq: ['$$activity.daysAfterSignup', 7],
+                            $gte: ['$$activity.daysAfterSignup', 7]
                           },
                         },
                       },
@@ -6995,7 +6999,7 @@ export class ChatbotRepository implements IChatbotRepository {
                           input: '$activities',
                           as: 'activity',
                           cond: {
-                            $eq: ['$$activity.daysAfterSignup', 30],
+                            $gte: ['$$activity.daysAfterSignup', 30]
                           },
                         },
                       },
@@ -7100,7 +7104,7 @@ export class ChatbotRepository implements IChatbotRepository {
         )
         .toArray();
 
-      return result;
+        return result;
     } catch (error) {
       throw new InternalServerError(
         `Failed to get retention metrics: ${error}`,
