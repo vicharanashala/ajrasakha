@@ -23,13 +23,22 @@ EXPERT_PREFIX_EN = "👨‍🌾 Agri Expert:"
 
 
 def _format_source_attribution(details: dict) -> str:
-    """Format source name (with embedded link) + author name for final output (English-only)."""
+    """Format source name (with embedded link) + author name for final output (English-only).
+
+    When source_name is "Database Document", only show the link — hide the label.
+    """
     lines: list[str] = []
     source_name = details.get("source_name")
     source_link = details.get("source_link")
     author_name = details.get("author_name")
 
-    if source_name and source_link:
+    is_db_doc = (source_name or "").strip().lower() == "database document"
+
+    if is_db_doc:
+        # Only show the link, skip the "Database Document" label entirely
+        if source_link:
+            lines.append(f"{SOURCE_PREFIX_EN} {source_link}")
+    elif source_name and source_link:
         lines.append(f"{SOURCE_PREFIX_EN} {source_name} ({source_link})")
     elif source_name:
         lines.append(f"{SOURCE_PREFIX_EN} {source_name}")
