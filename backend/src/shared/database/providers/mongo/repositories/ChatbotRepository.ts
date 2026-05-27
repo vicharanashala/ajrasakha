@@ -7710,14 +7710,16 @@ export class ChatbotRepository implements IChatbotRepository {
       const finalSource: QuestionSource =
         source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
       const count = await this.QuestionCollection.countDocuments({
         status: 'closed',
         source: finalSource,
-
-        $expr: {
-          $lte: [{$subtract: ['$closedAt', '$createdAt']}, 2 * 60 * 60 * 1000],
+        closedAt: {
+          $gte: twoHoursAgo,
         },
       });
+
       return count;
     } catch (error) {
       throw new InternalServerError(
@@ -7725,4 +7727,6 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
+
+
 }
