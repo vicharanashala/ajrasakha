@@ -5052,7 +5052,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userDocFilter = this.buildUserDocFilter(userType);
 
-      const [ageRaw, genderRaw, expRaw] = await Promise.all([
+      const [ageRaw, genderRaw, expRaw, landRaw] = await Promise.all([
         // Age group buckets
         this.users
           .aggregate<{_id: string | number; count: number}>(
@@ -5130,6 +5130,29 @@ export class ChatbotRepository implements IChatbotRepository {
             {session},
           )
           .toArray(),
+
+        // Land holding buckets
+        this.users
+          .aggregate<{_id: number | string; count: number}>(
+            [
+              {
+                $match: {
+                  'farmerProfile.landhold': {$exists: true, $ne: null},
+                  ...userDocFilter,
+                },
+              },
+              {
+                $bucket: {
+                  groupBy: '$farmerProfile.landhold',
+                  boundaries: [0, 2, 10],
+                  default: 'Large',
+                  output: {count: {$sum: 1}},
+                },
+              },
+            ],
+            {session},
+          )
+          .toArray(),
       ]);
 
       const toPct = (count: number, total: number) =>
@@ -5197,7 +5220,19 @@ export class ChatbotRepository implements IChatbotRepository {
         pct: toPct(r.count, expTotal),
       }));
 
-      return {ageGroups, genderSplit, farmingExperience};
+      const landBoundaryLabel: Record<string | number, string> = {
+        0: 'Small',
+        2: 'Medium',
+        'Large': 'Large',
+      };
+      const landTotal = landRaw.reduce((s, r) => s + r.count, 0);
+      const landHolding: DemographicEntry[] = landRaw.map(r => ({
+        label: landBoundaryLabel[r._id] ?? String(r._id),
+        count: r.count,
+        pct: toPct(r.count, landTotal),
+      }));
+
+      return {ageGroups, genderSplit, farmingExperience, landHolding};
     } catch (error) {
       throw new InternalServerError(
         `Failed to get user demographics: ${error}`,

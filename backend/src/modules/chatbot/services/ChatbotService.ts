@@ -530,6 +530,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         ageGroups: demographics.ageGroups,
         genderSplit: demographics.genderSplit,
         farmingExperience: demographics.farmingExperience,
+        landHolding: demographics.landHolding,
         kccAwareness: kccAndAgri.kccAwareness,
         agriAppUsage: kccAndAgri.agriAppUsage,
         platformInstalls,

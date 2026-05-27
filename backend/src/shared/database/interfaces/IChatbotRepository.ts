@@ -164,6 +164,7 @@ export interface FarmerProfile {
     latitude: number;
     longitude: number;
   };
+  landhold?: number;
 }
 
 export interface UserDetailEntry {
@@ -195,6 +196,7 @@ export interface UserDemographics {
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
+  landHolding: DemographicEntry[];
 }
 
 export interface KccAndAgriAppStats {
