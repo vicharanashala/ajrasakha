@@ -20,8 +20,6 @@ let repo: CropRepository;
 let createdDocId: string;
 
 beforeAll(async () => {
-  console.log('DB_URL:', DB_URL);
-  console.log('DB_NAME:', DB_NAME);
   db = new MongoDatabase(DB_URL, DB_NAME);
   await db.init();
   repo = new CropRepository(db as any);
