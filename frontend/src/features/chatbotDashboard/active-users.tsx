@@ -181,7 +181,7 @@ export const ActiveUsersChart = ({
         variant="outline"
         size="icon"
         onClick={resetDateRange}
-        title="Reset to last 30 days"
+        title="Reset date range"
         className="
         shrink-0
         bg-gray-100 dark:bg-[#2a2a2a]
