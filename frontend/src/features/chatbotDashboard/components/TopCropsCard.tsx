@@ -91,7 +91,7 @@ export const TopCropsCard = ({topCrops,
     if (active && payload && payload.length) {
       const pointInfo = payload[0].payload;
       return (
-        <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg p-3 text-sm text-gray-800 dark:text-gray-200 flex flex-col gap-1 min-w-[140px]">
+        <div className=" border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg p-3 text-sm text-gray-800 dark:text-gray-200 flex flex-col gap-1 min-w-[140px]">
           <p className="font-semibold pb-1 border-b border-gray-100 dark:border-gray-800">{label}</p>
           
           {!pointInfo.subItems ? (
@@ -121,7 +121,10 @@ export const TopCropsCard = ({topCrops,
 
   return (
     <>
-      <Card className="flex flex-col h-full bg-white dark:bg-[#1a1a1a] shadow-sm overflow-hidden relative">
+      <Card
+        className=" bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+ flex flex-col h-full shadow-sm overflow-hidden relative"
+      >
         {/* Maximize Button */}
         <button
           onClick={() => setIsMaximized(true)}
@@ -132,8 +135,15 @@ export const TopCropsCard = ({topCrops,
         </button>
 
         <CardHeader>
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Top Crops by Questions</CardTitle>
-          <CardDescription>Most frequently asked crops. Total Matching Questions: <span className="font-semibold text-gray-900 dark:text-gray-100">{topCrops.totalQuestions.toLocaleString()}</span></CardDescription>
+          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Top Crops by Questions
+          </CardTitle>
+          <CardDescription>
+            Most frequently asked crops. Total Matching Questions:{" "}
+            <span className="font-semibold text-gray-900 dark:text-gray-100">
+              {topCrops.totalQuestions.toLocaleString()}
+            </span>
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex-1 pb-4">
           <div className="w-full h-[320px]">
@@ -142,7 +152,11 @@ export const TopCropsCard = ({topCrops,
                 data={processedData}
                 margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border, #e2e8f0)" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="var(--color-border, #e2e8f0)"
+                />
                 <XAxis
                   dataKey="name"
                   stroke="var(--color-muted-foreground, #64748b)"
@@ -162,11 +176,11 @@ export const TopCropsCard = ({topCrops,
                   }
                 />
                 <Tooltip
-                  cursor={{ fill: 'var(--color-muted, #f1f5f9)', opacity: 0.4 }}
+                  cursor={{ fill: "var(--color-muted, #f1f5f9)", opacity: 0.4 }}
                   content={<CustomTooltip />}
                 />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {processedData.map((entry:any, index:null) => (
+                  {processedData.map((entry: any, index: null) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
@@ -177,109 +191,132 @@ export const TopCropsCard = ({topCrops,
       </Card>
 
       {/* Maximized Modal */}
-      {isMaximized && createPortal(
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-          onClick={() => setIsMaximized(false)}
-        >
-          <div 
-            className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-6xl w-full p-6 relative"
-            onClick={(e) => e.stopPropagation()}
+      {isMaximized &&
+        createPortal(
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+            onClick={() => setIsMaximized(false)}
           >
-            {/* Close Button */}
-            <button
-              onClick={() => setIsMaximized(false)}
-              className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              title="Close"
+            <div
+              className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-6xl w-full p-6 relative"
+              onClick={(e) => e.stopPropagation()}
             >
-              <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            </button>
+              {/* Close Button */}
+              <button
+                onClick={() => setIsMaximized(false)}
+                className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title="Close"
+              >
+                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              </button>
 
-            {/* Header */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Top Crops by Questions
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                Most frequently asked crops. Total Matching Questions: <span className="font-semibold text-gray-900 dark:text-gray-100">{topCrops.totalQuestions.toLocaleString()}</span>
-              </p>
-            </div>
-
-            {/* Chart (left) + Table (right) */}
-            <div className="flex gap-4 items-start">
-              {/* Chart — 65% */}
-              <div className="flex-[65] min-w-0 h-[460px] relative">
-                <div className="absolute left-0 top-0 bottom-12 w-px bg-gray-300 dark:bg-gray-700 z-10" />
-                <div className="absolute left-0 right-0 bottom-12 h-px bg-gray-300 dark:bg-gray-700 z-10" />
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={processedData}
-                    margin={{ top: 25, right: 20, left: 10, bottom: 60 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border, #e2e8f0)" />
-                    <XAxis
-                      dataKey="name"
-                      stroke="var(--color-muted-foreground, #64748b)"
-                      tick={{ fontSize: 13, textAnchor: "end", dy: 8 }}
-                      tickLine={false}
-                      axisLine={false}
-                      interval={0}
-                      height={80}
-                      angle={-35}
-                    />
-                    <YAxis
-                      stroke="var(--color-muted-foreground)"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fontSize: 13 }}
-                      tickFormatter={(value) =>
-                        value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
-                      }
-                    />
-                    <Tooltip
-                      cursor={{ fill: 'var(--color-muted, #f1f5f9)', opacity: 0.4 }}
-                      content={<CustomTooltip />}
-                    />
-                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                      {processedData.map((entry: any, index: any) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              {/* Header */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Top Crops by Questions
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                  Most frequently asked crops. Total Matching Questions:{" "}
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {topCrops.totalQuestions.toLocaleString()}
+                  </span>
+                </p>
               </div>
 
-              {/* Table — 35% */}
-              <div className="flex-[35] min-w-0 max-h-[460px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Crop</th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Questions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {processedData.map((row: any, idx: number) => (
-                      <tr key={idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: row.color }} />
-                            {row.name}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                          {row.count.toLocaleString()}
-                        </td>
+              {/* Chart (left) + Table (right) */}
+              <div className="flex gap-4 items-start">
+                {/* Chart — 65% */}
+                <div className="flex-[65] min-w-0 h-[460px] relative">
+                  <div className="absolute left-0 top-0 bottom-12 w-px bg-gray-300 dark:bg-gray-700 z-10" />
+                  <div className="absolute left-0 right-0 bottom-12 h-px bg-gray-300 dark:bg-gray-700 z-10" />
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={processedData}
+                      margin={{ top: 25, right: 20, left: 10, bottom: 60 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="var(--color-border, #e2e8f0)"
+                      />
+                      <XAxis
+                        dataKey="name"
+                        stroke="var(--color-muted-foreground, #64748b)"
+                        tick={{ fontSize: 13, textAnchor: "end", dy: 8 }}
+                        tickLine={false}
+                        axisLine={false}
+                        interval={0}
+                        height={80}
+                        angle={-35}
+                      />
+                      <YAxis
+                        stroke="var(--color-muted-foreground)"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 13 }}
+                        tickFormatter={(value) =>
+                          value >= 1000
+                            ? `${(value / 1000).toFixed(1)}k`
+                            : value
+                        }
+                      />
+                      <Tooltip
+                        cursor={{
+                          fill: "var(--color-muted, #f1f5f9)",
+                          opacity: 0.4,
+                        }}
+                        content={<CustomTooltip />}
+                      />
+                      <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                        {processedData.map((entry: any, index: any) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Table — 35% */}
+                <div className="flex-[35] min-w-0 max-h-[460px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">
+                          Crop
+                        </th>
+                        <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
+                          Questions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {processedData.map((row: any, idx: number) => (
+                        <tr
+                          key={idx}
+                          className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                        >
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                                style={{ background: row.color }}
+                              />
+                              {row.name}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                            {row.count.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 };

@@ -21,6 +21,11 @@ from ajrasakha.agents.location_context import (
     recent_human_text,
 )
 from ajrasakha.agents.state import Location, PlannerEntities, PlannerPlan
+from ajrasakha.agents.translation_catalog import (
+    get_crop_follow_up,
+    get_state_follow_up,
+    language_pair_from_plan,
+)
 
 _SCHEMES_RE = re.compile(
     r"\b(insurance|insured|pm[\s-]?kisan|pmkisan|subsidy|subsidies|scheme|schemes|"
@@ -94,9 +99,22 @@ def conversation_text_from_messages(messages: list[BaseMessage], *, max_turns: i
     return "\n".join(lines)
 
 
+# def format_conversation_for_planner(messages: list[BaseMessage]) -> str:
+#     """Latest farmer message only — domain must not bleed from older thread topics."""
+#     return latest_human_text(messages)
+
 def format_conversation_for_planner(messages: list[BaseMessage]) -> str:
-    """Latest farmer message only — domain must not bleed from older thread topics."""
-    return latest_human_text(messages)
+    """Last 4 conversation turns (both farmer + bot) for planner context."""
+    lines: list[str] = []
+    for msg in messages:
+        if isinstance(msg, (HumanMessage, AIMessage)):
+            text = _message_to_text(msg)
+            if text:
+                role = "Farmer" if isinstance(msg, HumanMessage) else "Bot"
+                lines.append(f"{role}: {text}")
+    if len(lines) > 4:
+        lines = lines[-4:]
+    return "\n".join(lines) if lines else latest_human_text(messages)
 
 
 def is_crop_clarify_turn(messages: list[BaseMessage]) -> bool:
@@ -145,12 +163,25 @@ def merge_entities_from_rephrased_query(
     plan: PlannerPlan,
     messages: list[BaseMessage],
     location: Optional[Location],
+    prev_entities: Optional[PlannerEntities] = None,
 ) -> PlannerEntities:
-    """Resolve state/crop/district from rephrased English, not raw regional text."""
-    merged: PlannerEntities = dict(plan.get("entities") or {})
+    """Resolve state/crop/district with strict priority: current query -> history -> GPS.
+
+    District ONLY from: LLM entities (via plan) OR GPS.
+    State from: LLM entities OR prev_entities OR current query text OR history OR GPS.
+    
+    Previous entities are used as fallback when current query does not mention location.
+    
+    Priority:
+    1. District: From LLM entities OR GPS (last resort)
+    2. State: From LLM entities OR prev_entities OR current query text OR history (last 4 turns) OR GPS
+    """
+    # Start with previous entities, override with new plan entities
+    merged: PlannerEntities = {**(prev_entities or {}), **dict(plan.get("entities") or {})}
     text = entity_text_from_plan(plan, messages)
     has_gps = has_gps_coordinates(location)
 
+    # --- Crop Resolution ---
     if is_crop_clarify_turn(messages):
         turn_crop = extract_crop_from_text(text) or resolve_crop_for_turn(messages)
     else:
@@ -161,16 +192,72 @@ def merge_entities_from_rephrased_query(
         c = str(merged["crop"])
         merged["crop"] = c[0].upper() + c[1:].lower()
 
-    state = extract_state_from_text(text) or gps_state_from_location(location)
-    if state:
-        merged["state"] = state
+    # --- State/District Resolution (STRICT PRIORITY) ---
+    
+    # Priority 1: LLM extracted entities (district + state from rephrased_query)
+    district_from_llm = merged.get("district")
+    state_from_llm = merged.get("state")
+    
+    if district_from_llm and state_from_llm:
+        # Both district and state from LLM → use both
+        pass  # Already in merged
+    elif state_from_llm:
+        # Only state from LLM → district will be set below (history or GPS or "all")
+        pass  # State already set
+    else:
+        # Priority 2: Check current rephrased query (state only via regex)
+        state_from_text = extract_state_from_text(text)
+        
+        if state_from_text:
+            merged["state"] = state_from_text
+            # District NOT found in text → will come from history/GPS/LLM
+        else:
+            # Priority 3: Check conversation history (last 4 human turns, most recent first)
+            state_from_history = _extract_state_from_history(messages, max_turns=4)
+            
+            if state_from_history:
+                merged["state"] = state_from_history
+            else:
+                # Priority 4: GPS fallback (last resort)
+                gps_state = gps_state_from_location(location)
+                if gps_state:
+                    merged["state"] = gps_state
+                # else: no state found anywhere → will trigger clarification
+    
+    # --- District Resolution ---
+    # District only from: LLM entities OR GPS (never from text regex)
+    if not merged.get("district"):
+        if has_gps and location and location.get("city"):
+            merged["district"] = str(location["city"])
+        elif merged.get("state"):
+            # State found but no district mentioned → set to "all"
+            merged["district"] = "all"
+        # else: no state yet → district will be set after state resolution
 
-    district = merged.get("district")
-    if not district and has_gps and location and location.get("city"):
-        merged["district"] = str(location["city"])
-    elif not district and merged.get("state"):
-        merged["district"] = "all"
     return merged
+
+
+def _extract_state_from_history(
+    messages: list[BaseMessage],
+    max_turns: int = 4,
+) -> Optional[str]:
+    """Extract state from last N human messages (most recent first).
+    
+    Returns state from the FIRST mention found
+    when walking backwards from the most recent message.
+    """
+    # Get last N human messages
+    human_messages = [msg for msg in messages if isinstance(msg, HumanMessage)]
+    recent = human_messages[-max_turns:] if len(human_messages) > max_turns else human_messages
+    
+    # Walk from most recent backwards
+    for msg in reversed(recent):
+        text = _message_to_text(msg)
+        state = extract_state_from_text(text)
+        if state:
+            return state
+    
+    return None
 
 
 def is_schemes_intent(text: str) -> bool:
@@ -200,8 +287,9 @@ def _merge_entities(
     plan: PlannerPlan,
     messages: list[BaseMessage],
     location: Optional[Location],
+    prev_entities: Optional[PlannerEntities] = None,
 ) -> PlannerEntities:
-    return merge_entities_from_rephrased_query(plan, messages, location)
+    return merge_entities_from_rephrased_query(plan, messages, location, prev_entities)
 
 
 def _location_status(
@@ -237,9 +325,9 @@ def _finalize_location_and_crop_completeness(
     domain: str,
     has_state: bool,
     has_gps: bool,
-    farmer_language: str,
 ) -> PlannerPlan:
     """Single completeness pass: state (or GPS) required; district defaults to all."""
+    script, vocal = language_pair_from_plan(out)
     crop = entities.get("crop")
     domain = normalize_domain(domain)
     needs_crop = domain_requires_crop(domain) and not crop_counts_as_resolved(crop)
@@ -247,19 +335,11 @@ def _finalize_location_and_crop_completeness(
     if not has_state and not has_gps:
         out["is_complete"] = False
         out["missing_info"] = ["location"]
-        out["follow_up_question"] = (
-            "Which state are you in?"
-            if farmer_language == "English"
-            else "आप किस राज्य में हैं?"
-        )
+        out["follow_up_question"] = get_state_follow_up(script, vocal)
     elif needs_crop:
         out["is_complete"] = False
         out["missing_info"] = ["crop"]
-        out["follow_up_question"] = (
-            "Which crop are you growing?"
-            if farmer_language == "English"
-            else "आप कौन सी फसल उगा रहे हैं?"
-        )
+        out["follow_up_question"] = get_crop_follow_up(script, vocal)
     else:
         out["is_complete"] = True
         out["missing_info"] = []
@@ -271,8 +351,7 @@ def apply_planner_completeness_rules(
     plan: PlannerPlan,
     messages: list[BaseMessage],
     location: Optional[Location],
-    *,
-    farmer_language: str = "English",
+    prev_entities: Optional[PlannerEntities] = None,
 ) -> PlannerPlan:
     """Post-process planner output: merge entities, enforce scheme overrides.
 
@@ -287,7 +366,7 @@ def apply_planner_completeness_rules(
     """
     out: PlannerPlan = dict(plan)
     latest = latest_human_text(messages)
-    entities = _merge_entities(out, messages, location)
+    entities = _merge_entities(out, messages, location, prev_entities)
     out["entities"] = entities
 
     has_state, _, has_gps = _location_status(entities, location)
@@ -302,22 +381,15 @@ def apply_planner_completeness_rules(
         out["schemes"] = True
         out["knowledge_base"] = False
 
+    script, vocal = language_pair_from_plan(out)
     if not out.get("is_complete", True):
         llm_follow_up = (out.get("follow_up_question") or "").strip()
         if _is_bad_follow_up(llm_follow_up):
             missing = out.get("missing_info") or []
             if "crop" in missing:
-                out["follow_up_question"] = (
-                    "Which crop are you growing?"
-                    if farmer_language == "English"
-                    else "आप कौन सी फसल उगा रहे हैं?"
-                )
+                out["follow_up_question"] = get_crop_follow_up(script, vocal)
             elif "location" in missing:
-                out["follow_up_question"] = (
-                    "Which state are you in?"
-                    if farmer_language == "English"
-                    else "आप किस राज्य में हैं?"
-                )
+                out["follow_up_question"] = get_state_follow_up(script, vocal)
 
     out = _finalize_location_and_crop_completeness(
         out,
@@ -325,7 +397,6 @@ def apply_planner_completeness_rules(
         domain=domain,
         has_state=has_state,
         has_gps=has_gps,
-        farmer_language=farmer_language,
     )
 
     out["reasoning"] = (out.get("reasoning") or "") + f"; domain={domain}"

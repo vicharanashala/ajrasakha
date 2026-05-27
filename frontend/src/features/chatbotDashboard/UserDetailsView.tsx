@@ -51,6 +51,8 @@ import { useTopCrops } from "./hooks/useTopCrops";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import UserQuestionsModal from "./UserQuestionModal";
 import { EditFarmerModal } from "./components/EditFarmerModal";
+import { AddFarmerModal } from "./components/AddFarmerModal";
+import { useAddUser } from "./hooks/useAddUser";
 
 const VISIBLE_CROPS = 2;
 
@@ -128,7 +130,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
 };
 
 interface UserDetailsViewProps {
-  source?: "vicharanashala" | "annam";
+  source?: "vicharanashala" | "annam" | "whatsapp";
   initialFilters?: Partial<UserDetailsFilters>;
   userType?: "all" | "external" | "internal";
 }
@@ -142,6 +144,8 @@ export function UserDetailsView({
   const isAdmin = currentUser?.role === "admin";
   const deleteUserMutation = useDeleteUser();
   const updateUserMutation = useUpdateUser();
+  const addUserMutation = useAddUser();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
     ...initialFilters,
@@ -235,7 +239,7 @@ export function UserDetailsView({
     data: topCrops,
     isLoading: isLoadingTopCrops,
     error: errorLoadingTopCrops,
-  } = useTopCrops();
+  } = useTopCrops(source);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
@@ -340,6 +344,7 @@ export function UserDetailsView({
 
   const handleSaveEditedUser = async (payload: {
     name?: string;
+    role?: string;
     farmerProfile?: {
       farmerName?: string;
       age?: number;
@@ -371,455 +376,27 @@ export function UserDetailsView({
     setUserToEdit(null);
   };
 
+  const handleAddUser = async (payload: {
+    email: string;
+    name: string;
+    password: string;
+    role?: string;
+  }) => {
+    await addUserMutation.mutateAsync({
+      source,
+      data: payload,
+    });
+    setIsAddModalOpen(false);
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto pb-5 min-w-0">
-      {/* Dashboard Charts Section */}
-      <div className="mb-6">
-        {isDashboardLoading ? (
-          <div className="py-8">
-            <Spinner text="Loading analytics..." fullScreen={false} />
-          </div>
-        ) : dashboardData ? (
-          <>
-            {/* Top Crops - Full Width */}
-            {/* <div className="grid grid-cols-1 gap-4 mb-4">
-              <TopCropsCard
-                topCrops={topCrops}
-                isLoadingTopCrops={isLoadingTopCrops}
-                errorLoadingtopCrops={errorLoadingTopCrops}
-              />
-            </div> */}
-
-            {/* Knowledge & Awareness Maximized Modal */}
-            {isKnowledgeMaximized &&
-              createPortal(
-                <div
-                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-                  onClick={() => setIsKnowledgeMaximized(false)}
-                >
-                  <div
-                    className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-2xl w-full p-8 relative"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={() => setIsKnowledgeMaximized(false)}
-                      className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      title="Close"
-                    >
-                      <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                    </button>
-
-                    <div className="mb-8">
-                      <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                        Knowledge & Awareness
-                      </h3>
-                    </div>
-
-                    <div className="flex gap-12 justify-center items-center">
-                      {/* KCC Awareness - Enlarged */}
-                      {/* {(() => {
-                      const pct = dashboardData.kccAwareness?.[0]?.pct ?? 0;
-                      const r = 80, cx = 100, cy = 100, circ = 2 * Math.PI * r;
-                      const dash = (pct / 100) * circ;
-                      return (
-                        <div className="flex flex-col items-center gap-4">
-                          <svg viewBox="0 0 200 200" className="w-[180px] h-[180px]">
-                            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={16} />
-                            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#3AAA5A" strokeWidth={16}
-                              strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
-                              transform={`rotate(-90 ${cx} ${cy})`} />
-                            <text x={cx} y={cy} textAnchor="middle" dy="0.35em"
-                              className="text-4xl font-bold fill-gray-800 dark:fill-gray-100">
-                              {pct.toFixed(2)}%
-                            </text>
-                          </svg>
-                          <span className="text-base text-gray-700 dark:text-gray-200 font-medium">KCC Awareness</span>
-                        </div>
-                      );
-                    })()} */}
-
-                      {(() => {
-                        const pct =
-                          dashboardData.kccAwareness?.[0]?.count +
-                            dashboardData.kccAwareness?.[1]?.count || 0;
-                        const circ = 2 * Math.PI * 90;
-                        // const dash = (pct / 100) * circ;
-                        const yesDash =
-                          (dashboardData.kccAwareness?.[0]?.count / pct) * circ;
-                        const noDash =
-                          (dashboardData.kccAwareness?.[1]?.count / pct) * circ;
-                        const cx = 120,
-                          cy = 120,
-                          r = 90;
-                        return (
-                          <div className="flex flex-col items-center gap-4">
-                            <svg
-                              viewBox="0 0 240 240"
-                              className="w-[200px] h-[200px]"
-                            >
-                              {/* Background Ring */}
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r={r}
-                                fill="none"
-                                stroke="#2f3542"
-                                strokeWidth={10}
-                              />
-
-                              {/* YES SEGMENT */}
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r={r}
-                                fill="none"
-                                stroke="#22c55e"
-                                strokeWidth={hovered === "yes" ? 14 : 10}
-                                strokeDasharray={`${yesDash} ${circ}`}
-                                strokeDashoffset={0}
-                                transform={`rotate(-90 ${cx} ${cy})`}
-                                strokeLinecap="butt"
-                                className="transition-all duration-300 cursor-pointer"
-                                onMouseEnter={() => setHovered("yes")}
-                                onMouseLeave={() => setHovered(null)}
-                              />
-
-                              {/* NO SEGMENT */}
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r={r}
-                                fill="none"
-                                stroke="#6b7280"
-                                strokeWidth={hovered === "no" ? 14 : 10}
-                                strokeDasharray={`${noDash} ${circ}`}
-                                strokeDashoffset={-yesDash}
-                                transform={`rotate(-90 ${cx} ${cy})`}
-                                strokeLinecap="butt"
-                                className="transition-all duration-300 cursor-pointer"
-                                onMouseEnter={() => setHovered("no")}
-                                onMouseLeave={() => setHovered(null)}
-                              />
-
-                              {/* CENTER TEXT */}
-                              <text
-                                x={120}
-                                y={120}
-                                textAnchor="middle"
-                                fontSize={hovered ? 32 : 32}
-                                fontWeight={700}
-                                fill="#ffffff"
-                              >
-                                {hovered === "yes"
-                                  ? `${dashboardData.kccAwareness?.[0]?.count ?? 0}`
-                                  : hovered === "no"
-                                    ? `${dashboardData.kccAwareness?.[1]?.count ?? 0}`
-                                    : pct}
-                              </text>
-
-                              <text
-                                x={120}
-                                y={138}
-                                textAnchor="middle"
-                                fontSize={20}
-                                fill="#9ca3af"
-                              >
-                                {hovered === "yes"
-                                  ? "Aware"
-                                  : hovered === "no"
-                                    ? "Unaware"
-                                    : "TOTAL"}
-                              </text>
-                            </svg>
-                            <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
-                              KCC Awareness
-                            </span>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Agri Apps - Enlarged */}
-                      {/* {(() => {
-                      const pct = dashboardData.agriAppUsage?.[0]?.pct ?? 0;
-                      const r = 80, cx = 100, cy = 100, circ = 2 * Math.PI * r;
-                      const dash = (pct / 100) * circ;
-                      return (
-                        <div className="flex flex-col items-center gap-4">
-                          <svg viewBox="0 0 200 200" className="w-[180px] h-[180px]">
-                            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={16} />
-                            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#378ADD" strokeWidth={16}
-                              strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
-                              transform={`rotate(-90 ${cx} ${cy})`} />
-                            <text x={cx} y={cy} textAnchor="middle" dy="0.35em"
-                              className="text-4xl font-bold fill-gray-800 dark:fill-gray-100">
-                              {pct.toFixed(2)}%
-                            </text>
-                          </svg>
-                          <span className="text-base text-gray-700 dark:text-gray-200 font-medium">Uses Agri Apps</span>
-                        </div>
-                      );
-                    })()} */}
-
-                      {(() => {
-                        const pct =
-                          dashboardData.agriAppUsage?.[0]?.count +
-                            dashboardData.agriAppUsage?.[1]?.count || 0;
-                        const circ = 2 * Math.PI * 90;
-                        // const dash = (pct / 100) * circ;
-                        const yesDash =
-                          (dashboardData.kccAwareness?.[0]?.count / pct) * circ;
-                        const noDash =
-                          (dashboardData.kccAwareness?.[1]?.count / pct) * circ;
-                        const cx = 120,
-                          cy = 120,
-                          r = 90;
-                        return (
-                          <div className="flex flex-col items-center gap-4">
-                            <svg
-                              viewBox="0 0 240 240"
-                              className="w-[200px] h-[200px]"
-                            >
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r={r}
-                                fill="none"
-                                stroke="#2f3542"
-                                strokeWidth={10}
-                              />
-
-                              {/* YES SEGMENT */}
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r={r}
-                                fill="none"
-                                stroke="blue"
-                                strokeWidth={agriHovered === "yes" ? 14 : 10}
-                                strokeDasharray={`${yesDash} ${circ}`}
-                                strokeDashoffset={0}
-                                transform={`rotate(-90 ${cx} ${cy})`}
-                                strokeLinecap="butt"
-                                className="transition-all duration-300 cursor-pointer"
-                                onMouseEnter={() => setAgriHovered("yes")}
-                                onMouseLeave={() => setAgriHovered(null)}
-                              />
-
-                              {/* NO SEGMENT */}
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r={r}
-                                fill="none"
-                                stroke="#ffff"
-                                strokeWidth={agriHovered === "no" ? 14 : 10}
-                                strokeDasharray={`${noDash} ${circ}`}
-                                strokeDashoffset={-yesDash}
-                                transform={`rotate(-90 ${cx} ${cy})`}
-                                strokeLinecap="butt"
-                                className="transition-all duration-300 cursor-pointer"
-                                onMouseEnter={() => setAgriHovered("no")}
-                                onMouseLeave={() => setAgriHovered(null)}
-                              />
-
-                              {/* CENTER TEXT */}
-                              <text
-                                x={120}
-                                y={120}
-                                textAnchor="middle"
-                                fontSize={agriHovered ? 32 : 32}
-                                fontWeight={700}
-                                fill="#ffffff"
-                              >
-                                {agriHovered === "yes"
-                                  ? `${dashboardData.agriAppUsage?.[0]?.count ?? 0}`
-                                  : agriHovered === "no"
-                                    ? `${dashboardData.agriAppUsage?.[1]?.count ?? 0}`
-                                    : pct}
-                              </text>
-
-                              <text
-                                x={120}
-                                y={138}
-                                textAnchor="middle"
-                                fontSize={20}
-                                fill="#9ca3af"
-                              >
-                                {agriHovered === "yes"
-                                  ? "Aware"
-                                  : agriHovered === "no"
-                                    ? "Unaware"
-                                    : "TOTAL"}
-                              </text>
-                            </svg>
-                            <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
-                              Uses Agri Apps
-                            </span>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>,
-                document.body,
-              )}
-          </>
-        ) : null}
-      </div>
-
-      {/* Summary cards + graphs */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-5">
-        {/* Active Users — col 1 row 1 */}
-        {/* <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
-          <div className="absolute inset-x-0 top-0 h-1 bg-[#3B82F6]" />
-          <CardContent className="p-4 flex flex-col gap-0.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Active Users
-            </span>
-            <span className="text-2xl font-semibold dark:text-slate-100">
-              {isLoading ? "—" : activeUsers.toLocaleString()}
-            </span>
-          </CardContent>
-        </Card> */}
-
-        {/* Inactive Users — col 2 row 1 */}
-        {/* <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
-          <div className="absolute inset-x-0 top-0 h-1 bg-[#EF4444]" />
-          <CardContent className="p-4 flex flex-col gap-0.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Inactive Users
-            </span>
-            <span className="text-2xl font-semibold dark:text-slate-100">
-              {isLoading ? "—" : inactiveUsers.toLocaleString()}
-            </span>
-          </CardContent>
-        </Card> */}
-
-        {/* Total Questions — col 3 row 1 */}
-        {/* <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start h-full">
-          <div className="absolute inset-x-0 top-0 h-1 bg-[#EF9F27]" />
-          <CardContent className="p-4 flex flex-col gap-0.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Total Questions
-            </span>
-            <span className="text-2xl font-semibold dark:text-slate-100">
-              {isLoading ? "—" : totalQuestions.toLocaleString()}
-            </span>
-          </CardContent>
-        </Card> */}
-
-        {/* Bar graph — col 1 row 2 on sm+, after all 3 cards on mobile */}
-        {!isLoading && !error && users.length > 0 && !filters.inactiveOnly && (
-          <>
-            {/* <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2 relative"> */}
-            {/* <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative h-full">
-              <button
-                onClick={() => setIsBarGraphMaximized(true)}
-                className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
-                title="Maximize chart"
-              >
-                <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-              </button>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Questions per User
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BarGraph
-                  data={users.map((u) => ({
-                    label: u.name,
-                    value: u.totalQuestions,
-                  }))}
-                  height={120}
-                  showMaximize={false}
-                />
-              </CardContent>
-            </Card> */}
-
-            {/* Maximized Bar Graph Modal */}
-            {isBarGraphMaximized &&
-              createPortal(
-                <div
-                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-                  onClick={() => setIsBarGraphMaximized(false)}
-                >
-                  <div
-                    className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-4xl w-full p-8 relative"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={() => setIsBarGraphMaximized(false)}
-                      className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      title="Close"
-                    >
-                      <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                    </button>
-
-                    <div className="mb-8">
-                      <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                        Questions per User
-                      </h3>
-                    </div>
-
-                    {/* Chart (left) + Table (right) */}
-                    <div className="flex gap-4 items-start">
-                      {/* Chart — 65% */}
-                      <div className="flex-[65] min-w-0 relative">
-                        <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700 z-10" />
-                        <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700 z-10" />
-                        <BarGraph
-                          data={users.map((u) => ({
-                            label: u.name,
-                            value: u.totalQuestions,
-                          }))}
-                          height={400}
-                          showMaximize={false}
-                        />
-                      </div>
-
-                      {/* Table — 35% */}
-                      <div className="flex-[35] min-w-0 max-h-[400px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
-                            <tr>
-                              <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">
-                                User
-                              </th>
-                              <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
-                                Questions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {users.map((u, idx) => (
-                              <tr
-                                key={idx}
-                                className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                              >
-                                <td className="px-3 py-2 text-gray-600 dark:text-gray-400 truncate max-w-[140px]">
-                                  {u.name}
-                                </td>
-                                <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                                  {u.totalQuestions.toLocaleString()}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>,
-                document.body,
-              )}
-          </>
-        )}
-      </div>
-
+    <div className="flex-1 overflow-y-auto pb-5 min-w-0 ">
       {/* Users table */}
       <div ref={tableRef}>
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
+        <Card
+          className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+ dark:border-[#2a2a2a]"
+        >
           <CardHeader className="pb-4 border-b">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               {/* Title Section */}
@@ -848,6 +425,19 @@ export function UserDetailsView({
                     Clear Filters
                   </Button>
                 )}
+
+                {isAdmin &&
+                  (source === "annam" || source === "vicharanashala") && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-9 px-3 bg-primary hover:bg-primary/90 text-white font-medium shadow-sm transition-colors duration-200 flex items-center gap-1.5"
+                      onClick={() => setIsAddModalOpen(true)}
+                    >
+                      <Users className="h-4 w-4" />
+                      Add Farmer
+                    </Button>
+                  )}
 
                 <UserDetailsPreferenceFilter
                   filters={filters}
@@ -1135,7 +725,7 @@ export function UserDetailsView({
                           // setUserToEdit, setConfirmEmail, setUserToDelete, source, isAdmin) remain unchanged.
                           // Only the visuals are improved.
 
-                          <ContextMenu key={user.userId}>
+                          <ContextMenu key={user.userId} modal={false}>
                             <ContextMenuTrigger asChild>
                               <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
                                 {/* S.No */}
@@ -1201,9 +791,10 @@ export function UserDetailsView({
                                   {fp?.gender ? (
                                     <span
                                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                        fp.gender === "Male"
+                                        fp.gender?.toUpperCase() === "MALE"
                                           ? "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
-                                          : fp.gender === "Female"
+                                          : fp.gender?.toUpperCase() ===
+                                              "FEMALE"
                                             ? "bg-pink-50 dark:bg-pink-950 text-pink-700 dark:text-pink-300"
                                             : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                                       }`}
@@ -1423,8 +1014,7 @@ export function UserDetailsView({
                               <ContextMenuContent>
                                 <ContextMenuItem
                                   className="cursor-pointer flex items-center gap-2"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
+                                  onSelect={() => {
                                     setUserToEdit(user);
                                   }}
                                 >
@@ -1433,8 +1023,7 @@ export function UserDetailsView({
                                 </ContextMenuItem>
                                 <ContextMenuItem
                                   className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
+                                  onSelect={() => {
                                     setConfirmEmail("");
                                     setUserToDelete({
                                       userId: user.userId,
@@ -1488,6 +1077,13 @@ export function UserDetailsView({
           </CardContent>
         </Card>
       </div>
+
+      <AddFarmerModal
+        open={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
+        isSaving={addUserMutation.isPending}
+        onSave={handleAddUser}
+      />
 
       <EditFarmerModal
         open={!!userToEdit}

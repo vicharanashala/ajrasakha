@@ -1,35 +1,41 @@
-"""Language detection and output matching."""
+"""Tests for language helpers and catalog-backed disclaimers."""
+
+import pytest
 
 from ajrasakha.agents.language import (
-    detect_farmer_language,
     language_directive_for_synthesis,
-    text_matches_user_language,
+    get_localized_warning_text,
+    get_localized_empty_reply_body,
+    get_localized_state_question,
+    get_localized_crop_question,
 )
+from ajrasakha.agents.translation_catalog import get_catalog_row
 
 
-def test_detect_english_query():
-    assert detect_farmer_language("How can I grow paddy in punjab?") == "English"
-
-
-def test_detect_hindi_query():
-    assert detect_farmer_language("पंजाब में धान कैसे उगाएं?") == "Hindi"
-
-
-def test_english_directive_forbids_hindi_output():
-    d = language_directive_for_synthesis("What is the weather today?")
+def test_language_directive_english_body_only():
+    d = language_directive_for_synthesis("English", "English")
     assert "English" in d
-    assert "translate" in d.lower()
+    assert "Do NOT add" in d
 
 
-def test_reviewer_hindi_answer_english_user_not_matching():
-    assert text_matches_user_language(
-        "पंजाब में धान की खेती",
-        "How can I grow paddy in punjab?",
-    ) is False
+def test_language_directive_hinglish_pair():
+    d = language_directive_for_synthesis("Hindi", "English")
+    assert "Hindi" in d
+    assert "script English" in d or "script" in d
 
 
-def test_reviewer_english_answer_english_user_matching():
-    assert text_matches_user_language(
-        "Grow paddy using PR 133 variety.",
-        "How can I grow paddy in punjab?",
-    ) is True
+def test_localized_disclaimers_from_sheet_english():
+    assert "Important Notice" in get_localized_warning_text(script_language="English", vocal_language="English")
+    assert "agri expert" in get_localized_empty_reply_body(script_language="English", vocal_language="English")
+    assert get_localized_state_question(script_language="English", vocal_language="English") == "Which state are you in?"
+    assert get_localized_crop_question(script_language="English", vocal_language="English") == "Which crop are you growing?"
+
+
+def test_localized_follow_ups_hindi_native_vs_romanized():
+    native_state = get_localized_state_question(script_language="Hindi", vocal_language="Hindi")
+    roman_state = get_localized_state_question(script_language="English", vocal_language="Hindi")
+    assert native_state != roman_state
+    row_native = get_catalog_row("Hindi", "Hindi")
+    row_roman = get_catalog_row("English", "Hindi")
+    assert native_state == row_native.state_follow_up
+    assert roman_state == row_roman.state_follow_up

@@ -51,12 +51,84 @@ export const useWeeklyActiveUsersTrend = (startDate: Date, endDate:Date, source:
   });
 };
 
-export const useRetentionMetrics = (enabled: boolean = true) => {
+export const useRetentionMetrics = (
+    startDate: string,
+    endDate: string,
+    source: string,
+    userType: string,
+    requestType: string,
+    enabled: boolean = true) => {
   return useQuery({
-    queryKey: ["retention_metrics"],
+    queryKey: ["retention_metrics",
+      startDate,
+      endDate,
+      source,
+      userType,
+      requestType,
+    ],
     queryFn: () => {
-      return chatbotService.getRetentionMetrics();
+      return chatbotService.getRetentionMetrics(
+        startDate,
+        endDate,
+        source,
+        userType,
+        requestType,
+      );
     },
     enabled,
   });
 };
+
+export const useQueryCategories = (source: string, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ["query-categories",
+      source
+    ],
+    queryFn: () => {
+      return chatbotService.getQueryCategories(source);
+    },
+    enabled,
+  });
+};
+
+export const useInactiveWhatsappUsers = (inactiveUsersPage: number) => {
+  return useQuery({
+    queryKey: ["whatsapp-inactive-users",
+      inactiveUsersPage,
+    ],
+    queryFn: () => {
+      return chatbotService.getInactiveWhatsappUsers(inactiveUsersPage);
+    },
+  });
+};
+
+
+export const useUniqueWhatsappUsers = () => {
+  return useQuery({
+    queryKey: ["whatsapp-unique-users",
+    ],
+    queryFn: () => {
+      return chatbotService.getUniqueWhatsappUsers();
+    },
+  });
+};
+
+export const useAllWhatsappUsers = () => {
+  return useQuery({
+    queryKey: ["whatsapp-all-users"],
+    queryFn: () => {
+      return chatbotService.getAllWhatsappUsers();
+    },
+  });
+};
+
+export const useClosedAndNotifedData = (source: string)=>{
+  return useQuery({
+    queryKey: ["closed-notified-data",
+      source,
+    ],
+    queryFn: () => {
+      return chatbotService.getClosedAndNotifedData(source);
+    },
+  });
+}

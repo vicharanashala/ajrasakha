@@ -10,7 +10,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from ajrasakha.agents.config import CLAUDE_MODEL
+from ajrasakha.agents.config import CROP_CLASSIFY_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ async def is_crop_specific_question(
     On LLM failure, fails open to False (general).
     """
     try:
-        llm = ChatAnthropic(model=CLAUDE_MODEL, max_tokens=16, temperature=0)
+        llm = ChatAnthropic(model=CROP_CLASSIFY_MODEL, max_tokens=16, temperature=0)
         response = await llm.ainvoke(
             [
                 SystemMessage(content=_CROP_CLASSIFICATION_SYSTEM_PROMPT),

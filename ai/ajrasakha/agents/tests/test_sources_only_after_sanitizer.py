@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 
 from ajrasakha.agents.plan_executor import route_after_sanitizer
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
-from ajrasakha.agents.synthesizer import _collect_all_sources
+from ajrasakha.agents.answer_footers import collect_all_sources
 from ajrasakha.agents.state import AjraSakhaState
 
 
@@ -42,11 +42,11 @@ def test_gdb_has_usable_answers_false_when_only_details():
     assert gdb_has_usable_answers(_gdb_details_only_payload()) is False
 
 
-def test_collect_all_sources_empty_when_no_answers():
-    assert _collect_all_sources(_gdb_details_only_payload()) == ""
+def testcollect_all_sources_empty_when_no_answers():
+    assert collect_all_sources(_gdb_details_only_payload()) == ""
 
 
-def test_collect_all_sources_only_for_pairs_with_answers():
+def testcollect_all_sources_only_for_pairs_with_answers():
     data = {
         "is_exact": False,
         "is_similar": True,
@@ -69,7 +69,7 @@ def test_collect_all_sources_only_for_pairs_with_answers():
             },
         },
     }
-    block = _collect_all_sources(data)
+    block = collect_all_sources(data)
     assert "Expert A" in block
     assert "Expert B" not in block
     assert block.count("📚 Source") == 1

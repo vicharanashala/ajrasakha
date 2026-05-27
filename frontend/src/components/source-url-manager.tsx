@@ -31,12 +31,14 @@ interface SourceUrlManagerProps {
   sources: SourceItem[];
   onSourcesChange: (sources: SourceItem[]) => void;
   className?: string;
+  allowAnyUrl?: boolean;
 }
 
 export const SourceUrlManager = ({
   sources,
   onSourcesChange,
   className,
+  allowAnyUrl = false,
 }: SourceUrlManagerProps) => {
   const [selectedType, setSelectedType] = useState<SourceType | "">("");
   const [sourceName, setSourceName] = useState("");
@@ -81,15 +83,15 @@ export const SourceUrlManager = ({
       return;
     }
 
-    // Allow only Zoho WorkDrive external links
-    const hostname = parsedUrl.hostname.toLowerCase();
+    if (!allowAnyUrl) {
+      const hostname = parsedUrl.hostname.toLowerCase();
+      const isZohoWorkDrive =
+        hostname.includes("zoho") && hostname.includes("workdrive");
 
-    const isZohoWorkDrive =
-      hostname.includes("zoho") && hostname.includes("workdrive");
-
-    if (!isZohoWorkDrive) {
-      toast.error("Only Zoho WorkDrive URLs are allowed.");
-      return;
+      if (!isZohoWorkDrive) {
+        toast.error("Only Zoho WorkDrive URLs are allowed.");
+        return;
+      }
     }
 
     const trimmedPage = pageInput.trim();

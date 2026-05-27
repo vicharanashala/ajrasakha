@@ -14,9 +14,11 @@ export interface DuplicateQuestionEntry {
   block: string;
   district: string;
   state: string;
+  mobileNumber: string;
+  threadId: string;
 }
 
-export function useDuplicateQuestions(enabled = false, source: 'vicharanashala' | 'annam' = 'annam') {
+export function useDuplicateQuestions(enabled = false, source: 'vicharanashala' | 'annam' | 'whatsapp'= 'annam') {
   return useQuery<DuplicateQuestionEntry[], Error>({
     queryKey: ['duplicate-questions', source],
     queryFn: async () => {

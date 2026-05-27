@@ -129,6 +129,8 @@ export interface FeedbackEntry {
 export interface FeedbackData{
   positiveFeedbacks: FeedbackEntry[];
   negativeFeedbacks: FeedbackEntry[];
+  positiveFeedbackCounts: {tag: string, count: any}[],
+  negativeFeedbackCounts: {tag: string, count: any}[],
   stats: {
     "_id"?: null | ObjectId,
     positiveCount: number,
@@ -162,12 +164,14 @@ export interface FarmerProfile {
     latitude: number;
     longitude: number;
   };
+  landhold?: number;
 }
 
 export interface UserDetailEntry {
   userId: string;
   name: string;
   email: string;
+  role?: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
@@ -192,6 +196,7 @@ export interface UserDemographics {
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
+  landHolding: DemographicEntry[];
 }
 
 export interface KccAndAgriAppStats {
@@ -280,7 +285,7 @@ export interface IChatbotRepository {
   /** Percentage breakdown of sessions by query category, sorted descending. */
   getQueryCategories(source?: string, session?: ClientSession, userType?: string): Promise<QueryCategoryEntry[]>;
 
-  getTopCrops(session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getTopCrops(source?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
@@ -358,6 +363,7 @@ export interface IChatbotRepository {
     sortBy?: string,
     sortOrder?: string,
     lowFeedbackOnly?: boolean,
+    activeTodayByProfile?: boolean,
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
@@ -375,6 +381,17 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
   ): Promise<ChatbotConversationData[]>;
+
+  generateChatBotData(    
+    startDate: Date,
+    endDate: Date,
+    days: number,
+    userType: string,
+    month?: string,
+    state?: string,
+    source?: string,
+    session?: ClientSession,
+  )
 
   /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
   getUserDemographics(source?: string, session?: ClientSession, userType?: string): Promise<UserDemographics>;
@@ -400,6 +417,7 @@ export interface IChatbotRepository {
   /** Daily unique vs duplicate questions asked on the review system (source AJRASAKHA). */
   getDailyQuestionTrends(
     days?: number,
+    source?: string,
     session?: ClientSession,
     userType?: string,
     startTime?: string,
@@ -446,7 +464,17 @@ export interface IChatbotRepository {
     source: string,
     data: {
       name?: string;
+      role?: string;
       farmerProfile?: Partial<FarmerProfile>;
+    },
+  ): Promise<boolean>;
+  addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      password: string;
+      role?: string;
     },
   ): Promise<boolean>;
 
@@ -456,7 +484,13 @@ export interface IChatbotRepository {
 
   getWeeklyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
 
-  getRetentionMetrics (session?: ClientSession): Promise<any>
+  getRetentionMetrics (    startDate: Date,
+    endDate: Date,
+    source: string,
+    userType: string,
+    requestType: string,
+    session?: ClientSession,
+  ): Promise<any>
 
   getQuerySummaryByPeriod(
     period: 'daily' | 'weekly' | 'monthly',
@@ -464,6 +498,12 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<{ label: string; totalQueries: number }>;
+
+  getClosedVsTotalQuestions(source: string):Promise<any>;
+
+  getNotifiedVsClosed(source?: string):Promise<any>;
+
+  getClosedInLastTwoHours(source?: string): Promise<any>;
 }
 
 export interface ChatbotConversationData {

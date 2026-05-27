@@ -196,7 +196,10 @@ export const ActiveUsersChart = ({
     </div>
   );
   return (
-    <Card className="pt-0">
+    <Card
+      className="pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+"
+    >
       <CardHeader className="border-b py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="grid gap-1">

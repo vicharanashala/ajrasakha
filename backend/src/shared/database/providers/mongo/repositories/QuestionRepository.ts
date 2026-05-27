@@ -3572,6 +3572,7 @@ export class QuestionRepository implements IQuestionRepository {
     status?: string[],
     state?: string[],
     source?: string[],
+    crop?: string[],
   ): Promise<{ analytics: Analytics }> {
     await this.init();
 
@@ -3579,7 +3580,7 @@ export class QuestionRepository implements IQuestionRepository {
     if (startTime) filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
     if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
 
-    const matchStage: any = { status: { $ne: 'pass' } };
+    const matchStage: any = {};
     if (status?.length) {
       matchStage.status = { $in: status };
     }
@@ -3592,17 +3593,15 @@ export class QuestionRepository implements IQuestionRepository {
     if (source?.length) {
       matchStage.source = { $in: source };
     }
+    if (crop?.length) {
+      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      matchStage['details.crop'] = {
+        $in: crop.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')),
+      };
+    }
 
-    const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
-      const sorted = [...data].sort((a, b) => b.count - a.count);
-      const topTen = sorted.slice(0, 10);
-      const othersItems = sorted.slice(10);
-      const othersCount = othersItems.reduce((sum, item) => sum + item.count, 0);
-
-      return [
-        ...topTen,
-        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount, otherItems: othersItems }] : []),
-      ];
+    const sortAllItems = (data: { name: string; count: number }[]) => {
+      return [...data].sort((a, b) => b.count - a.count);
     };
 
     // Aggregate crop data
@@ -3688,9 +3687,9 @@ export class QuestionRepository implements IQuestionRepository {
 
     return {
       analytics: {
-        cropData: getTopTenWithOthers(cropDataRaw),
+        cropData: sortAllItems(cropDataRaw),
         stateData: stateDataRaw,
-        domainData: getTopTenWithOthers(domainDataRaw),
+        domainData: sortAllItems(domainDataRaw),
         tableData,
       },
     };
