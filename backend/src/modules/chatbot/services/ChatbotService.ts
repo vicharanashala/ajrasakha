@@ -2481,4 +2481,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       closedInLastTwoHours,
     };
   }
+
+  async getMonthlyChurnRate(source: string):Promise<any> {
+    return await this.chatbotRepository.getMonthlyChurnRate(source);
+  }
 }

@@ -154,5 +154,6 @@ export interface IChatbotService {
       startDate?: Date,
       endDate?: Date,): Promise<any>;
   getUserQuestionsData(userEmail: string, source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
-  getClosedAndNotifedData(source?: string): Promise<any> 
+  getClosedAndNotifedData(source?: string): Promise<any>;
+  getMonthlyChurnRate(source: string):Promise<any>;
 }

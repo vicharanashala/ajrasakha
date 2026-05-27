@@ -7725,4 +7725,76 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
+
+  async getMonthlyChurnRate(source: string):Promise<any> {
+    await this.init(source);
+
+    const startDate = new Date("2025-01-01");
+    const now = new Date();
+
+    const results = [];
+
+    let currentPeriodStart = new Date(startDate);
+
+    while (currentPeriodStart < now) {
+      // Current month end
+      const currentPeriodEnd = new Date(currentPeriodStart);
+      currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+
+      // Previous month start
+      const previousPeriodStart = new Date(currentPeriodStart);
+      previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 1);
+
+      const previousPeriodEnd = currentPeriodStart;
+
+      // Users active in previous month
+      const previousActiveUsers =
+        await this.messagesCollection.distinct("user", {
+          isCreatedByUser: true,
+          createdAt: {
+            $gte: previousPeriodStart,
+            $lt: previousPeriodEnd,
+          },
+        });
+
+      // Users active in current month
+      const currentActiveUsers =
+        await this.messagesCollection.distinct("user", {
+          isCreatedByUser: true,
+          createdAt: {
+            $gte: currentPeriodStart,
+            $lt: currentPeriodEnd,
+          },
+        });
+
+      const currentUserSet = new Set(
+        currentActiveUsers.map((id) => id.toString())
+      );
+
+      const churnedUsers = previousActiveUsers.filter(
+        (id) => !currentUserSet.has(id.toString())
+      );
+
+      const churnRate =
+        previousActiveUsers.length === 0
+          ? 0
+          : (churnedUsers.length / previousActiveUsers.length) * 100;
+
+      results.push({
+        month: currentPeriodStart.toLocaleString("default", {
+          month: "short",
+          year: "numeric",
+        }),
+        previousActiveUsers: previousActiveUsers.length,
+        currentActiveUsers: currentActiveUsers.length,
+        churnedUsers: churnedUsers.length,
+        churnRate: Number(churnRate.toFixed(2)),
+      });
+
+      // Move to next month
+      currentPeriodStart = currentPeriodEnd;
+    }
+
+    return results;
+  }
 }

@@ -54,7 +54,7 @@ import {
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
-import { useClosedAndNotifedData, useInactiveWhatsappUsers, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
+import { useClosedAndNotifedData, useInactiveWhatsappUsers, useMonthlyChurnRate, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
 import { motion, AnimatePresence } from "framer-motion";
@@ -63,6 +63,7 @@ import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
+import { ChurnRateChart } from "./ChurnRateChart";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -419,7 +420,8 @@ useEffect(() => {
   }
 }, [source]);
 
-
+const {data: monthlyChurnRateData} = useMonthlyChurnRate(source);
+console.log("monthlyChurnRateData-----------------------", monthlyChurnRateData)
 
 const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
   return (
@@ -1108,7 +1110,9 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                     source={source}
                     userType={filters.userType}
                     />
-                        </div>
+                           <ChurnRateChart
+                           monthlyChurnRateData={monthlyChurnRateData}/>
+                        </div>  
                       )}
                       {source !== "whatsapp" && (
                         <div className="mt-4 mb-4">

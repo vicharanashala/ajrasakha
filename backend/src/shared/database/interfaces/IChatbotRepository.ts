@@ -505,6 +505,8 @@ export interface IChatbotRepository {
   getNotifiedVsClosed(source?: string):Promise<any>;
 
   getClosedInLastTwoHours(source?: string): Promise<any>;
+
+  getMonthlyChurnRate(source: string):Promise<any>;
 }
 
 export interface ChatbotConversationData {

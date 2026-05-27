@@ -821,4 +821,15 @@ async getUserQuestionsData(
   ): Promise<any> {
     return await this.chatbotService.getClosedAndNotifedData(source);
   }
+
+  @Get('/monthly-churn-rate')
+  @HttpCode(200)
+  @Authorized()
+  async getMonthlyChurnRate(   
+    @QueryParam('source')
+    source: string= 'vicharanashala',
+  ):Promise<any> {
+    return await this.chatbotService.getMonthlyChurnRate(source);
+  }
+
 }
