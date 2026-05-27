@@ -62,10 +62,7 @@ const chartConfig = {
 
 type RetentionType = "daily" | "weekly" | "monthly";
 
-const defaultDateRange: DateRange = {
-  from: subDays(new Date(), 90),
-  to: new Date(),
-};
+const defaultDateRange: DateRange | undefined = undefined;
 
 type RetentionMetricsChartProps = {
   source: "vicharanashala" | "annam";
@@ -81,19 +78,16 @@ export const RetentionMetricsChart = ({
   );
   const [requestType, setRequestType] = useState<RetentionType>("weekly");
   const resetDateRange = () => {
-    setDateRange({
-      from: subDays(new Date(), 90),
-      to: new Date(),
-    });
+    setDateRange(undefined);
   };
   const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
   const endDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "";
   const { data, isFetching } = useRetentionMetrics(
-    startDate,
-    endDate,
     source,
     userType,
     requestType,
+    startDate,
+    endDate,
   );
 
   const renderDateRangePicker = () => (
@@ -128,7 +122,7 @@ export const RetentionMetricsChart = ({
                     "MMM dd, yyyy",
                   )}`
                 : format(dateRange.from, "MMM dd, yyyy")
-              : "Select date range"}
+              : "All Time"}
           </Button>
         </PopoverTrigger>
 
@@ -275,7 +269,7 @@ export const RetentionMetricsChart = ({
                     axisLine={false}
                     tickMargin={8}
                     minTickGap={20}
-                    padding={{ right: 30, left:30 }}
+                    padding={{ right: 30, left: 30 }}
                     interval={data.length < 15 ? 0 : "preserveStartEnd"}
                     tickFormatter={(value) => {
                       if (requestType === "weekly") {

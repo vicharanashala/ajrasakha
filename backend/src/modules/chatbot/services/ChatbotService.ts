@@ -2336,17 +2336,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getDailyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     try {
       return await this.chatbotRepository.getDailyActiveUsersTrend(
-        startDate,
-        endDate,
         source,
         userType,
+        startDate,
+        endDate,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -2356,17 +2356,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getMonthlyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     try {
       return await this.chatbotRepository.getMonthlyActiveUsersTrend(
-        startDate,
-        endDate,
         source,
         userType,
+        startDate,
+        endDate
       );
     } catch (error) {
       throw new InternalServerError(
@@ -2376,17 +2376,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getWeeklyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     try {
       return await this.chatbotRepository.getWeeklyActiveUsersTrend(
-        startDate,
-        endDate,
         source,
         userType,
+        startDate,
+        endDate
       );
     } catch (error) {
       throw new InternalServerError(
@@ -2396,19 +2396,19 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getRetentionMetrics(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
     requestType: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     try {
       return await this.chatbotRepository.getRetentionMetrics(
-        startDate,
-        endDate,
         source,
         userType,
         requestType,
+        startDate,
+        endDate,
       );
     } catch (error) {
       throw new InternalServerError(

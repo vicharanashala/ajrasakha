@@ -6504,28 +6504,28 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getDailyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
     session?: ClientSession,
   ) {
     try {
       await this.init(userType);
 
-      /**
-       * Last 365 days
-       */
-      // const endDate = new Date();
-      // const startDate = new Date();
-      // startDate.setDate(startDate.getDate() - 365);
-
       const matchStage: any = {
         lastActiveAt: {
-          $gte: startDate,
-          $lte: endDate,
+          $ne: null,
         },
       };
+
+      if (startDate && endDate) {
+        matchStage.lastActiveAt = {
+          $ne: null,
+          $gte: startDate,
+          $lte: endDate,
+        };
+      }
 
       /**
        * External Users
@@ -6592,34 +6592,28 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getWeeklyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
     session?: ClientSession,
   ) {
     try {
       await this.init(userType);
 
-      /**
-       * Last 12 weeks
-       */
-      // const endDate = new Date();
-      // const startDate = new Date();
-
-      // const DAYS_IN_WEEK = 7;
-      // const TOTAL_WEEKS = 52;
-
-      // startDate.setDate(
-      //   startDate.getDate() - (DAYS_IN_WEEK * TOTAL_WEEKS),
-      // );
-
       const matchStage: any = {
         lastActiveAt: {
-          $gte: startDate,
-          $lte: endDate,
+          $ne: null,
         },
       };
+
+      if (startDate && endDate) {
+        matchStage.lastActiveAt = {
+          $ne: null,
+          $gte: startDate,
+          $lte: endDate,
+        };
+      }
 
       /**
        * External Users
@@ -6723,28 +6717,28 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
     session?: ClientSession,
   ) {
     try {
       await this.init(userType);
 
-      /**
-       * Last 12 months
-       */
-      // const endDate = new Date();
-      // const startDate = new Date();
-      // startDate.setMonth(startDate.getMonth() - 12);
-
       const matchStage: any = {
         lastActiveAt: {
-          $gte: startDate,
-          $lte: endDate,
+          $ne: null,
         },
       };
+
+      if (startDate && endDate) {
+        matchStage.lastActiveAt = {
+          $ne: null,
+          $gte: startDate,
+          $lte: endDate,
+        };
+      }
 
       /**
        * External Users
@@ -6810,21 +6804,30 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getRetentionMetrics(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
     requestType: string,
+    startDate?: Date,
+    endDate?: Date,
     session?: ClientSession,
   ) {
     try {
       await this.init(source);
       let matchStage: any = {};
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
+      let createdAtFilter: any = null;
 
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+
+        createdAtFilter = {
+          $gte: start,
+          $lte: end,
+        };
+      }
       if (userType === 'external') {
         matchStage.email = {
           $regex: '^rup',
@@ -6859,10 +6862,9 @@ export class ChatbotRepository implements IChatbotRepository {
           [
             {
               $match: {
-                createdAt: {
-                  $gte: start,
-                  $lte: end,
-                },
+              ...(createdAtFilter && {
+                createdAt: createdAtFilter,
+              }),
                 ...matchStage,
               },
             },

@@ -478,17 +478,18 @@ export interface IChatbotRepository {
     },
   ): Promise<boolean>;
 
-  getDailyActiveUsersTrend  (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession):Promise<any>
+  getDailyActiveUsersTrend  ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession):Promise<any>
 
-  getMonthlyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
+  getMonthlyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
 
-  getWeeklyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
+  getWeeklyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
 
-  getRetentionMetrics (    startDate: Date,
-    endDate: Date,
+  getRetentionMetrics (
     source: string,
     userType: string,
     requestType: string,
+    startDate?: Date,
+    endDate?: Date,
     session?: ClientSession,
   ): Promise<any>
 

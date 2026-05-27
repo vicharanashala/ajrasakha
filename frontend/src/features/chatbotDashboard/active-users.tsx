@@ -57,10 +57,8 @@ const chartConfig = {
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
-const defaultDateRange: DateRange = {
-  from: subDays(new Date(), 90),
-  to: new Date(),
-};
+const defaultDateRange: DateRange | undefined = undefined;
+
 
 type ActiveUserType = "daily" | "weekly" | "monthly";
 
@@ -78,13 +76,13 @@ export const ActiveUsersChart = ({
     defaultDateRange,
   );
   const { data: dailyData, isFetching: dailyLoading } =
-    useDailyActiveUsersTrend(dateRange?.from, dateRange?.to, source, userType);
+    useDailyActiveUsersTrend(source, userType, dateRange?.from, dateRange?.to);
 
   const { data: weeklyData, isFetching: weeklyLoading } =
-    useWeeklyActiveUsersTrend(dateRange?.from, dateRange?.to, source, userType);
+    useWeeklyActiveUsersTrend(source, userType, dateRange?.from, dateRange?.to);
 
   const { data: monthlyData, isFetching: monthlyLoading } =
-    useMontlyActiveUsersTrend(dateRange?.from, dateRange?.to, source, userType);
+    useMontlyActiveUsersTrend(source, userType, dateRange?.from, dateRange?.to);
 
   const isFetching = dailyLoading || weeklyLoading || monthlyLoading;
 
@@ -136,10 +134,7 @@ export const ActiveUsersChart = ({
   }, [type]);
 
   const resetDateRange = () => {
-    setDateRange({
-      from: subDays(new Date(), 90),
-      to: new Date(),
-    });
+    setDateRange(undefined);
   };
 
   const renderDateRangePicker = () => (
@@ -161,9 +156,12 @@ export const ActiveUsersChart = ({
 
             {dateRange?.from
               ? dateRange.to
-                ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`
+                ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(
+                    dateRange.to,
+                    "MMM dd, yyyy",
+                  )}`
                 : format(dateRange.from, "MMM dd, yyyy")
-              : "Select date range"}
+              : "All Time"}
           </Button>
         </PopoverTrigger>
 
