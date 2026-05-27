@@ -1674,7 +1674,7 @@ export class AnswerService extends BaseService implements IAnswerService {
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
 
       const text = `Question: ${question.question}
-  
+
 answer: ${updates.answer}`;
 
       const generateEmbedding = async (value: string) => {
@@ -1688,6 +1688,92 @@ answer: ${updates.answer}`;
 
         return embedding;
       };
+
+      // EDIT-FINAL-ANSWER FLOW
+      // Allow admin/moderator to edit an already-finalized answer on a closed question.
+      // Updates only answer/sources/embedding; preserves approvedBy/isFinalAnswer/status.
+      if (question.status === 'closed' && updates.answerId) {
+        const existing = await this.answerRepo.getById(updates.answerId, session);
+        if (!existing) {
+          throw new BadRequestError(`Answer with ID ${updates.answerId} not found`);
+        }
+        if (!existing.isFinalAnswer) {
+          throw new BadRequestError(
+            `Can't edit this answer: ${updates.answerId}. It is not the final answer for a closed question.`,
+          );
+        }
+
+        const editEmbedding = await generateEmbedding(text);
+
+        // Keep the question's `text` + `embedding` in sync with the edited
+        // answer so search / semantic lookups don't go stale.
+        await this.questionRepo.updateQuestion(
+          question._id.toString(),
+          {
+            text,
+            embedding: editEmbedding,
+          },
+          session,
+          true,
+        );
+
+        const editResult = await this.answerRepo.updateAnswer(
+          updates.answerId,
+          {
+            answer: updates.answer,
+            sources: updates.sources,
+            embedding: editEmbedding,
+          },
+          session,
+        );
+
+        // Re-fire webhook so downstream consumers see the updated final answer.
+        const editAuthor = await this.userRepo.findById(
+          existing.authorId.toString(),
+          session,
+        );
+        const editWebhookPayload = {
+          question_id: question._id.toString(),
+          status: 'closed',
+          answer: updates.answer ?? '',
+          author:
+            `${editAuthor?.firstName ?? ''} ${editAuthor?.lastName ?? ''}`.trim() ||
+            'Expert',
+          sources: updates.sources ?? [],
+        };
+
+        if (question.source === 'WHATSAPP') {
+          try {
+            await triggerWebhook(
+              appConfig.WA_WEBHOOK_API_URL,
+              appConfig.WA_WEBHOOK_API_KEY,
+              editWebhookPayload,
+              'WhatsApp',
+            );
+          } catch (err) {
+            console.log('Error occurred while notifying customer on edit (WHATSAPP):', err);
+          }
+        }
+
+        if (question.source === 'AJRASAKHA') {
+          try {
+            await triggerWebhook(
+              appConfig.WEB_WEBHOOK_API_URL,
+              appConfig.WEB_WEBHOOK_API_KEY,
+              {
+                ...editWebhookPayload,
+                question: question.question,
+                messageId: question.messageId,
+              },
+              'Browser',
+            );
+          } catch (err) {
+            console.log('Error occurred while notifying customer on edit (AJRASAKHA):', err);
+          }
+        }
+
+        return editResult;
+      }
 
       let answerId = updates.answerId;
 
