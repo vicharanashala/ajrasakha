@@ -602,6 +602,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const handleAccept = () => {
         if (!question?._id) { toast.error("Question data is missing."); return; }
         if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") { toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return; }
+        if (!question?.details?.normalised_crop?.trim()) {
+            toast.error("This question does not have a normalised crop. Please add the respective crop from the Agri Tech Management section before accepting this question.");
+            return;
+        }
         setConfirmDialog({ open: true, type: "accept" });
     };
 
@@ -611,6 +615,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         }
         if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") {
             toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return;
+        }
+        if (!question?.details?.normalised_crop?.trim()) {
+            toast.error("This question does not have a normalised crop. Please add the respective crop from the Agri Tech Management section before pushing this question to GDB.");
+            return;
         }
         if (question.status !== "duplicate") {
             toast.error("Only duplicate questions can be pushed to GDB."); return;
@@ -657,7 +665,14 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const handleEdit = () => { setEditModalKey(k => k + 1); setIsEditModalOpen(true); };
     const handleCancelEdit = () => { const p = parseChatbotText(text); setEditedAnswerBody(p.answerBody); setEditedSpecialists(p.agriSpecialists); setEditedPdfSources(p.pdfSources); setIsEditModalOpen(false); };
     const handleSaveEdit = () => { toast.success("Changes saved"); setIsEditModalOpen(false); };
-    const handleSkip = () => { setPassRemarkError(""); setConfirmDialog({ open: true, type: "pass", remark: "" }); };
+    const handleSkip = () => {
+        if (!question?.details?.normalised_crop?.trim()) {
+            toast.error("This question does not have a normalised crop. Please add the respective crop from the Agri Tech Management section before passing this question.");
+            return;
+        }
+        setPassRemarkError("");
+        setConfirmDialog({ open: true, type: "pass", remark: "" });
+    };
 
     const doSkip = async (remark?: string) => {
         await updateQuestion({ isHidden: true, status: 'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
