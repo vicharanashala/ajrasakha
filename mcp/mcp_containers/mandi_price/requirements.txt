@@ -1,0 +1,4 @@
+mcp[cli]>=1.9.0
+pymongo>=4.10.0
+python-dotenv>=1.0.0
+python-dateutil>=2.9.0
