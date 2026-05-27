@@ -322,15 +322,20 @@ def _finalize_location_and_crop_completeness(
     out: PlannerPlan,
     *,
     entities: PlannerEntities,
-    domain: str,
+    domains: list[str],
     has_state: bool,
     has_gps: bool,
 ) -> PlannerPlan:
     """Single completeness pass: state (or GPS) required; district defaults to all."""
     script, vocal = language_pair_from_plan(out)
     crop = entities.get("crop")
-    domain = normalize_domain(domain)
-    needs_crop = domain_requires_crop(domain) and not crop_counts_as_resolved(crop)
+    canonical_domains = [normalize_domain(d) for d in (domains or [])] or ["General"]
+    needs_crop = (
+        any(domain_requires_crop(d) for d in canonical_domains)
+        and (
+            not crop_counts_as_resolved(crop) or is_crop_placeholder(crop)
+        )
+    )
 
     if not has_state and not has_gps:
         out["is_complete"] = False
@@ -371,13 +376,17 @@ def apply_planner_completeness_rules(
 
     has_state, _, has_gps = _location_status(entities, location)
     domain = normalize_domain(out.get("domain") or "General")
+    domains = list(out.get("domains") or [domain])
 
-    if is_schemes_intent(latest) and domain in {
-        "Government Schemes",
-        "Financial & Institutional Services",
-        "Crop Insurance",
-        "General",
-    }:
+    if is_schemes_intent(latest) and any(
+        normalize_domain(d) in {
+            "Government Schemes",
+            "Financial & Institutional Services",
+            "Crop Insurance",
+            "General",
+        }
+        for d in domains
+    ):
         out["schemes"] = True
         out["knowledge_base"] = False
 
@@ -394,7 +403,7 @@ def apply_planner_completeness_rules(
     out = _finalize_location_and_crop_completeness(
         out,
         entities=entities,
-        domain=domain,
+        domains=domains,
         has_state=has_state,
         has_gps=has_gps,
     )
