@@ -10,8 +10,18 @@ const mockCrop: ICrop = {
   _id: '664f1a2b3c4d5e6f7a8b9c0d',
   name: 'Rice',
   aliases: [
-    { language: 'hi-IN', region: 'North India', english_representation: 'paddy', native_representation: 'पैडी' },
-    { language: 'bn-IN', region: 'West Bengal', english_representation: 'dhan', native_representation: 'ধান' },
+    {
+      language: 'hi-IN',
+      region: 'North India',
+      english_representation: 'paddy',
+      native_representation: 'पैडी',
+    },
+    {
+      language: 'bn-IN',
+      region: 'West Bengal',
+      english_representation: 'dhan',
+      native_representation: 'ধান',
+    },
   ],
   createdBy: '664f000000000000000000001',
   createdAt: new Date('2024-01-01'),
@@ -44,7 +54,11 @@ describe('CropService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new CropService(mockRepo as any, mockQuestionRepo as any, {} as any);
+    service = new CropService(
+      mockRepo as any,
+      mockQuestionRepo as any,
+      {} as any,
+    );
   });
 
   // ── getAllCrops ─────────────────────────────────────────────────────────────
@@ -92,7 +106,20 @@ describe('CropService', () => {
   // ── createCrop ──────────────────────────────────────────────────────────────
 
   describe('createCrop', () => {
-    const dto = {name: 'Rice', aliases: [{ language: 'hi-IN', region: '', english_representation: 'paddy', native_representation: 'पैडी' }]};
+    const dto = {
+      name: 'Rice',
+      type: 'crop',
+      status: 'approved',
+      crops: [],
+      aliases: [
+        {
+          language: 'hi-IN',
+          region: '',
+          english_representation: 'paddy',
+          native_representation: 'पैडी',
+        },
+      ],
+    };
     const userId = '664f000000000000000000001';
 
     it('creates a crop and returns it', async () => {
@@ -104,6 +131,9 @@ describe('CropService', () => {
         dto.name,
         userId,
         dto.aliases,
+        dto.type,
+        dto.status,
+        dto.crops,
       );
       expect(result).toEqual(mockCrop);
     });
@@ -122,50 +152,90 @@ describe('CropService', () => {
       const dbError = new Error('DB connection lost');
       mockRepo.createCrop.mockRejectedValue(dbError);
 
-      await expect(service.createCrop(dto, userId)).rejects.toThrow('DB connection lost');
+      await expect(service.createCrop(dto, userId)).rejects.toThrow(
+        'DB connection lost',
+      );
     });
   });
 
   // ── updateCrop ──────────────────────────────────────────────────────────────
 
   describe('updateCrop', () => {
-    const dto = {aliases: [
-      { language: 'hi-IN', region: '', english_representation: 'paddy', native_representation: 'पैडी' },
-      { language: 'bn-IN', region: '', english_representation: 'dhan', native_representation: 'ধান' },
-    ]};
+    const dto = {
+      aliases: [
+        {
+          language: 'hi-IN',
+          region: '',
+          english_representation: 'paddy',
+          native_representation: 'पैडी',
+        },
+        {
+          language: 'bn-IN',
+          region: '',
+          english_representation: 'dhan',
+          native_representation: 'ধান',
+        },
+      ],
+    };
     const userId = '664f000000000000000000001';
 
     it('updates a crop and returns updated doc', async () => {
       const updated = {...mockCrop, aliases: dto.aliases};
       mockRepo.updateCrop.mockResolvedValue(updated);
 
-      const result = await service.updateCrop('664f1a2b3c4d5e6f7a8b9c0d', dto, userId);
+      const result = await service.updateCrop(
+        '664f1a2b3c4d5e6f7a8b9c0d',
+        dto,
+        userId,
+      );
 
       expect(mockRepo.updateCrop).toHaveBeenCalledWith(
         '664f1a2b3c4d5e6f7a8b9c0d',
         dto,
         userId,
       );
-      expect(result?.aliases.some(a => typeof a !== 'string' && a.english_representation === 'dhan')).toBe(true);
+      expect(
+        result?.aliases.some(
+          a => typeof a !== 'string' && a.english_representation === 'dhan',
+        ),
+      ).toBe(true);
     });
 
     it('returns null when crop not found', async () => {
       mockRepo.updateCrop.mockResolvedValue(null);
 
-      const result = await service.updateCrop('000000000000000000000000', dto, userId);
+      const result = await service.updateCrop(
+        '000000000000000000000000',
+        dto,
+        userId,
+      );
 
       expect(result).toBeNull();
     });
 
     it('throws BadRequestError (400) on duplicate alias', async () => {
       mockRepo.updateCrop.mockRejectedValue(
-        new BadRequestError('Cannot add alias "wheat" — it already exists as a crop name.'),
+        new BadRequestError(
+          'Cannot add alias "wheat" — it already exists as a crop name.',
+        ),
       );
 
       await expect(
-        service.updateCrop('664f1a2b3c4d5e6f7a8b9c0d', {aliases: [{ language: 'en-IN', region: '', english_representation: 'wheat', native_representation: 'wheat' }]}, userId),
+        service.updateCrop(
+          '664f1a2b3c4d5e6f7a8b9c0d',
+          {
+            aliases: [
+              {
+                language: 'en-IN',
+                region: '',
+                english_representation: 'wheat',
+                native_representation: 'wheat',
+              },
+            ],
+          },
+          userId,
+        ),
       ).rejects.toMatchObject({httpCode: 400});
     });
   });
 });
-
