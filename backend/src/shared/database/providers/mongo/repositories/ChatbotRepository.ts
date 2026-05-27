@@ -6511,7 +6511,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
   ) {
     try {
-      await this.init(userType);
+      await this.init(source);
 
       /**
        * Last 365 days
@@ -6530,7 +6530,7 @@ export class ChatbotRepository implements IChatbotRepository {
       /**
        * External Users
        */
-      if (source === 'external') {
+      if (userType === 'external') {
         matchStage.email = {
           $regex: '^rup',
           $options: 'i',
@@ -6540,7 +6540,7 @@ export class ChatbotRepository implements IChatbotRepository {
       /**
        * Internal Users
        */
-      if (source === 'internal') {
+      if (userType === 'internal') {
         matchStage.email = {
           $not: {
             $regex: '^rup',
@@ -6599,7 +6599,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
   ) {
     try {
-      await this.init(userType);
+      await this.init(source);
 
       /**
        * Last 12 weeks
@@ -6624,7 +6624,7 @@ export class ChatbotRepository implements IChatbotRepository {
       /**
        * External Users
        */
-      if (source === 'external') {
+      if (userType === 'external') {
         matchStage.email = {
           $regex: '^rup',
           $options: 'i',
@@ -6634,7 +6634,7 @@ export class ChatbotRepository implements IChatbotRepository {
       /**
        * Internal Users
        */
-      if (source === 'internal') {
+      if (userType === 'internal') {
         matchStage.email = {
           $not: {
             $regex: '^rup',
@@ -6730,7 +6730,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
   ) {
     try {
-      await this.init(userType);
+      await this.init(source);
 
       /**
        * Last 12 months
@@ -6749,7 +6749,7 @@ export class ChatbotRepository implements IChatbotRepository {
       /**
        * External Users
        */
-      if (source === 'external') {
+      if (userType === 'external') {
         matchStage.email = {
           $regex: '^rup',
           $options: 'i',
@@ -6759,7 +6759,7 @@ export class ChatbotRepository implements IChatbotRepository {
       /**
        * Internal Users
        */
-      if (source === 'internal') {
+      if (userType === 'internal') {
         matchStage.email = {
           $not: {
             $regex: '^rup',

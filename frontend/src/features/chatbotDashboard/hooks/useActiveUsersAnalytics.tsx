@@ -3,7 +3,7 @@ import { ChatbotService } from "@/hooks/services/chatbotService";
 
 const chatbotService = new ChatbotService();
 
-export const useDailyActiveUsersTrend = (startDate: Date, endDate:Date, source: string, userType: string, enabled: boolean = true) => {
+export const useDailyActiveUsersTrend = (startDate: Date | undefined, endDate: Date | undefined, source: string, userType: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: [
       "daily_user_growth",
@@ -13,13 +13,13 @@ export const useDailyActiveUsersTrend = (startDate: Date, endDate:Date, source: 
       userType,
     ],
     queryFn: () => {
-      return chatbotService.getDailyActiveUsersTrend(startDate.toString(), endDate.toString(), userType, source);
+      return chatbotService.getDailyActiveUsersTrend(startDate?.toISOString(), endDate?.toISOString(), source, userType);
     },
     enabled,
   });
 };
 
-export const useMontlyActiveUsersTrend = (startDate: Date, endDate:Date, source: string,  userType: string, enabled: boolean = true) => {
+export const useMontlyActiveUsersTrend = (startDate: Date | undefined, endDate: Date | undefined, source: string,  userType: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: [
       "monthly_user_growth",
@@ -29,13 +29,13 @@ export const useMontlyActiveUsersTrend = (startDate: Date, endDate:Date, source:
       userType,
     ],
     queryFn: () => {
-      return chatbotService.getMonthlyActiveUsersTrend(startDate.toString(), endDate.toString(), userType, source);
+      return chatbotService.getMonthlyActiveUsersTrend(startDate?.toISOString(), endDate?.toISOString(), source, userType);
     },
     enabled,
   });
 };
 
-export const useWeeklyActiveUsersTrend = (startDate: Date, endDate:Date, source: string,  userType: string, enabled: boolean = true) => {
+export const useWeeklyActiveUsersTrend = (startDate: Date | undefined, endDate: Date | undefined, source: string,  userType: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: [
       "weekly_user_growth",
@@ -45,7 +45,7 @@ export const useWeeklyActiveUsersTrend = (startDate: Date, endDate:Date, source:
       userType,
     ],
     queryFn: () => {
-      return chatbotService.getWeeklyActiveUsersTrend(startDate.toString(), endDate.toString(), userType, source);
+      return chatbotService.getWeeklyActiveUsersTrend(startDate?.toISOString(), endDate?.toISOString(), source, userType);
     },
     enabled,
   });
