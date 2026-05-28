@@ -1,34 +1,31 @@
 import os
 import asyncio
 import json
-from typing import List, Optional
+from typing import Any, List, Optional
 from mcp.server.fastmcp import FastMCP
 
+import httpx
 from bson import ObjectId
-from langchain.tools import tool
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient
 from dotenv import load_dotenv
 
 load_dotenv()
-from ajrasakha.utils import get_mongodb_vector_store, get_huggingface_embedding_model
 
-EMBEDDING_MODEL = os.getenv("GOLDEN_EMBEDDING_MODEL")
+EMBEDDING_ENDPOINT = os.getenv("GOLDEN_EMBEDDING_ENDPOINT", "http://100.100.108.43:6001/embed")
+EMBEDDING_TIMEOUT_S = float(os.getenv("GOLDEN_EMBEDDING_TIMEOUT_S", "15"))
 MONGODB_URI = os.getenv("GOLDEN_MONGODB_URI")
-MONGODB_DATABASE = os.getenv("GOLDEN_MONGODB_DATABASE")
-MONGODB_COLLECTION = os.getenv("GOLDEN_MONGODB_COLLECTION")
+MONGODB_DATABASE = os.getenv("GOLDEN_MONGODB_DATABASE", "agriai")
+MONGODB_COLLECTION = os.getenv("GOLDEN_MONGODB_COLLECTION", "questions")
 MONGODB_VECTOR_INDEX = os.getenv("GOLDEN_MONGODB_INDEX")
-MONGODB_SEARCH_INDEX = os.getenv("GOLDEN_MONGODB_SEARCH_INDEX")
-
-embedding_model = get_huggingface_embedding_model(EMBEDDING_MODEL)
-vector_store = get_mongodb_vector_store(
-    embedding_model,
-    MONGODB_URI,
-    MONGODB_DATABASE,
-    MONGODB_COLLECTION,
-    MONGODB_VECTOR_INDEX,
-)
+MONGODB_SEARCH_INDEX = os.getenv("GOLDEN_MONGODB_SEARCH_INDEX", "review_questions_search_index")
+if not MONGODB_URI:
+    raise RuntimeError("GOLDEN_MONGODB_URI is not set")
+if not MONGODB_VECTOR_INDEX:
+    raise RuntimeError("GOLDEN_MONGODB_INDEX is not set")
+if not MONGODB_SEARCH_INDEX:
+    raise RuntimeError("GOLDEN_MONGODB_SEARCH_INDEX is not set")
 
 mongo_client = AsyncMongoClient(MONGODB_URI)
 database = mongo_client[MONGODB_DATABASE]
@@ -72,10 +69,59 @@ def _author_display_name(user_document: dict | None) -> Optional[str]:
     return full or None
 
 
+async def _embed_text(text: str) -> list[float]:
+    payload = {"text": text}
+    timeout = httpx.Timeout(EMBEDDING_TIMEOUT_S)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.post(
+            EMBEDDING_ENDPOINT,
+            headers={"Content-Type": "application/json"},
+            json=payload,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    embedding = data.get("embedding")
+    if not isinstance(embedding, list) or not embedding:
+        raise ValueError("Embedding endpoint returned invalid 'embedding'")
+    return embedding
+
+
+async def _vector_search_questions(
+    *,
+    query_vector: list[float],
+    k: int,
+    meta_filter: dict[str, Any],
+) -> list[dict[str, Any]]:
+    pipeline: list[dict[str, Any]] = [
+        {
+            "$vectorSearch": {
+                "index": MONGODB_VECTOR_INDEX,
+                "path": "embedding",
+                "queryVector": query_vector,
+                "numCandidates": max(50, k * 10),
+                "limit": k,
+                "filter": meta_filter,
+            }
+        },
+        {
+            "$project": {
+                "_id": 1,
+                "question": 1,
+                "text": 1,
+                "details": 1,
+                "vector_score": {"$meta": "vectorSearchScore"},
+            }
+        },
+    ]
+    cursor = await questions_collection.aggregate(pipeline)
+    return await cursor.to_list(length=k)
+
+
 async def _get_answer_text_sources_and_author_name(question_id: str):
     answer_document = await answers_collection.find_one(
         {
-            "questionId": ObjectId(question_id)
+            "questionId": ObjectId(question_id),
+            "isFinalAnswer": True,
         },
         {
             "sources": 1,
@@ -128,19 +174,20 @@ async def golden_retriever_tool(
     if domain:
         filters["details.domain"] = domain
 
-    # Run in asyncio.to_thread because langchain vector_store performs synchronous socket calls
-    docs = await asyncio.to_thread(
-        vector_store.similarity_search_with_score, query, k=5, pre_filter=filters
-    )
+    query_vector = await _embed_text(query)
+    docs = await _vector_search_questions(query_vector=query_vector, k=5, meta_filter=filters)
     result = []
     for doc in docs:
-        document, score = doc
+        score = doc.get("vector_score")
+        question_id = str(doc["_id"])
         answer, sources, author_name = await _get_answer_text_sources_and_author_name(
-            document.metadata['_id']
+            question_id
         )
+        if not answer:
+            continue
         question_answer_pair = QuestionAnswerPair(
-            question_id=document.metadata['_id'],
-            question_text=document.metadata['question'],
+            question_id=question_id,
+            question_text=doc.get("question") or doc.get("text", ""),
             answer_text=answer,
             author=author_name,
             sources=sources,
@@ -267,6 +314,8 @@ async def golden_strict_exact_search_tool(
                 )
             except Exception:
                 continue
+            if not answer:
+                continue
 
             question_answer_pair = QuestionAnswerPair(
                 question_id=question_id,
@@ -371,6 +420,8 @@ async def golden_exact_search_tool(
             )
         except Exception:
             # Answer may not exist yet for some questions — skip gracefully
+            continue
+        if not answer:
             continue
 
         question_answer_pair = QuestionAnswerPair(
