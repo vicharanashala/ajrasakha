@@ -43,10 +43,10 @@ services:
   mcp-golden:
     build:
       context: .
-      dockerfile: Dockerfile.mcp
+      dockerfile: ajrasakha/tools/golden/Dockerfile
     command: fastmcp run ajrasakha/tools/golden/golden_rag_tool.py --transport streamable-http --port 8005 --host 0.0.0.0
     ports:
-      - "8005:8005"
+      - "8206:8005"
     env_file: .env
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
