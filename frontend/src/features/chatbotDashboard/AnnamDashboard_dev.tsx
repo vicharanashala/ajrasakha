@@ -155,22 +155,23 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     setInactiveUsersPage,
   ] = useState(1);
   const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage);
-  const [closed2hDate, setClosed2hDate] = useState<string | undefined>(undefined);
-  const [questionStatusDate, setQuestionStatusDate] = useState<string | undefined>(undefined);
-  const [customerNotificationsDate, setCustomerNotificationsDate] = useState<string | undefined>(undefined);
+  const [closed2hDateRange, setClosed2hDateRange] = useState<DateRange | undefined>(undefined);
+  const [questionStatusDateRange, setQuestionStatusDateRange] = useState<DateRange | undefined>(undefined);
+  const [customerNotificationsDateRange, setCustomerNotificationsDateRange] = useState<DateRange | undefined>(undefined);
 
-  const getDateRangeForExactDate = useCallback((dateStr?: string) => {
-    if (!dateStr) return { startTime: undefined, endTime: undefined };
-    const selectedDate = parseInputDateToLocalDate(dateStr);
-    const startTime = new Date(selectedDate);
+  const getISOStringsForDateRange = useCallback((range?: DateRange) => {
+    if (!range || !range.from) return { startTime: undefined, endTime: undefined };
+
+    const startTime = new Date(range.from);
     startTime.setHours(0, 0, 0, 0);
 
-    const endTime = new Date(selectedDate);
+    const endDate = range.to ? new Date(range.to) : new Date(range.from);
+    const endTime = new Date(endDate);
     const now = new Date();
     const isSelectedToday =
-      selectedDate.getFullYear() === now.getFullYear() &&
-      selectedDate.getMonth() === now.getMonth() &&
-      selectedDate.getDate() === now.getDate();
+      endDate.getFullYear() === now.getFullYear() &&
+      endDate.getMonth() === now.getMonth() &&
+      endDate.getDate() === now.getDate();
 
     if (isSelectedToday) {
       endTime.setHours(
@@ -188,9 +189,9 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     };
   }, []);
 
-  const closed2hRange = useMemo(() => getDateRangeForExactDate(closed2hDate), [closed2hDate, getDateRangeForExactDate]);
-  const questionStatusRange = useMemo(() => getDateRangeForExactDate(questionStatusDate), [questionStatusDate, getDateRangeForExactDate]);
-  const customerNotificationsRange = useMemo(() => getDateRangeForExactDate(customerNotificationsDate), [customerNotificationsDate, getDateRangeForExactDate]);
+  const closed2hRange = useMemo(() => getISOStringsForDateRange(closed2hDateRange), [closed2hDateRange, getISOStringsForDateRange]);
+  const questionStatusRange = useMemo(() => getISOStringsForDateRange(questionStatusDateRange), [questionStatusDateRange, getISOStringsForDateRange]);
+  const customerNotificationsRange = useMemo(() => getISOStringsForDateRange(customerNotificationsDateRange), [customerNotificationsDateRange, getISOStringsForDateRange]);
 
   const { data: closed2hData, isFetching: isClosed2hFetching } = useClosedAndNotifedData(
     source,
@@ -209,9 +210,9 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   );
 
   useEffect(() => {
-    setClosed2hDate(undefined);
-    setQuestionStatusDate(undefined);
-    setCustomerNotificationsDate(undefined);
+    setClosed2hDateRange(undefined);
+    setQuestionStatusDateRange(undefined);
+    setCustomerNotificationsDateRange(undefined);
   }, [source]);
   const [
     isInactiveWhatsappModalOpen,
@@ -699,8 +700,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                               closed2hData?.closedVsTotalQuestions
                                 ?.closedQuestions
                             }
-                            selectedDate={closed2hDate}
-                            onSelectedDateChange={setClosed2hDate}
+                            dateRange={closed2hDateRange}
+                            onDateRangeChange={setClosed2hDateRange}
                             isLoading={isClosed2hFetching}
                           />
                           <ClosedQuestionsCard
@@ -716,8 +717,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                               questionStatusData?.closedVsTotalQuestions
                                 ?.inReviewQuestions
                             }
-                            selectedDate={questionStatusDate}
-                            onSelectedDateChange={setQuestionStatusDate}
+                            dateRange={questionStatusDateRange}
+                            onDateRangeChange={setQuestionStatusDateRange}
                             isLoading={isQuestionStatusFetching}
                           />
                           <CustomerNotificationsCard
@@ -732,8 +733,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                               customerNotificationsData?.notifiedVsClosed
                                 ?.untrackedClosedQuestions
                             }
-                            selectedDate={customerNotificationsDate}
-                            onSelectedDateChange={setCustomerNotificationsDate}
+                            dateRange={customerNotificationsDateRange}
+                            onDateRangeChange={setCustomerNotificationsDateRange}
                             isLoading={isCustomerNotificationsFetching}
                           />
                         </div>

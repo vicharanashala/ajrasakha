@@ -12,25 +12,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popo
 import { CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
 
-const parseInputDateToLocalDate = (value?: string): Date => {
-  if (!value) return new Date();
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, (month || 1) - 1, day || 1);
-};
-
-const todayAsInputDate = (now: Date = new Date()) => {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+import type { DateRange } from "react-day-picker";
 
 type ClosedQuestionsCardProps = {
   closedQuestions: number;
   totalQuestions: number;
   inReview: number;
-  selectedDate?: string;
-  onSelectedDateChange?: (date?: string) => void;
+  dateRange?: DateRange;
+  onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
 };
 
@@ -38,8 +27,8 @@ export function ClosedQuestionsCard({
   closedQuestions,
   totalQuestions,
   inReview,
-  selectedDate,
-  onSelectedDateChange,
+  dateRange,
+  onDateRangeChange,
   isLoading,
 }: ClosedQuestionsCardProps) {
   return (
@@ -80,8 +69,12 @@ export function ClosedQuestionsCard({
                     className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 gap-1 flex items-center shrink-0"
                   >
                     <CalendarIcon className="h-3 w-3 text-muted-foreground" />
-                    {selectedDate ? (
-                      format(parseInputDateToLocalDate(selectedDate), "MMM dd")
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
+                      ) : (
+                        format(dateRange.from, "MMM dd")
+                      )
                     ) : (
                       "All Time"
                     )}
@@ -90,23 +83,21 @@ export function ClosedQuestionsCard({
                 <PopoverContent className="w-auto p-0 z-[100]" align="end">
                   <Calendar
                     initialFocus
-                    mode="single"
-                    selected={selectedDate ? parseInputDateToLocalDate(selectedDate) : undefined}
-                    onSelect={(date) => {
-                      if (!date) return;
-                      onSelectedDateChange?.(todayAsInputDate(date));
-                    }}
+                    mode="range"
+                    defaultMonth={dateRange?.from ?? new Date()}
+                    selected={dateRange}
+                    onSelect={onDateRangeChange}
                     disabled={{ after: new Date() }}
                     className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
-              {selectedDate && (
+              {dateRange && (
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full shrink-0"
-                  onClick={() => onSelectedDateChange?.(undefined)}
+                  onClick={() => onDateRangeChange?.(undefined)}
                 >
                   <X className="h-3 w-3" />
                 </Button>
