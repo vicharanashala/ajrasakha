@@ -7858,4 +7858,11 @@ private normalizeDistrictName(district: string): string {
       );
     }
   }
+  getMonthlyChurnRate(source: string, userType: string): Promise<any> {
+    return null
+  }
+
+  getCarryForwardQuestions(source?: string): Promise<any> {
+    return null
+  }
 }

@@ -178,14 +178,81 @@ export function EditFarmerModal({
   onSave,
 }: EditFarmerModalProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [error, setError] = useState<string>("");
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof FormState, string>>
+  >({});
 
-  console.log("User is", user);
+  const validateForm = (
+    form: FormState,
+  ): Partial<Record<keyof FormState, string>> => {
+    const errors: Partial<Record<keyof FormState, string>> = {};
+
+    const age = toNumber(form.age);
+    const landhold = toNumber(form.landhold);
+
+    if (!form.farmerName.trim()) {
+      errors.farmerName = "Farmer Name is required";
+    }
+
+    if (!form.age) {
+      errors.age = "Age is required";
+    } else if (age < 16 || age > 100) {
+      errors.age = "Age must be between 16 and 100";
+    }
+
+    if (!form.phoneNo) {
+      errors.phoneNo = "Phone No is required";
+    } else if (form.phoneNo.length > 10) {
+      errors.phoneNo = "Phone number an not be greater then 10 digits";
+    }
+
+    if (!form.gender.trim()) {
+      errors.gender = "Gender is required";
+    }
+
+    if (!form.state.trim()) {
+      errors.state = "State is required";
+    }
+
+    if (!form.district.trim()) {
+      errors.district = "District is required";
+    }
+
+    if (!form.nearestKVK.trim()) {
+      errors.nearestKVK = "Nearest KVK is required";
+    }
+
+    if (!form.landhold === undefined) {
+      errors.landhold = "Total Land Cultivation is required";
+    }
+
+    if (!form.primaryCrop.trim()) {
+      errors.primaryCrop = "Primary Crop is required";
+    }
+
+    if (!form.secondaryCrop.trim()) {
+      errors.secondaryCrop = "Secondary Crop is required";
+    }
+
+    if (form.awarenessOfKCC === "") {
+      errors.awarenessOfKCC = "KCC Awareness is required";
+    }
+
+    if (form.usesAgriApps === "") {
+      errors.usesAgriApps = "Mobile App Awareness is required";
+    }
+
+    if(!form.highestEducatedPerson){
+      errors.highestEducatedPerson = "Highest education is required"
+    }
+
+    return errors;
+  };
 
   useEffect(() => {
     if (!open || !user) return;
     const fp = user.farmerProfile;
-    setError("");
+    setErrors({});
     setForm({
       name: user.name ?? "",
       role: user.role ?? "",
@@ -219,14 +286,28 @@ export function EditFarmerModal({
   }, [open, user]);
 
   const handleChange = (key: keyof FormState, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [key]: undefined,
+    }));
   };
 
   const handleSave = async () => {
     if (isSaving) return;
 
     const parsedAge = toNumber(form.age);
-    setError("");
+    const validationErrors = validateForm(form);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+    setErrors({});
     try {
       await onSave({
         name: form.name.trim() || undefined,
@@ -257,7 +338,7 @@ export function EditFarmerModal({
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to save farmer details.";
-      setError(message);
+      setErrors(message);
     }
   };
 
@@ -269,14 +350,28 @@ export function EditFarmerModal({
         </DialogHeader>
 
         <div>
-          <UserInformationSection form={form} setForm={setForm} />
-          <DemographicDetails form={form} setForm={setForm} />
-          <AgriculturalBackgroundSection form={form} setForm={setForm} />
-          <DigitalAwarenessSection form={form} setForm={setForm} />
-          <SocioEconomicIndicatorsSection form={form} setForm={setForm} />
+          <UserInformationSection
+            form={form}
+            setForm={setForm}
+            errors={errors}
+          />
+          <DemographicDetails form={form} setForm={setForm} errors={errors} />
+          <AgriculturalBackgroundSection
+            form={form}
+            setForm={setForm}
+            errors={errors}
+          />
+          <DigitalAwarenessSection
+            form={form}
+            setForm={setForm}
+            errors={errors}
+          />
+          <SocioEconomicIndicatorsSection
+            form={form}
+            setForm={setForm}
+            errors={errors}
+          />
         </div>
-
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
         <DialogFooter className="relative z-10 pointer-events-auto">
           <Button
@@ -310,6 +405,7 @@ type UserInformationSectionProps = {
 const UserInformationSection = ({
   form,
   setForm,
+  errors,
 }: UserInformationSectionProps) => {
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({
@@ -360,7 +456,11 @@ const UserInformationSection = ({
   );
 };
 
-const DemographicDetails = ({ form, setForm }: DemographicDetailsProps) => {
+const DemographicDetails = ({
+  form,
+  setForm,
+  errors,
+}: DemographicDetailsProps) => {
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({
       ...prev,
@@ -403,6 +503,9 @@ const DemographicDetails = ({ form, setForm }: DemographicDetailsProps) => {
           value={form.farmerName}
           onChange={(e) => handleChange("farmerName", e.target.value)}
         />
+        {errors.farmerName && (
+          <p className="mt-1 text-sm text-red-600">{errors.farmerName}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -414,6 +517,9 @@ const DemographicDetails = ({ form, setForm }: DemographicDetailsProps) => {
             value={form.age}
             onChange={(e) => handleChange("age", e.target.value)}
           />
+          {errors.age && (
+            <p className="mt-1 text-sm text-red-600">{errors.age}</p>
+          )}
         </div>
 
         <div>
@@ -432,6 +538,9 @@ const DemographicDetails = ({ form, setForm }: DemographicDetailsProps) => {
 
             <option value="Other">Other</option>
           </select>
+          {errors.gender && (
+            <p className="mt-1 text-sm text-red-600">{errors.gender}</p>
+          )}
         </div>
       </div>
 
@@ -443,6 +552,9 @@ const DemographicDetails = ({ form, setForm }: DemographicDetailsProps) => {
           maxLength={10}
           onChange={(e) => handleChange("phoneNo", e.target.value)}
         />
+        {errors.phoneNo && (
+          <p className="mt-1 text-sm text-red-600">{errors.phoneNo}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -473,6 +585,9 @@ const DemographicDetails = ({ form, setForm }: DemographicDetailsProps) => {
               );
             })}
           </select>
+          {errors.state && (
+            <p className="mt-1 text-sm text-red-600">{errors.state}</p>
+          )}
         </div>
         <div>
           <label className="text-sm font-medium">District</label>
@@ -497,6 +612,9 @@ const DemographicDetails = ({ form, setForm }: DemographicDetailsProps) => {
               return <option value={district}>{district}</option>;
             })}
           </select>
+          {errors.district && (
+            <p className="mt-1 text-sm text-red-600">{errors.district}</p>
+          )}
         </div>
       </div>
       <div>
@@ -559,6 +677,9 @@ const DemographicDetails = ({ form, setForm }: DemographicDetailsProps) => {
             </option>
           ))}
         </select>
+        {errors.nearestKVK && (
+          <p className="mt-1 text-sm text-red-600">{errors.nearestKVK}</p>
+        )}
       </div>
     </div>
   );
@@ -572,6 +693,7 @@ type AgriculturalBackgroundSectionProps = {
 const AgriculturalBackgroundSection = ({
   form,
   setForm,
+  errors,
 }: AgriculturalBackgroundSectionProps) => {
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({
@@ -613,6 +735,9 @@ const AgriculturalBackgroundSection = ({
             value={form.landhold}
             onChange={(e) => handleChange("landhold", e.target.value)}
           />
+          {errors.landhold && (
+            <p className="mt-1 text-sm text-red-600">{errors.landhold}</p>
+          )}
         </div>
       </div>
 
@@ -634,6 +759,9 @@ const AgriculturalBackgroundSection = ({
               </option>
             ))}
           </select>
+          {errors.primaryCrop && (
+            <p className="mt-1 text-sm text-red-600">{errors.primaryCrop}</p>
+          )}
         </div>
 
         <div>
@@ -652,6 +780,9 @@ const AgriculturalBackgroundSection = ({
               </option>
             ))}
           </select>
+          {errors.secondaryCrop && (
+            <p className="mt-1 text-sm text-red-600">{errors.secondaryCrop}</p>
+          )}
         </div>
       </div>
 
@@ -681,6 +812,7 @@ type DigitalAwarenessSectionProps = {
 const DigitalAwarenessSection = ({
   form,
   setForm,
+  errors,
 }: DigitalAwarenessSectionProps) => {
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({
@@ -715,6 +847,9 @@ const DigitalAwarenessSection = ({
 
             <option value="false">No</option>
           </select>
+          {errors.awarenessOfKCC && (
+            <p className="mt-1 text-sm text-red-600">{errors.awarenessOfKCC}</p>
+          )}
         </div>
 
         {/* Uses Agri Apps */}
@@ -734,6 +869,9 @@ const DigitalAwarenessSection = ({
 
             <option value="false">No</option>
           </select>
+          {errors.usesAgriApps && (
+            <p className="mt-1 text-sm text-red-600">{errors.usesAgriApps}</p>
+          )}
         </div>
       </div>
     </div>
@@ -743,11 +881,13 @@ const DigitalAwarenessSection = ({
 type SocioEconomicIndicatorsSectionProps = {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  errors;
 };
 
 const SocioEconomicIndicatorsSection = ({
   form,
   setForm,
+  errors
 }: SocioEconomicIndicatorsSectionProps) => {
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({
@@ -784,6 +924,11 @@ const SocioEconomicIndicatorsSection = ({
 
             <option value="Post Graduate">Post Graduate</option>
           </select>
+          {errors.highestEducatedPerson && (
+            <p className="mt-1 text-sm text-red-600">
+              {errors.highestEducatedPerson}
+            </p>
+          )}
         </div>
 
         {/* Smartphones */}
