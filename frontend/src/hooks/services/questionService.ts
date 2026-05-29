@@ -20,7 +20,7 @@ import { auth } from "@/config/firebase";
 import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
-const INTERNAL_API_KEY = env.internalApiKey()||"annam_conversation_api_key_1810";
+const INTERNAL_API_KEY = env.internalApiKey();
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
   private _reRouteUrl = `${API_BASE_URL}/reroute`;
