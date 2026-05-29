@@ -19,7 +19,7 @@ type EnvKey =
   | "VITE_SARVAM_API_KEY"
 
   // Internal API
-  | "VITE_INTERNAL_API_KEY"
+ // | "VITE_INTERNAL_API_KEY"
 
   // Notification
   | "VITE_VAPID_PUBLIC_KEY"
@@ -62,7 +62,7 @@ export const env = {
 
   vapidPublicKey: () => getEnv("VITE_VAPID_PUBLIC_KEY"),
 
-  internalApiKey: () => getEnv("VITE_INTERNAL_API_KEY"),
+ // internalApiKey: () => getEnv("VITE_INTERNAL_API_KEY"),
   faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false),
   popApiUrl: () => getEnv("VITE_POP_API_URL", false),
 };
