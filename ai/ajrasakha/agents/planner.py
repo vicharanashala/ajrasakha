@@ -94,14 +94,19 @@ class PlannerOutput(BaseModel):
     entities: PlannerEntitiesOutput = Field(default_factory=PlannerEntitiesOutput)
     original_query_en: Optional[str] = Field(
         None,
-        description="If the user query is NOT in English, translate it exactly to English. If it is in English, set it to the original query."
+        description=(
+            "Literal English translation of the farmer's latest message. If already English, copy verbatim. "
+            "Never substitute crop/disease/pest/place names (e.g. keep 'bauna disease', not 'blast disease'). "
+            "Transliterate unknown local terms; do not guess standard names."
+        ),
     )
     rephrased_query: Optional[str] = Field(
         None,
         description=(
-            "English grammatically corrected query (if user's query is in another language, correct the English translation). "
-            "ONLY refine spelling, syntax, or grammar errors. Do NOT do any fancy rephrasing or search extensions."
-        )
+            "Same meaning as original_query_en with ONLY spelling, grammar, or word-order fixes. "
+            "Do NOT add facts, swap agricultural terms, or 'improve' disease/pest/crop names. "
+            "No search extensions or paraphrase."
+        ),
     )
     vocal_language: str = Field(
         default="English",
