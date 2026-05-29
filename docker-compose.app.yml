@@ -42,6 +42,8 @@ services:
         VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
         VITE_SARVAM_API_KEY: ${VITE_SARVAM_API_KEY}
         VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
+        VITE_FAQ_API_URL: ${VITE_FAQ_API_URL:-}
+        VITE_POP_API_URL: ${VITE_POP_API_URL:-}
     container_name: reviewer-frontend
     restart: unless-stopped
     ports:
@@ -59,6 +61,8 @@ services:
       VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
       VITE_SARVAM_API_KEY: ${VITE_SARVAM_API_KEY}
       VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
+      VITE_FAQ_API_URL: ${VITE_FAQ_API_URL:-}
+      VITE_POP_API_URL: ${VITE_POP_API_URL:-}
     depends_on:
       reviewer-backend:
         condition: service_healthy
