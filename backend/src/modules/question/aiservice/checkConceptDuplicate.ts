@@ -33,7 +33,7 @@ export async function checkConceptDuplicate(
       : "(no candidate questions)";
 
   const response = await client.chat.completions.create({
-    model: "google/gemma-4-E4B-it",
+    model: "MiniMaxAI/MiniMax-M2.7",
     temperature: 0,
     messages: [
       {
