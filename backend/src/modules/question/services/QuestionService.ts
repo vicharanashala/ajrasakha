@@ -1170,7 +1170,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             });
             return;
           }
-          // Valid agri question, no duplicate — promote from 'pending' to 'open'
+          // NONE result — not a duplicate and not non-agri, mark as open
           await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         } catch (duplicateError: any) {
           console.error(

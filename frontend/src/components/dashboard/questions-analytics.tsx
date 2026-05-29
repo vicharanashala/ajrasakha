@@ -25,16 +25,9 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/atoms/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../atoms/select";
 import { Label } from "../atoms/label";
-import { Activity, CalendarIcon, Filter, MapPin } from "lucide-react";
-import { STATES, SOURCES } from "../MetaData";
+import { CalendarIcon, Download, Filter, MapPin } from "lucide-react";
+import { STATES, SOURCES, CROPS } from "../MetaData";
 import { ScrollArea } from "../atoms/scroll-area";
 import { Calendar } from "../atoms/calendar";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
@@ -77,6 +70,8 @@ interface QuestionsAnalyticsProps {
   setAnalyticsState: (value: string[]) => void;
   analyticsSource: string[];
   setAnalyticsSource: (value: string[]) => void;
+  analyticsCrop: string[];
+  setAnalyticsCrop: (value: string[]) => void;
 }
 const colors = [
   "var(--color-chart-1)",
@@ -85,6 +80,20 @@ const colors = [
   "var(--color-chart-4)",
   "var(--color-chart-5)",
 ];
+
+// For items beyond the first 5 (which use the CSS chart vars above),
+// generate a unique HSL color from the item's index so every additional
+// crop/domain gets its own distinct color automatically.
+const extendedColor = (index: number): string => {
+  // Offset the index so we don't overlap with the 5 CSS-var hues (approx 0°,120°,60°,200°,30°)
+  const hue = ((index - 5) * 137.508 + 250) % 360; // golden-angle stepping, offset from chart vars
+  const saturation = 55 + (index % 3) * 8;          // 55 / 63 / 71 %
+  const lightness  = 42 + (index % 4) * 5;          // 42 / 47 / 52 / 57 %
+  return `hsl(${hue.toFixed(1)}, ${saturation}%, ${lightness}%)`;
+};
+
+const getItemColor = (index: number): string =>
+  index < colors.length ? colors[index] : extendedColor(index);
 
 // Custom tooltip for the domain pie chart — shows breakdown when hovering "Others"
 const DomainPieTooltip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
@@ -201,6 +210,7 @@ const STATUS_OPTIONS = [
 ];
 const STATE_OPTIONS = STATES.map((s) => ({ value: s, label: s }));
 const SOURCE_OPTIONS = SOURCES.map((src) => ({ value: src, label: src }));
+const CROP_OPTIONS = [...CROPS].sort().map((c) => ({ value: c, label: c }));
 
 type DraftFilters = {
   status: string[];
@@ -208,6 +218,7 @@ type DraftFilters = {
   dateRange: { startTime?: Date; endTime?: Date };
   state: string[];
   source: string[];
+  crop: string[];
 };
 
 const defaultDraft = (
@@ -216,12 +227,14 @@ const defaultDraft = (
   date: DateRange,
   state: string[],
   source: string[],
+  crop: string[],
 ): DraftFilters => ({
   status,
   analyticsType,
   dateRange: { startTime: date.startTime, endTime: date.endTime },
   state,
   source,
+  crop,
 });
 
 export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
@@ -236,14 +249,75 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   setAnalyticsState,
   analyticsSource,
   setAnalyticsSource,
+  analyticsCrop,
+  setAnalyticsCrop,
 }) => {
 
   const { ref, key } = useRestartOnView();
 
+  const handleDownloadCSV = () => {
+    const tableData = data.tableData ?? [];
+    if (tableData.length === 0) return;
+
+    const headers = [
+      "State",
+      "Crop",
+      "Source",
+      "Open",
+      "In Review",
+      "Closed",
+      "Delayed",
+      "Re-routed",
+      "Hold",
+      "PAE Submitted",
+      "Draft",
+      "Duplicate",
+      "Total",
+      "Last Pushed",
+      "Last Closed",
+      "Completion %",
+    ];
+
+    const escape = (val: string | number | undefined) => {
+      const str = val === undefined || val === null ? "" : String(val);
+      return str.includes(",") || str.includes('"') || str.includes("\n")
+        ? `"${str.replace(/"/g, '""')}"`
+        : str;
+    };
+
+    const rows = tableData.map((row) => [
+      escape(row.state ?? "—"),
+      escape(row.crop ?? "—"),
+      escape(row.source ?? "—"),
+      escape(row.open),
+      escape(row.inReview),
+      escape(row.closed),
+      escape(row.delayed),
+      escape(row.reRouted),
+      escape(row.hold),
+      escape(row.paeSubmitted),
+      escape(row.draft),
+      escape(row.duplicate),
+      escape(row.total),
+      escape(row.lastPushedDate ? format(new Date(row.lastPushedDate), "dd MMM yyyy") : ""),
+      escape(row.lastClosedDate ? format(new Date(row.lastClosedDate), "dd MMM yyyy") : ""),
+      escape(`${row.completionPct ?? 0}%`),
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `status-breakdown-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const [openFilter, setOpenFilter] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [draftFilters, setDraftFilters] = useState<DraftFilters>(() =>
-    defaultDraft(analyticsStatus, analyticsType, date, analyticsState, analyticsSource),
+    defaultDraft(analyticsStatus, analyticsType, date, analyticsState, analyticsSource, analyticsCrop),
   );
 
   const handleApplyFilters = () => {
@@ -252,22 +326,24 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
     setDate(draftFilters.dateRange);
     setAnalyticsState(draftFilters.state);
     setAnalyticsSource(draftFilters.source);
+    setAnalyticsCrop(draftFilters.crop);
     setOpenFilter(false);
   };
 
   const handleClearFilters = () => {
-    const defaults = defaultDraft([], "question", {}, [], []);
+    const defaults = defaultDraft([], "question", {}, [], [], []);
     setDraftFilters(defaults);
     setAnalyticsStatus(defaults.status);
     setAnalyticsType(defaults.analyticsType);
     setDate(defaults.dateRange);
     setAnalyticsState(defaults.state);
     setAnalyticsSource(defaults.source);
+    setAnalyticsCrop(defaults.crop);
   };
 
   const handleOpenChange = (open: boolean) => {
     if (open) {
-      setDraftFilters(defaultDraft(analyticsStatus, analyticsType, date, analyticsState, analyticsSource));
+      setDraftFilters(defaultDraft(analyticsStatus, analyticsType, date, analyticsState, analyticsSource, analyticsCrop));
       setShowCalendar(false);
     }
     setOpenFilter(open);
@@ -275,12 +351,12 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 
   const processedCropWithColors = data.cropData.map((item, index) => ({
     ...item,
-    color: colors[index % colors.length],
+    color: getItemColor(index),
   }));
 
   const processedDomainWithColors = data.domainData.map((item, index) => ({
     ...item,
-    color: colors[index % colors.length],
+    color: getItemColor(index),
   }));
 
   return (
@@ -293,7 +369,19 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
           </CardDescription>
         </div>
 
-        <Dialog open={openFilter} onOpenChange={handleOpenChange}>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleDownloadCSV}
+            disabled={(data.tableData ?? []).length === 0}
+            title="Download table as CSV"
+          >
+            <Download className="h-4 w-4 text-primary" />
+            Download
+          </Button>
+
+          <Dialog open={openFilter} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button variant="outline" className="gap-2">
               <Filter className="h-4 w-4 text-primary" />
@@ -320,29 +408,18 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   />
                 </div>
 
-                {/* Analytics Type */}
+                {/* Crop */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-primary" />
-                    Analytics Type
+                    <Filter className="h-4 w-4 text-primary" />
+                    Crop
                   </Label>
-                  <Select
-                    value={draftFilters.analyticsType}
-                    onValueChange={(value) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        analyticsType: value as "question" | "answer",
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
-                      <SelectValue placeholder="Select Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="question">Question</SelectItem>
-                      <SelectItem value="answer">Answer</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <MultiSelect
+                    items={CROP_OPTIONS}
+                    selected={draftFilters.crop}
+                    onChange={(val) => setDraftFilters((prev) => ({ ...prev, crop: val }))}
+                    placeholder="All Crops"
+                  />
                 </div>
 
                 {/* State */}
@@ -373,8 +450,8 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   />
                 </div>
 
-                {/* Date Range — toggle trigger + inline calendar */}
-                <div className="sm:col-span-2 space-y-2">
+                {/* Date Range + Crop — side by side */}
+                <div className="space-y-2">
                   <Label className="text-sm font-semibold flex items-center gap-2">
                     <CalendarIcon className="h-4 w-4 text-primary" />
                     Date Range
@@ -389,21 +466,21 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                     <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
                     {draftFilters.dateRange.startTime ? (
                       draftFilters.dateRange.endTime ? (
-                        <span>
-                          {format(draftFilters.dateRange.startTime, "MMM d, yyyy")}
+                        <span className="truncate text-xs">
+                          {format(draftFilters.dateRange.startTime, "MMM d, yy")}
                           {" – "}
-                          {format(draftFilters.dateRange.endTime, "MMM d, yyyy")}
+                          {format(draftFilters.dateRange.endTime, "MMM d, yy")}
                         </span>
                       ) : (
-                        <span>{format(draftFilters.dateRange.startTime, "MMM d, yyyy")} – pick end</span>
+                        <span className="truncate text-xs">{format(draftFilters.dateRange.startTime, "MMM d, yy")} – pick end</span>
                       )
                     ) : (
-                      <span className="text-muted-foreground">Select date range</span>
+                      <span className="text-muted-foreground text-xs">Select date range</span>
                     )}
                   </Button>
 
                   {showCalendar && (
-                    <>
+                    <div className="sm:col-span-2">
                       <Calendar
                         mode="range"
                         selected={{
@@ -420,9 +497,10 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         numberOfMonths={1}
                         className="rounded-md border"
                       />
-                    </>
+                    </div>
                   )}
                 </div>
+
               </div>
             <DialogFooter className="gap-2 pt-2 border-t">
               <Button variant="outline" onClick={handleClearFilters}>
@@ -434,6 +512,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="crop" className="w-full">
@@ -460,6 +539,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       outerRadius={100}
                       dataKey="count"
                       stroke="none"
+                      animationDuration={500}
                     >
 
                       {processedCropWithColors.map((entry, index) => (
@@ -506,7 +586,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         </div>
 
                         <span className="font-semibold text-foreground">
-                          <CountUp key={`crop-${key}`} end={item.count} duration={2} preserveValue />
+                          <CountUp key={`crop-${key}`} end={item.count} duration={0.5} preserveValue />
                         </span>
                       </div>
                     ))}
@@ -547,6 +627,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   dataKey="count"
                   fill="var(--color-chart-2)"
                   radius={[8, 8, 0, 0]}
+                  animationDuration={500}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -570,6 +651,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       outerRadius={100}
                       dataKey="count"
                       stroke="none"
+                      animationDuration={500}
                     >
 
                       {processedDomainWithColors.map((entry, index) => (
@@ -606,7 +688,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         </div>
 
                         <span className="font-semibold text-foreground">
-                          <CountUp key={`domainBreakdown-${key}`} end={item.count} duration={2} preserveValue />
+                          <CountUp key={`domainBreakdown-${key}`} end={item.count} duration={0.5} preserveValue />
                         </span>
                       </div>
                     ))}

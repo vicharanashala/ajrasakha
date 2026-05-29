@@ -22,12 +22,12 @@ import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
   description: 'WhatsApp history endpoints',
 })
 @injectable()
-@JsonController('/whatsapp', { transformResponse: false })
+@JsonController('/whatsapp', {transformResponse: false})
 export class WhatsAppController {
   constructor(
     @inject(WHATSAPP_TYPES.WhatsAppService)
     private readonly whatsappService: IWhatsAppService,
-  ) { }
+  ) {}
 
   @OpenAPI({
     summary: 'Get all WhatsApp threads',
@@ -42,7 +42,8 @@ export class WhatsAppController {
 
   @OpenAPI({
     summary: 'Get WhatsApp thread details',
-    description: 'Retrieves message history for a specific WhatsApp thread from LangGraph.',
+    description:
+      'Retrieves message history for a specific WhatsApp thread from LangGraph.',
   })
   @Get('/threads/:threadId/:date')
   @HttpCode(200)
@@ -51,10 +52,7 @@ export class WhatsAppController {
     @Param('threadId') threadId: string,
     @Param('date') date: string,
   ) {
-    return this.whatsappService.getThreadDetails(
-      threadId,
-      date,
-    );
+    return this.whatsappService.getThreadDetails(threadId, date);
   }
 
   @OpenAPI({
@@ -64,16 +62,21 @@ export class WhatsAppController {
   @Post('/send-message')
   @HttpCode(200)
   @Authorized()
-  async sendMessage(@Body() body: { phoneNumber: string; messageText: string }, @CurrentUser() user: IUser) {
+  async sendMessage(
+    @Body() body: {phoneNumber: string; messageText: string},
+    @CurrentUser() user: IUser,
+  ) {
     const userId = user._id.toString();
-    await this.whatsappService.sendMessage(userId, body.phoneNumber, body.messageText);
-    return { success: true, message: 'Message sent successfully' };
+    await this.whatsappService.sendMessage(
+      userId,
+      body.phoneNumber,
+      body.messageText,
+    );
+    return {success: true, message: 'Message sent successfully'};
   }
 
   @OpenAPI({
-    summary:
-      'Fetch dummy inactive whatsapp users',
-
+    summary: 'Fetch inactive whatsapp users',
     description:
       'Fetches the users by mobile numbers who are inactive for more than last 3 days',
   })
@@ -82,42 +85,65 @@ export class WhatsAppController {
   @Authorized()
   async fetxhInactiveUsers(
     @QueryParam('page') page = 1,
-    @QueryParam('limit') limit = 5,
+    @QueryParam('limit') limit = 2,
   ) {
+    const skip = (page - 1) * limit;
+    const response = await this.whatsappService.getInactiveUsers(skip, limit); 
+    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
 
-    const threeDaysAgo =
-      Date.now() -
-      3 * 24 * 60 * 60 * 1000;
+    const inactiveUsers = response.data.filter(item => {
+      return new Date(item.lastMessageAt).getTime() < threeDaysAgo;
+    });
 
-    const inactiveUsers =
-      WhatsappUsers.filter(item => {
-        return (
-          new Date(
-            item.lastMessageAt,
-          ).getTime() < threeDaysAgo
-        );
-      });
-    const total =
-      inactiveUsers.length;
-    const start =
-      (page - 1) * limit;
-    const end =
-      start + limit;
-    const paginatedUsers =
-      inactiveUsers.slice(start, end);
+    const total = inactiveUsers.length;
+
     return {
-      users: paginatedUsers,
+      users: inactiveUsers,
       pagination: {
         page,
         limit,
         total,
-        totalPages:
-          Math.ceil(total / limit),
-        hasNextPage:
-          page * limit < total,
-        hasPrevPage:
-          page > 1,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPrevPage: page > 1,
       },
     };
+  }
+
+  @OpenAPI({
+    summary: 'Fetch unique whatsapp users',
+    description:
+      'Fetches the unique users by mobile numbers',
+  })
+  @Get('/unique-users')
+  @HttpCode(200)
+  @Authorized()
+  async fetchUnqiueWhatsAppUsers(
+  ) {
+
+    return await this.whatsappService.getUniqueUsers();
+  }
+
+  @OpenAPI({
+    summary: 'Fetch all WhatsApp users',
+    description:
+      'Fetches all WhatsApp users. Falls back to dummy data on failure.',
+  })
+  @Get('/users')
+  @HttpCode(200)
+  @Authorized()
+  async fetchAllWhatsAppUsers(
+  ) {
+    try {
+      const response = await this.whatsappService.getAllUsers();
+      return {
+        users: response.data || [],
+      };
+    } catch (error) {
+      console.error('Error fetching all WhatsApp users from service, falling back to empty list:', error);
+      return {
+        users: [],
+      };
+    }
   }
 }

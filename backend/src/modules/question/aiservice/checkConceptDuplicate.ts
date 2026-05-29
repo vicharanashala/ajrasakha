@@ -1,5 +1,5 @@
-import OpenAI from "openai";
-import { aiConfig } from "#root/config/ai.js";
+import OpenAI from 'openai';
+import {aiConfig} from '#root/config/ai.js';
 
 const GEMMA_API_KEY = aiConfig.gemma_api_key;
 
@@ -62,9 +62,8 @@ Output rules:
         `,
       },
       {
-        role: "user",
-        content: `
-Input Question:
+        role: 'user',
+        content: `Input Question:
 ${questionA}
 
 Candidate Questions:

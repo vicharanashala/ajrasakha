@@ -37,7 +37,7 @@ const {controllers, validators} = await loadAppModules(
 const corsOptions: CorsOptions = {
   origin: appConfig.origins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-internal-api-key'],
   credentials: true,
   optionsSuccessStatus: 204,
 };

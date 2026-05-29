@@ -42,6 +42,7 @@ const corsOptions: cors.CorsOptions = {
     'Authorization',
     'Cache-Control',
     'Pragma',
+    'x-internal-api-key',
   ],
   exposedHeaders: ['set-cookie'],
 };

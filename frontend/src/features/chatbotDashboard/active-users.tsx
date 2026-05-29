@@ -57,10 +57,8 @@ const chartConfig = {
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
-const defaultDateRange: DateRange = {
-  from: subDays(new Date(), 90),
-  to: new Date(),
-};
+const defaultDateRange: DateRange | undefined = undefined;
+
 
 type ActiveUserType = "daily" | "weekly" | "monthly";
 
@@ -78,13 +76,13 @@ export const ActiveUsersChart = ({
     defaultDateRange,
   );
   const { data: dailyData, isFetching: dailyLoading } =
-    useDailyActiveUsersTrend(dateRange?.from, dateRange?.to, source, userType);
+    useDailyActiveUsersTrend(source, userType, dateRange?.from, dateRange?.to);
 
   const { data: weeklyData, isFetching: weeklyLoading } =
-    useWeeklyActiveUsersTrend(dateRange?.from, dateRange?.to, source, userType);
+    useWeeklyActiveUsersTrend(source, userType, dateRange?.from, dateRange?.to);
 
   const { data: monthlyData, isFetching: monthlyLoading } =
-    useMontlyActiveUsersTrend(dateRange?.from, dateRange?.to, source, userType);
+    useMontlyActiveUsersTrend(source, userType, dateRange?.from, dateRange?.to);
 
   const isFetching = dailyLoading || weeklyLoading || monthlyLoading;
 
@@ -136,10 +134,7 @@ export const ActiveUsersChart = ({
   }, [type]);
 
   const resetDateRange = () => {
-    setDateRange({
-      from: subDays(new Date(), 90),
-      to: new Date(),
-    });
+    setDateRange(undefined);
   };
 
   const renderDateRangePicker = () => (
@@ -161,9 +156,12 @@ export const ActiveUsersChart = ({
 
             {dateRange?.from
               ? dateRange.to
-                ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`
+                ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(
+                    dateRange.to,
+                    "MMM dd, yyyy",
+                  )}`
                 : format(dateRange.from, "MMM dd, yyyy")
-              : "Select date range"}
+              : "All Time"}
           </Button>
         </PopoverTrigger>
 
@@ -183,7 +181,7 @@ export const ActiveUsersChart = ({
         variant="outline"
         size="icon"
         onClick={resetDateRange}
-        title="Reset to last 30 days"
+        title="Reset date range"
         className="
         shrink-0
         bg-gray-100 dark:bg-[#2a2a2a]
@@ -196,7 +194,10 @@ export const ActiveUsersChart = ({
     </div>
   );
   return (
-    <Card className="pt-0">
+    <Card
+      className="pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+"
+    >
       <CardHeader className="border-b py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="grid gap-1">

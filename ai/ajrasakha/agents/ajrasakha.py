@@ -262,21 +262,26 @@ def route_after_tools(state: AjraSakhaState) -> str:
 
 
 async def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
-    """Deterministic terminal node: sheet-localized expert-queue + testing disclaimer."""
-    from ajrasakha.agents.translation_catalog import (
-        get_testing_disclaimer,
-        get_two_hour_disclaimer,
-        language_pair_from_plan,
-    )
+    """Planner graph: empty body; translate_answer adds sheet 2-hour + testing."""
+    from ajrasakha.agents.answer_footers import build_expert_queue_content
+    from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
+    from ajrasakha.agents.translation_catalog import language_pair_from_plan
 
-    plan = state.get("plan") or {}
+    plan = {
+        **(state.get("plan") or {}),
+        "translate_path": TRANSLATE_PATH_EMPTY_GDB,
+        "expert_queue": False,
+    }
+    if use_planner_graph():
+        return {
+            "messages": [AIMessage(content="")],
+            "plan": plan,
+            "location": state.get("location"),
+        }
     script, vocal = language_pair_from_plan(plan)
-    body = get_two_hour_disclaimer(script, vocal)
-    warning = get_testing_disclaimer(script, vocal)
-    content = f"{body}\n\n{warning}"
-
     return {
-        "messages": [AIMessage(content=content)],
+        "messages": [AIMessage(content=build_expert_queue_content(script, vocal))],
+        "plan": plan,
         "location": state.get("location"),
     }
 
@@ -428,9 +433,10 @@ def _build_graph():
         )
         builder.add_edge("synthesize", "translate_answer")
         builder.add_edge("translate_answer", END)
+        builder.add_edge("empty_gdb_reply", "translate_answer")
         # builder.add_edge("translate_answer", "sanitize_answer")
-
-    builder.add_edge("empty_gdb_reply", END)
+    else:
+        builder.add_edge("empty_gdb_reply", END)
     # builder.add_edge("sanitize_answer", END)
     return builder.compile()
 

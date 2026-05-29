@@ -167,6 +167,7 @@ export class QuestionController {
 
   @Post('/')
   @HttpCode(201)
+  @UseBefore(InternalApiAuth)
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   @OpenAPI({ summary: 'Add a new question (single or bulk upload)' })
   async addQuestion(
@@ -913,7 +914,7 @@ export class QuestionController {
 
   @Put('/:questionId')
   @HttpCode(200)
-  // @Authorized()
+  @UseBefore(InternalApiAuth)
   @ResponseSchema(QuestionResponse, { isArray: true })
   @OpenAPI({ summary: 'Update a question by ID' })
   async updateQuestion(

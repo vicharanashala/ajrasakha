@@ -2,7 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/car
 import type { UserDemographics } from "../types";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, X, Info } from "lucide-react";
+
 
 const AGE_COLORS: Record<string, string> = {
   "18-30": "#3AAA5A",
@@ -168,79 +169,128 @@ interface Props {
   data: UserDemographics;
 }
 
-function DemographicCard({ 
-  title, 
-  segments, 
-  type 
-}: { 
-  title: string; 
-  segments: { label: string; count: number; pct: number; color: string }[]; 
-  type: 'donut' | 'bar';
+function DemographicCard({
+  title,
+  segments,
+  type,
+  infoText,
+}: {
+  title: string;
+  segments: { label: string; count: number; pct: number; color: string }[];
+  type: "donut" | "bar";
+  infoText?: string;
 }) {
   const [isMaximized, setIsMaximized] = useState(false);
 
   return (
     <>
-      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative">
+      <Card className="group relative h-full overflow-hidden border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
+        {/* Accent bar */}
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+
         {/* Maximize Button */}
         {segments.length > 0 && (
           <button
             onClick={() => setIsMaximized(true)}
-            className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
+            className="absolute top-3 right-3 p-1.5 rounded-md bg-background/60 hover:bg-background ring-1 ring-border/60 opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-sm z-20"
             title="Maximize chart"
           >
-            <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            <Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
         )}
 
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          <div className="flex items-center gap-2">
+            <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+
+            <div className="flex items-center gap-1.5">
+              <CardTitle className="text-sm font-semibold tracking-tight text-foreground/90">
+                {title}
+              </CardTitle>
+
+              {infoText && (
+                <div className="relative group/info">
+                  <Info className="w-3.5 h-3.5 text-muted-foreground cursor-pointer" />
+
+                  <div className="absolute left-5 top-1/2 -translate-y-1/2 z-50 hidden group-hover/info:block w-64 rounded-md border border-border bg-background p-3 text-xs shadow-lg">
+                    <div className="space-y-1 text-muted-foreground">
+                      <p>
+                        <span className="font-medium text-foreground">Small:</span>{" "}
+                        0 to {"<"} 2 acres
+                      </p>
+
+                      <p>
+                        <span className="font-medium text-foreground">Medium:</span>{" "}
+                        2 to {"<"} 10 acres
+                      </p>
+
+                      <p>
+                        <span className="font-medium text-foreground">Large:</span>{" "}
+                        ≥ 10 acres
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </CardHeader>
+
         <CardContent>
           {segments.length > 0 ? (
-            type === 'donut' ? <DonutSegments segments={segments} /> : <HorizontalBars segments={segments} />
+            type === "donut" ? (
+              <DonutSegments segments={segments} />
+            ) : (
+              <HorizontalBars segments={segments} />
+            )
           ) : (
-            <p className="text-xs text-gray-400 italic">No data</p>
+            <div className="flex items-center justify-center py-8">
+              <p className="text-xs text-muted-foreground italic">
+                No data available
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Maximized Modal */}
-      {isMaximized && segments.length > 0 && createPortal(
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-          onClick={() => setIsMaximized(false)}
-        >
-          <div 
-            className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
-            onClick={(e) => e.stopPropagation()}
+      {isMaximized &&
+        segments.length > 0 &&
+        createPortal(
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+            onClick={() => setIsMaximized(false)}
           >
-            {/* Close Button */}
-            <button
-              onClick={() => setIsMaximized(false)}
-              className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              title="Close"
+            <div
+              className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
+              onClick={(e) => e.stopPropagation()}
             >
-              <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            </button>
+              {/* Close Button */}
+              <button
+                onClick={() => setIsMaximized(false)}
+                className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title="Close"
+              >
+                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              </button>
 
-            {/* Header */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                {title}
-              </h3>
+              {/* Header */}
+              <div className="mb-8">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+                  {title}
+                </h3>
+              </div>
+
+              {/* Enlarged Chart */}
+              {type === "donut" ? (
+                <EnlargedDonutSegments segments={segments} />
+              ) : (
+                <EnlargedHorizontalBars segments={segments} />
+              )}
             </div>
-
-            {/* Enlarged Chart */}
-            {type === 'donut' ? (
-              <EnlargedDonutSegments segments={segments} />
-            ) : (
-              <EnlargedHorizontalBars segments={segments} />
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
@@ -256,7 +306,11 @@ export function UserDemographicsSection({ data }: Props) {
       <DemographicCard title="Age Group" segments={ageSegments} type="donut" />
       <DemographicCard title="Gender Split" segments={genderSegments} type="donut" />
       <DemographicCard title="Farming Experience" segments={expSegments} type="bar" />
-      <DemographicCard title="Land Holding" segments={landSegments} type="donut" />
-    </div>
+      <DemographicCard
+        title="Land Holding"
+        segments={landSegments}
+        type="donut"
+        infoText="Land holding size classification"
+      />    </div>
   );
 }

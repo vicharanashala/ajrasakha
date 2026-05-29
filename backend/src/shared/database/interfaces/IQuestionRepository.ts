@@ -363,6 +363,7 @@ export interface IQuestionRepository {
     status?: string[],
     state?: string[],
     source?: string[],
+    crop?: string[],
   ): Promise<{analytics: Analytics}>;
 
   /**

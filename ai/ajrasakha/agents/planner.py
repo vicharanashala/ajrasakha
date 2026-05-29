@@ -21,15 +21,18 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import CLAUDE_MODEL
+from ajrasakha.agents.config import PLANNER_MODEL
 from ajrasakha.agents.crop_requirement import is_crop_specific_question
 from ajrasakha.agents.domains import (
     CROP_ALL_DOMAINS,
     CROP_REQUIRED_DOMAINS,
-    apply_tool_flags_from_domain,
+    domain_requires_crop,
+    apply_tool_flags_from_domains,
     crop_counts_as_resolved,
+    is_crop_placeholder,
     normalize_domain,
 )
+from ajrasakha.agents.language import resolve_planner_language_pair
 from ajrasakha.agents.translation_catalog import (
     OFFICIAL_LANGUAGES,
     get_crop_follow_up,
@@ -37,10 +40,10 @@ from ajrasakha.agents.translation_catalog import (
     language_pair_from_plan,
 )
 from ajrasakha.agents.location_context import (
+    extract_state_from_text,
     gps_state_from_location,
     latest_human_text,
     main_agent_location_context_message,
-    resolve_state_for_turn,
 )
 from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
@@ -69,9 +72,14 @@ class PlannerEntitiesOutput(BaseModel):
 
 
 class PlannerOutput(BaseModel):
-    domain: str = Field(
-        default="General",
-        description="Exactly one value from ALLOWED_DOMAINS in ajrasakha.agents.domains",
+    domains: list[str] = Field(
+        default_factory=lambda: ["General"],
+        description=(
+            "1-3 values from ALLOWED_DOMAINS in ajrasakha.agents.domains "
+            "(most relevant first)."
+        ),
+        min_length=1,
+        max_length=3,
     )
     weather: bool = False
     mandi: bool = False
@@ -86,14 +94,19 @@ class PlannerOutput(BaseModel):
     entities: PlannerEntitiesOutput = Field(default_factory=PlannerEntitiesOutput)
     original_query_en: Optional[str] = Field(
         None,
-        description="If the user query is NOT in English, translate it exactly to English. If it is in English, set it to the original query."
+        description=(
+            "Literal English translation of the farmer's latest message. If already English, copy verbatim. "
+            "Never substitute crop/disease/pest/place names (e.g. keep 'bauna disease', not 'blast disease'). "
+            "Transliterate unknown local terms; do not guess standard names."
+        ),
     )
     rephrased_query: Optional[str] = Field(
         None,
         description=(
-            "English grammatically corrected query (if user's query is in another language, correct the English translation). "
-            "ONLY refine spelling, syntax, or grammar errors. Do NOT do any fancy rephrasing or search extensions."
-        )
+            "Same meaning as original_query_en with ONLY spelling, grammar, or word-order fixes. "
+            "Do NOT add facts, swap agricultural terms, or 'improve' disease/pest/crop names. "
+            "No search extensions or paraphrase."
+        ),
     )
     vocal_language: str = Field(
         default="English",
@@ -102,8 +115,10 @@ class PlannerOutput(BaseModel):
     script_language: str = Field(
         default="English",
         description=(
-            "Writing system of the farmer's message. One of OFFICIAL_LANGUAGES. "
-            "Use English when the farmer types in Latin/Roman letters for a non-English vocal."
+            "Writing system / alphabet of the farmer's message. One of OFFICIAL_LANGUAGES. "
+            "Latin/Roman letters for any Indian language → English (e.g. Romanized Telugu "
+            "'Barli pantalo aafids ni ela...' → script_language=English, vocal_language=Telugu). "
+            "Native Unicode script → same language name as vocal (e.g. both Telugu for Telugu script)."
         ),
     )
 
@@ -152,8 +167,23 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
     if output.entities.chemicals:
         entities["chemicals"] = list(output.entities.chemicals)
 
+    raw_domains = list(output.domains or []) or ["General"]
+    normalized_domains: list[str] = []
+    seen: set[str] = set()
+    for d in raw_domains:
+        nd = normalize_domain(d)
+        if nd in seen:
+            continue
+        seen.add(nd)
+        normalized_domains.append(nd)
+        if len(normalized_domains) >= 3:
+            break
+    if not normalized_domains:
+        normalized_domains = ["General"]
+
     return {
-        "domain": normalize_domain(output.domain),
+        "domain": normalized_domains[0],  # Backward-compatible single-domain view
+        "domains": normalized_domains,
         "weather": output.weather,
         "mandi": output.mandi,
         "soil": output.soil,
@@ -170,12 +200,15 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "original_query_en": output.original_query_en,
         "vocal_language": output.vocal_language,
         "script_language": output.script_language,
+        "translate_path": None,
+        "expert_queue": False,
     }
 
 
 def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPlan:
     return {
         "domain": "General",
+        "domains": ["General"],
         "weather": False,
         "mandi": False,
         "soil": False,
@@ -192,15 +225,49 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "original_query_en": user_query,
         "vocal_language": "English",
         "script_language": "English",
+        "translate_path": None,
+        "expert_queue": False,
     }
+
+
+def _extract_state_from_history(
+    messages: list[BaseMessage],
+    max_turns: int = 4,
+) -> Optional[str]:
+    """Extract state from last N human messages (most recent first).
+
+    Returns state from the FIRST mention found
+    when walking backwards from the most recent message.
+    """
+    human_messages = [msg for msg in messages if isinstance(msg, HumanMessage)]
+    recent = human_messages[-max_turns:] if len(human_messages) > max_turns else human_messages
+    for msg in reversed(recent):
+        text = _message_to_text(msg)
+        state = extract_state_from_text(text)
+        if state:
+            return state
+    return None
 
 
 def _resolve_state_deterministic(
     messages: list[BaseMessage],
     location: Optional[dict],
+    prev_entities: Optional[PlannerEntities] = None,
 ) -> Optional[str]:
-    """Deterministically resolve state: latest message text, then GPS thread location."""
-    return resolve_state_for_turn(latest_human_text(messages), location)
+    """Deterministically resolve state: prev_entities (previous turns), then latest text, then history, then GPS."""
+    # Priority 0: State from previous planner turns (carry-over from clarification)
+    if prev_entities and prev_entities.get("state"):
+        return prev_entities.get("state")
+    # Priority 1: Latest message only
+    state_from_latest = extract_state_from_text(latest_human_text(messages))
+    if state_from_latest:
+        return state_from_latest
+    # Priority 2: Conversation history (last 4 human turns)
+    state_from_history = _extract_state_from_history(messages, max_turns=4)
+    if state_from_history:
+        return state_from_history
+    # Priority 3: GPS thread location
+    return gps_state_from_location(location)
 
 
 async def _apply_domain_and_crop_async(
@@ -210,12 +277,25 @@ async def _apply_domain_and_crop_async(
     crop_prefilled: Optional[str],
     config: RunnableConfig,
 ) -> tuple[PlannerPlan, str, bool]:
-    """Normalize domain, derive flags, apply CROP_ALL / CROP_REQUIRED crop rules."""
-    domain = normalize_domain(plan.get("domain") or "General")
-    plan["domain"] = domain
+    """Normalize domains, derive flags, apply CROP_ALL / CROP_REQUIRED crop rules."""
+    domains_raw = plan.get("domains") or [plan.get("domain") or "General"]
+    domains: list[str] = []
+    seen: set[str] = set()
+    for d in domains_raw:
+        nd = normalize_domain(d)
+        if nd in seen:
+            continue
+        seen.add(nd)
+        domains.append(nd)
+        if len(domains) >= 3:
+            break
+    if not domains:
+        domains = ["General"]
 
-    tool_flags = apply_tool_flags_from_domain(domain)
-    plan.update(tool_flags)
+    plan["domains"] = domains
+    plan["domain"] = domains[0]
+
+    plan.update(apply_tool_flags_from_domains(domains))
     if ENABLE_CHEMICAL_CHECKER and plan.get("chemical_checker", False):
         plan["chemical_checker"] = True
     else:
@@ -227,30 +307,29 @@ async def _apply_domain_and_crop_async(
     original = plan.get("original_query_en") or user_text
 
     crop_required = False
+    crop_required_any = any(domain_requires_crop(d) for d in domains)
 
-    if domain in CROP_ALL_DOMAINS:
-        entities["crop"] = "all"
-        crop_required = False
-    elif domain in CROP_REQUIRED_DOMAINS:
+    # Always-ask safety rule: if ANY selected domain requires a crop and crop is missing,
+    # we must ask for crop (no classifier-based skipping).
+    if crop_required_any:
         crop = crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
-        if crop and crop_counts_as_resolved(crop):
+        if crop and crop_counts_as_resolved(crop) and not is_crop_placeholder(crop):
             entities["crop"] = (
                 "all" if crop.lower() == "all"
                 else crop[0].upper() + crop[1:].lower()
             )
             crop_required = False
         else:
-            crop_required = await is_crop_specific_question(
-                question, original, domain, config=config
-            )
-            if not crop_required:
-                entities["crop"] = "all"
+            crop_required = True
+    elif domains[0] in CROP_ALL_DOMAINS:
+        entities["crop"] = "all"
+        crop_required = False
     else:
         entities["crop"] = "all"
         crop_required = False
 
     plan["entities"] = entities
-    return plan, domain, crop_required
+    return plan, domains[0], crop_required
 
 
 def _check_question_completeness(
@@ -271,7 +350,9 @@ def _check_question_completeness(
         follow_up = get_state_follow_up(script, vocal)
         return False, missing, follow_up
 
-    if crop_required and not crop_counts_as_resolved(crop_resolved):
+    if crop_required and (
+        not crop_counts_as_resolved(crop_resolved) or is_crop_placeholder(crop_resolved)
+    ):
         missing.append("crop")
         follow_up = get_crop_follow_up(script, vocal)
         return False, missing, follow_up
@@ -308,12 +389,16 @@ async def planner_node(
             "original_query_en": user_text,
             "vocal_language": "English",
             "script_language": "English",
+            "translate_path": None,
+            "expert_queue": False,
         }
         return {"plan": plan}
 
     location = state.get("location")
+    # Extract previous entities BEFORE LLM call so state can be carried forward
+    prev_entities: PlannerEntities = dict(state.get("plan", {}).get("entities") or {})
 
-    state_resolved = _resolve_state_deterministic(messages, location)
+    state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
     crop_resolved = resolve_crop_for_turn(messages)
 
     has_gps = bool(
@@ -348,16 +433,32 @@ async def planner_node(
     )
 
     try:
-        llm = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(PlannerOutput)
+        llm = ChatAnthropic(model=PLANNER_MODEL).with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=config)
         plan = planner_output_to_plan(output)
+
+        prev_vocal = plan.get("vocal_language")
+        prev_script = plan.get("script_language")
+        vocal, script = resolve_planner_language_pair(
+            user_text, prev_vocal or "English", prev_script or "English"
+        )
+        if vocal != prev_vocal or script != prev_script:
+            logger.info(
+                "Planner language normalized from raw message: (%s, %s) -> (%s, %s)",
+                prev_vocal,
+                prev_script,
+                vocal,
+                script,
+            )
+        plan["vocal_language"] = vocal
+        plan["script_language"] = script
 
         if not plan.get("rephrased_query"):
             plan["rephrased_query"] = user_text
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
 
-        entities = merge_entities_from_rephrased_query(plan, messages, location)
+        entities = merge_entities_from_rephrased_query(plan, messages, location, prev_entities)
         plan["entities"] = entities
 
         plan, domain, crop_required = await _apply_domain_and_crop_async(
@@ -382,9 +483,10 @@ async def planner_node(
         plan["missing_info"] = missing
         plan["follow_up_question"] = follow_up
 
-        plan = apply_planner_completeness_rules(plan, messages, location)
+        plan = apply_planner_completeness_rules(plan, messages, location, prev_entities)
 
         plan["knowledge_base"] = True
+        plan["soil"] = False
 
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "

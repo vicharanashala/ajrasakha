@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popo
 import { CalendarIcon, ClipboardCheck, Download, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/atoms/accordion";
+import { motion, AnimatePresence } from "framer-motion";
 
 type ResponseAdherenceTableData = {
   date: string;
@@ -379,453 +380,393 @@ export function ResponseAdherenceTableCard({
   );
 
   return (
-    <Card className="mb-4 rounded-2xl border border-border/60 bg-muted/5 shadow-none">
-      <Accordion type="single" collapsible>
-        <AccordionItem value="response-adherence" className="border-none">
-          {/* ── Card Header ── */}
-          <CardHeader className="p-0">
-            <AccordionTrigger className="w-full px-6 py-2.5 hover:no-underline">
-              <div className="flex w-full items-center justify-between gap-4">
-                {/* Left */}
-                <div className="flex items-center gap-2 min-w-0">
-                  <ClipboardCheck className="w-4.5 h-4.5 text-primary shrink-0" />
+    // <Card className="mb-4 rounded-2xl border border-border/60 bg-muted/5 shadow-none">
+    //   <Accordion type="single" collapsible>
+    //     <AccordionItem value="response-adherence" className="border-none">
+    //       {/* ── Card Header ── */}
+    //       <CardHeader className="p-0">
+    //         <AccordionTrigger className="w-full px-6 py-2.5 hover:no-underline">
+    //           <div className="flex w-full items-center justify-between gap-4">
+    //             {/* Left */}
+    //             <div className="flex items-center gap-2 min-w-0">
+    //               <ClipboardCheck className="w-4.5 h-4.5 text-primary shrink-0" />
 
-                  <CardTitle className="text-base font-semibold tracking-tight text-foreground">
-                    Response Adherence Summary
-                  </CardTitle>
-                </div>
+    //               <CardTitle className="text-base font-semibold tracking-tight text-foreground">
+    //                 Response Adherence Summary
+    //               </CardTitle>
+    //             </div>
 
-                {/* Right Section */}
-                <div
-                  className="flex items-center gap-2 ml-auto mr-3"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Date Picker */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="h-9 min-w-[200px] justify-start text-sm font-normal border-border/70 bg-background"
-                      >
-                        <CalendarIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+    //             {/* Right Section */}
+    //             <div
+    //               className="flex items-center gap-2 ml-auto mr-3"
+    //               onClick={(e) => e.stopPropagation()}
+    //             >
+    //               {/* Date Picker */}
+    //               <Popover>
+    //                 <PopoverTrigger asChild>
+    //                   <Button
+    //                     variant="outline"
+    //                     className="h-9 min-w-[200px] justify-start text-sm font-normal border-border/70 bg-background"
+    //                   >
+    //                     <CalendarIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
 
-                        {format(
-                          parseInputDateToLocalDate(effectiveDate),
-                          "MMM dd, yyyy",
-                        )}
-                      </Button>
-                    </PopoverTrigger>
+    //                     {format(
+    //                       parseInputDateToLocalDate(effectiveDate),
+    //                       "MMM dd, yyyy",
+    //                     )}
+    //                   </Button>
+    //                 </PopoverTrigger>
 
-                    <PopoverContent className="w-auto p-0" align="end">
-                      <Calendar
-                        initialFocus
-                        mode="single"
-                        selected={parseInputDateToLocalDate(effectiveDate)}
-                        onSelect={(date) => {
-                          if (!date) return;
-                          handleDateChange(todayAsInputDate(date));
-                        }}
-                        disabled={{ after: new Date() }}
-                      />
-                    </PopoverContent>
-                  </Popover>
+    //                 <PopoverContent className="w-auto p-0" align="end">
+    //                   <Calendar
+    //                     initialFocus
+    //                     mode="single"
+    //                     selected={parseInputDateToLocalDate(effectiveDate)}
+    //                     onSelect={(date) => {
+    //                       if (!date) return;
+    //                       handleDateChange(todayAsInputDate(date));
+    //                     }}
+    //                     disabled={{ after: new Date() }}
+    //                   />
+    //                 </PopoverContent>
+    //               </Popover>
 
-                  {/* Download */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownloadSelectedFields}
-                    disabled={!hasSelectedRows}
-                    className="h-9 px-4 text-sm gap-2 border-border/70"
+    //               {/* Download */}
+    //               <Button
+    //                 type="button"
+    //                 variant="outline"
+    //                 size="sm"
+    //                 onClick={handleDownloadSelectedFields}
+    //                 disabled={!hasSelectedRows}
+    //                 className="h-9 px-4 text-sm gap-2 border-border/70"
+    //               >
+    //                 <Download className="w-3.5 h-3.5" />
+    //                 Download .xlsx
+    //               </Button>
+    //             </div>
+    //           </div>
+    //         </AccordionTrigger>
+    //       </CardHeader>
+
+    //       {/* ── Accordion Content ── */}
+    //       <AccordionContent>
+    //         <CardContent className="pt-0">
+    //           {isLoading && (
+    //             <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+    //               <Loader2 className="h-3 w-3 animate-spin" />
+    //               Fetching data for selected date…
+    //             </div>
+    //           )}
+
+    //           <div className="overflow-x-auto rounded-xl border border-border/50">
+    //             <table className="w-full min-w-[720px] border-collapse text-sm">
+    //               <tbody>
+    //                 {rows.map((row) => {
+    //                   if (row.type === "single") {
+    //                     return (
+    //                       <tr
+    //                         key={row.key}
+    //                         className="hover:bg-muted/20 transition-colors"
+    //                       >
+    //                         <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
+    //                           {rowCheck(row.key)}
+    //                         </td>
+    //                         <td className="border-b border-r border-border/40 px-3 py-2.5 text-muted-foreground w-56">
+    //                           {row.label}
+    //                         </td>
+    //                         <td
+    //                           colSpan={row.span ? 2 : 1}
+    //                           className="border-b border-border/40 px-3 py-2.5 font-medium"
+    //                         >
+    //                           {row.value}
+    //                         </td>
+    //                         {!row.span && (
+    //                           <td className="border-b border-border/40" />
+    //                         )}
+    //                       </tr>
+    //                     );
+    //                   }
+
+    //                   if (row.type === "header") {
+    //                     return (
+    //                       <tr key={row.key} className="bg-muted/30">
+    //                         <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
+    //                           {rowCheck(row.key)}
+    //                         </td>
+    //                         <td className="border-b border-r border-border/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    //                           {row.label}
+    //                         </td>
+    //                         <td className="border-b border-r border-border/40 px-3 py-2.5 font-semibold text-foreground">
+    //                           {row.wa}
+    //                         </td>
+    //                         <td className="border-b border-border/40 px-3 py-2.5 font-semibold text-foreground">
+    //                           {row.as}
+    //                         </td>
+    //                       </tr>
+    //                     );
+    //                   }
+
+    //                   // data row
+    //                   return (
+    //                     <tr
+    //                       key={row.key}
+    //                       className={`hover:bg-muted/20 transition-colors ${
+    //                         row.highlight ? "bg-primary/5 font-medium" : ""
+    //                       }`}
+    //                     >
+    //                       <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
+    //                         {rowCheck(row.key)}
+    //                       </td>
+    //                       <td className="border-b border-r border-border/40 px-3 py-2.5 text-muted-foreground">
+    //                         {row.label}
+    //                       </td>
+    //                       <td className="border-b border-r border-border/40 px-3 py-2.5 tabular-nums">
+    //                         {row.wa ?? "—"}
+    //                       </td>
+    //                       <td className="border-b border-border/40 px-3 py-2.5 tabular-nums">
+    //                         {row.as ?? "—"}
+    //                       </td>
+    //                     </tr>
+    //                   );
+    //                 })}
+    //               </tbody>
+    //             </table>
+    //           </div>
+    //         </CardContent>
+    //       </AccordionContent>
+    //     </AccordionItem>
+    //   </Accordion>
+    // </Card>
+
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <Card
+        className="group mb-4 overflow-hidden rounded-2xl border border-border/60  bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+"
+      >
+        <Accordion type="single" collapsible>
+          <AccordionItem value="response-adherence" className="border-none">
+            {/* ── Card Header ── */}
+            <CardHeader className="p-0">
+              <AccordionTrigger className="w-full px-6 py-3 hover:no-underline [&[data-state=open]]:border-b [&[data-state=open]]:border-border/40">
+                <div className="flex w-full items-center justify-between gap-4">
+                  {/* Left */}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <motion.div
+                      whileHover={{ scale: 1.08, rotate: -3 }}
+                      whileTap={{ scale: 0.95 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 15,
+                      }}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-inset ring-primary/20"
+                    >
+                      <ClipboardCheck className="h-4 w-4 text-primary" />
+                    </motion.div>
+                    <div className="flex flex-col items-start min-w-0">
+                      <CardTitle className="text-sm font-semibold tracking-tight text-foreground">
+                        Response Adherence Summary
+                      </CardTitle>
+                      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                        Daily breakdown
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right Section */}
+                  <div
+                    className="flex items-center gap-2 ml-auto mr-3"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    Download .xlsx
-                  </Button>
-                </div>
-              </div>
-            </AccordionTrigger>
-          </CardHeader>
+                    {/* Date Picker */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <motion.div
+                          whileHover={{ y: -1 }}
+                          whileTap={{ scale: 0.97 }}
+                        >
+                          <Button
+                            variant="outline"
+                            className="h-9 min-w-[200px] justify-start text-sm font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40"
+                          >
+                            <CalendarIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                            {format(
+                              parseInputDateToLocalDate(effectiveDate),
+                              "MMM dd, yyyy",
+                            )}
+                          </Button>
+                        </motion.div>
+                      </PopoverTrigger>
 
-          {/* ── Accordion Content ── */}
-          <AccordionContent>
-            <CardContent className="pt-0">
-              {isLoading && (
-                <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Fetching data for selected date…
-                </div>
-              )}
+                      <PopoverContent className="w-auto p-0" align="end">
+                        <Calendar
+                          initialFocus
+                          mode="single"
+                          selected={parseInputDateToLocalDate(effectiveDate)}
+                          onSelect={(date) => {
+                            if (!date) return;
+                            handleDateChange(todayAsInputDate(date));
+                          }}
+                          disabled={{ after: new Date() }}
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
 
-              <div className="overflow-x-auto rounded-xl border border-border/50">
-                <table className="w-full min-w-[720px] border-collapse text-sm">
-                  <tbody>
-                    {rows.map((row) => {
-                      if (row.type === "single") {
+                    {/* Download */}
+                    <motion.div
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadSelectedFields}
+                        disabled={!hasSelectedRows}
+                        className="h-9 px-4 text-sm gap-2 border-border/70 bg-background/80 shadow-sm hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                      >
+                        <motion.span
+                          animate={hasSelectedRows ? { y: [0, -2, 0] } : {}}
+                          transition={{
+                            repeat: Infinity,
+                            repeatDelay: 2,
+                            duration: 0.8,
+                          }}
+                          className="inline-flex"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </motion.span>
+                        Download .xlsx
+                      </Button>
+                    </motion.div>
+                  </div>
+                </div>
+              </AccordionTrigger>
+            </CardHeader>
+
+            {/* ── Accordion Content ── */}
+            <AccordionContent>
+              <CardContent className="pt-4">
+                <AnimatePresence>
+                  {isLoading && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="flex items-center gap-2 mb-3 text-xs text-muted-foreground overflow-hidden"
+                    >
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Fetching data for selected date…
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.05 }}
+                  className="overflow-x-auto rounded-xl border border-border/50 shadow-sm"
+                >
+                  <table className="w-full min-w-[720px] border-collapse text-sm">
+                    <tbody>
+                      {rows.map((row, idx) => {
+                        const baseMotion = {
+                          initial: { opacity: 0, x: -8 },
+                          animate: { opacity: 1, x: 0 },
+                          transition: {
+                            duration: 0.25,
+                            delay: idx * 0.03,
+                            ease: "easeOut" as const,
+                          },
+                        };
+
+                        if (row.type === "single") {
+                          return (
+                            <motion.tr
+                              key={row.key}
+                              {...baseMotion}
+                              className="hover:bg-muted/30 transition-colors"
+                            >
+                              <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
+                                {rowCheck(row.key)}
+                              </td>
+                              <td className="border-b border-r border-border/40 px-3 py-2.5 text-muted-foreground w-56">
+                                {row.label}
+                              </td>
+                              <td
+                                colSpan={row.span ? 2 : 1}
+                                className="border-b border-border/40 px-3 py-2.5 font-medium tabular-nums"
+                              >
+                                {row.value}
+                              </td>
+                              {!row.span && (
+                                <td className="border-b border-border/40" />
+                              )}
+                            </motion.tr>
+                          );
+                        }
+
+                        if (row.type === "header") {
+                          return (
+                            <motion.tr
+                              key={row.key}
+                              {...baseMotion}
+                              className="bg-muted/40"
+                            >
+                              <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
+                                {rowCheck(row.key)}
+                              </td>
+                              <td className="border-b border-r border-border/40 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                {row.label}
+                              </td>
+                              <td className="border-b border-r border-border/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-foreground">
+                                {row.wa}
+                              </td>
+                              <td className="border-b border-border/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-foreground">
+                                {row.as}
+                              </td>
+                            </motion.tr>
+                          );
+                        }
+
                         return (
-                          <tr
+                          <motion.tr
                             key={row.key}
-                            className="hover:bg-muted/20 transition-colors"
+                            {...baseMotion}
+                            className={`hover:bg-muted/30 transition-colors ${
+                              row.highlight
+                                ? "bg-primary/5 font-medium ring-1 ring-inset ring-primary/10"
+                                : ""
+                            }`}
                           >
                             <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
                               {rowCheck(row.key)}
                             </td>
-                            <td className="border-b border-r border-border/40 px-3 py-2.5 text-muted-foreground w-56">
+                            <td className="border-b border-r border-border/40 px-3 py-2.5 text-muted-foreground">
                               {row.label}
                             </td>
-                            <td
-                              colSpan={row.span ? 2 : 1}
-                              className="border-b border-border/40 px-3 py-2.5 font-medium"
-                            >
-                              {row.value}
+                            <td className="border-b border-r border-border/40 px-3 py-2.5 tabular-nums">
+                              {row.wa ?? "—"}
                             </td>
-                            {!row.span && (
-                              <td className="border-b border-border/40" />
-                            )}
-                          </tr>
+                            <td className="border-b border-border/40 px-3 py-2.5 tabular-nums">
+                              {row.as ?? "—"}
+                            </td>
+                          </motion.tr>
                         );
-                      }
-
-                      if (row.type === "header") {
-                        return (
-                          <tr key={row.key} className="bg-muted/30">
-                            <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
-                              {rowCheck(row.key)}
-                            </td>
-                            <td className="border-b border-r border-border/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              {row.label}
-                            </td>
-                            <td className="border-b border-r border-border/40 px-3 py-2.5 font-semibold text-foreground">
-                              {row.wa}
-                            </td>
-                            <td className="border-b border-border/40 px-3 py-2.5 font-semibold text-foreground">
-                              {row.as}
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      // data row
-                      return (
-                        <tr
-                          key={row.key}
-                          className={`hover:bg-muted/20 transition-colors ${
-                            row.highlight ? "bg-primary/5 font-medium" : ""
-                          }`}
-                        >
-                          <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
-                            {rowCheck(row.key)}
-                          </td>
-                          <td className="border-b border-r border-border/40 px-3 py-2.5 text-muted-foreground">
-                            {row.label}
-                          </td>
-                          <td className="border-b border-r border-border/40 px-3 py-2.5 tabular-nums">
-                            {row.wa ?? "—"}
-                          </td>
-                          <td className="border-b border-border/40 px-3 py-2.5 tabular-nums">
-                            {row.as ?? "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </Card>
-
-    // <Card className="mb-4 rounded-2xl border border-border/70 bg-muted/10">
-    //   <CardHeader className="pb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-    //     <div>
-    //       <CardTitle className="flex items-center gap-2 text-base text-primary">
-    //         <ClipboardCheck className="w-5 h-5" />
-    //         Response Adherence Summary
-    //       </CardTitle>
-    //     </div>
-    //     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-    //       <Popover>
-    //         <PopoverTrigger asChild>
-    //           <Button
-    //             variant="outline"
-    //             className="h-11 min-w-[220px] justify-start border-border/80 bg-background text-sm font-normal"
-    //           >
-    //             <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-    //             {format(
-    //               parseInputDateToLocalDate(effectiveDate),
-    //               "MMM dd, yyyy",
-    //             )}
-    //           </Button>
-    //         </PopoverTrigger>
-    //         <PopoverContent className="w-auto p-0" align="end">
-    //           <Calendar
-    //             initialFocus
-    //             mode="single"
-    //             selected={parseInputDateToLocalDate(effectiveDate)}
-    //             onSelect={(date) => {
-    //               if (!date) return;
-    //               handleDateChange(todayAsInputDate(date));
-    //             }}
-    //             disabled={{ after: new Date() }}
-    //           />
-    //         </PopoverContent>
-    //       </Popover>
-    //       <Button
-    //         type="button"
-    //         variant="outline"
-    //         onClick={handleDownloadSelectedFields}
-    //         disabled={!hasSelectedRows}
-    //         className="h-11 px-5 text-base"
-    //       >
-    //         <Download className="w-4 h-4 mr-2" />
-    //         Download Selected Fields (.xlsx)
-    //       </Button>
-    //     </div>
-    //   </CardHeader>
-    //   <CardContent>
-    //     {isLoading ? (
-    //       <div className="mb-3 text-xs text-muted-foreground">
-    //         Fetching selected date data...
-    //       </div>
-    //     ) : null}
-    //     <div className="overflow-x-auto">
-    //       <table className="w-full min-w-[860px] border-collapse text-sm">
-    //         <tbody>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("date")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2 font-medium">
-    //               Date
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.date || effectiveDate}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2"></td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("time")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2 font-medium">
-    //               Time
-    //             </td>
-    //             <td colSpan={2} className="border border-border/70 px-3 py-2">
-    //               {d.timeWindow}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("header")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2 font-medium">
-    //               Source
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2 font-semibold">
-    //               Whatsapp
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2 font-semibold">
-    //               AjraSakha
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("queriesAsked")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Queries Asked
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {whatsappQueriesAskedDisplay}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaQueriesAsked}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("pushedReviewer")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Question Pushed into Reviewer System
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappPushedToReviewer}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaPushedToReviewer}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("answered120")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Question Answered within 120 Min
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappAnsweredWithin120Min}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaAnsweredWithin120Min}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("duplicate")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Marked Duplicate (Fetched from GDB)
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappMarkedDuplicate}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaMarkedDuplicate}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("dynamicWeather")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Dynamic - Weather
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappDynamicWeather}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaDynamicWeather}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("dynamicMarket")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Dynamic - Market
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappDynamicMarket}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaDynamicMarket}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("dynamicSchemes")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Dynamic - Schemes
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappDynamicSchemes}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaDynamicSchemes}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("nonGdb")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Non GDB Questions - Answer prepared in 120 Min by AEs
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappNonGdbWithin120}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaNonGdbWithin120}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("inReview")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Question in Review
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappInReview}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaInReview}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("open")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Questions are Open
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappOpen}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaOpen}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("delayed")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Questions are delayed
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappDelayed}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaDelayed}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("summaryDelayReason")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Summary of the reason for delaying
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2"></td>
-    //             <td className="border border-border/70 px-3 py-2"></td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("avgResponse")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Average time for Response
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {formatMinutes(d.whatsappAverageResponseMinutes)}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {formatMinutes(d.ajrasakhaAverageResponseMinutes)}
-    //             </td>
-    //           </tr>
-    //           <tr>
-    //             <td className="border border-border/70 px-2 py-2 text-center">
-    //               {rowCheck("adherencePct")}
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               Percentage of questions completed within 120 min
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.whatsappAdherencePct.toFixed(2)}%
-    //             </td>
-    //             <td className="border border-border/70 px-3 py-2">
-    //               {d.ajrasakhaAdherencePct.toFixed(2)}%
-    //             </td>
-    //           </tr>
-    //         </tbody>
-    //       </table>
-    //     </div>
-    //   </CardContent>
-    // </Card>
+                      })}
+                    </tbody>
+                  </table>
+                </motion.div>
+              </CardContent>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </Card>
+    </motion.div>
   );
 }

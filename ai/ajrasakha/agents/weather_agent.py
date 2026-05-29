@@ -10,7 +10,7 @@ from langgraph.constants import START
 from langgraph.graph import StateGraph
 from pydantic import BaseModel
 
-from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
+from ajrasakha.agents.config import SANITIZER_MODEL, MCP_URLS
 from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
 from ajrasakha.agents.prompts import GDB_SYSTEM_PROMPT, WEATHER_SYSTEM_PROMPT
 
@@ -23,7 +23,7 @@ weather_mcp = MultiServerMCPClient(
     }
 )
 
-llm = ChatAnthropic(model=CLAUDE_MODEL)
+llm = ChatAnthropic(model=SANITIZER_MODEL)
 
 _weather_agent_graph = None  # lazy init
 

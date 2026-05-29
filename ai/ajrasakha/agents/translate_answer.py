@@ -1,4 +1,4 @@
-"""Post-synthesis: translate answer body to planner vocal/script; append sheet disclaimers."""
+"""Post-synthesis: translate advisory body; append sheet footers (sources, testing)."""
 
 from __future__ import annotations
 
@@ -10,16 +10,10 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from ajrasakha.agents.answer_quality import strip_warning_disclaimer
-from ajrasakha.agents.config import CLAUDE_MODEL
-from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
-from ajrasakha.agents.state import AjraSakhaState
-from ajrasakha.agents.translation_catalog import (
-    get_testing_disclaimer,
-    language_pair_from_plan,
-    needs_translation,
-    synthesis_lang_label,
-)
+from ajrasakha.agents.answer_footers import build_expert_queue_content, finalize_synthesis_answer
+from ajrasakha.agents.config import TRANSLATE_MODEL
+from ajrasakha.agents.state import AjraSakhaState, TRANSLATE_PATH_EMPTY_GDB
+from ajrasakha.agents.translation_catalog import language_pair_from_plan, needs_translation
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +66,31 @@ def _extract_gdb_from_messages(messages: list[BaseMessage]) -> Optional[dict]:
 
 _TRANSLATE_SYSTEM_PROMPT = """You translate agricultural advisories for Indian farmers.
 
+
 Rules:
 - Output ONLY the translated advisory body.
 - Preserve numbers, URLs, chemical names, and units exactly.
-- Do NOT add disclaimers, sources, footers, or expert-queue messages."""
+- Do not add any other text or formatting to the output.
+
+
+Vocal Language: The language the farmer speaks and understands when listening.
+Script Language: The writing system/alphabet used in the farmer's message on screen.
+
+Examples:
+
+Hindi Vocal + English Script
+Example Text: Mujhe gehu ki kheti ke baare mein batayein
+Hindi Vocal + Hindi Script
+Example Text: मुझे गेहूं की खेती के बारे में बताएं
+Punjabi Vocal + English Script
+Example Text: Main apne khet vich chawal di kheti kive karaan?
+English Vocal + English Script
+Example Text: How can I improve wheat production in my farm?
+Tamil Vocal + English Script
+Example Text: Naan eppadi paddy cultivate pannalam?
+Telugu Vocal + Telugu Script
+Example Text: నేను వరి పంటను ఎలా పండించాలి?
+"""
 
 
 async def _translate_body(
@@ -88,8 +103,7 @@ async def _translate_body(
     if not text:
         return body or ""
 
-    llm = ChatAnthropic(model=CLAUDE_MODEL)
-    # Anthropic API requires at least one user message — SystemMessage-only fails with 400.
+    llm = ChatAnthropic(model=TRANSLATE_MODEL)
     response = await llm.ainvoke(
         [
             SystemMessage(content=_TRANSLATE_SYSTEM_PROMPT),
@@ -106,25 +120,16 @@ async def _translate_body(
     return translated if translated.strip() else text
 
 
-def _append_sources_and_testing(
-    body: str,
-    *,
-    script_language: str,
-    vocal_language: str,
-    gdb_data: Optional[dict],
-) -> str:
-    from ajrasakha.agents.synthesizer import _collect_all_sources
-
-    out = (body or "").strip()
-    if not out:
-        return out
-    lang_label = synthesis_lang_label(script_language, vocal_language)
-    if gdb_data and gdb_has_usable_answers(gdb_data):
-        source_block = _collect_all_sources(gdb_data, lang_label)
-        if source_block:
-            out = f"{out}\n{source_block}"
-    testing = get_testing_disclaimer(script_language, vocal_language)
-    return f"{out}\n\n{testing}"
+def _reply_message(
+    content: str,
+    final_msg: AIMessage | None,
+    state: AjraSakhaState,
+) -> dict:
+    msg_id = final_msg.id if final_msg is not None else None
+    return {
+        "messages": [AIMessage(content=content, id=msg_id)],
+        "location": state.get("location"),
+    }
 
 
 async def translate_answer_node(
@@ -136,60 +141,64 @@ async def translate_answer_node(
     script, vocal = language_pair_from_plan(plan)
 
     final_msg = _last_farmer_facing_ai(messages)
+    gdb_data = _extract_gdb_from_messages(messages)
+
+    # Path A: empty_gdb_reply only — sheet 2-hour + testing (no translate LLM)
+    if plan.get("translate_path") == TRANSLATE_PATH_EMPTY_GDB:
+        logger.info(
+            "translate_answer: path=empty_gdb — sheet 2-hour + testing (script=%s vocal=%s)",
+            script,
+            vocal,
+        )
+        content = build_expert_queue_content(script, vocal)
+        return _reply_message(content, final_msg, state)
+
+    # Path B: synthesize — translate body + GDB sources + testing only
     if final_msg is None:
         return {}
 
-    body = strip_warning_disclaimer(_message_to_text(final_msg))
+    body = _message_to_text(final_msg)
     if not body.strip():
+        logger.warning("translate_answer: path=synthesis but empty body — no-op")
         return {}
-
-    gdb_data = _extract_gdb_from_messages(messages)
 
     try:
         if needs_translation(script, vocal):
             logger.info(
-                "translate_answer: vocal=%s script=%s (translating body)",
+                "translate_answer: path=synthesis — translating body (vocal=%s script=%s)",
                 vocal,
                 script,
             )
             body = await _translate_body(body, vocal, script, config)
         else:
-            logger.info("translate_answer: English/English — passthrough")
+            logger.info("translate_answer: path=synthesis — English/English passthrough")
 
-        content = _append_sources_and_testing(
+        content = finalize_synthesis_answer(
             body,
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
         )
-        return {
-            "messages": [AIMessage(content=content, id=final_msg.id)],
-            "location": state.get("location"),
-        }
+        logger.info("translate_answer: path=synthesis — final len=%d", len(content))
+        return _reply_message(content, final_msg, state)
     except (APITimeoutError, APIConnectionError) as exc:
-        logger.warning("translate_answer failed (%s) — returning body with sheet footers only", exc)
-        content = _append_sources_and_testing(
-            body,
+        logger.warning("translate_answer failed (%s) — untranslated body + synthesis footers", exc)
+        content = finalize_synthesis_answer(
+            _message_to_text(final_msg),
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
         )
-        return {
-            "messages": [AIMessage(content=content, id=final_msg.id)],
-            "location": state.get("location"),
-        }
+        return _reply_message(content, final_msg, state)
     except APIStatusError as exc:
         logger.warning(
-            "translate_answer API error (%s) — returning untranslated body with sheet footers",
+            "translate_answer API error (%s) — untranslated body + synthesis footers",
             exc,
         )
-        content = _append_sources_and_testing(
-            body,
+        content = finalize_synthesis_answer(
+            _message_to_text(final_msg),
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
         )
-        return {
-            "messages": [AIMessage(content=content, id=final_msg.id)],
-            "location": state.get("location"),
-        }
+        return _reply_message(content, final_msg, state)

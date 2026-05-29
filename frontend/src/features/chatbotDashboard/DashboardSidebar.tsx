@@ -11,7 +11,7 @@ import { Calendar } from "@/components/atoms/calendar";
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Download, Loader2, CalendarIcon, Shapes } from "lucide-react";
+import { Download, Loader2, CalendarIcon, Shapes, Info } from "lucide-react";
 import { toast } from "sonner";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 import {
@@ -20,6 +20,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
+
+import { STATES } from "../../components/MetaData";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -311,43 +313,107 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   >(undefined);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<"pdf" | "xlsx">("pdf");
+  const [selectedState, setSelectedState] = useState<string>("All States");
+  // const handleDownload = async () => {
+  //   if (!downloadDateRange?.from || !downloadDateRange?.to) return;
+
+  //   const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
+  //   if (
+  //     downloadDateRange.to.getTime() - downloadDateRange.from.getTime() >
+  //     oneMonthMs
+  //   ) {
+  //     toast.error(
+  //       "Date range cannot exceed 1 month. Please select a shorter range.",
+  //     );
+  //     return;
+  //   }
+
+  //   setIsDownloading(true);
+  //   try {
+  //     toast.info("Preparing download...");
+  //     const svc = new ChatbotService();
+  //     const from = format(downloadDateRange.from, "yyyy-MM-dd");
+  //     const to = format(downloadDateRange.to, "yyyy-MM-dd");
+  //     const blob = await svc.downloadChatbotReport(
+  //       from,
+  //       to,
+  //       source,
+  //       downloadFormat,
+  //     );
+  //     const url = URL.createObjectURL(blob);
+  //     const a = document.createElement("a");
+  //     a.href = url;
+  //     a.download = `chatbot-report-${from}-to-${to}.${downloadFormat}`;
+  //     document.body.appendChild(a);
+  //     a.click();
+  //     document.body.removeChild(a);
+  //     URL.revokeObjectURL(url);
+  //     toast.success("Report downloaded successfully!");
+  //     setIsDownloadDialogOpen(false);
+  //     setDownloadDateRange(undefined);
+  //   } catch (e) {
+  //     toast.error(e instanceof Error ? e.message : "Download failed");
+  //   } finally {
+  //     setIsDownloading(false);
+  //   }
+  // };
 
   const handleDownload = async () => {
-    if (!downloadDateRange?.from || !downloadDateRange?.to) return;
+    const today = new Date();
+
+    const fromDate = downloadDateRange?.from || today;
+    const toDate = downloadDateRange?.to || today;
+
+    console.log(fromDate, toDate);
 
     const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
-    if (
-      downloadDateRange.to.getTime() - downloadDateRange.from.getTime() >
-      oneMonthMs
-    ) {
+
+    if (toDate.getTime() - fromDate.getTime() > oneMonthMs) {
       toast.error(
         "Date range cannot exceed 1 month. Please select a shorter range.",
       );
+
       return;
     }
 
     setIsDownloading(true);
+
     try {
       toast.info("Preparing download...");
+
       const svc = new ChatbotService();
-      const from = format(downloadDateRange.from, "yyyy-MM-dd");
-      const to = format(downloadDateRange.to, "yyyy-MM-dd");
+
+      const from = format(fromDate, "yyyy-MM-dd");
+      const to = format(toDate, "yyyy-MM-dd");
+
       const blob = await svc.downloadChatbotReport(
-  from,
-  to,
-  source,
-  downloadFormat
-);
+        from,
+        to,
+        source,
+        downloadFormat,
+        selectedState,
+      );
+
       const url = URL.createObjectURL(blob);
+
       const a = document.createElement("a");
+
       a.href = url;
-      a.download = `chatbot-report-${from}-to-${to}.${downloadFormat}`;;
+
+      a.download = `chatbot-report-${from}-to-${to}.${downloadFormat}`;
+
       document.body.appendChild(a);
+
       a.click();
+
       document.body.removeChild(a);
+
       URL.revokeObjectURL(url);
+
       toast.success("Report downloaded successfully!");
+
       setIsDownloadDialogOpen(false);
+
       setDownloadDateRange(undefined);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Download failed");
@@ -418,6 +484,8 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 
   // On mobile when expanded: overlay mode. Otherwise: inline mode.
   const isOverlay = isMobile && !collapsed;
+
+  const states = ["All States", ...STATES];
 
   // Sidebar content (shared between inline and overlay modes)
   const sidebarContent = (
@@ -496,24 +564,75 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             </div>
           </DialogHeader>
           <div className="space-y-3 overflow-y-auto flex-1 py-2">
-            <div className="flex items-center gap-2 text-xs bg-primary/5 p-2 rounded-md border border-primary/20">
-                <div className="flex gap-2">
-  <Button
-    variant={downloadFormat === "pdf" ? "default" : "outline"}
-    onClick={() => setDownloadFormat("pdf")}
-  >
-    PDF
-  </Button>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Select State</label>
 
-  <Button
-    variant={downloadFormat === "xlsx" ? "default" : "outline"}
-    onClick={() => setDownloadFormat("xlsx")}
-  >
-    Excel
-  </Button>
-</div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p>
+                          Once a state is selected, data for all districts under
+                          that state will be added automatically. This will not
+                          be used to filter questions in other analytics
+                          metrics. After selecting a state, an additional table
+                          will be displayed showing all districts under the
+                          selected state along with their query distribution.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <select
+                value={selectedState}
+                onChange={(e) => setSelectedState(e.target.value)}
+                className="
+      h-10 rounded-md border border-input bg-background
+      px-3 py-2 text-sm
+      focus:outline-none focus:ring-2 focus:ring-primary
+    "
+              >
+                {states.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 text-xs bg-primary/5 p-2 rounded-md border border-primary/20">
+              <div className="flex gap-2 items-center">
+                <Button
+                  variant={downloadFormat === "pdf" ? "default" : "outline"}
+                  onClick={() => setDownloadFormat("pdf")}
+                >
+                  PDF
+                </Button>
+
+                <Button
+                  variant={downloadFormat === "xlsx" ? "default" : "outline"}
+                  onClick={() => setDownloadFormat("xlsx")}
+                >
+                  Excel
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => setDownloadDateRange(undefined)}
+                >
+                  Reset
+                </Button>
+              </div>
               <CalendarIcon className="h-4 w-4 text-primary flex-shrink-0" />
-              <span className="font-medium text-sm">
+              <span className="font-medium text-sm flex flex-col">
                 {downloadDateRange?.from && downloadDateRange?.to
                   ? `${format(downloadDateRange.from, "MMM dd, yyyy")} - ${format(downloadDateRange.to, "MMM dd, yyyy")}`
                   : "No date range selected"}
@@ -541,11 +660,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               </Button>
             </DialogClose>
             <Button
-              disabled={
-                !downloadDateRange?.from ||
-                !downloadDateRange?.to ||
-                isDownloading
-              }
+              disabled={isDownloading}
               className="w-full sm:w-auto"
               onClick={handleDownload}
             >
@@ -557,7 +672,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               ) : (
                 <>
                   <Download className="h-4 w-4 mr-2" />
-                  Download Excel
+                  {downloadFormat === "pdf" ? "Download PDF" : "Download Excel"}
                 </>
               )}
             </Button>
@@ -754,7 +869,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                       <div
                         key={item.view}
                         onClick={() => {
-                            handleNavClick(item.view);
+                          handleNavClick(item.view);
                         }}
                         role="button"
                         tabIndex={0}
