@@ -637,8 +637,10 @@ async downloadChatbotReport(
         district?: string;
         state?: string;
         phoneNo?: string;
+        nearestKVK?: string;
         languagePreference?: string;
         yearsOfExperience?: number;
+        totalLandCultivating?: number
         cropsCultivated?: string[];
         primaryCrop?: string;
         secondaryCrop?: string;
@@ -654,6 +656,7 @@ async downloadChatbotReport(
     if (!source) {
       source = 'vicharanashala';
     }
+    console.log("Body", body);
     const success = await this.chatbotService.updateUser(userId, source, body);
     return { success, message: success ? 'User updated successfully' : 'Failed to update user' };
   }

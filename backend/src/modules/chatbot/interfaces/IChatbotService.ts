@@ -122,6 +122,7 @@ export interface IChatbotService {
         district?: string;
         state?: string;
         phoneNo?: string;
+        nearestKVK?: string
         languagePreference?: string;
         yearsOfExperience?: number;
         cropsCultivated?: string[];

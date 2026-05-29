@@ -149,6 +149,7 @@ export interface FarmerProfile {
   district?: string;
   state?: string;
   phoneNo?: string;
+  nearestKVK?: string
   languagePreference?: string;
   yearsOfExperience?: number;
   cropsCultivated?: string[];
