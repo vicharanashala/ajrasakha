@@ -83,7 +83,6 @@ Return ONLY one of: NON_AGRI, NONE, or the matching candidate number.
   if (upper.includes("NON_AGRI") || upper.includes("NON-AGRI") || upper.includes("NONAGRI")) {
     return { isNonAgri: true, matchedIndex: null };
   }
-  const parsedIndex = parseInt(firstMatch[0], 10);
 
   if (upper === "NONE") {
     return { isNonAgri: false, matchedIndex: null };
