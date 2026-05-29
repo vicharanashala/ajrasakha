@@ -1,9 +1,26 @@
 """Unit tests for reviewer question_id extraction (no live API)."""
 
 from reviewer_question import (
+    _desk_request_headers,
     extract_question_id_from_messages,
     resolve_client_ids,
 )
+
+
+def test_desk_request_headers_includes_api_key(monkeypatch):
+    monkeypatch.setattr(
+        "reviewer_question.REVIEWER_DESK_API_KEY",
+        "annam_conversation_api_key_1810",
+    )
+    headers = _desk_request_headers()
+    assert headers["Content-Type"] == "application/json"
+    assert headers["x-internal-api-key"] == "annam_conversation_api_key_1810"
+
+
+def test_desk_request_headers_without_api_key(monkeypatch):
+    monkeypatch.setattr("reviewer_question.REVIEWER_DESK_API_KEY", "")
+    headers = _desk_request_headers()
+    assert headers == {"Content-Type": "application/json"}
 
 
 def test_resolve_client_ids_from_headers():
