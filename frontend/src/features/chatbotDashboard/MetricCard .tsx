@@ -682,7 +682,7 @@ if (isLoading) {
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
-          className="rounded-2xl border border-border/50 bg-card p-5 animate-pulse min-h-[220px]"
+          className="rounded-2xl border border-border/50 bg-card p-5 animate-pulse min-h-[190px]"
         >
           <div className="flex items-start justify-between mb-4">
             <div className="space-y-2 flex-1">
