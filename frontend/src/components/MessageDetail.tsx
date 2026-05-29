@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2, RefreshCw, ExternalLink, ArrowUpRight, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Pencil, X, SkipForward, Loader2, RefreshCw, ExternalLink, ArrowUpRight, AlertCircle } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
@@ -587,6 +587,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [translatedText, setTranslatedText] = useState<string>("");
     const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "accept" | "save" | "cancel" | "push-to-gdb"; remark?: string }>({ open: false, type: "pass" });
     const [passRemarkError, setPassRemarkError] = useState("");
+    const [pendingApprovalAction, setPendingApprovalAction] = useState<"accept" | "push-to-gdb" | null>(null);
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
@@ -602,7 +603,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const handleAccept = () => {
         if (!question?._id) { toast.error("Question data is missing."); return; }
         if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") { toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return; }
-        setConfirmDialog({ open: true, type: "accept" });
+        setPendingApprovalAction("accept");
+        setEditModalKey(k => k + 1);
+        setIsEditModalOpen(true);
     };
 
     const handlePushToGDB = () => {
@@ -615,10 +618,12 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         if (question.status !== "duplicate") {
             toast.error("Only duplicate questions can be pushed to GDB."); return;
         }
-        setConfirmDialog({ open: true, type: "push-to-gdb" });
+        setPendingApprovalAction("push-to-gdb");
+        setEditModalKey(k => k + 1);
+        setIsEditModalOpen(true);
     };
 
-    const doApprove = async () => {
+    const doApprove = async (flowType?: "accept" | "push-to-gdb") => {
         try {
             const sources: SourceItem[] = [];
             for (const spec of editedSpecialists) {
@@ -630,11 +635,17 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     sources.push({ sourceType: (pdf.sourceType || "other") as any, sourceName: pdf.name || "chatbot", source: pdf.link, page: trimmedPages || undefined });
                 }
             }
-            const isAcceptFlow = confirmDialog.type === "accept";
+
+            if (sources.length === 0) {
+                toast.error("At least one source is required to proceed.");
+                return;
+            }
+
+            const isAcceptFlow = (flowType ?? confirmDialog.type) === "accept";
 
             await updateAnswer({
                 updatedAnswer: editedAnswerBody.trim(),
-                sources: sources.length > 0 ? sources : [{ sourceType: "MODERATOR_REVIEW", source: "Answer reviewed and approved by moderator" }],
+                sources,
                 answerId: undefined,
                 questionId: question._id,
                 source: question.source,
@@ -654,9 +665,29 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         }
     };
 
-    const handleEdit = () => { setEditModalKey(k => k + 1); setIsEditModalOpen(true); };
-    const handleCancelEdit = () => { const p = parseChatbotText(text); setEditedAnswerBody(p.answerBody); setEditedSpecialists(p.agriSpecialists); setEditedPdfSources(p.pdfSources); setIsEditModalOpen(false); };
-    const handleSaveEdit = () => { toast.success("Changes saved"); setIsEditModalOpen(false); };
+    const handleCancelEdit = () => {
+        const p = parseChatbotText(text);
+        setEditedAnswerBody(p.answerBody);
+        setEditedSpecialists(p.agriSpecialists);
+        setEditedPdfSources(p.pdfSources);
+        setIsEditModalOpen(false);
+        setPendingApprovalAction(null);
+    };
+    const handleSaveEdit = () => {
+        const hasAnySource =
+            editedSpecialists.some(s => s.sourceLink?.trim()) ||
+            editedPdfSources.some(s => s.link?.trim());
+        if (!hasAnySource) {
+            toast.error("At least one source is required to proceed.");
+            return;
+        }
+        const action = pendingApprovalAction;
+        setIsEditModalOpen(false);
+        setPendingApprovalAction(null);
+        if (action === "accept" || action === "push-to-gdb") {
+            doApprove(action);
+        }
+    };
     const handleSkip = () => { setPassRemarkError(""); setConfirmDialog({ open: true, type: "pass", remark: "" }); };
 
     const doSkip = async (remark?: string) => {
@@ -779,7 +810,6 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Accept, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
-                            <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-2 rounded-xl px-4"><Pencil className="h-4 w-4" /> Edit Answer</Button>
                             {
                                 question?.isHidden !== true && <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
                             }
@@ -799,22 +829,23 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 {isUpdating ? "Submitting AI Answer..." : "Accept"}
                             </Button>
 
-                            {/*question.status == "duplicate" &&*/}
-                            <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                onClick={handlePushToGDB}
-                                disabled={isUpdating || !editedAnswerBody.trim()}
-                                className="gap-2 rounded-xl px-4"
-                            >
-                                {isUpdating ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <CheckCircle className="h-4 w-4" />
-                                )}
-                                {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
-                            </Button>
+                            {question.status === "duplicate" && (
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={handlePushToGDB}
+                                    disabled={isUpdating || !editedAnswerBody.trim()}
+                                    className="gap-2 rounded-xl px-4"
+                                >
+                                    {isUpdating ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <CheckCircle className="h-4 w-4" />
+                                    )}
+                                    {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
+                                </Button>
+                            )}
 
                         </div>
                     </div>
@@ -838,6 +869,13 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 onPdfSourcesChange={setEditedPdfSources}
                 onSave={handleSaveEdit}
                 onCancel={handleCancelEdit}
+                saveLabel={
+                    pendingApprovalAction === "push-to-gdb"
+                        ? "Push to GDB"
+                        : pendingApprovalAction === "accept"
+                            ? "Approve"
+                            : "Save Changes"
+                }
             />
 
             <AlertDialog open={confirmDialog.open} onOpenChange={(open) => {
@@ -913,6 +951,7 @@ interface EditAnswerModalProps {
     onSave: () => void;
     onCancel: () => void;
     initialTranslatedText?: string;
+    saveLabel?: string;
 }
 
 const EditAnswerModal = ({
@@ -927,6 +966,7 @@ const EditAnswerModal = ({
     onSave,
     onCancel,
     initialTranslatedText,
+    saveLabel = "Save Changes",
 }: EditAnswerModalProps) => {
     const [pendingAction, setPendingAction] = useState<'save' | 'cancel' | null>(null);
     const [translatedText, setTranslatedText] = useState<string>(initialTranslatedText ?? "");
@@ -950,15 +990,26 @@ const EditAnswerModal = ({
     const addPdfSource = () =>
         onPdfSourcesChange([...editedPdfSources, { name: '', link: '', pages: '', sourceType: '' }]);
 
+    const isZohoWorkDriveUrl = (url: string): boolean => {
+        try {
+            const hostname = new URL(url.trim()).hostname.toLowerCase();
+            return hostname.includes("zoho") && hostname.includes("workdrive");
+        } catch {
+            return false;
+        }
+    };
+
     const validateSources = (): boolean => {
         for (const spec of editedSpecialists) {
             if (!spec.name.trim()) { toast.error("Each agri specialist must have a name."); return false; }
             if (!spec.sourceLink.trim()) { toast.error("Each agri specialist must have a source URL."); return false; }
+            if (!isZohoWorkDriveUrl(spec.sourceLink)) { toast.error("Only Zoho WorkDrive URLs are allowed for sources."); return false; }
         }
         for (const src of editedPdfSources) {
             if (!src.name.trim()) { toast.error("Each reference source must have a name."); return false; }
             if (!src.sourceType.trim()) { toast.error("Each reference source must have a source type selected."); return false; }
             if (!src.link.trim()) { toast.error("Each reference source must have a source URL."); return false; }
+            if (!isZohoWorkDriveUrl(src.link)) { toast.error("Only Zoho WorkDrive URLs are allowed for sources."); return false; }
         }
         return true;
     };
@@ -1067,16 +1118,9 @@ const EditAnswerModal = ({
                             <Button type="button" variant="outline" size="sm" onClick={() => setPendingAction('cancel')} className="gap-2 rounded-xl">
                                 <X className="h-4 w-4" /> Cancel
                             </Button>
-                            <Button type="button" size="sm" onClick={() => { if (validateSources()) setPendingAction('save'); }} className="gap-2 rounded-xl" disabled={!editedAnswerBody.trim()}>
-                                <Save className="h-4 w-4" /> Save Changes
+                            <Button type="button" size="sm" onClick={() => { if (validateSources()) onSave(); }} className="gap-2 rounded-xl" disabled={!editedAnswerBody.trim()}>
+                                <CheckCircle className="h-4 w-4" /> {saveLabel}
                             </Button>
-                        </>
-                    )}
-                    {pendingAction === 'save' && (
-                        <>
-                            <span className="text-sm text-muted-foreground mr-auto">Save changes?</span>
-                            <Button type="button" variant="outline" size="sm" onClick={() => setPendingAction(null)} className="rounded-xl">Go back</Button>
-                            <Button type="button" size="sm" onClick={() => { setPendingAction(null); onSave(); }} className="rounded-xl">Yes, save</Button>
                         </>
                     )}
                     {pendingAction === 'cancel' && (
