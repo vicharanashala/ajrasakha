@@ -24,8 +24,13 @@ import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
 
 const app = express();
 
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok' });
+app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV,
+  });
 });
 
 app.use(loggingHandler);
