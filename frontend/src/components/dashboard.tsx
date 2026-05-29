@@ -66,7 +66,10 @@ export const Dashboard = () => {
   const [analyticsType, setAnalyticsType] = useState<"question" | "answer">(
     "question"
   );
-  const [analyticsStatus, setAnalyticsStatus] = useState<string>("all");
+  const [analyticsStatus, setAnalyticsStatus] = useState<string[]>([]);
+  const [analyticsState, setAnalyticsState] = useState<string[]>([]);
+  const [analyticsSource, setAnalyticsSource] = useState<string[]>([]);
+  const [analyticsCrop, setAnalyticsCrop] = useState<string[]>([]);
 
   // ---- Heat map state filters ----- //
   const [heatMapDate, setHeatMapDate] = useState<DateRange>({
@@ -90,12 +93,16 @@ export const Dashboard = () => {
   const { data: contributionData, isLoading: isContributionLoading } = useGetContributionTrend(timeRange);
   const { data: statusData, isLoading: isStatusLoading } = useGetStatusOverview();
   const { data: expertData, isLoading: isExpertLoading } = useGetExpertPerformance();
-  const { data: analyticsData, isLoading: isAnalyticsLoading } = useGetQuestionsAnalytics({
+  const { data: analyticsData, isLoading: isAnalyticsLoading, isFetching: isAnalyticsFetching } = useGetQuestionsAnalytics({
     type: analyticsType,
     startTime: date.startTime,
     endTime: date.endTime,
     status: analyticsStatus,
+    state: analyticsState,
+    source: analyticsSource,
+    crop: analyticsCrop,
   });
+
 
   const handleHeatMapDateChange = (key: string, value?: Date) => {
     setHeatMapDate((prev) => ({
@@ -127,9 +134,9 @@ export const Dashboard = () => {
     text: string;
     children: React.ReactNode;
   }) => (
-    <div className="relative overflow-hidden rounded-xl min-h-[300px]">
+    <div className={`relative overflow-hidden rounded-xl min-h-[300px] transition-all duration-300 ${loading ? "opacity-50 blur-sm pointer-events-none" : ""}`}>
       {loading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-xl">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-xl">
           <Spinner text={text} fullScreen={false} />
         </div>
       )}
@@ -295,7 +302,7 @@ export const Dashboard = () => {
         {/* Analytics Row */}
         <div className="mb-6">
           <LoadingWrapper
-            loading={isAnalyticsLoading}
+            loading={isAnalyticsLoading || isAnalyticsFetching}
             text="Fetching analytics data..."
           >
             <QuestionsAnalytics
@@ -305,8 +312,14 @@ export const Dashboard = () => {
               setAnalyticsType={setAnalyticsType}
               analyticsStatus={analyticsStatus}
               setAnalyticsStatus={setAnalyticsStatus}
+              analyticsState={analyticsState}
+              setAnalyticsState={setAnalyticsState}
+              analyticsSource={analyticsSource}
+              setAnalyticsSource={setAnalyticsSource}
+              analyticsCrop={analyticsCrop}
+              setAnalyticsCrop={setAnalyticsCrop}
               data={
-                analyticsData ?? { cropData: [], stateData: [], domainData: [] }
+                analyticsData ?? { cropData: [], stateData: [], domainData: [], tableData: [] }
               }
             />
           </LoadingWrapper>

@@ -8,7 +8,7 @@ import {
   calcWeeklyDelta,
   calcMonthlyDelta,
 } from "../utils/dashboardHelpers";
-import type { DailyEntry } from "../utils/dashboardHelpers";
+import type { DailyEntry, AnalyticsEntry } from "../utils/dashboardHelpers";
 import type { DashboardFilterValues } from "../DashboardFilters";
 import type { DemographicEntry, FeedbackData } from "../types";
 import type { IPlatformInstallEntry } from "../types";
@@ -37,9 +37,9 @@ interface DashboardApiResponse {
     month: string;
     avgSessionDurationMin: number;
   }>;
-  dailyQueries: DailyEntry[];
-  weeklyQueries: Array<{ week: string; count: number }>;
-  monthlyQueries: Array<{ month: string; count: number }>;
+  dailyQueries: AnalyticsEntry[];
+  weeklyQueries: AnalyticsEntry[];
+  monthlyQueries: AnalyticsEntry[];
   channelSplit: any[];
   voiceAccuracy: any[];
   geo: any[];
@@ -55,6 +55,23 @@ interface DashboardApiResponse {
   feedbackData: FeedbackData;
   dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;
   topFaqs?: Array<{ question: string; count: number }>;
+  responseAdherenceTable?: {
+    whatsappQuestionAsked: number;
+    ajrasakhaQuestionAsked: number;
+    whatsappAnsweredWithin120Min: number;
+    ajrasakhaAnsweredWithin120Min: number;
+    whatsappAverageResponseMinutes: number;
+    ajrasakhaAverageResponseMinutes: number;
+    whatsappInProcessCount: number;
+    ajrasakhaInProcessCount: number;
+    whatsappAdherencePct: number;
+    ajrasakhaAdherencePct: number;
+  };
+  querySummaries?: {
+    daily: { label: string; totalQueries: number };
+    weekly: { label: string; totalQueries: number };
+    monthly: { label: string; totalQueries: number };
+  };
 }
 
 // ── Date range label helpers ──────────────────────────────────────────────────
@@ -141,6 +158,8 @@ function weeklyRange(entries: Array<{ week: string }>): string {
 
 function transformApiResponse(
   result: DashboardApiResponse,
+  source: "vicharanashala" | "annam" | "whatsapp" = "vicharanashala",
+  userType: "all" | "external" | "internal" = "all",
 ): DashboardDataType & {
   inactiveUsersLast3Days: number;
   duplicateQuestionsCount: number;
@@ -218,6 +237,7 @@ function transformApiResponse(
             dir: "neutral" as const,
           };
         })();
+  void sessionMonthlyDelta;
 
   const sessionSparkPoints =
     sessionWeekly.length > 0
@@ -236,36 +256,37 @@ function transformApiResponse(
 
   // Daily queries: true week-over-week delta (last 7 days vs prior 7 days)
   const queryTrend = result.dailyQueries ?? [];
-  const queryDelta = calcWeeklyDelta(queryTrend);
+  const queryDelta = calcWeeklyDelta(queryTrend.map(q => ({ day: q.period, count: q.queryCount })));
   const monthQueryTrend = result.monthlyQueries ?? [];
-  const queryMonthlyDelta = calcMonthlyDelta(monthQueryTrend);
+  const queryMonthlyDelta = calcMonthlyDelta(monthQueryTrend.map(q => ({ month: q.period, count: q.queryCount })));
   // Sparkline: use all-time weekly totals as data points
   const weeklyQueryData = result.weeklyQueries ?? [];
   const querySparkPoints =
     weeklyQueryData.length > 0
-      ? weeklyQueryData.map((w) => w.count)
+      ? weeklyQueryData.map((w) => w.queryCount)
       : (DASHBOARD_DATA.kpiRow1.find((c) => c.id === "queries")?.sparkPoints ??
         []);
 
   const monthlyQueryData = result.monthlyQueries ?? [];
 
   const monthlyQuerySparkPoints =
-    monthlyQueryData.length > 0 ? monthlyQueryData.map((m) => m.count) : [];
+    monthlyQueryData.length > 0 ? monthlyQueryData.map((m) => m.queryCount) : [];
 
   const monthlyQueryLabels = monthlyQueryData.map((m) =>
-    fmtMonthLabel(m.month),
+    fmtMonthLabel(m.period),
   );
 
   const dauRange = monthlyRange(result.dau);
-  const queryRange = dailyRange(queryTrend);
+  const queryRange = dailyRange(queryTrend.map(q => ({ day: q.period, count: q.queryCount })));
   const sessionRange = weeklyRange(sessionWeekly);
 
   // parse handles both YYYY-MM (monthly DAU) and YYYY-MM-DD (daily queries)
   const parseDay = (s: string) =>
     new Date((s.length === 7 ? s + "-01" : s) + "T00:00:00");
   const dauLabels = result.dau.map((d) => fmtMonthYear(parseDay(d.day)));
-  const queryLabels = queryTrend.map((d) => fmtDayWithWeek(parseDay(d.day)));
+  const queryLabels = queryTrend.map((d) => fmtDayWithWeek(parseDay(d.period)));
   const sessionLabels = sessionWeekly.map((w) => fmtWeekLabel(w.week));
+  void queryLabels;
 
   updatedData.ageGroups = result.ageGroups ?? [];
   updatedData.genderSplit = result.genderSplit ?? [];
@@ -299,12 +320,13 @@ function transformApiResponse(
     if (card.id === "dau") {
       return {
         ...card,
-        value: result.kpi.dau.toString(), // raw number, no formatting
+        value: result.kpi.totalAppInstalls.toString(), // raw number, no formatting
         delta: delta.text,
         deltaDir: delta.dir,
         sparkPoints,
         sparkLabels: dauLabels,
         dateRange: dauRange,
+        userType,
       };
     }
     if (card.id === "queries") {
@@ -316,10 +338,10 @@ function transformApiResponse(
         monthlyDelta: queryMonthlyDelta.text,
         monthlyDeltaDir: queryMonthlyDelta.dir,
         sparkPoints: querySparkPoints,
-        sparkLabels: weeklyQueryData.map((w) => fmtWeekLabel(w.week)),
-        dailySparkPoints: queryTrend.map((d) => d.count),
+        sparkLabels: weeklyQueryData.map((w) => fmtWeekLabel(w.period)),
+        dailySparkPoints: queryTrend.map((d) => d.queryCount),
         dailySparkLabels: queryTrend.map((d) => {
-          const date = parseDay(d.day);
+          const date = parseDay(d.period);
           return date.toLocaleString("en-IN", {
             month: "short",
             day: "numeric",
@@ -328,6 +350,12 @@ function transformApiResponse(
         monthlySparkPoints: monthlyQuerySparkPoints,
         monthlySparkLabels: monthlyQueryLabels,
         dateRange: queryRange,
+        dailyAnalytics: queryTrend,
+        weeklyAnalytics: weeklyQueryData,
+        monthlyAnalytics: monthlyQueryData,
+        source,
+        userType,
+        querySummaries: result.querySummaries,
       };
     }
     if (card.id === "session") {
@@ -365,21 +393,35 @@ function transformApiResponse(
   (updatedData as any).repeatQueryCount = result.kpi.repeatQueryCount ?? 0;
   (updatedData as any).repeatQueryRatePct = result.kpi.repeatQueryRatePct ?? 0;
   (updatedData as any).avgQuestionsPerUserDay = result.kpi.avgQuestionsPerUserDay ?? 0;
+  (updatedData as any).responseAdherenceTable = result.responseAdherenceTable ?? {
+    whatsappQuestionAsked: 0,
+    ajrasakhaQuestionAsked: 0,
+    whatsappAnsweredWithin120Min: 0,
+    ajrasakhaAnsweredWithin120Min: 0,
+    whatsappAverageResponseMinutes: 0,
+    ajrasakhaAverageResponseMinutes: 0,
+    whatsappInProcessCount: 0,
+    ajrasakhaInProcessCount: 0,
+    whatsappAdherencePct: 0,
+    ajrasakhaAdherencePct: 0,
+  };
 
   return updatedData;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Custom hook to fetch and transform dashboard data based on filters
 export function useDashboardData(
   filters?: DashboardFilterValues,
-  source: "vicharanashala" | "annam" = "vicharanashala",
+  source: "vicharanashala" | "annam" | "whatsapp"= "vicharanashala",
+  enabled?: boolean
 ) {
   const startISO = filters?.startTime?.toISOString();
   const endISO = filters?.endTime?.toISOString();
   const userType = filters?.userType ?? "all";
 
-  const { data, isLoading, error } = useQuery<DashboardDataType, Error>({
+  const { data, isLoading, isFetching, error } = useQuery<DashboardDataType, Error>({
     queryKey: [
       "dashboard-data",
       filters?.village ?? "all",
@@ -390,6 +432,7 @@ export function useDashboardData(
       source,
       userType,
     ],
+    enabled,
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
@@ -413,7 +456,7 @@ export function useDashboardData(
       );
 
       if (result) {
-        return transformApiResponse(result);
+        return transformApiResponse(result, source, userType);
       }
 
       // Fallback to mock data if API returns nothing
@@ -424,5 +467,5 @@ export function useDashboardData(
   // Use memoized fallback so consumers always get a stable reference
   const safeData = useMemo(() => data ?? DASHBOARD_DATA, [data]);
 
-  return { data: safeData, isLoading, error: error ?? null };
+  return { data: safeData, isLoading, isFetching, error: error ?? null };
 }

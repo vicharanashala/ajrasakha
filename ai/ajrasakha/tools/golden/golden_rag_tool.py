@@ -1,32 +1,31 @@
 import os
 import asyncio
 import json
-from typing import List, Optional
+from typing import Any, List, Optional
 from mcp.server.fastmcp import FastMCP
 
+import httpx
 from bson import ObjectId
-from langchain.tools import tool
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient
+from dotenv import load_dotenv
 
-from ajrasakha.utils import get_mongodb_vector_store, get_huggingface_embedding_model
+load_dotenv()
 
-EMBEDDING_MODEL = os.getenv("GOLDEN_EMBEDDING_MODEL")
+EMBEDDING_ENDPOINT = os.getenv("GOLDEN_EMBEDDING_ENDPOINT", "http://100.100.108.43:6001/embed")
+EMBEDDING_TIMEOUT_S = float(os.getenv("GOLDEN_EMBEDDING_TIMEOUT_S", "15"))
 MONGODB_URI = os.getenv("GOLDEN_MONGODB_URI")
-MONGODB_DATABASE = os.getenv("GOLDEN_MONGODB_DATABASE")
-MONGODB_COLLECTION = os.getenv("GOLDEN_MONGODB_COLLECTION")
+MONGODB_DATABASE = os.getenv("GOLDEN_MONGODB_DATABASE", "agriai")
+MONGODB_COLLECTION = os.getenv("GOLDEN_MONGODB_COLLECTION", "questions")
 MONGODB_VECTOR_INDEX = os.getenv("GOLDEN_MONGODB_INDEX")
-MONGODB_SEARCH_INDEX = os.getenv("GOLDEN_MONGODB_SEARCH_INDEX")
-
-embedding_model = get_huggingface_embedding_model(EMBEDDING_MODEL)
-vector_store = get_mongodb_vector_store(
-    embedding_model,
-    MONGODB_URI,
-    MONGODB_DATABASE,
-    MONGODB_COLLECTION,
-    MONGODB_VECTOR_INDEX,
-)
+MONGODB_SEARCH_INDEX = os.getenv("GOLDEN_MONGODB_SEARCH_INDEX", "review_questions_search_index")
+if not MONGODB_URI:
+    raise RuntimeError("GOLDEN_MONGODB_URI is not set")
+if not MONGODB_VECTOR_INDEX:
+    raise RuntimeError("GOLDEN_MONGODB_INDEX is not set")
+if not MONGODB_SEARCH_INDEX:
+    raise RuntimeError("GOLDEN_MONGODB_SEARCH_INDEX is not set")
 
 mongo_client = AsyncMongoClient(MONGODB_URI)
 database = mongo_client[MONGODB_DATABASE]
@@ -57,10 +56,72 @@ def _normalize_crop_state(crop: str, state: str) -> tuple[str, str]:
     return crop, state
 
 
+def _author_display_name(user_document: dict | None) -> Optional[str]:
+    """Full expert name: name field, else firstName + lastName."""
+    if not user_document:
+        return None
+    name = (user_document.get("name") or "").strip()
+    if name:
+        return name
+    first = (user_document.get("firstName") or "").strip()
+    last = (user_document.get("lastName") or "").strip()
+    full = " ".join(part for part in (first, last) if part)
+    return full or None
+
+
+async def _embed_text(text: str) -> list[float]:
+    payload = {"text": text}
+    timeout = httpx.Timeout(EMBEDDING_TIMEOUT_S)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.post(
+            EMBEDDING_ENDPOINT,
+            headers={"Content-Type": "application/json"},
+            json=payload,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    embedding = data.get("embedding")
+    if not isinstance(embedding, list) or not embedding:
+        raise ValueError("Embedding endpoint returned invalid 'embedding'")
+    return embedding
+
+
+async def _vector_search_questions(
+    *,
+    query_vector: list[float],
+    k: int,
+    meta_filter: dict[str, Any],
+) -> list[dict[str, Any]]:
+    pipeline: list[dict[str, Any]] = [
+        {
+            "$vectorSearch": {
+                "index": MONGODB_VECTOR_INDEX,
+                "path": "embedding",
+                "queryVector": query_vector,
+                "numCandidates": max(50, k * 10),
+                "limit": k,
+                "filter": meta_filter,
+            }
+        },
+        {
+            "$project": {
+                "_id": 1,
+                "question": 1,
+                "text": 1,
+                "details": 1,
+                "vector_score": {"$meta": "vectorSearchScore"},
+            }
+        },
+    ]
+    cursor = await questions_collection.aggregate(pipeline)
+    return await cursor.to_list(length=k)
+
+
 async def _get_answer_text_sources_and_author_name(question_id: str):
     answer_document = await answers_collection.find_one(
         {
-            "questionId": ObjectId(question_id)
+            "questionId": ObjectId(question_id),
+            "isFinalAnswer": True,
         },
         {
             "sources": 1,
@@ -68,14 +129,20 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
             "answer": 1,
         },
     )
-    user_document = await users_collection.find_one(
-        {
-            "_id": ObjectId(answer_document["authorId"])
-        }
-    )
-    author_name = user_document['firstName']
-    sources = answer_document["sources"]
-    answer = answer_document["answer"]
+    if not answer_document:
+        return None, [], None
+
+    author_name = None
+    author_id = answer_document.get("authorId")
+    if author_id:
+        user_document = await users_collection.find_one(
+            {"_id": ObjectId(author_id)},
+            {"firstName": 1, "lastName": 1, "name": 1},
+        )
+        author_name = _author_display_name(user_document)
+
+    sources = answer_document.get("sources")
+    answer = answer_document.get("answer")
 
     return answer, sources, author_name
 
@@ -107,19 +174,20 @@ async def golden_retriever_tool(
     if domain:
         filters["details.domain"] = domain
 
-    # Run in asyncio.to_thread because langchain vector_store performs synchronous socket calls
-    docs = await asyncio.to_thread(
-        vector_store.similarity_search_with_score, query, k=5, pre_filter=filters
-    )
+    query_vector = await _embed_text(query)
+    docs = await _vector_search_questions(query_vector=query_vector, k=5, meta_filter=filters)
     result = []
     for doc in docs:
-        document, score = doc
+        score = doc.get("vector_score")
+        question_id = str(doc["_id"])
         answer, sources, author_name = await _get_answer_text_sources_and_author_name(
-            document.metadata['_id']
+            question_id
         )
+        if not answer:
+            continue
         question_answer_pair = QuestionAnswerPair(
-            question_id=document.metadata['_id'],
-            question_text=document.metadata['question'],
+            question_id=question_id,
+            question_text=doc.get("question") or doc.get("text", ""),
             answer_text=answer,
             author=author_name,
             sources=sources,
@@ -246,6 +314,8 @@ async def golden_strict_exact_search_tool(
                 )
             except Exception:
                 continue
+            if not answer:
+                continue
 
             question_answer_pair = QuestionAnswerPair(
                 question_id=question_id,
@@ -351,6 +421,8 @@ async def golden_exact_search_tool(
         except Exception:
             # Answer may not exist yet for some questions — skip gracefully
             continue
+        if not answer:
+            continue
 
         question_answer_pair = QuestionAnswerPair(
             question_id=question_id,
@@ -370,7 +442,7 @@ def _parse_sources(sources_raw, author_name) -> list[dict]:
     author = author_name or "Unknown"
     if not sources_raw:
         details.append({
-            "source_name": "Database Document",
+            "source_name": None,
             "source_link": "",
             "author_name": author
         })
@@ -381,7 +453,7 @@ def _parse_sources(sources_raw, author_name) -> list[dict]:
             i = 0
             while i < len(sources_raw):
                 link = sources_raw[i]
-                name = sources_raw[i+1] if i + 1 < len(sources_raw) else "Database Document"
+                name = sources_raw[i+1] if i + 1 < len(sources_raw) else None
                 details.append({
                     "source_name": name,
                     "source_link": link,
@@ -392,19 +464,19 @@ def _parse_sources(sources_raw, author_name) -> list[dict]:
             for s in sources_raw:
                 if isinstance(s, dict):
                     details.append({
-                        "source_name": s.get("source_name") or s.get("name") or "Database Document",
-                        "source_link": s.get("source") or s.get("link") or s.get("url") or "",
+                        "source_name": s.get("source_name") or s.get("name") or None,
+                        "source_link": s.get("source_link") or s.get("source") or s.get("link") or s.get("url") or "",
                         "author_name": author
                     })
                 elif isinstance(s, str):
                     details.append({
-                        "source_name": "Database Document",
+                        "source_name": None,
                         "source_link": s,
                         "author_name": author
                     })
     else:
         details.append({
-            "source_name": "Database Document",
+            "source_name": None,
             "source_link": str(sources_raw),
             "author_name": author
         })

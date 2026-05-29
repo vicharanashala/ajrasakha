@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import {
   JsonController,
   Get,
+  Post,
   HttpCode,
   QueryParams,
   Authorized,
@@ -10,6 +11,9 @@ import {
   QueryParam,
   Delete,
   Param,
+  Patch,
+  Body,
+  BadRequestError,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -17,8 +21,10 @@ import { CHATBOT_TYPES } from '../types.js';
 import type { IChatbotService } from '../interfaces/IChatbotService.js';
 import {
   DashboardQueryDto,
+  QueryAnalyticsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
+  WeatherConcernAnalyticsQueryDto,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -33,7 +39,9 @@ import {
   TopCropsResponse,
   DistrictAnalyticsEntryResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
-import { GrowthQuery, GrowthResponse } from '../types/chatbot.type.js';
+import { ActiveUsersQuery, GrowthQuery, GrowthResponse, RetentionMetricsQuery } from '../types/chatbot.type.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { UserService } from '#root/modules/user/services/UserService.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -45,6 +53,9 @@ export class ChatbotController {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotService)
     private readonly chatbotService: IChatbotService,
+
+    @inject(GLOBAL_TYPES.UserService)
+    private readonly userService: UserService,
   ) {}
 
   @OpenAPI({ 
@@ -73,6 +84,27 @@ export class ChatbotController {
       query.userType,
       query.startTime,
       query.endTime,
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Get paginated total query analytics',
+    description: 'Returns filtered daily, weekly, or monthly total query analytics for the dashboard modal.',
+  })
+  @Get('/query-analytics')
+  @HttpCode(200)
+  @Authorized()
+  async getQueryAnalytics(@QueryParams() query: QueryAnalyticsQueryDto) {
+    return this.chatbotService.getQueryAnalytics(
+      query.period,
+      {
+        month: query.month,
+        year: query.year,
+        page: query.page,
+        limit: query.limit,
+        source: query.source,
+        userType: query.userType,
+      },
     );
   }
 
@@ -258,6 +290,29 @@ async getDistrictAnalyticsByState(
     return this.chatbotService.getQueryCategories(query.source, query.userType);
   }
 
+  @OpenAPI({
+    summary: 'Get weather concern analytics',
+    description: 'Returns weather concern percentages from weather tool messages filtered by season and farmer location.',
+  })
+  @Get('/weather-concerns')
+  @HttpCode(200)
+  @Authorized()
+  async getWeatherConcernAnalytics(@QueryParams() query: WeatherConcernAnalyticsQueryDto) {
+    return this.chatbotService.getWeatherConcernAnalytics(
+      {
+        season: query.season,
+        state: query.state,
+        district: query.district,
+        block: query.block,
+        village: query.village,
+        startDate: query.startDate,
+        endDate: query.endDate,
+      },
+      query.source,
+      query.userType,
+    );
+  }
+
   @OpenAPI({ 
     summary: 'Get top crops by questions',
     description: 'Retrieves top crops aggregated from questions and duplicate_questions, excluding agri_expert source.',
@@ -277,8 +332,8 @@ async getDistrictAnalyticsByState(
   @Get('/top-crops')
   @HttpCode(200)
   @Authorized()
-  async getTopCrops() {
-    return this.chatbotService.getTopCrops();
+  async getTopCrops(@QueryParams() query: {source?: string },) {
+    return this.chatbotService.getTopCrops(query.source);
   }
 
   @OpenAPI({ 
@@ -327,6 +382,7 @@ async getDistrictAnalyticsByState(
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
     const inactiveOnly = query.inactiveOnly === 'true';
     const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
+    const activeTodayByProfile = query.activeTodayByProfile === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
       query.endDate,
@@ -342,30 +398,137 @@ async getDistrictAnalyticsByState(
       query.userType,
       query.sortBy,
       query.sortOrder,
+      activeTodayByProfile,
     );
   }
 
+  // @Get('/download-chatbot-report')
+  // @Authorized()
+  // @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  // @OpenAPI({ summary: 'Download chatbot conversations as Excel (date range, max 1 month)' })
+  // async downloadChatbotReport(
+  //   @QueryParams() query: { startDate?: string; endDate?: string; source?: string; downloadFormat?: string },
+  //   @Res() response: any,
+  // ) {
+  //   if (!query.startDate || !query.endDate) {
+  //     response.status(400).json({ success: false, message: 'startDate and endDate are required' });
+  //     return;
+  //   }
+  //   const startDate = new Date(query.startDate);
+  //   const endDate = new Date(query.endDate);
+  //   const data = await this.chatbotService.generateChatbotExcelReport(startDate, endDate, query.source);
+  //   if (!data) {
+  //     response.status(200).json({ success: false, message: 'No data found for the selected date range' });
+  //     return;
+  //   }
+  //   return Buffer.from(data as ArrayBuffer);
+  // }
+
   @Get('/download-chatbot-report')
-  @Authorized()
-  @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  @OpenAPI({ summary: 'Download chatbot conversations as Excel (date range, max 1 month)' })
-  async downloadChatbotReport(
-    @QueryParams() query: { startDate?: string; endDate?: string; source?: string },
-    @Res() response: any,
-  ) {
+@Authorized()
+@OpenAPI({
+  summary:
+    'Download chatbot analytics report as Excel or PDF',
+})
+async downloadChatbotReport(
+  @QueryParams()
+  query: {
+    startDate?: string;
+    endDate?: string;
+    source?: string;
+    downloadFormat?: 'pdf' | 'xlsx';
+    state?: string
+  },
+
+  @Res() response: any,
+) {
+  try {
     if (!query.startDate || !query.endDate) {
-      response.status(400).json({ success: false, message: 'startDate and endDate are required' });
-      return;
+      return response.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required',
+      });
     }
+
     const startDate = new Date(query.startDate);
     const endDate = new Date(query.endDate);
-    const data = await this.chatbotService.generateChatbotExcelReport(startDate, endDate, query.source);
-    if (!data) {
-      response.status(200).json({ success: false, message: 'No data found for the selected date range' });
-      return;
+    const state = query.state
+    const format = query.downloadFormat || 'xlsx';
+
+    console.log("state is", state)
+
+    let data: ArrayBuffer | Buffer | null = null;
+
+    // ─────────────────────────────────────
+    // PDF
+    // ─────────────────────────────────────
+
+    if (format === 'pdf') {
+      data =
+        await this.chatbotService.generateChatbotAnalyticsPdfReport(
+          startDate,
+          endDate,
+          state,
+          query.source,
+        );
+
+      if (!data) {
+        return response.status(200).json({
+          success: false,
+          message:
+            'No data found for selected date range',
+        });
+      }
+
+      response.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition':
+          `attachment; filename=chatbot-report-${Date.now()}.pdf`,
+      });
+
+      return response.send(data);
     }
-    return Buffer.from(data as ArrayBuffer);
+
+    // ─────────────────────────────────────
+    // EXCEL
+    // ─────────────────────────────────────
+
+    data =
+      await this.chatbotService.generateChatbotAnalyticsExcelReport(
+        startDate,
+        endDate,
+        state,
+        query.source,
+      );
+
+    if (!data) {
+      return response.status(200).json({
+        success: false,
+        message:
+          'No data found for selected date range',
+      });
+    }
+
+    response.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+
+      'Content-Disposition':
+        `attachment; filename=chatbot-report-${Date.now()}.xlsx`,
+    });
+
+    return response.send(Buffer.from(data));
+  } catch (error) {
+    return response.status(500).json({
+      success: false,
+      message: 'Failed to download report',
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Unknown error',
+    });
   }
+}
 
   @OpenAPI({ 
     summary: 'Get user growth metrics',
@@ -416,12 +579,12 @@ async getDistrictAnalyticsByState(
         throw new Error('startDate cannot be after endDate.');
       }
 
-      const data = await this.chatbotService.getGrowth(30, startDate, endDate);
+      const data = await this.chatbotService.getGrowth(query.source, 30, startDate, endDate);
       return data;
     }
 
     const range = Number(query.range) || 30;
-    const data = await this.chatbotService.getGrowth(range);
+    const data = await this.chatbotService.getGrowth(query.source, range);
     return data
   }
 
@@ -449,5 +612,213 @@ async getDistrictAnalyticsByState(
     }
     const success = await this.chatbotService.deleteUser(userId, source);
     return { success, message: success ? 'User deleted successfully' : 'Failed to delete user' };
+  }
+
+  @OpenAPI({
+    summary: 'Edit a farmer',
+    description: 'Updates editable farmer fields for a user in the selected source database.',
+  })
+  @Patch('/users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async updateUser(
+    @Param('userId') userId: string,
+    @QueryParam('source') source: string,
+    @Body()
+    body: {
+      name?: string;
+      role?: string;
+      farmerProfile?: {
+        farmerName?: string;
+        age?: number;
+        gender?: string;
+        villageName?: string;
+        blockName?: string;
+        district?: string;
+        state?: string;
+        phoneNo?: string;
+        languagePreference?: string;
+        yearsOfExperience?: number;
+        cropsCultivated?: string[];
+        primaryCrop?: string;
+        secondaryCrop?: string;
+        awarenessOfKCC?: boolean;
+        usesAgriApps?: boolean;
+        highestEducatedPerson?: string;
+        numberOfSmartphones?: number;
+        platform?: string;
+        landhold?: number;
+      };
+    },
+  ) {
+    if (!source) {
+      source = 'vicharanashala';
+    }
+    const success = await this.chatbotService.updateUser(userId, source, body);
+    return { success, message: success ? 'User updated successfully' : 'Failed to update user' };
+  }
+
+  @OpenAPI({
+    summary: 'Add a new farmer',
+    description: 'Creates a new farmer in the selected database source (restricted to annam/vicharanashala).',
+  })
+  @Post('/users')
+  @HttpCode(201)
+  @Authorized(['admin'])
+  async addUser(
+    @QueryParam('source') source: string,
+    @Body()
+    body: {
+      email: string;
+      name: string;
+      password: string
+      role?: string;
+    },
+  ) {
+    if (!source) {
+      source = 'vicharanashala';
+    }
+    if (source === 'whatsapp') {
+      throw new BadRequestError('Add farmer functionality is not supported for whatsapp source');
+    }
+    if (!body.email || !body.email.trim()) {
+      throw new BadRequestError('Email is required');
+    }
+    if (!body.name || !body.name.trim()) {
+      throw new BadRequestError('Name is required');
+    }
+    try {
+      const success = await this.chatbotService.addUser(source, body);
+      return { success, message: success ? 'User created successfully' : 'Failed to create user' };
+    } catch (error: any) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw error;
+    }
+  }
+
+  @Get('/daily-active-users-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getDailyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getDailyActiveUsersTrend( source, userType, startDate, endDate,);
+  }
+
+  @Get('/monthly-active-users-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getMonthlyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getMonthlyActiveUsersTrend( source, userType, startDate, endDate);
+  }
+
+  @Get('/weekly-active-users-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getWeeklyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getWeeklyActiveUsersTrend( source, userType, startDate, endDate);
+  }
+
+  @Get('/retention-metrics')
+  @HttpCode(200)
+  @Authorized()
+  async getRetentionMetrics(@QueryParams() query: RetentionMetricsQuery): Promise<any> {
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+    const requestType = query.requestType;
+
+    return await this.chatbotService.getRetentionMetrics(    
+      source,
+      userType,
+      requestType,
+      startDate,
+      endDate,
+    );
+  }
+
+@Get('/user-questions-data')
+@HttpCode(200)
+@Authorized()
+async getUserQuestionsData(
+  @QueryParam('userEmail') userEmail: string,
+
+  @QueryParam('source')
+  source: string= 'vicharanashala',  
+
+  @QueryParam('userType')
+  userType: string = 'all',
+
+  @QueryParam('page')
+  page: number = 1,
+
+  @QueryParam('limit')
+  limit: number = 10,
+): Promise<any> {
+
+  // const userData =
+  //   await this.userService.getUserByEmail(userEmail);
+
+  // if (!userData) {
+  //   throw new Error(
+  //     'User not found with the provided email.',
+  //   );
+  // }
+
+  // const userId = userData._id.toString();
+
+  return await this.chatbotService.getUserQuestionsData(
+    userEmail,
+    source,
+    userType,
+    Number(page),
+    Number(limit),
+  );
+}
+
+  @Get('/closed-notified-data')
+  @HttpCode(200)
+  @Authorized()
+  async getClosedAndNotifedData(
+    @QueryParam('source')
+    source: string= 'vicharanashala',
+  ): Promise<any> {
+    return await this.chatbotService.getClosedAndNotifedData(source);
   }
 }

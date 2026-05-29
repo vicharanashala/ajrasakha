@@ -1,3 +1,5 @@
+import { resolveEnv } from "./runtime-env";
+
 // Add all .env keys here
 type EnvKey =
   // Common
@@ -20,13 +22,17 @@ type EnvKey =
   | "VITE_INTERNAL_API_KEY"
 
   // Notification
-  | "VITE_VAPID_PUBLIC_KEY";
+  | "VITE_VAPID_PUBLIC_KEY"
+
+  // FAQ / POP processing servers
+  | "VITE_FAQ_API_URL"
+  | "VITE_POP_API_URL";
 
 /**
  * Internal getter (single source of truth)
  */
 function getEnv(key: EnvKey, required = true): string {
-  const value = import.meta.env[key];
+  const value = resolveEnv(key, import.meta.env[key]);
 
   if (!value && required) {
     alert("Missing required environment variable");
@@ -57,4 +63,6 @@ export const env = {
   vapidPublicKey: () => getEnv("VITE_VAPID_PUBLIC_KEY"),
 
   internalApiKey: () => getEnv("VITE_INTERNAL_API_KEY"),
+  faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false),
+  popApiUrl: () => getEnv("VITE_POP_API_URL", false),
 };

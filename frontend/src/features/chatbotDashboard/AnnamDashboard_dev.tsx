@@ -1,7 +1,8 @@
-import React, { useState, useRef, useCallback, useMemo, Suspense } from "react";
+import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
+import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
 import { DashboardSidebar } from "./DashboardSidebar";
 import type { DashboardView } from "./DashboardSidebar";
@@ -20,6 +21,7 @@ import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
+import { WhatsAppUsersView } from "./WhatsAppUsersView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
 // import { UserGrowthChart } from "./components/UserGrowthChart";
 const LazyUserGrowthChart = React.lazy(
@@ -35,7 +37,6 @@ import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
 import { Maximize2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
-import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
 import {
@@ -44,6 +45,24 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import FeedbackCard from "./FeedbackCard";
+import { ResponseAdherenceTableCard } from "./components/ResponseAdherenceTableCard";
+import { ActiveUsersChart } from "./active-users";
+import NewFilters, { type Filters } from "./NewFilters";
+import { WeatherConcernAnalyticsCard } from "./components/WeatherConcernAnalyticsCard";
+import {
+  DEFAULT_WEATHER_CONCERN_FILTERS,
+  type WeatherConcernFilters,
+} from "./hooks/useWeatherConcernAnalytics";
+import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
+import { useClosedAndNotifedData, useInactiveWhatsappUsers, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
+import { InactiveUsersModal } from "./InactiveUsersModal";
+import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
+import { motion, AnimatePresence } from "framer-motion";
+import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
+import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
+import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
+import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -54,16 +73,105 @@ const DEFAULT_FILTERS: DashboardFilterValues = {
   userType: "all",
 };
 
-export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam'; onSourceChange?: (source: 'vicharanashala' | 'annam') => void }) {
+const formatDateForInput = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseInputDateToLocalDate = (value: string): Date => {
+  if (!value) return new Date();
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
+
+
+const loadingSkeletonRows = [
+  {
+    cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-4",
+    items: [{ span: "", height: "140px" }, { span: "", height: "140px" }, { span: "", height: "140px" }, { span: "", height: "140px" }],
+  },
+  {
+    cols: "grid-cols-1 lg:grid-cols-3",
+    items: [{ span: "", height: "220px" }, { span: "", height: "220px" }, { span: "", height: "220px" }],
+  },
+  {
+    cols: "grid-cols-1 xl:grid-cols-4",
+    items: [
+      { span: "xl:col-span-3", height: "260px" },
+      { span: "", height: "260px" },
+    ],
+  },
+  {
+    cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-4",
+    items: [{ span: "", height: "180px" }, { span: "", height: "180px" }, { span: "", height: "180px" }, { span: "", height: "180px" }],
+  },
+  {
+    cols: "grid-cols-1 lg:grid-cols-3",
+    items: [{ span: "", height: "220px" }, { span: "", height: "220px" }, { span: "", height: "220px" }],
+  },
+  {
+    cols: "grid-cols-1 lg:grid-cols-2",
+    items: [{ span: "", height: "260px" }, { span: "", height: "260px" }],
+  },
+  {
+    cols: "grid-cols-1",
+    items: [{ span: "", height: "320px" }],
+  },
+  {
+    cols: "grid-cols-1 lg:grid-cols-2",
+    items: [{ span: "", height: "240px" }, { span: "", height: "240px" }],
+  },
+  {
+    cols: "grid-cols-1",
+    items: [{ span: "", height: "260px" }],
+  },
+  {
+    cols: "grid-cols-1",
+    items: [{ span: "", height: "300px" }],
+  },
+  {
+    cols: "grid-cols-1",
+    items: [{ span: "", height: "280px" }],
+  },
+];
+
+
+export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam' | 'whatsapp'; onSourceChange?: (source: 'vicharanashala' | 'annam' | 'whatsapp') => void }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-  const { data, isLoading, error } = useDashboardData(filters, source);
+  const { data, isLoading, isFetching, error } = useDashboardData(
+    filters,
+    source,
+    source === "annam" || source === "vicharanashala",
+  );
+  const [
+    inactiveUsersPage,
+    setInactiveUsersPage,
+  ] = useState(1);
+  const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage);
+  const {data: closedAndNotifedData} = useClosedAndNotifedData(source);
+  const [
+    isInactiveWhatsappModalOpen,
+    setIsInactiveWhatsappModalOpen,
+  ] = useState(false);
+  const handleWhatsappInactiveUsersClick =
+    useCallback(() => {
+      setInactiveUsersPage(1);
+      setIsInactiveWhatsappModalOpen(true);
+    }, []);
 
+  const {data: queryCategories} = useQueryCategories(source);
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
   const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
+  const [responseAdherenceDate, setResponseAdherenceDate] = useState<string>(
+    formatDateForInput(new Date()),
+  );
 
   const trendsFilters = useMemo(() => ({
     ...filters,
@@ -77,15 +185,63 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     endTime: faqsDateRange?.to,
   }), [filters, faqsDateRange]);
 
-  const { data: trendsData, isLoading: trendsLoading } = useDashboardData(trendsFilters, source);
-  const { data: faqsData, isLoading: faqsLoading } = useDashboardData(faqsFilters, source);
+  const { data: trendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDashboardData(
+    trendsFilters,
+    source,
+    true,
+  );
+  const { data: faqsData, isLoading: faqsLoading, isFetching: faqsFetching } = useDashboardData(
+    faqsFilters,
+    source,
+    true,
+  );
 
-  console.log("Dashboard data:", data);
+  const responseAdherenceFilters = useMemo(() => {
+    const selectedDate = parseInputDateToLocalDate(responseAdherenceDate);
+    const startTime = new Date(selectedDate);
+    startTime.setHours(0, 0, 0, 0);
+
+    const endTime = new Date(selectedDate);
+    const now = new Date();
+    const isSelectedToday =
+      selectedDate.getFullYear() === now.getFullYear() &&
+      selectedDate.getMonth() === now.getMonth() &&
+      selectedDate.getDate() === now.getDate();
+
+    if (isSelectedToday) {
+      endTime.setHours(
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds(),
+        now.getMilliseconds(),
+      );
+    } else {
+      endTime.setHours(23, 59, 59, 999);
+    }
+
+    return {
+      ...filters,
+      startTime,
+      endTime,
+    };
+  }, [filters, responseAdherenceDate]);
+
+  const {
+    data: responseAdherenceData,
+    isLoading: isResponseAdherenceLoading,
+    isFetching: isResponseAdherenceFetching,
+  } = useDashboardData(responseAdherenceFilters, source);
+
   const {
     data: dauTrend,
     isLoading: dauLoading,
     error: dauError,
-  } = useDailyUserTrend(30, source, filters.userType);
+  } = useDailyUserTrend(
+    30,
+    source,
+    filters.userType,
+    source === "annam" || source === "vicharanashala",
+  );
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
   >(undefined);
@@ -93,7 +249,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     data: topCrops,
     isLoading: isLoadingTopCrops,
     error: errorLoadingtopCrops,
-  } = useTopCrops();
+  } = useTopCrops(source);
   const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   const [hovered, setHovered] = useState<string | null>(null);
@@ -176,11 +332,35 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     setActiveView("user-details");
   }, []);
 
+  // Fetch today's active farmers to get accurate DAU count based on profile and lastActiveAt
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const { data: todayActiveFarmersData } = useUserDetails(
+    todayStart,
+    todayEnd,
+    1,
+    1,
+    '',
+    source as any,
+    '',
+    '',
+    'all',
+    false,
+    false,
+    filters.userType as any,
+    'totalQuestions',
+    'desc',
+    true // activeTodayByProfile
+  );
+
   // Patch the DAU card to show "today / total" instead of just total
   const patchedKpiRow1 = useMemo(() => {
     if (!data?.kpiRow1) return data.kpiRow1;
-    const todayCount =
-      dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
+    const todayCount = todayActiveFarmersData?.totalUsers ?? null;
     return data.kpiRow1.map((card) => {
       if (card.id === "dau" && todayCount !== null) {
         return {
@@ -190,24 +370,58 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
       }
       return card;
     });
-  }, [data.kpiRow1, dauTrend]);
+  }, [data.kpiRow1, todayActiveFarmersData?.totalUsers]);
 
   // Remove these two variables when data is dynamic
   const kpiRow1WithOverlay = patchedKpiRow1
-    .filter(card => dynamicIds.includes(card.id)) // Commented out dummy cards: filter only dynamic ones
-    .map(card => ({
+    .filter((card) => dynamicIds.includes(card.id)) // Commented out dummy cards: filter only dynamic ones
+    .map((card) => ({
       ...card,
       isDummy: !dynamicIds.includes(card.id),
     }));
 
   const kpiRow2WithOverlay = data.kpiRow2
-    .filter(card => card.id === "totalInstalls") // Commented out dummy cards: filter only totalInstalls
+    .filter((card) => card.id === "totalInstalls") // Commented out dummy cards: filter only totalInstalls
     .map((card) => ({
       ...card,
       // isDummy: false, // temporarily disabled for testing
       isDummy: card.id !== "totalInstalls",
     }));
 
+  const [newFilters, setNewFilters] = useState<Filters>({
+    sourceType: "application",
+    application: "annam",
+  });
+  const [weatherConcernFilters, setWeatherConcernFilters] =
+    useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
+
+
+const queryCard =
+  data?.kpiRow1?.find(
+    (card) => card.id === "queries"
+  );
+
+const dailyAnalytics =
+  queryCard?.dailyAnalytics || [];
+
+const weeklyAnalytics =
+  queryCard?.weeklyAnalytics || [];
+
+const monthlyAnalytics =
+  queryCard?.monthlyAnalytics || [];
+
+useEffect(() => {
+  if (source === "whatsapp") {
+    setFilters((prev) => ({
+      ...prev,
+      userType: "all",
+    }));
+  }
+}, [source]);
+
+
+
+const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -230,832 +444,710 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
               activeView={activeView}
               onViewChange={(view) => {
                 setActiveView(view);
+                scrollTo(view);
                 // Clear AlertCard's pre-set filters when navigating via sidebar
-                if (view === "user-details")
-                  setUserDetailsInitialFilters(undefined);
-                if (view !== "user-details") scrollTo(view);
+                // if (view === "user-details")
+                //   setUserDetailsInitialFilters(undefined);
+                // if (view !== "user-details") scrollTo(view);
               }}
               healthScore={70}
               healthLabel="Moderate · needs improvement"
               source={source}
             />
 
-            {activeView === "user-details" ? (
-              <UserDetailsView
-                source={source}
-                initialFilters={userDetailsInitialFilters}
-                userType={filters.userType}
-              />
-            ) : (
-              <div className="flex-1 overflow-y-auto px-5 pb-5">
-                {/* Source Selection Tabs & All Users Filter */}
-                <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onSourceChange?.('annam')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'annam'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                        }`}
-                    >
-                      Annam
-                    </button>
-                    <button
-                      onClick={() => onSourceChange?.('vicharanashala')}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${source === 'vicharanashala'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                        }`}
-                    >
-                      Vicharanashala
-                    </button>
-                    <button
-                      disabled
-                      className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
-                    >
-                      Outreach
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <SearchableSelect
-                      options={['External', 'Internal']}
-                      value={filters.userType === 'all' ? 'all' : filters.userType.charAt(0).toUpperCase() + filters.userType.slice(1)}
-                      onChange={(v) => setFilters(prev => ({ ...prev, userType: (v === 'all' ? 'all' : v.toLowerCase()) as DashboardFilterValues['userType'] }))}
-                      placeholder="All Users"
-                      className="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
-                      activeClassName="text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a]"
-                    />
-                  </div>
+            <div className="flex-1 overflow-y-auto px-5 pb-5">
+              {/* Source Selection Tabs & All Users Filter */}
+              <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
+                {/* Top Level Tabs */}
+                <div className="flex items-center gap-2">
+                  {/* Application Tab */}
+                  <button
+                    onClick={() =>
+                      setNewFilters((prev) => ({
+                        ...prev,
+                        sourceType: "application",
+                      }))
+                    }
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      newFilters.sourceType === "application"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }`}
+                  >
+                    Application
+                  </button>
+
+                  {/* Manual Tab (Muted/Disabled) */}
+                  <button
+                    disabled
+                    className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
+                  >
+                    Manual
+                  </button>
                 </div>
 
-                <DashboardFilters
-                  filters={filters}
-                  onFilterChange={setFilters}
-                />
-
-                {activeSegment && (
-                  <SegmentDetailBanner
-                    seg={activeSegment}
-                    onClose={clearSegment}
+                <div className="flex items-center ml-auto gap-1">
+                  <NewFilters
+                    filters={newFilters}
+                    onChange={setNewFilters}
+                    onSourceChange={onSourceChange}
                   />
-                )}
 
+                  <SearchableSelect
+                    options={
+                      source === "whatsapp" ? [] : ["External", "Internal"]
+                    }
+                    value={
+                      filters.userType === "all"
+                        ? "All Users"
+                        : filters.userType.charAt(0).toUpperCase() +
+                          filters.userType.slice(1)
+                    }
+                    onChange={(v) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        userType:
+                          v.toLowerCase() as DashboardFilterValues["userType"],
+                      }))
+                    }
+                    placeholder="All Users"
+                  />
+                </div>
+              </div>
+
+              <DashboardFilters filters={filters} onFilterChange={setFilters} />
+              {(source === "annam" ||
+                source === "vicharanashala" ||
+                source === "whatsapp") && (
                 <div
                   ref={(el) => {
                     sectionRefs.current["overview"] = el;
                   }}
                   className="relative"
                 >
-                  {isLoading && (
-                    <Spinner text="Fetching metrics..." fullScreen={false} />
+                  {activeSegment && (
+                    <SegmentDetailBanner
+                      seg={activeSegment}
+                      onClose={clearSegment}
+                    />
                   )}
 
-                  {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
-                  {/* Uncomment the above line when data is dynamic and delete the below code */}
-                  <EightCardsComponent
-                    kpiRow1={kpiRow1WithOverlay}
-                    kpiRow2={kpiRow2WithOverlay}
-                  />
-                </div>
+                  {isFetching && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center">
+                      {/* <Spinner
+                        text="Preparing dashboard insights and refreshing analytics..."
+                        fullScreen={false}
+                      /> */}
+                      {loadingSkeletonRows.map((row, rowIndex) => (
+                        <div
+                          key={rowIndex}
+                          className={`grid gap-5 ${row.cols}`}
+                        >
+                          {row.items.map((item, itemIndex) => (
+                            <Skeleton
+                              key={itemIndex}
+                              className={`w-full rounded-2xl ${item.span}`}
+                              style={{ height: item.height }}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {isLoading ? (
+                    <div className="space-y-5 animate-pulse">
+                      {loadingSkeletonRows.map((row, rowIndex) => (
+                        <div
+                          key={rowIndex}
+                          className={`grid gap-5 ${row.cols}`}
+                        >
+                          {row.items.map((item, itemIndex) => (
+                            <Skeleton
+                              key={itemIndex}
+                              className={`w-full rounded-2xl ${item.span}`}
+                              style={{ height: item.height }}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        ref={(el) => {
+                          sectionRefs.current["overview"] = el;
+                        }}
+                        className={`relative transition-all duration-300 }`}
+                      >
+                        {/* {(isLoading || isFetching) && (
+                      <div className="absolute inset-0 z-50 flex items-center justify-center">
+                        <Spinner text="Fetching metrics asdfasdfasdfads..." fullScreen={false} />
+                      </div>
+                    )} */}
 
-                {/* DAU trend + Alerts */}
-                <div
-                  ref={(el) => {
-                    sectionRefs.current["usage-patterns"] = el;
-                    growthRef.current = el;
-                  }}
-                  className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
-                >
-                  {/* <DailyActiveUsers
+                        {/* <EightCardsComponent
+                      kpiRow1={patchedKpiRow1}
+                      kpiRow2={data.kpiRow2}
+                    /> */}
+                        {/* Uncomment the above line when data is dynamic and delete the below code */}
+                        {(source === "annam" ||
+                          source === "vicharanashala") && (
+                          <EightCardsComponent
+                            kpiRow1={kpiRow1WithOverlay}
+                            kpiRow2={kpiRow2WithOverlay}
+                            source={source}
+                            isLoading={isFetching}
+                          />
+                        )}
+                        {source === "whatsapp" && (
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                            <WhatsAppAnalyticsCard
+                              title="Daily Queries"
+                              analytics={dailyAnalytics}
+                              granularity="daily"
+                              
+                            />
+
+                            <WhatsAppAnalyticsCard
+                              title="Weekly Queries"
+                              analytics={weeklyAnalytics}
+                              granularity="weekly"
+                              
+
+                            />
+
+                            <WhatsAppAnalyticsCard
+                              title="Monthly Queries"
+                              analytics={monthlyAnalytics}
+                              granularity="monthly"
+                              
+                            />
+                          </div>
+                        )}
+                        <div
+                          className={`grid gap-4 mb-6 ${
+                            source === "whatsapp"
+                              ? "grid-cols-1 lg:grid-cols-[1fr_1fr_1.4fr_1.4fr]"
+                              : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
+                          }`}
+                        >
+                          {source === "whatsapp" && (
+                            <WhatsAppUniqueUsersCard
+                              totalUsers={unqueWhatsAppUsers}
+                            />
+                          )}
+
+                          <ClosedInLastTwoHoursCard
+                            count={closedAndNotifedData?.closedInLastTwoHours}
+                            totalClosed={
+                              closedAndNotifedData?.closedVsTotalQuestions
+                                ?.closedQuestions
+                            }
+                          />
+                          <ClosedQuestionsCard
+                            closedQuestions={
+                              closedAndNotifedData?.closedVsTotalQuestions
+                                ?.closedQuestions
+                            }
+                            totalQuestions={
+                              closedAndNotifedData?.closedVsTotalQuestions
+                                ?.totalQuestions
+                            }
+                            inReview={
+                              closedAndNotifedData?.closedVsTotalQuestions
+                                ?.inReviewQuestions
+                            }
+                          />
+                          <CustomerNotificationsCard
+                            notified={
+                              closedAndNotifedData?.notifiedVsClosed?.notified
+                            }
+                            notNotified={
+                              closedAndNotifedData?.notifiedVsClosed
+                                ?.notNotified
+                            }
+                            untrackedClosedQuestions={
+                              closedAndNotifedData?.notifiedVsClosed
+                                ?.untrackedClosedQuestions
+                            }
+                          />
+                        </div>
+                        {source !== "whatsapp" && (
+                          <ResponseAdherenceTableCard
+                            data={
+                              (responseAdherenceData as any)
+                                .responseAdherenceTable ??
+                              (data as any).responseAdherenceTable
+                            }
+                            selectedDate={responseAdherenceDate}
+                            onSelectedDateChange={setResponseAdherenceDate}
+                            isLoading={
+                              isResponseAdherenceLoading ||
+                              isResponseAdherenceFetching
+                            }
+                          />
+                        )}
+                      </div>
+
+                      {/* DAU trend + Alerts */}
+                      <div
+                        ref={(el) => {
+                          sectionRefs.current["usage-patterns"] = el;
+                          growthRef.current = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
+                      >
+                        {/* <DailyActiveUsers
                     data={dauTrend}
                     isLoading={dauLoading}
                     error={dauError}
                   /> */}
-                  {isGrowthVisible ? (
-                    <Suspense fallback={<Spinner />}>
-                      <LazyUserGrowthChart />
-                    </Suspense>
-                  ) : (
-                    <div className="h-[300px] flex items-center justify-center text-gray-400">
-                      {/* <Spinner text="Loading chart..." /> */}
-                      <div className="h-[300px] bg-gray-100 dark:bg-[#1a1a1a] animate-pulse rounded-xl" />
-                    </div>
-                  )}
+                        {/* {isGrowthVisible ? source === "whatsapp" ?(<div className="h-full w-full blur-sm opacity-90"></div>):( */}
+                        {/* {isGrowthVisible ? ( */}
+                          <Suspense fallback={<Spinner />}>
+                            <LazyUserGrowthChart source={source} />
+                          </Suspense>
+                        {/* ) : (
+                          <div className="h-[300px] flex items-center justify-center text-gray-400">
+                            <div className="h-[300px] bg-gray-100 dark:bg-[#1a1a1a] animate-pulse rounded-xl" />
+                          </div>
+                        )} */}
 
-                  <div
-                    ref={(el) => {
-                      sectionRefs.current["bugs-ux"] = el;
-                    }}
-                  >
-                    <AlertCard
-                      alerts={data.alerts}
-                      inactiveUsersLast3Days={
-                        (data as any).inactiveUsersLast3Days ?? 0
-                      }
-                      onInactiveClick={handleInactiveUsersClick}
-                      duplicateQuestionsCount={
-                        (data as any).duplicateQuestionsCount ?? 0
-                      }
-                      onDuplicateClick={() => setIsDuplicateModalOpen(true)}
-                      lowFeedbackUsersCount={
-                        (data as any).lowFeedbackUsersCount ?? null
-                      }
-                      onLowFeedbackClick={handleLowFeedbackUsersClick}
-                    />
-                    {isDuplicateModalOpen && (
-                      <DuplicateQuestionsModal
-                        onClose={() => setIsDuplicateModalOpen(false)}
-                        source={source}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* Demographics */}
-                <div
-                  ref={(el) => {
-                    sectionRefs.current["demographics"] = el;
-                  }}
-                >
-                  <UserDemographicsSection
-                    data={{
-                      ageGroups: data.ageGroups,
-                      genderSplit: data.genderSplit,
-                      farmingExperience: data.farmingExperience,
-                      landHolding: (data as any).landHolding ?? [],
-                    }}
-                  />
-                </div>
-                {/* 2-col row */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4 items-stretch">
-                  <div className="lg:col-span-2">
-                    <PlatformDonutSegments rawData={data.platformInstalls} />
-                  </div>
-                  <div
-                    className="lg:col-span-2"
-                    ref={(el) => {
-                      sectionRefs.current["farmer-segments"] = el;
-                    }}
-                  >
-                    {/* Knowledge & Awareness */}
-                    <>
-                      <div className="rounded-xl border border-gray-200 bg-white dark:border-[#2a2a2a] dark:bg-[#1a1a1a] p-4 h-full relative">
-                        {/* Maximize Button */}
-                        <button
-                          onClick={() => setIsKnowledgeMaximized(true)}
-                          className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
-                          title="Maximize chart"
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["bugs-ux"] = el;
+                          }}
                         >
-                          <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                        </button>
-
-                        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
-                          Knowledge & Awareness
-                        </div>
-                        <div className="flex flex-wrap gap-4 justify-center items-center h-[calc(100%-2rem)] overflow-hidden">
-                          {/* KCC Awareness Circle */}
-                          {(() => {
-                            const pct =
-                              data.kccAwareness?.[0]?.count +
-                              data.kccAwareness?.[1]?.count || 0;
-                            const r = 45,
-                              cx = 60,
-                              cy = 60,
-                              circ = 2 * Math.PI * r;
-                            // const dash = (pct / 100) * circ;
-                            const yesDash =
-                              (data.kccAwareness?.[0]?.count / pct) * circ;
-                            const noDash =
-                              (data.kccAwareness?.[1]?.count / pct) * circ;
-                            return (
-                              <div className="flex flex-col items-center gap-2 min-w-0">
-                                {/* <svg
-                                viewBox="0 0 120 120"
-                                className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
-                              >
-                                <circle
-                                  cx={cx}
-                                  cy={cy}
-                                  r={r}
-                                  fill="none"
-                                  stroke="#e5e7eb"
-                                  strokeWidth={10}
-                                />
-                                <circle
-                                  cx={cx}
-                                  cy={cy}
-                                  r={r}
-                                  fill="none"
-                                  stroke="#3AAA5A"
-                                  strokeWidth={10}
-                                  strokeDasharray={`${aware} ${circ - dash}`}
-                                  strokeDashoffset={circ / 4}
-                                  transform={`rotate(-90 ${cx} ${cy})`}
-                                />
-                                <text
-                                  x={cx}
-                                  y={cy + 6}
-                                  textAnchor="middle"
-                                  fontSize={16}
-                                  fontWeight={600}
-                                  fill="#3AAA5A"
-                                >
-                                  Total {pct}
-                                </text>
-                              </svg> */}
-
-                                <svg
-                                  viewBox="0 0 120 120"
-                                  className="w-[110px] h-[110px]"
-                                >
-                                  {/* Background Ring */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#2f3542"
-                                    strokeWidth={10}
-                                  />
-
-                                  {/* YES SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#22c55e"
-                                    strokeWidth={hovered === "yes" ? 14 : 10}
-                                    strokeDasharray={`${yesDash} ${circ}`}
-                                    strokeDashoffset={0}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setHovered("yes")}
-                                    onMouseLeave={() => setHovered(null)}
-                                  />
-
-                                  {/* NO SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#6b7280"
-                                    strokeWidth={hovered === "no" ? 14 : 10}
-                                    strokeDasharray={`${noDash} ${circ}`}
-                                    strokeDashoffset={-yesDash}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setHovered("no")}
-                                    onMouseLeave={() => setHovered(null)}
-                                  />
-
-                                  {/* CENTER TEXT */}
-                                  <text
-                                    x={cx}
-                                    y={cy - 2}
-                                    textAnchor="middle"
-                                    fontSize={hovered ? 16 : 18}
-                                    fontWeight={700}
-                                    fill="#ffffff"
-                                  >
-                                    {hovered === "yes"
-                                      ? `${data.kccAwareness?.[0]?.count ?? 0}`
-                                      : hovered === "no"
-                                        ? `${data.kccAwareness?.[1]?.count ?? 0}`
-                                        : pct}
-                                  </text>
-
-                                  <text
-                                    x={cx}
-                                    y={cy + 18}
-                                    textAnchor="middle"
-                                    fontSize={11}
-                                    fill="#9ca3af"
-                                  >
-                                    {hovered === "yes"
-                                      ? "Aware"
-                                      : hovered === "no"
-                                        ? "Unaware"
-                                        : "TOTAL"}
-                                  </text>
-                                </svg>
-
-                                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                  KCC Awareness
-                                </span>
-                              </div>
-                            );
-                          })()}
-                          {/* Uses Agri Apps Circle */}
-                          {(() => {
-                            const pct =
-                              data.agriAppUsage?.[0]?.count +
-                              data.agriAppUsage?.[1]?.count || 0;
-                            const r = 45,
-                              cx = 60,
-                              cy = 60,
-                              circ = 2 * Math.PI * r;
-                            // const dash = (pct / 100) * circ;
-                            const yesDash =
-                              (data.agriAppUsage?.[0]?.count / pct) * circ;
-                            const noDash =
-                              (data.agriAppUsage?.[1]?.count / pct) * circ;
-                            return (
-                              <div className="flex flex-col items-center gap-2 min-w-0">
-                                {/* <svg
-                                  viewBox="0 0 120 120"
-                                  className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
-                                >
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#e5e7eb"
-                                    strokeWidth={10}
-                                  />
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#378ADD"
-                                    strokeWidth={10}
-                                    strokeDasharray={`${dash} ${circ - dash}`}
-                                    strokeDashoffset={circ / 4}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                  />
-                                  <text
-                                    x={cx}
-                                    y={cy + 6}
-                                    textAnchor="middle"
-                                    fontSize={16}
-                                    fontWeight={600}
-                                    fill="#378ADD"
-                                  >
-                                    {pct}%
-                                  </text>
-                                </svg> */}
-
-                                <svg
-                                  viewBox="0 0 120 120"
-                                  className="w-[110px] h-[110px]"
-                                >
-                                  {/* Background Ring */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#2f3542"
-                                    strokeWidth={10}
-                                  />
-
-                                  {/* YES SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="blue"
-                                    strokeWidth={
-                                      agriHovered === "yes" ? 14 : 10
-                                    }
-                                    strokeDasharray={`${yesDash} ${circ}`}
-                                    strokeDashoffset={0}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setAgriHovered("yes")}
-                                    onMouseLeave={() => setAgriHovered(null)}
-                                  />
-
-                                  {/* NO SEGMENT */}
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill="none"
-                                    stroke="#ffff"
-                                    strokeWidth={agriHovered === "no" ? 14 : 10}
-                                    strokeDasharray={`${noDash} ${circ}`}
-                                    strokeDashoffset={-yesDash}
-                                    transform={`rotate(-90 ${cx} ${cy})`}
-                                    strokeLinecap="butt"
-                                    className="transition-all duration-300 cursor-pointer"
-                                    onMouseEnter={() => setAgriHovered("no")}
-                                    onMouseLeave={() => setAgriHovered(null)}
-                                  />
-
-                                  {/* CENTER TEXT */}
-                                  <text
-                                    x={cx}
-                                    y={cy - 2}
-                                    textAnchor="middle"
-                                    fontSize={agriHovered ? 16 : 18}
-                                    fontWeight={700}
-                                    fill="#ffffff"
-                                  >
-                                    {agriHovered === "yes"
-                                      ? `${data.agriAppUsage?.[0]?.count ?? 0}`
-                                      : agriHovered === "no"
-                                        ? `${data.agriAppUsage?.[1]?.count ?? 0}`
-                                        : pct}
-                                  </text>
-
-                                  <text
-                                    x={cx}
-                                    y={cy + 18}
-                                    textAnchor="middle"
-                                    fontSize={11}
-                                    fill="#9ca3af"
-                                  >
-                                    {agriHovered === "yes"
-                                      ? "Aware"
-                                      : agriHovered === "no"
-                                        ? "Unaware"
-                                        : "TOTAL"}
-                                  </text>
-                                </svg>
-
-                                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                  Uses Agri Apps
-                                </span>
-                              </div>
-                            );
-                          })()}
+                          <AlertCard
+                            alerts={data.alerts}
+                            inactiveUsersLast3Days={
+                              source === "whatsapp"
+                                ? inactiveWhatsappUsers?.pagination?.total
+                                : ((data as any).inactiveUsersLast3Days ?? 0)
+                            }
+                            onInactiveClick={handleInactiveUsersClick}
+                            duplicateQuestionsCount={
+                              (data as any).duplicateQuestionsCount ?? 0
+                            }
+                            onDuplicateClick={() =>
+                              setIsDuplicateModalOpen(true)
+                            }
+                            lowFeedbackUsersCount={
+                              (data as any).lowFeedbackUsersCount ?? null
+                            }
+                            onLowFeedbackClick={handleLowFeedbackUsersClick}
+                            source={source}
+                            onInactiveWhatsAppUsersClick={
+                              handleWhatsappInactiveUsersClick
+                            }
+                          />
+                          {isDuplicateModalOpen && (
+                            <DuplicateQuestionsModal
+                              onClose={() => setIsDuplicateModalOpen(false)}
+                              source={source}
+                            />
+                          )}
+                          <InactiveUsersModal
+                            open={isInactiveWhatsappModalOpen}
+                            onOpenChange={setIsInactiveWhatsappModalOpen}
+                            users={inactiveWhatsappUsers?.users ?? []}
+                            pagination={inactiveWhatsappUsers?.pagination}
+                            onPageChange={setInactiveUsersPage}
+                          />
                         </div>
                       </div>
 
-                      {/* Maximized Modal */}
-                      {isKnowledgeMaximized &&
-                        createPortal(
-                          <div
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-                            onClick={() => setIsKnowledgeMaximized(false)}
-                          >
-                            <div
-                              className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <button
-                                onClick={() => setIsKnowledgeMaximized(false)}
-                                className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                title="Close"
-                              >
-                                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                              </button>
+                      {/* Demographics */}
+                      {source !== "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["demographics"] = el;
+                          }}
+                        >
+                          <UserDemographicsSection
+                            data={{
+                              ageGroups: data.ageGroups,
+                              genderSplit: data.genderSplit,
+                              farmingExperience: data.farmingExperience,
+                              landHolding: (data as any).landHolding ?? [],
+                            }}
+                          />
+                        </div>
+                      )}
+                      {/* 2-col row */}
 
-                              <div className="mb-8">
-                                <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                                  Knowledge & Awareness
-                                </h3>
-                              </div>
-
-                              <div className="flex flex-wrap gap-12 justify-center items-center">
-                                {(() => {
-                                  const pct =
-                                    data.kccAwareness?.[0]?.count +
-                                    data.kccAwareness?.[1]?.count || 0;
-                                  const circ = 2 * Math.PI * 90;
-                                  // const dash = (pct / 100) * circ;
-                                  const yesDash =
-                                    (data.kccAwareness?.[0]?.count / pct) *
-                                    circ;
-                                  const noDash =
-                                    (data.kccAwareness?.[1]?.count / pct) *
-                                    circ;
-                                  const cx = 120,
-                                    cy = 120,
-                                    r = 90;
-                                  return (
-                                    <div className="flex flex-col items-center gap-4">
-                                      {/* <svg
-                                        viewBox="0 0 240 240"
-                                        className="w-[200px] h-[200px]"
-                                      >
-                                        <circle
-                                          cx={120}
-                                          cy={120}
-                                          r={90}
-                                          fill="none"
-                                          stroke="#e5e7eb"
-                                          strokeWidth={20}
-                                        />
-                                        <circle
-                                          cx={120}
-                                          cy={120}
-                                          r={90}
-                                          fill="none"
-                                          stroke="#3AAA5A"
-                                          strokeWidth={20}
-                                          strokeDasharray={`${dash} ${circ - dash}`}
-                                          strokeDashoffset={circ / 4}
-                                          transform="rotate(-90 120 120)"
-                                        />
-                                        <text
-                                          x={120}
-                                          y={130}
-                                          textAnchor="middle"
-                                          fontSize={32}
-                                          fontWeight={600}
-                                          fill="#3AAA5A"
-                                        >
-                                          {pct}%
-                                        </text>
-                                      </svg> */}
-
-                                      <svg
-                                        viewBox="0 0 240 240"
-                                        className="w-[200px] h-[200px]"
-                                      >
-                                        {/* Background Ring */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="#2f3542"
-                                          strokeWidth={10}
-                                        />
-
-                                        {/* YES SEGMENT */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="#22c55e"
-                                          strokeWidth={
-                                            hovered === "yes" ? 14 : 10
-                                          }
-                                          strokeDasharray={`${yesDash} ${circ}`}
-                                          strokeDashoffset={0}
-                                          transform={`rotate(-90 ${cx} ${cy})`}
-                                          strokeLinecap="butt"
-                                          className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() => setHovered("yes")}
-                                          onMouseLeave={() => setHovered(null)}
-                                        />
-
-                                        {/* NO SEGMENT */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="#6b7280"
-                                          strokeWidth={
-                                            hovered === "no" ? 14 : 10
-                                          }
-                                          strokeDasharray={`${noDash} ${circ}`}
-                                          strokeDashoffset={-yesDash}
-                                          transform={`rotate(-90 ${cx} ${cy})`}
-                                          strokeLinecap="butt"
-                                          className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() => setHovered("no")}
-                                          onMouseLeave={() => setHovered(null)}
-                                        />
-
-                                        {/* CENTER TEXT */}
-                                        <text
-                                          x={120}
-                                          y={120}
-                                          textAnchor="middle"
-                                          fontSize={hovered ? 32 : 32}
-                                          fontWeight={700}
-                                          fill="#ffffff"
-                                        >
-                                          {hovered === "yes"
-                                            ? `${data.kccAwareness?.[0]?.count ?? 0}`
-                                            : hovered === "no"
-                                              ? `${data.kccAwareness?.[1]?.count ?? 0}`
-                                              : pct}
-                                        </text>
-
-                                        <text
-                                          x={120}
-                                          y={138}
-                                          textAnchor="middle"
-                                          fontSize={20}
-                                          fill="#9ca3af"
-                                        >
-                                          {hovered === "yes"
-                                            ? "Aware"
-                                            : hovered === "no"
-                                              ? "Unaware"
-                                              : "TOTAL"}
-                                        </text>
-                                      </svg>
-                                      <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
-                                        KCC Awareness
-                                      </span>
-                                    </div>
-                                  );
-                                })()}
-
-                                {(() => {
-                                  const pct =
-                                    data.agriAppUsage?.[0]?.count +
-                                    data.agriAppUsage?.[1]?.count || 0;
-                                  const circ = 2 * Math.PI * 90;
-                                  // const dash = (pct / 100) * circ;
-                                  const yesDash =
-                                    (data.kccAwareness?.[0]?.count / pct) *
-                                    circ;
-                                  const noDash =
-                                    (data.kccAwareness?.[1]?.count / pct) *
-                                    circ;
-                                  const cx = 120,
-                                    cy = 120,
-                                    r = 90;
-                                  return (
-                                    <div className="flex flex-col items-center gap-4">
-                                      <svg
-                                        viewBox="0 0 240 240"
-                                        className="w-[200px] h-[200px]"
-                                      >
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="#2f3542"
-                                          strokeWidth={10}
-                                        />
-
-                                        {/* YES SEGMENT */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="blue"
-                                          strokeWidth={
-                                            agriHovered === "yes" ? 14 : 10
-                                          }
-                                          strokeDasharray={`${yesDash} ${circ}`}
-                                          strokeDashoffset={0}
-                                          transform={`rotate(-90 ${cx} ${cy})`}
-                                          strokeLinecap="butt"
-                                          className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() => setAgriHovered("yes")}
-                                          onMouseLeave={() => setAgriHovered(null)}
-                                        />
-
-                                        {/* NO SEGMENT */}
-                                        <circle
-                                          cx={cx}
-                                          cy={cy}
-                                          r={r}
-                                          fill="none"
-                                          stroke="#ffff"
-                                          strokeWidth={agriHovered === "no" ? 14 : 10}
-                                          strokeDasharray={`${noDash} ${circ}`}
-                                          strokeDashoffset={-yesDash}
-                                          transform={`rotate(-90 ${cx} ${cy})`}
-                                          strokeLinecap="butt"
-                                          className="transition-all duration-300 cursor-pointer"
-                                          onMouseEnter={() => setAgriHovered("no")}
-                                          onMouseLeave={() => setAgriHovered(null)}
-                                        />
-
-                                        {/* CENTER TEXT */}
-                                        <text
-                                          x={120}
-                                          y={120}
-                                          textAnchor="middle"
-                                          fontSize={agriHovered ? 32 : 32}
-                                          fontWeight={700}
-                                          fill="#ffffff"
-                                        >
-                                          {agriHovered === "yes"
-                                            ? `${data.agriAppUsage?.[0]?.count ?? 0}`
-                                            : agriHovered === "no"
-                                              ? `${data.agriAppUsage?.[1]?.count ?? 0}`
-                                              : pct}
-                                        </text>
-
-                                        <text
-                                          x={120}
-                                          y={138}
-                                          textAnchor="middle"
-                                          fontSize={20}
-                                          fill="#9ca3af"
-                                        >
-                                          {agriHovered === "yes"
-                                            ? "Aware"
-                                            : agriHovered === "no"
-                                              ? "Unaware"
-                                              : "TOTAL"}
-                                        </text>
-                                      </svg>
-                                      <span className="text-base text-gray-600 dark:text-gray-300 text-center font-medium">
-                                        Uses Agri Apps
-                                      </span>
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            </div>
-                          </div>,
-                          document.body,
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 auto-rows-fr items-stretch">
+                        {source !== "whatsapp" && (
+                          <div className="h-full">
+                            <PlatformDonutSegments
+                              rawData={data.platformInstalls}
+                            />
+                          </div>
                         )}
-                    </>
-                  </div>
-                  <div
-                    className="lg:col-span-2"
-                    ref={(el) => {
-                      sectionRefs.current["query-analysis"] = el;
-                    }}
-                  >
-                    <DashboardQueryCategories
-                      categories={data.queryCategories}
-                    />
-                  </div>
 
-                  <div
-                    ref={(el) => {
-                      sectionRefs.current["feedback-sentiment"] = el;
-                    }}
-                    className="lg:col-span-2"
-                  >
-                    <TopCropsCard
-                      topCrops={topCrops}
-                      isLoadingTopCrops={isLoadingTopCrops}
-                      errorLoadingtopCrops={errorLoadingtopCrops}
-                    />
-                  </div>
-                </div>
+                        {source !== "whatsapp" && (
+                          <div
+                            className="h-full group"
+                            ref={(el) => {
+                              sectionRefs.current["farmer-segments"] = el;
+                            }}
+                          >
+                            {/* <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" /> */}
 
-                {/* Chatbot Quality & FAQ Analytics Section Header */}
-                {/* Daily Trends & FAQ Leaderboard Grid */}
-                {/* Row 1: Daily Trends & Feedback Data */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 mt-6">
-                  <DailyQuestionTrendsChart
-                    trends={(trendsData as any).dailyQuestionTrends}
-                    dateRange={trendsDateRange}
-                    onDateRangeChange={setTrendsDateRange}
-                    isLoading={trendsLoading}
-                  />
+                            <div className="relative h-full rounded-xl border border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
-                  <FeedbackCard 
-                    title="Feedback Data" 
-                    positiveFeedbacksCount={data?.feedbackData?.stats?.positiveCount} 
-                    negativeFeedbacksCount={data?.feedbackData?.stats?.negativeCount} 
-                    positiveFeedbacks={data?.feedbackData?.positiveFeedbacks} 
-                    negativeFeedbacks={data?.feedbackData?.negativeFeedbacks} 
-                    averageRating={data?.feedbackData?.stats?.averageRating} 
-                  />
-                </div>
+                            <div className="flex items-center gap-2 mb-5">
+                              <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+                              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                Knowledge & Awareness
+                              </h3>
+                            </div>
 
-                {/* Row 2: State Analytics & FAQ Leaderboard */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-                  <DashboardStateWiseAnalytics
+                            <div className="flex flex-wrap gap-6 justify-center items-center h-[calc(100%-3rem)] overflow-hidden">
+                              {[
+                                {
+                                  label: "KCC Awareness",
+                                  data: data.kccAwareness,
+                                  hovered,
+                                  setHover: setHovered,
+                                  color: "hsl(142 71% 45%)",
+                                  gradId: "kccGrad",
+                                },
+                                {
+                                  label: "Uses Agri Apps",
+                                  data: data.agriAppUsage,
+                                  hovered: agriHovered,
+                                  setHover: setAgriHovered,
+                                  color: "hsl(217 91% 60%)",
+                                  gradId: "agriGrad",
+                                },
+                              ].map(
+                                ({
+                                  label,
+                                  data: d,
+                                  hovered: h,
+                                  setHover,
+                                  color,
+                                  gradId,
+                                }) => {
+                                  const yes = d?.[0]?.count || 0;
+                                  const no = d?.[1]?.count || 0;
+                                  const total = yes + no;
+                                  const r = 45,
+                                    cx = 60,
+                                    cy = 60;
+                                  const circ = 2 * Math.PI * r;
+                                  const yesDash = total
+                                    ? (yes / total) * circ
+                                    : 0;
+                                  const noDash = total
+                                    ? (no / total) * circ
+                                    : 0;
+                                  const yesPct = total
+                                    ? Math.round((yes / total) * 100)
+                                    : 0;
+
+                                  return (
+                                    <div
+                                      key={label}
+                                      className="flex flex-col items-center gap-3 min-w-0 group/chart"
+                                    >
+                                      <div className="relative">
+                                        {/* Soft glow */}
+
+                                        <svg
+                                          viewBox="0 0 120 120"
+                                          className="relative w-[120px] h-[120px]"
+                                        >
+                                          <defs>
+                                            <linearGradient
+                                              id={gradId}
+                                              x1="0%"
+                                              y1="0%"
+                                              x2="100%"
+                                              y2="100%"
+                                            >
+                                              <stop
+                                                offset="0%"
+                                                stopColor={color}
+                                                stopOpacity="1"
+                                              />
+                                              <stop
+                                                offset="100%"
+                                                stopColor={color}
+                                                stopOpacity="0.7"
+                                              />
+                                            </linearGradient>
+                                          </defs>
+
+                                          {/* Track */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            className="stroke-muted"
+                                            strokeWidth={10}
+                                          />
+
+                                          {/* Yes arc */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            stroke={`url(#${gradId})`}
+                                            strokeWidth={h === "yes" ? 13 : 10}
+                                            strokeLinecap="round"
+                                            strokeDasharray={`${yesDash} ${circ}`}
+                                            transform={`rotate(-90 ${cx} ${cy})`}
+                                            className="cursor-pointer transition-[stroke-width] duration-200"
+                                            onMouseEnter={() => setHover("yes")}
+                                            onMouseLeave={() => setHover(null)}
+                                          />
+
+                                          {/* No arc */}
+                                          <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={r}
+                                            fill="none"
+                                            className="stroke-muted-foreground/40 cursor-pointer transition-[stroke-width] duration-200"
+                                            strokeWidth={h === "no" ? 13 : 10}
+                                            strokeLinecap="round"
+                                            strokeDasharray={`${noDash} ${circ}`}
+                                            strokeDashoffset={-yesDash}
+                                            transform={`rotate(-90 ${cx} ${cy})`}
+                                            onMouseEnter={() => setHover("no")}
+                                            onMouseLeave={() => setHover(null)}
+                                          />
+
+                                          {/* Center text */}
+                                          <text
+                                            x={cx}
+                                            y={cy - 2}
+                                            textAnchor="middle"
+                                            className="fill-foreground font-bold tabular-nums"
+                                            fontSize={h ? 16 : 20}
+                                          >
+                                            {h === "yes"
+                                              ? yes
+                                              : h === "no"
+                                                ? no
+                                                : total}
+                                          </text>
+                                          <text
+                                            x={cx}
+                                            y={cy + 12}
+                                            textAnchor="middle"
+                                            className="fill-muted-foreground"
+                                            fontSize={8}
+                                            style={{
+                                              letterSpacing: "0.1em",
+                                              textTransform: "uppercase",
+                                            }}
+                                          >
+                                            {h === "yes"
+                                              ? "Yes"
+                                              : h === "no"
+                                                ? "No"
+                                                : "Total"}
+                                          </text>
+                                        </svg>
+                                      </div>
+
+                                      <div className="flex flex-col items-center gap-1">
+                                        <span className="text-xs font-medium text-foreground">
+                                          {label}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+                                          <span
+                                            className="w-1.5 h-1.5 rounded-full"
+                                            style={{ backgroundColor: color }}
+                                          />
+                                          {yesPct}% Yes
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                },
+                              )}
+                            </div>
+                          </div>
+                           </div>
+                        )}
+
+                        {source !== "whatsapp" && (
+                          <FeedbackCard
+                            title="Feedback Data"
+                            positiveFeedbacksCount={
+                              data?.feedbackData?.stats?.positiveCount
+                            }
+                            negativeFeedbacksCount={
+                              data?.feedbackData?.stats?.negativeCount
+                            }
+                            positiveFeedbacks={
+                              data?.feedbackData?.positiveFeedbacks
+                            }
+                            negativeFeedbacks={
+                              data?.feedbackData?.negativeFeedbacks
+                            }
+                            averageRating={
+                              data?.feedbackData?.stats?.averageRating
+                            }
+                          />
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.4, ease: "easeOut" }}
+                          ref={(el) => {
+                            sectionRefs.current["query-analysis"] = el;
+                          }}
+                          className="h-full"
+                        >
+                          <DashboardQueryCategories
+                            categories={
+                              source === "whatsapp"
+                                ? queryCategories
+                                : data.queryCategories
+                            }
+                          />
+                        </motion.div>
+
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.4,
+                            ease: "easeOut",
+                            delay: 0.08,
+                          }}
+                          ref={(el) => {
+                            sectionRefs.current["feedback-sentiment"] = el;
+                          }}
+                          className="h-full"
+                        >
+                          <TopCropsCard
+                            topCrops={topCrops}
+                            isLoadingTopCrops={isLoadingTopCrops}
+                            errorLoadingtopCrops={errorLoadingtopCrops}
+                          />
+                        </motion.div>
+                      </div>
+
+                      {/* Chatbot Quality & FAQ Analytics Section Header */}
+                      {/* Daily Trends & FAQ Leaderboard Grid */}
+                      {/* Row 1: Daily Trends & Feedback Data */}
+                      <div className="grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6">
+                        <DailyQuestionTrendsChart
+                          trends={(trendsData as any).dailyQuestionTrends}
+                          dateRange={trendsDateRange}
+                          onDateRangeChange={setTrendsDateRange}
+                          isLoading={trendsLoading}
+                        />
+                      </div>
+
+                      {/* Row 2: State Analytics & FAQ Leaderboard */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                        <DashboardStateWiseAnalytics
+                          source={source}
+                          userType={filters.userType}
+                        />
+
+                        <TopFaqsLeaderboard
+                          faqs={(faqsData as any).topFaqs}
+                          topQuestionsFromCollection={
+                            (faqsData as any).topQuestionsFromCollection
+                          }
+                          repeatQueryCount={(faqsData as any).repeatQueryCount}
+                          repeatQueryRatePct={
+                            (faqsData as any).repeatQueryRatePct
+                          }
+                          avgQuestionsPerUserDay={
+                            (faqsData as any).avgQuestionsPerUserDay
+                          }
+                          dateRange={faqsDateRange}
+                          onDateRangeChange={setFaqsDateRange}
+                          isLoading={faqsLoading}
+                        />
+                      </div>
+
+                      {/* Geo + Health */}
+                      <div
+                        ref={(el) => {
+                          sectionRefs.current["geo-intelligence"] = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
+                      >
+                        {/* <ChannelSplitCard
+                channelSplit={data.channelSplit}
+                voiceAccuracy={data.voiceAccuracy}
+              /> */}
+                        {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
+                        {/* <GeoCard states={data.geoStates} />*/}
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["app-health"] = el;
+                          }}
+                        >
+                          {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
+                        </div>
+                      </div>
+                      {source !== "whatsapp" && (
+                        <div className="">
+                          <ActiveUsersChart
+                            source={source}
+                            userType={filters.userType}
+                          />
+                          <RetentionMetricsChart
                     source={source}
                     userType={filters.userType}
-                  />
-
-                  <TopFaqsLeaderboard
-                    faqs={(faqsData as any).topFaqs}
-                    topQuestionsFromCollection={(faqsData as any).topQuestionsFromCollection}
-                    repeatQueryCount={(faqsData as any).repeatQueryCount}
-                    repeatQueryRatePct={(faqsData as any).repeatQueryRatePct}
-                    avgQuestionsPerUserDay={(faqsData as any).avgQuestionsPerUserDay}
-                    dateRange={faqsDateRange}
-                    onDateRangeChange={setFaqsDateRange}
-                    isLoading={faqsLoading}
-                  />
+                    />
+                        </div>
+                      )}
+                      {source !== "whatsapp" && (
+                        <div className="mt-4 mb-4">
+                          <WeatherConcernAnalyticsCard
+                            source={source}
+                            userType={filters.userType}
+                            filters={weatherConcernFilters}
+                            onFiltersChange={setWeatherConcernFilters}
+                          />
+                        </div>
+                      )}
+                      {source !== "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["user-details"] = el;
+                          }}
+                        >
+                          <UserDetailsView
+                            source={source}
+                            initialFilters={userDetailsInitialFilters}
+                            userType={filters.userType}
+                          />
+                        </div>
+                      )}
+                      {source === "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["user-details"] = el;
+                          }}
+                        >
+                          <WhatsAppUsersView />
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-
-                {/* Geo + Health */}
-                <div
-                  ref={(el) => {
-                    sectionRefs.current["geo-intelligence"] = el;
-                  }}
-                  className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
-                >
-                  {/* <ChannelSplitCard
-                    channelSplit={data.channelSplit}
-                    voiceAccuracy={data.voiceAccuracy}
-                  /> */}
-                  {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
-                  {/* <GeoCard states={data.geoStates} />*/}
-                  <div
-                    ref={(el) => {
-                      sectionRefs.current["app-health"] = el;
-                    }}
-                  >
-                    {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
-                  </div>
-                </div >
-              </div >
-            )
-            }
-          </div >
+              )}
+            </div>
+          </div>
 
           {/* Commented out footer as requested:
           <StatusBar
@@ -1067,6 +1159,6 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
           */}
         </>
       )}
-    </div >
+    </div>
   );
 }

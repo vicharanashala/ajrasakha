@@ -378,7 +378,11 @@ export const PAEExpertPage = () => {
                 </div>
 
                 <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
-                  <SourceUrlManager sources={sources} onSourcesChange={setSources} />
+                  <SourceUrlManager
+                    sources={sources}
+                    onSourcesChange={setSources}
+                    allowAnyUrl
+                  />
                   {sources.length > 0 && (
                     <div className="mt-6 pt-6 border-t border-border">
                       <p className="text-sm text-muted-foreground">

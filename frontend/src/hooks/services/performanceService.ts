@@ -5,7 +5,7 @@ import type {
   DashboardFilters,
 } from "../api/performance/useGetDashboard";
 import { formatDateLocal } from "@/utils/formatDate";
-import type { DateRange } from "@/components/dashboard/questions-analytics";
+import type { DateRange, QuestionsAnalytics } from "@/components/dashboard/questions-analytics";
 import { env } from "@/config/env";
 import { auth } from "@/config/firebase";
 import { getIdToken } from "firebase/auth";
@@ -133,19 +133,22 @@ export class PerformaneService {
     type: "question" | "answer";
     startTime?: Date;
     endTime?: Date;
-    status?: string;
+    status?: string[];
+    state?: string[];
+    source?: string[];
+    crop?: string[];
   }): Promise<QuestionsAnalytics | null> {
-    const params = new URLSearchParams();
-    params.append("type", query.type);
-    if (query.startTime)
-      params.append("startTime", formatDateLocal(query.startTime));
-    if (query.endTime)
-      params.append("endTime", formatDateLocal(query.endTime));
-    if (query.status && query.status !== "all")
-      params.append("status", query.status);
+    const body: Record<string, unknown> = { type: query.type };
+    if (query.startTime) body.startTime = formatDateLocal(query.startTime);
+    if (query.endTime) body.endTime = formatDateLocal(query.endTime);
+    if (query.status?.length) body.status = query.status;
+    if (query.state?.length) body.state = query.state;
+    if (query.source?.length) body.source = query.source;
+    if (query.crop?.length) body.crop = query.crop;
 
     return apiFetch<QuestionsAnalytics>(
-      `${this._baseUrl}/questions-analytics?${params.toString()}`
+      `${this._baseUrl}/questions-analytics`,
+      { method: "POST", body: JSON.stringify(body) }
     );
   }
 

@@ -67,6 +67,7 @@ import {
   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
   TOTAL_EXPERTS_LIMIT,
 } from '#root/shared/constants/general.js';
+import { toTitleCase } from '#root/utils/ToTitlecase.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -868,7 +869,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     details: IQuestion['details'],
     logData: Record<string, any>,
     session?: ClientSession,
-  ): Promise<{isDuplicate: boolean; duplicateData?: any}> {
+  ): Promise<{isDuplicate: boolean; duplicateData?: any; isNonAgri?: boolean; nonAgriData?: any}> {
     return checkDuplicateQuestionHelper(
       baseQuestion,
       details,
@@ -901,12 +902,17 @@ export class QuestionService extends BaseService implements IQuestionService {
         context,
         originalquestion = '',
       } = body;
+      if(body.details){
+        body.details.state = toTitleCase(body.details.state);
+        body.details.crop = toTitleCase(body.details.crop as string);
+      }
       const messageId = messageIdFromBody;
       const bodyUserId = userIdFromBody;
       const referenceQuestionDetails = referenceQuestionDetailsFromBody;
       const popContext = popContextFromBody;
       console.log('the body coming=====', body);
 
+      
       if (!details) {
         const b: any = body;
         details = {
@@ -1016,7 +1022,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           question,
           priority,
           source,
-          status: 'open',
+          status: source === 'AJRASAKHA' || source === 'WHATSAPP' ? 'pending' : 'open',
           totalAnswersCount: 0,
           contextId,
           details,
@@ -1161,11 +1167,20 @@ export class QuestionService extends BaseService implements IQuestionService {
             });
             return;
           }
+          if (duplicateResult?.isNonAgri) {
+            await this.questionRepo.updateQuestion(questionId, {
+              status: 'non_agri',
+            });
+            return;
+          }
+          // NONE result — not a duplicate and not non-agri, mark as open
+          await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         } catch (duplicateError: any) {
           console.error(
             '[processQuestionInBackground] Duplicate check failed, proceeding as open:',
             duplicateError.message,
           );
+          await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         }
 
         const [allModerators, taskForceModerators] = await Promise.all([
@@ -1302,12 +1317,20 @@ export class QuestionService extends BaseService implements IQuestionService {
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
       // so they shouldn't inflate the transaction scope.
+      if (updates.details) {
+      if (updates.details.state) {
+        updates.details.state = toTitleCase(updates.details.state);
+      }
+      if (updates.details.district) {
+        updates.details.district = toTitleCase(updates.details.district);
+      }
       if (updates.details?.crop) {
         const rawCropName =
           typeof updates.details.crop === 'string'
             ? updates.details.crop
             : (updates.details.crop as any)?.name || '';
-        let normalised_crop = rawCropName.trim().toLowerCase();
+          const cleanCropName = toTitleCase(rawCropName);
+        let normalised_crop = cleanCropName.toLowerCase();
         if (rawCropName.trim()) {
           try {
             const existingCrop =
@@ -1316,9 +1339,9 @@ export class QuestionService extends BaseService implements IQuestionService {
               normalised_crop = existingCrop.name;
             } else {
               // Crop not found — auto-create it
-              const normalizedName = rawCropName.trim().toLowerCase();
-              await this.cropRepository.createCrop(normalizedName, '', []);
-              normalised_crop = normalizedName;
+              // const normalizedName = rawCropName.trim().toLowerCase();
+              await this.cropRepository.createCrop(cleanCropName, '', []);
+              normalised_crop = cleanCropName;
             }
           } catch (cropError: any) {
             console.error(
@@ -1327,10 +1350,10 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         }
-        updates.details.crop = rawCropName.trim();
+        updates.details.crop = cleanCropName;
         updates.details.normalised_crop = normalised_crop;
       }
-
+    }
       return this._withTransaction(async (session: ClientSession) => {
         const existingQuestion = await this.questionRepo.getById(
           questionId,

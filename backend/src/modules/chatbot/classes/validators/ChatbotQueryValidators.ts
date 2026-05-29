@@ -12,8 +12,8 @@ export class DashboardQueryDto {
 
   @JSONSchema({ example: 'vicharanashala', description: 'Data source to query' })
   @IsOptional()
-  @IsIn(['vicharanashala', 'annam'])
-  source: 'vicharanashala' | 'annam' = 'vicharanashala';
+  @IsIn(['vicharanashala', 'annam', 'whatsapp'])
+  source: 'vicharanashala' | 'annam' | 'whatsapp'= 'vicharanashala';
 
   @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
   @IsOptional()
@@ -34,13 +34,82 @@ export class DashboardQueryDto {
 export class SourceQueryDto {
   @JSONSchema({ example: 'vicharanashala', description: 'Data source to query' })
   @IsOptional()
-  @IsIn(['vicharanashala', 'annam'])
-  source: 'vicharanashala' | 'annam' = 'vicharanashala';
+  @IsIn(['vicharanashala', 'annam', 'whatsapp'])
+  source: 'vicharanashala' | 'annam' | 'whatsapp' = 'vicharanashala';
 
   @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
   @IsOptional()
   @IsIn(['all', 'external', 'internal'])
   userType: 'all' | 'external' | 'internal' = 'all';
+}
+
+export class QueryAnalyticsQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 'daily', description: 'Analytics period: daily, weekly, or monthly' })
+  @IsIn(['daily', 'weekly', 'monthly'])
+  period: 'daily' | 'weekly' | 'monthly' = 'daily';
+
+  @JSONSchema({ example: '2026-05', description: 'Month filter for daily and weekly analytics (YYYY-MM)' })
+  @IsOptional()
+  @IsString()
+  month?: string;
+
+  @JSONSchema({ example: 2026, description: 'Year filter for monthly analytics' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  year?: number;
+
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+}
+
+export class WeatherConcernAnalyticsQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 'Kharif', description: 'Filter by season' })
+  @IsOptional()
+  @IsString()
+  season?: string;
+
+  @JSONSchema({ example: 'Punjab', description: 'Filter by farmer state' })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @JSONSchema({ example: 'Rupnagar', description: 'Filter by farmer district' })
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @JSONSchema({ example: 'Erattupetta', description: 'Filter by farmer block' })
+  @IsOptional()
+  @IsString()
+  block?: string;
+
+  @JSONSchema({ example: 'Poonjar', description: 'Filter by farmer village' })
+  @IsOptional()
+  @IsString()
+  village?: string;
+
+  @JSONSchema({ example: '2026-07-01T00:00:00.000Z', description: 'Filter weather queries from this date/time' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @JSONSchema({ example: '2026-07-31T23:59:59.999Z', description: 'Filter weather queries through this date/time' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
 }
 
 export class UserDetailsQueryDto {
@@ -75,8 +144,8 @@ export class UserDetailsQueryDto {
 
   @JSONSchema({ example: 'vicharanashala', description: 'Data source to query' })
   @IsOptional()
-  @IsIn(['vicharanashala', 'annam'])
-  source: 'vicharanashala' | 'annam' = 'vicharanashala';
+  @IsIn(['vicharanashala', 'annam', 'whatsapp'])
+  source: 'vicharanashala' | 'annam' | 'whatsapp'= 'vicharanashala';
 
   @JSONSchema({ example: 'rice', description: 'Filter by crop (matches cropsCultivated, primaryCrop, secondaryCrop)' })
   @IsOptional()
@@ -107,6 +176,11 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsIn(['all', 'external', 'internal'])
   userType: 'all' | 'external' | 'internal' = 'all';
+
+  @JSONSchema({ example: 'false', description: 'If true, filter users by lastActiveAt is today and has farmerProfile' })
+  @IsOptional()
+  @IsString()
+  activeTodayByProfile?: string;
 
   @JSONSchema({ example: 'totalQuestions', description: 'Sort by field: totalQuestions or name' })
   @IsOptional()

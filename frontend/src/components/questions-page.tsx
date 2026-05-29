@@ -78,8 +78,10 @@ export const QuestionsPage = ({
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
+  const [unallocatedQuestions, setUnallocatedQuestions] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
+  const [isNonAgri, setIsNonAgri] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
@@ -176,7 +178,9 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      unallocatedQuestions,
       pae_review: paeReview,
+      is_non_agri: isNonAgri,
     }),
     [
       status,
@@ -202,7 +206,9 @@ export const QuestionsPage = ({
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
+      unallocatedQuestions,
       paeReview,
+      isNonAgri,
     ],
   );
 
@@ -334,7 +340,9 @@ export const QuestionsPage = ({
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     isOnHold?: boolean;
+    unallocatedQuestions?: boolean;
     pae_review?: boolean;
+    is_non_agri?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -365,8 +373,12 @@ export const QuestionsPage = ({
       setDuplicateQuestions(next.duplicateQuestions);
     if (next.isOnHold !== undefined)
       setIsOnHold(next.isOnHold);
+    if (next.unallocatedQuestions !== undefined)
+      setUnallocatedQuestions(next.unallocatedQuestions);
     if ("pae_review" in next)
       setPaeReview(next.pae_review);
+    if ("is_non_agri" in next)
+      setIsNonAgri(next.is_non_agri);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -405,6 +417,7 @@ export const QuestionsPage = ({
     setDuplicateQuestions(false);
     setIsOnHold(false);
     setPaeReview(undefined);
+    setIsNonAgri(undefined);
   };
 
   const handleViewMore = (questoinId: string) => {

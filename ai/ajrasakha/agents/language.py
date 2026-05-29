@@ -1,53 +1,325 @@
-"""Detect farmer query language for output matching."""
+"""Detect farmer query language and script for output matching."""
 
 from __future__ import annotations
 
+import logging
 import re
+from dotenv import load_dotenv
 
-# Unicode script ranges for common Indian languages on WhatsApp.
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# 12 native Indian script Unicode ranges
 _DEVANAGARI = re.compile(r"[\u0900-\u097F]")
+_BENGALI_ASSAMESE = re.compile(r"[\u0980-\u09FF]")
 _GURMUKHI = re.compile(r"[\u0A00-\u0A7F]")
+_GUJARATI = re.compile(r"[\u0A80-\u0AFF]")
+_ODIA = re.compile(r"[\u0B00-\u0B7F]")
 _TAMIL = re.compile(r"[\u0B80-\u0BFF]")
 _TELUGU = re.compile(r"[\u0C00-\u0C7F]")
-_BENGALI = re.compile(r"[\u0980-\u09FF]")
+_KANNADA = re.compile(r"[\u0C80-\u0CFF]")
+_MALAYALAM = re.compile(r"[\u0D00-\u0DFF]")
+_PERSO_ARABIC = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
+_OL_CHIKI = re.compile(r"[\u1C50-\u1C7F]")
+_MEITEI_MAYEK = re.compile(r"[\uABC0-\uABFF\uAAE0-\uAAFF]")
 
 
-def detect_farmer_language(text: str) -> str:
-    """
-    Return a display label for the language the farmer used.
-    Latin-script queries default to English (matches product rule).
-    """
-    t = (text or "").strip()
-    if not t:
-        return "English"
+def detect_script(text: str) -> str:
+    """Return the name of the detected script, defaulting to 'Latin'."""
+    t = text or ""
     if _DEVANAGARI.search(t):
-        return "Hindi"
+        return "Devanagari"
+    if _BENGALI_ASSAMESE.search(t):
+        return "Bengali-Assamese"
     if _GURMUKHI.search(t):
-        return "Punjabi"
+        return "Gurmukhi"
+    if _GUJARATI.search(t):
+        return "Gujarati"
+    if _ODIA.search(t):
+        return "Odia"
     if _TAMIL.search(t):
         return "Tamil"
     if _TELUGU.search(t):
         return "Telugu"
-    if _BENGALI.search(t):
-        return "Bengali"
-    return "English"
+    if _KANNADA.search(t):
+        return "Kannada"
+    if _MALAYALAM.search(t):
+        return "Malayalam"
+    if _PERSO_ARABIC.search(t):
+        return "Perso-Arabic"
+    if _OL_CHIKI.search(t):
+        return "Ol Chiki"
+    if _MEITEI_MAYEK.search(t):
+        return "Meitei Mayek"
+    return "Latin"
+
+
+# detect_script label → OFFICIAL_LANGUAGES name when script maps 1:1 to a language
+_SCRIPT_TO_OFFICIAL_LANGUAGE: dict[str, str] = {
+    "Telugu": "Telugu",
+    "Tamil": "Tamil",
+    "Kannada": "Kannada",
+    "Malayalam": "Malayalam",
+    "Odia": "Odia",
+    "Gujarati": "Gujarati",
+    "Gurmukhi": "Punjabi",
+    "Ol Chiki": "Santali",
+    "Meitei Mayek": "Manipuri (Meitei)",
+}
+
+_DEVANAGARI_VOCAL_LANGUAGES = frozenset(
+    {
+        "Hindi",
+        "Marathi",
+        "Nepali",
+        "Sanskrit",
+        "Konkani",
+        "Maithili",
+        "Bodo",
+        "Dogri",
+        "Kashmiri",
+    }
+)
+
+_PERSO_ARABIC_VOCAL_LANGUAGES = frozenset({"Urdu", "Sindhi", "Kashmiri"})
+
+_BENGALI_ASSAMESE_VOCAL_LANGUAGES = frozenset({"Bengali", "Assamese"})
+
+
+def _coerce_official_language(name: str) -> str | None:
+    """Case-insensitive match against OFFICIAL_LANGUAGES; None if unknown."""
+    from ajrasakha.agents.translation_catalog import OFFICIAL_LANGUAGES
+
+    raw = (name or "").strip()
+    if not raw:
+        return None
+    lower = raw.lower()
+    for lang in OFFICIAL_LANGUAGES:
+        if lang.lower() == lower:
+            return lang
+    return None
+
+
+def resolve_planner_language_pair(
+    farmer_text: str,
+    vocal_language: str,
+    script_language: str,
+) -> tuple[str, str]:
+    """Normalize planner vocal/script using Unicode script on the raw farmer message.
+
+    Roman/Latin typing → script_language=English, vocal unchanged (if valid).
+    Native script blocks → script_language aligns with detected script (vocal matched).
+    """
+    detected = detect_script(farmer_text or "")
+    vocal = _coerce_official_language(vocal_language) or "English"
+    script = _coerce_official_language(script_language) or "English"
+
+    if detected == "Latin":
+        return vocal, "English"
+
+    if detected == "Devanagari":
+        script_out = vocal if vocal in _DEVANAGARI_VOCAL_LANGUAGES else "Hindi"
+        return vocal, script_out
+
+    if detected == "Perso-Arabic":
+        if vocal in _PERSO_ARABIC_VOCAL_LANGUAGES:
+            return vocal, vocal
+        return "Urdu", "Urdu"
+
+    if detected == "Bengali-Assamese":
+        if vocal in _BENGALI_ASSAMESE_VOCAL_LANGUAGES:
+            return vocal, vocal
+        return "Bengali", "Bengali"
+
+    official = _SCRIPT_TO_OFFICIAL_LANGUAGE.get(detected)
+    if official:
+        return official, official
+
+    logger.warning(
+        "resolve_planner_language_pair: unknown detect_script=%s — keeping planner pair (%s, %s)",
+        detected,
+        vocal,
+        script,
+    )
+    return vocal, script
+
+
+def _llm_detect_language(text: str) -> str:
+    """Analyze the text and return the underlying spoken language name (e.g. Hindi, English, Punjabi)."""
+    t = (text or "").strip()
+    if not t:
+        return "English"
+    try:
+        from langchain_anthropic import ChatAnthropic
+        from ajrasakha.agents.config import SANITIZER_MODEL
+        llm = ChatAnthropic(model=SANITIZER_MODEL)
+        
+        prompt = (
+            "Analyze the following text from an Indian farmer and identify the underlying spoken language. "
+            "Even if the text is written in English/Latin alphabets, identify the spoken language (e.g., if the text is "
+            "'Mera sawal gehu ke baare me hai', the underlying language is Hindi, not English).\n\n"
+            "Spoken languages include: English, Hindi, Punjabi, Bengali, Assamese, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Urdu, Kashmiri, Sindhi, Santali, Manipuri.\n\n"
+            "Return ONLY the language name as a single word (e.g., 'Hindi', 'English', 'Punjabi', 'Tamil'). Do not include any other text, reasoning, or punctuation.\n\n"
+            f"Text: {t}\n"
+            "Language:"
+        )
+        
+        response = llm.invoke(prompt)
+        lang = str(response.content).strip()
+        
+        known_languages = [
+            "Hindi", "English", "Punjabi", "Bengali", "Assamese", "Gujarati", 
+            "Odia", "Tamil", "Telugu", "Kannada", "Malayalam", "Urdu", 
+            "Kashmiri", "Sindhi", "Santali", "Manipuri"
+        ]
+        
+        # Check if any known language name is contained as a standalone word
+        for l in known_languages:
+            if re.search(rf"\b{l}\b", lang, re.IGNORECASE):
+                return l
+                
+        # Clean up any non-alphabetic characters as a fallback
+        lang_title = lang.title()
+        cleaned = re.sub(r'[^a-zA-Z-]', '', lang_title)
+        return cleaned if cleaned else "English"
+    except Exception as e:
+        logger.warning("LLM language detection failed with exception: %s", e, exc_info=True)
+        return "English"
+
+
+async def _allm_detect_language(text: str) -> str:
+    """Analyze the text and return the underlying spoken language name asynchronously."""
+    t = (text or "").strip()
+    if not t:
+        return "English"
+    try:
+        from langchain_anthropic import ChatAnthropic
+        from ajrasakha.agents.config import SANITIZER_MODEL
+        llm = ChatAnthropic(model=SANITIZER_MODEL)
+        
+        prompt = (
+            "Analyze the following text from an Indian farmer and identify the underlying spoken language. "
+            "Even if the text is written in English/Latin alphabets, identify the spoken language (e.g., if the text is "
+            "'Mera sawal gehu ke baare me hai', the underlying language is Hindi, not English).\n\n"
+            "Spoken languages include: English, Hindi, Punjabi, Bengali, Assamese, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Urdu, Kashmiri, Sindhi, Santali, Manipuri.\n\n"
+            "Return ONLY the language name as a single word (e.g., 'Hindi', 'English', 'Punjabi', 'Tamil'). Do not include any other text, reasoning, or punctuation.\n\n"
+            f"Text: {t}\n"
+            "Language:"
+        )
+        
+        response = await llm.ainvoke(prompt)
+        lang = str(response.content).strip()
+        
+        known_languages = [
+            "Hindi", "English", "Punjabi", "Bengali", "Assamese", "Gujarati", 
+            "Odia", "Tamil", "Telugu", "Kannada", "Malayalam", "Urdu", 
+            "Kashmiri", "Sindhi", "Santali", "Manipuri"
+        ]
+        
+        # Check if any known language name is contained as a standalone word
+        for l in known_languages:
+            if re.search(rf"\b{l}\b", lang, re.IGNORECASE):
+                return l
+                
+        # Clean up any non-alphabetic characters as a fallback
+        lang_title = lang.title()
+        cleaned = re.sub(r'[^a-zA-Z-]', '', lang_title)
+        return cleaned if cleaned else "English"
+    except Exception as e:
+        logger.warning("Async LLM language detection failed with exception: %s", e, exc_info=True)
+        return "English"
+
+
+async def adetect_farmer_language(text: str) -> str:
+    """Asynchronously return a display label representing the script and language used."""
+    t = (text or "").strip()
+    if not t:
+        return "English"
+        
+    script = detect_script(t)
+    lang = await _allm_detect_language(t)
+    
+    if script == "Latin":
+        if lang == "English":
+            return "English"
+        if lang == "Hindi":
+            return "Hinglish"
+        return f"Romanized {lang}"
+    else:
+        return lang
+
+
+def detect_farmer_language(text: str) -> str:
+    """
+    Return a display label representing the script and language used.
+    If script is Latin:
+        - underlying language English -> "English"
+        - underlying language Hindi -> "Hinglish"
+        - other Indian language -> e.g. "Romanized Punjabi", "Romanized Tamil"
+    If script is native (e.g. Devanagari):
+        - returns the exact spoken language (e.g. "Hindi", "Marathi")
+    """
+    t = (text or "").strip()
+    if not t:
+        return "English"
+        
+    script = detect_script(t)
+    lang = _llm_detect_language(t)
+    
+    if script == "Latin":
+        if lang == "English":
+            return "English"
+        if lang == "Hindi":
+            return "Hinglish"
+        return f"Romanized {lang}"
+    else:
+        return lang
 
 
 def text_matches_user_language(answer: str, user_message: str) -> bool:
-    """True when answer script/language aligns with the farmer's message."""
-    user_lang = detect_farmer_language(user_message)
-    has_devanagari = bool(_DEVANAGARI.search(answer or ""))
-    if user_lang == "English":
-        return not has_devanagari
-    if user_lang == "Hindi":
-        return has_devanagari
-    return True
+    """True when answer script aligns with the farmer's message."""
+    user_script = detect_script(user_message)
+    answer_script = detect_script(answer)
+    
+    if user_script == "Latin":
+        # Latin input requires Latin output (no native script characters of the 12 scripts)
+        return answer_script == "Latin"
+    else:
+        # Native script input requires output in that exact native script
+        return answer_script == user_script
 
 
-def language_directive_for_synthesis(user_message: str) -> str:
-    """System text that forces the synthesizer to match the farmer's language."""
-    lang = detect_farmer_language(user_message)
-    if lang == "English":
+def language_directive_for_synthesis(
+    vocal_language: str,
+    script_language: Optional[str] = None,
+    *,
+    lang_label: Optional[str] = None,
+) -> str:
+    """Force synthesizer to emit English body; translation uses vocal + script from plan."""
+    if lang_label is not None and script_language is None:
+        from ajrasakha.agents.translation_catalog import synthesis_lang_label
+        return _language_directive_legacy_label(lang_label)
+
+    from ajrasakha.agents.translation_catalog import synthesis_lang_label
+
+    script = (script_language or vocal_language or "English").strip()
+    vocal = (vocal_language or "English").strip()
+    label = synthesis_lang_label(script, vocal)
+    return (
+        "OUTPUT CONTRACT (NON-NEGOTIABLE):\n"
+        "Write ONLY the farming answer body in clear English.\n"
+        "Translate all tool facts into English in the body.\n"
+        "Do NOT add sources, testing disclaimers, 2-hour expert-queue text, or footers.\n"
+        f"A later step will deliver the answer to the farmer in vocal language {vocal} "
+        f"using script {script} (display label: {label})."
+    )
+
+
+def _language_directive_legacy_label(lang_label: str) -> str:
+    """System text that forces the synthesizer to match the farmer's language and script."""
+    
+    if lang_label == "English":
         return (
             "REQUIRED OUTPUT LANGUAGE: English (NON-NEGOTIABLE)\n"
             "The farmer wrote in English. Your ENTIRE reply must be in English only.\n"
@@ -57,9 +329,136 @@ def language_directive_for_synthesis(user_message: str) -> str:
             "English agrochemical names (e.g. Chlorantraniliprole).\n"
             "The testing disclaimer at the end may stay as provided in English."
         )
+        
+    if lang_label == "Hinglish":
+        return (
+            "REQUIRED OUTPUT LANGUAGE: Hindi in Latin Script (Hinglish/Romanized Hindi) (NON-NEGOTIABLE)\n"
+            "The farmer wrote in Hinglish. Your ENTIRE reply must be in Hindi language but written in the Latin alphabet (Hinglish/Romanized Hindi).\n"
+            "Do NOT use Devanagari script. Do NOT use English sentences.\n"
+            "Every sentence must be Hindi written in English letters.\n"
+            "Example: Instead of 'आप यूरिया का उपयोग कर सकते हैं' (Devanagari) or 'You can use Urea' (English), "
+            "write 'Aap Urea ka upyog kar sakte hain' (Hinglish).\n"
+            "Technical terms may stay as standard English names (e.g., Urea, Chlorantraniliprole).\n"
+            "Ensure the testing disclaimer at the end is also written in Hinglish."
+        )
+        
+    if lang_label.startswith("Romanized "):
+        clean_lang = lang_label.replace("Romanized ", "").strip()
+        return (
+            f"REQUIRED OUTPUT LANGUAGE: {clean_lang} in Latin Script (Romanized {clean_lang}) (NON-NEGOTIABLE)\n"
+            f"The farmer wrote in Romanized {clean_lang}. Your ENTIRE reply must be in {clean_lang} language but written in the Latin alphabet (Romanized {clean_lang}).\n"
+            f"Do NOT use native scripts. Do NOT use English sentences.\n"
+            f"Every sentence must be {clean_lang} written in English letters.\n"
+            f"Technical terms may stay as standard English names.\n"
+            f"Ensure the testing disclaimer at the end is also written in Romanized {clean_lang}."
+        )
+        
+    # Native script languages (e.g. Hindi, Punjabi, Tamil, etc.)
     return (
-        f"REQUIRED OUTPUT LANGUAGE: {lang} (NON-NEGOTIABLE)\n"
-        f"The farmer wrote in {lang}. Your ENTIRE reply must be in {lang} only.\n"
+        f"REQUIRED OUTPUT LANGUAGE: {lang_label} (NON-NEGOTIABLE)\n"
+        f"The farmer wrote in {lang_label}. Your ENTIRE reply must be in {lang_label} only, using its native script.\n"
         "If tool results are in a different language, translate all facts into "
-        f"{lang} before answering. Never switch to English unless the farmer used English."
+        f"{lang_label} before answering. Never switch to English or other scripts."
     )
+
+
+# ── Disclaimer, Canned Reply, and Source Localization Maps ────────────────
+
+_LOCALIZED_WARNINGS = {
+    "English": """⚠️ *Important Notice (Testing)* ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation. 
+Advisories are experimental and currently cover major crops in selected states. 
+Weather data is sourced from IMD.
+Market data from eNAM, Agmarknet, and State APMCs.
+Soil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.
+Government schemes from https://www.myscheme.gov.in/. 
+Other agricultural information and advisories are expert-verified by Annam.ai. 
+
+Users should independently validate recommendations before acting."""
+}
+
+_LOCALIZED_EMPTY_REPLIES = {
+    "English": "Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.\nThank You.",
+}
+
+
+def _pair_from_lang_label(lang_label: str) -> tuple[str, str]:
+    """Map legacy lang_label to (script, vocal) for catalog lookup."""
+    label = (lang_label or "English").strip()
+    if label == "English":
+        return "English", "English"
+    if label == "Hinglish":
+        return "English", "Hindi"
+    if label.startswith("Romanized "):
+        return "English", label.replace("Romanized ", "", 1).strip()
+    return label, label
+
+
+def get_localized_warning_text(
+    lang_label: str = "English",
+    *,
+    script_language: Optional[str] = None,
+    vocal_language: Optional[str] = None,
+) -> str:
+    """Return exact testing disclaimer from translated_languages.xlsx."""
+    from ajrasakha.agents.translation_catalog import get_testing_disclaimer
+
+    if script_language is not None and vocal_language is not None:
+        return get_testing_disclaimer(script_language, vocal_language)
+    script, vocal = _pair_from_lang_label(lang_label)
+    return get_testing_disclaimer(script, vocal)
+
+
+def get_localized_empty_reply_body(
+    lang_label: str = "English",
+    *,
+    script_language: Optional[str] = None,
+    vocal_language: Optional[str] = None,
+) -> str:
+    """Return exact 2-hour expert-queue text from translated_languages.xlsx."""
+    from ajrasakha.agents.translation_catalog import get_two_hour_disclaimer
+
+    if script_language is not None and vocal_language is not None:
+        return get_two_hour_disclaimer(script_language, vocal_language)
+    script, vocal = _pair_from_lang_label(lang_label)
+    return get_two_hour_disclaimer(script, vocal)
+
+
+# ── Localized Questions for State and Crop ─────────────────────────────────
+
+_LOCALIZED_STATE_QUESTIONS = {
+    "English": "Which state are you in?",
+}
+
+_LOCALIZED_CROP_QUESTIONS = {
+    "English": "Which crop are you growing?",
+}
+
+
+def get_localized_state_question(
+    lang_label: str = "English",
+    *,
+    script_language: Optional[str] = None,
+    vocal_language: Optional[str] = None,
+) -> str:
+    from ajrasakha.agents.translation_catalog import get_state_follow_up
+
+    if script_language is not None and vocal_language is not None:
+        return get_state_follow_up(script_language, vocal_language)
+    script, vocal = _pair_from_lang_label(lang_label)
+    return get_state_follow_up(script, vocal)
+
+
+def get_localized_crop_question(
+    lang_label: str = "English",
+    *,
+    script_language: Optional[str] = None,
+    vocal_language: Optional[str] = None,
+) -> str:
+    from ajrasakha.agents.translation_catalog import get_crop_follow_up
+
+    if script_language is not None and vocal_language is not None:
+        return get_crop_follow_up(script_language, vocal_language)
+    script, vocal = _pair_from_lang_label(lang_label)
+    return get_crop_follow_up(script, vocal)

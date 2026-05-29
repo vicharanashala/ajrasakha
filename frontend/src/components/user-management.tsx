@@ -7,6 +7,8 @@ import {
   MapPin,
   Search,
   X,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Input } from "./atoms/input";
 import { Badge } from "./atoms/badge";
@@ -39,6 +41,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [stfFilter, setStfFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(12);
+  const [showSensitive, setShowSensitive] = useState(false);
   const states = STATES;
   const isAdmin = currentUser?.role === "admin";
   const isModerator = currentUser?.role === "moderator";
@@ -132,7 +135,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
         <>
           <div className="flex flex-wrap items-start justify-between gap-4 w-full bg-card py-4 px-2 rounded">
             {/* LEFT — Search */}
-            <div className="flex-1 min-w-[250px] max-w-[400px] order-1">
+            <div className="flex items-center gap-3 flex-1 min-w-[250px] max-w-[500px] order-1">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 
@@ -155,10 +158,40 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                   </button>
                 )}
               </div>
+
+              {/* Toggle Phone & University columns — admin only */}
+              {isAdmin && (
+                <button
+                  onClick={() => setShowSensitive((v) => !v)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+                    showSensitive
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-input hover:text-foreground"
+                  }`}
+                >
+                  {showSensitive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showSensitive ? "Hide Info" : "Show Info"}
+                </button>
+              )}
             </div>
 
             {/* RIGHT — Sort + Filter Group */}
             <div className="flex items-center gap-4 order-2">
+              {/* Toggle Phone & University columns — moderator only (admin gets it next to search) */}
+              {!isAdmin && (
+                <button
+                  onClick={() => setShowSensitive((v) => !v)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+                    showSensitive
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-input hover:text-foreground"
+                  }`}
+                >
+                  {showSensitive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showSensitive ? "Hide Info" : "Show Info"}
+                </button>
+              )}
+
               {/* Filter */}
               <div className="flex items-center gap-3 w-[240px]">
                 <Label className="flex items-center gap-2 text-sm font-semibold whitespace-nowrap">
@@ -278,6 +311,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
             setRankPosition={setRankPosition}
             onSort={toggleSort}
             sort={sort}
+            showSensitive={showSensitive}
           />
         </>
       )}

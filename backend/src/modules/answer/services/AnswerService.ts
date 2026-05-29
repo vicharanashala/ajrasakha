@@ -1674,7 +1674,7 @@ export class AnswerService extends BaseService implements IAnswerService {
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
 
       const text = `Question: ${question.question}
-  
+
 answer: ${updates.answer}`;
 
       const generateEmbedding = async (value: string) => {
@@ -1688,6 +1688,96 @@ answer: ${updates.answer}`;
 
         return embedding;
       };
+
+      // EDIT-FINAL-ANSWER FLOW
+      // Allow admin/moderator to edit an already-finalized answer on a closed question.
+      // Updates only answer/sources/embedding; preserves approvedBy/isFinalAnswer/status.
+      if (question.status === 'closed' && updates.answerId) {
+        const existing = await this.answerRepo.getById(updates.answerId, session);
+        if (!existing) {
+          throw new BadRequestError(`Answer with ID ${updates.answerId} not found`);
+        }
+        if (!existing.isFinalAnswer) {
+          throw new BadRequestError(
+            `Can't edit this answer: ${updates.answerId}. It is not the final answer for a closed question.`,
+          );
+        }
+
+        const editEmbedding = await generateEmbedding(text);
+
+        // Keep the question's `text` + `embedding` in sync with the edited
+        // answer so search / semantic lookups don't go stale.
+        await this.questionRepo.updateQuestion(
+          question._id.toString(),
+          {
+            text,
+            embedding: editEmbedding,
+          },
+          session,
+          true,
+        );
+
+        const editResult = await this.answerRepo.updateAnswer(
+          updates.answerId,
+          {
+            answer: updates.answer,
+            sources: updates.sources,
+            embedding: editEmbedding,
+          },
+          session,
+        );
+
+        // NOTE: Re-firing the WhatsApp / Ajrasakha webhook on edit is disabled
+        // for now — undecided whether the farmer should be re-notified when a
+        // moderator edits an already-delivered final answer. Re-enable by
+        // un-commenting the block below if/when that decision is made.
+        //
+        // const editAuthor = await this.userRepo.findById(
+        //   existing.authorId.toString(),
+        //   session,
+        // );
+        // const editWebhookPayload = {
+        //   question_id: question._id.toString(),
+        //   status: 'closed',
+        //   answer: updates.answer ?? '',
+        //   author:
+        //     `${editAuthor?.firstName ?? ''} ${editAuthor?.lastName ?? ''}`.trim() ||
+        //     'Expert',
+        //   sources: updates.sources ?? [],
+        // };
+        //
+        // if (question.source === 'WHATSAPP') {
+        //   try {
+        //     await triggerWebhook(
+        //       appConfig.WA_WEBHOOK_API_URL,
+        //       appConfig.WA_WEBHOOK_API_KEY,
+        //       editWebhookPayload,
+        //       'WhatsApp',
+        //     );
+        //   } catch (err) {
+        //     console.log('Error occurred while notifying customer on edit (WHATSAPP):', err);
+        //   }
+        // }
+        //
+        // if (question.source === 'AJRASAKHA') {
+        //   try {
+        //     await triggerWebhook(
+        //       appConfig.WEB_WEBHOOK_API_URL,
+        //       appConfig.WEB_WEBHOOK_API_KEY,
+        //       {
+        //         ...editWebhookPayload,
+        //         question: question.question,
+        //         messageId: question.messageId,
+        //       },
+        //       'Browser',
+        //     );
+        //   } catch (err) {
+        //     console.log('Error occurred while notifying customer on edit (AJRASAKHA):', err);
+        //   }
+        // }
+
+        return editResult;
+      }
 
       let answerId = updates.answerId;
 
@@ -1823,28 +1913,52 @@ answer: ${updates.answer}`;
         sources: updates.sources ?? [],
       };
 
-
+      let isCustomerNotified = false;
       if (question.source === 'WHATSAPP') {
-        await triggerWebhook(
-          appConfig.WA_WEBHOOK_API_URL,
-          appConfig.WA_WEBHOOK_API_KEY,
-          webhookPayload,
-          'WhatsApp',
-        );
+        try{
+          await triggerWebhook(
+            appConfig.WA_WEBHOOK_API_URL,
+            appConfig.WA_WEBHOOK_API_KEY,
+            webhookPayload,
+            'WhatsApp',
+          );
+          isCustomerNotified = true;
+        } catch(err){
+          isCustomerNotified = false;
+          console.log("Error occured while notifying customer(WHATSAPP): ", err);
+        }
       }
 
       if (question.source === 'AJRASAKHA') {
-        await triggerWebhook(
-          appConfig.WEB_WEBHOOK_API_URL,
-          appConfig.WEB_WEBHOOK_API_KEY,
+        try{
+          await triggerWebhook(
+            appConfig.WEB_WEBHOOK_API_URL,
+            appConfig.WEB_WEBHOOK_API_KEY,
+            {
+              ...webhookPayload,
+              question: question.question,
+              messageId: question.messageId,
+            },
+            'Browser',
+          );
+          isCustomerNotified = true;
+        } catch(err){
+          isCustomerNotified = false;
+          console.log("Error occured while notifying customer(AJRASAKHA): ", err);
+        }
+      }
+
+      if(question.source === 'AJRASAKHA' || question.source === "WHATSAPP"){
+        await this.questionRepo.updateQuestion(
+          questionId,
           {
-            ...webhookPayload,
-            question: question.question,
-            messageId: question.messageId,
+            isCustomerNotified,
           },
-          'Browser',
+          session,
+          false,
         );
       }
+
 
       return result;
     });

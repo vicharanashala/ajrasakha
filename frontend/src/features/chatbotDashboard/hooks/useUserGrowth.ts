@@ -4,6 +4,7 @@ import { ChatbotService } from "@/hooks/services/chatbotService";
 const chatbotService = new ChatbotService();
 
 export const useUserGrowth = (
+  source: string,
   startDate?: Date,
   endDate?: Date,
   enabled: boolean = true
@@ -17,10 +18,10 @@ export const useUserGrowth = (
     queryKey: ["user_growth", startISO, endISO],
     queryFn: () => {
       if (startISO && endISO) {
-        return chatbotService.getUserGrowthByDateRange(startISO, endISO);
+        return chatbotService.getUserGrowthByDateRange(source, startISO, endISO);
       }
 
-      return chatbotService.getUserGrowth(30);
+      return chatbotService.getUserGrowth(source, 3650);
     },
     enabled,
   });

@@ -2,22 +2,10 @@
 
 Flow:
   1. Take input query
-  2. Check domain (via LLM classification)
-  3. Check state (from query text first, then from lat/long)
-  4. Check crop (from query text)
-  5. Lookup table: is crop required for this domain?
-     - crop_required=True  AND crop available   → pass
-     - crop_required=True  AND crop unavailable  → ask user for crop
-     - crop_required=False                       → crop = "All"
-  6. State resolution:
-     - state in query   → state = query_state
-     - state not in query → state = from lat/long
-  7. Completeness check:
-     - state=True AND crop_required=True  AND crop=True  → is_question_complete=True
-     - state=True AND crop_required=True  AND crop=False → is_question_complete=False
-  8. If is_question_complete=True → determine tools to call
-  9. Final output to main agent:
-     {original_query, rephrased_query, state, crop, tools: [list]}
+  2. LLM picks domain from domains.py ALLOWED_DOMAINS (latest message)
+  3. Derive tool flags from domain; resolve state (latest + GPS)
+  4. CROP_ALL_DOMAINS -> crop=all; CROP_REQUIRED -> extract + LLM classifier
+  5. Completeness check -> clarify or execute
 """
 
 from __future__ import annotations
@@ -33,21 +21,36 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import CLAUDE_MODEL
-from ajrasakha.agents.domains import domain_requires_crop, ALLOWED_DOMAINS
-from ajrasakha.agents.language import detect_farmer_language
+from ajrasakha.agents.config import PLANNER_MODEL
+from ajrasakha.agents.crop_requirement import is_crop_specific_question
+from ajrasakha.agents.domains import (
+    CROP_ALL_DOMAINS,
+    CROP_REQUIRED_DOMAINS,
+    domain_requires_crop,
+    apply_tool_flags_from_domains,
+    crop_counts_as_resolved,
+    is_crop_placeholder,
+    normalize_domain,
+)
+from ajrasakha.agents.language import resolve_planner_language_pair
+from ajrasakha.agents.translation_catalog import (
+    OFFICIAL_LANGUAGES,
+    get_crop_follow_up,
+    get_state_follow_up,
+    language_pair_from_plan,
+)
 from ajrasakha.agents.location_context import (
+    extract_state_from_text,
     gps_state_from_location,
     latest_human_text,
     main_agent_location_context_message,
-    recent_human_text,
-    resolve_state_for_turn,
 )
+from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
-    extract_crop_from_text,
     format_conversation_for_planner,
-    infer_domain_for_plan,
+    merge_entities_from_rephrased_query,
+    resolve_crop_for_turn,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
@@ -69,6 +72,15 @@ class PlannerEntitiesOutput(BaseModel):
 
 
 class PlannerOutput(BaseModel):
+    domains: list[str] = Field(
+        default_factory=lambda: ["General"],
+        description=(
+            "1-3 values from ALLOWED_DOMAINS in ajrasakha.agents.domains "
+            "(most relevant first)."
+        ),
+        min_length=1,
+        max_length=3,
+    )
     weather: bool = False
     mandi: bool = False
     soil: bool = False
@@ -82,14 +94,32 @@ class PlannerOutput(BaseModel):
     entities: PlannerEntitiesOutput = Field(default_factory=PlannerEntitiesOutput)
     original_query_en: Optional[str] = Field(
         None,
-        description="If the user query is NOT in English, translate it exactly to English. If it is in English, set it to the original query."
+        description=(
+            "Literal English translation of the farmer's latest message. If already English, copy verbatim. "
+            "Never substitute crop/disease/pest/place names (e.g. keep 'bauna disease', not 'blast disease'). "
+            "Transliterate unknown local terms; do not guess standard names."
+        ),
     )
     rephrased_query: Optional[str] = Field(
         None,
         description=(
-            "English grammatically corrected query (if user's query is in another language, correct the English translation). "
-            "ONLY refine spelling, syntax, or grammar errors. Do NOT do any fancy rephrasing or search extensions."
-        )
+            "Same meaning as original_query_en with ONLY spelling, grammar, or word-order fixes. "
+            "Do NOT add facts, swap agricultural terms, or 'improve' disease/pest/crop names. "
+            "No search extensions or paraphrase."
+        ),
+    )
+    vocal_language: str = Field(
+        default="English",
+        description=f"Spoken language the farmer uses. One of: {', '.join(OFFICIAL_LANGUAGES)}",
+    )
+    script_language: str = Field(
+        default="English",
+        description=(
+            "Writing system / alphabet of the farmer's message. One of OFFICIAL_LANGUAGES. "
+            "Latin/Roman letters for any Indian language → English (e.g. Romanized Telugu "
+            "'Barli pantalo aafids ni ela...' → script_language=English, vocal_language=Telugu). "
+            "Native Unicode script → same language name as vocal (e.g. both Telugu for Telugu script)."
+        ),
     )
 
 
@@ -137,7 +167,23 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
     if output.entities.chemicals:
         entities["chemicals"] = list(output.entities.chemicals)
 
+    raw_domains = list(output.domains or []) or ["General"]
+    normalized_domains: list[str] = []
+    seen: set[str] = set()
+    for d in raw_domains:
+        nd = normalize_domain(d)
+        if nd in seen:
+            continue
+        seen.add(nd)
+        normalized_domains.append(nd)
+        if len(normalized_domains) >= 3:
+            break
+    if not normalized_domains:
+        normalized_domains = ["General"]
+
     return {
+        "domain": normalized_domains[0],  # Backward-compatible single-domain view
+        "domains": normalized_domains,
         "weather": output.weather,
         "mandi": output.mandi,
         "soil": output.soil,
@@ -152,11 +198,17 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "skip_synthesize": False,
         "rephrased_query": output.rephrased_query,
         "original_query_en": output.original_query_en,
+        "vocal_language": output.vocal_language,
+        "script_language": output.script_language,
+        "translate_path": None,
+        "expert_queue": False,
     }
 
 
 def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPlan:
     return {
+        "domain": "General",
+        "domains": ["General"],
         "weather": False,
         "mandi": False,
         "soil": False,
@@ -171,25 +223,113 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "skip_synthesize": False,
         "rephrased_query": user_query,
         "original_query_en": user_query,
+        "vocal_language": "English",
+        "script_language": "English",
+        "translate_path": None,
+        "expert_queue": False,
     }
+
+
+def _extract_state_from_history(
+    messages: list[BaseMessage],
+    max_turns: int = 4,
+) -> Optional[str]:
+    """Extract state from last N human messages (most recent first).
+
+    Returns state from the FIRST mention found
+    when walking backwards from the most recent message.
+    """
+    human_messages = [msg for msg in messages if isinstance(msg, HumanMessage)]
+    recent = human_messages[-max_turns:] if len(human_messages) > max_turns else human_messages
+    for msg in reversed(recent):
+        text = _message_to_text(msg)
+        state = extract_state_from_text(text)
+        if state:
+            return state
+    return None
 
 
 def _resolve_state_deterministic(
     messages: list[BaseMessage],
     location: Optional[dict],
+    prev_entities: Optional[PlannerEntities] = None,
 ) -> Optional[str]:
-    """Deterministically resolve state: latest message text, then GPS thread location."""
-    return resolve_state_for_turn(latest_human_text(messages), location)
+    """Deterministically resolve state: prev_entities (previous turns), then latest text, then history, then GPS."""
+    # Priority 0: State from previous planner turns (carry-over from clarification)
+    if prev_entities and prev_entities.get("state"):
+        return prev_entities.get("state")
+    # Priority 1: Latest message only
+    state_from_latest = extract_state_from_text(latest_human_text(messages))
+    if state_from_latest:
+        return state_from_latest
+    # Priority 2: Conversation history (last 4 human turns)
+    state_from_history = _extract_state_from_history(messages, max_turns=4)
+    if state_from_history:
+        return state_from_history
+    # Priority 3: GPS thread location
+    return gps_state_from_location(location)
 
 
-def _resolve_crop_deterministic(
+async def _apply_domain_and_crop_async(
+    plan: PlannerPlan,
     messages: list[BaseMessage],
-) -> Optional[str]:
-    """Crop from recent clarify turns only (not full thread history)."""
-    crop = extract_crop_from_text(recent_human_text(messages, max_turns=5))
-    if crop:
-        return crop[0].upper() + crop[1:].lower()
-    return None
+    *,
+    crop_prefilled: Optional[str],
+    config: RunnableConfig,
+) -> tuple[PlannerPlan, str, bool]:
+    """Normalize domains, derive flags, apply CROP_ALL / CROP_REQUIRED crop rules."""
+    domains_raw = plan.get("domains") or [plan.get("domain") or "General"]
+    domains: list[str] = []
+    seen: set[str] = set()
+    for d in domains_raw:
+        nd = normalize_domain(d)
+        if nd in seen:
+            continue
+        seen.add(nd)
+        domains.append(nd)
+        if len(domains) >= 3:
+            break
+    if not domains:
+        domains = ["General"]
+
+    plan["domains"] = domains
+    plan["domain"] = domains[0]
+
+    plan.update(apply_tool_flags_from_domains(domains))
+    if ENABLE_CHEMICAL_CHECKER and plan.get("chemical_checker", False):
+        plan["chemical_checker"] = True
+    else:
+        plan["chemical_checker"] = False
+
+    entities: PlannerEntities = dict(plan.get("entities") or {})
+    user_text = latest_human_text(messages)
+    question = plan.get("rephrased_query") or user_text
+    original = plan.get("original_query_en") or user_text
+
+    crop_required = False
+    crop_required_any = any(domain_requires_crop(d) for d in domains)
+
+    # Always-ask safety rule: if ANY selected domain requires a crop and crop is missing,
+    # we must ask for crop (no classifier-based skipping).
+    if crop_required_any:
+        crop = crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
+        if crop and crop_counts_as_resolved(crop) and not is_crop_placeholder(crop):
+            entities["crop"] = (
+                "all" if crop.lower() == "all"
+                else crop[0].upper() + crop[1:].lower()
+            )
+            crop_required = False
+        else:
+            crop_required = True
+    elif domains[0] in CROP_ALL_DOMAINS:
+        entities["crop"] = "all"
+        crop_required = False
+    else:
+        entities["crop"] = "all"
+        crop_required = False
+
+    plan["entities"] = entities
+    return plan, domains[0], crop_required
 
 
 def _check_question_completeness(
@@ -197,39 +337,24 @@ def _check_question_completeness(
     crop_resolved: Optional[str],
     crop_required: bool,
     has_gps: bool,
-    farmer_language: str = "English",
+    plan: PlannerPlan,
 ) -> tuple[bool, list[str], Optional[str]]:
-    """Deterministic completeness check following the specified flow.
-
-    Returns (is_complete, missing_info, follow_up_question).
-
-    Logic:
-      - State must be known (from text or GPS)
-      - If crop_required and crop not available → incomplete, ask for crop
-      - If crop_required=False → crop = "All" (handled by caller)
-    """
+    """Deterministic completeness check following the specified flow."""
+    script, vocal = language_pair_from_plan(plan)
     missing: list[str] = []
     follow_up: Optional[str] = None
 
-    # State check: either from text or GPS must be available
     has_state = bool(state_resolved) or has_gps
     if not has_state:
         missing.append("location")
-        follow_up = (
-            "Which state and district are you in?"
-            if farmer_language == "English"
-            else "आप किस राज्य और जिले में हैं?"
-        )
+        follow_up = get_state_follow_up(script, vocal)
         return False, missing, follow_up
 
-    # Crop check: only when domain requires it
-    if crop_required and not crop_resolved:
+    if crop_required and (
+        not crop_counts_as_resolved(crop_resolved) or is_crop_placeholder(crop_resolved)
+    ):
         missing.append("crop")
-        follow_up = (
-            "Which crop are you growing?"
-            if farmer_language == "English"
-            else "आप कौन सी फसल उगा रहे हैं?"
-        )
+        follow_up = get_crop_follow_up(script, vocal)
         return False, missing, follow_up
 
     return True, [], None
@@ -247,6 +372,7 @@ async def planner_node(
     user_text = _message_to_text(human)
     if is_greeting_message(user_text):
         plan: PlannerPlan = {
+            "domain": "General",
             "weather": False,
             "mandi": False,
             "soil": False,
@@ -257,126 +383,123 @@ async def planner_node(
             "missing_info": [],
             "follow_up_question": None,
             "reasoning": "greeting",
-            "entities": {},
+            "entities": {"crop": "all"},
             "skip_synthesize": False,
             "rephrased_query": user_text,
             "original_query_en": user_text,
+            "vocal_language": "English",
+            "script_language": "English",
+            "translate_path": None,
+            "expert_queue": False,
         }
         return {"plan": plan}
 
-    # ── Step 1: Deterministic entity extraction (NO LLM for state/crop) ────
     location = state.get("location")
-    farmer_lang = detect_farmer_language(user_text)
+    # Extract previous entities BEFORE LLM call so state can be carried forward
+    prev_entities: PlannerEntities = dict(state.get("plan", {}).get("entities") or {})
 
-    # Resolve state: text first, then GPS location
-    state_resolved = _resolve_state_deterministic(messages, location)
+    state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
+    crop_resolved = resolve_crop_for_turn(messages)
 
-    # Resolve crop: from conversation text
-    crop_resolved = _resolve_crop_deterministic(messages)
-
-    # Check if GPS exists on thread
     has_gps = bool(
         location
         and location.get("latitude") is not None
         and location.get("longitude") is not None
     )
 
-    # ── Step 2: Use LLM ONLY for domain/tool classification + translation ──
     llm_messages: list[BaseMessage] = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
     loc_ctx = main_agent_location_context_message(location)
     if loc_ctx:
         llm_messages.append(loc_ctx)
     conv_block = format_conversation_for_planner(messages) or user_text
 
-    # Inject deterministically extracted entities so the LLM doesn't
-    # re-derive them (and potentially get them wrong)
     deterministic_context = (
-        f"PRE-EXTRACTED ENTITIES (use these, do not override):\n"
-        f"- state: {state_resolved or 'NOT RESOLVED'}\n"
-        f"- crop: {crop_resolved or 'NOT RESOLVED'}\n"
+        f"PRE-EXTRACTED HINTS from latest raw message (server will re-merge from rephrased_query):\n"
+        f"- state hint: {state_resolved or 'NOT RESOLVED'}\n"
+        f"- crop hint: {crop_resolved or 'NOT RESOLVED'}\n"
         f"- has_gps: {has_gps}\n"
     )
     llm_messages.append(
         HumanMessage(
             content=(
                 f"{deterministic_context}\n"
-                f"Farmer conversation (language: {farmer_lang}):\n{conv_block}\n\n"
-                f"Write follow_up_question in {farmer_lang} only when rules require it.\n"
+                f"Latest farmer message:\n{conv_block}\n\n"
+                f"Pick `domain` from the allowed list using this latest message only.\n"
+                "Set `vocal_language` and `script_language` from the official language list.\n"
+                "Leave `follow_up_question` empty when location/crop is missing — server uses the sheet.\n"
                 "Return the routing plan only."
             )
         )
     )
 
     try:
-        llm = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(PlannerOutput)
+        llm = ChatAnthropic(model=PLANNER_MODEL).with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=config)
         plan = planner_output_to_plan(output)
 
-        # ── Step 3: Override LLM entities with deterministic values ─────
-        entities = plan.get("entities") or {}
-
-        # State: deterministic resolution takes priority
-        if state_resolved:
-            entities["state"] = state_resolved
-        elif not entities.get("state"):
-            gps_state = gps_state_from_location(location)
-            if gps_state:
-                entities["state"] = gps_state
-
-        # Crop: deterministic extraction takes priority
-        if crop_resolved:
-            entities["crop"] = crop_resolved
-
-        plan["entities"] = entities
-
-        # ── Step 4: Determine domain and crop requirement ──────────────
-        domain = infer_domain_for_plan(plan, user_text)
-        crop_required = domain_requires_crop(domain)
-
-        # If crop is NOT required for this domain, set crop = "All"
-        effective_crop = entities.get("crop")
-        if not crop_required:
-            effective_crop = "All"
-            entities["crop"] = "All"
-            plan["entities"] = entities
-
-        # ── Step 5: Deterministic completeness check ───────────────────
-        final_state = entities.get("state") or state_resolved
-        is_complete, missing, follow_up = _check_question_completeness(
-            state_resolved=final_state,
-            crop_resolved=effective_crop,
-            crop_required=crop_required,
-            has_gps=has_gps,
-            farmer_language=farmer_lang,
+        prev_vocal = plan.get("vocal_language")
+        prev_script = plan.get("script_language")
+        vocal, script = resolve_planner_language_pair(
+            user_text, prev_vocal or "English", prev_script or "English"
         )
-
-        plan["is_complete"] = is_complete
-        plan["missing_info"] = missing
-        plan["follow_up_question"] = follow_up
-
-        # Apply remaining post-processing rules (schemes override, etc.)
-        plan = apply_planner_completeness_rules(
-            plan,
-            messages,
-            location,
-            farmer_language=farmer_lang,
-        )
+        if vocal != prev_vocal or script != prev_script:
+            logger.info(
+                "Planner language normalized from raw message: (%s, %s) -> (%s, %s)",
+                prev_vocal,
+                prev_script,
+                vocal,
+                script,
+            )
+        plan["vocal_language"] = vocal
+        plan["script_language"] = script
 
         if not plan.get("rephrased_query"):
             plan["rephrased_query"] = user_text
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
 
+        entities = merge_entities_from_rephrased_query(plan, messages, location, prev_entities)
+        plan["entities"] = entities
+
+        plan, domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            messages,
+            crop_prefilled=entities.get("crop"),
+            config=config,
+        )
+
+        entities = plan.get("entities") or {}
+        effective_crop = entities.get("crop")
+        final_state = entities.get("state")
+        is_complete, missing, follow_up = _check_question_completeness(
+            state_resolved=final_state,
+            crop_resolved=effective_crop,
+            crop_required=crop_required,
+            has_gps=has_gps,
+            plan=plan,
+        )
+
+        plan["is_complete"] = is_complete
+        plan["missing_info"] = missing
+        plan["follow_up_question"] = follow_up
+
+        plan = apply_planner_completeness_rules(plan, messages, location, prev_entities)
+
+        plan["knowledge_base"] = True
+        plan["soil"] = False
+
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "
-            "state=%s crop=%s "
+            "state=%s crop=%s vocal=%s script=%s "
             "flags=(w=%s m=%s s=%s sch=%s chem=%s kb=%s) "
             "rephrased=%s missing=%s",
             plan.get("is_complete"),
-            domain,
+            plan.get("domain"),
             crop_required,
             entities.get("state"),
             entities.get("crop"),
+            plan.get("vocal_language"),
+            plan.get("script_language"),
             plan.get("weather"),
             plan.get("mandi"),
             plan.get("soil"),
@@ -401,15 +524,14 @@ def clarify_node(state: AjraSakhaState) -> dict:
     plan = state.get("plan") or {}
     question = (plan.get("follow_up_question") or "").strip()
     missing = plan.get("missing_info") or []
+    script, vocal = language_pair_from_plan(plan)
     if not question:
-        if "district" in missing:
-            question = "Which district are you in?"
-        elif "location" in missing:
-            question = "Which state and district are you in?"
+        if "location" in missing:
+            question = get_state_follow_up(script, vocal)
         elif "crop" in missing:
-            question = "Which crop are you growing?"
+            question = get_crop_follow_up(script, vocal)
         else:
-            question = "Which state and district are you in?"
+            question = get_state_follow_up(script, vocal)
     return {"messages": [AIMessage(content=question)]}
 
 

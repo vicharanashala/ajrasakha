@@ -5,6 +5,14 @@ export interface DailyEntry {
   count: number;
 }
 
+export interface AnalyticsEntry {
+  period: string;
+  queryCount: number;
+  totalQuestions: number;
+  closedQuestions: number;
+  averageCloseTime: string;
+}
+
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 
 /**

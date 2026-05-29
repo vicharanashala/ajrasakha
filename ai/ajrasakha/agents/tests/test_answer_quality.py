@@ -1,14 +1,11 @@
 """Unit tests for expert-answer quality heuristics and disclaimer stripping."""
 
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ajrasakha.agents.answer_quality import (
     ensure_two_hour_disclaimer,
-    is_answer_supported_by_official_tools_in_turn,
     is_no_database_match_answer,
     is_official_government_sourced_answer,
     is_sufficient_expert_answer,
-    should_preserve_official_tool_answer,
     strip_two_hour_disclaimer,
 )
 
@@ -98,24 +95,6 @@ Here are government schemes you may apply for in Punjab:
 
 def test_scheme_list_answer_recognized_without_url():
     assert is_official_government_sourced_answer(SCHEMES_ANSWER) is True
-
-
-def test_tool_backed_schemes_in_turn():
-    scheme_tool_output = "PM-KISAN\nEligibility: farmers\nBenefit: 6000" * 5
-    messages = [
-        HumanMessage(
-            content=(
-                "I am 22 year, male general category farmer living in Ludhiana, Punjab. "
-                "Are there any government schemes I can apply for?"
-            )
-        ),
-        AIMessage(content="", tool_calls=[{"name": "schemes", "args": {}, "id": "1"}]),
-        ToolMessage(content=scheme_tool_output, tool_call_id="1", name="schemes"),
-        AIMessage(content=SCHEMES_ANSWER),
-    ]
-    question = messages[0].content
-    assert is_answer_supported_by_official_tools_in_turn(messages, question) is True
-    assert should_preserve_official_tool_answer(messages, question, SCHEMES_ANSWER) is True
 
 
 def test_ensure_disclaimer_appended_for_no_match():

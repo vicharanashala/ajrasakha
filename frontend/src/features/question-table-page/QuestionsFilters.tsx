@@ -113,9 +113,10 @@ type QuestionsFiltersProps = {
   isBulkAllocatingPae: boolean;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
+  if (filter.is_non_agri === true) return "non_agri";
   if (filter.pae_review === true) return "pae";
   if (filter.status === "draft") return "draft";
   if (filter.source === "AGRI_EXPERT") return "manual";
@@ -130,7 +131,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
-  if (answerMode === "draft" || answerMode === "pae") return "all";
+  if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri") return "all";
   return "AJRASAKHA";
 };
 
@@ -449,14 +450,17 @@ export const QuestionsFilters = ({
   const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
     let nextFilters: AdvanceFilterValues;
 
-    if (nextAnswerMode === "draft") {
-      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined };
+    if (nextAnswerMode === "non_agri") {
+      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined };
+      if (answerMode === "draft") nextFilters.status = "all";
+    } else if (nextAnswerMode === "draft") {
+      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined };
     } else if (nextAnswerMode === "pae") {
-      nextFilters = { ...advanceFilter, source: "all", pae_review: true };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined };
       if (answerMode === "draft") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
-      nextFilters = { ...advanceFilter, source, pae_review: undefined };
+      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined };
       if (answerMode === "draft") nextFilters.status = "all";
     }
 
@@ -509,6 +513,8 @@ export const QuestionsFilters = ({
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,
+      is_non_agri: advanceFilter?.is_non_agri,
+      unallocatedQuestions: advanceFilter?.unallocatedQuestions,
     });
   };
 
@@ -526,7 +532,8 @@ export const QuestionsFilters = ({
         key === "closedAtStart" ||
         key === "closedAtEnd" ||
         key === "state" || // replaced by states
-        key === "normalised_crop" // replaced by normalisedCrops
+        key === "normalised_crop" || // replaced by normalisedCrops
+        key === "is_non_agri" // tab-level filter, not advanced
       ) {
         return false;
       }

@@ -25,6 +25,7 @@ import { detailsArray, dummyEmbeddings, priorities, questionStatus, sources } fr
 import {
   Analytics,
   AnalyticsItem,
+  AnalyticsTableRow,
   DashboardResponse,
   GoldenDatasetEntry,
   GoldenDataViewType,
@@ -329,7 +330,9 @@ export class QuestionRepository implements IQuestionRepository {
         hiddenQuestions,
         duplicateQuestions,
         isOnHold,
-        pae_review
+        unallocatedQuestions,
+        pae_review,
+        is_non_agri
       } = query;
       //  const filter: any = {};
       const filter: any = {
@@ -354,6 +357,53 @@ export class QuestionRepository implements IQuestionRepository {
       // --- on Hold question filter ---
       if (isOnHold === 'true') filter.isOnHold = { $eq: true }; // filter by on hold questions
 
+      // --- Unallocated questions filter ---
+      // Single aggregation: join questions (open/delayed) with question_submissions,
+      // then match: no submission, OR empty queue, OR last history status != 'in-review' with non-empty queue
+      if (unallocatedQuestions === 'true') {
+        const unallocatedDocs = await this.QuestionCollection.aggregate([
+          { $match: { status: { $in: ['open', 'delayed'] } } },
+          {
+            $lookup: {
+              from: 'question_submissions',
+              let: { qId: '$_id' },
+              pipeline: [
+                { $match: { $expr: { $eq: ['$questionId', '$$qId'] } } },
+                { $project: { queue: 1, history: 1 } },
+              ],
+              as: 'sub',
+            },
+          },
+          { $addFields: { sub: { $arrayElemAt: ['$sub', 0] } } },
+          {
+            $match: {
+              $or: [
+                // No submission OR empty queue
+                { $expr: { $eq: [{ $size: { $ifNull: ['$sub.queue', []] } }, 0] } },
+                // Queue not empty + history not empty + last history status != 'in-review'
+                {
+                  $and: [
+                    { $expr: { $gt: [{ $size: { $ifNull: ['$sub.queue', []] } }, 0] } },
+                    { $expr: { $gt: [{ $size: { $ifNull: ['$sub.history', []] } }, 0] } },
+                    {
+                      $expr: {
+                        $ne: [
+                          { $arrayElemAt: [{ $map: { input: { $ifNull: ['$sub.history', []] }, as: 'h', in: '$$h.status' } }, -1] },
+                          'in-review',
+                        ],
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          { $project: { _id: 1 } },
+        ]).toArray();
+
+        filter._id = { $in: unallocatedDocs.map((d) => d._id) };
+      }
+
       //for duplicate questions.
       // duplicateQuestions === 'true'
       //       ? this.DuplicateQuestionCollection
@@ -377,6 +427,16 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('status', status);
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
+
+      // --- Non-Agri tab filter ---
+      // When on Non-Agri tab → only show non_agri questions.
+      // On any OTHER tab (and no explicit status filter) → exclude non_agri questions
+      // so they don't leak into AJRASAKHA / WhatsApp / Outreach / Manual tabs.
+      if (is_non_agri === 'true' || is_non_agri === true) {
+        filter.status = 'non_agri';
+      } else if (filter.status === undefined) {
+        filter.status = { $ne: 'non_agri' };
+      }
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
         filter['details.state'] = { $in: body.states };
@@ -3520,7 +3580,10 @@ export class QuestionRepository implements IQuestionRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
-    status?: string,
+    status?: string[],
+    state?: string[],
+    source?: string[],
+    crop?: string[],
   ): Promise<{ analytics: Analytics }> {
     await this.init();
 
@@ -3528,24 +3591,28 @@ export class QuestionRepository implements IQuestionRepository {
     if (startTime) filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
     if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
 
-    const matchStage: any = { status: { $ne: 'pass' } };
-    if (status && status !== 'all') {
-      matchStage.status = status;
+    const matchStage: any = {};
+    if (status?.length) {
+      matchStage.status = { $in: status };
     }
     if (Object.keys(filterDate).length > 0) {
       matchStage.createdAt = filterDate;
     }
+    if (state?.length) {
+      matchStage['details.state'] = { $in: state };
+    }
+    if (source?.length) {
+      matchStage.source = { $in: source };
+    }
+    if (crop?.length) {
+      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      matchStage['details.crop'] = {
+        $in: crop.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')),
+      };
+    }
 
-    const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
-      const sorted = [...data].sort((a, b) => b.count - a.count);
-      const topTen = sorted.slice(0, 10);
-      const othersItems = sorted.slice(10);
-      const othersCount = othersItems.reduce((sum, item) => sum + item.count, 0);
-
-      return [
-        ...topTen,
-        ...(othersCount > 0 ? [{ name: 'Others', count: othersCount, otherItems: othersItems }] : []),
-      ];
+    const sortAllItems = (data: { name: string; count: number }[]) => {
+      return [...data].sort((a, b) => b.count - a.count);
     };
 
     // Aggregate crop data
@@ -3578,11 +3645,63 @@ export class QuestionRepository implements IQuestionRepository {
       { session },
     ).toArray()) as AnalyticsItem[];
 
+    // Table: group by state × crop × source, pivot status counts
+    const tableData = await this.QuestionCollection.aggregate(
+      [
+        {$match: matchStage},
+        {
+          $group: {
+            _id: {state: '$details.state', crop: '$details.crop', source: '$source'},
+            open:         {$sum: {$cond: [{$eq: ['$status', 'open']}, 1, 0]}},
+            closed:       {$sum: {$cond: [{$eq: ['$status', 'closed']}, 1, 0]}},
+            inReview:     {$sum: {$cond: [{$eq: ['$status', 'in-review']}, 1, 0]}},
+            delayed:      {$sum: {$cond: [{$eq: ['$status', 'delayed']}, 1, 0]}},
+            reRouted:     {$sum: {$cond: [{$eq: ['$status', 're-routed']}, 1, 0]}},
+            hold:         {$sum: {$cond: [{$eq: ['$status', 'hold']}, 1, 0]}},
+            paeSubmitted: {$sum: {$cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0]}},
+            draft:        {$sum: {$cond: [{$eq: ['$status', 'draft']}, 1, 0]}},
+            duplicate:    {$sum: {$cond: [{$eq: ['$status', 'duplicate']}, 1, 0]}},
+            total:        {$sum: 1},
+            // Earliest question ever created in this group
+            lastPushedDate: {$min: '$createdAt'},
+            // Most recent closedAt among questions that are actually closed
+            lastClosedDate: {
+              $max: {
+                $cond: [{$eq: ['$status', 'closed']}, '$closedAt', null],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            state: '$_id.state',
+            crop: '$_id.crop',
+            source: '$_id.source',
+            open: 1, closed: 1, inReview: 1, delayed: 1, reRouted: 1,
+            hold: 1, paeSubmitted: 1, draft: 1, duplicate: 1, total: 1,
+            lastPushedDate: 1,
+            lastClosedDate: 1,
+            completionPct: {
+              $cond: [
+                {$gt: ['$total', 0]},
+                {$round: [{$multiply: [{$divide: ['$closed', '$total']}, 100]}, 1]},
+                0,
+              ],
+            },
+          },
+        },
+        {$sort: {state: 1, crop: 1, source: 1}},
+      ],
+      {session},
+    ).toArray() as AnalyticsTableRow[];
+
     return {
       analytics: {
-        cropData: getTopTenWithOthers(cropDataRaw),
+        cropData: sortAllItems(cropDataRaw),
         stateData: stateDataRaw,
-        domainData: getTopTenWithOthers(domainDataRaw),
+        domainData: sortAllItems(domainDataRaw),
+        tableData,
       },
     };
   }
@@ -4662,6 +4781,13 @@ export class QuestionRepository implements IQuestionRepository {
         { pae_review: { $eq: false } },
         { pae_review: { $exists: false } }
       ];
+    }
+
+    // Apply is_non_agri filter exactly matching findDetailedQuestions logic
+    if (query.is_non_agri === 'true' || query.is_non_agri === true) {
+      filter.status = 'non_agri';
+    } else if (filter.status === undefined) {
+      filter.status = { $ne: 'non_agri' };
     }
 
     // Apply isOnHold filter exactly matching findDetailedQuestions logic
