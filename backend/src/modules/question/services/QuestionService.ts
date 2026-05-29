@@ -869,7 +869,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     details: IQuestion['details'],
     logData: Record<string, any>,
     session?: ClientSession,
-  ): Promise<{isDuplicate: boolean; duplicateData?: any}> {
+  ): Promise<{isDuplicate: boolean; duplicateData?: any; isNonAgri?: boolean; nonAgriData?: any}> {
     return checkDuplicateQuestionHelper(
       baseQuestion,
       details,
@@ -902,7 +902,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         context,
         originalquestion = '',
       } = body;
-      console.log("Body ",body)
       if(body.details){
         body.details.state = toTitleCase(body.details.state);
         body.details.crop = toTitleCase(body.details.crop as string);
@@ -913,6 +912,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const popContext = popContextFromBody;
       console.log('the body coming=====', body);
 
+      
       if (!details) {
         const b: any = body;
         details = {
@@ -1022,7 +1022,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           question,
           priority,
           source,
-          status: 'open',
+          status: source === 'AJRASAKHA' || source === 'WHATSAPP' ? 'pending' : 'open',
           totalAnswersCount: 0,
           contextId,
           details,
@@ -1167,11 +1167,20 @@ export class QuestionService extends BaseService implements IQuestionService {
             });
             return;
           }
+          if (duplicateResult?.isNonAgri) {
+            await this.questionRepo.updateQuestion(questionId, {
+              status: 'non_agri',
+            });
+            return;
+          }
+          // NONE result — not a duplicate and not non-agri, mark as open
+          await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         } catch (duplicateError: any) {
           console.error(
             '[processQuestionInBackground] Duplicate check failed, proceeding as open:',
             duplicateError.message,
           );
+          await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         }
 
         const [allModerators, taskForceModerators] = await Promise.all([

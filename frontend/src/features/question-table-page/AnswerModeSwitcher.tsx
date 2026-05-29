@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
-import { FileText, MessageCircle, Radio, Sparkles, UserCheck, UserRound } from "lucide-react";
+import { FileText, LeafyGreen, MessageCircle, Radio, Sparkles, UserCheck, UserRound } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export const MODES = [
@@ -10,6 +10,7 @@ export const MODES = [
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
     { id: "draft", label: "Draft", icon: FileText },
     { id: "pae", label: "PAE", icon: UserCheck },
+    { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
 ] as const
 
 const MODE_DESCRIPTIONS: Record<string, string> = {
@@ -25,6 +26,8 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
         "Questions saved as draft (Status: Draft)",
     pae:
         "Questions assigned to PAE experts (pae_review: true)",
+    non_agri:
+        "Non-agricultural questions separated for dedicated tracking",
 };
 
 type Mode = typeof MODES[number]["id"];
@@ -73,7 +76,7 @@ export function AnswerModeSwitcher({
                                 }`}
                         >
                             <Icon className="h-4 w-4" />
-                            {(id === "draft" || id == "pae") && (
+                            {(id === "draft" || id === "pae" || id === "non_agri") && (
                                 <TopRightBadge label="new" right={0} />
                             )}
 

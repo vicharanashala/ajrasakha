@@ -26,6 +26,7 @@ export function WhatsAppUniqueUsersCard({
         border-border
         rounded-2xl
         bg-background/80
+        pb-8
          h-fit
         bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300
         "
