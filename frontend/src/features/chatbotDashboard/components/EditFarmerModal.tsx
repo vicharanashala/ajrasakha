@@ -200,11 +200,11 @@ export function EditFarmerModal({
       errors.age = "Age must be between 16 and 100";
     }
 
-    if (!form.phoneNo) {
-      errors.phoneNo = "Phone No is required";
-    } else if (form.phoneNo.length > 10) {
-      errors.phoneNo = "Phone number an not be greater then 10 digits";
-    }
+  if (!form.phoneNo.trim()) {
+  errors.phoneNo = "Phone Number is required";
+} else if (!/^\d{10}$/.test(form.phoneNo)) {
+  errors.phoneNo = "Phone Number must be exactly 10 digits";
+}
 
     if (!form.gender.trim()) {
       errors.gender = "Gender is required";
@@ -285,17 +285,7 @@ export function EditFarmerModal({
     });
   }, [open, user]);
 
-  const handleChange = (key: keyof FormState, value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
 
-    setErrors((prev) => ({
-      ...prev,
-      [key]: undefined,
-    }));
-  };
 
   const handleSave = async () => {
     if (isSaving) return;
@@ -355,7 +345,7 @@ export function EditFarmerModal({
             setForm={setForm}
             errors={errors}
           />
-          <DemographicDetails form={form} setForm={setForm} errors={errors} />
+          <DemographicDetails form={form} setForm={setForm} errors={errors} setErrors={setErrors}/>
           <AgriculturalBackgroundSection
             form={form}
             setForm={setForm}
@@ -440,7 +430,6 @@ const UserInformationSection = ({
             onChange={(e) => handleChange("role", e.target.value)}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="">Select Role</option>
 
             <option value="USER">USER</option>
 
@@ -460,13 +449,34 @@ const DemographicDetails = ({
   form,
   setForm,
   errors,
+  setErrors
 }: DemographicDetailsProps) => {
-  const handleChange = (key: keyof FormState, value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
+const handleChange = (
+  key: keyof FormState,
+  value: string,
+) => {
+  setForm((prev) => ({
+    ...prev,
+    [key]: value,
+  }));
+
+  setErrors((prev) => {
+    const updated = { ...prev };
+
+    if (key === "phoneNo") {
+      if (!value.trim()) {
+        updated.phoneNo = "Phone Number is required";
+      } else if (!/^\d{10}$/.test(value)) {
+        updated.phoneNo =
+          "Phone Number must be exactly 10 digits";
+      } else {
+        delete updated.phoneNo;
+      }
+    }
+
+    return updated;
+  });
+};
 
   return (
     <div className="space-y-6 mb-4">
@@ -478,7 +488,7 @@ const DemographicDetails = ({
 
       {/* Fields go here */}
 
-      <div>
+      {/* <div>
         <label className="text-sm font-medium">Language</label>
 
         <select
@@ -494,7 +504,7 @@ const DemographicDetails = ({
             </option>
           ))}
         </select>
-      </div>
+      </div> */}
 
       <div>
         <label className="text-sm font-medium">Farmer Name</label>
@@ -514,6 +524,8 @@ const DemographicDetails = ({
 
           <Input
             type="number"
+            min={16}
+            max={100}
             value={form.age}
             onChange={(e) => handleChange("age", e.target.value)}
           />
@@ -787,7 +799,7 @@ const AgriculturalBackgroundSection = ({
       </div>
 
       {/* Crops Cultivated */}
-      <div>
+      {/* <div>
         <label className="text-sm font-medium">Crops Cultivated</label>
 
         <Input
@@ -799,7 +811,7 @@ const AgriculturalBackgroundSection = ({
         <p className="text-xs text-muted-foreground mt-1">
           Comma separated crop names
         </p>
-      </div>
+      </div> */}
     </div>
   );
 };
