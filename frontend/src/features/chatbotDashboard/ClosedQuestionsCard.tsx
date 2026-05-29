@@ -195,7 +195,7 @@ export function ClosedQuestionsCard({
             </motion.div>
 
             {/* in-review */}
-            <motion.div
+            {/* <motion.div
               className="flex flex-1 flex-col"
               variants={{
                 hidden: { opacity: 0, y: 12 },
@@ -233,7 +233,7 @@ export function ClosedQuestionsCard({
               >
                 {Math.max(inReview ?? 0, 0)}
               </motion.span>
-            </motion.div>
+            </motion.div> */}
 
             <motion.div
               className="flex flex-1 flex-col"

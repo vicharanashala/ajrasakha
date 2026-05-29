@@ -695,6 +695,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                           )}
 
                            <ClosedInLastTwoHoursCard
+                            source = {source}
                             count={closed2hData?.closedInLastTwoHours}
                             totalClosed={
                               closed2hData?.closedVsTotalQuestions
@@ -721,7 +722,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             onDateRangeChange={setQuestionStatusDateRange}
                             isLoading={isQuestionStatusFetching}
                             carryForward={
-                              closedAndNotifedData?.carryForward
+                              questionStatusData?.carryForward
                             }
                           />
                           <CustomerNotificationsCard
