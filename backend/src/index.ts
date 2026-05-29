@@ -85,7 +85,7 @@ useExpressServer(app, moduleOptions);
 // Setup Scalar API Documentation
 const openApiSpec = generateOpenAPISpec(moduleOptions, validators);
 app.use(
-  '/reference',
+  `${appConfig.routePrefix}/reference`,
   apiReference({
     content: openApiSpec,
     theme: 'elysiajs',
