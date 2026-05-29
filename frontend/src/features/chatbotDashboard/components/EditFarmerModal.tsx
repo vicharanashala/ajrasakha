@@ -184,13 +184,11 @@ export function EditFarmerModal({
   };
 
   const handleSave = async () => {
-    const parsedAge = toNumber(form.age);
-    if (parsedAge != null && parsedAge <= 16) {
-      setError("Age must be greater than 16.");
-      return;
-    }
+    if (isSaving) return;
 
+    const parsedAge = toNumber(form.age);
     setError("");
+    try {
     await onSave({
       name: form.name.trim() || undefined,
       role: form.role.trim() || undefined,
@@ -215,6 +213,11 @@ export function EditFarmerModal({
         platform: form.platform.trim() || undefined,
       },
     });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to save farmer details.";
+      setError(message);
+    }
   };
 
   return (
@@ -230,50 +233,16 @@ export function EditFarmerModal({
             onChange={(e) => handleChange("name", e.target.value)}
             placeholder="Name"
           />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="w-full cursor-not-allowed">
-                  <select
-                    value={form.role}
-                    onChange={(e) => handleChange("role", e.target.value)}
-                    disabled
-                    className="
-            h-10 w-full rounded-xl
-            border border-slate-200 dark:border-white/[0.08]
-            bg-slate-100/80 dark:bg-white/[0.04]
-            px-3 text-sm
-            text-slate-500 dark:text-gray-400
-            shadow-sm
-            opacity-80
-            cursor-not-allowed
-            appearance-none
-          "
-                  >
-                    <option value="">Select Role</option>
-                    <option value="FARMER">FARMER</option>
-                    <option value="INTERNAL">INTERNAL</option>
-                    <option value="COORDINATOR">COORDINATOR</option>
-                  </select>
-                </div>
-              </TooltipTrigger>
-
-              <TooltipContent
-                side="top"
-                className="
-        rounded-xl
-        border border-slate-200 dark:border-white/[0.08]
-        bg-white dark:bg-[#18181b]
-        px-3 py-2
-        text-xs
-        text-slate-700 dark:text-gray-200
-        shadow-xl
-      "
-              >
-                This option is currently disabled
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <select
+            value={form.role}
+            onChange={(e) => handleChange("role", e.target.value)}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Select Role</option>
+            <option value="FARMER">FARMER</option>
+            <option value="INTERNAL">INTERNAL</option>
+            <option value="COORDINATOR">COORDINATOR</option>
+          </select>
           <Input
             value={form.farmerName}
             onChange={(e) => handleChange("farmerName", e.target.value)}
@@ -431,16 +400,24 @@ export function EditFarmerModal({
           </div> */}
         </div>
 
-        <DialogFooter>
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+        <DialogFooter className="relative z-10 pointer-events-auto">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isSaving}
+            className="cursor-pointer"
           >
             Cancel
           </Button>
-          <Button type="button" onClick={handleSave} disabled={isSaving}>
+          <Button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={isSaving}
+            className="cursor-pointer"
+          >
             {isSaving ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
