@@ -420,13 +420,13 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.db.getCollection<IQuestion>('questions');
   }
 
-private normalizeDistrictName(district: string): string {
-  return district
-    .replace(/\([^)]*\)/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
+  private normalizeDistrictName(district: string): string {
+    return district
+      .replace(/\([^)]*\)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
 
   private async getSourceAdherenceStats(
     source: 'WHATSAPP' | 'AJRASAKHA',
@@ -1714,7 +1714,7 @@ private normalizeDistrictName(district: string): string {
 
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const districts = ["All", ...(DISTRICTS[state] || [])];
+      const districts = ['All', ...(DISTRICTS[state] || [])];
 
       if (!districts || districts.length === 0) {
         return [];
@@ -4363,30 +4363,29 @@ private normalizeDistrictName(district: string): string {
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         createdAt: u.createdAt,
         farmerProfile: u.farmerProfile
-           ? 
-          // {
-          //     farmerName: u.farmerProfile.farmerName,
-          //     age: u.farmerProfile.age,
-          //     gender: u.farmerProfile.gender,
-          //     villageName: u.farmerProfile.villageName,
-          //     blockName: u.farmerProfile.blockName,
-          //     district: u.farmerProfile.district,
-          //     state: u.farmerProfile.state,
-          //     phoneNo: u.farmerProfile.phoneNo,
-          //     languagePreference: u.farmerProfile.languagePreference,
-          //     yearsOfExperience: u.farmerProfile.yearsOfExperience,
-          //     cropsCultivated: u.farmerProfile.cropsCultivated,
-          //     primaryCrop: u.farmerProfile.primaryCrop,
-          //     secondaryCrop: u.farmerProfile.secondaryCrop,
-          //     awarenessOfKCC: u.farmerProfile.awarenessOfKCC,
-          //     usesAgriApps: u.farmerProfile.usesAgriApps,
-          //     highestEducatedPerson: u.farmerProfile.highestEducatedPerson,
-          //     numberOfSmartphones: u.farmerProfile.numberOfSmartphones,
-          //     platform: u.farmerProfile.platform,
-          //     platformHistory: u.farmerProfile.platformHistory,
-          //     location: u.farmerProfile.location,
-          //   }
-          u.farmerProfile
+          ? // {
+            //     farmerName: u.farmerProfile.farmerName,
+            //     age: u.farmerProfile.age,
+            //     gender: u.farmerProfile.gender,
+            //     villageName: u.farmerProfile.villageName,
+            //     blockName: u.farmerProfile.blockName,
+            //     district: u.farmerProfile.district,
+            //     state: u.farmerProfile.state,
+            //     phoneNo: u.farmerProfile.phoneNo,
+            //     languagePreference: u.farmerProfile.languagePreference,
+            //     yearsOfExperience: u.farmerProfile.yearsOfExperience,
+            //     cropsCultivated: u.farmerProfile.cropsCultivated,
+            //     primaryCrop: u.farmerProfile.primaryCrop,
+            //     secondaryCrop: u.farmerProfile.secondaryCrop,
+            //     awarenessOfKCC: u.farmerProfile.awarenessOfKCC,
+            //     usesAgriApps: u.farmerProfile.usesAgriApps,
+            //     highestEducatedPerson: u.farmerProfile.highestEducatedPerson,
+            //     numberOfSmartphones: u.farmerProfile.numberOfSmartphones,
+            //     platform: u.farmerProfile.platform,
+            //     platformHistory: u.farmerProfile.platformHistory,
+            //     location: u.farmerProfile.location,
+            //   }
+            u.farmerProfile
           : undefined,
       }));
 
@@ -7858,11 +7857,196 @@ private normalizeDistrictName(district: string): string {
       );
     }
   }
-  getMonthlyChurnRate(source: string, userType: string): Promise<any> {
-    return null
+  async getMonthlyChurnRate(source: string, userType: string): Promise<any> {
+    await this.init(source);
+
+    let userMatchStage: any = {};
+    if (userType === 'external') {
+      userMatchStage['userDetails.email'] = {
+        $regex: '^rup',
+        $options: 'i',
+      };
+    }
+    if (userType === 'internal') {
+      userMatchStage['userDetails.email'] = {
+        $not: {
+          $regex: '^rup',
+          $options: 'i',
+        },
+      };
+    }
+
+    const startDate = new Date('2026-01-01');
+    const now = new Date();
+    const results = [];
+    let currentPeriodStart = new Date(startDate);
+
+    while (currentPeriodStart < now) {
+      const currentPeriodEnd = new Date(currentPeriodStart);
+      currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+
+      const previousPeriodStart = new Date(currentPeriodStart);
+      previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 1);
+
+      const previousPeriodEnd = currentPeriodStart;
+
+      const previousActiveUsers = await this.messagesCollection
+        .aggregate([
+          {
+            $match: {
+              isCreatedByUser: true,
+              createdAt: {
+                $gte: previousPeriodStart,
+                $lt: previousPeriodEnd,
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              let: {
+                userObjectId: {
+                  $toObjectId: '$user',
+                },
+              },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ['$_id', '$$userObjectId'],
+                    },
+                  },
+                },
+              ],
+              as: 'userDetails',
+            },
+          },
+          {
+            $unwind: '$userDetails',
+          },
+          ...(Object.keys(userMatchStage).length
+            ? [{$match: userMatchStage}]
+            : []),
+          {
+            $group: {
+              _id: '$user',
+            },
+          },
+        ])
+        .toArray();
+
+      const currentActiveUsers = await this.messagesCollection
+        .aggregate([
+          {
+            $match: {
+              isCreatedByUser: true,
+              createdAt: {
+                $gte: currentPeriodStart,
+                $lt: currentPeriodEnd,
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              let: {
+                userObjectId: {
+                  $toObjectId: '$user',
+                },
+              },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ['$_id', '$$userObjectId'],
+                    },
+                  },
+                },
+              ],
+              as: 'userDetails',
+            },
+          },
+          {
+            $unwind: '$userDetails',
+          },
+          ...(Object.keys(userMatchStage).length
+            ? [{$match: userMatchStage}]
+            : []),
+          {
+            $group: {
+              _id: '$user',
+            },
+          },
+        ])
+        .toArray();
+
+      const previousUserIds = previousActiveUsers.map(u => u._id.toString());
+
+      const currentUserIds = currentActiveUsers.map(u => u._id.toString());
+
+      const currentUserSet = new Set(currentUserIds);
+
+      const churnedUsers = previousUserIds.filter(
+        userId => !currentUserSet.has(userId),
+      );
+
+      const churnRate =
+        previousUserIds.length === 0
+          ? 0
+          : (churnedUsers.length / previousUserIds.length) * 100;
+
+      results.push({
+        month: currentPeriodStart.toLocaleString('default', {
+          month: 'short',
+          year: 'numeric',
+        }),
+        previousActiveUsers: previousUserIds.length,
+        currentActiveUsers: currentUserIds.length,
+        churnedUsers: churnedUsers.length,
+        churnRate: Number(churnRate.toFixed(2)),
+      });
+      currentPeriodStart = currentPeriodEnd;
+    }
+
+    return results;
   }
 
-  getCarryForwardQuestions(source?: string): Promise<any> {
-    return null
+  async getCarryForwardQuestions(source?: string): Promise<any> {
+    try {
+      await this.initReviewSystem();
+      const matchStage: any = {};
+      if (source !== 'whatsapp') {
+        source = 'AJRASAKHA';
+      }
+      matchStage.source = source.toUpperCase();
+      const carryForwardWindowStart = new Date(
+        new Date().toLocaleString('en-US', {
+          timeZone: 'Asia/Kolkata',
+        }),
+      );
+      carryForwardWindowStart.setDate(carryForwardWindowStart.getDate() - 1);
+      carryForwardWindowStart.setHours(22, 30, 0, 0);
+      const carryForwardWindowEnd = new Date(
+        new Date().toLocaleString('en-US', {
+          timeZone: 'Asia/Kolkata',
+        }),
+      );
+      carryForwardWindowEnd.setHours(0, 0, 0, 0);
+      const count = await this.QuestionCollection.countDocuments({
+        ...matchStage,
+        createdAt: {
+          $gte: carryForwardWindowStart,
+          $lt: carryForwardWindowEnd,
+        },
+        status: {
+          $ne: 'closed',
+        },
+      });
+      return count;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get closed questions in last two hours: ${error}`,
+      );
+    }
   }
 }
