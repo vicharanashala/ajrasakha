@@ -449,7 +449,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
   const [newFilters, setNewFilters] = useState<Filters>({
     sourceType: "application",
-    application: "annam",
+    application: source,
   });
   const [weatherConcernFilters, setWeatherConcernFilters] =
     useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
@@ -720,6 +720,9 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             dateRange={questionStatusDateRange}
                             onDateRangeChange={setQuestionStatusDateRange}
                             isLoading={isQuestionStatusFetching}
+                            carryForward={
+                              closedAndNotifedData?.carryForward
+                            }
                           />
                           <CustomerNotificationsCard
                             notified={

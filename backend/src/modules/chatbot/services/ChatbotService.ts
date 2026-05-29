@@ -2472,16 +2472,19 @@ export class ChatbotService extends BaseService implements IChatbotService {
       closedVsTotalQuestions,
       notifiedVsClosed,
       closedInLastTwoHours,
+      carryForward,
     ] = await Promise.all([
       this.chatbotRepository.getClosedVsTotalQuestions(source, startDate, endDate),
       this.chatbotRepository.getNotifiedVsClosed(source, startDate, endDate),
       this.chatbotRepository.getClosedInLastTwoHours(source, startDate, endDate),
+      this.chatbotRepository.getCarryForwardQuestions(source),
     ]);
 
     return {
       closedVsTotalQuestions,
       notifiedVsClosed,
       closedInLastTwoHours,
+      carryForward
     };
   }
 
