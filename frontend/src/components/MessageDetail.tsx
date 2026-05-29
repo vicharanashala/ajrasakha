@@ -688,7 +688,14 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             doApprove(action);
         }
     };
-    const handleSkip = () => { setPassRemarkError(""); setConfirmDialog({ open: true, type: "pass", remark: "" }); };
+    const handleSkip = () => {
+        if (!question?.details?.normalised_crop?.trim()) {
+            toast.error("This question does not have a normalised crop. Please add the respective crop from the Agri Tech Management section before approving this answer.");
+            return;
+        }
+        setPassRemarkError("");
+        setConfirmDialog({ open: true, type: "pass", remark: "" });
+    };
 
     const doSkip = async (remark?: string) => {
         await updateQuestion({ isHidden: true, status: 'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
