@@ -45,7 +45,12 @@ import {
   UserDetailsPreferenceFilter,
   type UserDetailsFilters,
 } from "./components/UserDetailsPreferenceFilter";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
@@ -183,9 +188,9 @@ export function UserDetailsView({
     });
   };
 
-// useEffect(() => {
-//   scrollToTable();
-// }, []);
+  // useEffect(() => {
+  //   scrollToTable();
+  // }, []);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard in overview)
   useEffect(() => {
@@ -248,10 +253,15 @@ export function UserDetailsView({
     data: dauTrend,
     isLoading: dauLoading,
     error: dauError,
-  } = useDailyUserTrend(30, source, filters.userType, source === "annam" || source === "vicharanashala");
-    // console.log("DAU Trend data:", dauTrend, "Loading:", dauLoading, "Error:", dauError);
+  } = useDailyUserTrend(
+    30,
+    source,
+    filters.userType,
+    source === "annam" || source === "vicharanashala",
+  );
+  // console.log("DAU Trend data:", dauTrend, "Loading:", dauLoading, "Error:", dauError);
 
-    // console.log("Dashboard data in UserDetailsView:", dashboardData, "Loading:", isDashboardLoading, "Error:", error);
+  // console.log("Dashboard data in UserDetailsView:", dashboardData, "Loading:", isDashboardLoading, "Error:", error);
 
   // console.log(
   //   "DAU Trend data:",
@@ -354,8 +364,10 @@ export function UserDetailsView({
       district?: string;
       state?: string;
       phoneNo?: string;
+      nearestKVK?: string;
       languagePreference?: string;
       yearsOfExperience?: number;
+      landhold?: number;
       cropsCultivated?: string[];
       primaryCrop?: string;
       secondaryCrop?: string;

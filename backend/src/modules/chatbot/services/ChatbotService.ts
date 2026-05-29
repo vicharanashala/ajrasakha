@@ -2296,6 +2296,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         district?: string;
         state?: string;
         phoneNo?: string;
+        nearestKVK?: string;
         languagePreference?: string;
         yearsOfExperience?: number;
         cropsCultivated?: string[];
@@ -2306,6 +2307,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         highestEducatedPerson?: string;
         numberOfSmartphones?: number;
         platform?: string;
+        landhold?: number;
       };
     },
   ): Promise<boolean> {

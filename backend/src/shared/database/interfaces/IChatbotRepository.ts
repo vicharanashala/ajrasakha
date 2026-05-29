@@ -149,6 +149,7 @@ export interface FarmerProfile {
   district?: string;
   state?: string;
   phoneNo?: string;
+  nearestKVK?: string
   languagePreference?: string;
   yearsOfExperience?: number;
   cropsCultivated?: string[];
@@ -509,6 +510,7 @@ export interface IChatbotRepository {
   getMonthlyChurnRate(source: string, userType: string):Promise<any>;
 
   getCarryForwardQuestions(source?: string): Promise<any> 
+
 }
 
 export interface ChatbotConversationData {
