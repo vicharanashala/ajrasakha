@@ -133,13 +133,14 @@ export const useClosedAndNotifedData = (source: string)=>{
   });
 }
 
-export const useMonthlyChurnRate = (source: string)=>{
+export const useMonthlyChurnRate = (source: string, userType: string)=>{
   return useQuery({
     queryKey: ["monthly-churn-rate",
       source,
+      userType,
     ],
     queryFn: () => {
-      return chatbotService.getMonthlyChurnRate(source);
+      return chatbotService.getMonthlyChurnRate(source, userType);
     },
   });
 }

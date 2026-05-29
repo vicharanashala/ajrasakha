@@ -420,9 +420,6 @@ useEffect(() => {
   }
 }, [source]);
 
-const {data: monthlyChurnRateData} = useMonthlyChurnRate(source);
-console.log("monthlyChurnRateData-----------------------", monthlyChurnRateData)
-
 const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
@@ -1107,11 +1104,13 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             userType={filters.userType}
                           />
                           <RetentionMetricsChart
-                    source={source}
-                    userType={filters.userType}
-                    />
-                           <ChurnRateChart
-                           monthlyChurnRateData={monthlyChurnRateData}/>
+                            source={source}
+                            userType={filters.userType}
+                          />
+                          <ChurnRateChart
+                            source={source}
+                            userType={filters.userType}
+                          />
                         </div>  
                       )}
                       {source !== "whatsapp" && (

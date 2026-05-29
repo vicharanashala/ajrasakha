@@ -1,14 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from "recharts";
-
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -16,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-
 import {
   ChartContainer,
   ChartLegend,
@@ -25,8 +17,14 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/atoms/chart";
-
 import { Loader2 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
+import { useMonthlyChurnRate } from "./hooks/useActiveUsersAnalytics";
 
 type MonthlyChurnRateItem = {
   month: string;
@@ -37,8 +35,8 @@ type MonthlyChurnRateItem = {
 };
 
 type ChurnRateChartProps = {
-  monthlyChurnRateData?: MonthlyChurnRateItem[];
-  isFetching?: boolean;
+  source: "vicharanashala" | "annam";
+  userType: string;
 };
 
 const chartConfig = {
@@ -48,12 +46,10 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export const ChurnRateChart = ({
-  monthlyChurnRateData = [],
-  isFetching = false,
-}: ChurnRateChartProps) => {
+export const ChurnRateChart = ({ source, userType }: ChurnRateChartProps) => {
+  const { data: monthlyChurnRateData, isFetching } = useMonthlyChurnRate(source, userType);
   const chartData = useMemo(() => {
-    return monthlyChurnRateData.map((item) => ({
+    return monthlyChurnRateData?.map((item) => ({
       label: item.month,
       churnRate: item.churnRate,
       previousActiveUsers: item.previousActiveUsers,
@@ -62,21 +58,46 @@ export const ChurnRateChart = ({
     }));
   }, [monthlyChurnRateData]);
 
-  const latestData =
-    chartData.length > 0
-      ? chartData[chartData.length - 1]
-      : null;
-
   return (
-    <Card className="pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
+    <Card className="pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300 mb-7">
       <CardHeader className="border-b py-5">
         <div className="flex flex-col gap-2">
           <CardTitle>Monthly Churn Rate</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardDescription>
+              Percentage of previously active users who did not return in the
+              current month.
+            </CardDescription>
 
-          <CardDescription>
-            Percentage of previously active users who did not
-            return in the current month.
-          </CardDescription>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="
+                        flex
+                        h-4
+                        w-4
+                        cursor-pointer
+                        items-center
+                        justify-center
+                        rounded-full
+                        border
+                        text-[10px]
+                      "
+                  >
+                    i
+                  </span>
+                </TooltipTrigger>
+
+                <TooltipContent className="max-w-[260px]">
+                  <p>
+                    Percentage of users active in the previous month who were
+                    inactive in the current month.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </CardHeader>
 
@@ -102,50 +123,6 @@ export const ChurnRateChart = ({
           </div>
         ) : (
           <>
-            {latestData && (
-              <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-                <div className="rounded-xl border p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Current Churn Rate
-                  </p>
-
-                  <h2 className="mt-2 text-3xl font-bold">
-                    {latestData.churnRate}%
-                  </h2>
-                </div>
-
-                <div className="rounded-xl border p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Previous Active
-                  </p>
-
-                  <h2 className="mt-2 text-3xl font-bold">
-                    {latestData.previousActiveUsers}
-                  </h2>
-                </div>
-
-                <div className="rounded-xl border p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Current Active
-                  </p>
-
-                  <h2 className="mt-2 text-3xl font-bold">
-                    {latestData.currentActiveUsers}
-                  </h2>
-                </div>
-
-                <div className="rounded-xl border p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Churned Users
-                  </p>
-
-                  <h2 className="mt-2 text-3xl font-bold">
-                    {latestData.churnedUsers}
-                  </h2>
-                </div>
-              </div>
-            )}
-
             <div className="overflow-x-auto">
               <div
                 style={{
@@ -198,11 +175,7 @@ export const ChurnRateChart = ({
                       minTickGap={20}
                     />
 
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
+                    <YAxis tickLine={false} axisLine={false} tickMargin={8} />
 
                     <ChartTooltip
                       cursor={false}
@@ -218,15 +191,13 @@ export const ChurnRateChart = ({
 
                     <Area
                       dataKey="churnRate"
-                      type="natural"
+                      type="linear"
                       fill="url(#fillChurn)"
                       stroke="var(--color-churnRate)"
                       strokeWidth={2}
                     />
 
-                    <ChartLegend
-                      content={<ChartLegendContent />}
-                    />
+                    <ChartLegend content={<ChartLegendContent />} />
                   </AreaChart>
                 </ChartContainer>
               </div>

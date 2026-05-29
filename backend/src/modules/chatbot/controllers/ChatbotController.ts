@@ -828,8 +828,11 @@ async getUserQuestionsData(
   async getMonthlyChurnRate(   
     @QueryParam('source')
     source: string= 'vicharanashala',
+
+    @QueryParam('userType')
+    userType: string= 'all',
   ):Promise<any> {
-    return await this.chatbotService.getMonthlyChurnRate(source);
+    return await this.chatbotService.getMonthlyChurnRate(source, userType);
   }
 
 }

@@ -2482,7 +2482,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
-  async getMonthlyChurnRate(source: string):Promise<any> {
-    return await this.chatbotRepository.getMonthlyChurnRate(source);
+  async getMonthlyChurnRate(source: string, userType: string):Promise<any> {
+    return await this.chatbotRepository.getMonthlyChurnRate(source, userType);
   }
 }
