@@ -95,6 +95,23 @@ export const CallInterface = () => {
     setHasGeneratedQuestions(false);
   };
 
+  const handleResetConversation = () => {
+    setTranscriptsList([]);
+    lastTranscriptRef.current = "";
+    setIsSummaryOpen(false);
+    setEditableSummaryText("");
+    setExtractedState("");
+    setExtractedCrop("");
+    setHasGeneratedQuestions(false);
+    toast.success("Conversation cleared");
+  };
+
+  const handleResetQuestions = () => {
+    setQuestions([]);
+    setHasGeneratedQuestions(false);
+    toast.success("Questions cleared");
+  };
+
   const handleGenerateQuestions = async () => {
     if (!editableSummaryText.trim()) {
       toast.info("Summary is empty. Please summarize the conversation first.");
@@ -175,7 +192,7 @@ export const CallInterface = () => {
         onTranscriptsListChange={(list) => setTranscriptsList(list)}
         onCallStateChange={(isActive) => setIsCallActive(isActive)}
       />
-      <button onClick={() => handleRedial("+919606751041")}>Redial</button>
+      {/* <button onClick={() => handleRedial("+919606751041")}>Redial</button> */}
 
       {/* Premium Read-Only Chat-Bubble Conversation View */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -209,6 +226,16 @@ export const CallInterface = () => {
                   className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   {isGeneratingSummary ? "Summarizing..." : "Summarize"}
+                </Button>
+                <Button
+                  onClick={handleResetConversation}
+                  disabled={transcriptsList.length === 0}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Reset
                 </Button>
               </div>
             </CardTitle>
@@ -361,6 +388,16 @@ export const CallInterface = () => {
                 </Tooltip>
                 <div className="flex items-center gap-3">
                   <Badge variant="outline">{questions?.length} questions</Badge>
+                  <Button
+                    onClick={handleResetQuestions}
+                    disabled={questions?.length === 0}
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                  >
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Reset
+                  </Button>
                 </div>
               </CardTitle>
             </CardHeader>
