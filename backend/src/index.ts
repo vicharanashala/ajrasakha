@@ -24,8 +24,13 @@ import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
 
 const app = express();
 
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok' });
+app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV,
+  });
 });
 
 app.use(loggingHandler);
@@ -37,7 +42,7 @@ const {controllers, validators} = await loadAppModules(
 const corsOptions: CorsOptions = {
   origin: appConfig.origins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-internal-api-key'],
   credentials: true,
   optionsSuccessStatus: 204,
 };
@@ -80,7 +85,7 @@ useExpressServer(app, moduleOptions);
 // Setup Scalar API Documentation
 const openApiSpec = generateOpenAPISpec(moduleOptions, validators);
 app.use(
-  '/reference',
+  `${appConfig.routePrefix}/reference`,
   apiReference({
     content: openApiSpec,
     theme: 'elysiajs',

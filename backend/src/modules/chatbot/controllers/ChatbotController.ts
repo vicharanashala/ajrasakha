@@ -818,8 +818,12 @@ async getUserQuestionsData(
   async getClosedAndNotifedData(
     @QueryParam('source')
     source: string= 'vicharanashala',
+    @QueryParam('startDate')
+    startDate?: string,
+    @QueryParam('endDate')
+    endDate?: string,
   ): Promise<any> {
-    return await this.chatbotService.getClosedAndNotifedData(source);
+    return await this.chatbotService.getClosedAndNotifedData(source, startDate, endDate);
   }
 
   @Get('/monthly-churn-rate')

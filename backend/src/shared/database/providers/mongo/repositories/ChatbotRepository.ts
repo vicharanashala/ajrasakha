@@ -7576,7 +7576,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getClosedVsTotalQuestions(source: string): Promise<any> {
+  async getClosedVsTotalQuestions(source: string, startDate?: Date, endDate?: Date): Promise<any> {
     try {
       await this.initReviewSystem();
       const matchStage: any = {};
@@ -7584,6 +7584,11 @@ export class ChatbotRepository implements IChatbotRepository {
         source = 'AJRASAKHA';
       }
       matchStage.source = source.toUpperCase();
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
+        if (startDate) matchStage.createdAt.$gte = startDate;
+        if (endDate) matchStage.createdAt.$lte = endDate;
+      }
       const result = await this.QuestionCollection.aggregate([
         {
           $match: matchStage,
@@ -7618,7 +7623,11 @@ export class ChatbotRepository implements IChatbotRepository {
         },
       ]).toArray();
 
-      return result[0];
+      return result[0] || {
+        totalQuestions: 0,
+        closedQuestions: 0,
+        inReviewQuestions: 0,
+      };
     } catch (error) {
       throw new InternalServerError(
         `Failed to get closed vs total questions count: ${error}`,
@@ -7626,7 +7635,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getNotifiedVsClosed(source?: string): Promise<any> {
+  async getNotifiedVsClosed(source?: string, startDate?: Date, endDate?: Date): Promise<any> {
     try {
       await this.initReviewSystem();
 
@@ -7635,6 +7644,12 @@ export class ChatbotRepository implements IChatbotRepository {
         source = 'AJRASAKHA';
       }
       matchStage.source = source.toUpperCase();
+
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
+        if (startDate) matchStage.createdAt.$gte = startDate;
+        if (endDate) matchStage.createdAt.$lte = endDate;
+      }
 
       const [result] = await this.QuestionCollection.aggregate([
         {
@@ -7691,8 +7706,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       return {
         ...(result || {
-          closed: 0,
           notified: 0,
+          notNotified: 0,
         }),
         untrackedClosedQuestions,
       };
@@ -7703,21 +7718,29 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getClosedInLastTwoHours(source?: string): Promise<any> {
+  async getClosedInLastTwoHours(source?: string, startDate?: Date, endDate?: Date): Promise<any> {
     try {
       await this.initReviewSystem();
 
       const finalSource: QuestionSource =
         source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const count = await this.QuestionCollection.countDocuments({
+      const matchStage: any = {
         status: 'closed',
         source: finalSource,
 
         $expr: {
           $lte: [{$subtract: ['$closedAt', '$createdAt']}, 2 * 60 * 60 * 1000],
         },
-      });
+      };
+
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
+        if (startDate) matchStage.createdAt.$gte = startDate;
+        if (endDate) matchStage.createdAt.$lte = endDate;
+      }
+
+      const count = await this.QuestionCollection.countDocuments(matchStage);
       return count;
     } catch (error) {
       throw new InternalServerError(

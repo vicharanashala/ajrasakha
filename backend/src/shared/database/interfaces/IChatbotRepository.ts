@@ -500,11 +500,11 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<{ label: string; totalQueries: number }>;
 
-  getClosedVsTotalQuestions(source: string):Promise<any>;
+  getClosedVsTotalQuestions(source: string, startDate?: Date, endDate?: Date):Promise<any>;
 
-  getNotifiedVsClosed(source?: string):Promise<any>;
+  getNotifiedVsClosed(source?: string, startDate?: Date, endDate?: Date):Promise<any>;
 
-  getClosedInLastTwoHours(source?: string): Promise<any>;
+  getClosedInLastTwoHours(source?: string, startDate?: Date, endDate?: Date): Promise<any>;
 
   getMonthlyChurnRate(source: string, userType: string):Promise<any>;
 }
