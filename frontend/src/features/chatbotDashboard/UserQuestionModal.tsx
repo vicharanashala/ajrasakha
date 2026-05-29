@@ -70,12 +70,11 @@ const UserQuestionsModal = ({
 
   const [selectedTimeline, setSelectedTimeline] = useState<string[]>([]);
 
-
   const [notifyModalOpen, setNotifyModalOpen] = useState(false);
 
-const [customMessage, setCustomMessage] = useState(
-  "Hello! We noticed you are recently not active. Any problems you are facing?",
-);
+  const [customMessage, setCustomMessage] = useState(
+    "Hello! We noticed you are recently not active. Any problems you are facing?",
+  );
 
   // Reset page when modal closes or user changes
   useEffect(() => {
@@ -114,8 +113,6 @@ const [customMessage, setCustomMessage] = useState(
         selectedTimeline={selectedTimeline}
       />
 
-      
-
       <UserActivityDialog
         open={open}
         onOpenChange={onOpenChange}
@@ -132,10 +129,10 @@ const [customMessage, setCustomMessage] = useState(
         setTimelineModalOpen={setTimelineModalOpen}
         // lastActive={lastActiveTime}
         notifyModalOpen={notifyModalOpen}
-setNotifyModalOpen={setNotifyModalOpen}
-customMessage={customMessage}
-setCustomMessage={setCustomMessage}
-latestMessageId={latestMessageId}
+        setNotifyModalOpen={setNotifyModalOpen}
+        customMessage={customMessage}
+        setCustomMessage={setCustomMessage}
+        latestMessageId={latestMessageId}
       />
     </>
   );
@@ -233,6 +230,7 @@ interface ActiveData {
 interface UserInfo {
   name: string;
   email: string;
+  phoneNo: string;
 }
 
 interface UserActivityDialogProps {
@@ -250,7 +248,7 @@ interface UserActivityDialogProps {
   setSelectedTimeline: (dates: string[]) => void;
   setTimelineModalOpen: (open: boolean) => void;
   // lastActive: string;
-   notifyModalOpen: boolean;
+  notifyModalOpen: boolean;
   setNotifyModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
   customMessage: string;
@@ -393,292 +391,290 @@ function UserActivityDialog({
 
   return (
     <>
-    <Dialog
-  open={notifyModalOpen}
-  onOpenChange={setNotifyModalOpen}
->
-  <DialogContent className="sm:max-w-md rounded-2xl">
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <Bell className="h-4 w-4 text-primary" />
-        Send Notification
-      </DialogTitle>
-    </DialogHeader>
+      <Dialog open={notifyModalOpen} onOpenChange={setNotifyModalOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" />
+              Send Notification
+            </DialogTitle>
+          </DialogHeader>
 
-    <div className="space-y-4 pt-2">
-      <div className="space-y-2">
-        <Label>Custom Message</Label>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Custom Message</Label>
 
-        <Textarea
-          placeholder="Write your custom notification message..."
-          value={customMessage}
-          onChange={(e) => setCustomMessage(e.target.value)}
-          className="min-h-[120px] resize-none"
-        />
-      </div>
+              <Textarea
+                placeholder="Write your custom notification message..."
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                className="min-h-[120px] resize-none"
+              />
+            </div>
 
-      <div className="flex justify-end gap-2 pt-2">
-        <Button
-          variant="outline"
-          onClick={() => setNotifyModalOpen(false)}
-        >
-          Cancel
-        </Button>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setNotifyModalOpen(false)}
+              >
+                Cancel
+              </Button>
 
-        <Button
-          disabled={!customMessage?.trim() || isPending}
-          onClick={() => {
+              <Button
+                disabled={!customMessage?.trim() || isPending}
+                onClick={() => {
+                  notifyUser({
+                    userEmail: user.email,
+                    messageId: latestMessageId ?? null,
+                    message: customMessage,
+                  });
 
-            notifyUser({
-              userEmail: user.email,
-              messageId: latestMessageId ?? null,
-              message: customMessage,
-            });
-
-            setNotifyModalOpen(false);
-            setCustomMessage(
-  "Hello! We noticed you are recently not active. Any problems you are facing?",
-);;
-          }}
-        >
-          {isPending ? "Sending..." : "Send Notification"}
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-6xl w-[90vw] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0 [&>button]:hidden rounded-2xl">
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b shrink-0">
-          <div className="flex justify-start items-center gap-3">
-            <DialogHeader className="p-0">
-              <DialogTitle className="flex items-center gap-2 text-base font-semibold">
-                <Activity className="h-4.5 w-4.5 text-primary" />
-                User Activity
-              </DialogTitle>
-            </DialogHeader>
-
-            {/* Action Buttons */}
-            <TooltipProvider>
-              <div className="flex items-center gap-2">
-                {/* Call */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-8 w-8 rounded-full"
-                    >
-                      <Phone className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-
-                  <TooltipContent>
-                    <p>Call User</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                {/* Mail */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-8 w-8 rounded-full"
-                    >
-                      <Mail className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-
-                  <TooltipContent>
-                    <p>Send Email</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                {/* Notify */}
-                <Tooltip>
-  <TooltipTrigger asChild>
-    <Button
-      size="icon"
-      variant="outline"
-      className="h-8 w-8 rounded-full"
-      onClick={() => setNotifyModalOpen(true)}
-    >
-      <Bell className="h-4 w-4" />
-    </Button>
-  </TooltipTrigger>
-
-  <TooltipContent>
-    <p>Send Notification</p>
-  </TooltipContent>
-</Tooltip>
-              </div>
-            </TooltipProvider>
+                  setNotifyModalOpen(false);
+                  setCustomMessage(
+                    "Hello! We noticed you are recently not active. Any problems you are facing?",
+                  );
+                }}
+              >
+                {isPending ? "Sending..." : "Send Notification"}
+              </Button>
+            </div>
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="!max-w-6xl w-[90vw] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0 [&>button]:hidden rounded-2xl">
+          {/* ── Header ── */}
+          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b shrink-0">
+            <div className="flex justify-start items-center gap-3">
+              <DialogHeader className="p-0">
+                <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+                  <Activity className="h-4.5 w-4.5 text-primary" />
+                  User Activity
+                </DialogTitle>
+              </DialogHeader>
 
-          {/* Toggle */}
-          <div className="flex items-center gap-2.5 bg-muted/40 border rounded-full px-3.5 py-1.5">
-            <MessageSquare
-              className={`h-3.5 w-3.5 transition-colors ${
-                viewType === "messages"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            />
-            <span
-              className={`text-xs font-medium transition-colors ${
-                viewType === "messages"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              Messages
-            </span>
-            <Switch
-              checked={viewType === "questions"}
-              onCheckedChange={(checked) => {
-                setCurrentPage(1);
-                setViewType(checked ? "questions" : "messages");
-              }}
-              className="data-[state=checked]:bg-primary scale-90"
-            />
-            <span
-              className={`text-xs font-medium transition-colors ${
-                viewType === "questions"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              Questions
-            </span>
-            <HelpCircle
-              className={`h-3.5 w-3.5 transition-colors ${
-                viewType === "questions"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            />
-          </div>
-        </div>
-
-        {/* ── User Details ── */}
-        {user && (
-          <div className="px-6 border-b shrink-0">
-            <Accordion type="single" collapsible>
-              <AccordionItem value="user-details" className="border-none">
-                <AccordionTrigger className="py-3 hover:no-underline">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <User className="h-3.5 w-3.5 text-primary" />
-                    User Details
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="pb-3">
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      {
-                        label: "Name",
-                        value: user.name,
-                        icon: User,
-                      },
-                      {
-                        label: "Email",
-                        value: user.email,
-                        icon: Mail,
-                      },
-                      {
-                        label:
-                          viewType === "questions"
-                            ? "Total Questions"
-                            : "Total Messages",
-                        value: totalCount,
-                        icon:
-                          viewType === "questions"
-                            ? CircleHelp
-                            : MessageSquareText,
-                      },
-                    ].map(({ label, value, icon: Icon }) => (
-                      <div
-                        key={label}
-                        className="bg-muted/40 rounded-lg px-3 py-3 border"
+              {/* Action Buttons */}
+              <TooltipProvider>
+                <div className="flex items-center gap-2">
+                  {/* Call */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full"
+                        onClick={()=>window.location.href=`tel:+91${user?.phoneNo}`}
                       >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 rounded-md bg-primary/10 p-2">
-                            <Icon className="h-4 w-4 text-primary" />
-                          </div>
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
 
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] text-muted-foreground mb-0.5 uppercase tracking-wide font-medium">
-                              {label}
-                            </p>
+                    <TooltipContent>
+                      <p>Call User</p>
+                    </TooltipContent>
+                  </Tooltip>
 
-                            <p className="text-sm font-medium text-foreground truncate">
-                              {value}
-                            </p>
+                  {/* Mail */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full"
+                        onClick={()=>window.location.href=`mailto:${user?.email}`}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+
+                    <TooltipContent>
+                      <p>Send Email</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Notify */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => setNotifyModalOpen(true)}
+                      >
+                        <Bell className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+
+                    <TooltipContent>
+                      <p>Send Notification</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
+            </div>
+
+            {/* Toggle */}
+            <div className="flex items-center gap-2.5 bg-muted/40 border rounded-full px-3.5 py-1.5">
+              <MessageSquare
+                className={`h-3.5 w-3.5 transition-colors ${
+                  viewType === "messages"
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              />
+              <span
+                className={`text-xs font-medium transition-colors ${
+                  viewType === "messages"
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Messages
+              </span>
+              <Switch
+                checked={viewType === "questions"}
+                onCheckedChange={(checked) => {
+                  setCurrentPage(1);
+                  setViewType(checked ? "questions" : "messages");
+                }}
+                className="data-[state=checked]:bg-primary scale-90"
+              />
+              <span
+                className={`text-xs font-medium transition-colors ${
+                  viewType === "questions"
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Questions
+              </span>
+              <HelpCircle
+                className={`h-3.5 w-3.5 transition-colors ${
+                  viewType === "questions"
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* ── User Details ── */}
+          {user && (
+            <div className="px-6 border-b shrink-0">
+              <Accordion type="single" collapsible>
+                <AccordionItem value="user-details" className="border-none">
+                  <AccordionTrigger className="py-3 hover:no-underline">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <User className="h-3.5 w-3.5 text-primary" />
+                      User Details
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        {
+                          label: "Name",
+                          value: user.name,
+                          icon: User,
+                        },
+                        {
+                          label: "Email",
+                          value: user.email,
+                          icon: Mail,
+                        },
+                        {
+                          label:
+                            viewType === "questions"
+                              ? "Total Questions"
+                              : "Total Messages",
+                          value: totalCount,
+                          icon:
+                            viewType === "questions"
+                              ? CircleHelp
+                              : MessageSquareText,
+                        },
+                      ].map(({ label, value, icon: Icon }) => (
+                        <div
+                          key={label}
+                          className="bg-muted/40 rounded-lg px-3 py-3 border"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 rounded-md bg-primary/10 p-2">
+                              <Icon className="h-4 w-4 text-primary" />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] text-muted-foreground mb-0.5 uppercase tracking-wide font-medium">
+                                {label}
+                              </p>
+
+                              <p className="text-sm font-medium text-foreground truncate">
+                                {value}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </div>
-        )}
-
-        {/* ── Content ── */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2.5">
-          {isLoading ? (
-            <LoadingState viewType={viewType} />
-          ) : items.length === 0 ? (
-            <EmptyState viewType={viewType} />
-          ) : (
-            items.map((item, idx) => (
-              <ActivityCard
-                key={idx}
-                item={item}
-                viewType={viewType}
-                onTimelineClick={() => {
-                  setSelectedTimeline(item.repeatedAt ?? []);
-                  setTimelineModalOpen(true);
-                }}
-              />
-            ))
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
           )}
-        </div>
 
-        {/* ── Pagination ── */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-3.5 border-t shrink-0 bg-muted/10">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 rounded-lg"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Previous
-            </Button>
-
-            <span className="text-xs text-muted-foreground font-medium">
-              Page {currentPage} of {totalPages}
-            </span>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 rounded-lg"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => p + 1)}
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+          {/* ── Content ── */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2.5">
+            {isLoading ? (
+              <LoadingState viewType={viewType} />
+            ) : items.length === 0 ? (
+              <EmptyState viewType={viewType} />
+            ) : (
+              items.map((item, idx) => (
+                <ActivityCard
+                  key={idx}
+                  item={item}
+                  viewType={viewType}
+                  onTimelineClick={() => {
+                    setSelectedTimeline(item.repeatedAt ?? []);
+                    setTimelineModalOpen(true);
+                  }}
+                />
+              ))
+            )}
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+
+          {/* ── Pagination ── */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-3.5 border-t shrink-0 bg-muted/10">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 rounded-lg"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Previous
+              </Button>
+
+              <span className="text-xs text-muted-foreground font-medium">
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 rounded-lg"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
