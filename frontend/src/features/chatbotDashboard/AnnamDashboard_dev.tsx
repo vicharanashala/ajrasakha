@@ -54,7 +54,7 @@ import {
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
-import { useClosedAndNotifedData, useInactiveWhatsappUsers, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
+import { useClosedAndNotifedData, useInactiveWhatsappUsers, useMonthlyChurnRate, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
 import { motion, AnimatePresence } from "framer-motion";
@@ -63,6 +63,7 @@ import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
+import { ChurnRateChart } from "./ChurnRateChart";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -448,7 +449,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
   const [newFilters, setNewFilters] = useState<Filters>({
     sourceType: "application",
-    application: "annam",
+    application: source,
   });
   const [weatherConcernFilters, setWeatherConcernFilters] =
     useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
@@ -476,8 +477,6 @@ useEffect(() => {
     }));
   }
 }, [source]);
-
-
 
 const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
   return (
@@ -694,7 +693,9 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                               totalUsers={unqueWhatsAppUsers}
                             />
                           )}
-                           <ClosedInLastTwoHoursCard
+
+                           <ClosedInLastTwoHoursCard
+                            source = {source}
                             count={closed2hData?.closedInLastTwoHours}
                             totalClosed={
                               closed2hData?.closedVsTotalQuestions
@@ -720,6 +721,9 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             dateRange={questionStatusDateRange}
                             onDateRangeChange={setQuestionStatusDateRange}
                             isLoading={isQuestionStatusFetching}
+                            carryForward={
+                              questionStatusData?.carryForward
+                            }
                           />
                           <CustomerNotificationsCard
                             notified={
@@ -1171,10 +1175,14 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             userType={filters.userType}
                           />
                           <RetentionMetricsChart
-                    source={source}
-                    userType={filters.userType}
-                    />
-                        </div>
+                            source={source}
+                            userType={filters.userType}
+                          />
+                          {/* <ChurnRateChart
+                            source={source}
+                            userType={filters.userType}
+                          /> */}
+                        </div>  
                       )}
                       {source !== "whatsapp" && (
                         <div className="mt-4 mb-4">

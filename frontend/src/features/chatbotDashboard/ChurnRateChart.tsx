@@ -1,0 +1,210 @@
+"use client";
+
+import { useMemo } from "react";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/atoms/card";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/atoms/chart";
+import { Loader2 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
+import { useMonthlyChurnRate } from "./hooks/useActiveUsersAnalytics";
+
+type MonthlyChurnRateItem = {
+  month: string;
+  previousActiveUsers: number;
+  currentActiveUsers: number;
+  churnedUsers: number;
+  churnRate: number;
+};
+
+type ChurnRateChartProps = {
+  source: "vicharanashala" | "annam";
+  userType: string;
+};
+
+const chartConfig = {
+  churnRate: {
+    label: "Churn Rate",
+    color: "var(--chart-1)",
+  },
+} satisfies ChartConfig;
+
+export const ChurnRateChart = ({ source, userType }: ChurnRateChartProps) => {
+  const { data: monthlyChurnRateData, isFetching } = useMonthlyChurnRate(source, userType);
+  const chartData = useMemo(() => {
+    return monthlyChurnRateData?.map((item) => ({
+      label: item.month,
+      churnRate: item.churnRate,
+      previousActiveUsers: item.previousActiveUsers,
+      currentActiveUsers: item.currentActiveUsers,
+      churnedUsers: item.churnedUsers,
+    }));
+  }, [monthlyChurnRateData]);
+
+  return (
+    <Card className="pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300 mb-7">
+      <CardHeader className="border-b py-5">
+        <div className="flex flex-col gap-2">
+          <CardTitle>Monthly Churn Rate</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardDescription>
+              Percentage of previously active users who did not return in the
+              current month.
+            </CardDescription>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="
+                        flex
+                        h-4
+                        w-4
+                        cursor-pointer
+                        items-center
+                        justify-center
+                        rounded-full
+                        border
+                        text-[10px]
+                      "
+                  >
+                    i
+                  </span>
+                </TooltipTrigger>
+
+                <TooltipContent className="max-w-[260px]">
+                  <p>
+                    Percentage of users active in the previous month who were
+                    inactive in the current month.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+        {isFetching ? (
+          <div className="flex h-[320px] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : !chartData.length ? (
+          <div
+            className="
+              flex h-[320px]
+              items-center
+              justify-center
+              rounded-xl
+              border
+              border-dashed
+              text-sm
+              text-muted-foreground
+            "
+          >
+            No data found
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <div
+                style={{
+                  width: `${chartData.length * 90}px`,
+                  minWidth: "100%",
+                }}
+              >
+                <ChartContainer
+                  config={chartConfig}
+                  className="h-[320px] w-full"
+                >
+                  <AreaChart
+                    data={chartData}
+                    margin={{
+                      left: 0,
+                      right: 16,
+                      top: 8,
+                      bottom: 0,
+                    }}
+                  >
+                    <defs>
+                      <linearGradient
+                        id="fillChurn"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="var(--color-churnRate)"
+                          stopOpacity={0.8}
+                        />
+
+                        <stop
+                          offset="95%"
+                          stopColor="var(--color-churnRate)"
+                          stopOpacity={0.1}
+                        />
+                      </linearGradient>
+                    </defs>
+
+                    <CartesianGrid vertical={false} />
+
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={20}
+                    />
+
+                    <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value, name, item) => [
+                            `${value}%`,
+                            "Churn Rate",
+                          ]}
+                        />
+                      }
+                    />
+
+                    <Area
+                      dataKey="churnRate"
+                      type="linear"
+                      fill="url(#fillChurn)"
+                      stroke="var(--color-churnRate)"
+                      strokeWidth={2}
+                    />
+
+                    <ChartLegend content={<ChartLegendContent />} />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+};

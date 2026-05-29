@@ -134,3 +134,15 @@ export const useClosedAndNotifedData = (source: string, startDate?: string, endD
     },
   });
 }
+
+export const useMonthlyChurnRate = (source: string, userType: string)=>{
+  return useQuery({
+    queryKey: ["monthly-churn-rate",
+      source,
+      userType,
+    ],
+    queryFn: () => {
+      return chatbotService.getMonthlyChurnRate(source, userType);
+    },
+  });
+}

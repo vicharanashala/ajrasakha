@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
 type ClosedInLastTwoHoursCardProps = {
+  source: string;
   count: number;
   totalClosed: number;
   dateRange?: DateRange;
@@ -22,6 +23,7 @@ type ClosedInLastTwoHoursCardProps = {
 };
 
 export function ClosedInLastTwoHoursCard({
+  source,
   count,
   totalClosed,
   dateRange,
@@ -35,14 +37,14 @@ export function ClosedInLastTwoHoursCard({
       transition={{ duration: 0.35, ease: "easeOut" }}
     >
       <Card
-        className="
+        className={`
           border
           border-border
           rounded-2xl
           h-fit 
-          pb-7
+          ${source === "whatsapp" ? "pb-2" : "pb-5"}
           bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
-          "
+          `}
       >
         <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 

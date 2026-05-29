@@ -21,6 +21,7 @@ type ClosedQuestionsCardProps = {
   dateRange?: DateRange;
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
+  carryForward: number;
 };
 
 export function ClosedQuestionsCard({
@@ -30,6 +31,7 @@ export function ClosedQuestionsCard({
   dateRange,
   onDateRangeChange,
   isLoading,
+  carryForward
 }: ClosedQuestionsCardProps) {
   return (
     <motion.div
@@ -43,7 +45,6 @@ export function ClosedQuestionsCard({
           border-border
           rounded-2xl
           bg-background/80
-          backdrop-blur
           h-fit
           bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
 
@@ -194,7 +195,7 @@ export function ClosedQuestionsCard({
             </motion.div>
 
             {/* in-review */}
-            <motion.div
+            {/* <motion.div
               className="flex flex-1 flex-col"
               variants={{
                 hidden: { opacity: 0, y: 12 },
@@ -231,6 +232,46 @@ export function ClosedQuestionsCard({
                 "
               >
                 {Math.max(inReview ?? 0, 0)}
+              </motion.span>
+            </motion.div> */}
+
+            <motion.div
+              className="flex flex-1 flex-col"
+              variants={{
+                hidden: { opacity: 0, y: 12 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            >
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.span
+                      whileHover={{ scale: 1.05 }}
+                      className="text-xs text-muted-foreground cursor-help w-full whitespace-nowrap"
+                    >
+                      Carry Forward
+                    </motion.span>
+                  </TooltipTrigger>
+
+                  <TooltipContent>
+                    <p>The qeuestions that were carry forwarded from last day(10:30 PM to 12:00 AM)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <motion.span
+                key={Math.max(carryForward, 0)}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="
+                  text-3xl
+                  font-bold
+                  tracking-tight
+                "
+              >
+                {Math.max(carryForward, 0)}
               </motion.span>
             </motion.div>
           </motion.div>

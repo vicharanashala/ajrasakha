@@ -186,4 +186,13 @@ export class ChatbotService {
       `${this._baseUrl}/closed-notified-data?${params.toString()}`,
     );
   }
+
+  async getMonthlyChurnRate(source: string, userType: string): Promise<any>{
+    const params = new URLSearchParams();
+    params.append("source", source);
+    params.append("userType", userType);
+    return apiFetch<any>(
+      `${this._baseUrl}/monthly-churn-rate?${params.toString()}`,
+    );
+  }
 }

@@ -159,7 +159,7 @@ export const RetentionMetricsChart = ({
   );
 
   return (
-    <Card className="mt-7">
+    <Card className="mt-7 mb-7 pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
       <CardHeader className="border-b py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="grid gap-1">
