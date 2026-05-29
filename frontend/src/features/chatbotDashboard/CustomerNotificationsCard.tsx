@@ -6,17 +6,41 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { motion } from "framer-motion";
+import { Button } from "@/components/atoms/button";
+import { Calendar } from "@/components/atoms/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
+import { CalendarIcon, X } from "lucide-react";
+import { format } from "date-fns";
+
+const parseInputDateToLocalDate = (value?: string): Date => {
+  if (!value) return new Date();
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+};
+
+const todayAsInputDate = (now: Date = new Date()) => {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 type CustomerNotificationsCardProps = {
   notified: number;
   notNotified: number;
   untrackedClosedQuestions: number;
+  selectedDate?: string;
+  onSelectedDateChange?: (date?: string) => void;
+  isLoading?: boolean;
 };
 
 export function CustomerNotificationsCard({
   notified,
   notNotified,
   untrackedClosedQuestions,
+  selectedDate,
+  onSelectedDateChange,
+  isLoading,
 }: CustomerNotificationsCardProps) {
   return (
     <motion.div
@@ -41,45 +65,86 @@ export function CustomerNotificationsCard({
         <CardHeader className="pb-4">
           {/* Header */}
           <motion.div
-            className="flex items-center justify-between"
+            className="flex items-center justify-between gap-2"
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.35, delay: 0.1 }}
           >
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground flex-1">
               <div className="flex items-center gap-2">
                 <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
                 Customer Notifications
               </div>
             </div>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <motion.span
-                    className="
-                  flex h-4 w-4 cursor-pointer
-                  items-center justify-center
-                  rounded-full border text-[10px]
-                "
-                    whileHover={{ scale: 1.15 }}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 gap-1 flex items-center shrink-0"
                   >
-                    i
-                  </motion.span>
-                </TooltipTrigger>
+                    <CalendarIcon className="h-3 w-3 text-muted-foreground" />
+                    {selectedDate ? (
+                      format(parseInputDateToLocalDate(selectedDate), "MMM dd")
+                    ) : (
+                      "All Time"
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[100]" align="end">
+                  <Calendar
+                    initialFocus
+                    mode="single"
+                    selected={selectedDate ? parseInputDateToLocalDate(selectedDate) : undefined}
+                    onSelect={(date) => {
+                      if (!date) return;
+                      onSelectedDateChange?.(todayAsInputDate(date));
+                    }}
+                    disabled={{ after: new Date() }}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              {selectedDate && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full shrink-0"
+                  onClick={() => onSelectedDateChange?.(undefined)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
 
-                <TooltipContent className="max-w-[260px]">
-                  <p>Notification delivery breakdown for closed questions.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.span
+                      className="
+                    flex h-4 w-4 cursor-pointer
+                    items-center justify-center
+                    rounded-full border text-[10px]
+                  "
+                      whileHover={{ scale: 1.15 }}
+                      whileTap={{ scale: 0.92 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                    >
+                      i
+                    </motion.span>
+                  </TooltipTrigger>
+
+                  <TooltipContent className="max-w-[260px]">
+                    <p>Notification delivery breakdown for closed questions.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </motion.div>
 
           {/* Stats */}
           <motion.div
-            className="mt-5 flex items-center justify-between gap-4"
+            className={`mt-5 flex items-center justify-between gap-4 ${isLoading ? "opacity-50" : ""}`}
             variants={{
               hidden: { opacity: 0 },
               visible: {
@@ -106,7 +171,7 @@ export function CustomerNotificationsCard({
               <span className="text-xs text-muted-foreground">Notified</span>
 
               <motion.span
-                key={notified}
+                key={notified ?? 0}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 15 }}
@@ -116,7 +181,7 @@ export function CustomerNotificationsCard({
               tracking-tight
             "
               >
-                {notified}
+                {notified ?? 0}
               </motion.span>
             </motion.div>
 
@@ -138,7 +203,7 @@ export function CustomerNotificationsCard({
               </span>
 
               <motion.span
-                key={notNotified}
+                key={notNotified ?? 0}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 15 }}
@@ -148,7 +213,7 @@ export function CustomerNotificationsCard({
               tracking-tight
             "
               >
-                {notNotified}
+                {notNotified ?? 0}
               </motion.span>
             </motion.div>
 
@@ -168,7 +233,7 @@ export function CustomerNotificationsCard({
               <span className="text-xs text-muted-foreground">Untracked</span>
 
               <motion.span
-                key={untrackedClosedQuestions}
+                key={untrackedClosedQuestions ?? 0}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 15 }}
@@ -178,7 +243,7 @@ export function CustomerNotificationsCard({
               tracking-tight
             "
               >
-                {untrackedClosedQuestions}
+                {untrackedClosedQuestions ?? 0}
               </motion.span>
             </motion.div>
           </motion.div>

@@ -155,7 +155,64 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     setInactiveUsersPage,
   ] = useState(1);
   const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage);
-  const {data: closedAndNotifedData} = useClosedAndNotifedData(source);
+  const [closed2hDate, setClosed2hDate] = useState<string | undefined>(undefined);
+  const [questionStatusDate, setQuestionStatusDate] = useState<string | undefined>(undefined);
+  const [customerNotificationsDate, setCustomerNotificationsDate] = useState<string | undefined>(undefined);
+
+  const getDateRangeForExactDate = useCallback((dateStr?: string) => {
+    if (!dateStr) return { startTime: undefined, endTime: undefined };
+    const selectedDate = parseInputDateToLocalDate(dateStr);
+    const startTime = new Date(selectedDate);
+    startTime.setHours(0, 0, 0, 0);
+
+    const endTime = new Date(selectedDate);
+    const now = new Date();
+    const isSelectedToday =
+      selectedDate.getFullYear() === now.getFullYear() &&
+      selectedDate.getMonth() === now.getMonth() &&
+      selectedDate.getDate() === now.getDate();
+
+    if (isSelectedToday) {
+      endTime.setHours(
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds(),
+        now.getMilliseconds(),
+      );
+    } else {
+      endTime.setHours(23, 59, 59, 999);
+    }
+    return {
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    };
+  }, []);
+
+  const closed2hRange = useMemo(() => getDateRangeForExactDate(closed2hDate), [closed2hDate, getDateRangeForExactDate]);
+  const questionStatusRange = useMemo(() => getDateRangeForExactDate(questionStatusDate), [questionStatusDate, getDateRangeForExactDate]);
+  const customerNotificationsRange = useMemo(() => getDateRangeForExactDate(customerNotificationsDate), [customerNotificationsDate, getDateRangeForExactDate]);
+
+  const { data: closed2hData, isFetching: isClosed2hFetching } = useClosedAndNotifedData(
+    source,
+    closed2hRange.startTime,
+    closed2hRange.endTime,
+  );
+  const { data: questionStatusData, isFetching: isQuestionStatusFetching } = useClosedAndNotifedData(
+    source,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
+  );
+  const { data: customerNotificationsData, isFetching: isCustomerNotificationsFetching } = useClosedAndNotifedData(
+    source,
+    customerNotificationsRange.startTime,
+    customerNotificationsRange.endTime,
+  );
+
+  useEffect(() => {
+    setClosed2hDate(undefined);
+    setQuestionStatusDate(undefined);
+    setCustomerNotificationsDate(undefined);
+  }, [source]);
   const [
     isInactiveWhatsappModalOpen,
     setIsInactiveWhatsappModalOpen,
@@ -636,40 +693,48 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                               totalUsers={unqueWhatsAppUsers}
                             />
                           )}
-
-                          <ClosedInLastTwoHoursCard
-                            count={closedAndNotifedData?.closedInLastTwoHours}
+                           <ClosedInLastTwoHoursCard
+                            count={closed2hData?.closedInLastTwoHours}
                             totalClosed={
-                              closedAndNotifedData?.closedVsTotalQuestions
+                              closed2hData?.closedVsTotalQuestions
                                 ?.closedQuestions
                             }
+                            selectedDate={closed2hDate}
+                            onSelectedDateChange={setClosed2hDate}
+                            isLoading={isClosed2hFetching}
                           />
                           <ClosedQuestionsCard
                             closedQuestions={
-                              closedAndNotifedData?.closedVsTotalQuestions
+                              questionStatusData?.closedVsTotalQuestions
                                 ?.closedQuestions
                             }
                             totalQuestions={
-                              closedAndNotifedData?.closedVsTotalQuestions
+                              questionStatusData?.closedVsTotalQuestions
                                 ?.totalQuestions
                             }
                             inReview={
-                              closedAndNotifedData?.closedVsTotalQuestions
+                              questionStatusData?.closedVsTotalQuestions
                                 ?.inReviewQuestions
                             }
+                            selectedDate={questionStatusDate}
+                            onSelectedDateChange={setQuestionStatusDate}
+                            isLoading={isQuestionStatusFetching}
                           />
                           <CustomerNotificationsCard
                             notified={
-                              closedAndNotifedData?.notifiedVsClosed?.notified
+                              customerNotificationsData?.notifiedVsClosed?.notified
                             }
                             notNotified={
-                              closedAndNotifedData?.notifiedVsClosed
+                              customerNotificationsData?.notifiedVsClosed
                                 ?.notNotified
                             }
                             untrackedClosedQuestions={
-                              closedAndNotifedData?.notifiedVsClosed
+                              customerNotificationsData?.notifiedVsClosed
                                 ?.untrackedClosedQuestions
                             }
+                            selectedDate={customerNotificationsDate}
+                            onSelectedDateChange={setCustomerNotificationsDate}
+                            isLoading={isCustomerNotificationsFetching}
                           />
                         </div>
                         {source !== "whatsapp" && (
