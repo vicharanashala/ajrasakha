@@ -1173,6 +1173,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             });
             return;
           }
+          // NONE result — not a duplicate and not non-agri, mark as open
+          await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         } catch (duplicateError: any) {
           console.error(
             '[processQuestionInBackground] Duplicate check failed, proceeding as open:',
