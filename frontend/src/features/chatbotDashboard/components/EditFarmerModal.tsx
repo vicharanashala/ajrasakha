@@ -210,14 +210,6 @@ export function EditFarmerModal({
       errors.gender = "Gender is required";
     }
 
-    if (!form.state.trim()) {
-      errors.state = "State is required";
-    }
-
-    if (!form.district.trim()) {
-      errors.district = "District is required";
-    }
-
     if (!form.nearestKVK.trim()) {
       errors.nearestKVK = "Nearest KVK is required";
     }
@@ -597,9 +589,9 @@ const handleChange = (
               );
             })}
           </select>
-          {errors.state && (
+          {/* {errors.state && (
             <p className="mt-1 text-sm text-red-600">{errors.state}</p>
-          )}
+          )} */}
         </div>
         <div>
           <label className="text-sm font-medium">District</label>
@@ -624,9 +616,9 @@ const handleChange = (
               return <option value={district}>{district}</option>;
             })}
           </select>
-          {errors.district && (
+          {/* {errors.district && (
             <p className="mt-1 text-sm text-red-600">{errors.district}</p>
-          )}
+          )} */}
         </div>
       </div>
       <div>
