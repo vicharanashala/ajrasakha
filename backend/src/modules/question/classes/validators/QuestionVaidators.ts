@@ -806,6 +806,14 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   pae_review?: string;
+
+  @JSONSchema({
+    description: 'filter questions with status=non_agri',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  is_non_agri?: string | boolean;
 }
 
 export interface IQuestionWithAnswerTexts {

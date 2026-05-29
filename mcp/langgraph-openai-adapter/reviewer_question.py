@@ -8,7 +8,11 @@ from typing import Any
 
 import httpx
 
-from config import REQUEST_TIMEOUT, REVIEWER_DESK_API_BASE_URL
+from config import (
+    REQUEST_TIMEOUT,
+    REVIEWER_DESK_API_BASE_URL,
+    REVIEWER_DESK_API_KEY,
+)
 
 logger = logging.getLogger("langgraph-openai-adapter")
 
@@ -133,6 +137,13 @@ async def fetch_thread_messages(
     return messages if isinstance(messages, list) else []
 
 
+def _desk_request_headers() -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if REVIEWER_DESK_API_KEY:
+        headers["x-internal-api-key"] = REVIEWER_DESK_API_KEY
+    return headers
+
+
 async def update_desk_question(
     question_id: str,
     user_id: str,
@@ -146,9 +157,15 @@ async def update_desk_question(
         "threadId": thread_id,
     }
 
+    if not REVIEWER_DESK_API_KEY:
+        logger.warning(
+            "REVIEWER_DESK_API_KEY is not set; desk PUT for question %s may fail authentication",
+            question_id,
+        )
+
     timeout = httpx.Timeout(REQUEST_TIMEOUT, connect=10.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.put(url, json=payload, headers={"Content-Type": "application/json"})
+        response = await client.put(url, json=payload, headers=_desk_request_headers())
 
     if response.is_success:
         logger.info(
