@@ -123,7 +123,6 @@ FORBIDDEN — never output any of the following:
 - SOURCE: / Sources: / plain-text source lists (system uses 📚 and 👨‍🌾 lines)
 
 """.strip()
-# # 1. Read ALL the similar Q&A pairs provided
 
 SIMILAR_MATCH_SYNTHESIS_PROMPT = """You are AjraSakha, composing a final WhatsApp reply for an Indian farmer.
 
@@ -144,7 +143,7 @@ OUTPUT CONTRACT (NON-NEGOTIABLE):
 
 
 def _format_non_gdb_tool_results(messages: list[BaseMessage]) -> str:
-    """Collect non-GDB tool outputs for the synthesizer."""
+    """Collect non-GDB tool outputs for the synthesizer, skipping reviewer upload."""
     last_human_idx = -1
     for i in range(len(messages) - 1, -1, -1):
         if isinstance(messages[i], HumanMessage):
@@ -157,8 +156,9 @@ def _format_non_gdb_tool_results(messages: list[BaseMessage]) -> str:
     for msg in messages[last_human_idx + 1:]:
         if isinstance(msg, ToolMessage):
             name = getattr(msg, "name", "tool")
-            if name == "gdb":
-                continue  # Handled separately
+            # Skip GDB (handled separately) and reviewer upload (question logging only)
+            if name == "gdb" or name == "upload_question_to_reviewer_system":
+                continue
             text = _message_to_text(msg)
             if text:
                 blocks.append(f"### {name}\n{text}")
@@ -178,7 +178,6 @@ async def _synthesize_from_specialist_tools(
     user_text: str,
     vocal_language: str,
     script_language: str,
-    # summary_context: str,
     messages: list[BaseMessage],
 ) -> dict:
     """Synthesize from weather/market/soil/schemes tools when GDB has no usable answer."""
@@ -187,7 +186,6 @@ async def _synthesize_from_specialist_tools(
     llm_messages: list[BaseMessage] = [
         SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
         SystemMessage(content=language_directive_for_synthesis(vocal_language, script_language)),
-        # SystemMessage(content=summary_context),
     ]
     loc_ctx = main_agent_location_context_message(state.get("location"))
     if loc_ctx:
@@ -213,10 +211,16 @@ async def _synthesize_from_specialist_tools(
         }
     except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
         logger.warning("Synthesizer failed (%s: %s)", type(exc).__name__, exc)
-        return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+        return {
+            "messages": [AIMessage(content=LLM_FALLBACK_MSG)],
+            "location": state.get("location"),
+        }
     except APIStatusError as exc:
         if exc.status_code >= 500:
-            return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+            return {
+                "messages": [AIMessage(content=LLM_FALLBACK_MSG)],
+                "location": state.get("location"),
+            }
         raise
 
 
@@ -249,23 +253,18 @@ async def synthesize_node(
         script_lang,
         repr(user_text[:80]),
     )
-    long_term_summary = await load_long_term_summary(store, config)
-    # summary_context = (
-    #     f"Long-term memory:\n{long_term_summary}"
-    #     if long_term_summary
-    #     else "Long-term memory: none"
-    # )
 
     # Parse GDB response to determine exact vs similar
     gdb_data = _extract_gdb_from_messages(messages)
     other_tools = _format_non_gdb_tool_results(messages)
-    lang_label = synthesis_lang_label(script_lang, vocal_lang)
 
     if gdb_data and gdb_has_usable_answers(gdb_data):
         exact = gdb_data.get("exact_match") or {}
         is_exact = gdb_data.get("is_exact", False) and bool(
             (exact.get("answer") or "").strip()
         )
+    else:
+        is_exact = False
 
     if gdb_data and gdb_has_usable_answers(gdb_data) and is_exact:
         # ── EXACT MATCH: Rephrase only ────────────────────────────────
@@ -275,16 +274,11 @@ async def synthesize_node(
 
         llm_messages: list[BaseMessage] = [
             SystemMessage(content=EXACT_MATCH_REPHRASE_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang))
-            # SystemMessage(content=summary_context),
+            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
         ]
         loc_ctx = main_agent_location_context_message(state.get("location"))
         if loc_ctx:
             llm_messages.append(loc_ctx)
-
-        # Include other tool results if available
-        other_tools = _format_non_gdb_tool_results(messages)
-        other_tools_section = f"\n\nOther tool results:\n{other_tools}" if other_tools else ""
 
         llm_messages.append(
             HumanMessage(
@@ -294,7 +288,6 @@ async def synthesize_node(
                     f"EXACT MATCH from Golden Database:\n"
                     f"Matched Question: {exact_question}\n"
                     f"Expert Answer: {exact_answer}"
-                    f"{other_tools_section}"
                 )
             )
         )
@@ -315,7 +308,6 @@ async def synthesize_node(
             }
         except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
             logger.warning("Exact match synthesizer failed (%s: %s)", type(exc).__name__, exc)
-            # Fall back: use exact answer as-is (sources appended in translate_answer)
             return {
                 "messages": [AIMessage(content=exact_answer)],
                 "location": state.get("location"),
@@ -335,42 +327,31 @@ async def synthesize_node(
         # ── SIMILAR MATCH: Full synthesis ─────────────────────────────
         llm_messages: list[BaseMessage] = [
             SystemMessage(content=SIMILAR_MATCH_SYNTHESIS_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang))
-            # SystemMessage(content=summary_context),
+            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
         ]
         loc_ctx = main_agent_location_context_message(state.get("location"))
         if loc_ctx:
             llm_messages.append(loc_ctx)
 
-        # Format similar pairs for LLM
+        # Sanitizer keeps only the highest-confidence pair as similar_pair1
         pairs_text = ""
-        for i in range(1, 6):
-            pair = gdb_data.get(f"similar_pair{i}")
-            if pair and isinstance(pair, dict) and pair.get("answer"):
-                pairs_text += (
-                    f"\nPair {i}:\n"
-                    f"  Question: {pair.get('question', '')}\n"
-                    f"  Answer: {pair.get('answer', '')}\n"
-                )
+        best_pair = gdb_data.get("similar_pair1")
+        if best_pair and isinstance(best_pair, dict) and best_pair.get("answer"):
+            pairs_text = (
+                f"Question: {best_pair.get('question', '')}\n"
+                f"Answer: {best_pair.get('answer', '')}"
+            )
 
-        # Include other tool results
-        other_tools = _format_non_gdb_tool_results(messages)
-        other_tools_section = f"\n\nOther tool results:\n{other_tools}" if other_tools else ""
+        # If other specialist tools also have results, defer to expert-queue
+        # (reviewer upload is already excluded by _format_non_gdb_tool_results)
+        if other_tools.strip():
+            logger.info(
+                "Similar match from GDB but specialist tools also have results — expert-queue"
+            )
+            return _defer_empty_gdb_to_translate(state, plan={**plan, "gdb_has_data": False})
 
+        # No specialist tools — synthesize from GDB pairs only
         if not pairs_text.strip():
-            if other_tools.strip():
-                logger.info(
-                    "GDB pairs empty after sanitizer — synthesizing from specialist tools"
-                )
-                return await _synthesize_from_specialist_tools(
-                    state,
-                    config,
-                    user_text=user_text,
-                    vocal_language=vocal_lang,
-                    script_language=script_lang,
-                    # summary_context=summary_context,
-                    messages=messages,
-                )
             logger.info(
                 "Similar match path has no pair answers and no specialist tools — expert-queue"
             )
@@ -381,9 +362,8 @@ async def synthesize_node(
                 content=(
                     f"{_SYNTHESIS_BODY_ONLY_REMINDER}\n\n"
                     f"Farmer's question (vocal={vocal_lang}, script={script_lang}):\n{user_text}\n\n"
-                    f"SIMILAR MATCHES from Golden Database:\n{pairs_text}"
-                    f"{other_tools_section}\n\n"
-                    f"Select the most relevant pairs and synthesize a comprehensive answer."
+                    f"SIMILAR MATCHES from Golden Database:\n{pairs_text}\n\n"
+                    f"Synthesize an answer based on the retrieved QA pair."
                 )
             )
         )
@@ -425,7 +405,6 @@ async def synthesize_node(
                 user_text=user_text,
                 vocal_language=vocal_lang,
                 script_language=script_lang,
-                # summary_context=summary_context,
                 messages=messages,
             )
         logger.info("No usable GDB and no specialist tools — returning expert-queue canned reply")

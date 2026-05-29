@@ -35,43 +35,68 @@ async def test_crop_all_domain_forces_all():
 @pytest.mark.asyncio
 async def test_crop_required_general_classifier_sets_all():
     plan = planner_output_to_plan(
-        PlannerOutput(domain="Plant Protection", rephrased_query="Leaves turning yellow")
+        PlannerOutput(domains=["Plant Protection"], rephrased_query="Leaves turning yellow")
     )
-    with patch(
-        "ajrasakha.agents.planner.is_crop_specific_question",
-        new_callable=AsyncMock,
-        return_value=False,
-    ):
-        out, domain, crop_required = await _apply_domain_and_crop_async(
-            plan,
-            [HumanMessage(content="Leaves turning yellow")],
-            crop_prefilled=None,
-            config={},
-        )
+    out, domain, crop_required = await _apply_domain_and_crop_async(
+        plan,
+        [HumanMessage(content="Leaves turning yellow")],
+        crop_prefilled=None,
+        config={},
+    )
     assert domain == "Plant Protection"
-    assert out["entities"]["crop"] == "all"
-    assert crop_required is False
+    assert out["entities"].get("crop") is None
+    assert crop_required is True
     assert out["knowledge_base"] is True
 
 
 @pytest.mark.asyncio
 async def test_crop_required_specific_classifier_requires_crop():
     plan = planner_output_to_plan(
-        PlannerOutput(domain="Plant Protection", rephrased_query="Leaves turning yellow")
+        PlannerOutput(domains=["Plant Protection"], rephrased_query="Leaves turning yellow")
     )
-    with patch(
-        "ajrasakha.agents.planner.is_crop_specific_question",
-        new_callable=AsyncMock,
-        return_value=True,
-    ):
-        out, domain, crop_required = await _apply_domain_and_crop_async(
-            plan,
-            [HumanMessage(content="Leaves turning yellow")],
-            crop_prefilled=None,
-            config={},
-        )
+    out, domain, crop_required = await _apply_domain_and_crop_async(
+        plan,
+        [HumanMessage(content="Leaves turning yellow")],
+        crop_prefilled=None,
+        config={},
+    )
     assert crop_required is True
     assert out["entities"].get("crop") is None
+
+
+@pytest.mark.asyncio
+async def test_crop_required_any_when_mixed_domains_crop_required():
+    plan = planner_output_to_plan(
+        PlannerOutput(domains=["Weather", "Plant Protection"], rephrased_query="Leaves turning yellow")
+    )
+    out, domain, crop_required = await _apply_domain_and_crop_async(
+        plan,
+        [HumanMessage(content="Leaves turning yellow")],
+        crop_prefilled=None,
+        config={},
+    )
+    # First domain wins for the returned `domain`, but crop requirement comes from ANY selected domain.
+    assert domain == "Weather"
+    assert crop_required is True
+    assert out["entities"].get("crop") is None
+
+
+@pytest.mark.asyncio
+async def test_tool_flags_or_union_across_domains():
+    plan = planner_output_to_plan(
+        PlannerOutput(domains=["Weather", "Soil Health Card"], rephrased_query="Soil report please")
+    )
+    out, domain, crop_required = await _apply_domain_and_crop_async(
+        plan,
+        [HumanMessage(content="Soil report please")],
+        crop_prefilled=None,
+        config={},
+    )
+    assert domain == "Weather"
+    assert crop_required is False
+    assert out["entities"]["crop"] == "all"
+    assert out["weather"] is True
+    assert out["soil"] is True
 
 
 def test_tool_flags_derived_from_domain():

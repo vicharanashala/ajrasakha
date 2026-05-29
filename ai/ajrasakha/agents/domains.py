@@ -139,6 +139,23 @@ def apply_tool_flags_from_domain(domain: str) -> PlannerToolFlags:
     return flags
 
 
+def apply_tool_flags_from_domains(domains: list[str]) -> PlannerToolFlags:
+    """OR-union planner flags across multiple canonical domains (server-side only)."""
+    out: PlannerToolFlags = {
+        "weather": False,
+        "mandi": False,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": False,
+    }
+    for d in domains or []:
+        flags = apply_tool_flags_from_domain(d)
+        for k, v in flags.items():
+            out[k] = bool(out.get(k)) or bool(v)
+    return out
+
+
 def reviewer_upload_domain(domain: str) -> str:
     """
     Map AI planner domain to a name accepted by reviewer MCP allowed_domains.
