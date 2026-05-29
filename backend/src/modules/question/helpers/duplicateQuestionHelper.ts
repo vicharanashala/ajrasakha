@@ -33,8 +33,8 @@ export async function checkDuplicateQuestionHelper(
       id: item.id
         ? new ObjectId(String(item.id))
         : new ObjectId() // preserve the real reviewer question _id
-    })),
-    ...(questions.golden || []).map((item: any) => ({
+    }))
+   /* ...(questions.golden || []).map((item: any) => ({
       question: item.question,
       answer: item.answer,
       agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
@@ -43,7 +43,7 @@ export async function checkDuplicateQuestionHelper(
       id: item.id
         ? new ObjectId(String(item.id))
         : new ObjectId()
-    })),
+    })),*/
   ];
 
   merged = Array.from(
