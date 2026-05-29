@@ -5,16 +5,28 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-  import { motion } from "framer-motion";
+import { motion } from "framer-motion";
+import { Button } from "@/components/atoms/button";
+import { Calendar } from "@/components/atoms/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
+import { CalendarIcon, X } from "lucide-react";
+import { format } from "date-fns";
+import type { DateRange } from "react-day-picker";
 
 type ClosedInLastTwoHoursCardProps = {
   count: number;
   totalClosed: number;
+  dateRange?: DateRange;
+  onDateRangeChange?: (range: DateRange | undefined) => void;
+  isLoading?: boolean;
 };
 
 export function ClosedInLastTwoHoursCard({
   count,
   totalClosed,
+  dateRange,
+  onDateRangeChange,
+  isLoading,
 }: ClosedInLastTwoHoursCardProps) {
   return (
     <motion.div
@@ -36,14 +48,57 @@ export function ClosedInLastTwoHoursCard({
 
         <CardHeader className="pb-10">
           <motion.div
-            className="text-sm text-muted-foreground"
+            className="text-sm text-muted-foreground flex items-center justify-between gap-2 mb-4"
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2">
               <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
               Closed within 2 Hours
+            </div>
+
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 gap-1 flex items-center shrink-0"
+                  >
+                    <CalendarIcon className="h-3 w-3 text-muted-foreground" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
+                      ) : (
+                        format(dateRange.from, "MMM dd")
+                      )
+                    ) : (
+                      "All Time"
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[100]" align="end">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from ?? new Date()}
+                    selected={dateRange}
+                    onSelect={onDateRangeChange}
+                    disabled={{ after: new Date() }}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              {dateRange && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full shrink-0"
+                  onClick={() => onDateRangeChange?.(undefined)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
             </div>
           </motion.div>
 
@@ -56,11 +111,12 @@ export function ClosedInLastTwoHoursCard({
               "
           >
             <motion.div
-              className="
+              className={`
                 text-3xl
                 font-bold
                 tracking-tight
-                "
+                ${isLoading ? "opacity-50" : ""}
+                `}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{
@@ -69,9 +125,9 @@ export function ClosedInLastTwoHoursCard({
                 type: "spring",
                 stiffness: 200,
               }}
-              key={`${count}-${totalClosed}`}
+              key={`${count ?? 0}-${totalClosed ?? 0}`}
             >
-              {count} / {totalClosed}
+              {count ?? 0} / {totalClosed ?? 0}
             </motion.div>
 
             <TooltipProvider>
