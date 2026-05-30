@@ -2471,26 +2471,29 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
    async notifyUser(userEmail: string, messageId: string, message:string): Promise<any>{
     const user = await this.chatbotRepository.getUserData(userEmail, "annam")
+    console.log('User id for notification', user.userId);
     const webhookPayload = {
       customMessage: message,
       userid: user.userId,
       type: 'COSTUM',
     };
-    try{
-    const response = await triggerWebhook(
-      appConfig.WEB_WEBHOOK_API_URL,
-      appConfig.WEB_WEBHOOK_API_KEY,
-      webhookPayload,
-      'Browser',
-    )
-    return {
-      message: response.body,
-      status: response.status,
-      success: response.ok,
-    };
-  }catch(error){
-    throw new InternalServerError ("Something went wrong")
-  }
+      const response = await triggerWebhook(
+        appConfig.WEB_WEBHOOK_API_URL,
+        appConfig.WEB_WEBHOOK_API_KEY,
+        webhookPayload,
+        'Browser',
+      );
+      if (!response?.ok || response.status < 200 || response.status >= 300) {
+        throw new InternalServerError(
+          `Webhook failed with status ${response?.status}, ${response.body ? `response: ${response.body}` : 'no response body'}`,
+        );
+      }
+
+      return {
+        success: true,
+        status: response.status,
+        message: response.body,
+      };
   }
 
 
