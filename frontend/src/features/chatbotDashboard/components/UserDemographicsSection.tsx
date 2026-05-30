@@ -68,7 +68,15 @@ function DonutSegments({ segments, onSegmentClick }: { segments: { label: string
       </div>
       <div className="flex flex-col gap-1.5 flex-1 min-w-[120px] w-full">
         {segments.map((s) => (
-          <div key={s.label} className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <div 
+            key={s.label} 
+            className={`flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 ${s.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+            onClick={() => {
+              if (s.label === 'Not Provided' && onSegmentClick) {
+                onSegmentClick();
+              }
+            }}
+          >
             <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: s.color }} />
             <span className="flex-1 truncate">{s.label}</span>
             <span className="font-medium text-gray-700 dark:text-gray-200 min-w-[32px] text-right flex-shrink-0">{formatCount(s.count)}</span>
@@ -127,7 +135,15 @@ function EnlargedDonutSegments({ segments, onSegmentClick }: { segments: { label
       </div>
       <div className="flex flex-col gap-3 w-full max-w-md">
         {segments.map((s) => (
-          <div key={s.label} className="flex items-center gap-3 text-base text-gray-600 dark:text-gray-300">
+          <div 
+            key={s.label} 
+            className={`flex items-center gap-3 text-base text-gray-600 dark:text-gray-300 ${s.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+            onClick={() => {
+              if (s.label === 'Not Provided' && onSegmentClick) {
+                onSegmentClick();
+              }
+            }}
+          >
             <span className="w-4 h-4 rounded-sm flex-shrink-0" style={{ background: s.color }} />
             <span className="flex-1">{s.label}</span>
             <span className="font-semibold text-gray-800 dark:text-gray-100 text-lg min-w-[60px] text-right flex-shrink-0">{formatCount(s.count)}</span>
@@ -144,7 +160,14 @@ function HorizontalBars({ segments, onSegmentClick }: { segments: { label: strin
     <div className="flex flex-col gap-2.5 w-full">
       {segments.map((s) => (
         <div key={s.label} className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 dark:text-gray-400 w-20 sm:w-24 flex-shrink min-w-0 truncate">{s.label}</span>
+          <span 
+            className={`text-xs text-gray-500 dark:text-gray-400 w-20 sm:w-24 flex-shrink min-w-0 truncate ${s.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+            onClick={() => {
+              if (s.label === 'Not Provided' && onSegmentClick) {
+                onSegmentClick();
+              }
+            }}
+          >{s.label}</span>
           <div className="flex-1 min-w-[24px] h-2.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
             <div className={`h-full rounded-full transition-all duration-500 ${s.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:opacity-80' : ''}`}
               style={{ width: `${s.pct}%`, background: s.color }}
@@ -169,7 +192,14 @@ function EnlargedHorizontalBars({ segments, onSegmentClick }: { segments: { labe
     <div className="flex flex-col gap-5 w-full max-w-2xl mx-auto">
       {segments.map((s) => (
         <div key={s.label} className="flex items-center gap-4">
-          <span className="text-base text-gray-600 dark:text-gray-300 w-32 flex-shrink-0">{s.label}</span>
+          <span 
+            className={`text-base text-gray-600 dark:text-gray-300 w-32 flex-shrink-0 ${s.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+            onClick={() => {
+              if (s.label === 'Not Provided' && onSegmentClick) {
+                onSegmentClick();
+              }
+            }}
+          >{s.label}</span>
           <div className="flex-1 h-6 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
             <div className={`h-full rounded-full transition-all duration-500 ${s.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:opacity-80' : ''}`}
               style={{ width: `${s.pct}%`, background: s.color }}
@@ -242,12 +272,12 @@ function DemographicCard({
                     <div className="space-y-1 text-muted-foreground">
                       <p>
                         <span className="font-medium text-foreground">Small:</span>{" "}
-                        0 to {"<"} 2 acres
+                        0 to {"<<"} 2 acres
                       </p>
 
                       <p>
                         <span className="font-medium text-foreground">Medium:</span>{" "}
-                        2 to {"<"} 10 acres
+                        2 to {"<<"} 10 acres
                       </p>
 
                       <p>
