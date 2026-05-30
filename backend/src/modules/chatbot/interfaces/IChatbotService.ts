@@ -122,6 +122,7 @@ export interface IChatbotService {
         district?: string;
         state?: string;
         phoneNo?: string;
+        nearestKVK?: string
         languagePreference?: string;
         yearsOfExperience?: number;
         cropsCultivated?: string[];
@@ -144,15 +145,16 @@ export interface IChatbotService {
       role?: string;
     },
   ): Promise<boolean>;
-  getDailyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string):Promise<any>;
-  getMonthlyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string): Promise<any>;
-  getWeeklyActiveUsersTrend(startDate: Date, endDate: Date, source: string, userType: string): Promise<any>;
+  getDailyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ):Promise<any>;
+  getMonthlyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ): Promise<any>;
+  getWeeklyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ): Promise<any>;
   getRetentionMetrics(  
-      startDate: Date,
-      endDate: Date,
       source: string,
       userType: string,
-      requestType: string,): Promise<any>;
+      requestType: string,
+      startDate?: Date,
+      endDate?: Date,): Promise<any>;
   getUserQuestionsData(userEmail: string, source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
-  getClosedAndNotifedData(source?: string): Promise<any> 
+  getClosedAndNotifedData(source?: string, startDate?: string, endDate?: string): Promise<any>;
+  getMonthlyChurnRate(source: string, userType: string):Promise<any>;
 }

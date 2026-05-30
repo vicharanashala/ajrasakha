@@ -59,14 +59,19 @@ export class ChatbotService {
   }
 
   async getDailyActiveUsersTrend(
-    startDate: string,
-    endDate: string,
     source: string,
     userType: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append("startDate", startDate);
-    params.append("endDate", endDate);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
     params.append("source", source);
     params.append("userType", userType);
       return apiFetch<any>(
@@ -75,14 +80,19 @@ export class ChatbotService {
   }
 
   async getMonthlyActiveUsersTrend(
-    startDate: string,
-    endDate: string,
     source: string,
     userType: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append("startDate", startDate);
-    params.append("endDate", endDate);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
       params.append("source", source);
       params.append("userType", userType);
     return apiFetch<any>(
@@ -91,14 +101,19 @@ export class ChatbotService {
   }
 
   async getWeeklyActiveUsersTrend(
-    startDate: string,
-    endDate: string,
     source: string,
     userType: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append("startDate", startDate);
-    params.append("endDate", endDate);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
       params.append("source", source);
       params.append("userType", userType);
     return apiFetch<any>(
@@ -107,15 +122,20 @@ export class ChatbotService {
   }
 
   async getRetentionMetrics(
-    startDate: string,
-    endDate: string,
     source: string,
     userType: string,
     requestType: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append("startDate", startDate);
-    params.append("endDate", endDate);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
     params.append("source", source);
     params.append("userType", userType);
     params.append("requestType", requestType);
@@ -153,11 +173,26 @@ export class ChatbotService {
     );
   }
 
-  async getClosedAndNotifedData(source: string): Promise<any>{
+  async getClosedAndNotifedData(source: string, startDate?: string, endDate?: string): Promise<any>{
     const params = new URLSearchParams();
     params.append("source", source);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
     return apiFetch<any>(
       `${this._baseUrl}/closed-notified-data?${params.toString()}`,
+    );
+  }
+
+  async getMonthlyChurnRate(source: string, userType: string): Promise<any>{
+    const params = new URLSearchParams();
+    params.append("source", source);
+    params.append("userType", userType);
+    return apiFetch<any>(
+      `${this._baseUrl}/monthly-churn-rate?${params.toString()}`,
     );
   }
 }

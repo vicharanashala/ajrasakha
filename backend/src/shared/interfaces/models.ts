@@ -1,17 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert';
-export type QuestionStatus =
-  | 'open'
-  | 'in-review'
-  | 'closed'
-  | 'delayed'
-  | 're-routed'
-  | 'hold'
-  | 'pae_submitted'
-  | 'draft'
-  | 'pass'
-  | 'duplicate';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending';
 export interface IPreference {
   state: string;
   crop: string;
@@ -224,6 +214,8 @@ export interface IQuestionSubmission {
   history: ISubmissionHistory[];
   queue: (string | ObjectId)[];
   reviewDelayNotificationSent?: boolean;
+  currentExpertOpenedAt?: Date | null;
+  currentExpertAllocatedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

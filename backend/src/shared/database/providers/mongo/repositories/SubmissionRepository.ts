@@ -3255,6 +3255,322 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     return result; // contains the updated document
   }
 
+  // ─── Time-bound allocation tracking ───────────────────────────────────────
+
+  async markQuestionOpenedByExpert(questionId: string, expertId: string, isTimeBound: boolean = true): Promise<void> {
+    await this.init();
+
+    // Always clear currentExpertOpenedAt on any OTHER time-bound question this
+    // expert had previously opened. This ensures navigating to ANY question
+    // (time-bound or not) frees the old time-bound question for reallocation.
+    await this.QuestionSubmissionCollection.updateMany(
+      {
+        questionId: { $ne: new ObjectId(questionId) },
+        queue: new ObjectId(expertId),
+        currentExpertOpenedAt: { $ne: null },
+      },
+      { $set: { currentExpertOpenedAt: null, updatedAt: new Date() } },
+    );
+
+    // Only set currentExpertOpenedAt on the current question if it's time-bound
+    if (!isTimeBound) return;
+
+    const submission = await this.QuestionSubmissionCollection.findOne({
+      questionId: new ObjectId(questionId),
+    });
+    if (!submission) return;
+    if (submission.currentExpertOpenedAt) return; // already marked
+
+    const history = submission.history || [];
+    const queue = submission.queue || [];
+
+    // Determine who the current expert is
+    let currentExpertId: string | null = null;
+    if (history.length === 0) {
+      currentExpertId = queue[0]?.toString() ?? null;
+    } else {
+      const lastHistory = history[history.length - 1];
+      if (lastHistory.status === 'in-review') {
+        currentExpertId = lastHistory.updatedBy?.toString() ?? null;
+      } else {
+        currentExpertId = queue[history.length]?.toString() ?? null;
+      }
+    }
+
+    // Only mark opened if the calling expert is the current assignee
+    if (!currentExpertId || currentExpertId !== expertId.toString()) return;
+
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: new ObjectId(questionId) },
+      { $set: { currentExpertOpenedAt: new Date(), updatedAt: new Date() } },
+    );
+  }
+
+  async setCurrentExpertAllocatedAt(questionId: string, allocatedAt: Date): Promise<void> {
+    await this.init();
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: new ObjectId(questionId) },
+      {
+        $set: {
+          currentExpertAllocatedAt: allocatedAt,
+          currentExpertOpenedAt: null,
+          updatedAt: new Date(),
+        },
+      },
+    );
+  }
+
+  async clearCurrentExpertOpenedAt(questionId: string, session?: ClientSession): Promise<void> {
+    await this.init();
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: new ObjectId(questionId) },
+      { $set: { currentExpertOpenedAt: null, updatedAt: new Date() } },
+      { session },
+    );
+  }
+
+  async findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]> {
+    await this.init();
+    const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
+
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+      {
+        $match: {
+          currentExpertAllocatedAt: { $exists: true, $ne: null, $lte: fortyFiveMinAgo },
+          $or: [
+            { currentExpertOpenedAt: { $exists: false } },
+            { currentExpertOpenedAt: null },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      { $unwind: '$question' },
+      {
+        $match: {
+          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri'] },
+          'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': {$eq: true}
+        },
+      },
+      { $sort: { 'question.createdAt': 1 } },
+    ]).toArray();
+  }
+
+  async findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
+    await this.init();
+
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+      {
+        $match: {
+          queue: { $size: 0 },
+          $or: [
+            { currentExpertAllocatedAt: { $exists: false } },
+            { currentExpertAllocatedAt: null },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      { $unwind: '$question' },
+      {
+        $match: {
+          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft', 'non_agri'] },
+          'question.isOnHold': { $ne: true },
+        },
+      },
+      { $sort: { 'question.createdAt': 1 } },
+    ]).toArray();
+  }
+
+  /** Find time-bound (AJRASAKHA/WHATSAPP) submissions where the current expert
+   *  has completed their turn (submitted an answer OR finished a review) but no
+   *  new reviewer has been assigned — question is still open/delayed.
+   *
+   *  Condition: history.length >= queue.length (all assigned experts have entries)
+   *  AND the last expert completed their work:
+   *    - Position 0 (author): history[0].answer exists (submitted their answer)
+   *    - Position >= 1 (reviewer): last history status !== 'in-review' (completed review) */
+  async findAnsweredQuestionsNeedingReviewer(): Promise<IQuestionSubmission[]> {
+    await this.init();
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+      {
+        $addFields: {
+          histLen: { $size: { $ifNull: ['$history', []] } },
+          queueLen: { $size: { $ifNull: ['$queue', []] } },
+          lastHistory: { $arrayElemAt: ['$history', -1] },
+        },
+      },
+      {
+        $match: {
+          // Queue must not be empty
+          queueLen: { $gt: 0 },
+          // All queue members must have a history entry (everyone has done their part)
+          $expr: { $gte: ['$histLen', '$queueLen'] },
+          // The last history entry must indicate completed work
+          $or: [
+            // Author (queue has 1 member) submitted their answer
+            {
+              $and: [
+                { queueLen: 1 },
+                { 'lastHistory.answer': { $exists: true, $ne: null } },
+              ],
+            },
+            // Reviewer (queue has >1 members) completed their review (status != 'in-review')
+            {
+              $and: [
+                { queueLen: { $gt: 1 } },
+                { 'lastHistory.status': { $nin: ['in-review'] } },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      { $unwind: '$question' },
+      {
+        $match: {
+          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'question.status': { $in: ['open', 'delayed'] },
+          'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': {$eq:true}
+        },
+      },
+    ]).toArray();
+  }
+
+  /** Atomically add a reviewer to a time-bound question:
+   *  pushes the expert into queue, creates an in-review history entry,
+   *  and resets the 45-min allocation clock. */
+  async assignTimeBoundReviewer(
+    questionId: string,
+    reviewerId: string,
+    now: Date,
+  ): Promise<void> {
+    await this.init();
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: new ObjectId(questionId) },
+      {
+        $push: {
+          queue: new ObjectId(reviewerId),
+          history: {
+            updatedBy: new ObjectId(reviewerId),
+            status: 'in-review',
+            createdAt: now,
+            updatedAt: now,
+          },
+        } as any,
+        $set: {
+          currentExpertAllocatedAt: now,
+          currentExpertOpenedAt: null,
+          updatedAt: now,
+        },
+      },
+    );
+  }
+
+  async getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>> {
+    await this.init();
+    // Pipeline: join with questions, filter to time-bound, unwind queue with index,
+    // and determine whether the expert at each position still has pending work.
+    //
+    // Position 0 (author): active if history[0].answer is missing/null (hasn't submitted yet).
+    // Position ≥ 1 (reviewer): active if history[position].status === 'in-review' (hasn't completed review).
+    const result = await this.QuestionSubmissionCollection.aggregate<{ _id: string; count: number }>([
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'q',
+        },
+      },
+      { $unwind: '$q' },
+      {
+        $match: {
+          'q.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'q.status': { $in: ['open', 'delayed'] },
+          'q.isOnHold': { $ne: true },
+        },
+      },
+      // Unwind queue so each expert gets their own document with their position index
+      {
+        $unwind: {
+          path: '$queue',
+          includeArrayIndex: 'queueIndex',
+        },
+      },
+      // Get the corresponding history entry for this queue position (may be null if not yet created)
+      {
+        $addFields: {
+          correspondingHistory: { $arrayElemAt: ['$history', '$queueIndex'] },
+        },
+      },
+      // Determine if this expert still has pending work at their position
+      {
+        $addFields: {
+          isPending: {
+            $cond: {
+              // Position 0 = author: pending if no history entry yet, or history entry has no answer
+              if: { $eq: ['$queueIndex', 0] },
+              then: {
+                $or: [
+                  { $eq: ['$correspondingHistory', null] },
+                  { $not: { $ifNull: ['$correspondingHistory.answer', false] } },
+                ],
+              },
+              // Position >= 1 = reviewer: pending if no history entry yet, or status is 'in-review'
+              else: {
+                $or: [
+                  { $eq: ['$correspondingHistory', null] },
+                  { $eq: ['$correspondingHistory.status', 'in-review'] },
+                ],
+              },
+            },
+          },
+        },
+      },
+      // Keep only experts who still have pending work
+      { $match: { isPending: true } },
+      // Filter out null queue entries
+      { $match: { queue: { $ne: null } } },
+      {
+        $group: {
+          _id: '$queue',
+          count: { $sum: 1 },
+        },
+      },
+    ]).toArray();
+
+    const map = new Map<string, number>();
+    for (const r of result) {
+      if (r._id) map.set(r._id.toString(), r.count);
+    }
+    console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
+    return map;
+  }
+
   //get level wise answer submission percentage report
   async getLevelWiseReport(
     startDate: string,

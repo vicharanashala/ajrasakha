@@ -254,6 +254,17 @@ const {checkDuplicateQuestionHelper} =
             parentPort?.postMessage({processed: 1, duplicateCount: 1});
             continue; // Skip allocation
           }
+
+          if (duplicateResult.isNonAgri) {
+            newQuestion.status = 'non_agri';
+            await questionRepo.addQuestion(newQuestion);
+            console.log(
+              `🚫 Non-agri question saved with status 'non_agri'. Skipping allocation.`,
+            );
+            processed++;
+            parentPort?.postMessage({processed: 1});
+            continue; // Skip allocation
+          }
         } catch (dupError: any) {
           console.error(
             `⚠️ Duplicate check failed, proceeding with normal flow:`,

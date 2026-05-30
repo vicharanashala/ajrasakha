@@ -168,6 +168,15 @@ export class AnswerController {
         prevAnswer = await this.answerService.getAnswerById(body.answerId);
       }
       questionData = await this.questionService.getQuestionDataById(prevAnswer?.questionId?.toString()||body.questionId);
+
+      // If editing an already-finalized answer on a closed question, log as EDIT_FINAL_ANSWER.
+      const isEditFinal =
+        questionData?.status === 'closed' &&
+        prevAnswer?.isFinalAnswer === true;
+      if (isEditFinal) {
+        auditPayload = {...auditPayload, action: AuditAction.EDIT_FINAL_ANSWER};
+      }
+
       result = await this.answerService.approveAnswer(
         userId.toString(),
         body,

@@ -2296,6 +2296,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         district?: string;
         state?: string;
         phoneNo?: string;
+        nearestKVK?: string;
         languagePreference?: string;
         yearsOfExperience?: number;
         cropsCultivated?: string[];
@@ -2306,6 +2307,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         highestEducatedPerson?: string;
         numberOfSmartphones?: number;
         platform?: string;
+        landhold?: number;
       };
     },
   ): Promise<boolean> {
@@ -2336,17 +2338,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getDailyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     try {
       return await this.chatbotRepository.getDailyActiveUsersTrend(
-        startDate,
-        endDate,
         source,
         userType,
+        startDate,
+        endDate,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -2356,17 +2358,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getMonthlyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     try {
       return await this.chatbotRepository.getMonthlyActiveUsersTrend(
-        startDate,
-        endDate,
         source,
         userType,
+        startDate,
+        endDate
       );
     } catch (error) {
       throw new InternalServerError(
@@ -2376,17 +2378,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getWeeklyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     try {
       return await this.chatbotRepository.getWeeklyActiveUsersTrend(
-        startDate,
-        endDate,
         source,
         userType,
+        startDate,
+        endDate
       );
     } catch (error) {
       throw new InternalServerError(
@@ -2396,19 +2398,19 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getRetentionMetrics(
-    startDate: Date,
-    endDate: Date,
     source: string,
     userType: string,
     requestType: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     try {
       return await this.chatbotRepository.getRetentionMetrics(
-        startDate,
-        endDate,
         source,
         userType,
         requestType,
+        startDate,
+        endDate,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -2464,21 +2466,31 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
-  async getClosedAndNotifedData(source?: string): Promise<any> {
+  async getClosedAndNotifedData(source?: string, startDateStr?: string, endDateStr?: string): Promise<any> {
+    const startDate = startDateStr ? new Date(startDateStr) : undefined;
+    const endDate = endDateStr ? new Date(endDateStr) : undefined;
+
     const [
       closedVsTotalQuestions,
       notifiedVsClosed,
       closedInLastTwoHours,
+      carryForward,
     ] = await Promise.all([
-      this.chatbotRepository.getClosedVsTotalQuestions(source),
-      this.chatbotRepository.getNotifiedVsClosed(source),
-      this.chatbotRepository.getClosedInLastTwoHours(source),
+      this.chatbotRepository.getClosedVsTotalQuestions(source, startDate, endDate),
+      this.chatbotRepository.getNotifiedVsClosed(source, startDate, endDate),
+      this.chatbotRepository.getClosedInLastTwoHours(source, startDate, endDate),
+      this.chatbotRepository.getCarryForwardQuestions(source),
     ]);
 
     return {
       closedVsTotalQuestions,
       notifiedVsClosed,
       closedInLastTwoHours,
+      carryForward
     };
+  }
+
+  async getMonthlyChurnRate(source: string, userType: string):Promise<any> {
+    return await this.chatbotRepository.getMonthlyChurnRate(source, userType);
   }
 }

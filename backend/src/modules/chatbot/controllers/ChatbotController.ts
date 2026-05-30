@@ -637,8 +637,10 @@ async downloadChatbotReport(
         district?: string;
         state?: string;
         phoneNo?: string;
+        nearestKVK?: string;
         languagePreference?: string;
         yearsOfExperience?: number;
+        totalLandCultivating?: number
         cropsCultivated?: string[];
         primaryCrop?: string;
         secondaryCrop?: string;
@@ -654,6 +656,7 @@ async downloadChatbotReport(
     if (!source) {
       source = 'vicharanashala';
     }
+    console.log("Body", body);
     const success = await this.chatbotService.updateUser(userId, source, body);
     return { success, message: success ? 'User updated successfully' : 'Failed to update user' };
   }
@@ -702,82 +705,74 @@ async downloadChatbotReport(
   @HttpCode(200)
   @Authorized()
   async getDailyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = new Date(query.startDate!);
-    const endDate = new Date(query.endDate!);
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
     const source = query.source;
     const userType = query.userType;
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      throw new Error('Invalid startDate or endDate.');
-    }
 
-    if (startDate > endDate) {
-      throw new Error('startDate cannot be after endDate.');
-    }
-
-    return await this.chatbotService.getDailyActiveUsersTrend(startDate, endDate, source, userType);
+    return await this.chatbotService.getDailyActiveUsersTrend( source, userType, startDate, endDate,);
   }
 
   @Get('/monthly-active-users-trend')
   @HttpCode(200)
   @Authorized()
   async getMonthlyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = new Date(query.startDate!);
-    const endDate = new Date(query.endDate!);
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
     const source = query.source;
     const userType = query.userType;
 
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      throw new Error('Invalid startDate or endDate.');
-    }
-
-    if (startDate > endDate) {
-      throw new Error('startDate cannot be after endDate.');
-    }
-    return await this.chatbotService.getMonthlyActiveUsersTrend(startDate, endDate, source, userType);
+    return await this.chatbotService.getMonthlyActiveUsersTrend( source, userType, startDate, endDate);
   }
 
   @Get('/weekly-active-users-trend')
   @HttpCode(200)
   @Authorized()
   async getWeeklyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = new Date(query.startDate!);
-    const endDate = new Date(query.endDate!);
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
     const source = query.source;
     const userType = query.userType;
 
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      throw new Error('Invalid startDate or endDate.');
-    }
-
-    if (startDate > endDate) {
-      throw new Error('startDate cannot be after endDate.');
-    }
-    return await this.chatbotService.getWeeklyActiveUsersTrend(startDate, endDate, source, userType);
+    return await this.chatbotService.getWeeklyActiveUsersTrend( source, userType, startDate, endDate);
   }
 
   @Get('/retention-metrics')
   @HttpCode(200)
   @Authorized()
   async getRetentionMetrics(@QueryParams() query: RetentionMetricsQuery): Promise<any> {
-    const startDate = new Date(query.startDate!);
-    const endDate = new Date(query.endDate!);
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
     const source = query.source;
     const userType = query.userType;
     const requestType = query.requestType;
 
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      throw new Error('Invalid startDate or endDate.');
-    }
-
-    if (startDate > endDate) {
-      throw new Error('startDate cannot be after endDate.');
-    }
     return await this.chatbotService.getRetentionMetrics(    
-      startDate,
-      endDate,
       source,
       userType,
-      requestType
+      requestType,
+      startDate,
+      endDate,
     );
   }
 
@@ -826,7 +821,25 @@ async getUserQuestionsData(
   async getClosedAndNotifedData(
     @QueryParam('source')
     source: string= 'vicharanashala',
+    @QueryParam('startDate')
+    startDate?: string,
+    @QueryParam('endDate')
+    endDate?: string,
   ): Promise<any> {
-    return await this.chatbotService.getClosedAndNotifedData(source);
+    return await this.chatbotService.getClosedAndNotifedData(source, startDate, endDate);
   }
+
+  @Get('/monthly-churn-rate')
+  @HttpCode(200)
+  @Authorized()
+  async getMonthlyChurnRate(   
+    @QueryParam('source')
+    source: string= 'vicharanashala',
+
+    @QueryParam('userType')
+    userType: string= 'all',
+  ):Promise<any> {
+    return await this.chatbotService.getMonthlyChurnRate(source, userType);
+  }
+
 }

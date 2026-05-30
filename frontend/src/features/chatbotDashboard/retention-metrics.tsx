@@ -4,11 +4,8 @@ import { useState } from "react";
 
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
-
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
-
 import { Loader2, CalendarIcon, RefreshCcw } from "lucide-react";
-
 import {
   Card,
   CardContent,
@@ -16,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-
 import {
   ChartContainer,
   ChartLegend,
@@ -25,17 +21,13 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/atoms/chart";
-
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/atoms/popover";
-
 import { Button } from "@/components/atoms/button";
-
 import { Calendar } from "@/components/atoms/calendar";
-
 import {
   Select,
   SelectContent,
@@ -43,14 +35,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-
 import { useRetentionMetrics } from "@/features/chatbotDashboard/hooks/useActiveUsersAnalytics";
 
 const chartConfig = {
@@ -72,10 +62,7 @@ const chartConfig = {
 
 type RetentionType = "daily" | "weekly" | "monthly";
 
-const defaultDateRange: DateRange = {
-  from: subDays(new Date(), 90),
-  to: new Date(),
-};
+const defaultDateRange: DateRange | undefined = undefined;
 
 type RetentionMetricsChartProps = {
   source: "vicharanashala" | "annam";
@@ -91,19 +78,16 @@ export const RetentionMetricsChart = ({
   );
   const [requestType, setRequestType] = useState<RetentionType>("weekly");
   const resetDateRange = () => {
-    setDateRange({
-      from: subDays(new Date(), 90),
-      to: new Date(),
-    });
+    setDateRange(undefined);
   };
   const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
   const endDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "";
   const { data, isFetching } = useRetentionMetrics(
-    startDate,
-    endDate,
     source,
     userType,
     requestType,
+    startDate,
+    endDate,
   );
 
   const renderDateRangePicker = () => (
@@ -138,7 +122,7 @@ export const RetentionMetricsChart = ({
                     "MMM dd, yyyy",
                   )}`
                 : format(dateRange.from, "MMM dd, yyyy")
-              : "Select date range"}
+              : "All Time"}
           </Button>
         </PopoverTrigger>
 
@@ -175,7 +159,7 @@ export const RetentionMetricsChart = ({
   );
 
   return (
-    <Card className="mt-7">
+    <Card className="mt-7 mb-7 pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
       <CardHeader className="border-b py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="grid gap-1">
@@ -235,11 +219,11 @@ export const RetentionMetricsChart = ({
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="daily">Daily Retention</SelectItem>
+                <SelectItem value="daily">Daily Cohorts</SelectItem>
 
-                <SelectItem value="weekly">Weekly Retention</SelectItem>
+                <SelectItem value="weekly">Weekly Cohorts</SelectItem>
 
-                <SelectItem value="monthly">Monthly Retention</SelectItem>
+                <SelectItem value="monthly">Monthly Cohorts</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -285,6 +269,8 @@ export const RetentionMetricsChart = ({
                     axisLine={false}
                     tickMargin={8}
                     minTickGap={20}
+                    padding={{ right: 30, left: 30 }}
+                    interval={data.length < 15 ? 0 : "preserveStartEnd"}
                     tickFormatter={(value) => {
                       if (requestType === "weekly") {
                         const [year, week] = value.split("-W");
@@ -292,11 +278,7 @@ export const RetentionMetricsChart = ({
                         return `${year.slice(2)} W${week}`;
                       }
 
-                      if (requestType === "monthly") {
-                        return value;
-                      }
-
-                      return value.slice(5);
+                      return value;
                     }}
                   />
 

@@ -54,7 +54,7 @@ import {
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
-import { useClosedAndNotifedData, useInactiveWhatsappUsers, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
+import { useClosedAndNotifedData, useInactiveWhatsappUsers, useMonthlyChurnRate, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
 import { motion, AnimatePresence } from "framer-motion";
@@ -63,6 +63,7 @@ import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
+import { ChurnRateChart } from "./ChurnRateChart";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -155,7 +156,65 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     setInactiveUsersPage,
   ] = useState(1);
   const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage);
-  const {data: closedAndNotifedData} = useClosedAndNotifedData(source);
+  const [closed2hDateRange, setClosed2hDateRange] = useState<DateRange | undefined>(undefined);
+  const [questionStatusDateRange, setQuestionStatusDateRange] = useState<DateRange | undefined>(undefined);
+  const [customerNotificationsDateRange, setCustomerNotificationsDateRange] = useState<DateRange | undefined>(undefined);
+
+  const getISOStringsForDateRange = useCallback((range?: DateRange) => {
+    if (!range || !range.from) return { startTime: undefined, endTime: undefined };
+
+    const startTime = new Date(range.from);
+    startTime.setHours(0, 0, 0, 0);
+
+    const endDate = range.to ? new Date(range.to) : new Date(range.from);
+    const endTime = new Date(endDate);
+    const now = new Date();
+    const isSelectedToday =
+      endDate.getFullYear() === now.getFullYear() &&
+      endDate.getMonth() === now.getMonth() &&
+      endDate.getDate() === now.getDate();
+
+    if (isSelectedToday) {
+      endTime.setHours(
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds(),
+        now.getMilliseconds(),
+      );
+    } else {
+      endTime.setHours(23, 59, 59, 999);
+    }
+    return {
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    };
+  }, []);
+
+  const closed2hRange = useMemo(() => getISOStringsForDateRange(closed2hDateRange), [closed2hDateRange, getISOStringsForDateRange]);
+  const questionStatusRange = useMemo(() => getISOStringsForDateRange(questionStatusDateRange), [questionStatusDateRange, getISOStringsForDateRange]);
+  const customerNotificationsRange = useMemo(() => getISOStringsForDateRange(customerNotificationsDateRange), [customerNotificationsDateRange, getISOStringsForDateRange]);
+
+  const { data: closed2hData, isFetching: isClosed2hFetching } = useClosedAndNotifedData(
+    source,
+    closed2hRange.startTime,
+    closed2hRange.endTime,
+  );
+  const { data: questionStatusData, isFetching: isQuestionStatusFetching } = useClosedAndNotifedData(
+    source,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
+  );
+  const { data: customerNotificationsData, isFetching: isCustomerNotificationsFetching } = useClosedAndNotifedData(
+    source,
+    customerNotificationsRange.startTime,
+    customerNotificationsRange.endTime,
+  );
+
+  useEffect(() => {
+    setClosed2hDateRange(undefined);
+    setQuestionStatusDateRange(undefined);
+    setCustomerNotificationsDateRange(undefined);
+  }, [source]);
   const [
     isInactiveWhatsappModalOpen,
     setIsInactiveWhatsappModalOpen,
@@ -390,7 +449,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
 
   const [newFilters, setNewFilters] = useState<Filters>({
     sourceType: "application",
-    application: "annam",
+    application: source,
   });
   const [weatherConcernFilters, setWeatherConcernFilters] =
     useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
@@ -418,8 +477,6 @@ useEffect(() => {
     }));
   }
 }, [source]);
-
-
 
 const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
   return (
@@ -637,39 +694,52 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             />
                           )}
 
-                          <ClosedInLastTwoHoursCard
-                            count={closedAndNotifedData?.closedInLastTwoHours}
+                           <ClosedInLastTwoHoursCard
+                            source = {source}
+                            count={closed2hData?.closedInLastTwoHours}
                             totalClosed={
-                              closedAndNotifedData?.closedVsTotalQuestions
+                              closed2hData?.closedVsTotalQuestions
                                 ?.closedQuestions
                             }
+                            dateRange={closed2hDateRange}
+                            onDateRangeChange={setClosed2hDateRange}
+                            isLoading={isClosed2hFetching}
                           />
                           <ClosedQuestionsCard
                             closedQuestions={
-                              closedAndNotifedData?.closedVsTotalQuestions
+                              questionStatusData?.closedVsTotalQuestions
                                 ?.closedQuestions
                             }
                             totalQuestions={
-                              closedAndNotifedData?.closedVsTotalQuestions
+                              questionStatusData?.closedVsTotalQuestions
                                 ?.totalQuestions
                             }
                             inReview={
-                              closedAndNotifedData?.closedVsTotalQuestions
+                              questionStatusData?.closedVsTotalQuestions
                                 ?.inReviewQuestions
+                            }
+                            dateRange={questionStatusDateRange}
+                            onDateRangeChange={setQuestionStatusDateRange}
+                            isLoading={isQuestionStatusFetching}
+                            carryForward={
+                              questionStatusData?.carryForward
                             }
                           />
                           <CustomerNotificationsCard
                             notified={
-                              closedAndNotifedData?.notifiedVsClosed?.notified
+                              customerNotificationsData?.notifiedVsClosed?.notified
                             }
                             notNotified={
-                              closedAndNotifedData?.notifiedVsClosed
+                              customerNotificationsData?.notifiedVsClosed
                                 ?.notNotified
                             }
                             untrackedClosedQuestions={
-                              closedAndNotifedData?.notifiedVsClosed
+                              customerNotificationsData?.notifiedVsClosed
                                 ?.untrackedClosedQuestions
                             }
+                            dateRange={customerNotificationsDateRange}
+                            onDateRangeChange={setCustomerNotificationsDateRange}
+                            isLoading={isCustomerNotificationsFetching}
                           />
                         </div>
                         {source !== "whatsapp" && (
@@ -1104,11 +1174,15 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             source={source}
                             userType={filters.userType}
                           />
-                          {/* <RetentionMetricsChart
-                    source={source}
-                    userType={filters.userType}
-                    /> */}
-                        </div>
+                          <RetentionMetricsChart
+                            source={source}
+                            userType={filters.userType}
+                          />
+                          {/* <ChurnRateChart
+                            source={source}
+                            userType={filters.userType}
+                          /> */}
+                        </div>  
                       )}
                       {source !== "whatsapp" && (
                         <div className="mt-4 mb-4">

@@ -3,7 +3,7 @@ import { ChatbotService } from "@/hooks/services/chatbotService";
 
 const chatbotService = new ChatbotService();
 
-export const useDailyActiveUsersTrend = (startDate: Date, endDate:Date, source: string, userType: string, enabled: boolean = true) => {
+export const useDailyActiveUsersTrend = ( source: string, userType: string,startDate?: Date, endDate?:Date, enabled: boolean = true) => {
   return useQuery({
     queryKey: [
       "daily_user_growth",
@@ -13,13 +13,13 @@ export const useDailyActiveUsersTrend = (startDate: Date, endDate:Date, source: 
       userType,
     ],
     queryFn: () => {
-      return chatbotService.getDailyActiveUsersTrend(startDate.toString(), endDate.toString(), userType, source);
+      return chatbotService.getDailyActiveUsersTrend( userType, source, startDate?.toString(), endDate?.toString());
     },
     enabled,
   });
 };
 
-export const useMontlyActiveUsersTrend = (startDate: Date, endDate:Date, source: string,  userType: string, enabled: boolean = true) => {
+export const useMontlyActiveUsersTrend = (source: string,  userType: string, startDate?: Date, endDate?:Date, enabled: boolean = true) => {
   return useQuery({
     queryKey: [
       "monthly_user_growth",
@@ -29,13 +29,13 @@ export const useMontlyActiveUsersTrend = (startDate: Date, endDate:Date, source:
       userType,
     ],
     queryFn: () => {
-      return chatbotService.getMonthlyActiveUsersTrend(startDate.toString(), endDate.toString(), userType, source);
+      return chatbotService.getMonthlyActiveUsersTrend( userType, source, startDate?.toString(), endDate?.toString());
     },
     enabled,
   });
 };
 
-export const useWeeklyActiveUsersTrend = (startDate: Date, endDate:Date, source: string,  userType: string, enabled: boolean = true) => {
+export const useWeeklyActiveUsersTrend = ( source: string,  userType: string, startDate?: Date, endDate?:Date, enabled: boolean = true) => {
   return useQuery({
     queryKey: [
       "weekly_user_growth",
@@ -45,18 +45,18 @@ export const useWeeklyActiveUsersTrend = (startDate: Date, endDate:Date, source:
       userType,
     ],
     queryFn: () => {
-      return chatbotService.getWeeklyActiveUsersTrend(startDate.toString(), endDate.toString(), userType, source);
+      return chatbotService.getWeeklyActiveUsersTrend( userType, source, startDate?.toString(), endDate?.toString());
     },
     enabled,
   });
 };
 
 export const useRetentionMetrics = (
-    startDate: string,
-    endDate: string,
     source: string,
     userType: string,
     requestType: string,
+    startDate?: string,
+    endDate?: string,
     enabled: boolean = true) => {
   return useQuery({
     queryKey: ["retention_metrics",
@@ -68,11 +68,11 @@ export const useRetentionMetrics = (
     ],
     queryFn: () => {
       return chatbotService.getRetentionMetrics(
-        startDate,
-        endDate,
         source,
         userType,
         requestType,
+        startDate,
+        endDate,
       );
     },
     enabled,
@@ -122,13 +122,27 @@ export const useAllWhatsappUsers = () => {
   });
 };
 
-export const useClosedAndNotifedData = (source: string)=>{
+export const useClosedAndNotifedData = (source: string, startDate?: string, endDate?: string)=>{
   return useQuery({
     queryKey: ["closed-notified-data",
       source,
+      startDate,
+      endDate,
     ],
     queryFn: () => {
-      return chatbotService.getClosedAndNotifedData(source);
+      return chatbotService.getClosedAndNotifedData(source, startDate, endDate);
+    },
+  });
+}
+
+export const useMonthlyChurnRate = (source: string, userType: string)=>{
+  return useQuery({
+    queryKey: ["monthly-churn-rate",
+      source,
+      userType,
+    ],
+    queryFn: () => {
+      return chatbotService.getMonthlyChurnRate(source, userType);
     },
   });
 }

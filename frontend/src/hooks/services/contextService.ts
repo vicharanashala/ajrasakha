@@ -3,7 +3,6 @@ import { apiFetch } from "../api/api-fetch";
 import type { SupportedLanguage } from "@/types";
 
 const API_BASE_URL = env.apiBaseUrl();
-const SARVAM_API_KEY = env.sarvamApiKey()
 export class ContextService {
   private _baseUrl = `${API_BASE_URL}/context`;
 
@@ -51,18 +50,12 @@ export class ContextService {
         formData.append("file", file, "recording.webm");
       }
       formData.append("language", lang);
-      const ENDPOINT = "https://api.sarvam.ai/speech-to-text-translate";
-      const headers = {
-        "api-subscription-key": SARVAM_API_KEY,
-      };
-      const response = await fetch(ENDPOINT, {
+      const result = await apiFetch<unknown>(`${this._baseUrl}/speech-to-text`, {
         method: "POST",
-        headers,
         body: formData,
       });
-      const body = await response.json();
-      console.log("Response body: ", body);
-      return body;
+      console.log("Response body: ", result);
+      return result;
     } catch (error) {
       console.error("Error while sending audio chunk", error);
       throw error;
