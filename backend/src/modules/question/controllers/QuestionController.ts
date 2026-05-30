@@ -62,7 +62,7 @@ import { QuestionService } from '../services/QuestionService.js';
 import { UploadFileOptions } from '#root/modules/question/classes/validators/fileUploadOptions.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
-import { InternalApiAuth } from '#root/shared/functions/internalApiAuth.js';
+import { FlexibleAuth } from '#root/shared/functions/flexibleAuth.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
@@ -167,6 +167,7 @@ export class QuestionController {
 
   @Post('/')
   @HttpCode(201)
+  @UseBefore(FlexibleAuth)
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   @OpenAPI({ summary: 'Add a new question (single or bulk upload)' })
   async addQuestion(
@@ -913,7 +914,7 @@ export class QuestionController {
 
   @Put('/:questionId')
   @HttpCode(200)
-  // @Authorized()
+  @UseBefore(FlexibleAuth)
   @ResponseSchema(QuestionResponse, { isArray: true })
   @OpenAPI({ summary: 'Update a question by ID' })
   async updateQuestion(
@@ -1370,7 +1371,7 @@ export class QuestionController {
 
   @Post('/check-status')
   @HttpCode(200)
-  @UseBefore(InternalApiAuth)
+  @UseBefore(FlexibleAuth)
   @OpenAPI({ summary: 'Check status of multiple questions' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async checkStatus(

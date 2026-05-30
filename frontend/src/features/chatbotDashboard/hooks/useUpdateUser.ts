@@ -12,7 +12,9 @@ type FarmerProfileUpdate = {
   district?: string;
   state?: string;
   phoneNo?: string;
+  nearestKVK?: string,
   languagePreference?: string;
+  landhold?: number;
   yearsOfExperience?: number;
   cropsCultivated?: string[];
   primaryCrop?: string;
