@@ -30,6 +30,7 @@ import {appConfig} from '#root/config/app.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
+import { triggerWebhook } from '#root/modules/answer/utils/triggerWebhook.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -938,6 +939,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       messages,
     };
   }
+
+ 
 
   async getAvgSessionDurationV2(source = 'vicharanashala', userType = 'all') {
     try {
@@ -2465,6 +2468,31 @@ export class ChatbotService extends BaseService implements IChatbotService {
       },
     };
   }
+
+   async notifyUser(userEmail: string, messageId: string, message:string): Promise<any>{
+    const user = await this.chatbotRepository.getUserData(userEmail, "annam")
+    const webhookPayload = {
+      customMessage: message,
+      userid: user.userId,
+      type: 'COSTUM',
+    };
+    try{
+    const response = await triggerWebhook(
+      appConfig.WEB_WEBHOOK_API_URL,
+      appConfig.WEB_WEBHOOK_API_KEY,
+      webhookPayload,
+      'Browser',
+    )
+    return {
+      message: response.body,
+      status: response.status,
+      success: response.ok,
+    };
+  }catch(error){
+    throw new InternalServerError ("Something went wrong")
+  }
+  }
+
 
   async getClosedAndNotifedData(source?: string, startDateStr?: string, endDateStr?: string): Promise<any> {
     const startDate = startDateStr ? new Date(startDateStr) : undefined;

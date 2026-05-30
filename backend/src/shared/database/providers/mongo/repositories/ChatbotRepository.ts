@@ -31,7 +31,7 @@ import type {
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
-import {IQuestion, QuestionSource} from '#root/shared/interfaces/models.js';
+import {IQuestion, ISubscription, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {DISTRICTS} from '#root/utils/districts.js';
 
@@ -379,6 +379,8 @@ export class ChatbotRepository implements IChatbotRepository {
   private users!: Collection<IUser>;
   private conversations!: Collection<IConversation>;
   private messagesCollection!: Collection<any>;
+  private notificationCollection!: Collection<any>
+  private subscriptionCollection!: Collection<ISubscription>
 
   constructor(
     @inject(GLOBAL_TYPES.analyticsDatabase) //vicharansahsa
@@ -407,6 +409,7 @@ export class ChatbotRepository implements IChatbotRepository {
     this.users = await db.getCollection<IUser>('users');
     this.conversations = await db.getCollection<IConversation>('conversations');
     this.messagesCollection = await db.getCollection<any>('messages');
+    this.notificationCollection = await db.getCollection<any>('customNotification')
   }
   private annamMessagesCollection!: Collection<any>;
 
@@ -2135,67 +2138,68 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyQueryCounts(
-    source = 'vicharanashala',
-    session?: ClientSession,
-    userType = 'all',
-  ): Promise<MonthlyQueryCountEntry[]> {
-    try {
-      await this.init(source);
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+): Promise<MonthlyQueryCountEntry[]> {
+  try {
+    await this.init(source);
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
 
-      const result = await this.messagesCollection
-        .aggregate(
-          [
-            {
-              $match: {
-                isCreatedByUser: true,
-              },
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              isCreatedByUser: true,
             },
+          },
 
-            ...userTypeLookupStages,
+          ...userTypeLookupStages,
 
-            {
-              $group: {
-                _id: {
-                  $dateToString: {
-                    format: '%Y-%m',
-                    date: '$createdAt',
-                    timezone: '+05:30',
-                  },
-                },
-
-                count: {
-                  $sum: 1,
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
                 },
               },
-            },
 
-            {
-              $project: {
-                month: '$_id',
-                count: 1,
-                _id: 0,
+              count: {
+                $sum: 1,
               },
             },
+          },
 
-            {
-              $sort: {
-                month: 1,
-              },
+          {
+            $project: {
+              month: '$_id',
+              count: 1,
+              _id: 0,
             },
-          ],
-          {session},
-        )
-        .toArray();
+          },
 
-      return result as MonthlyQueryCountEntry[];
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to get monthly query counts: ${error}`,
-      );
-    }
+          {
+            $sort: {
+              month: 1,
+            },
+          },
+        ],
+        {session},
+      )
+      .toArray();
+
+    return result as MonthlyQueryCountEntry[];
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get monthly query counts: ${error}`,
+    );
   }
+}
 
   async getQuerySummaryByPeriod(
     period: 'daily' | 'weekly' | 'monthly',
@@ -4687,200 +4691,388 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  // async getUsersMessages(
+  //   email: string,
+  //   source = 'vicharanashala',
+  //   session?: ClientSession,
+  //   userType = 'all',
+  //   page = 1,
+  //   limit = 10,
+  // ) {
+  //   try {
+  //     await this.init(source);
+
+  //     const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+  //     const user = await this.users.findOne({email: email}, {session});
+
+  //     if (!user) {
+  //       throw new Error('User not found');
+  //     }
+
+  //     const skip = (page - 1) * limit;
+
+  //     const pipeline = [
+  //       {
+  //         $match: {
+  //           user: String(user._id),
+
+  //           // sender: 'User',
+  //           // isCreatedByUser: true,
+  //         },
+  //       },
+
+  //       {
+  //         $sort: {
+  //           createdAt: -1,
+  //         },
+  //       },
+
+  //       // Group repeated messages
+
+  //       {
+  //         $group: {
+  //           _id: {
+  //             $trim: {
+  //               input: {
+  //                 $toLower: '$text',
+  //               },
+  //             },
+  //           },
+
+  //           repeatedCount: {
+  //             $sum: 1,
+  //           },
+
+  //           latestMessage: {
+  //             $first: '$text',
+  //           },
+
+  //           latestCreatedAt: {
+  //             $first: '$createdAt',
+  //           },
+
+  //           latestUpdatedAt: {
+  //             $first: '$updatedAt',
+  //           },
+
+  //           latestSender: {
+  //             $first: '$sender',
+  //           },
+
+  //           latestIsCreatedByUser: {
+  //             $first: '$isCreatedByUser',
+  //           },
+
+  //           allCreatedAt: {
+  //             $push: '$createdAt',
+  //           },
+
+  //           // Store all messageIds
+  //           messageIds: {
+  //             $push: '$messageId',
+  //           },
+  //         },
+  //       },
+
+  //       {
+  //         $project: {
+  //           _id: 0,
+
+  //           message: '$latestMessage',
+
+  //           createdAt: '$latestCreatedAt',
+
+  //           sender: '$latestSender',
+
+  //           isCreatedByUser: '$latestIsCreatedByUser',
+
+  //           updatedAt: '$latestUpdatedAt',
+
+  //           repeatedAt: '$allCreatedAt',
+
+  //           repeatedCount: 1,
+
+  //           isDuplicate: {
+  //             $gt: ['$repeatedCount', 1],
+  //           },
+
+  //           // keep temporarily
+  //           messageIds: 1,
+  //         },
+  //       },
+
+  //       {
+  //         $sort: {
+  //           createdAt: -1,
+  //         },
+  //       },
+  //     ];
+
+  //     // Total count
+
+  //     const totalResult = await this.messagesCollection
+  //       .aggregate([
+  //         ...pipeline,
+
+  //         {
+  //           $count: 'total',
+  //         },
+  //       ])
+  //       .toArray();
+
+  //     const totalMessages = totalResult[0]?.total || 0;
+
+  //     const totalPages = Math.ceil(totalMessages / limit);
+
+  //     // Paginated messages
+
+  //     const messages = await this.messagesCollection
+  //       .aggregate([
+  //         ...pipeline,
+
+  //         {
+  //           $skip: skip,
+  //         },
+
+  //         {
+  //           $limit: limit,
+  //         },
+  //       ])
+  //       .toArray();
+
+  //     // Extract all messageIds separately
+
+  //     const allMessageIds = messages.flatMap(
+  //       (msg: any) => msg.messageIds || [],
+  //     );
+
+  //     // Remove messageIds from frontend data
+
+  //     messages.forEach((msg: any) => {
+  //       delete msg.messageIds;
+  //     });
+
+  //     const filteredMessages = messages.filter(
+  //       (msg: any) => msg.sender === 'User' && msg.isCreatedByUser === true,
+  //     );
+
+  //     filteredMessages.forEach((msg: any) => {
+  //       delete msg.messageIds;
+  //       delete msg.sender;
+  //       delete msg.isCreatedByUser;
+  //     });
+
+  //     return {
+  //       total: totalMessages,
+
+  //       totalPages,
+
+  //       currentPage: page,
+
+  //       limit,
+
+  //       items: filteredMessages,
+
+  //       // separate array
+  //       allMessageIds,
+  //     };
+  //   } catch (error) {
+  //     throw new InternalServerError(`Failed to get users messages: ${error}`);
+  //   }
+  // }
+
   async getUsersMessages(
-    email: string,
-    source = 'vicharanashala',
-    session?: ClientSession,
-    userType = 'all',
-    page = 1,
-    limit = 10,
-  ) {
-    try {
-      await this.init(source);
+  email: string,
+  source = 'vicharanashala',
+  session?: ClientSession,
+  userType = 'all',
+  page = 1,
+  limit = 10,
+) {
+  try {
+    await this.init(source);
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-      const user = await this.users.findOne({email: email}, {session});
+    const user = await this.users.findOne({ email: email }, { session });
 
-      if (!user) {
-        throw new Error('User not found');
-      }
+    if (!user) {
+      throw new Error('User not found');
+    }
 
-      const skip = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
-      const pipeline = [
-        {
-          $match: {
-            user: String(user._id),
-
-            // sender: 'User',
-            // isCreatedByUser: true,
-          },
+    const pipeline = [
+      {
+        $match: {
+          user: String(user._id),
         },
+      },
 
-        {
-          $sort: {
-            createdAt: -1,
-          },
+      {
+        $sort: {
+          createdAt: -1,
         },
+      },
 
-        // Group repeated messages
-
-        {
-          $group: {
-            _id: {
-              $trim: {
-                input: {
-                  $toLower: '$text',
-                },
+      // Group repeated messages
+      {
+        $group: {
+          _id: {
+            $trim: {
+              input: {
+                $toLower: '$text',
               },
             },
-
-            repeatedCount: {
-              $sum: 1,
-            },
-
-            latestMessage: {
-              $first: '$text',
-            },
-
-            latestCreatedAt: {
-              $first: '$createdAt',
-            },
-
-            latestUpdatedAt: {
-              $first: '$updatedAt',
-            },
-
-            latestSender: {
-              $first: '$sender',
-            },
-
-            latestIsCreatedByUser: {
-              $first: '$isCreatedByUser',
-            },
-
-            allCreatedAt: {
-              $push: '$createdAt',
-            },
-
-            // Store all messageIds
-            messageIds: {
-              $push: '$messageId',
-            },
           },
+
+          repeatedCount: {
+            $sum: 1,
+          },
+
+          latestMessage: {
+            $first: '$text',
+          },
+
+          latestMessageId: {
+            $first: '$messageId',
+          },
+
+          latestCreatedAt: {
+            $first: '$createdAt',
+          },
+
+          latestUpdatedAt: {
+            $first: '$updatedAt',
+          },
+
+          latestSender: {
+            $first: '$sender',
+          },
+
+          latestIsCreatedByUser: {
+            $first: '$isCreatedByUser',
+          },
+
+          allCreatedAt: {
+            $push: '$createdAt',
+          },
+
+          // Keep all duplicate messageIds separately
+          messageIds: {
+            $push: '$messageId',
+          },
+        },
+      },
+
+      {
+        $project: {
+          _id: 0,
+
+          message: '$latestMessage',
+
+          messageId: '$latestMessageId',
+
+          createdAt: '$latestCreatedAt',
+
+          sender: '$latestSender',
+
+          isCreatedByUser: '$latestIsCreatedByUser',
+
+          updatedAt: '$latestUpdatedAt',
+
+          repeatedAt: '$allCreatedAt',
+
+          repeatedCount: 1,
+
+          isDuplicate: {
+            $gt: ['$repeatedCount', 1],
+          },
+
+          // temporary internal use
+          messageIds: 1,
+        },
+      },
+
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+    ];
+
+    // Total count
+    const totalResult = await this.messagesCollection
+      .aggregate([
+        ...pipeline,
+
+        {
+          $count: 'total',
+        },
+      ])
+      .toArray();
+
+    const totalMessages = totalResult[0]?.total || 0;
+
+    const totalPages = Math.ceil(totalMessages / limit);
+
+    // Paginated messages
+    const messages = await this.messagesCollection
+      .aggregate([
+        ...pipeline,
+
+        {
+          $skip: skip,
         },
 
         {
-          $project: {
-            _id: 0,
-
-            message: '$latestMessage',
-
-            createdAt: '$latestCreatedAt',
-
-            sender: '$latestSender',
-
-            isCreatedByUser: '$latestIsCreatedByUser',
-
-            updatedAt: '$latestUpdatedAt',
-
-            repeatedAt: '$allCreatedAt',
-
-            repeatedCount: 1,
-
-            isDuplicate: {
-              $gt: ['$repeatedCount', 1],
-            },
-
-            // keep temporarily
-            messageIds: 1,
-          },
+          $limit: limit,
         },
+      ])
+      .toArray();
 
-        {
-          $sort: {
-            createdAt: -1,
-          },
-        },
-      ];
+    // Extract all messageIds separately
+    const allMessageIds = messages.flatMap(
+      (msg: any) => msg.messageIds || [],
+    );
 
-      // Total count
-
-      const totalResult = await this.messagesCollection
-        .aggregate([
-          ...pipeline,
-
-          {
-            $count: 'total',
-          },
-        ])
-        .toArray();
-
-      const totalMessages = totalResult[0]?.total || 0;
-
-      const totalPages = Math.ceil(totalMessages / limit);
-
-      // Paginated messages
-
-      const messages = await this.messagesCollection
-        .aggregate([
-          ...pipeline,
-
-          {
-            $skip: skip,
-          },
-
-          {
-            $limit: limit,
-          },
-        ])
-        .toArray();
-
-      // Extract all messageIds separately
-
-      const allMessageIds = messages.flatMap(
-        (msg: any) => msg.messageIds || [],
-      );
-
-      // Remove messageIds from frontend data
-
-      messages.forEach((msg: any) => {
+          messages.forEach((msg: any) => {
         delete msg.messageIds;
       });
 
-      const filteredMessages = messages.filter(
-        (msg: any) => msg.sender === 'User' && msg.isCreatedByUser === true,
-      );
+    const filteredMessages = messages.filter(
+      (msg: any) =>
+        msg.sender === 'User' && msg.isCreatedByUser === true,
+    );
 
-      filteredMessages.forEach((msg: any) => {
-        delete msg.messageIds;
-        delete msg.sender;
-        delete msg.isCreatedByUser;
-      });
+    filteredMessages.forEach((msg: any) => {
+      delete msg.messageIds;
+      delete msg.sender;
+      delete msg.isCreatedByUser;
+    });
 
-      return {
-        total: totalMessages,
+    return {
+      total: totalMessages,
 
-        totalPages,
+      totalPages,
 
-        currentPage: page,
+      currentPage: page,
 
-        limit,
+      limit,
 
-        items: filteredMessages,
-
-        // separate array
-        allMessageIds,
-      };
-    } catch (error) {
-      throw new InternalServerError(`Failed to get users messages: ${error}`);
-    }
+      items: filteredMessages,
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get users messages: ${error}`,
+    );
   }
+}
 
   async getUserData(
     userEmail: string,
-    source: string,
+     source = 'vicharanashala',
     session?: ClientSession,
   ) {
     try {
@@ -8359,16 +8551,21 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getMonthlyChurnRate(source: string, userType: string): Promise<any> {
+  async getMonthlyChurnRate(
+    source: string,
+    userType: string,
+  ): Promise<any> {
     await this.init(source);
 
     let userMatchStage: any = {};
+
     if (userType === 'external') {
       userMatchStage['userDetails.email'] = {
         $regex: '^rup',
         $options: 'i',
       };
     }
+
     if (userType === 'internal') {
       userMatchStage['userDetails.email'] = {
         $not: {
@@ -8381,132 +8578,109 @@ export class ChatbotRepository implements IChatbotRepository {
     const startDate = new Date('2026-01-01');
     const now = new Date();
     const results = [];
+
     let currentPeriodStart = new Date(startDate);
 
     while (currentPeriodStart < now) {
       const currentPeriodEnd = new Date(currentPeriodStart);
       currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
 
-      const previousPeriodStart = new Date(currentPeriodStart);
-      previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 1);
+      const isCurrentMonth =
+        currentPeriodStart.getMonth() === now.getMonth() &&
+        currentPeriodStart.getFullYear() === now.getFullYear();
 
-      const previousPeriodEnd = currentPeriodStart;
-
-      const previousActiveUsers = await this.messagesCollection
-        .aggregate([
-          {
-            $match: {
-              isCreatedByUser: true,
-              createdAt: {
-                $gte: previousPeriodStart,
-                $lt: previousPeriodEnd,
-              },
-            },
-          },
-          {
-            $lookup: {
-              from: 'users',
-              let: {
-                userObjectId: {
-                  $toObjectId: '$user',
-                },
-              },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $eq: ['$_id', '$$userObjectId'],
-                    },
-                  },
-                },
-              ],
-              as: 'userDetails',
-            },
-          },
-          {
-            $unwind: '$userDetails',
-          },
-          ...(Object.keys(userMatchStage).length
-            ? [{$match: userMatchStage}]
-            : []),
-          {
-            $group: {
-              _id: '$user',
-            },
-          },
-        ])
-        .toArray();
-
-      const currentActiveUsers = await this.messagesCollection
-        .aggregate([
-          {
-            $match: {
-              isCreatedByUser: true,
-              createdAt: {
-                $gte: currentPeriodStart,
-                $lt: currentPeriodEnd,
-              },
-            },
-          },
-          {
-            $lookup: {
-              from: 'users',
-              let: {
-                userObjectId: {
-                  $toObjectId: '$user',
-                },
-              },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $eq: ['$_id', '$$userObjectId'],
-                    },
-                  },
-                },
-              ],
-              as: 'userDetails',
-            },
-          },
-          {
-            $unwind: '$userDetails',
-          },
-          ...(Object.keys(userMatchStage).length
-            ? [{$match: userMatchStage}]
-            : []),
-          {
-            $group: {
-              _id: '$user',
-            },
-          },
-        ])
-        .toArray();
-
-      const previousUserIds = previousActiveUsers.map(u => u._id.toString());
-
-      const currentUserIds = currentActiveUsers.map(u => u._id.toString());
-
-      const currentUserSet = new Set(currentUserIds);
-
-      const churnedUsers = previousUserIds.filter(
-        userId => !currentUserSet.has(userId),
+      const inactiveThreshold = new Date(
+        isCurrentMonth ? now : currentPeriodEnd,
       );
 
+      inactiveThreshold.setDate(inactiveThreshold.getDate() - 3);
+
+      const users = await this.messagesCollection
+        .aggregate([
+          {
+            $match: {
+              isCreatedByUser: true,
+              // Only consider activity up to the threshold date
+              createdAt: {
+                $lt: inactiveThreshold,
+              },
+            },
+          },
+          {
+            $group: {
+              _id: '$user',
+              firstActivity: {
+                $min: '$createdAt',
+              },
+              lastActivity: {
+                $max: '$createdAt',
+              },
+            },
+          },
+          {
+            // User existed before the month started
+            $match: {
+              firstActivity: {
+                $lt: currentPeriodStart,
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              let: {
+                userObjectId: {
+                  $toObjectId: '$_id',
+                },
+              },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ['$_id', '$$userObjectId'],
+                    },
+                  },
+                },
+              ],
+              as: 'userDetails',
+            },
+          },
+          {
+            $unwind: '$userDetails',
+          },
+          ...(Object.keys(userMatchStage).length
+            ? [
+                {
+                  $match: userMatchStage,
+                },
+              ]
+            : []),
+        ])
+        .toArray();
+
+      const totalUsersBeforeMonth = users.length;
+
+      const churnedUsers = users.filter(
+        user => user.lastActivity < inactiveThreshold,
+      );
+
+      const churnedUsersCount = churnedUsers.length;
+
       const churnRate =
-        previousUserIds.length === 0
+        totalUsersBeforeMonth === 0
           ? 0
-          : (churnedUsers.length / previousUserIds.length) * 100;
+          : (churnedUsersCount / totalUsersBeforeMonth) * 100;
 
       results.push({
         month: currentPeriodStart.toLocaleString('default', {
           month: 'short',
           year: 'numeric',
         }),
-        previousActiveUsers: previousUserIds.length,
-        currentActiveUsers: currentUserIds.length,
-        churnedUsers: churnedUsers.length,
+        totalUsersBeforeMonth,
+        inactiveMoreThan3Days: churnedUsersCount,
         churnRate: Number(churnRate.toFixed(2)),
       });
+
       currentPeriodStart = currentPeriodEnd;
     }
 

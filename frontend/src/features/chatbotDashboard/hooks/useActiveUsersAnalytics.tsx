@@ -13,7 +13,7 @@ export const useDailyActiveUsersTrend = ( source: string, userType: string,start
       userType,
     ],
     queryFn: () => {
-      return chatbotService.getDailyActiveUsersTrend( userType, source, startDate?.toString(), endDate?.toString());
+      return chatbotService.getDailyActiveUsersTrend(source, userType, startDate?.toString(), endDate?.toString());
     },
     enabled,
   });
