@@ -2484,8 +2484,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
       'Browser',
     )
     return {
-      message: "Notification send successfully..."
-    }
+      message: response.body,
+      status: response.status,
+      success: response.ok,
+    };
   }catch(error){
     throw new InternalServerError ("Something went wrong")
   }

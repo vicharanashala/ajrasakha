@@ -25,6 +25,13 @@ export const triggerWebhook = async (
             `[${label} webhook] Response body:`,
             responseBody,
         );
+          
+        return {
+            ok: response.ok,
+            status: response.status,
+            body: responseBody,
+        };
+
     // } catch (error) {
     //     console.error(
     //         `[${label} webhook] Failed to notify:`,
