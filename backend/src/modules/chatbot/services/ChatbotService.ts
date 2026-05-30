@@ -932,8 +932,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
       limit,
     );
 
-    console.log('Fetched questions', questions);
-
     return {
       questions,
       messages,
