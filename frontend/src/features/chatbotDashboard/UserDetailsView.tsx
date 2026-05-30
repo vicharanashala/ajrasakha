@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { Spinner } from "@/components/atoms/spinner";
+import { Skeleton } from "@/components/atoms/skeleton";
 import { useUserDetails, type UserDetail } from "./hooks/useUserDetails";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { BarGraph } from "./components/shared/BarGrapgh";
@@ -358,11 +358,11 @@ export function UserDetailsView({
     farmerProfile?: {
       farmerName?: string;
       age?: number;
-      gender?: string;
-      villageName?: string;
-      blockName?: string;
-      district?: string;
-      state?: string;
+      gender?: string | null;
+      villageName?: string | null;
+      blockName?: string | null;
+      district?: string | null;
+      state?: string | null;
       phoneNo?: string;
       nearestKVK?: string;
       languagePreference?: string;
@@ -373,12 +373,13 @@ export function UserDetailsView({
       secondaryCrop?: string;
       awarenessOfKCC?: boolean;
       usesAgriApps?: boolean;
-      highestEducatedPerson?: string;
+      highestEducatedPerson?: string | null;
       numberOfSmartphones?: number;
       platform?: string;
       platformHistory?: { os: string; timestamp: string }[];
     };
   }) => {
+    console.log("Payload is----", payload)
     if (!userToEdit) return;
     await updateUserMutation.mutateAsync({
       userId: userToEdit.userId,
@@ -461,8 +462,12 @@ export function UserDetailsView({
           </CardHeader>
           <CardContent className="p-0">
             {isLoading && (
-              <div className="py-12">
-                <Spinner text="Fetching user details..." fullScreen={false} />
+              <div className="space-y-3 p-4">
+                <Skeleton className="h-10 w-full rounded-md" />
+                <Skeleton className="h-10 w-full rounded-md" />
+                <Skeleton className="h-10 w-full rounded-md" />
+                <Skeleton className="h-10 w-full rounded-md" />
+                <Skeleton className="h-10 w-full rounded-md" />
               </div>
             )}
 

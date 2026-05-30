@@ -41,7 +41,7 @@ export function ClosedInLastTwoHoursCard({
           border
           border-border
           rounded-2xl
-          h-fit 
+          h-full
           ${source === "whatsapp" ? "pb-2" : "pb-5"}
           bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
           `}

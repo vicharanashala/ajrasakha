@@ -11,8 +11,8 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import type { DateRange } from "react-day-picker";
 import { useUserGrowth } from "../hooks/useUserGrowth";
-import Spinner from "@/components/atoms/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
+import { Skeleton } from "@/components/atoms/skeleton";
 import { Maximize2, X, CalendarIcon, RefreshCcw } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
@@ -73,8 +73,10 @@ const UserGrowthChart = ({source}) => {
 
   if (isLoading) {
     return (
-      <Card className="h-full min-h-[300px] flex items-center justify-center dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-        <Spinner text="Loading chart..." />
+      <Card className="h-full min-h-[300px] p-4 dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
+        <Skeleton className="h-6 w-40 rounded-md" />
+        <Skeleton className="mt-4 h-8 w-full rounded-md" />
+        <Skeleton className="mt-4 h-[220px] w-full rounded-lg" />
       </Card>
     );
   }

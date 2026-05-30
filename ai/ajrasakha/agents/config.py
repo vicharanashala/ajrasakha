@@ -34,6 +34,16 @@ def resolve_question_source(config: Optional[dict[str, Any]] = None) -> Optional
         return env_source
     return None
 
+
+def resolve_thread_id(config: Optional[dict[str, Any]] = None) -> Optional[str]:
+    """LangGraph conversation id from configurable (set by bridge from x-conversation-id)."""
+    configurable = (config or {}).get("configurable") or {}
+    for key in ("thread_id", "thread"):
+        val = configurable.get(key)
+        if val is not None and str(val).strip():
+            return str(val).strip()
+    return None
+
 MCP_URLS = {
     "gdb":        f"http://{REMOTE_IP}:9005/mcp",
     "weather":    f"http://100.100.108.41:9017/mcp",

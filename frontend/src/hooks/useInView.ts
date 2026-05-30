@@ -1,10 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export const useInView = () => {
-  const ref = useRef<HTMLDivElement | null>(null);
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const ref = useMemo(
+    () => ({
+      get current() {
+        return element;
+      },
+      set current(node: HTMLDivElement | null) {
+        setElement(node);
+      },
+    }),
+    [element],
+  );
 
   useEffect(() => {
+    if (!element || isVisible) return;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -15,10 +28,10 @@ export const useInView = () => {
       { threshold: 0.2 } // trigger when 20% visible
     );
 
-    if (ref.current) observer.observe(ref.current);
+    observer.observe(element);
 
     return () => observer.disconnect();
-  }, []);
+  }, [element, isVisible]);
 
   return { ref, isVisible };
 };

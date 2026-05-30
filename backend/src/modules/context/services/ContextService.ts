@@ -154,6 +154,31 @@ export class ContextService extends BaseService implements IContextService {
     return chunks;
   }
 
+  async speechToText(
+    file: Express.Multer.File,
+    language: string,
+  ): Promise<unknown> {
+    const apiKey = appConfig.sarvamAPI;
+    if (!apiKey) throw new BadRequestError('Sarvam API key not configured');
+
+    const formData = new FormData();
+    formData.append('file', new Blob([file.buffer], { type: file.mimetype }), file.originalname || 'recording.webm');
+    formData.append('language', language);
+
+    const response = await fetch('https://api.sarvam.ai/speech-to-text-translate', {
+      method: 'POST',
+      headers: { 'api-subscription-key': apiKey },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => response.statusText);
+      throw new InternalServerError(`Sarvam STT error ${response.status}: ${body}`);
+    }
+
+    return response.json();
+  }
+
   private async _callSarvamTranslate(
     input: string,
     source_language_code: string,
