@@ -889,6 +889,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Extract fields before normalizing keys to lowercase
       const aiInitialAnswer = body.aiInitialAnswer || '';
       const messageIdFromBody = body.messageId;
+      const threadIdFromBody = body.threadId;
       const userIdFromBody = body.userId;
       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
       const popContextFromBody = body.popContext;
@@ -907,6 +908,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         body.details.crop = toTitleCase(body.details.crop as string);
       }
       const messageId = messageIdFromBody;
+      const threadId = threadIdFromBody;
       const bodyUserId = userIdFromBody;
       const referenceQuestionDetails = referenceQuestionDetailsFromBody;
       const popContext = popContextFromBody;
@@ -1035,6 +1037,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: new Date(),
           ...(source !== 'AGRI_EXPERT' && {originalQuestion: originalquestion}),
           ...(messageId && {messageId}),
+          ...(threadId && {threadId}),
           ...(referenceQuestionDetails?.length && {referenceQuestionDetails}),
           ...(popContext && {popContext}),
         };

@@ -436,6 +436,10 @@ class AddQuestionBodyDto {
 
   @IsString()
   @IsOptional()
+  threadId?: string;
+
+  @IsString()
+  @IsOptional()
   @IsMongoId()
   userId?: string;
 
