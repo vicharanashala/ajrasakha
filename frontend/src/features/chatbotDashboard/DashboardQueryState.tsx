@@ -23,6 +23,7 @@ import {
 } from "@/components/atoms/command";
 
 import { Button } from "@/components/atoms/button";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 import { ChevronsUpDown, Check } from "lucide-react";
 
@@ -339,17 +340,8 @@ export const DashboardStateWiseAnalytics = (
         {/* LOADING */}
 
         {isLoading && (
-          <div
-            className="
-            flex-1
-            flex
-            items-center
-            justify-center
-            text-sm
-            text-gray-500
-          "
-          >
-            Loading analytics...
+          <div className="flex-1">
+            <Skeleton className="h-full min-h-[360px] w-full rounded-xl" />
           </div>
         )}
 
