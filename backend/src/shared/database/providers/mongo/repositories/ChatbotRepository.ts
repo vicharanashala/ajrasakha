@@ -7376,6 +7376,12 @@ export class ChatbotRepository implements IChatbotRepository {
               },
             },
 
+            nonAgri: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'non_agri'] }, 1, 0],
+              },
+            },
+
             averageCloseTimeMinutes: {
               $avg: {
                 $cond: [
@@ -7414,6 +7420,7 @@ export class ChatbotRepository implements IChatbotRepository {
             draft: 1,
             pass: 1,
             duplicate: 1,
+            nonAgri: 1,
 
             averageCloseTimeMinutes: {
               $ifNull: [
@@ -7628,6 +7635,12 @@ export class ChatbotRepository implements IChatbotRepository {
                 },
               },
 
+              nonAgri: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'non_agri'] }, 1, 0],
+                },
+              },
+
               averageCloseTimeMinutes: {
                 $avg: {
                   $cond: [
@@ -7673,6 +7686,7 @@ export class ChatbotRepository implements IChatbotRepository {
               draft: 1,
               pass: 1,
               duplicate: 1,
+              nonAgri: 1,
 
               averageCloseTimeMinutes: {
                 $ifNull: [
@@ -7822,6 +7836,12 @@ export class ChatbotRepository implements IChatbotRepository {
                 },
               },
 
+              nonAgri: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'non_agri'] }, 1, 0],
+                },
+              },
+
               averageCloseTimeMinutes: {
                 $avg: {
                   $cond: [
@@ -7867,6 +7887,7 @@ export class ChatbotRepository implements IChatbotRepository {
               draft: 1,
               pass: 1,
               duplicate: 1,
+              nonAgri: 1,
 
               averageCloseTimeMinutes: {
                 $ifNull: [
@@ -8167,6 +8188,12 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [{ $eq: ['$status', 'duplicate'] }, 1, 0],
               },
             },
+
+            nonAgri: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'non_agri'] }, 1, 0],
+              },
+            },
           },
         },
         {
@@ -8185,6 +8212,7 @@ export class ChatbotRepository implements IChatbotRepository {
             draft: 1,
             pass: 1,
             duplicate: 1,
+            nonAgri: 1,
           },
         },
       ]).toArray();
