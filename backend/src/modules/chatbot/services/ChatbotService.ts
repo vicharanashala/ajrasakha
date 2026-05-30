@@ -2471,11 +2471,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
    async notifyUser(userEmail: string, messageId: string, message:string): Promise<any>{
     const user = await this.chatbotRepository.getUserData(userEmail, "vicharanashala")
-    const webhookPayload={
+    const webhookPayload = {
       customMessage: message,
       userid: user.userId,
-      type: "Custom"
-    }
+      type: 'COSTUM',
+    };
     try{
     const response = await triggerWebhook(
       appConfig.WEB_WEBHOOK_API_URL,
