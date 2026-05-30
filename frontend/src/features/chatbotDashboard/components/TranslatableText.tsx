@@ -7,8 +7,8 @@ import {
 } from "@/components/atoms/tooltip";
 import { cn } from "@/lib/utils";
 
-interface TranslatableFaqQuestionProps {
-  question: string;
+interface TranslatableTextProps {
+  text: string;
   textClassName?: string;
   containerClassName?: string;
   translateButtonClassName?: string;
@@ -18,8 +18,8 @@ interface TranslatableFaqQuestionProps {
   tooltipClassName?: string;
 }
 
-export function TranslatableFaqQuestion({
-  question,
+export function TranslatableText({
+  text,
   textClassName,
   containerClassName,
   translateButtonClassName,
@@ -27,24 +27,24 @@ export function TranslatableFaqQuestion({
   sourceLang,
   showTooltip = false,
   tooltipClassName,
-}: TranslatableFaqQuestionProps) {
+}: TranslatableTextProps) {
   const [translatedText, setTranslatedText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const displayQuestion = translatedText || question;
+  const displayText = translatedText || text;
 
   useEffect(() => {
     setTranslatedText("");
     setError(null);
-  }, [question]);
+  }, [text]);
 
-  const questionText = (
+  const elementText = (
     <p
       className={cn(
         "font-medium leading-relaxed break-words text-slate-700 dark:text-gray-200",
         textClassName,
       )}
     >
-      {displayQuestion}
+      {displayText}
     </p>
   );
 
@@ -55,7 +55,7 @@ export function TranslatableFaqQuestion({
           {showTooltip ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="w-full cursor-help text-left">{questionText}</div>
+                <div className="w-full cursor-help text-left">{elementText}</div>
               </TooltipTrigger>
 
               <TooltipContent
@@ -66,16 +66,16 @@ export function TranslatableFaqQuestion({
                   tooltipClassName,
                 )}
               >
-                {displayQuestion}
+                {displayText}
               </TooltipContent>
             </Tooltip>
           ) : (
-            questionText
+            elementText
           )}
         </div>
 
         <CompactTranslateDropdown
-          query={question}
+          query={text}
           sourceLang={sourceLang}
           onTranslate={setTranslatedText}
           onError={setError}

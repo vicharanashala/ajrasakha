@@ -9,7 +9,7 @@ import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { TranslatableFaqQuestion } from "./TranslatableFaqQuestion";
+import { TranslatableText } from "./TranslatableText";
 
 interface TopFaqEntry {
   question: string;
@@ -289,8 +289,8 @@ export function TopFaqsLeaderboard({
                         }}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <TranslatableFaqQuestion
-                            question={item.question}
+                          <TranslatableText
+                            text={item.question}
                             showTooltip
                             textClassName="text-xs line-clamp-2"
                           />
@@ -449,8 +449,8 @@ export function TopFaqsLeaderboard({
                                 }}
                               >
                                 <div className="flex items-start justify-between gap-3">
-                                  <TranslatableFaqQuestion
-                                    question={item.question}
+                                  <TranslatableText
+                                    text={item.question}
                                     textClassName="text-sm text-slate-700 dark:text-gray-100"
                                     translateButtonClassName="h-8 text-xs"
                                   />

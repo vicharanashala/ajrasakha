@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { X, Users, Filter, Search, Calendar, MessageSquare, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { useAllWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
+import { TranslatableText } from "./components/TranslatableText";
 import { Spinner } from "@/components/atoms/spinner";
 import {
   Card,
@@ -570,8 +571,12 @@ export function WhatsAppUsersView() {
                       <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
                         {formatDateTime(user.lastMessageAt)}
                       </TableCell>
-                      <TableCell className="align-middle text-left text-sm max-w-[300px] truncate" title={user.lastMessageText}>
-                        {user.lastMessageText}
+                      <TableCell className="align-middle text-left text-sm max-w-[300px]">
+                        <TranslatableText
+                          text={user.lastMessageText}
+                          showTooltip
+                          textClassName="text-sm truncate"
+                        />
                       </TableCell>
                     </TableRow>
                   ))
