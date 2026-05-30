@@ -724,6 +724,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             carryForward={
                               questionStatusData?.carryForward
                             }
+                            statusBreakup={questionStatusData?.closedVsTotalQuestions}
                           />
                           <CustomerNotificationsCard
                             notified={

@@ -8,7 +8,11 @@ import {
 import { motion } from "framer-motion";
 import { Button } from "@/components/atoms/button";
 import { Calendar } from "@/components/atoms/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/atoms/popover";
 import { CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
 
@@ -22,6 +26,7 @@ type ClosedQuestionsCardProps = {
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
   carryForward: number;
+  statusBreakup: any;
 };
 
 export function ClosedQuestionsCard({
@@ -31,7 +36,8 @@ export function ClosedQuestionsCard({
   dateRange,
   onDateRangeChange,
   isLoading,
-  carryForward
+  carryForward,
+  statusBreakup,
 }: ClosedQuestionsCardProps) {
   return (
     <motion.div
@@ -60,9 +66,149 @@ export function ClosedQuestionsCard({
                 <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
                 Question Status
               </div>
+
+              {/* <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="
+                          w-full
+                          bg-primary
+                          hover:opacity-90
+                          rounded-t-xl
+                          transition-all
+                          duration-200
+                          cursor-pointer
+                        "
+                    style={{
+                      height: "10px",
+                    }}
+                  />
+                </TooltipTrigger>
+
+                <TooltipContent
+                  side="top"
+                  className="
+                        min-w-[240px]
+                        rounded-xl
+                        p-4
+                        max-h-[35vh]
+                        overflow-y-auto
+                        scrollbar-thin
+                        scrollbar-track-transparent
+                        scrollbar-thumb-emerald-700
+                        hover:scrollbar-thumb-emerald-600
+                      "
+                >
+                  <div className="space-y-2">
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Total Questions opened
+                      </span>
+
+                      <span className="font-medium">
+                        {statusBreakup.totalQuestions}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Questions closed
+                      </span>
+
+                      <span className="font-medium">
+                        {statusBreakup.closedQuestions}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Questions Delayed
+                      </span>
+
+                      <span className="font-medium">
+                        {statusBreakup.delayed}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Questions in draft
+                      </span>
+
+                      <span className="font-medium">{statusBreakup.draft}</span>
+                    </div>
+
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Duplicate Questions
+                      </span>
+
+                      <span className="font-medium">
+                        {statusBreakup.duplicate}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Questions in hold
+                      </span>
+
+                      <span className="font-medium">{statusBreakup.hold}</span>
+                    </div>
+
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Questions in Review
+                      </span>
+
+                      <span className="font-medium">
+                        {statusBreakup.inReview}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Questions open
+                      </span>
+
+                      <span className="font-medium">{statusBreakup.open}</span>
+                    </div>
+
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Questions paeSubmitted
+                      </span>
+
+                      <span className="font-medium">
+                        {statusBreakup.paeSubmitted}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Questions pass
+                      </span>
+
+                      <span className="font-medium">{statusBreakup.pass}</span>
+                    </div>
+                    <div className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">
+                        Questions rerouted
+                      </span>
+
+                      <span className="font-medium">
+                        {statusBreakup.rerouted}
+                      </span>
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip> */}
             </div>
 
-            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="flex items-center gap-1.5"
+              onClick={(e) => e.stopPropagation()}
+            >
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -70,15 +216,11 @@ export function ClosedQuestionsCard({
                     className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 gap-1 flex items-center shrink-0"
                   >
                     <CalendarIcon className="h-3 w-3 text-muted-foreground" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
-                      ) : (
-                        format(dateRange.from, "MMM dd")
-                      )
-                    ) : (
-                      "All Time"
-                    )}
+                    {dateRange?.from
+                      ? dateRange.to
+                        ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
+                        : format(dateRange.from, "MMM dd")
+                      : "All Time"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 z-[100]" align="end">
@@ -121,7 +263,9 @@ export function ClosedQuestionsCard({
                   </TooltipTrigger>
 
                   <TooltipContent className="max-w-[260px]">
-                    <p>Distribution of total, closed, and in-review questions.</p>
+                    <p>
+                      Distribution of total, closed, and in-review questions.
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -255,7 +399,10 @@ export function ClosedQuestionsCard({
                   </TooltipTrigger>
 
                   <TooltipContent>
-                    <p>The qeuestions that were carry forwarded from last day(10:30 PM to 12:00 AM)</p>
+                    <p>
+                      The qeuestions that were carry forwarded from last
+                      day(10:30 PM to 12:00 AM)
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

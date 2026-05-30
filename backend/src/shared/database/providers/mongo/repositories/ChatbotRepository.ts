@@ -7250,292 +7250,658 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDailyAnalyticsForWhatsApp(start: Date, end: Date): Promise<any> {
-    return await this.QuestionCollection.aggregate([
-      {
-        $match: {
-          source: 'WHATSAPP',
-          createdAt: {
-            $gte: start,
-            $lt: end,
-          },
-        },
-      },
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: '%Y-%m-%d',
-              date: '$createdAt',
-              timezone: '+05:30',
-            },
-          },
+  async getDailyAnalyticsForWhatsApp(
+    start: Date,
+    end: Date,
+  ): Promise<any> {
 
-          // total queries
-          queryCount: {$sum: 1},
+    const carryForwardWindowStart = new Date(end);
+    carryForwardWindowStart.setDate(
+      carryForwardWindowStart.getDate() - 1,
+    );
+    carryForwardWindowStart.setHours(22, 30, 0, 0);
 
-          // total questions
-          totalQuestions: {$sum: 1},
+    const carryForwardWindowEnd = new Date(end);
+    carryForwardWindowEnd.setHours(0, 0, 0, 0);
 
-          // closed questions count
-          closedQuestions: {
-            $sum: {
-              $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-            },
-          },
+    const [closedInSelectedTime, analytics, carryForward] = await Promise.all([
 
-          // average close time in minutes
-          averageCloseTimeMinutes: {
-            $avg: {
-              $cond: [
-                {
-                  $and: [
-                    {$eq: ['$status', 'closed']},
-                    {$ne: ['$closedAt', null]},
-                  ],
-                },
-                {
-                  $divide: [
-                    {
-                      $subtract: ['$closedAt', '$createdAt'],
-                    },
-                    1000 * 60,
-                  ],
-                },
-                null,
-              ],
+      // Closed during selected period
+      this.QuestionCollection.aggregate([
+        {
+          $match: {
+            source: 'WHATSAPP',
+            closedAt: {
+              $gte: start,
+              $lt: end,
             },
           },
         },
-      },
-      {
-        $project: {
-          _id: 0,
-          period: '$_id',
-          queryCount: 1,
-          totalQuestions: 1,
-          closedQuestions: 1,
-          averageCloseTimeMinutes: {
-            $ifNull: [{$round: ['$averageCloseTimeMinutes', 2]}, 0],
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: '$closedAt',
+                timezone: '+05:30',
+              },
+            },
+            closedInPeriod: { $sum: 1 },
           },
         },
-      },
-      {
-        $sort: {
-          period: 1,
-        },
-      },
-    ]).toArray();
-  }
+      ]).toArray(),
 
-  async getWeeklyAnalyticsForWhatsApp(start: Date, end: Date): Promise<any[]> {
-    await this.initReviewSystem();
-
-    return await this.QuestionCollection.aggregate([
-      {
-        $match: {
-          source: 'WHATSAPP',
-
-          createdAt: {
-            $gte: start,
-            $lt: end,
-          },
-        },
-      },
-
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: '%G-W%V',
-              date: '$createdAt',
-              timezone: '+05:30',
+      // Daily analytics
+      this.QuestionCollection.aggregate([
+        {
+          $match: {
+            source: 'WHATSAPP',
+            createdAt: {
+              $gte: start,
+              $lt: end,
             },
           },
+        },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: '$createdAt',
+                timezone: '+05:30',
+              },
+            },
 
-          // total queries
-          queryCount: {
-            $sum: 1,
+            totalQuestions: { $sum: 1 },
+
+            queryCount: {$sum: 1},
+
+            closedQuestions: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'closed'] }, 1, 0],
+              },
+            },
+
+            open: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'open'] }, 1, 0],
+              },
+            },
+
+            inReview: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'in-review'] }, 1, 0],
+              },
+            },
+
+            delayed: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'delayed'] }, 1, 0],
+              },
+            },
+
+            rerouted: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 're-routed'] }, 1, 0],
+              },
+            },
+
+            hold: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'hold'] }, 1, 0],
+              },
+            },
+
+            paeSubmitted: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'pae_submitted'] }, 1, 0],
+              },
+            },
+
+            draft: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'draft'] }, 1, 0],
+              },
+            },
+
+            pass: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'pass'] }, 1, 0],
+              },
+            },
+
+            duplicate: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'duplicate'] }, 1, 0],
+              },
+            },
+
+            averageCloseTimeMinutes: {
+              $avg: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ['$status', 'closed'] },
+                      { $ne: ['$closedAt', null] },
+                    ],
+                  },
+                  {
+                    $divide: [
+                      { $subtract: ['$closedAt', '$createdAt'] },
+                      1000 * 60,
+                    ],
+                  },
+                  null,
+                ],
+              },
+            },
           },
+        },
+        {
+          $project: {
+            _id: 0,
+            period: '$_id',
 
-          // total questions
-          totalQuestions: {
-            $sum: 1,
-          },
+            totalQuestions: 1,
+            closedQuestions: 1,
 
-          // closed questions
-          closedQuestions: {
-            $sum: {
-              $cond: [
-                {
-                  $eq: ['$status', 'closed'],
-                },
-                1,
+            open: 1,
+            inReview: 1,
+            delayed: 1,
+            rerouted: 1,
+            hold: 1,
+            paeSubmitted: 1,
+            draft: 1,
+            pass: 1,
+            duplicate: 1,
+
+            averageCloseTimeMinutes: {
+              $ifNull: [
+                { $round: ['$averageCloseTimeMinutes', 2] },
                 0,
               ],
             },
           },
+        },
+        {
+          $sort: {
+            period: 1,
+          },
+        },
+      ]).toArray(),
 
-          // avg close time
-          averageCloseTimeMinutes: {
-            $avg: {
-              $cond: [
-                {
-                  $and: [
-                    {
-                      $eq: ['$status', 'closed'],
-                    },
+      this.QuestionCollection.countDocuments({
+        source: 'WHATSAPP',
 
-                    {
-                      $ne: ['$closedAt', null],
-                    },
-                  ],
-                },
+        createdAt: {
+          $gte: carryForwardWindowStart,
+          $lt: carryForwardWindowEnd,
+        },
 
-                {
-                  $divide: [
-                    {
-                      $subtract: ['$closedAt', '$createdAt'],
-                    },
+        status: {
+          $ne: 'closed',
+        },
+      }),
+    ]);
 
-                    1000 * 60,
-                  ],
-                },
+    const closedMap = new Map(
+      closedInSelectedTime.map((item) => [
+        item._id,
+        item.closedInPeriod,
+      ]),
+    );
 
-                null,
-              ],
+    const result = analytics.map((item) => ({
+      ...item,
+      closedInPeriod: closedMap.get(item.period) || 0,
+      carryForward: 0,
+    }));
+
+    if (result.length) {
+      result[result.length - 1].carryForward = carryForward;
+    }
+
+    return result;
+  }
+
+  async getWeeklyAnalyticsForWhatsApp(
+    start: Date,
+    end: Date,
+  ): Promise<any[]> {
+    await this.initReviewSystem();
+
+    const [closedInSelectedTime, analytics] =
+      await Promise.all([
+
+        // Closed during selected period
+        this.QuestionCollection.aggregate([
+          {
+            $match: {
+              source: 'WHATSAPP',
+              closedAt: {
+                $gte: start,
+                $lt: end,
+              },
             },
           },
-        },
-      },
-
-      {
-        $project: {
-          _id: 0,
-
-          period: '$_id',
-
-          queryCount: 1,
-
-          totalQuestions: 1,
-
-          closedQuestions: 1,
-
-          averageCloseTimeMinutes: {
-            $ifNull: [
-              {
-                $round: ['$averageCloseTimeMinutes', 2],
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%G-W%V',
+                  date: '$closedAt',
+                  timezone: '+05:30',
+                },
               },
-              0,
-            ],
+              closedInPeriod: {
+                $sum: 1,
+              },
+            },
           },
-        },
-      },
+        ]).toArray(),
 
-      {
-        $sort: {
-          period: 1,
-        },
-      },
-    ]).toArray();
+        // Weekly Analytics
+        this.QuestionCollection.aggregate([
+          {
+            $match: {
+              source: 'WHATSAPP',
+              createdAt: {
+                $gte: start,
+                $lt: end,
+              },
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%G-W%V',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+
+              totalQuestions: {
+                $sum: 1,
+              },
+
+              queryCount: {$sum: 1},
+
+              closedQuestions: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', 'closed'] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              open: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', 'open'] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              inReview: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', 'in-review'] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              delayed: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', 'delayed'] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              rerouted: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', 're-routed'] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              hold: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', 'hold'] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              paeSubmitted: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', 'pae_submitted'] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              draft: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', 'draft'] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              pass: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', 'pass'] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              duplicate: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', 'duplicate'] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              averageCloseTimeMinutes: {
+                $avg: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ['$status', 'closed'] },
+                        { $ne: ['$closedAt', null] },
+                      ],
+                    },
+                    {
+                      $divide: [
+                        {
+                          $subtract: [
+                            '$closedAt',
+                            '$createdAt',
+                          ],
+                        },
+                        1000 * 60,
+                      ],
+                    },
+                    null,
+                  ],
+                },
+              },
+            },
+          },
+
+          {
+            $project: {
+              _id: 0,
+
+              period: '$_id',
+
+              totalQuestions: 1,
+              closedQuestions: 1,
+
+              open: 1,
+              inReview: 1,
+              delayed: 1,
+              rerouted: 1,
+              hold: 1,
+              paeSubmitted: 1,
+              draft: 1,
+              pass: 1,
+              duplicate: 1,
+
+              averageCloseTimeMinutes: {
+                $ifNull: [
+                  {
+                    $round: [
+                      '$averageCloseTimeMinutes',
+                      2,
+                    ],
+                  },
+                  0,
+                ],
+              },
+            },
+          },
+
+          {
+            $sort: {
+              period: 1,
+            },
+          },
+        ]).toArray(),
+      ]);
+
+    const closedMap = new Map(
+      closedInSelectedTime.map((item) => [
+        item._id,
+        item.closedInPeriod,
+      ]),
+    );
+
+    return analytics.map((item) => ({
+      ...item,
+      closedInPeriod:
+        closedMap.get(item.period) || 0
+    }));
   }
 
   async getMonthlyAnalyticsForWhatsApp(): Promise<any[]> {
-    return await this.QuestionCollection.aggregate([
-      {
-        $match: {
-          source: 'WHATSAPP',
-        },
-      },
+    const [closedInSelectedTime, analytics] =
+      await Promise.all([
 
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: '%Y-%m',
-              date: '$createdAt',
-              timezone: '+05:30',
-            },
-          },
-          queryCount: {
-            $sum: 1,
-          },
-          totalQuestions: {
-            $sum: 1,
-          },
-          closedQuestions: {
-            $sum: {
-              $cond: [
-                {
-                  $eq: ['$status', 'closed'],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-
-          averageCloseTimeMinutes: {
-            $avg: {
-              $cond: [
-                {
-                  $and: [
-                    {
-                      $eq: ['$status', 'closed'],
-                    },
-
-                    {
-                      $ne: ['$closedAt', null],
-                    },
-                  ],
-                },
-
-                {
-                  $divide: [
-                    {
-                      $subtract: ['$closedAt', '$createdAt'],
-                    },
-
-                    1000 * 60,
-                  ],
-                },
-
-                null,
-              ],
-            },
-          },
-        },
-      },
-
-      {
-        $project: {
-          _id: 0,
-
-          period: '$_id',
-
-          queryCount: 1,
-
-          totalQuestions: 1,
-
-          closedQuestions: 1,
-
-          averageCloseTimeMinutes: {
-            $ifNull: [
-              {
-                $round: ['$averageCloseTimeMinutes', 2],
+        // Closed in month
+        this.QuestionCollection.aggregate([
+          {
+            $match: {
+              source: 'WHATSAPP',
+              closedAt: {
+                $ne: null,
               },
-              0,
-            ],
+            },
           },
-        },
-      },
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$closedAt',
+                  timezone: '+05:30',
+                },
+              },
+              closedInPeriod: {
+                $sum: 1,
+              },
+            },
+          },
+        ]).toArray(),
 
-      {
-        $sort: {
-          period: 1,
-        },
-      },
-    ]).toArray();
+        // Monthly Analytics
+        this.QuestionCollection.aggregate([
+          {
+            $match: {
+              source: 'WHATSAPP',
+            },
+          },
+
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
+              },
+
+              totalQuestions: { $sum: 1 },
+
+              queryCount: {$sum: 1},
+
+              closedQuestions: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'closed'] }, 1, 0],
+                },
+              },
+
+              open: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'open'] }, 1, 0],
+                },
+              },
+
+              inReview: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'in-review'] }, 1, 0],
+                },
+              },
+
+              delayed: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'delayed'] }, 1, 0],
+                },
+              },
+
+              rerouted: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 're-routed'] }, 1, 0],
+                },
+              },
+
+              hold: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'hold'] }, 1, 0],
+                },
+              },
+
+              paeSubmitted: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'pae_submitted'] }, 1, 0],
+                },
+              },
+
+              draft: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'draft'] }, 1, 0],
+                },
+              },
+
+              pass: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'pass'] }, 1, 0],
+                },
+              },
+
+              duplicate: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'duplicate'] }, 1, 0],
+                },
+              },
+
+              averageCloseTimeMinutes: {
+                $avg: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ['$status', 'closed'] },
+                        { $ne: ['$closedAt', null] },
+                      ],
+                    },
+                    {
+                      $divide: [
+                        {
+                          $subtract: [
+                            '$closedAt',
+                            '$createdAt',
+                          ],
+                        },
+                        1000 * 60,
+                      ],
+                    },
+                    null,
+                  ],
+                },
+              },
+            },
+          },
+
+          {
+            $project: {
+              _id: 0,
+
+              period: '$_id',
+
+              totalQuestions: 1,
+              closedQuestions: 1,
+
+              open: 1,
+              inReview: 1,
+              delayed: 1,
+              rerouted: 1,
+              hold: 1,
+              paeSubmitted: 1,
+              draft: 1,
+              pass: 1,
+              duplicate: 1,
+
+              averageCloseTimeMinutes: {
+                $ifNull: [
+                  {
+                    $round: [
+                      '$averageCloseTimeMinutes',
+                      2,
+                    ],
+                  },
+                  0,
+                ],
+              },
+            },
+          },
+
+          {
+            $sort: {
+              period: 1,
+            },
+          },
+        ]).toArray(),
+      ]);
+
+    const closedMap = new Map(
+      closedInSelectedTime.map((item) => [
+        item._id,
+        item.closedInPeriod,
+      ]),
+    );
+
+    return analytics.map((item) => ({
+      ...item,
+      closedInPeriod:
+        closedMap.get(item.period) || 0
+    }));
   }
 
   async getWhatsAppDuplicateQuestions(
@@ -7712,7 +8078,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getClosedVsTotalQuestions(source: string): Promise<any> {
+  async getClosedVsTotalQuestions(source: string, startDate?: Date, endDate?: Date): Promise<any> {
     try {
       await this.initReviewSystem();
       const matchStage: any = {};
@@ -7720,6 +8086,11 @@ export class ChatbotRepository implements IChatbotRepository {
         source = 'AJRASAKHA';
       }
       matchStage.source = source.toUpperCase();
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
+        if (startDate) matchStage.createdAt.$gte = startDate;
+        if (endDate) matchStage.createdAt.$lte = endDate;
+      }
       const result = await this.QuestionCollection.aggregate([
         {
           $match: matchStage,
@@ -7735,7 +8106,65 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             inReviewQuestions: {
               $sum: {
-                $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
+                $cond: [
+                  { $eq: ['$status', 'in-review'] },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            open: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'open'] }, 1, 0],
+              },
+            },
+
+            inReview: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'in-review'] }, 1, 0],
+              },
+            },
+
+            delayed: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'delayed'] }, 1, 0],
+              },
+            },
+
+            rerouted: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 're-routed'] }, 1, 0],
+              },
+            },
+
+            hold: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'hold'] }, 1, 0],
+              },
+            },
+
+            paeSubmitted: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'pae_submitted'] }, 1, 0],
+              },
+            },
+
+            draft: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'draft'] }, 1, 0],
+              },
+            },
+
+            pass: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'pass'] }, 1, 0],
+              },
+            },
+
+            duplicate: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'duplicate'] }, 1, 0],
               },
             },
           },
@@ -7746,11 +8175,25 @@ export class ChatbotRepository implements IChatbotRepository {
             totalQuestions: 1,
             closedQuestions: 1,
             inReviewQuestions: 1,
+
+            open: 1,
+            inReview: 1,
+            delayed: 1,
+            rerouted: 1,
+            hold: 1,
+            paeSubmitted: 1,
+            draft: 1,
+            pass: 1,
+            duplicate: 1,
           },
         },
       ]).toArray();
 
-      return result[0];
+      return result[0] || {
+        totalQuestions: 0,
+        closedQuestions: 0,
+        inReviewQuestions: 0,
+      };
     } catch (error) {
       throw new InternalServerError(
         `Failed to get closed vs total questions count: ${error}`,
@@ -7758,7 +8201,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getNotifiedVsClosed(source?: string): Promise<any> {
+  async getNotifiedVsClosed(source?: string, startDate?: Date, endDate?: Date): Promise<any> {
     try {
       await this.initReviewSystem();
 
@@ -7767,6 +8210,12 @@ export class ChatbotRepository implements IChatbotRepository {
         source = 'AJRASAKHA';
       }
       matchStage.source = source.toUpperCase();
+
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
+        if (startDate) matchStage.createdAt.$gte = startDate;
+        if (endDate) matchStage.createdAt.$lte = endDate;
+      }
 
       const [result] = await this.QuestionCollection.aggregate([
         {
@@ -7823,8 +8272,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       return {
         ...(result || {
-          closed: 0,
           notified: 0,
+          notNotified: 0,
         }),
         untrackedClosedQuestions,
       };
@@ -7835,21 +8284,29 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getClosedInLastTwoHours(source?: string): Promise<any> {
+  async getClosedInLastTwoHours(source?: string, startDate?: Date, endDate?: Date): Promise<any> {
     try {
       await this.initReviewSystem();
 
       const finalSource: QuestionSource =
         source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const count = await this.QuestionCollection.countDocuments({
+      const matchStage: any = {
         status: 'closed',
         source: finalSource,
 
         $expr: {
           $lte: [{$subtract: ['$closedAt', '$createdAt']}, 2 * 60 * 60 * 1000],
         },
-      });
+      };
+
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
+        if (startDate) matchStage.createdAt.$gte = startDate;
+        if (endDate) matchStage.createdAt.$lte = endDate;
+      }
+
+      const count = await this.QuestionCollection.countDocuments(matchStage);
       return count;
     } catch (error) {
       throw new InternalServerError(
@@ -7857,6 +8314,7 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
+
   async getMonthlyChurnRate(source: string, userType: string): Promise<any> {
     await this.init(source);
 
