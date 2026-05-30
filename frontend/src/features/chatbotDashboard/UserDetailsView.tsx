@@ -358,11 +358,11 @@ export function UserDetailsView({
     farmerProfile?: {
       farmerName?: string;
       age?: number;
-      gender?: string;
-      villageName?: string;
-      blockName?: string;
-      district?: string;
-      state?: string;
+      gender?: string | null;
+      villageName?: string | null;
+      blockName?: string | null;
+      district?: string | null;
+      state?: string | null;
       phoneNo?: string;
       nearestKVK?: string;
       languagePreference?: string;
@@ -373,12 +373,13 @@ export function UserDetailsView({
       secondaryCrop?: string;
       awarenessOfKCC?: boolean;
       usesAgriApps?: boolean;
-      highestEducatedPerson?: string;
+      highestEducatedPerson?: string | null;
       numberOfSmartphones?: number;
       platform?: string;
       platformHistory?: { os: string; timestamp: string }[];
     };
   }) => {
+    console.log("Payload is----", payload)
     if (!userToEdit) return;
     await updateUserMutation.mutateAsync({
       userId: userToEdit.userId,

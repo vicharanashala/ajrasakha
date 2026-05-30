@@ -72,11 +72,11 @@ interface EditFarmerModalProps {
     farmerProfile?: {
       farmerName?: string;
       age?: number;
-      gender?: string;
-      villageName?: string;
-      blockName?: string;
-      district?: string;
-      state?: string;
+      gender?: string | null;
+      villageName?: string | null;
+      blockName?: string | null;
+      district?: string | null;
+      state?: string | null;
       phoneNo?: string;
       nearestKVK?: string;
       languagePreference?: string;
@@ -87,7 +87,7 @@ interface EditFarmerModalProps {
       secondaryCrop?: string;
       awarenessOfKCC?: boolean;
       usesAgriApps?: boolean;
-      highestEducatedPerson?: string;
+      highestEducatedPerson?: string | null;
       numberOfSmartphones?: number;
       platform?: string;
     };
@@ -182,64 +182,63 @@ export function EditFarmerModal({
     Partial<Record<keyof FormState, string>>
   >({});
 
-  const validateForm = (
-    form: FormState,
-  ): Partial<Record<keyof FormState, string>> => {
-    const errors: Partial<Record<keyof FormState, string>> = {};
+  const validateField = (
+    key: keyof FormState,
+    value: string,
+  ): string | undefined => {
+    switch (key) {
+      case "name":
+        if (value && !/^[a-zA-Z\s.'-]+$/.test(value)) {
+          return "Name can only contain letters";
+        }
+        break;
 
-    const age = toNumber(form.age);
-    const landhold = toNumber(form.landhold);
+      case "farmerName":
+        if (value && !/^[a-zA-Z\s.'-]+$/.test(value)) {
+          return "Farmer Name can only contain letters";
+        }
+        break;
 
-    if (!form.farmerName.trim()) {
-      errors.farmerName = "Farmer Name is required";
+      case "age":
+        const age = Number(value);
+        if (age < 16 || age > 100) {
+          return "Age has to be between 16 to 100";
+        }
+        break;
+
+      case "phoneNo":
+        if (value && !/^\d{10}$/.test(value)) {
+          return "Phone Number must be exactly 10 digits";
+        }
+        break;
+
+      case "yearsOfExperience":
+        const yearsOfExperience = Number(value);
+        if (yearsOfExperience < 0 || yearsOfExperience > 70) {
+          return "Experience can be between 0 to 70 years";
+        }
+        break;
+
+      case "landhold":
+        const landhold = Number(value);
+        if (landhold < 0) {
+          return "Please enter valid value";
+        }
+        break;
+
+      case "numberOfSmartphones":
+        const numberOfSmartphones = Number(value);
+        if (numberOfSmartphones < 0) {
+          return "Please enter valid value";
+        }
+      break;
     }
-
-    if (!form.age) {
-      errors.age = "Age is required";
-    } else if (age < 16 || age > 100) {
-      errors.age = "Age must be between 16 and 100";
-    }
-
-  if (!form.phoneNo.trim()) {
-  errors.phoneNo = "Phone Number is required";
-} else if (!/^\d{10}$/.test(form.phoneNo)) {
-  errors.phoneNo = "Phone Number must be exactly 10 digits";
-}
-
-    if (!form.gender.trim()) {
-      errors.gender = "Gender is required";
-    }
-
-    if (!form.nearestKVK.trim()) {
-      errors.nearestKVK = "Nearest KVK is required";
-    }
-
-    if (!form.landhold === undefined) {
-      errors.landhold = "Total Land Cultivation is required";
-    }
-
-    if (!form.primaryCrop.trim()) {
-      errors.primaryCrop = "Primary Crop is required";
-    }
-
-    if (!form.secondaryCrop.trim()) {
-      errors.secondaryCrop = "Secondary Crop is required";
-    }
-
-    if (form.awarenessOfKCC === "") {
-      errors.awarenessOfKCC = "KCC Awareness is required";
-    }
-
-    if (form.usesAgriApps === "") {
-      errors.usesAgriApps = "Mobile App Awareness is required";
-    }
-
-    if(!form.highestEducatedPerson){
-      errors.highestEducatedPerson = "Highest education is required"
-    }
-
-    return errors;
+    return undefined
   };
+
+  const hasValidationErrors = Object.values(errors).some(
+  (error) => Boolean(error),
+);
 
   useEffect(() => {
     if (!open || !user) return;
@@ -277,18 +276,16 @@ export function EditFarmerModal({
     });
   }, [open, user]);
 
-
-
   const handleSave = async () => {
     if (isSaving) return;
 
     const parsedAge = toNumber(form.age);
-    const validationErrors = validateForm(form);
+    // const validationErrors = validateForm(form);
 
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
+    // if (Object.keys(validationErrors).length > 0) {
+    //   setErrors(validationErrors);
+    //   return;
+    // }
     setErrors({});
     try {
       await onSave({
@@ -297,11 +294,14 @@ export function EditFarmerModal({
         farmerProfile: {
           farmerName: form.farmerName.trim() || undefined,
           age: parsedAge,
-          gender: form.gender.trim() || undefined,
-          villageName: form.villageName.trim() || undefined,
-          blockName: form.blockName.trim() || undefined,
-          district: form.district.trim() || undefined,
-          state: form.state.trim() || undefined,
+          gender:
+  form.gender.trim() === ""
+    ? null
+    : form.gender.trim(),
+          villageName: form.villageName.trim() === "" ? null: form.villageName.trim(),
+          blockName: form.blockName.trim() === "" ? null: form.blockName.trim(),
+          district: form.district.trim() === "" ? null: form.district.trim(),
+          state: form.state.trim() === "" ? null: form.state.trim(),
           phoneNo: form.phoneNo.trim() || undefined,
           nearestKVK: form.nearestKVK.trim() || undefined,
           languagePreference: form.languagePreference.trim() || undefined,
@@ -312,7 +312,10 @@ export function EditFarmerModal({
           secondaryCrop: form.secondaryCrop.trim() || undefined,
           awarenessOfKCC: toBoolean(form.awarenessOfKCC),
           usesAgriApps: toBoolean(form.usesAgriApps),
-          highestEducatedPerson: form.highestEducatedPerson.trim() || undefined,
+          highestEducatedPerson:
+  form.highestEducatedPerson.trim() === ""
+    ? null
+    : form.highestEducatedPerson.trim(),
           numberOfSmartphones: toNumber(form.numberOfSmartphones),
           platform: form.platform.trim() || undefined,
         },
@@ -336,12 +339,22 @@ export function EditFarmerModal({
             form={form}
             setForm={setForm}
             errors={errors}
+            setErrors={setErrors}
+            validateFields={validateField}
           />
-          <DemographicDetails form={form} setForm={setForm} errors={errors} setErrors={setErrors}/>
+          <DemographicDetails
+            form={form}
+            setForm={setForm}
+            errors={errors}
+            setErrors={setErrors}
+            validateFields={validateField}
+          />
           <AgriculturalBackgroundSection
             form={form}
             setForm={setForm}
             errors={errors}
+            setErrors={setErrors}
+            validateFields={validateField}
           />
           <DigitalAwarenessSection
             form={form}
@@ -352,6 +365,8 @@ export function EditFarmerModal({
             form={form}
             setForm={setForm}
             errors={errors}
+            setErrors={setErrors}
+            validateFields={validateField}
           />
         </div>
 
@@ -368,7 +383,7 @@ export function EditFarmerModal({
           <Button
             type="button"
             onClick={() => void handleSave()}
-            disabled={isSaving}
+            disabled={isSaving || hasValidationErrors}
             className="cursor-pointer"
           >
             {isSaving ? "Saving..." : "Save"}
@@ -388,14 +403,20 @@ const UserInformationSection = ({
   form,
   setForm,
   errors,
+  setErrors,
+  validateFields,
 }: UserInformationSectionProps) => {
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
-  };
 
+    setErrors((prev) => ({
+      ...prev,
+      [key]: validateFields(key, value),
+    }));
+  };
   return (
     <div className="space-y-6 mb-4">
       <div>
@@ -412,6 +433,9 @@ const UserInformationSection = ({
             value={form.name}
             onChange={(e) => handleChange("name", e.target.value)}
           />
+          {errors.name && (
+            <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+          )}
         </div>
 
         <div>
@@ -422,7 +446,6 @@ const UserInformationSection = ({
             onChange={(e) => handleChange("role", e.target.value)}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-
             <option value="USER">USER</option>
 
             <option value="FARMER">FARMER</option>
@@ -441,34 +464,47 @@ const DemographicDetails = ({
   form,
   setForm,
   errors,
-  setErrors
+  setErrors,
+  validateFields,
 }: DemographicDetailsProps) => {
-const handleChange = (
-  key: keyof FormState,
-  value: string,
-) => {
-  setForm((prev) => ({
-    ...prev,
-    [key]: value,
-  }));
+  // const handleChange = (
+  //   key: keyof FormState,
+  //   value: string,
+  // ) => {
+  //   setForm((prev) => ({
+  //     ...prev,
+  //     [key]: value,
+  //   }));
 
-  setErrors((prev) => {
-    const updated = { ...prev };
+  //   setErrors((prev) => {
+  //     const updated = { ...prev };
 
-    if (key === "phoneNo") {
-      if (!value.trim()) {
-        updated.phoneNo = "Phone Number is required";
-      } else if (!/^\d{10}$/.test(value)) {
-        updated.phoneNo =
-          "Phone Number must be exactly 10 digits";
-      } else {
-        delete updated.phoneNo;
-      }
-    }
+  //     if (key === "phoneNo") {
+  //       if (!value.trim()) {
+  //         updated.phoneNo = "Phone Number is required";
+  //       } else if (!/^\d{10}$/.test(value)) {
+  //         updated.phoneNo =
+  //           "Phone Number must be exactly 10 digits";
+  //       } else {
+  //         delete updated.phoneNo;
+  //       }
+  //     }
 
-    return updated;
-  });
-};
+  //     return updated;
+  //   });
+  // };
+
+  const handleChange = (key: keyof FormState, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [key]: validateFields(key, value),
+    }));
+  };
 
   return (
     <div className="space-y-6 mb-4">
@@ -534,7 +570,7 @@ const handleChange = (
             onChange={(e) => handleChange("gender", e.target.value)}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="">Select Gender</option>
+            <option value="">Select option</option>
 
             <option value="Male">Male</option>
 
@@ -698,11 +734,25 @@ const AgriculturalBackgroundSection = ({
   form,
   setForm,
   errors,
+  setErrors,
+  validateFields,
 }: AgriculturalBackgroundSectionProps) => {
+  // const handleChange = (key: keyof FormState, value: string) => {
+  //   setForm((prev) => ({
+  //     ...prev,
+  //     [key]: value,
+  //   }));
+  // };
+
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [key]: validateFields(key, value),
     }));
   };
 
@@ -725,6 +775,9 @@ const AgriculturalBackgroundSection = ({
             value={form.yearsOfExperience}
             onChange={(e) => handleChange("yearsOfExperience", e.target.value)}
           />
+          {errors.yearsOfExperience && (
+            <p className="mt-1 text-sm text-red-600">{errors.yearsOfExperience}</p>
+          )}
         </div>
 
         <div>
@@ -763,9 +816,9 @@ const AgriculturalBackgroundSection = ({
               </option>
             ))}
           </select>
-          {errors.primaryCrop && (
+          {/* {errors.primaryCrop && (
             <p className="mt-1 text-sm text-red-600">{errors.primaryCrop}</p>
-          )}
+          )} */}
         </div>
 
         <div>
@@ -891,12 +944,26 @@ type SocioEconomicIndicatorsSectionProps = {
 const SocioEconomicIndicatorsSection = ({
   form,
   setForm,
-  errors
+  errors,
+  setErrors,
+  validateFields
 }: SocioEconomicIndicatorsSectionProps) => {
-  const handleChange = (key: keyof FormState, value: string) => {
+  // const handleChange = (key: keyof FormState, value: string) => {
+  //   setForm((prev) => ({
+  //     ...prev,
+  //     [key]: value,
+  //   }));
+  // };
+
+    const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [key]: validateFields(key, value),
     }));
   };
 
@@ -928,11 +995,6 @@ const SocioEconomicIndicatorsSection = ({
 
             <option value="Post Graduate">Post Graduate</option>
           </select>
-          {errors.highestEducatedPerson && (
-            <p className="mt-1 text-sm text-red-600">
-              {errors.highestEducatedPerson}
-            </p>
-          )}
         </div>
 
         {/* Smartphones */}
@@ -947,6 +1009,9 @@ const SocioEconomicIndicatorsSection = ({
               handleChange("numberOfSmartphones", e.target.value)
             }
           />
+             {errors.numberOfSmartphones && (
+            <p className="mt-1 text-sm text-red-600">{errors.numberOfSmartphones}</p>
+          )}
         </div>
       </div>
     </div>
