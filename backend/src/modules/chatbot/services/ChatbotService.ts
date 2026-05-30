@@ -2470,7 +2470,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
    async notifyUser(userEmail: string, messageId: string, message:string): Promise<any>{
-    const user = await this.chatbotRepository.getUserData(userEmail, "vicharanashala")
+    const user = await this.chatbotRepository.getUserData(userEmail, "annam")
     const webhookPayload = {
       customMessage: message,
       userid: user.userId,
