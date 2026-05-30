@@ -23,6 +23,7 @@ type AnalyticsItem = {
   pass?: number;
   rerouted?: number;
   carryForward?: number;
+  nonAgri?: number;
 };
 
 type WhatsAppAnalyticsCardProps = {
@@ -304,6 +305,13 @@ export function WhatsAppAnalyticsCard({
                         </span>
 
                         <span className="font-medium">{item.rerouted}</span>
+                      </div>
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Non agri Questions
+                        </span>
+
+                        <span className="font-medium">{item.nonAgri}</span>
                       </div>
                       {index == analytics.length - 1 &&
                         granularity === "daily" && (

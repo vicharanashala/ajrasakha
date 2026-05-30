@@ -17,7 +17,7 @@ import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Spinner } from "@/components/atoms/spinner";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 interface DailyQuestionTrend {
   day: string;
@@ -168,8 +168,8 @@ export function DailyQuestionTrendsChart({
 
       <CardContent className="pt-6 pb-4 pl-2 pr-4 flex-1 min-h-0 relative">
         {isLoading && (
-          <div className="absolute inset-0 bg-[#121212]/50 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-b-xl">
-            <Spinner text="Updating trends..." />
+          <div className="absolute inset-0 z-10 rounded-b-xl bg-background/70 p-4 backdrop-blur-[1px]">
+            <Skeleton className="h-full w-full rounded-lg" />
           </div>
         )}
 
