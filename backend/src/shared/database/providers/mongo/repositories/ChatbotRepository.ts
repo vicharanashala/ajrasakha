@@ -7918,19 +7918,6 @@ export class ChatbotRepository implements IChatbotRepository {
               },
             },
           },
-              averageCloseTimeMinutes: {
-                $ifNull: [
-                  {
-                    $round: [
-                      '$averageCloseTimeMinutes',
-                      2,
-                    ],
-                  },
-                  0,
-                ],
-              },
-            },
-          },
 
           {
             $sort: {
