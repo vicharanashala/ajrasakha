@@ -13,7 +13,7 @@ SANITIZER_MODEL = CLAUDE_FAST        # Relevance scoring - Haiku sufficient
 TRANSLATE_MODEL = CLAUDE_MODEL       # Keep Sonnet - translation quality important
 CROP_CLASSIFY_MODEL = CLAUDE_FAST    # Binary classification - Haiku sufficient
 
-REMOTE_IP = os.getenv("REMOTE_IP", "100.100.108.43")
+REMOTE_IP = os.getenv("REMOTE_IP", "100.100.108.44")
 
 # Reviewer upload channel when LangGraph configurable.question_source is unset
 QUESTION_SOURCE = os.getenv("QUESTION_SOURCE", "AJRASAKHA").strip()

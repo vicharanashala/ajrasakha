@@ -81,4 +81,16 @@ export class ContextController {
     const { text, targetLang, sourceLang } = body;
     return this.contextService.translate(text, targetLang, sourceLang);
   }
+
+  @Post('/speech-to-text')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Proxy speech-to-text request to Sarvam API' })
+  async speechToText(
+    @UploadedFile('file', { options: { storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } } }) file: Express.Multer.File,
+    @Req() req: any,
+  ): Promise<unknown> {
+    const language = req.body?.language || 'hi-IN';
+    return this.contextService.speechToText(file, language);
+  }
 }
