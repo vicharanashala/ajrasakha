@@ -3,7 +3,7 @@ import type { UserDemographics } from "../types";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, X, Info } from "lucide-react";
-
+import { MissingDemographicsModal } from "./MissingDemographicsModal";
 
 const AGE_COLORS: Record<string, string> = {
   "18-30": "#3AAA5A",
@@ -20,7 +20,7 @@ const formatCount = (count?: number | null): string => {
   return count.toLocaleString('en-US');
 };
 
-function DonutSegments({ segments }: { segments: { label: string; count: number; pct: number; color: string }[] }) {
+function DonutSegments({ segments, onSegmentClick }: { segments: { label: string; count: number; pct: number; color: string }[], onSegmentClick?: () => void }) {
   const [hoveredSeg, setHoveredSeg] = useState<{ label: string; count: number } | null>(null);
   const displayTotal = segments.reduce((s, x) => s + x.count, 0);
   const totalCount = displayTotal || 1;
@@ -38,9 +38,15 @@ function DonutSegments({ segments }: { segments: { label: string; count: number;
               strokeWidth={14} strokeLinecap="butt"
               strokeDasharray={`${dash} ${circ * 10}`}
               strokeDashoffset={-offset} transform={`rotate(-90 ${cx} ${cy})`}
-                className="cursor-pointer transition-opacity duration-200 hover:opacity-80"
+                className={`transition-opacity duration-200 hover:opacity-80 ${seg.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:stroke-gray-500' : 'cursor-default'}`}
                 onMouseEnter={() => setHoveredSeg(seg)}
-                onMouseLeave={() => setHoveredSeg(null)} />
+                onMouseLeave={() => setHoveredSeg(null)}
+                onClick={() => {
+                  if (seg.label === 'Not Provided' && onSegmentClick) {
+                    onSegmentClick();
+                  }
+                }}
+              />
           );
           offset += dash;
           return el;
@@ -73,7 +79,7 @@ function DonutSegments({ segments }: { segments: { label: string; count: number;
   );
 }
 
-function EnlargedDonutSegments({ segments }: { segments: { label: string; count: number; pct: number; color: string }[] }) {
+function EnlargedDonutSegments({ segments, onSegmentClick }: { segments: { label: string; count: number; pct: number; color: string }[], onSegmentClick?: () => void }) {
   const [hoveredSeg, setHoveredSeg] = useState<{ label: string; count: number } | null>(null);
   const displayTotal = segments.reduce((s, x) => s + x.count, 0);
   const totalCount = displayTotal || 1;
@@ -91,9 +97,15 @@ function EnlargedDonutSegments({ segments }: { segments: { label: string; count:
               strokeWidth={28} strokeLinecap="butt"
               strokeDasharray={`${dash} ${circ * 10}`}
               strokeDashoffset={-offset} transform={`rotate(-90 ${cx} ${cy})`}
-                className="cursor-pointer transition-opacity duration-200 hover:opacity-80"
+                className={`transition-opacity duration-200 hover:opacity-80 ${seg.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:stroke-gray-500' : 'cursor-default'}`}
                 onMouseEnter={() => setHoveredSeg(seg)}
-                onMouseLeave={() => setHoveredSeg(null)} />
+                onMouseLeave={() => setHoveredSeg(null)}
+                onClick={() => {
+                  if (seg.label === 'Not Provided' && onSegmentClick) {
+                    onSegmentClick();
+                  }
+                }}
+              />
           );
           offset += dash;
           return el;
@@ -127,15 +139,21 @@ function EnlargedDonutSegments({ segments }: { segments: { label: string; count:
 }
 
 
-function HorizontalBars({ segments }: { segments: { label: string; count: number; pct: number; color: string }[] }) {
+function HorizontalBars({ segments, onSegmentClick }: { segments: { label: string; count: number; pct: number; color: string }[], onSegmentClick?: () => void }) {
   return (
     <div className="flex flex-col gap-2.5 w-full">
       {segments.map((s) => (
         <div key={s.label} className="flex items-center gap-2">
           <span className="text-xs text-gray-500 dark:text-gray-400 w-20 sm:w-24 flex-shrink min-w-0 truncate">{s.label}</span>
           <div className="flex-1 min-w-[24px] h-2.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${s.pct}%`, background: s.color }} />
+            <div className={`h-full rounded-full transition-all duration-500 ${s.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+              style={{ width: `${s.pct}%`, background: s.color }}
+              onClick={() => {
+                if (s.label === 'Not Provided' && onSegmentClick) {
+                  onSegmentClick();
+                }
+              }}
+            />
           </div>
           <span className="text-xs font-medium text-gray-700 dark:text-gray-200 min-w-[32px] w-auto text-right flex-shrink-0">
             {formatCount(s.count)}
@@ -146,15 +164,21 @@ function HorizontalBars({ segments }: { segments: { label: string; count: number
   );
 }
 
-function EnlargedHorizontalBars({ segments }: { segments: { label: string; count: number; pct: number; color: string }[] }) {
+function EnlargedHorizontalBars({ segments, onSegmentClick }: { segments: { label: string; count: number; pct: number; color: string }[], onSegmentClick?: () => void }) {
   return (
     <div className="flex flex-col gap-5 w-full max-w-2xl mx-auto">
       {segments.map((s) => (
         <div key={s.label} className="flex items-center gap-4">
           <span className="text-base text-gray-600 dark:text-gray-300 w-32 flex-shrink-0">{s.label}</span>
           <div className="flex-1 h-6 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${s.pct}%`, background: s.color }} />
+            <div className={`h-full rounded-full transition-all duration-500 ${s.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+              style={{ width: `${s.pct}%`, background: s.color }}
+              onClick={() => {
+                if (s.label === 'Not Provided' && onSegmentClick) {
+                  onSegmentClick();
+                }
+              }}
+            />
           </div>
           <span className="text-base font-semibold text-gray-800 dark:text-gray-100 min-w-[60px] w-auto text-right flex-shrink-0">
             {formatCount(s.count)}
@@ -174,11 +198,13 @@ function DemographicCard({
   segments,
   type,
   infoText,
+  onSegmentClick,
 }: {
   title: string;
   segments: { label: string; count: number; pct: number; color: string }[];
   type: "donut" | "bar";
   infoText?: string;
+  onSegmentClick?: () => void;
 }) {
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -239,9 +265,9 @@ function DemographicCard({
         <CardContent>
           {segments.length > 0 ? (
             type === "donut" ? (
-              <DonutSegments segments={segments} />
+              <DonutSegments segments={segments} onSegmentClick={onSegmentClick} />
             ) : (
-              <HorizontalBars segments={segments} />
+              <HorizontalBars segments={segments} onSegmentClick={onSegmentClick} />
             )
           ) : (
             <div className="flex items-center justify-center py-8">
@@ -283,9 +309,9 @@ function DemographicCard({
 
               {/* Enlarged Chart */}
               {type === "donut" ? (
-                <EnlargedDonutSegments segments={segments} />
+                <EnlargedDonutSegments segments={segments} onSegmentClick={onSegmentClick} />
               ) : (
-                <EnlargedHorizontalBars segments={segments} />
+                <EnlargedHorizontalBars segments={segments} onSegmentClick={onSegmentClick} />
               )}
             </div>
           </div>,
@@ -296,21 +322,50 @@ function DemographicCard({
 }
 
 export function UserDemographicsSection({ data }: Props) {
+  const [selectedMissingField, setSelectedMissingField] = useState<{ title: string; key: string } | null>(null);
+
   const ageSegments = data.ageGroups.map((d) => ({ ...d, color: AGE_COLORS[d.label] ?? "#6B7280" }));
   const genderSegments = data.genderSplit.map((d) => ({ ...d, color: GENDER_COLORS[d.label] ?? "#6B7280" }));
   const expSegments = data.farmingExperience.map((d, i) => ({ ...d, color: EXP_COLORS[i % EXP_COLORS.length] }));
   const landSegments = (data.landHolding ?? []).map((d) => ({ ...d, color: LAND_COLORS[d.label] ?? "#6B7280" }));
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-      <DemographicCard title="Age Group" segments={ageSegments} type="donut" />
-      <DemographicCard title="Gender Split" segments={genderSegments} type="donut" />
-      <DemographicCard title="Farming Experience" segments={expSegments} type="bar" />
-      <DemographicCard
-        title="Land Holding"
-        segments={landSegments}
-        type="donut"
-        infoText="Land holding size classification"
-      />    </div>
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <DemographicCard 
+          title="Age Group" 
+          segments={ageSegments} 
+          type="donut" 
+          onSegmentClick={() => setSelectedMissingField({ title: "Age Group", key: "age" })}
+        />
+        <DemographicCard 
+          title="Gender Split" 
+          segments={genderSegments} 
+          type="donut" 
+          onSegmentClick={() => setSelectedMissingField({ title: "Gender Split", key: "gender" })}
+        />
+        <DemographicCard 
+          title="Farming Experience" 
+          segments={expSegments} 
+          type="bar" 
+          onSegmentClick={() => setSelectedMissingField({ title: "Farming Experience", key: "yearsOfExperience" })}
+        />
+        <DemographicCard
+          title="Land Holding"
+          segments={landSegments}
+          type="donut"
+          infoText="Land holding size classification"
+          onSegmentClick={() => setSelectedMissingField({ title: "Land Holding", key: "landhold" })}
+        />    
+      </div>
+      
+      {selectedMissingField && (
+        <MissingDemographicsModal
+          fieldTitle={selectedMissingField.title}
+          fieldKey={selectedMissingField.key}
+          onClose={() => setSelectedMissingField(null)}
+        />
+      )}
+    </>
   );
 }

@@ -839,6 +839,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     sortBy = 'totalQuestions',
     sortOrder = 'desc',
     activeTodayByProfile = false,
+    missingDemographicField?: string,
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -860,6 +861,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         sortOrder,
         lowFeedbackOnly,
         activeTodayByProfile,
+        missingDemographicField,
       );
       return data;
     } catch (error) {

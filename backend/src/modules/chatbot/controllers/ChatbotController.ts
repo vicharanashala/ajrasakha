@@ -399,6 +399,7 @@ async getDistrictAnalyticsByState(
       query.sortBy,
       query.sortOrder,
       activeTodayByProfile,
+      query.missingDemographicField,
     );
   }
 

@@ -4253,6 +4253,7 @@ export class ChatbotRepository implements IChatbotRepository {
     sortOrder = 'asc',
     lowFeedbackOnly = false,
     activeTodayByProfile = false,
+    missingDemographicField = '',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -4349,6 +4350,19 @@ export class ChatbotRepository implements IChatbotRepository {
         userFilter.$and = [
           ...(userFilter.$and ?? []),
           {$or: [{farmerProfile: {$exists: false}}, {farmerProfile: null}]},
+        ];
+      }
+
+      if (missingDemographicField) {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              {[`farmerProfile.${missingDemographicField}`]: {$exists: false}},
+              {[`farmerProfile.${missingDemographicField}`]: null},
+              {[`farmerProfile.${missingDemographicField}`]: ''},
+            ],
+          },
         ];
       }
 
@@ -5283,6 +5297,7 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
 
       const userDocFilter = this.buildUserDocFilter(userType);
+      const totalUsers = await this.users.countDocuments(userDocFilter, { session });
 
       const [ageRaw, genderRaw, expRaw, landRaw] = await Promise.all([
         // Age group buckets
@@ -5396,7 +5411,6 @@ export class ChatbotRepository implements IChatbotRepository {
         45: '45-60',
         '60+': '60+',
       };
-      const ageTotal = ageRaw.reduce((s, r) => s + r.count, 0);
       const ageGroupsMap = new Map(ageRaw.map(r => [r._id, r.count]));
 
       const ageGroups: DemographicEntry[] = [18, 30, 45, '60+'].map(key => {
@@ -5404,8 +5418,14 @@ export class ChatbotRepository implements IChatbotRepository {
         return {
           label: ageBoundaryLabel[key],
           count,
-          pct: toPct(count, ageTotal),
+          pct: toPct(count, totalUsers),
         };
+      });
+      const providedAgeCount = ageGroups.reduce((s, g) => s + g.count, 0);
+      ageGroups.push({
+        label: 'Not Provided',
+        count: totalUsers - providedAgeCount,
+        pct: toPct(totalUsers - providedAgeCount, totalUsers),
       });
 
       let maleCount = 0;
@@ -5423,20 +5443,25 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       });
 
-      const genderTotal = maleCount + femaleCount + othersCount;
+      const providedGenderCount = maleCount + femaleCount + othersCount;
       const genderSplit: DemographicEntry[] = [
-        {label: 'Male', count: maleCount, pct: toPct(maleCount, genderTotal)},
+        {label: 'Male', count: maleCount, pct: toPct(maleCount, totalUsers)},
         {
           label: 'Female',
           count: femaleCount,
-          pct: toPct(femaleCount, genderTotal),
+          pct: toPct(femaleCount, totalUsers),
         },
         {
           label: 'Others',
           count: othersCount,
-          pct: toPct(othersCount, genderTotal),
+          pct: toPct(othersCount, totalUsers),
         },
-      ].filter(g => g.count > 0);
+        {
+          label: 'Not Provided',
+          count: totalUsers - providedGenderCount,
+          pct: toPct(totalUsers - providedGenderCount, totalUsers),
+        }
+      ].filter(g => g.count > 0 || g.label === 'Not Provided');
 
       const expBoundaryLabel: Record<string | number, string> = {
         0: 'Less than 2 yrs',
@@ -5445,24 +5470,40 @@ export class ChatbotRepository implements IChatbotRepository {
         10: '10 - 20 yrs',
         '20+': '20+ yrs',
       };
-      const expTotal = expRaw.reduce((s, r) => s + r.count, 0);
-      const farmingExperience: DemographicEntry[] = expRaw.map(r => ({
-        label: expBoundaryLabel[r._id] ?? String(r._id),
-        count: r.count,
-        pct: toPct(r.count, expTotal),
-      }));
+      let providedExpCount = 0;
+      const farmingExperience: DemographicEntry[] = expRaw.map(r => {
+        providedExpCount += r.count;
+        return {
+          label: expBoundaryLabel[r._id] ?? String(r._id),
+          count: r.count,
+          pct: toPct(r.count, totalUsers),
+        };
+      });
+      farmingExperience.push({
+        label: 'Not Provided',
+        count: totalUsers - providedExpCount,
+        pct: toPct(totalUsers - providedExpCount, totalUsers),
+      });
 
       const landBoundaryLabel: Record<string | number, string> = {
         0: 'Small',
         2: 'Medium',
         Large: 'Large',
       };
-      const landTotal = landRaw.reduce((s, r) => s + r.count, 0);
-      const landHolding: DemographicEntry[] = landRaw.map(r => ({
-        label: landBoundaryLabel[r._id] ?? String(r._id),
-        count: r.count,
-        pct: toPct(r.count, landTotal),
-      }));
+      let providedLandCount = 0;
+      const landHolding: DemographicEntry[] = landRaw.map(r => {
+        providedLandCount += r.count;
+        return {
+          label: landBoundaryLabel[r._id] ?? String(r._id),
+          count: r.count,
+          pct: toPct(r.count, totalUsers),
+        };
+      });
+      landHolding.push({
+        label: 'Not Provided',
+        count: totalUsers - providedLandCount,
+        pct: toPct(totalUsers - providedLandCount, totalUsers),
+      });
 
       return {ageGroups, genderSplit, farmingExperience, landHolding};
     } catch (error) {

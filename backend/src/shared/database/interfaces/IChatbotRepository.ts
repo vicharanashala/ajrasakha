@@ -365,6 +365,7 @@ export interface IChatbotRepository {
     sortOrder?: string,
     lowFeedbackOnly?: boolean,
     activeTodayByProfile?: boolean,
+    missingDemographicField?: string,
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
