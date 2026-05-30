@@ -105,7 +105,7 @@ const AliasEntryForm = ({
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/80 bg-gray-50/50 dark:bg-[#141414] p-4 space-y-3">
       <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        {isChemical ? "Add New Trade Name" : isOther ? "Add New Alias" : "Add New Alias"}
+        {isChemical ? "Add New Trade Name" : "Add New Alias"}
       </p>
       <div className="grid grid-cols-2 gap-2.5">
         <div className="space-y-1">
@@ -120,7 +120,7 @@ const AliasEntryForm = ({
               size="sm"
               className="h-8 text-xs w-full bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700"
             >
-              <SelectValue placeholder="Select…" />
+              <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
               {INDIAN_LANGUAGES.map((lang) => (
@@ -216,7 +216,7 @@ const AliasEntryForm = ({
           className={`h-7 text-[11px] gap-1 px-3 rounded-md disabled:opacity-40 ${addBtnClass}`}
         >
           <Plus className="h-3 w-3" />
-          {isChemical ? "Add Trade Name" : isOther ? "Add Alias" : "Add Alias"}
+          {isChemical ? "Add Trade Name" : "Add Alias"}
         </Button>
       </div>
     </div>
@@ -584,11 +584,14 @@ const AliasSection = ({
   );
 };
 
-// ── Main Modal ────────────────────────────────────────────────────────────────
+// -- Main Modal ----------------------------------------------------------------
+type ActiveTab = "crop" | "chemical";
+
 export const CropManagementModal = ({
   open,
   onOpenChange,
 }: CropManagementModalProps) => {
+  // ── Add-form state ──────────────────────────────────────────────────────────
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [entryType, setEntryType] = useState<EntryType>("crop");
   const [newCropName, setNewCropName] = useState("");
@@ -598,54 +601,95 @@ export const CropManagementModal = ({
   const [otherType, setOtherType] = useState("");
   const [aliasManagerCrop, setAliasManagerCrop] = useState<ICropResponse | null>(null);
 
-  const [searchInput, setSearchInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 10;
+  // ── Tab state ───────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<ActiveTab>("crop");
 
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ── Per-tab search / pagination ─────────────────────────────────────────────
+  const [cropSearchInput, setCropSearchInput] = useState("");
+  const [cropSearchQuery, setCropSearchQuery] = useState("");
+  const [cropPage, setCropPage] = useState(1);
+
+  const [chemSearchInput, setChemSearchInput] = useState("");
+  const [chemSearchQuery, setChemSearchQuery] = useState("");
+  const [chemPage, setChemPage] = useState(1);
+
+  const cropDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chemDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const PAGE_SIZE_TAB = 10;
+
+  const handleCropSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setSearchInput(value);
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
-      setSearchQuery(value);
-      setPage(1);
-    }, 350);
+    setCropSearchInput(value);
+    if (cropDebounce.current) clearTimeout(cropDebounce.current);
+    cropDebounce.current = setTimeout(() => { setCropSearchQuery(value); setCropPage(1); }, 350);
   }, []);
 
+  const handleChemSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setChemSearchInput(value);
+    if (chemDebounce.current) clearTimeout(chemDebounce.current);
+    chemDebounce.current = setTimeout(() => { setChemSearchQuery(value); setChemPage(1); }, 350);
+  }, []);
+
+  // ── API calls ───────────────────────────────────────────────────────────────
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
   const { mutateAsync: bulkUploadCrops, isPending: isBulkUploading } = useBulkUploadCrops();
-  const { data: cropsData, isLoading: isLoadingList, isFetching } = useGetAllCrops({
-    search: searchQuery,
-    page,
-    limit: PAGE_SIZE,
+
+  const { data: cropTabData, isLoading: isCropTabLoading, isFetching: isCropTabFetching } = useGetAllCrops({
+    search: cropSearchQuery,
+    page: cropPage,
+    limit: PAGE_SIZE_TAB,
+    type: "crop",
   });
+
+  const { data: chemTabData, isLoading: isChemTabLoading, isFetching: isChemTabFetching } = useGetAllCrops({
+    search: chemSearchQuery,
+    page: chemPage,
+    limit: PAGE_SIZE_TAB,
+    type: "chemical",
+  });
+
   const { data: allCropOptionsData } = useGetAllCrops({
     type: "crop",
     page: 1,
     limit: 500,
   });
 
-  const items: ICropResponse[] = cropsData?.crops || [];
-  const allCropOptions: ICropResponse[] =
-    allCropOptionsData?.crops || items.filter((item) => (item.type ?? "crop") === "crop");
-  const totalPages = cropsData?.totalPages ?? 1;
+  const cropItems: ICropResponse[] = cropTabData?.crops || [];
+  const cropTotalPages = cropTabData?.totalPages ?? 1;
+  const chemItems: ICropResponse[] = chemTabData?.crops || [];
+  const chemTotalPages = chemTabData?.totalPages ?? 1;
+  const allCropOptions: ICropResponse[] = allCropOptionsData?.crops || cropItems;
 
-  const resetForm = () => {
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  const resetAddForm = () => {
     setNewCropName("");
     setNewAliases([]);
     setChemicalStatus("");
     setNewChemicalCrops([]);
-    setChemicalStatus("");
     setOtherType("");
-    setEntryType("crop");
+    setEntryType(activeTab);
     setIsAddFormOpen(false);
-    setSearchInput("");
-    setSearchQuery("");
-    setPage(1);
+  };
+
+  const resetAll = () => {
+    resetAddForm();
+    setActiveTab("crop");
+    setCropSearchInput(""); setCropSearchQuery(""); setCropPage(1);
+    setChemSearchInput(""); setChemSearchQuery(""); setChemPage(1);
+  };
+
+  const handleTabSwitch = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    setEntryType(tab);
+    setIsAddFormOpen(false);
+    setNewCropName("");
+    setNewAliases([]);
+    setChemicalStatus("");
+    setNewChemicalCrops([]);
+    setOtherType("");
   };
 
   const isSaving = isCreating;
@@ -653,7 +697,6 @@ export const CropManagementModal = ({
   const handleSave = async () => {
     const name = newCropName.trim();
     if (!name) return;
-
     if (!window.confirm(`Are you sure you want to create "${name}"?`)) return;
     try {
       const res = await createCrop({
@@ -664,33 +707,28 @@ export const CropManagementModal = ({
       });
       if (res?.success) {
         toast.success(`"${name}" added successfully!`);
-        resetForm();
+        resetAddForm();
       }
     } catch (error: any) {
       toast.error(error?.message || "Failed to add entry");
     }
   };
 
-  const handleBulkUploadClick = () => {
-    fileInputRef.current?.click();
-  };
+  const handleBulkUploadClick = () => fileInputRef.current?.click();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (!file.name.toLowerCase().endsWith('.csv')) {
       toast.error("Please upload a CSV file");
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-
     if (entryType !== "crop" && entryType !== "chemical") {
       toast.error("Bulk upload is only supported for crop and chemical types");
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-
     try {
       const res = await bulkUploadCrops({ file, type: entryType as "crop" | "chemical" });
       if (res?.success) {
@@ -703,20 +741,82 @@ export const CropManagementModal = ({
     }
   };
 
+  // ── Shared row renderer ─────────────────────────────────────────────────────
+  const renderItem = (item: ICropResponse, index: number, listLength: number) => {
+    const itemType = item.type ?? "crop";
+    const isChemical = itemType === "chemical";
+    const isCrop = itemType === "crop";
+    const isOther = !isCrop && !isChemical;
+    const id = item._id || item.name;
+    const name = item.name;
+    const aliasCount = (item.aliases || []).length;
+    const status = item.status ?? null;
+    const Icon = isChemical ? FlaskConical : isOther ? LayoutGrid : Wheat;
+
+    return (
+      <div key={id}>
+        <div className="group flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isChemical ? "bg-purple-100/80 dark:bg-purple-500/10" : isOther ? "bg-blue-100/80 dark:bg-blue-500/10" : "bg-amber-100/80 dark:bg-amber-500/10"}`}>
+              <Icon className={`h-3.5 w-3.5 ${isChemical ? "text-purple-600 dark:text-purple-400" : isOther ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"}`} />
+            </div>
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight capitalize">
+                {name}
+              </p>
+              {aliasCount > 0 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700/60 leading-tight">
+                  {aliasCount} alias{aliasCount !== 1 ? "es" : ""}
+                </span>
+              )}
+              {isOther && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20 capitalize">
+                  {item.type}
+                </span>
+              )}
+              {status === "Restricted" && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-yellow-100 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-500/20">
+                  Restricted
+                </span>
+              )}
+              {status === "Banned" && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20">
+                  Banned
+                </span>
+              )}
+            </div>
+          </div>
+
+          <button
+            className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 border border-transparent hover:border-blue-100 dark:hover:border-blue-500/20 transition-all flex-shrink-0"
+            onClick={() => setAliasManagerCrop(item)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            <span>Manage Aliases</span>
+          </button>
+        </div>
+        {index < listLength - 1 && (
+          <div className="mx-3 border-b border-gray-100 dark:border-gray-800/50" />
+        )}
+      </div>
+    );
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <>
       <Dialog
         open={open}
         onOpenChange={(val) => {
           if (!val) {
-            resetForm();
+            resetAll();
             setAliasManagerCrop(null);
           }
           onOpenChange(val);
         }}
       >
         <DialogContent
-          className="sm:max-w-[540px] max-w-[95vw] h-[75vh] p-0 flex flex-col overflow-hidden gap-0"
+          className="sm:max-w-[540px] max-w-[95vw] h-[80vh] p-0 flex flex-col overflow-hidden gap-0"
           showCloseButton={false}
         >
           {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -727,15 +827,22 @@ export const CropManagementModal = ({
                 AgriTech Management
               </DialogTitle>
               <DialogDescription className="text-xs text-gray-500">
-                Manage crop names & aliases
+                Manage crop names &amp; aliases
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
-                className="h-8 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
-                onClick={() => setIsAddFormOpen(!isAddFormOpen)}
+                className={`h-8 text-xs gap-1.5 shadow-sm text-white transition-colors ${
+                  activeTab === "chemical"
+                    ? "bg-purple-600 hover:bg-purple-700"
+                    : "bg-amber-600 hover:bg-amber-700"
+                }`}
+                onClick={() => {
+                  setEntryType(activeTab);
+                  setIsAddFormOpen(!isAddFormOpen);
+                }}
               >
                 <Plus
                   className={`h-3.5 w-3.5 transition-transform duration-200 ${
@@ -754,12 +861,68 @@ export const CropManagementModal = ({
             </div>
           </div>
 
-          {/* ── Scrollable Body ─────────────────────────────────────────────── */}
+          {/* Tab Bar */}
+          <div className="flex items-end gap-0 px-5 pt-3 pb-0 flex-shrink-0">
+            {/* Crops tab */}
+            <button
+              id="agritech-tab-crop"
+              onClick={() => handleTabSwitch("crop")}
+              className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none ${
+                activeTab === "crop"
+                  ? "border-b-amber-500 text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-500/5"
+                  : "border-b-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+              }`}
+            >
+              <Wheat className={`h-3.5 w-3.5 ${activeTab === "crop" ? "text-amber-600 dark:text-amber-400" : ""}`} />
+              Crops
+              {cropTabData && (
+                <span className={`ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold leading-none ${
+                  activeTab === "crop"
+                    ? "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                    : "bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-500"
+                }`}>
+                  {(cropTabData as any).total ?? cropItems.length}
+                </span>
+              )}
+            </button>
+
+            {/* Chemicals tab */}
+            <button
+              id="agritech-tab-chemical"
+              onClick={() => handleTabSwitch("chemical")}
+              className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all duration-200 focus:outline-none ${
+                activeTab === "chemical"
+                  ? "border-b-purple-500 text-purple-700 dark:text-purple-400 bg-purple-50/60 dark:bg-purple-500/5"
+                  : "border-b-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+              }`}
+            >
+              <FlaskConical className={`h-3.5 w-3.5 ${activeTab === "chemical" ? "text-purple-600 dark:text-purple-400" : ""}`} />
+              Chemicals
+              {chemTabData && (
+                <span className={`ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold leading-none ${
+                  activeTab === "chemical"
+                    ? "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400"
+                    : "bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-500"
+                }`}>
+                  {(chemTabData as any).total ?? chemItems.length}
+                </span>
+              )}
+            </button>
+
+            {/* Rail fills remaining width */}
+            <div className="flex-1 border-b-2 border-b-gray-100 dark:border-b-gray-800" />
+          </div>
+
+          {/* Scrollable Body */}
           <div className="flex-1 overflow-y-auto">
 
             {/* ── Add Form ────────────────────────────────────────────────── */}
             {isAddFormOpen && (
-              <div className="mx-5 mt-4 mb-3 p-4 rounded-xl border-l-[3px] border-l-amber-500 border border-amber-200/60 dark:border-amber-500/15 bg-amber-50/30 dark:bg-amber-500/[0.03] space-y-3">
+              <div className={`mx-5 mt-4 mb-3 p-4 rounded-xl border-l-[3px] space-y-3 ${
+                activeTab === "chemical"
+                  ? "border-l-purple-500 border border-purple-200/60 dark:border-purple-500/15 bg-purple-50/30 dark:bg-purple-500/[0.03]"
+                  : "border-l-amber-500 border border-amber-200/60 dark:border-amber-500/15 bg-amber-50/30 dark:bg-amber-500/[0.03]"
+              }`}>
 
                 {/* Type selector */}
                 <div>
@@ -775,6 +938,10 @@ export const CropManagementModal = ({
                       };
                       const labels = { crop: "Crop", chemical: "Chemical", other: "Other" };
                       const isActive = entryType === t;
+                      const activeClass =
+                        t === "chemical" ? "bg-purple-600 text-white border-purple-600" :
+                        t === "crop" ? "bg-amber-600 text-white border-amber-600" :
+                        "bg-blue-600 text-white border-blue-600";
                       return (
                         <button
                           key={t}
@@ -782,7 +949,7 @@ export const CropManagementModal = ({
                           onClick={() => { setEntryType(t); setNewCropName(""); setNewAliases([]); setChemicalStatus(""); setOtherType(""); }}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                             isActive
-                              ? "bg-amber-600 text-white border-amber-600"
+                              ? activeClass
                               : "bg-white dark:bg-[#141414] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-600/40"
                           }`}
                         >
@@ -840,7 +1007,6 @@ export const CropManagementModal = ({
                         className="h-9 text-sm bg-white dark:bg-[#141414] border-gray-200 dark:border-gray-700"
                       />
                     </div>
-
                     <div>
                       <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
                         Crops
@@ -877,7 +1043,11 @@ export const CropManagementModal = ({
                     size="sm"
                     variant="outline"
                     disabled={(entryType !== "crop" && entryType !== "chemical") || isBulkUploading}
-                    className="h-8 text-xs gap-1.5 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`h-8 text-xs gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      entryType === "chemical"
+                        ? "border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
+                        : "border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                    }`}
                     onClick={handleBulkUploadClick}
                   >
                     {isBulkUploading ? (
@@ -898,7 +1068,11 @@ export const CropManagementModal = ({
                     size="sm"
                     onClick={handleSave}
                     disabled={!newCropName.trim() || isSaving}
-                    className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
+                    className={`h-8 text-xs text-white rounded-lg ${
+                      entryType === "chemical"
+                        ? "bg-purple-600 hover:bg-purple-700"
+                        : "bg-amber-600 hover:bg-amber-700"
+                    }`}
                   >
                     {isSaving ? (
                       <>
@@ -913,124 +1087,133 @@ export const CropManagementModal = ({
               </div>
             )}
 
-            {/* ── Search Bar ────────────────────────────────────────────── */}
-            <div className="px-5 pt-3 pb-1">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                <Input
-                  placeholder="Search entries…"
-                  value={searchInput}
-                  onChange={handleSearchChange}
-                  className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
-                />
-                {isFetching && !isLoadingList && (
-                  <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
-                )}
-              </div>
-            </div>
+            {/* ── CROPS TAB ──────────────────────────────────────────────────── */}
+            {activeTab === "crop" && (
+              <>
+                <div className="px-5 pt-3 pb-1">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                    <Input
+                      id="agritech-crop-search"
+                      placeholder="Search crops..."
+                      value={cropSearchInput}
+                      onChange={handleCropSearchChange}
+                      className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
+                    />
+                    {isCropTabFetching && !isCropTabLoading && (
+                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+                    )}
+                  </div>
+                </div>
 
             {/* ── Crop List ──────────────────────────────────────────────── */}
-            <div className="px-5 py-3">
-              {isLoadingList ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                <div className="px-5 py-3">
+                  {isCropTabLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-5 w-5 animate-spin text-amber-400" />
+                    </div>
+                  ) : cropItems.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400 dark:text-gray-500">
+                        {cropSearchQuery ? `No crops matching "${cropSearchQuery}"` : "No crops added yet"}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-px">
+                      {cropItems.map((item, index) => renderItem(item, index, cropItems.length))}
+                    </div>
+                  )}
                 </div>
-              ) : items.length === 0 ? (
-                <div className="text-center py-12">
-                  <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400 dark:text-gray-500">
-                    {searchQuery ? `No results for "${searchQuery}"` : "No entries added yet"}
-                  </p>
+
+                {cropTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-gray-800/60">
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                      Page {cropPage} of {cropTotalPages}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCropPage((p) => Math.max(1, p - 1))}
+                        disabled={cropPage === 1}
+                        className="h-7 w-7 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setCropPage((p) => Math.min(cropTotalPages, p + 1))}
+                        disabled={cropPage === cropTotalPages}
+                        className="h-7 w-7 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── CHEMICALS TAB ──────────────────────────────────────────────── */}
+            {activeTab === "chemical" && (
+              <>
+                <div className="px-5 pt-3 pb-1">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                    <Input
+                      id="agritech-chemical-search"
+                      placeholder="Search chemicals..."
+                      value={chemSearchInput}
+                      onChange={handleChemSearchChange}
+                      className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
+                    />
+                    {isChemTabFetching && !isChemTabLoading && (
+                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-px">
-                  {items.map((item, index) => {
-                    const itemType = item.type ?? "crop";
-                    const isChemical = itemType === "chemical";
-                    const isCrop = itemType === "crop";
-                    const isOther = !isCrop && !isChemical;
-                    const id = item._id || item.name;
-                    const name = item.name;
-                    const aliasCount = (item.aliases || []).length;
-                    const status = item.status ?? null;
 
-                    const Icon = isChemical ? FlaskConical : isOther ? LayoutGrid : Wheat;
-
-                    return (
-                      <div key={id}>
-                        <div className="group flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isChemical ? "bg-purple-100/80 dark:bg-purple-500/10" : isOther ? "bg-blue-100/80 dark:bg-blue-500/10" : "bg-amber-100/80 dark:bg-amber-500/10"}`}>
-                              <Icon className={`h-3.5 w-3.5 ${isChemical ? "text-purple-600 dark:text-purple-400" : isOther ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"}`} />
-                            </div>
-                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight capitalize">
-                                {name}
-                              </p>
-                              {aliasCount > 0 && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700/60 leading-tight">
-                                  {aliasCount} alias{aliasCount !== 1 ? "es" : ""}
-                                </span>
-                              )}
-                              {isOther && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20 capitalize">
-                                  {item.type}
-                                </span>
-                              )}
-                              {status === "Restricted" && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-yellow-100 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-500/20">
-                                  Restricted
-                                </span>
-                              )}
-                              {status === "Banned" && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20">
-                                  Banned
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <button
-                            className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 border border-transparent hover:border-blue-100 dark:hover:border-blue-500/20 transition-all flex-shrink-0"
-                            onClick={() => setAliasManagerCrop(item)}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            <span>Manage Aliases</span>
-                          </button>
-                        </div>
-                        {index < items.length - 1 && (
-                          <div className="mx-3 border-b border-gray-100 dark:border-gray-800/50" />
-                        )}
-                      </div>
-                    );
-                  })}
+                <div className="px-5 py-3">
+                  {isChemTabLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-5 w-5 animate-spin text-purple-400" />
+                    </div>
+                  ) : chemItems.length === 0 ? (
+                    <div className="text-center py-12">
+                      <FlaskConical className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400 dark:text-gray-500">
+                        {chemSearchQuery ? `No chemicals matching "${chemSearchQuery}"` : "No chemicals added yet"}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-px">
+                      {chemItems.map((item, index) => renderItem(item, index, chemItems.length))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* ── Pagination ─────────────────────────────────────────────── */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-gray-800/60">
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                  Page {page} of {totalPages}
-                </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="h-7 w-7 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="h-7 w-7 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
+                {chemTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-gray-800/60">
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                      Page {chemPage} of {chemTotalPages}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setChemPage((p) => Math.max(1, p - 1))}
+                        disabled={chemPage === 1}
+                        className="h-7 w-7 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setChemPage((p) => Math.min(chemTotalPages, p + 1))}
+                        disabled={chemPage === chemTotalPages}
+                        className="h-7 w-7 flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </DialogContent>
