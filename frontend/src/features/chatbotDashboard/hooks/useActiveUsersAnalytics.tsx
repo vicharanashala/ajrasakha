@@ -122,13 +122,27 @@ export const useAllWhatsappUsers = () => {
   });
 };
 
-export const useClosedAndNotifedData = (source: string)=>{
+export const useClosedAndNotifedData = (source: string, startDate?: string, endDate?: string)=>{
   return useQuery({
     queryKey: ["closed-notified-data",
       source,
+      startDate,
+      endDate,
     ],
     queryFn: () => {
-      return chatbotService.getClosedAndNotifedData(source);
+      return chatbotService.getClosedAndNotifedData(source, startDate, endDate);
+    },
+  });
+}
+
+export const useMonthlyChurnRate = (source: string, userType: string)=>{
+  return useQuery({
+    queryKey: ["monthly-churn-rate",
+      source,
+      userType,
+    ],
+    queryFn: () => {
+      return chatbotService.getMonthlyChurnRate(source, userType);
     },
   });
 }

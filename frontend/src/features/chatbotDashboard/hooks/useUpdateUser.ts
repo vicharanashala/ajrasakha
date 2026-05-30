@@ -6,20 +6,22 @@ import { toast } from 'sonner';
 type FarmerProfileUpdate = {
   farmerName?: string;
   age?: number;
-  gender?: string;
-  villageName?: string;
-  blockName?: string;
-  district?: string;
-  state?: string;
+  gender?: string | null;
+  villageName?: string | null;
+  blockName?: string | null;
+  district?: string | null;
+  state?: string | null;
   phoneNo?: string;
+  nearestKVK?: string,
   languagePreference?: string;
+  landhold?: number;
   yearsOfExperience?: number;
   cropsCultivated?: string[];
   primaryCrop?: string;
   secondaryCrop?: string;
   awarenessOfKCC?: boolean;
   usesAgriApps?: boolean;
-  highestEducatedPerson?: string;
+  highestEducatedPerson?: string | null;
   numberOfSmartphones?: number;
   platform?: string;
 };

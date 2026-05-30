@@ -631,14 +631,16 @@ async downloadChatbotReport(
       farmerProfile?: {
         farmerName?: string;
         age?: number;
-        gender?: string;
+        gender?: string | null;
         villageName?: string;
         blockName?: string;
         district?: string;
         state?: string;
         phoneNo?: string;
+        nearestKVK?: string;
         languagePreference?: string;
         yearsOfExperience?: number;
+        totalLandCultivating?: number
         cropsCultivated?: string[];
         primaryCrop?: string;
         secondaryCrop?: string;
@@ -654,6 +656,7 @@ async downloadChatbotReport(
     if (!source) {
       source = 'vicharanashala';
     }
+    console.log("Body---------", body);
     const success = await this.chatbotService.updateUser(userId, source, body);
     return { success, message: success ? 'User updated successfully' : 'Failed to update user' };
   }
@@ -829,7 +832,25 @@ async getUserQuestionsData(
   async getClosedAndNotifedData(
     @QueryParam('source')
     source: string= 'vicharanashala',
+    @QueryParam('startDate')
+    startDate?: string,
+    @QueryParam('endDate')
+    endDate?: string,
   ): Promise<any> {
-    return await this.chatbotService.getClosedAndNotifedData(source);
+    return await this.chatbotService.getClosedAndNotifedData(source, startDate, endDate);
   }
+
+  @Get('/monthly-churn-rate')
+  @HttpCode(200)
+  @Authorized()
+  async getMonthlyChurnRate(   
+    @QueryParam('source')
+    source: string= 'vicharanashala',
+
+    @QueryParam('userType')
+    userType: string= 'all',
+  ):Promise<any> {
+    return await this.chatbotService.getMonthlyChurnRate(source, userType);
+  }
+
 }

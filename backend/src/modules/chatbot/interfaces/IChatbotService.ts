@@ -122,6 +122,7 @@ export interface IChatbotService {
         district?: string;
         state?: string;
         phoneNo?: string;
+        nearestKVK?: string
         languagePreference?: string;
         yearsOfExperience?: number;
         cropsCultivated?: string[];
@@ -157,4 +158,6 @@ export interface IChatbotService {
   notifyUser(userEmail: string, messageId: string, message: string): Promise<any>
   getClosedAndNotifedData(source?: string): Promise<any> 
 
+  getClosedAndNotifedData(source?: string, startDate?: string, endDate?: string): Promise<any>;
+  getMonthlyChurnRate(source: string, userType: string):Promise<any>;
 }
