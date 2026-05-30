@@ -6499,6 +6499,8 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
       const appUsersCollection = await this.db.getCollection<any>('users');
 
+      const unsetPayload: Record<string, ''> = {};
+
       const setPayload: Record<string, any> = {
         updatedAt: new Date(),
       };
@@ -6545,16 +6547,26 @@ export class ChatbotRepository implements IChatbotRepository {
         for (const field of editableFarmerFields) {
           if (Object.prototype.hasOwnProperty.call(profile, field)) {
             const value = (profile as any)[field];
-            if (value !== undefined) {
+            if (value === null) {
+              unsetPayload[`farmerProfile.${field}`] = '';
+            } else if (value !== undefined) {
               setPayload[`farmerProfile.${field}`] = value;
             }
           }
         }
       }
 
+      const updateQuery: any = {
+        $set: setPayload,
+      };
+
+      if (Object.keys(unsetPayload).length > 0) {
+        updateQuery.$unset = unsetPayload;
+      }
+
       const result = await this.users.updateOne(
         {_id: new ObjectId(userId)},
-        {$set: setPayload},
+        updateQuery,
       );
 
       return result.matchedCount > 0;
