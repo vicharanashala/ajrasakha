@@ -1179,10 +1179,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             source={source}
                             userType={filters.userType}
                           />
-                          {/* <ChurnRateChart
+                          <ChurnRateChart
                             source={source}
                             userType={filters.userType}
-                          /> */}
+                          />
                         </div>  
                       )}
                       {source !== "whatsapp" && (
