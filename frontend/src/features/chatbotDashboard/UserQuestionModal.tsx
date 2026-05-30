@@ -17,6 +17,7 @@ import { Activity, ChevronLeft, ChevronRight, CircleHelp, Clock, HelpCircle, His
 import { Switch } from "@/components/atoms/switch";
 import { Label } from "@/components/atoms/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+import { TranslatableText } from "./components/TranslatableText";
 
 interface UserQuestionsModalProps {
   open: boolean;
@@ -72,37 +73,6 @@ const UserQuestionsModal = ({
 
   return (
     <>
-      {/* <Dialog open={timelineModalOpen} onOpenChange={setTimelineModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Repeat Timeline</DialogTitle>
-          </DialogHeader>
-
-          <div className="max-h-[60vh] overflow-y-auto">
-            <div className="flex flex-wrap gap-2">
-              {selectedTimeline
-                ?.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-                ?.map((date: string, idx: number) => (
-                  <div
-                    key={idx}
-                    className="
-                  text-sm
-                  border
-                  rounded-full
-                  px-4
-                  py-2
-                  bg-muted/30
-                  whitespace-nowrap
-                "
-                  >
-                    {new Date(date).toLocaleString()}
-                  </div>
-                ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog> */}
-
       <RepeatTimelineDialog
         open={timelineModalOpen}
         onOpenChange={setTimelineModalOpen}
@@ -307,9 +277,14 @@ function ActivityCard({
       <div className="flex items-start justify-between gap-3">
         {/* Left */}
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-[14.5px] leading-snug line-clamp-2 break-words text-foreground">
+          {/* <p className="font-medium text-[14.5px] leading-snug line-clamp-2 break-words text-foreground">
             {text}
-          </p>
+          </p> */}
+          <TranslatableText
+            text={text!}
+            showTooltip
+            textClassName="text-xs line-clamp-2"
+          />
           <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
             <Clock className="h-3 w-3 shrink-0" aria-hidden />
             {item.createdAt ? new Date(item.createdAt).toLocaleString() : "—"}
@@ -344,6 +319,9 @@ function ActivityCard({
             </TooltipProvider>
           )}
         </div>
+
+
+        
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import {
   type UserDetailsFilters,
 } from './UserDetailsPreferenceFilter';
 import WhatsappHistoryLink from './WhatsappHistoryLink';
+import { TranslatableText } from './TranslatableText';
 
 interface DuplicateQuestionsModalProps {
   onClose: () => void;
@@ -152,18 +153,6 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
                     <td className="px-4 py-3 text-center text-xs text-gray-400 dark:text-gray-500 w-8 align-top">
                       {idx + 1}
                     </td>
-                    {/* <td className="px-4 py-3 align-top whitespace-nowrap">
-                        <span className="font-medium text-gray-800 dark:text-gray-100">
-                          {row.farmerName}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600 dark:text-gray-300">
-                        {row.email}
-                      </td>
-                      <td className="px-4 py-3 align-top">
-                        <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.village}</div>
-                        <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{row.block}</div>
-                      </td> */}
 
                     <td className="px-4 py-3 align-top whitespace-nowrap">
                       {source === "whatsapp" ? (
@@ -175,7 +164,11 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
                       )}
                     </td>
                     <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600 dark:text-gray-300 max-w-[220px]">
-                      {source === "whatsapp" ? row.threadId : row.email}
+                      {source === "whatsapp"
+                        ? row.threadId
+                        : row.email?.length > 25
+                          ? `${row.email.slice(0, 25)}...`
+                          : row.email}
                     </td>
 
                     <td className="px-4 py-3 align-top">
@@ -204,10 +197,20 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
                       </div>
                     </td>
                     <td className="px-4 py-3 align-top text-gray-700 dark:text-gray-300 max-w-[220px]">
-                      {row.question}
+                      {/* {row.question} */}
+                      <TranslatableText
+                        text={row.question!}
+                        showTooltip
+                        textClassName="text-xs line-clamp-2"
+                      />
                     </td>
                     <td className="px-4 py-3 align-top text-gray-500 dark:text-gray-400 italic max-w-[220px]">
-                      {row.referenceQuestion || "—"}
+                      {/* {row.referenceQuestion || "—"} */}
+                      <TranslatableText
+                        text={row.referenceQuestion!}
+                        showTooltip
+                        textClassName="text-xs line-clamp-2"
+                      />
                     </td>
                     <td className="px-4 py-3 align-top text-center">
                       <span
