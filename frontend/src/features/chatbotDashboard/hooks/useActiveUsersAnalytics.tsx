@@ -91,7 +91,7 @@ export const useQueryCategories = (source: string, enabled: boolean = true) => {
   });
 };
 
-export const useInactiveWhatsappUsers = (inactiveUsersPage: number) => {
+export const useInactiveWhatsappUsers = (inactiveUsersPage: number, enabled: boolean = true) => {
   return useQuery({
     queryKey: ["whatsapp-inactive-users",
       inactiveUsersPage,
@@ -99,17 +99,19 @@ export const useInactiveWhatsappUsers = (inactiveUsersPage: number) => {
     queryFn: () => {
       return chatbotService.getInactiveWhatsappUsers(inactiveUsersPage);
     },
+    enabled,
   });
 };
 
 
-export const useUniqueWhatsappUsers = () => {
+export const useUniqueWhatsappUsers = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ["whatsapp-unique-users",
     ],
     queryFn: () => {
       return chatbotService.getUniqueWhatsappUsers();
     },
+    enabled,
   });
 };
 
@@ -122,7 +124,7 @@ export const useAllWhatsappUsers = () => {
   });
 };
 
-export const useClosedAndNotifedData = (source: string, startDate?: string, endDate?: string)=>{
+export const useClosedAndNotifedData = (source: string, startDate?: string, endDate?: string, enabled: boolean = true)=>{
   return useQuery({
     queryKey: ["closed-notified-data",
       source,
@@ -132,10 +134,11 @@ export const useClosedAndNotifedData = (source: string, startDate?: string, endD
     queryFn: () => {
       return chatbotService.getClosedAndNotifedData(source, startDate, endDate);
     },
+    enabled,
   });
 }
 
-export const useMonthlyChurnRate = (source: string, userType: string)=>{
+export const useMonthlyChurnRate = (source: string, userType: string, enabled: boolean = true)=>{
   return useQuery({
     queryKey: ["monthly-churn-rate",
       source,
@@ -144,5 +147,6 @@ export const useMonthlyChurnRate = (source: string, userType: string)=>{
     queryFn: () => {
       return chatbotService.getMonthlyChurnRate(source, userType);
     },
+    enabled,
   });
 }

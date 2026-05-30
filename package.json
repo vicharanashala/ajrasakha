@@ -1,6 +1,7 @@
 {
 	"dependencies": {
 		"bcryptjs": "^3.0.3",
+		"http-proxy-middleware": "^4.0.0",
 		"pdfkit": "^0.18.0"
 	}
 }

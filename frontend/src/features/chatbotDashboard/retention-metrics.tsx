@@ -5,7 +5,7 @@ import { useState } from "react";
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { Loader2, CalendarIcon, RefreshCcw } from "lucide-react";
+import { CalendarIcon, RefreshCcw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -28,6 +28,7 @@ import {
 } from "@/components/atoms/popover";
 import { Button } from "@/components/atoms/button";
 import { Calendar } from "@/components/atoms/calendar";
+import { Skeleton } from "@/components/atoms/skeleton";
 import {
   Select,
   SelectContent,
@@ -232,8 +233,8 @@ export const RetentionMetricsChart = ({
 
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         {isFetching ? (
-          <div className="flex h-[320px] items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="h-[320px]">
+            <Skeleton className="h-full w-full rounded-xl" />
           </div>
         ) : !data?.length ? (
           <div
