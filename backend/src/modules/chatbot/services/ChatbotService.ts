@@ -30,6 +30,7 @@ import {appConfig} from '#root/config/app.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
+import { triggerWebhook } from '#root/modules/answer/utils/triggerWebhook.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -931,13 +932,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
       limit,
     );
 
-    console.log('Fetched questions', questions);
-
     return {
       questions,
       messages,
     };
   }
+
+ 
 
   async getAvgSessionDurationV2(source = 'vicharanashala', userType = 'all') {
     try {
@@ -2465,6 +2466,34 @@ export class ChatbotService extends BaseService implements IChatbotService {
       },
     };
   }
+
+   async notifyUser(userEmail: string, messageId: string, message:string): Promise<any>{
+    const user = await this.chatbotRepository.getUserData(userEmail, "annam")
+    console.log('User id for notification', user.userId);
+    const webhookPayload = {
+      customMessage: message,
+      userid: user.userId,
+      type: 'COSTUM',
+    };
+      const response = await triggerWebhook(
+        appConfig.WEB_WEBHOOK_API_URL,
+        appConfig.WEB_WEBHOOK_API_KEY,
+        webhookPayload,
+        'Browser',
+      );
+      if (!response?.ok || response.status < 200 || response.status >= 300) {
+        throw new InternalServerError(
+          `Webhook failed with status ${response?.status}, ${response.body ? `response: ${response.body}` : 'no response body'}`,
+        );
+      }
+
+      return {
+        success: true,
+        status: response.status,
+        message: response.body,
+      };
+  }
+
 
   async getClosedAndNotifedData(source?: string, startDateStr?: string, endDateStr?: string): Promise<any> {
     const startDate = startDateStr ? new Date(startDateStr) : undefined;

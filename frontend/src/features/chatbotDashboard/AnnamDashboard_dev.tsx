@@ -1249,10 +1249,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                           ) : (
                             <LazySectionSkeleton className="h-[620px]" />
                           )}
-                          {/* <ChurnRateChart
+                          <ChurnRateChart
                             source={source}
                             userType={filters.userType}
-                          /> */}
+                          />
                         </div>  
                       )}
                       {source !== "whatsapp" && (
