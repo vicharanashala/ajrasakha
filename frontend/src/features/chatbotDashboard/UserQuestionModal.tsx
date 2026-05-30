@@ -42,7 +42,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
+
 import { Textarea } from "@/components/atoms/textarea";
+import { TranslatableText } from "./components/TranslatableText";
 import { useNotifyUser } from "./hooks/useNotifyUser";
 
 interface UserQuestionsModalProps {
@@ -321,9 +323,14 @@ function ActivityCard({
       <div className="flex items-start justify-between gap-3">
         {/* Left */}
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-[14.5px] leading-snug line-clamp-2 break-words text-foreground">
+          {/* <p className="font-medium text-[14.5px] leading-snug line-clamp-2 break-words text-foreground">
             {text}
-          </p>
+          </p> */}
+          <TranslatableText
+            text={text!}
+            showTooltip
+            textClassName="text-xs line-clamp-2"
+          />
           <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
             <Clock className="h-3 w-3 shrink-0" aria-hidden />
             {item.createdAt ? new Date(item.createdAt).toLocaleString() : "—"}
@@ -358,6 +365,9 @@ function ActivityCard({
             </TooltipProvider>
           )}
         </div>
+
+
+        
       </div>
     </div>
   );
