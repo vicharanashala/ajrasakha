@@ -703,16 +703,19 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                             />
                           </div>
                         )}
-                        <div
-                          className={`grid gap-4 mb-6 ${
-                            source === "whatsapp"
-                              ? "grid-cols-1 lg:grid-cols-[1fr_1fr_1.4fr_1.4fr]"
-                              : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
-                          }`}
-                        >
+                          <div
+                            className={`grid gap-4 mb-6 items-stretch ${source === "whatsapp"
+                                ? "grid-cols-1 lg:grid-cols-[0.6fr_1fr_1.4fr_1.4fr]"
+                                : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
+                              }`}
+                          >
                           {source === "whatsapp" && (
                             <WhatsAppUniqueUsersCard
                               totalUsers={unqueWhatsAppUsers}
+                              onClick={() => {
+                                setActiveView("user-details");
+                                scrollTo("user-details");
+                              }}
                             />
                           )}
 
