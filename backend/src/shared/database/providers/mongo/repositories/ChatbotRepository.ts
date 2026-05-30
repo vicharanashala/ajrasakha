@@ -8359,16 +8359,21 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getMonthlyChurnRate(source: string, userType: string): Promise<any> {
+  async getMonthlyChurnRate(
+    source: string,
+    userType: string,
+  ): Promise<any> {
     await this.init(source);
 
     let userMatchStage: any = {};
+
     if (userType === 'external') {
       userMatchStage['userDetails.email'] = {
         $regex: '^rup',
         $options: 'i',
       };
     }
+
     if (userType === 'internal') {
       userMatchStage['userDetails.email'] = {
         $not: {
@@ -8381,132 +8386,109 @@ export class ChatbotRepository implements IChatbotRepository {
     const startDate = new Date('2026-01-01');
     const now = new Date();
     const results = [];
+
     let currentPeriodStart = new Date(startDate);
 
     while (currentPeriodStart < now) {
       const currentPeriodEnd = new Date(currentPeriodStart);
       currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
 
-      const previousPeriodStart = new Date(currentPeriodStart);
-      previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 1);
+      const isCurrentMonth =
+        currentPeriodStart.getMonth() === now.getMonth() &&
+        currentPeriodStart.getFullYear() === now.getFullYear();
 
-      const previousPeriodEnd = currentPeriodStart;
-
-      const previousActiveUsers = await this.messagesCollection
-        .aggregate([
-          {
-            $match: {
-              isCreatedByUser: true,
-              createdAt: {
-                $gte: previousPeriodStart,
-                $lt: previousPeriodEnd,
-              },
-            },
-          },
-          {
-            $lookup: {
-              from: 'users',
-              let: {
-                userObjectId: {
-                  $toObjectId: '$user',
-                },
-              },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $eq: ['$_id', '$$userObjectId'],
-                    },
-                  },
-                },
-              ],
-              as: 'userDetails',
-            },
-          },
-          {
-            $unwind: '$userDetails',
-          },
-          ...(Object.keys(userMatchStage).length
-            ? [{$match: userMatchStage}]
-            : []),
-          {
-            $group: {
-              _id: '$user',
-            },
-          },
-        ])
-        .toArray();
-
-      const currentActiveUsers = await this.messagesCollection
-        .aggregate([
-          {
-            $match: {
-              isCreatedByUser: true,
-              createdAt: {
-                $gte: currentPeriodStart,
-                $lt: currentPeriodEnd,
-              },
-            },
-          },
-          {
-            $lookup: {
-              from: 'users',
-              let: {
-                userObjectId: {
-                  $toObjectId: '$user',
-                },
-              },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $eq: ['$_id', '$$userObjectId'],
-                    },
-                  },
-                },
-              ],
-              as: 'userDetails',
-            },
-          },
-          {
-            $unwind: '$userDetails',
-          },
-          ...(Object.keys(userMatchStage).length
-            ? [{$match: userMatchStage}]
-            : []),
-          {
-            $group: {
-              _id: '$user',
-            },
-          },
-        ])
-        .toArray();
-
-      const previousUserIds = previousActiveUsers.map(u => u._id.toString());
-
-      const currentUserIds = currentActiveUsers.map(u => u._id.toString());
-
-      const currentUserSet = new Set(currentUserIds);
-
-      const churnedUsers = previousUserIds.filter(
-        userId => !currentUserSet.has(userId),
+      const inactiveThreshold = new Date(
+        isCurrentMonth ? now : currentPeriodEnd,
       );
 
+      inactiveThreshold.setDate(inactiveThreshold.getDate() - 3);
+
+      const users = await this.messagesCollection
+        .aggregate([
+          {
+            $match: {
+              isCreatedByUser: true,
+              // Only consider activity up to the threshold date
+              createdAt: {
+                $lt: inactiveThreshold,
+              },
+            },
+          },
+          {
+            $group: {
+              _id: '$user',
+              firstActivity: {
+                $min: '$createdAt',
+              },
+              lastActivity: {
+                $max: '$createdAt',
+              },
+            },
+          },
+          {
+            // User existed before the month started
+            $match: {
+              firstActivity: {
+                $lt: currentPeriodStart,
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              let: {
+                userObjectId: {
+                  $toObjectId: '$_id',
+                },
+              },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ['$_id', '$$userObjectId'],
+                    },
+                  },
+                },
+              ],
+              as: 'userDetails',
+            },
+          },
+          {
+            $unwind: '$userDetails',
+          },
+          ...(Object.keys(userMatchStage).length
+            ? [
+                {
+                  $match: userMatchStage,
+                },
+              ]
+            : []),
+        ])
+        .toArray();
+
+      const totalUsersBeforeMonth = users.length;
+
+      const churnedUsers = users.filter(
+        user => user.lastActivity < inactiveThreshold,
+      );
+
+      const churnedUsersCount = churnedUsers.length;
+
       const churnRate =
-        previousUserIds.length === 0
+        totalUsersBeforeMonth === 0
           ? 0
-          : (churnedUsers.length / previousUserIds.length) * 100;
+          : (churnedUsersCount / totalUsersBeforeMonth) * 100;
 
       results.push({
         month: currentPeriodStart.toLocaleString('default', {
           month: 'short',
           year: 'numeric',
         }),
-        previousActiveUsers: previousUserIds.length,
-        currentActiveUsers: currentUserIds.length,
-        churnedUsers: churnedUsers.length,
+        totalUsersBeforeMonth,
+        inactiveMoreThan3Days: churnedUsersCount,
         churnRate: Number(churnRate.toFixed(2)),
       });
+
       currentPeriodStart = currentPeriodEnd;
     }
 
