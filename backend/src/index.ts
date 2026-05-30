@@ -21,6 +21,8 @@ import {fileURLToPath} from 'url';
 import { initJobs } from './bootstrap/jobs/index.js';
 import { apiReference } from '@scalar/express-api-reference';
 import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import { faqPopConfig } from './config/faqPop.js';
 
 const app = express();
 
@@ -77,6 +79,21 @@ if (NODE_ENV === 'production' || NODE_ENV === 'staging') {
     'Setting up Sentry error handling - test for production and staging environment',
   );
   Sentry.setupExpressErrorHandler(app);
+}
+
+if (faqPopConfig.faqApiUrl) {
+  app.use('/api/faq', createProxyMiddleware({
+    target: faqPopConfig.faqApiUrl,
+    changeOrigin: true,
+    pathRewrite: { '^/api/faq': '' },
+  }));
+}
+if (faqPopConfig.popApiUrl) {
+  app.use('/api/pop', createProxyMiddleware({
+    target: faqPopConfig.popApiUrl,
+    changeOrigin: true,
+    pathRewrite: { '^/api/pop': '' },
+  }));
 }
 
 // Start server
