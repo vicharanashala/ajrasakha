@@ -24,7 +24,7 @@ import {
   WEATHER_CONCERN_LABELS,
 } from "@/components/MetaData";
 
-import { Spinner } from "@/components/atoms/spinner";
+import { Skeleton } from "@/components/atoms/skeleton";
 import { Calendar } from "@/components/atoms/calendar";
 
 import {
@@ -448,8 +448,8 @@ const visibleConcerns = showAllConcerns
 
         <div className="relative min-h-[220px]">
           {isLoading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/70 backdrop-blur-sm">
-              <Spinner text="Loading weather concerns..." />
+            <div className="absolute inset-0 z-10 rounded-md bg-background/70 p-4 backdrop-blur-sm">
+              <Skeleton className="h-full w-full rounded-lg" />
             </div>
           )}
 

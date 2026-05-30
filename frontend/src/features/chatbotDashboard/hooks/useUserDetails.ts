@@ -64,6 +64,7 @@ export function useUserDetails(
   sortOrder: 'asc' | 'desc' = 'asc',
   activeTodayByProfile = false,
   missingDemographicField = '',
+  enabled = true,
 ) {
   const startISO = startDate?.toISOString();
   // Extend endDate to end of day (23:59:59.999) so the selected day is fully included.
@@ -75,6 +76,7 @@ export function useUserDetails(
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
     queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile, missingDemographicField],
     staleTime: 30 * 1000,
+    enabled,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const params = new URLSearchParams();

@@ -17,8 +17,8 @@ import {
   Cell,
   ResponsiveContainer,
 } from "recharts";
-import { Spinner } from "@/components/atoms/spinner";
 import { Maximize2, X } from "lucide-react";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 
 const colors = [
@@ -73,8 +73,10 @@ export const TopCropsCard = ({topCrops,
 
   if (isLoadingTopCrops) {
     return (
-      <Card className="h-full min-h-[300px] flex items-center justify-center">
-        <Spinner text="Loading Top Crops..." />
+      <Card className="h-full min-h-[300px] p-5">
+        <Skeleton className="h-5 w-44 rounded-md" />
+        <Skeleton className="mt-3 h-4 w-64 max-w-full rounded-md" />
+        <Skeleton className="mt-6 h-[260px] w-full rounded-lg" />
       </Card>
     );
   }

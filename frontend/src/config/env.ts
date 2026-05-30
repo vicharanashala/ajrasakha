@@ -67,6 +67,6 @@ export const env = {
   vapidPublicKey: () => getEnv("VITE_VAPID_PUBLIC_KEY", true, "dummy-vapid-public-key"),
 
   internalApiKey: () => getEnv("VITE_INTERNAL_API_KEY", true, "dummy-internal-api-key"),
-  faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false, "http://localhost:8000"),
-  popApiUrl: () => getEnv("VITE_POP_API_URL", false, "http://localhost:8001"),
+  faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false, "/api/faq"),
+  popApiUrl: () => getEnv("VITE_POP_API_URL", false, "/api/pop"),
 };

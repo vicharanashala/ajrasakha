@@ -6,31 +6,44 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { motion } from "framer-motion";
+import { Users } from "lucide-react";
 
 type WhatsAppUniqueUsersCardProps = {
   totalUsers: number;
+  onClick?: () => void;
 };
 
 export function WhatsAppUniqueUsersCard({
   totalUsers,
+  onClick,
 }: WhatsAppUniqueUsersCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
+      onClick={onClick}
     >
       <Card
-        className="
-        border
-        border-border
-        rounded-2xl
-        bg-background/80
-        pb-8
-         h-fit
-        bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300
-        "
-      >
+  className={`
+    w-full
+    sm:max-w-[220px]
+    md:max-w-[250px]
+    border
+    border-border
+    rounded-2xl
+    bg-background/80
+    pb-8
+    h-full
+    bg-gradient-to-br from-card to-card/50
+    backdrop-blur-sm
+    shadow-sm
+    hover:shadow-md
+    transition-shadow
+    duration-300
+    ${onClick ? "cursor-pointer" : ""}
+  `}
+>
         <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
         <CardHeader className="pb-11">
@@ -44,8 +57,7 @@ export function WhatsAppUniqueUsersCard({
             mb-2
           "
           >
-            <div className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />{" "}
-            Total WhatsApp Users
+            <Users className="h-4 w-4 text-primary" />
           </div>
 
           <motion.div
