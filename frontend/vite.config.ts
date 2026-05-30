@@ -29,16 +29,6 @@ export default defineConfig({
         target: "http://localhost:4000",
         changeOrigin: true,
       },
-      "/faq-api": {
-        target: "http://localhost:8031",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/faq-api/, ""),
-      },
-      "/pop-api": {
-        target: "http://localhost:8032",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/pop-api/, ""),
-      },
     },
   },
 });
