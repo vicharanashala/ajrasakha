@@ -24,12 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Loader2 } from "lucide-react";
 import {
   useDailyActiveUsersTrend,
   useWeeklyActiveUsersTrend,
   useMontlyActiveUsersTrend,
 } from "@/features/chatbotDashboard/hooks/useActiveUsersAnalytics";
+import { Skeleton } from "@/components/atoms/skeleton";
 import {
   Tooltip,
   TooltipContent,
@@ -264,8 +264,8 @@ export const ActiveUsersChart = ({
 
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         {isFetching ? (
-          <div className="flex h-[320px] items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="h-[320px]">
+            <Skeleton className="h-full w-full rounded-xl" />
           </div>
         ) : !chartData.length ? (
           <div

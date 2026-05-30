@@ -15,7 +15,6 @@ import { DashboardQueryCategories } from "./DashboardQueryCategories";
 import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
 import { AlertCard } from "./AlertCard";
 import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
-import { Spinner } from "@/components/atoms/spinner";
 import { GeoCard } from "./GeoCard";
 import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
@@ -797,7 +796,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                   /> */}
                         {/* {isGrowthVisible ? source === "whatsapp" ?(<div className="h-full w-full blur-sm opacity-90"></div>):( */}
                         {isGrowthVisible || loadImmediately ? (
-                          <Suspense fallback={<Spinner />}>
+                          <Suspense fallback={<LazySectionSkeleton />}>
                             <LazyUserGrowthChart source={source} />
                           </Suspense>
                         ) : (

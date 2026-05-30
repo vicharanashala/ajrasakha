@@ -3,10 +3,11 @@ import { Button } from "@/components/atoms/button";
 import { useState } from "react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { CalendarIcon, ClipboardCheck, Download, Loader2 } from "lucide-react";
+import { CalendarIcon, ClipboardCheck, Download } from "lucide-react";
 import { format } from "date-fns";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/atoms/accordion";
 import { motion, AnimatePresence } from "framer-motion";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 type ResponseAdherenceTableData = {
   date: string;
@@ -660,8 +661,7 @@ export function ResponseAdherenceTableCard({
                       exit={{ opacity: 0, height: 0 }}
                       className="flex items-center gap-2 mb-3 text-xs text-muted-foreground overflow-hidden"
                     >
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Fetching data for selected date…
+                      <Skeleton className="h-4 w-56 rounded-md" />
                     </motion.div>
                   )}
                 </AnimatePresence>

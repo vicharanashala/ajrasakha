@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { Spinner } from "@/components/atoms/spinner";
+import { Skeleton } from "@/components/atoms/skeleton";
 import { useUserDetails, type UserDetail } from "./hooks/useUserDetails";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { BarGraph } from "./components/shared/BarGrapgh";
@@ -461,8 +461,12 @@ export function UserDetailsView({
           </CardHeader>
           <CardContent className="p-0">
             {isLoading && (
-              <div className="py-12">
-                <Spinner text="Fetching user details..." fullScreen={false} />
+              <div className="space-y-3 p-4">
+                <Skeleton className="h-10 w-full rounded-md" />
+                <Skeleton className="h-10 w-full rounded-md" />
+                <Skeleton className="h-10 w-full rounded-md" />
+                <Skeleton className="h-10 w-full rounded-md" />
+                <Skeleton className="h-10 w-full rounded-md" />
               </div>
             )}
 
