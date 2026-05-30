@@ -2473,20 +2473,23 @@ export class ChatbotService extends BaseService implements IChatbotService {
     const user = await this.chatbotRepository.getUserData(userEmail, "vicharanashala")
     const webhookPayload={
       customMessage: message,
-      userid: user.userId
+      userid: user.userId,
+      type: "Custom"
     }
+    try{
     const response = await triggerWebhook(
       appConfig.WEB_WEBHOOK_API_URL,
       appConfig.WEB_WEBHOOK_API_KEY,
-      {
-        ...webhookPayload,
-        question: " ",
-        messageId
-      },
+      webhookPayload,
       'Browser',
     )
-    return response
-   }
+    return {
+      message: "Notification send successfully..."
+    }
+  }catch(error){
+    throw new InternalServerError ("Something went wrong")
+  }
+  }
 
 
   async getClosedAndNotifedData(source?: string, startDateStr?: string, endDateStr?: string): Promise<any> {
