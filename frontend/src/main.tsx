@@ -6,6 +6,7 @@ import "./styles.css";
 import reportWebVitals from "./reportWebVitals.ts";
 import { client } from "./client/client.gen.ts";
 import { env } from "./config/env.ts";
+import { ToastProvider } from "./shared/components/toast.tsx";
 
 async function bootstrap() {
   // Enable MSW only when explicitly allowed
@@ -32,8 +33,9 @@ async function bootstrap() {
     const root = ReactDOM.createRoot(rootElement);
     root.render(
       <StrictMode>
+        <ToastProvider position="bottom-right" defaultDuration={4000} />
         <RouterProvider router={router} />
-      </StrictMode>
+      </StrictMode>,
     );
   }
 

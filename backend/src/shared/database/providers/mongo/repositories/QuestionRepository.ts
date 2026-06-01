@@ -2176,6 +2176,27 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  async updateThreadId(questionId: string, threadId: string, session?: ClientSession): Promise<{ modifiedCount: number; }> {
+    try {
+      await this.init()
+      if (!questionId || !isValidObjectId(questionId)) {
+        throw new BadRequestError('Invalid or missing questionId');
+      }
+      if (!threadId) {
+        throw new BadRequestError('Invalid or missing threadId');
+      }
+      return await this.QuestionCollection.updateOne(
+        { _id: new ObjectId(questionId) },
+        { $set: { threadId:threadId ,updatedAt: new Date() } },
+        { session },
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while updating thread ID: More info: ${error}`,
+      );
+    }
+  }
+
   async deleteQuestion(
     questionId: string,
     session?: ClientSession,

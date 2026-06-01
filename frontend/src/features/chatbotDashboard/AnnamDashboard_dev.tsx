@@ -865,6 +865,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                               farmingExperience: data.farmingExperience,
                               landHolding: (data as any).landHolding ?? [],
                             }}
+                            source={source}
+                            userType={filters.userType}
                           />
                         </div>
                       )}

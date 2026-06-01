@@ -1,18 +1,21 @@
 import { useState } from "react";
 import { useUserDetails } from "../hooks/useUserDetails";
-import { useDashboardData } from "../hooks/useDashboardData";
 import { useUpdateUser } from "../hooks/useUpdateUser"; 
 import { X, Pencil, Check, Loader2 } from "lucide-react";
 
 interface MissingDemographicsModalProps {
   fieldTitle: string;
   fieldKey: string;
+  source: "vicharanashala" | "annam" | "whatsapp";
+  userType: "all" | "external" | "internal";
   onClose: () => void;
 }
 
 export function MissingDemographicsModal({
   fieldTitle,
   fieldKey,
+  source,
+  userType,
   onClose,
 }: MissingDemographicsModalProps) {
   const [page, setPage] = useState(1);
@@ -22,7 +25,6 @@ export function MissingDemographicsModal({
   const [editValue, setEditValue] = useState<string>("");
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const { source, userType } = useDashboardData();
   const updateUserMutation = useUpdateUser(); 
   const { data, isLoading, refetch } = useUserDetails(
     undefined, // startDate
@@ -40,7 +42,8 @@ export function MissingDemographicsModal({
     "name", // sortBy
     "asc", // sortOrder
     false, // activeTodayByProfile
-    fieldKey // missingDemographicField
+    fieldKey, // missingDemographicField
+    true,
   );
 
   const users = data?.users || [];
@@ -82,7 +85,7 @@ export function MissingDemographicsModal({
     try {
       await updateUserMutation.mutateAsync({
         userId,
-        source: source || "vicharanashala",
+        source,
         data: {
           farmerProfile: {
             [fieldKey]: payloadValue,
