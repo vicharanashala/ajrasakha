@@ -6,6 +6,7 @@ import { Maximize2, X, Info } from "lucide-react";
 import { MissingDemographicsModal } from "./MissingDemographicsModal";
 
 const AGE_COLORS: Record<string, string> = {
+  "16-30": "#3AAA5A",
   "18-30": "#3AAA5A",
   "30-45": "#378ADD",
   "45-60": "#EF9F27",
