@@ -5297,7 +5297,13 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
 
       const userDocFilter = this.buildUserDocFilter(userType);
-      const totalUsers = await this.users.countDocuments(userDocFilter, { session });
+      const totalUsers = await this.users.countDocuments(
+        {
+          ...userDocFilter,
+          farmerProfile: { $exists: true, $ne: null },
+        },
+        { session },
+      );
 
       const [ageRaw, genderRaw, expRaw, landRaw] = await Promise.all([
         // Age group buckets
