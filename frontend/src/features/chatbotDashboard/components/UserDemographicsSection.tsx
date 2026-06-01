@@ -222,6 +222,8 @@ function EnlargedHorizontalBars({ segments, onSegmentClick }: { segments: { labe
 
 interface Props {
   data: UserDemographics;
+  source: "vicharanashala" | "annam" | "whatsapp";
+  userType: "all" | "external" | "internal";
 }
 
 function DemographicCard({
@@ -352,7 +354,7 @@ function DemographicCard({
   );
 }
 
-export function UserDemographicsSection({ data }: Props) {
+export function UserDemographicsSection({ data, source, userType }: Props) {
   const [selectedMissingField, setSelectedMissingField] = useState<{ title: string; key: string } | null>(null);
 
   const ageSegments = data.ageGroups.map((d) => ({ ...d, color: AGE_COLORS[d.label] ?? "#6B7280" }));
@@ -394,6 +396,8 @@ export function UserDemographicsSection({ data }: Props) {
         <MissingDemographicsModal
           fieldTitle={selectedMissingField.title}
           fieldKey={selectedMissingField.key}
+          source={source}
+          userType={userType}
           onClose={() => setSelectedMissingField(null)}
         />
       )}
