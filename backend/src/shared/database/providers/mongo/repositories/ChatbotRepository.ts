@@ -31,7 +31,7 @@ import type {
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
-import {IQuestion, ISubscription, QuestionSource} from '#root/shared/interfaces/models.js';
+import {IQuestion, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {DISTRICTS} from '#root/utils/districts.js';
 
@@ -379,8 +379,6 @@ export class ChatbotRepository implements IChatbotRepository {
   private users!: Collection<IUser>;
   private conversations!: Collection<IConversation>;
   private messagesCollection!: Collection<any>;
-  private notificationCollection!: Collection<any>
-  private subscriptionCollection!: Collection<ISubscription>
 
   constructor(
     @inject(GLOBAL_TYPES.analyticsDatabase) //vicharansahsa
@@ -409,7 +407,6 @@ export class ChatbotRepository implements IChatbotRepository {
     this.users = await db.getCollection<IUser>('users');
     this.conversations = await db.getCollection<IConversation>('conversations');
     this.messagesCollection = await db.getCollection<any>('messages');
-    this.notificationCollection = await db.getCollection<any>('customNotification')
   }
   private annamMessagesCollection!: Collection<any>;
 
@@ -1846,16 +1843,14 @@ export class ChatbotRepository implements IChatbotRepository {
         );
       });
 
-      console.log(
-        districts.map(d => ({
-          original: d,
-          normalized: this.normalizeDistrictName(d),
-        })),
-      );
 
-      const data = result.sort((a, b) => b.totalQuestions - a.totalQuestions);
-      // console.log('Data is', data);
+      const data = result.sort((a, b) => {
+        if (a.district.toLowerCase() === 'all') return 1;
+        if (b.district.toLowerCase() === 'all') return -1;
 
+        return b.totalQuestions - a.totalQuestions;
+      });     
+      
       return data;
     } catch (error) {
       throw new Error('Failed to fetch district analytics: ${error}');
@@ -2138,68 +2133,67 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyQueryCounts(
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-): Promise<MonthlyQueryCountEntry[]> {
-  try {
-    await this.init(source);
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<MonthlyQueryCountEntry[]> {
+    try {
+      await this.init(source);
 
-    const userTypeLookupStages =
-      this.buildUserTypeLookupStages(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-    const result = await this.messagesCollection
-      .aggregate(
-        [
-          {
-            $match: {
-              isCreatedByUser: true,
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                isCreatedByUser: true,
+              },
             },
-          },
 
-          ...userTypeLookupStages,
+            ...userTypeLookupStages,
 
-          {
-            $group: {
-              _id: {
-                $dateToString: {
-                  format: '%Y-%m',
-                  date: '$createdAt',
-                  timezone: '+05:30',
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+
+                count: {
+                  $sum: 1,
                 },
               },
+            },
 
-              count: {
-                $sum: 1,
+            {
+              $project: {
+                month: '$_id',
+                count: 1,
+                _id: 0,
               },
             },
-          },
 
-          {
-            $project: {
-              month: '$_id',
-              count: 1,
-              _id: 0,
+            {
+              $sort: {
+                month: 1,
+              },
             },
-          },
+          ],
+          {session},
+        )
+        .toArray();
 
-          {
-            $sort: {
-              month: 1,
-            },
-          },
-        ],
-        {session},
-      )
-      .toArray();
-
-    return result as MonthlyQueryCountEntry[];
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get monthly query counts: ${error}`,
-    );
+      return result as MonthlyQueryCountEntry[];
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get monthly query counts: ${error}`,
+      );
+    }
   }
-}
 
   async getQuerySummaryByPeriod(
     period: 'daily' | 'weekly' | 'monthly',
@@ -4257,6 +4251,7 @@ export class ChatbotRepository implements IChatbotRepository {
     sortOrder = 'asc',
     lowFeedbackOnly = false,
     activeTodayByProfile = false,
+    missingDemographicField = '',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -4353,6 +4348,19 @@ export class ChatbotRepository implements IChatbotRepository {
         userFilter.$and = [
           ...(userFilter.$and ?? []),
           {$or: [{farmerProfile: {$exists: false}}, {farmerProfile: null}]},
+        ];
+      }
+
+      if (missingDemographicField) {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              {[`farmerProfile.${missingDemographicField}`]: {$exists: false}},
+              {[`farmerProfile.${missingDemographicField}`]: null},
+              {[`farmerProfile.${missingDemographicField}`]: ''},
+            ],
+          },
         ];
       }
 
@@ -4691,388 +4699,200 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  // async getUsersMessages(
-  //   email: string,
-  //   source = 'vicharanashala',
-  //   session?: ClientSession,
-  //   userType = 'all',
-  //   page = 1,
-  //   limit = 10,
-  // ) {
-  //   try {
-  //     await this.init(source);
-
-  //     const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
-
-  //     const user = await this.users.findOne({email: email}, {session});
-
-  //     if (!user) {
-  //       throw new Error('User not found');
-  //     }
-
-  //     const skip = (page - 1) * limit;
-
-  //     const pipeline = [
-  //       {
-  //         $match: {
-  //           user: String(user._id),
-
-  //           // sender: 'User',
-  //           // isCreatedByUser: true,
-  //         },
-  //       },
-
-  //       {
-  //         $sort: {
-  //           createdAt: -1,
-  //         },
-  //       },
-
-  //       // Group repeated messages
-
-  //       {
-  //         $group: {
-  //           _id: {
-  //             $trim: {
-  //               input: {
-  //                 $toLower: '$text',
-  //               },
-  //             },
-  //           },
-
-  //           repeatedCount: {
-  //             $sum: 1,
-  //           },
-
-  //           latestMessage: {
-  //             $first: '$text',
-  //           },
-
-  //           latestCreatedAt: {
-  //             $first: '$createdAt',
-  //           },
-
-  //           latestUpdatedAt: {
-  //             $first: '$updatedAt',
-  //           },
-
-  //           latestSender: {
-  //             $first: '$sender',
-  //           },
-
-  //           latestIsCreatedByUser: {
-  //             $first: '$isCreatedByUser',
-  //           },
-
-  //           allCreatedAt: {
-  //             $push: '$createdAt',
-  //           },
-
-  //           // Store all messageIds
-  //           messageIds: {
-  //             $push: '$messageId',
-  //           },
-  //         },
-  //       },
-
-  //       {
-  //         $project: {
-  //           _id: 0,
-
-  //           message: '$latestMessage',
-
-  //           createdAt: '$latestCreatedAt',
-
-  //           sender: '$latestSender',
-
-  //           isCreatedByUser: '$latestIsCreatedByUser',
-
-  //           updatedAt: '$latestUpdatedAt',
-
-  //           repeatedAt: '$allCreatedAt',
-
-  //           repeatedCount: 1,
-
-  //           isDuplicate: {
-  //             $gt: ['$repeatedCount', 1],
-  //           },
-
-  //           // keep temporarily
-  //           messageIds: 1,
-  //         },
-  //       },
-
-  //       {
-  //         $sort: {
-  //           createdAt: -1,
-  //         },
-  //       },
-  //     ];
-
-  //     // Total count
-
-  //     const totalResult = await this.messagesCollection
-  //       .aggregate([
-  //         ...pipeline,
-
-  //         {
-  //           $count: 'total',
-  //         },
-  //       ])
-  //       .toArray();
-
-  //     const totalMessages = totalResult[0]?.total || 0;
-
-  //     const totalPages = Math.ceil(totalMessages / limit);
-
-  //     // Paginated messages
-
-  //     const messages = await this.messagesCollection
-  //       .aggregate([
-  //         ...pipeline,
-
-  //         {
-  //           $skip: skip,
-  //         },
-
-  //         {
-  //           $limit: limit,
-  //         },
-  //       ])
-  //       .toArray();
-
-  //     // Extract all messageIds separately
-
-  //     const allMessageIds = messages.flatMap(
-  //       (msg: any) => msg.messageIds || [],
-  //     );
-
-  //     // Remove messageIds from frontend data
-
-  //     messages.forEach((msg: any) => {
-  //       delete msg.messageIds;
-  //     });
-
-  //     const filteredMessages = messages.filter(
-  //       (msg: any) => msg.sender === 'User' && msg.isCreatedByUser === true,
-  //     );
-
-  //     filteredMessages.forEach((msg: any) => {
-  //       delete msg.messageIds;
-  //       delete msg.sender;
-  //       delete msg.isCreatedByUser;
-  //     });
-
-  //     return {
-  //       total: totalMessages,
-
-  //       totalPages,
-
-  //       currentPage: page,
-
-  //       limit,
-
-  //       items: filteredMessages,
-
-  //       // separate array
-  //       allMessageIds,
-  //     };
-  //   } catch (error) {
-  //     throw new InternalServerError(`Failed to get users messages: ${error}`);
-  //   }
-  // }
-
   async getUsersMessages(
-  email: string,
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-  page = 1,
-  limit = 10,
-) {
-  try {
-    await this.init(source);
+    email: string,
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+    page = 1,
+    limit = 10,
+  ) {
+    try {
+      await this.init(source);
 
-    const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-    const user = await this.users.findOne({ email: email }, { session });
+      const user = await this.users.findOne({email: email}, {session});
 
-    if (!user) {
-      throw new Error('User not found');
-    }
+      if (!user) {
+        throw new Error('User not found');
+      }
 
-    const skip = (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
-    const pipeline = [
-      {
-        $match: {
-          user: String(user._id),
+      const pipeline = [
+        {
+          $match: {
+            user: String(user._id),
+
+            // sender: 'User',
+            // isCreatedByUser: true,
+          },
         },
-      },
 
-      {
-        $sort: {
-          createdAt: -1,
+        {
+          $sort: {
+            createdAt: -1,
+          },
         },
-      },
 
-      // Group repeated messages
-      {
-        $group: {
-          _id: {
-            $trim: {
-              input: {
-                $toLower: '$text',
+        // Group repeated messages
+
+        {
+          $group: {
+            _id: {
+              $trim: {
+                input: {
+                  $toLower: '$text',
+                },
               },
             },
+
+            repeatedCount: {
+              $sum: 1,
+            },
+
+            latestMessage: {
+              $first: '$text',
+            },
+
+            latestCreatedAt: {
+              $first: '$createdAt',
+            },
+
+            latestUpdatedAt: {
+              $first: '$updatedAt',
+            },
+
+            latestSender: {
+              $first: '$sender',
+            },
+
+            latestIsCreatedByUser: {
+              $first: '$isCreatedByUser',
+            },
+
+            allCreatedAt: {
+              $push: '$createdAt',
+            },
+
+            // Store all messageIds
+            messageIds: {
+              $push: '$messageId',
+            },
           },
-
-          repeatedCount: {
-            $sum: 1,
-          },
-
-          latestMessage: {
-            $first: '$text',
-          },
-
-          latestMessageId: {
-            $first: '$messageId',
-          },
-
-          latestCreatedAt: {
-            $first: '$createdAt',
-          },
-
-          latestUpdatedAt: {
-            $first: '$updatedAt',
-          },
-
-          latestSender: {
-            $first: '$sender',
-          },
-
-          latestIsCreatedByUser: {
-            $first: '$isCreatedByUser',
-          },
-
-          allCreatedAt: {
-            $push: '$createdAt',
-          },
-
-          // Keep all duplicate messageIds separately
-          messageIds: {
-            $push: '$messageId',
-          },
-        },
-      },
-
-      {
-        $project: {
-          _id: 0,
-
-          message: '$latestMessage',
-
-          messageId: '$latestMessageId',
-
-          createdAt: '$latestCreatedAt',
-
-          sender: '$latestSender',
-
-          isCreatedByUser: '$latestIsCreatedByUser',
-
-          updatedAt: '$latestUpdatedAt',
-
-          repeatedAt: '$allCreatedAt',
-
-          repeatedCount: 1,
-
-          isDuplicate: {
-            $gt: ['$repeatedCount', 1],
-          },
-
-          // temporary internal use
-          messageIds: 1,
-        },
-      },
-
-      {
-        $sort: {
-          createdAt: -1,
-        },
-      },
-    ];
-
-    // Total count
-    const totalResult = await this.messagesCollection
-      .aggregate([
-        ...pipeline,
-
-        {
-          $count: 'total',
-        },
-      ])
-      .toArray();
-
-    const totalMessages = totalResult[0]?.total || 0;
-
-    const totalPages = Math.ceil(totalMessages / limit);
-
-    // Paginated messages
-    const messages = await this.messagesCollection
-      .aggregate([
-        ...pipeline,
-
-        {
-          $skip: skip,
         },
 
         {
-          $limit: limit,
+          $project: {
+            _id: 0,
+
+            message: '$latestMessage',
+
+            createdAt: '$latestCreatedAt',
+
+            sender: '$latestSender',
+
+            isCreatedByUser: '$latestIsCreatedByUser',
+
+            updatedAt: '$latestUpdatedAt',
+
+            repeatedAt: '$allCreatedAt',
+
+            repeatedCount: 1,
+
+            isDuplicate: {
+              $gt: ['$repeatedCount', 1],
+            },
+
+            // keep temporarily
+            messageIds: 1,
+          },
         },
-      ])
-      .toArray();
 
-    // Extract all messageIds separately
-    const allMessageIds = messages.flatMap(
-      (msg: any) => msg.messageIds || [],
-    );
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+      ];
 
-          messages.forEach((msg: any) => {
+      // Total count
+
+      const totalResult = await this.messagesCollection
+        .aggregate([
+          ...pipeline,
+
+          {
+            $count: 'total',
+          },
+        ])
+        .toArray();
+
+      const totalMessages = totalResult[0]?.total || 0;
+
+      const totalPages = Math.ceil(totalMessages / limit);
+
+      // Paginated messages
+
+      const messages = await this.messagesCollection
+        .aggregate([
+          ...pipeline,
+
+          {
+            $skip: skip,
+          },
+
+          {
+            $limit: limit,
+          },
+        ])
+        .toArray();
+
+      // Extract all messageIds separately
+
+      const allMessageIds = messages.flatMap(
+        (msg: any) => msg.messageIds || [],
+      );
+
+      // Remove messageIds from frontend data
+
+      messages.forEach((msg: any) => {
         delete msg.messageIds;
       });
 
-    const filteredMessages = messages.filter(
-      (msg: any) =>
-        msg.sender === 'User' && msg.isCreatedByUser === true,
-    );
+      const filteredMessages = messages.filter(
+        (msg: any) => msg.sender === 'User' && msg.isCreatedByUser === true,
+      );
 
-    filteredMessages.forEach((msg: any) => {
-      delete msg.messageIds;
-      delete msg.sender;
-      delete msg.isCreatedByUser;
-    });
+      filteredMessages.forEach((msg: any) => {
+        delete msg.messageIds;
+        delete msg.sender;
+        delete msg.isCreatedByUser;
+      });
 
-    return {
-      total: totalMessages,
+      return {
+        total: totalMessages,
 
-      totalPages,
+        totalPages,
 
-      currentPage: page,
+        currentPage: page,
 
-      limit,
+        limit,
 
-      items: filteredMessages,
-    };
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get users messages: ${error}`,
-    );
+        items: filteredMessages,
+
+        // separate array
+        allMessageIds,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get users messages: ${error}`);
+    }
   }
-}
 
   async getUserData(
     userEmail: string,
-     source = 'vicharanashala',
+    source: string,
     session?: ClientSession,
   ) {
     try {
@@ -5475,6 +5295,13 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
 
       const userDocFilter = this.buildUserDocFilter(userType);
+      const totalUsers = await this.users.countDocuments(
+        {
+          ...userDocFilter,
+          farmerProfile: { $exists: true, $ne: null },
+        },
+        { session },
+      );
 
       const [ageRaw, genderRaw, expRaw, landRaw] = await Promise.all([
         // Age group buckets
@@ -5490,7 +5317,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $bucket: {
                   groupBy: '$farmerProfile.age',
-                  boundaries: [18, 30, 45, 60],
+                  boundaries: [16, 30, 45, 60],
                   default: '60+',
                   output: {count: {$sum: 1}},
                 },
@@ -5583,21 +5410,26 @@ export class ChatbotRepository implements IChatbotRepository {
         total === 0 ? 0 : parseFloat(((count / total) * 100).toFixed(2));
 
       const ageBoundaryLabel: Record<string | number, string> = {
-        18: '18-30',
+        16: '16-30',
         30: '30-45',
         45: '45-60',
         '60+': '60+',
       };
-      const ageTotal = ageRaw.reduce((s, r) => s + r.count, 0);
       const ageGroupsMap = new Map(ageRaw.map(r => [r._id, r.count]));
 
-      const ageGroups: DemographicEntry[] = [18, 30, 45, '60+'].map(key => {
+      const ageGroups: DemographicEntry[] = [16, 30, 45, '60+'].map(key => {
         const count = ageGroupsMap.get(key) || 0;
         return {
           label: ageBoundaryLabel[key],
           count,
-          pct: toPct(count, ageTotal),
+          pct: toPct(count, totalUsers),
         };
+      });
+      const providedAgeCount = ageGroups.reduce((s, g) => s + g.count, 0);
+      ageGroups.push({
+        label: 'Not Provided',
+        count: totalUsers - providedAgeCount,
+        pct: toPct(totalUsers - providedAgeCount, totalUsers),
       });
 
       let maleCount = 0;
@@ -5615,20 +5447,25 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       });
 
-      const genderTotal = maleCount + femaleCount + othersCount;
+      const providedGenderCount = maleCount + femaleCount + othersCount;
       const genderSplit: DemographicEntry[] = [
-        {label: 'Male', count: maleCount, pct: toPct(maleCount, genderTotal)},
+        {label: 'Male', count: maleCount, pct: toPct(maleCount, totalUsers)},
         {
           label: 'Female',
           count: femaleCount,
-          pct: toPct(femaleCount, genderTotal),
+          pct: toPct(femaleCount, totalUsers),
         },
         {
           label: 'Others',
           count: othersCount,
-          pct: toPct(othersCount, genderTotal),
+          pct: toPct(othersCount, totalUsers),
         },
-      ].filter(g => g.count > 0);
+        {
+          label: 'Not Provided',
+          count: totalUsers - providedGenderCount,
+          pct: toPct(totalUsers - providedGenderCount, totalUsers),
+        }
+      ].filter(g => g.count > 0 || g.label === 'Not Provided');
 
       const expBoundaryLabel: Record<string | number, string> = {
         0: 'Less than 2 yrs',
@@ -5637,24 +5474,40 @@ export class ChatbotRepository implements IChatbotRepository {
         10: '10 - 20 yrs',
         '20+': '20+ yrs',
       };
-      const expTotal = expRaw.reduce((s, r) => s + r.count, 0);
-      const farmingExperience: DemographicEntry[] = expRaw.map(r => ({
-        label: expBoundaryLabel[r._id] ?? String(r._id),
-        count: r.count,
-        pct: toPct(r.count, expTotal),
-      }));
+      let providedExpCount = 0;
+      const farmingExperience: DemographicEntry[] = expRaw.map(r => {
+        providedExpCount += r.count;
+        return {
+          label: expBoundaryLabel[r._id] ?? String(r._id),
+          count: r.count,
+          pct: toPct(r.count, totalUsers),
+        };
+      });
+      farmingExperience.push({
+        label: 'Not Provided',
+        count: totalUsers - providedExpCount,
+        pct: toPct(totalUsers - providedExpCount, totalUsers),
+      });
 
       const landBoundaryLabel: Record<string | number, string> = {
         0: 'Small',
         2: 'Medium',
         Large: 'Large',
       };
-      const landTotal = landRaw.reduce((s, r) => s + r.count, 0);
-      const landHolding: DemographicEntry[] = landRaw.map(r => ({
-        label: landBoundaryLabel[r._id] ?? String(r._id),
-        count: r.count,
-        pct: toPct(r.count, landTotal),
-      }));
+      let providedLandCount = 0;
+      const landHolding: DemographicEntry[] = landRaw.map(r => {
+        providedLandCount += r.count;
+        return {
+          label: landBoundaryLabel[r._id] ?? String(r._id),
+          count: r.count,
+          pct: toPct(r.count, totalUsers),
+        };
+      });
+      landHolding.push({
+        label: 'Not Provided',
+        count: totalUsers - providedLandCount,
+        pct: toPct(totalUsers - providedLandCount, totalUsers),
+      });
 
       return {ageGroups, genderSplit, farmingExperience, landHolding};
     } catch (error) {
@@ -5907,11 +5760,7 @@ export class ChatbotRepository implements IChatbotRepository {
     const currentMonth =
       month ||
       `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    console.log({
-      startDate: startDate,
-      endDate: endDate,
-    });
-    console.log('current month', currentMonth);
+ 
     // let districtAnalytics;
     const kpiData = await this.getKpiSummary(
       source,
@@ -5929,14 +5778,12 @@ export class ChatbotRepository implements IChatbotRepository {
       session,
       userType,
     );
-    console.log('Weekly queries', weeklyQueries);
     const dailyQueries = await this.getDailyAnalytics(
       currentMonth,
       source,
       session,
       userType,
     );
-    console.log('dailyQueries', dailyQueries);
     const dauTrends = await this.getDailyUserTrend(
       days,
       source,
@@ -6101,19 +5948,44 @@ export class ChatbotRepository implements IChatbotRepository {
   async getPlatformInstalls(
     source: 'vicharanashala',
     session?: ClientSession,
+    userType = 'all',
   ): Promise<PlatformInstallEntry[]> {
     try {
       await this.init(source);
+      const userDocFilter = this.buildUserDocFilter(userType);
       const result = await this.users
         .aggregate<PlatformInstallEntry>([
           {
             $match: {
-              'farmerProfile.platform': {$exists: true, $ne: null},
+              farmerProfile: {$exists: true, $ne: null},
+              ...userDocFilter,
+            },
+          },
+          {
+            $project: {
+              platform: {
+                $let: {
+                  vars: {
+                    rawPlatform: {
+                      $trim: {
+                        input: {$ifNull: ['$farmerProfile.platform', '']},
+                      },
+                    },
+                  },
+                  in: {
+                    $cond: [
+                      {$eq: ['$$rawPlatform', '']},
+                      'Unknown',
+                      '$$rawPlatform',
+                    ],
+                  },
+                },
+              },
             },
           },
           {
             $group: {
-              _id: '$farmerProfile.platform',
+              _id: '$platform',
               count: {$sum: 1},
             },
           },
@@ -8551,21 +8423,16 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getMonthlyChurnRate(
-    source: string,
-    userType: string,
-  ): Promise<any> {
+  async getMonthlyChurnRate(source: string, userType: string): Promise<any> {
     await this.init(source);
 
     let userMatchStage: any = {};
-
     if (userType === 'external') {
       userMatchStage['userDetails.email'] = {
         $regex: '^rup',
         $options: 'i',
       };
     }
-
     if (userType === 'internal') {
       userMatchStage['userDetails.email'] = {
         $not: {
@@ -8578,50 +8445,25 @@ export class ChatbotRepository implements IChatbotRepository {
     const startDate = new Date('2026-01-01');
     const now = new Date();
     const results = [];
-
     let currentPeriodStart = new Date(startDate);
 
     while (currentPeriodStart < now) {
       const currentPeriodEnd = new Date(currentPeriodStart);
       currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
 
-      const isCurrentMonth =
-        currentPeriodStart.getMonth() === now.getMonth() &&
-        currentPeriodStart.getFullYear() === now.getFullYear();
+      const previousPeriodStart = new Date(currentPeriodStart);
+      previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 1);
 
-      const inactiveThreshold = new Date(
-        isCurrentMonth ? now : currentPeriodEnd,
-      );
+      const previousPeriodEnd = currentPeriodStart;
 
-      inactiveThreshold.setDate(inactiveThreshold.getDate() - 3);
-
-      const users = await this.messagesCollection
+      const previousActiveUsers = await this.messagesCollection
         .aggregate([
           {
             $match: {
               isCreatedByUser: true,
-              // Only consider activity up to the threshold date
               createdAt: {
-                $lt: inactiveThreshold,
-              },
-            },
-          },
-          {
-            $group: {
-              _id: '$user',
-              firstActivity: {
-                $min: '$createdAt',
-              },
-              lastActivity: {
-                $max: '$createdAt',
-              },
-            },
-          },
-          {
-            // User existed before the month started
-            $match: {
-              firstActivity: {
-                $lt: currentPeriodStart,
+                $gte: previousPeriodStart,
+                $lt: previousPeriodEnd,
               },
             },
           },
@@ -8630,7 +8472,7 @@ export class ChatbotRepository implements IChatbotRepository {
               from: 'users',
               let: {
                 userObjectId: {
-                  $toObjectId: '$_id',
+                  $toObjectId: '$user',
                 },
               },
               pipeline: [
@@ -8649,38 +8491,86 @@ export class ChatbotRepository implements IChatbotRepository {
             $unwind: '$userDetails',
           },
           ...(Object.keys(userMatchStage).length
-            ? [
-                {
-                  $match: userMatchStage,
-                },
-              ]
+            ? [{$match: userMatchStage}]
             : []),
+          {
+            $group: {
+              _id: '$user',
+            },
+          },
         ])
         .toArray();
 
-      const totalUsersBeforeMonth = users.length;
+      const currentActiveUsers = await this.messagesCollection
+        .aggregate([
+          {
+            $match: {
+              isCreatedByUser: true,
+              createdAt: {
+                $gte: currentPeriodStart,
+                $lt: currentPeriodEnd,
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              let: {
+                userObjectId: {
+                  $toObjectId: '$user',
+                },
+              },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ['$_id', '$$userObjectId'],
+                    },
+                  },
+                },
+              ],
+              as: 'userDetails',
+            },
+          },
+          {
+            $unwind: '$userDetails',
+          },
+          ...(Object.keys(userMatchStage).length
+            ? [{$match: userMatchStage}]
+            : []),
+          {
+            $group: {
+              _id: '$user',
+            },
+          },
+        ])
+        .toArray();
 
-      const churnedUsers = users.filter(
-        user => user.lastActivity < inactiveThreshold,
+      const previousUserIds = previousActiveUsers.map(u => u._id.toString());
+
+      const currentUserIds = currentActiveUsers.map(u => u._id.toString());
+
+      const currentUserSet = new Set(currentUserIds);
+
+      const churnedUsers = previousUserIds.filter(
+        userId => !currentUserSet.has(userId),
       );
 
-      const churnedUsersCount = churnedUsers.length;
-
       const churnRate =
-        totalUsersBeforeMonth === 0
+        previousUserIds.length === 0
           ? 0
-          : (churnedUsersCount / totalUsersBeforeMonth) * 100;
+          : (churnedUsers.length / previousUserIds.length) * 100;
 
       results.push({
         month: currentPeriodStart.toLocaleString('default', {
           month: 'short',
           year: 'numeric',
         }),
-        totalUsersBeforeMonth,
-        inactiveMoreThan3Days: churnedUsersCount,
+        previousActiveUsers: previousUserIds.length,
+        currentActiveUsers: currentUserIds.length,
+        churnedUsers: churnedUsers.length,
         churnRate: Number(churnRate.toFixed(2)),
       });
-
       currentPeriodStart = currentPeriodEnd;
     }
 

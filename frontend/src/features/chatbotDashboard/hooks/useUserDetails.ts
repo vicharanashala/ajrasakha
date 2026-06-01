@@ -35,6 +35,7 @@ export interface UserDetail {
   role?: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
+  createdAt?: string;
 }
 
 export interface PaginatedUserDetailsResponse {
@@ -62,6 +63,7 @@ export function useUserDetails(
   sortBy: 'totalQuestions' | 'name' = 'name',
   sortOrder: 'asc' | 'desc' = 'asc',
   activeTodayByProfile = false,
+  missingDemographicField = '',
   enabled = true,
 ) {
   const startISO = startDate?.toISOString();
@@ -72,7 +74,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile, missingDemographicField],
     staleTime: 30 * 1000,
     enabled,
     queryFn: async () => {
@@ -93,6 +95,7 @@ export function useUserDetails(
       params.set('sortBy', sortBy);
       params.set('sortOrder', sortOrder);
       if (activeTodayByProfile) params.set('activeTodayByProfile', 'true');
+      if (missingDemographicField) params.set('missingDemographicField', missingDemographicField);
 
       const result = await apiFetch<PaginatedUserDetailsResponse>(
         `${API_BASE_URL}/analytics/user-details?${params.toString()}`,
