@@ -430,7 +430,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-        this.chatbotRepository.getPlatformInstalls(source),
+        this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
         this.chatbotRepository.getDomainSpikes(60),
         this.chatbotRepository.getFeedbackData(source, undefined, userType),
         this.chatbotRepository.getDailyQuestionTrends(

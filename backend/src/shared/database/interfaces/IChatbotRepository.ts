@@ -408,7 +408,7 @@ export interface IChatbotRepository {
   getFeedbackData(source?: string, session?: ClientSession, userType?: string): Promise<FeedbackData>;
 
   // get platform wise installs
-  getPlatformInstalls(source: string, session?: ClientSession): Promise<PlatformInstallEntry[]>;
+  getPlatformInstalls(source: string, session?: ClientSession, userType?: string): Promise<PlatformInstallEntry[]>;
 
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
   getDuplicateQuestions(source?: string, session?: ClientSession): Promise<DuplicateQuestionEntry[]>;
