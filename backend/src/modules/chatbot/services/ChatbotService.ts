@@ -2472,8 +2472,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     console.log('User id for notification', user.userId);
     const webhookPayload = {
       customMessage: message,
-      userid: user.userId,
-      type: 'COSTUM',
+      userId: user.userId.toString(),
+      type: 'CUSTOM',
     };
       const response = await triggerWebhook(
         appConfig.WEB_WEBHOOK_API_URL,
