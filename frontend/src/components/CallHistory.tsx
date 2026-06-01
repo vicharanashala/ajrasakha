@@ -2,12 +2,15 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Button } from "./atoms/button";
 import { Badge } from "./atoms/badge";
-import { Phone, Filter, ChevronLeft, ChevronRight, RefreshCw, Eye } from "lucide-react";
+import { Phone, Filter, ChevronLeft, ChevronRight, RefreshCw, Eye, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { plivoApi } from "@/hooks/api/plivo/api";
+import { whatsappApi } from "@/hooks/api/whatsapp/api";
 import type { CallHistoryItem } from "@/hooks/api/plivo/api";
 import { format } from "date-fns";
 import { FarmerDetails } from "./FarmerDetails";
+import Plivo from "plivo-browser-sdk";
+import { toast } from "sonner";
 
 interface CallHistoryProps {
   onRedial?: (phoneNumber: string) => void;
@@ -25,6 +28,11 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
 
   // Farmer Details
   const [selectedCallForDetails, setSelectedCallForDetails] = useState<string | null>(null);
+
+  // Message
+  const [messageRow, setMessageRow] = useState<string | null>(null);
+  const [messageText, setMessageText] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -80,11 +88,69 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
     fetchCallHistory();
   };
 
-  const handleRedial = (phoneNumber: string) => {
-    if (onRedial) {
-      onRedial(phoneNumber);
+  // const handleRedial = (phoneNumber: string) => {
+  //   if (onRedial) {
+  //     onRedial(phoneNumber);
+  //   }
+  // };
+
+  const handleSendMessage = async (destination: string) => {
+    if (!messageText.trim()) return;
+    setSendingMessage(true);
+    try {
+      await whatsappApi.sendMessage(destination, messageText);
+      toast.success("WhatsApp message sent successfully!");
+      setMessageRow(null);
+      setMessageText("");
+    } catch (err: any) {
+      toast.error(`Failed to send WhatsApp message: ${err.message || "Unknown error"}`);
+    } finally {
+      setSendingMessage(false);
     }
   };
+
+  
+
+    const handleRedial = async (CallHistoryItem: any) => {
+      // const { from, to } = CallHistoryItem;
+
+      // // Designated numbers to check
+      // const designatedNumbers = ["918031150392", "sip:annamuser1293525305518427216@phone.plivo.com"];
+
+      // // Determine which number to call
+      let numberToCall = "+919606751041"; // Default to calling the 'to' number
+
+      // // If 'from' contains any of the designated numbers, call the opposite (to)
+      // if (designatedNumbers.some(dn => from?.includes(dn))) {
+      //   numberToCall = to;
+      // }
+      // // If 'to' contains any of the designated numbers, call the opposite (from)
+      // else if (designatedNumbers.some(dn => to?.includes(dn))) {
+      //   numberToCall = from;
+      // }
+
+      // Preserved for redial hook implementation
+
+
+      let plivoClientRef;
+      const options = {
+        debug: "DEBUG" as const,
+        permOnClick: true,
+        enableTracking: true
+      };
+
+      const client = new Plivo(options);
+      plivoClientRef = client;
+      try {
+        const extraHeaders = {
+          'X-PH-destination': "+919606751041"
+        };
+        const result = plivoClientRef.client.call("+919606751041", extraHeaders);
+        toast.success(`Redialing ${numberToCall}. Call UUID: ${result}`);
+      } catch (error: any) {
+        toast.error(error.message || "Failed to initiate call");
+      }
+    };
 
   const getStatusColor = (status: string) => {
     if (!status) {
@@ -296,11 +362,23 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleRedial(call.to)}
+                                  onClick={() => handleRedial(call)}
                                   className="gap-2"
                                 >
                                   <Phone className="h-4 w-4" />
                                   Redial
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setMessageRow(messageRow === call.uuid ? null : call.uuid);
+                                    setMessageText("");
+                                  }}
+                                  className="gap-3"
+                                >
+                                  <MessageSquare className="h-4 w-4" />
+                                  Message 
                                 </Button>
                                 <Button
                                   size="sm"
@@ -361,6 +439,40 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                         No transcript data available for this call
                                       </div>
                                     )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          {messageRow === call.uuid && (
+                            <tr key={`message-${call.uuid}`}>
+                              <td colSpan={6} className="px-4 py-4 bg-muted/10">
+                                <div className="flex flex-col gap-2 max-w-md">
+                                  <h4 className="text-sm font-semibold">Send WhatsApp Message to {call.direction === 'inbound' ? call.from : call.to}</h4>
+                                  <textarea
+                                    className="w-full p-2 border rounded-md text-sm bg-background"
+                                    rows={3}
+                                    placeholder="Type your WhatsApp message here..."
+                                    value={messageText}
+                                    onChange={(e) => setMessageText(e.target.value)}
+                                  />
+                                  <div className="flex justify-end gap-2 mt-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setMessageRow(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleSendMessage(call.direction === 'inbound' ? call.from : call.to)}
+                                      disabled={!messageText.trim() || sendingMessage}
+                                      className="gap-2"
+                                    >
+                                      {sendingMessage && <RefreshCw className="h-3 w-3 animate-spin" />}
+                                      Send WhatsApp
+                                    </Button>
                                   </div>
                                 </div>
                               </td>
