@@ -66,12 +66,18 @@ export class WhatsAppController {
     @Body() body: {phoneNumber: string; messageText: string},
     @CurrentUser() user: IUser,
   ) {
+    console.log('[WhatsAppController] sendMessage called with:', {
+      phoneNumber: body.phoneNumber,
+      messageText: body.messageText,
+      userId: user._id.toString(),
+    });
     const userId = user._id.toString();
     await this.whatsappService.sendMessage(
       userId,
       body.phoneNumber,
       body.messageText,
     );
+    console.log('[WhatsAppController] Message sent successfully');
     return {success: true, message: 'Message sent successfully'};
   }
 
