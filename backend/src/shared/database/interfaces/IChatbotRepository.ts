@@ -178,13 +178,13 @@ export interface UserDetailEntry {
   createdAt: Date;
 }
 
-export interface PaginatedUserDetails {
+export interface PaginatedUserDetails { 
   users: UserDetailEntry[];
   totalUsers: number;
   totalPages: number;
-  activeUsers: number;
-  inactiveUsers: number;
-  totalQuestions: number;
+  activeUsers?: number;
+  inactiveUsers?: number;
+  totalQuestions?: number;
 }
 
 export interface DemographicEntry {

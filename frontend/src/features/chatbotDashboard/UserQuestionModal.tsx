@@ -90,7 +90,7 @@ const UserQuestionsModal = ({
     currentPage,
     10,
   );
-  console.log("UserQuestionModal data", fullData);
+  // console.log("UserQuestionModal data", fullData);
   const latestMessageId = fullData?.messages?.items?.[0]?.messageId;
   const activeData = useMemo(() => {
     return viewType === "questions" ? fullData?.questions : fullData?.messages;
