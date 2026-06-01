@@ -564,184 +564,6 @@ export function UserDetailsView({
                       users.map((user, idx) => {
                         const fp = user.farmerProfile;
                         return (
-                          // <ContextMenu key={user.userId}>
-                          //   <ContextMenuTrigger asChild>
-                          //     <TableRow className="text-center">
-                          //       <TableCell className="align-middle">
-                          //         {(currentPage - 1) * pageSize + idx + 1}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {/* <span
-                          //     className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          //       user.totalQuestions > 0
-                          //         ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                          //         : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                          //     }`}
-                          //   >
-                          //     {user.totalQuestions.toLocaleString()}
-                          //   </span> */}
-
-                          //         <Button
-                          //           onClick={() => {
-                          //             setSelectedUser(user);
-                          //             setQuestionModalOpen(true);
-                          //           }}
-                          //           className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold hover:cursor-pointer ${
-                          //             user.totalQuestions > 0
-                          //               ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                          //               : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                          //           }`}
-                          //         >
-                          //           {user.totalQuestions.toLocaleString()}
-                          //         </Button>
-                          //       </TableCell>
-
-                          //       <TableCell className="align-middle font-medium whitespace-nowrap">
-                          //         {user.name}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {user.email}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.farmerName ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.age ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.gender ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.villageName ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.blockName ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.district ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.state ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.phoneNo ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.languagePreference ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.yearsOfExperience ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         <CropsCell crops={fp?.cropsCultivated} />
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         <CropsCell crops={fp?.primaryCrop} />
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         <CropsCell crops={fp?.secondaryCrop} />
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.awarenessOfKCC == null
-                          //           ? "—"
-                          //           : fp.awarenessOfKCC
-                          //             ? "Yes"
-                          //             : "No"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.usesAgriApps == null
-                          //           ? "—"
-                          //           : fp.usesAgriApps
-                          //             ? "Yes"
-                          //             : "No"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.highestEducatedPerson ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.numberOfSmartphones ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.platformHistory &&
-                          //         fp.platformHistory.length > 0 ? (
-                          //           <div className="flex flex-col items-center">
-                          //             <span>
-                          //               {
-                          //                 fp.platformHistory[
-                          //                   fp.platformHistory.length - 1
-                          //                 ].os
-                          //               }
-                          //             </span>
-                          //             <span className="text-xs text-gray-400">
-                          //               {new Date(
-                          //                 fp.platformHistory[
-                          //                   fp.platformHistory.length - 1
-                          //                 ].timestamp,
-                          //               ).toLocaleDateString("en-GB", {
-                          //                 day: "2-digit",
-                          //                 month: "2-digit",
-                          //                 year: "2-digit",
-                          //               })}
-                          //             </span>
-                          //           </div>
-                          //         ) : (
-                          //           (fp?.platform ?? "—")
-                          //         )}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.location?.latitude &&
-                          //         fp?.location?.longitude ? (
-                          //           <a
-                          //             href={`https://maps.google.com/?q=${fp.location.latitude},${fp.location.longitude}`}
-                          //             target="_blank"
-                          //             rel="noopener noreferrer"
-                          //             title="View on Maps"
-                          //             className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
-                          //             onClick={(e) => e.stopPropagation()}
-                          //           >
-                          //             <MapPin className="h-4 w-4" />
-                          //           </a>
-                          //         ) : (
-                          //           "—"
-                          //         )}
-                          //       </TableCell>
-                          //     </TableRow>
-                          //   </ContextMenuTrigger>
-                          //   {isAdmin && (
-                          //     <ContextMenuContent>
-                          //       <ContextMenuItem
-                          //         className="cursor-pointer flex items-center gap-2"
-                          //         onClick={(e) => {
-                          //           e.stopPropagation();
-                          //           setUserToEdit(user);
-                          //         }}
-                          //       >
-                          //         <Pencil className="h-4 w-4" />
-                          //         Edit
-                          //       </ContextMenuItem>
-                          //       <ContextMenuItem
-                          //         className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
-                          //         onClick={(e) => {
-                          //           e.stopPropagation();
-                          //           setConfirmEmail("");
-                          //           setUserToDelete({
-                          //             userId: user.userId,
-                          //             source,
-                          //             email: user.email,
-                          //           });
-                          //         }}
-                          //       >
-                          //         <Trash2 className="h-4 w-4 text-red-600" />
-                          //         Delete
-                          //       </ContextMenuItem>
-                          //     </ContextMenuContent>
-                          //   )}
-                          // </ContextMenu>
-                          // ─── Drop-in replacement for your existing ContextMenu block ─────────────────
-                          // All state references (currentPage, pageSize, setSelectedUser, setQuestionModalOpen,
-                          // setUserToEdit, setConfirmEmail, setUserToDelete, source, isAdmin) remain unchanged.
-                          // Only the visuals are improved.
-
                           <ContextMenu key={user.userId} modal={false}>
                             <ContextMenuTrigger asChild>
                               <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
@@ -758,17 +580,17 @@ export function UserDetailsView({
                                     onClick={() => {
                                       setSelectedUser(user);
                                       setQuestionModalOpen(true);
+                                      console.log("Button clicked")
                                     }}
                                     className={`inline-flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full text-xs font-semibold transition-colors ${
                                       user.totalQuestions > 0
                                         ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
-                                        : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default pointer-events-none"
+                                        : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default"
                                     }`}
-                                    disabled={user.totalQuestions === 0}
                                     title={
-                                      user.totalQuestions > 0
-                                        ? "View queries"
-                                        : undefined
+                                      
+                                        "View queries"
+                                    
                                     }
                                   >
                                     {user.totalQuestions.toLocaleString()}

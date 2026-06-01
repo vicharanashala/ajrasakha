@@ -815,6 +815,17 @@ async getUserQuestionsData(
   );
 }
 
+  @Post('/notify-user')
+  @HttpCode(200)
+  @Authorized()
+  async notifyUser(
+    @QueryParam('userEmail') userEmail: string,
+    @QueryParam('messageId') messageId: string,
+    @QueryParam('message') message: string
+  ){
+      return this.chatbotService.notifyUser(userEmail, messageId, message)
+  }
+
   @Get('/closed-notified-data')
   @HttpCode(200)
   @Authorized()
