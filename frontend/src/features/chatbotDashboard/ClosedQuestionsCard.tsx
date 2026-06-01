@@ -26,6 +26,7 @@ type ClosedQuestionsCardProps = {
   isLoading?: boolean;
   carryForward: number;
   statusBreakup: any;
+  avgCloseTimeMinutes?: number;
 };
 
 export function ClosedQuestionsCard({
@@ -37,6 +38,7 @@ export function ClosedQuestionsCard({
   isLoading,
   carryForward,
   statusBreakup,
+  avgCloseTimeMinutes = 0,
 }: ClosedQuestionsCardProps) {
   const today = new Date();
 
@@ -392,8 +394,21 @@ export function ClosedQuestionsCard({
               </motion.span>
             </motion.div>
           </motion.div>
+
+          <div className={`mt-3 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
+            Average time to close a question: {formatDurationFromMinutes(avgCloseTimeMinutes)}
+          </div>
         </CardHeader>
       </Card>
     </motion.div>
   );
 }
+  const formatDurationFromMinutes = (mins: number): string => {
+    if (!mins || mins <= 0) return "0m";
+    const totalMinutes = Math.round(mins);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h`;
+    return `${minutes}m`;
+  };

@@ -30,6 +30,11 @@ export function ClosedInLastTwoHoursCard({
   onDateRangeChange,
   isLoading,
 }: ClosedInLastTwoHoursCardProps) {
+  const safeCount = count ?? 0;
+  const safeTotalClosed = totalClosed ?? 0;
+  const closedWithinTwoHoursPct =
+    safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -88,7 +93,7 @@ export function ClosedInLastTwoHoursCard({
               }}
               key={`${count ?? 0}-${totalClosed ?? 0}`}
             >
-              {count ?? 0} / {totalClosed ?? 0}
+              {safeCount} / {safeTotalClosed}
             </motion.div>
 
             <TooltipProvider>
@@ -113,6 +118,10 @@ export function ClosedInLastTwoHoursCard({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          </div>
+
+          <div className={`mt-2 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
+            {closedWithinTwoHoursPct.toFixed(2)}% of questions were closed within 2 hours
           </div>
         </CardHeader>
       </Card>

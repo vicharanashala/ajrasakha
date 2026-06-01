@@ -31,6 +31,13 @@ export function CustomerNotificationsCard({
   onDateRangeChange,
   isLoading,
 }: CustomerNotificationsCardProps) {
+  const safeNotified = notified ?? 0;
+  const safeNotNotified = notNotified ?? 0;
+  const safeUntracked = untrackedClosedQuestions ?? 0;
+  const totalClosedQuestions = safeNotified + safeNotNotified + safeUntracked;
+  const notifiedPct =
+    totalClosedQuestions > 0 ? (safeNotified / totalClosedQuestions) * 100 : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -162,7 +169,7 @@ export function CustomerNotificationsCard({
               <span className="text-xs text-muted-foreground">Notified</span>
 
               <motion.span
-                key={notified ?? 0}
+                key={safeNotified}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 15 }}
@@ -172,7 +179,7 @@ export function CustomerNotificationsCard({
               tracking-tight
             "
               >
-                {notified ?? 0}
+                {safeNotified}
               </motion.span>
             </motion.div>
 
@@ -194,7 +201,7 @@ export function CustomerNotificationsCard({
               </span>
 
               <motion.span
-                key={notNotified ?? 0}
+                key={safeNotNotified}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 15 }}
@@ -204,7 +211,7 @@ export function CustomerNotificationsCard({
               tracking-tight
             "
               >
-                {notNotified ?? 0}
+                {safeNotNotified}
               </motion.span>
             </motion.div>
 
@@ -224,7 +231,7 @@ export function CustomerNotificationsCard({
               <span className="text-xs text-muted-foreground">Untracked</span>
 
               <motion.span
-                key={untrackedClosedQuestions ?? 0}
+                key={safeUntracked}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 15 }}
@@ -234,10 +241,14 @@ export function CustomerNotificationsCard({
               tracking-tight
             "
               >
-                {untrackedClosedQuestions ?? 0}
+                {safeUntracked}
               </motion.span>
             </motion.div>
           </motion.div>
+
+          <div className={`mt-3 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
+            {notifiedPct.toFixed(2)}% notified out of total closed questions
+          </div>
         </CardHeader>
       </Card>
     </motion.div>

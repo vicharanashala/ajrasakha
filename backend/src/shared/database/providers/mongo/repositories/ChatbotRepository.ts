@@ -8275,6 +8275,21 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [{ $eq: ['$status', 'non_agri'] }, 1, 0],
               },
             },
+            avgCloseTimeMs: {
+              $avg: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  null,
+                ],
+              },
+            },
           },
         },
         {
@@ -8294,6 +8309,9 @@ export class ChatbotRepository implements IChatbotRepository {
             pass: 1,
             duplicate: 1,
             nonAgri: 1,
+            avgCloseTimeMinutes: {
+              $round: [{$divide: [{$ifNull: ['$avgCloseTimeMs', 0]}, 60000]}, 2],
+            },
           },
         },
       ]).toArray();
@@ -8302,6 +8320,7 @@ export class ChatbotRepository implements IChatbotRepository {
         totalQuestions: 0,
         closedQuestions: 0,
         inReviewQuestions: 0,
+        avgCloseTimeMinutes: 0,
       };
     } catch (error) {
       throw new InternalServerError(
