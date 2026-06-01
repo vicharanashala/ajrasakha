@@ -23,7 +23,8 @@ import { apiReference } from '@scalar/express-api-reference';
 import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { faqPopConfig } from './config/faqPop.js';
-
+import dns from "dns";
+dns.setServers(["8.8.8.8", "1.1.1.1"])
 const app = express();
 
 app.get(`${appConfig.routePrefix}/health`, (_req, res) => {

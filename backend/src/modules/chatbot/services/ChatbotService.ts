@@ -2477,6 +2477,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       type: "Custom"
     }
     try{
+      console.log(appConfig.WEB_WEBHOOK_API_KEY)
     const response = await triggerWebhook(
       appConfig.WEB_WEBHOOK_API_URL,
       appConfig.WEB_WEBHOOK_API_KEY,

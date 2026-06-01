@@ -5,6 +5,8 @@ export const triggerWebhook = async (
     label: string,
 ) => {
     // try {
+    console.log("url", url)
+    console.log("apiKey", apiKey)
         const response = await fetch(url, {
             method: 'POST',
             headers: {
