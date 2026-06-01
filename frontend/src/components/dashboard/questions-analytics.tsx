@@ -273,8 +273,8 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
       "Draft",
       "Duplicate",
       "Total",
-      "Last Pushed",
-      "Last Closed",
+      "Created At",
+      "Closed At",
       "Completion %",
     ];
 
@@ -751,8 +751,8 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       <TableHead className="text-center min-w-[55px] text-gray-500 dark:text-gray-400 font-semibold">Draft</TableHead>
                       <TableHead className="text-center min-w-[75px] text-orange-600 dark:text-orange-400 font-semibold">Duplicate</TableHead>
                       <TableHead className="text-center min-w-[60px] font-bold">Total</TableHead>
-                      <TableHead className="text-center min-w-[110px] text-blue-600 dark:text-blue-400 font-semibold">Last Pushed</TableHead>
-                      <TableHead className="text-center min-w-[110px] text-purple-600 dark:text-purple-400 font-semibold">Last Closed</TableHead>
+                      <TableHead className="text-center min-w-[110px] text-blue-600 dark:text-blue-400 font-semibold">Created At</TableHead>
+                      <TableHead className="text-center min-w-[110px] text-purple-600 dark:text-purple-400 font-semibold">Closed At</TableHead>
                       <TableHead className="text-center min-w-[90px] text-teal-600 dark:text-teal-400 font-semibold">Completion %</TableHead>
                     </TableRow>
                   </TableHeader>
