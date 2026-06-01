@@ -5948,19 +5948,44 @@ export class ChatbotRepository implements IChatbotRepository {
   async getPlatformInstalls(
     source: 'vicharanashala',
     session?: ClientSession,
+    userType = 'all',
   ): Promise<PlatformInstallEntry[]> {
     try {
       await this.init(source);
+      const userDocFilter = this.buildUserDocFilter(userType);
       const result = await this.users
         .aggregate<PlatformInstallEntry>([
           {
             $match: {
-              'farmerProfile.platform': {$exists: true, $ne: null},
+              farmerProfile: {$exists: true, $ne: null},
+              ...userDocFilter,
+            },
+          },
+          {
+            $project: {
+              platform: {
+                $let: {
+                  vars: {
+                    rawPlatform: {
+                      $trim: {
+                        input: {$ifNull: ['$farmerProfile.platform', '']},
+                      },
+                    },
+                  },
+                  in: {
+                    $cond: [
+                      {$eq: ['$$rawPlatform', '']},
+                      'Unknown',
+                      '$$rawPlatform',
+                    ],
+                  },
+                },
+              },
             },
           },
           {
             $group: {
-              _id: '$farmerProfile.platform',
+              _id: '$platform',
               count: {$sum: 1},
             },
           },
