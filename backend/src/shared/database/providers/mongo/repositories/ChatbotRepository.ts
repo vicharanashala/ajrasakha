@@ -4451,12 +4451,12 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Compute summary stats over the full filtered set
       const totalUsers = finalList.length;
-      const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
-      const inactiveUsers = totalUsers - activeUsers;
-      const totalQuestions = finalList.reduce(
-        (sum, u) => sum + u.totalQuestions,
-        0,
-      );
+      // const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
+      // const inactiveUsers = totalUsers - activeUsers;
+      // const totalQuestions = finalList.reduce(
+      //   (sum, u) => sum + u.totalQuestions,
+      //   0,
+      // );
       const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
 
       // Paginate
@@ -4467,9 +4467,9 @@ export class ChatbotRepository implements IChatbotRepository {
         users,
         totalUsers,
         totalPages,
-        activeUsers,
-        inactiveUsers,
-        totalQuestions,
+        // activeUsers,
+        // inactiveUsers,
+        // totalQuestions,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user details: ${error}`);
