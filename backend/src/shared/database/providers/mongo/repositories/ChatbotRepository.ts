@@ -4354,6 +4354,7 @@ export class ChatbotRepository implements IChatbotRepository {
       if (missingDemographicField) {
         userFilter.$and = [
           ...(userFilter.$and ?? []),
+          {farmerProfile: {$exists: true, $ne: null}},
           {
             $or: [
               {[`farmerProfile.${missingDemographicField}`]: {$exists: false}},
