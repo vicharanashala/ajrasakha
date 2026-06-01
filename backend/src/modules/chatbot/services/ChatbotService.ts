@@ -2340,65 +2340,65 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyActiveUsersTrend(
-    source: string,
-    userType: string,
-    startDate?: Date,
-    endDate?: Date,
-  ) {
-    try {
-      return await this.chatbotRepository.getDailyActiveUsersTrend(
-        source,
-        userType,
-        startDate,
-        endDate,
-      );
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to fetch Daily Active Users Trend: ${error}`,
-      );
-    }
-  }
+  // async getDailyActiveUsersTrend(
+  //   source: string,
+  //   userType: string,
+  //   startDate?: Date,
+  //   endDate?: Date,
+  // ) {
+  //   try {
+  //     return await this.chatbotRepository.getDailyActiveUsersTrend(
+  //       source,
+  //       userType,
+  //       startDate,
+  //       endDate,
+  //     );
+  //   } catch (error) {
+  //     throw new InternalServerError(
+  //       `Failed to fetch Daily Active Users Trend: ${error}`,
+  //     );
+  //   }
+  // }
 
-  async getMonthlyActiveUsersTrend(
-    source: string,
-    userType: string,
-    startDate?: Date,
-    endDate?: Date,
-  ) {
-    try {
-      return await this.chatbotRepository.getMonthlyActiveUsersTrend(
-        source,
-        userType,
-        startDate,
-        endDate
-      );
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to fetch Monthly Active Users Trend: ${error}`,
-      );
-    }
-  }
+  // async getMonthlyActiveUsersTrend(
+  //   source: string,
+  //   userType: string,
+  //   startDate?: Date,
+  //   endDate?: Date,
+  // ) {
+  //   try {
+  //     return await this.chatbotRepository.getMonthlyActiveUsersTrend(
+  //       source,
+  //       userType,
+  //       startDate,
+  //       endDate
+  //     );
+  //   } catch (error) {
+  //     throw new InternalServerError(
+  //       `Failed to fetch Monthly Active Users Trend: ${error}`,
+  //     );
+  //   }
+  // }
 
-  async getWeeklyActiveUsersTrend(
-    source: string,
-    userType: string,
-    startDate?: Date,
-    endDate?: Date,
-  ) {
-    try {
-      return await this.chatbotRepository.getWeeklyActiveUsersTrend(
-        source,
-        userType,
-        startDate,
-        endDate
-      );
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to fetch Weekly Active Users Trend: ${error}`,
-      );
-    }
-  }
+  // async getWeeklyActiveUsersTrend(
+  //   source: string,
+  //   userType: string,
+  //   startDate?: Date,
+  //   endDate?: Date,
+  // ) {
+  //   try {
+  //     return await this.chatbotRepository.getWeeklyActiveUsersTrend(
+  //       source,
+  //       userType,
+  //       startDate,
+  //       endDate
+  //     );
+  //   } catch (error) {
+  //     throw new InternalServerError(
+  //       `Failed to fetch Weekly Active Users Trend: ${error}`,
+  //     );
+  //   }
+  // }
 
   async getRetentionMetrics(
     source: string,
@@ -2523,5 +2523,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getMonthlyChurnRate(source: string, userType: string):Promise<any> {
     return await this.chatbotRepository.getMonthlyChurnRate(source, userType);
+  }
+
+  async getActiveUsersTrend(
+      source: string,
+      userType: string,
+      requestType: string,
+      startDate?: Date,
+      endDate?: Date,
+    ) : Promise<any> {
+      return await this.chatbotRepository.getActiveUsersTrend(source, userType, requestType, startDate, endDate);
   }
 }

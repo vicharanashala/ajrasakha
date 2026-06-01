@@ -702,56 +702,56 @@ async downloadChatbotReport(
     }
   }
 
-  @Get('/daily-active-users-trend')
-  @HttpCode(200)
-  @Authorized()
-  async getDailyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = query.startDate
-      ? new Date(query.startDate)
-      : undefined;
+  // @Get('/daily-active-users-trend')
+  // @HttpCode(200)
+  // @Authorized()
+  // async getDailyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+  //   const startDate = query.startDate
+  //     ? new Date(query.startDate)
+  //     : undefined;
 
-    const endDate = query.endDate
-      ? new Date(query.endDate)
-      : undefined;
-    const source = query.source;
-    const userType = query.userType;
+  //   const endDate = query.endDate
+  //     ? new Date(query.endDate)
+  //     : undefined;
+  //   const source = query.source;
+  //   const userType = query.userType;
 
-    return await this.chatbotService.getDailyActiveUsersTrend( source, userType, startDate, endDate,);
-  }
+  //   return await this.chatbotService.getDailyActiveUsersTrend( source, userType, startDate, endDate,);
+  // }
 
-  @Get('/monthly-active-users-trend')
-  @HttpCode(200)
-  @Authorized()
-  async getMonthlyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = query.startDate
-      ? new Date(query.startDate)
-      : undefined;
+  // @Get('/monthly-active-users-trend')
+  // @HttpCode(200)
+  // @Authorized()
+  // async getMonthlyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+  //   const startDate = query.startDate
+  //     ? new Date(query.startDate)
+  //     : undefined;
 
-    const endDate = query.endDate
-      ? new Date(query.endDate)
-      : undefined;
-    const source = query.source;
-    const userType = query.userType;
+  //   const endDate = query.endDate
+  //     ? new Date(query.endDate)
+  //     : undefined;
+  //   const source = query.source;
+  //   const userType = query.userType;
 
-    return await this.chatbotService.getMonthlyActiveUsersTrend( source, userType, startDate, endDate);
-  }
+  //   return await this.chatbotService.getMonthlyActiveUsersTrend( source, userType, startDate, endDate);
+  // }
 
-  @Get('/weekly-active-users-trend')
-  @HttpCode(200)
-  @Authorized()
-  async getWeeklyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
-    const startDate = query.startDate
-      ? new Date(query.startDate)
-      : undefined;
+  // @Get('/weekly-active-users-trend')
+  // @HttpCode(200)
+  // @Authorized()
+  // async getWeeklyActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+  //   const startDate = query.startDate
+  //     ? new Date(query.startDate)
+  //     : undefined;
 
-    const endDate = query.endDate
-      ? new Date(query.endDate)
-      : undefined;
-    const source = query.source;
-    const userType = query.userType;
+  //   const endDate = query.endDate
+  //     ? new Date(query.endDate)
+  //     : undefined;
+  //   const source = query.source;
+  //   const userType = query.userType;
 
-    return await this.chatbotService.getWeeklyActiveUsersTrend( source, userType, startDate, endDate);
-  }
+  //   return await this.chatbotService.getWeeklyActiveUsersTrend( source, userType, startDate, endDate);
+  // }
 
   @Get('/retention-metrics')
   @HttpCode(200)
@@ -852,6 +852,25 @@ async getUserQuestionsData(
     userType: string= 'all',
   ):Promise<any> {
     return await this.chatbotService.getMonthlyChurnRate(source, userType);
+  }
+
+
+  @Get('/active-users-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getActiveUsersTrend(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate)
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+    const requestType = query.requestType;
+
+    return await this.chatbotService.getActiveUsersTrend( source, userType, requestType, startDate, endDate,);
   }
 
 }

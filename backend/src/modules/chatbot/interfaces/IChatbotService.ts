@@ -145,9 +145,9 @@ export interface IChatbotService {
       role?: string;
     },
   ): Promise<boolean>;
-  getDailyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ):Promise<any>;
-  getMonthlyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ): Promise<any>;
-  getWeeklyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ): Promise<any>;
+  // getDailyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ):Promise<any>;
+  // getMonthlyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ): Promise<any>;
+  // getWeeklyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ): Promise<any>;
   getRetentionMetrics(  
       source: string,
       userType: string,
@@ -160,4 +160,11 @@ export interface IChatbotService {
 
   getClosedAndNotifedData(source?: string, startDate?: string, endDate?: string): Promise<any>;
   getMonthlyChurnRate(source: string, userType: string):Promise<any>;
+  getActiveUsersTrend(
+      source: string,
+      userType: string,
+      requestType: string,
+      startDate?: Date,
+      endDate?: Date,
+    ) : Promise<any>;
 }

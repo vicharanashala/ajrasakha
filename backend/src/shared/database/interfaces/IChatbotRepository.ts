@@ -480,11 +480,11 @@ export interface IChatbotRepository {
     },
   ): Promise<boolean>;
 
-  getDailyActiveUsersTrend  ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession):Promise<any>
+  // getDailyActiveUsersTrend  ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession):Promise<any>
 
-  getMonthlyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
+  // getMonthlyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
 
-  getWeeklyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
+  // getWeeklyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
 
   getRetentionMetrics (
     source: string,
@@ -510,7 +510,16 @@ export interface IChatbotRepository {
 
   getMonthlyChurnRate(source: string, userType: string):Promise<any>;
 
-  getCarryForwardQuestions(source?: string): Promise<any> 
+  getCarryForwardQuestions(source?: string): Promise<any>;
+
+  getActiveUsersTrend(
+    source: string,
+    userType: string,
+    requestType: string,
+    startDate?: Date,
+    endDate?: Date,
+    session?: ClientSession,
+  ) : Promise<any>;
 
 }
 

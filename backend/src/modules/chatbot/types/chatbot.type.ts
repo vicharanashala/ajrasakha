@@ -19,6 +19,7 @@ export type ActiveUsersQuery = {
   endDate?: string;
   source?: string;
   userType?: string;
+  requestType?: string;
 };
 
 export type RetentionMetricsQuery = {
