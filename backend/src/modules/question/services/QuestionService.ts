@@ -1315,6 +1315,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
+    threadUpdate?:boolean
   ): Promise<{modifiedCount: number}> {
     try {
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
@@ -1384,7 +1385,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             `Cannot close this question as it has non-final answer`,
           );
         }
-
+        if(threadUpdate){
+          return await this.questionRepo.updateThreadId(questionId, updates.threadId!, session);
+        }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
     } catch (error) {
