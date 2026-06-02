@@ -18,7 +18,7 @@ interface AddFarmerModalProps {
     email: string;
     name: string;
     password: string;
-    role?: string;
+    userRole?: string;
   }) => void | Promise<void>;
 }
 
@@ -98,7 +98,7 @@ const validate = () => {
       name: name.trim(),
       email: email.trim(),
       password,
-      role: "FARMER",
+      userRole: "FARMER",
     });
   };
 

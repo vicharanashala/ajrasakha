@@ -346,6 +346,17 @@ export class UserDetailEntryResponse {
   role?: string;
 
   @JSONSchema({
+    description: 'Farmer-facing user role',
+    example: 'FARMER',
+    type: 'string',
+    readOnly: true,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  userRole?: string;
+
+  @JSONSchema({
     description: 'Total number of questions asked by this user',
     example: 23,
     type: 'number',

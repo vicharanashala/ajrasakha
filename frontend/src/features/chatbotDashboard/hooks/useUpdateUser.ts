@@ -39,7 +39,7 @@ export function useUpdateUser() {
       source: string;
       data: {
         name?: string;
-        role?: string;
+        userRole?: string;
         farmerProfile?: FarmerProfileUpdate;
       };
     }) => {
