@@ -33,7 +33,7 @@ import { DailyQuestionTrendsChart } from "./components/DailyQuestionTrendsChart"
 import { TopFaqsLeaderboard } from "./components/TopFaqsLeaderboard";
 import { useInView } from "@/hooks/useInView";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
-import { Maximize2, X, Users, RefreshCw, UserMinus, HelpCircle } from "lucide-react";
+import { Maximize2, X, Users, RefreshCw, UserMinus, HelpCircle, InfoIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import type { DateRange } from "react-day-picker";
@@ -913,9 +913,19 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
 
                             <div className="flex items-center gap-2 mb-5">
                               <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-                              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                                Knowledge & Awareness
-                              </h3>
+                              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
+                                 <span>Knowledge & Awareness</span>
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                     <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                                       <InfoIcon className="h-3.5 w-3.5" />
+                                     </span>
+                                   </TooltipTrigger>
+                                   <TooltipContent className="normal-case tracking-normal">
+                                     Shows survey statistics on KCC awareness and agricultural app usage.
+                                   </TooltipContent>
+                                 </Tooltip>
+                               </h3>
                             </div>
 
                             <div className="flex flex-wrap gap-6 justify-center items-center h-[calc(100%-3rem)] overflow-hidden">

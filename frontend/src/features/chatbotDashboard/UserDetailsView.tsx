@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Eye, X, Trash2, Pencil, Users } from "lucide-react";
+import { Eye, X, Trash2, Pencil, Users, InfoIcon } from "lucide-react";
 import { Button } from "@/components/atoms/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import {
   Card,
   CardContent,

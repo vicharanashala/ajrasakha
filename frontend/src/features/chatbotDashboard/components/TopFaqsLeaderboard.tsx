@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { ScrollArea } from "@/components/atoms/scroll-area";
-import { MessageSquare, Award, MessageCircle, RefreshCw, BarChart2, Maximize2, X, CalendarIcon, RefreshCcw } from "lucide-react";
+import { MessageSquare, Award, MessageCircle, RefreshCw, BarChart2, Maximize2, X, CalendarIcon, RefreshCcw, InfoIcon } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
 import { Button } from "@/components/atoms/button";
@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { TranslatableText } from "./TranslatableText";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 interface TopFaqEntry {
   question: string;
@@ -100,8 +101,18 @@ export function TopFaqsLeaderboard({
         <div className="flex items-center gap-2.5">
           <Award className="w-5 h-5 text-amber-500 shrink-0" />
           <div>
-            <CardTitle className="text-base font-semibold tracking-wide text-foreground">
-              Top 10 FAQ Leaderboard
+            <CardTitle className="text-base font-semibold tracking-wide text-foreground flex items-center gap-1.5">
+              <span>Top 10 FAQ Leaderboard</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                    <InfoIcon className="h-3.5 w-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Lists the top 10 most common queries received by the chatbot, ranked by total count.
+                </TooltipContent>
+              </Tooltip>
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
               Most frequently asked questions from user chat messages
