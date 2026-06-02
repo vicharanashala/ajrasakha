@@ -1896,8 +1896,11 @@ export class QuestionRepository implements IQuestionRepository {
           const rid = question.referenceQuestionId as any;
           if (rid instanceof ObjectId) {
             refId = rid;
-          } else if (rid && rid.buffer) {
-            // stored as BSON Binary — extract the underlying Buffer
+          } else if (rid?.buffer?.data) {
+            // stored as serialized Buffer object {buffer: {type:"Buffer", data:[...]}}
+            refId = new ObjectId(Buffer.from(rid.buffer.data));
+          } else if (rid?.buffer && Buffer.isBuffer(rid.buffer)) {
+            // stored as BSON Binary with actual Buffer
             refId = new ObjectId(rid.buffer);
           } else {
             refId = new ObjectId(String(rid));
@@ -2105,6 +2108,17 @@ export class QuestionRepository implements IQuestionRepository {
 
       if (updates.closedAt) {
         updates.closedAt = new Date(updates.closedAt);
+      }
+
+      if (updates.referenceQuestionId) {
+        const rid = updates.referenceQuestionId as any;
+        if (rid instanceof ObjectId) {
+          // already correct
+        } else if (rid?.buffer?.data) {
+          updates.referenceQuestionId = new ObjectId(Buffer.from(rid.buffer.data));
+        } else {
+          updates.referenceQuestionId = new ObjectId(String(rid));
+        }
       }
 
       const contextValue = (updates as any).context;
