@@ -100,8 +100,6 @@ export class ContextService extends BaseService implements IContextService {
     const model = useSarvamModel ? 'sarvam-translate:v1' : 'mayura:v1';
     // API character limits: mayura:v1 = 1000, sarvam-translate:v1 = 2000
 
-    if (targetLang === 'en-IN') return { translated_text: text };
-
     // sarvam-translate:v1 requires an explicit source language (no 'auto').
     // When sourceLang is unknown, go via English:
     //   Step 1 — mayura:v1 auto-detects source → English
@@ -110,7 +108,7 @@ export class ContextService extends BaseService implements IContextService {
       const enChunks = this._splitIntoChunks(text, 900);
       const enResults = await this._translateInBatches(enChunks, 'auto', 'en-IN', 'mayura:v1', apiKey);
       const enText = enResults.join(' ');
-
+      if(targetLang === 'en-IN') return { translated_text: enText };
       const targetChunks = this._splitIntoChunks(enText, 1900);
       const targetResults = await this._translateInBatches(targetChunks, 'en-IN', targetLang, model, apiKey);
       return { translated_text: targetResults.join(' ') };
