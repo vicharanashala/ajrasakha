@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  ans-gen-pop:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ans-gen-pop
+    ports:
+      - "9016:9016"
+    env_file:
+      - .env
+    restart: unless-stopped

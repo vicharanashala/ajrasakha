@@ -15,12 +15,6 @@ LANGGRAPH_BASE_URL = os.getenv("LANGGRAPH_BASE_URL", "http://127.0.0.1:2024").rs
 LANGGRAPH_ASSISTANT_ID = os.getenv("LANGGRAPH_ASSISTANT_ID", "ajrasakha_agent")
 LANGGRAPH_API_KEY = os.getenv("LANGGRAPH_API_KEY", "not_required")
 
-# Desk reviewer API (link question_id to client userId / messageId after LangGraph upload)
-REVIEWER_DESK_API_BASE_URL = os.getenv(
-    "REVIEWER_DESK_API_BASE_URL", "https://desk.vicharanashala.ai/api"
-).rstrip("/")
-REVIEWER_DESK_API_KEY = os.getenv("REVIEWER_DESK_API_KEY", "").strip()
-
 # Source sent to upload_question_to_reviewer_system (adapter sets this; client does not)
 QUESTION_SOURCE = os.getenv("QUESTION_SOURCE", "AJRASAKHA").strip()
 
