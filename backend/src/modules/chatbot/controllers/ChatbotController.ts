@@ -896,4 +896,22 @@ async getUserQuestionsData(
     return { topFaqs, topQuestionsFromCollection, ...repeatQueryCountData };
   }
 
+  
+  @Get('/daily-question-trends')
+  @HttpCode(200)
+  @Authorized()
+  async getDailyQuestionTrends(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+    const startDate = query.startDate
+      ? new Date(query.startDate).toISOString()
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate).toISOString()
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getDailyQuestionTrends(30, source, userType, startDate, endDate);
+  }
+
 }

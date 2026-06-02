@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useDashboardData, useTopFaqs } from "./hooks/useDashboardData";
+import { useDailyQuestionTrends, useDashboardData, useTopFaqs } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
@@ -218,6 +218,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     customerNotificationsRange.endTime,
   );
 
+
+
   useEffect(() => {
     setClosed2hDateRange(undefined);
     setQuestionStatusDateRange(undefined);
@@ -266,11 +268,11 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     endTime: faqsDateRange?.to,
   }), [filters, faqsDateRange]);
 
-  const { data: trendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDashboardData(
-    trendsFilters,
-    source,
-    shouldLoadTrends,
-  );
+  // const { data: trendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDashboardData(
+  //   trendsFilters,
+  //   source,
+  //   shouldLoadTrends,
+  // );
   // const { data: faqsDataa, isLoading: faqsLoadinga, isFetching: faqsFetchinga } = useDashboardData(
   //   faqsFilters,
   //   source,
@@ -501,6 +503,8 @@ useEffect(() => {
     }));
   }
 }, [source]);
+
+  const { data: dailyQuestionTrendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDailyQuestionTrends(source, trendsFilters.userType as string, trendsFilters.startTime, trendsFilters.endTime);
 
 const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp");
   return (
@@ -1162,7 +1166,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                       >
                         {shouldLoadTrends ? (
                           <DailyQuestionTrendsChart
-                            trends={(trendsData as any).dailyQuestionTrends}
+                            trends={dailyQuestionTrendsData}
                             dateRange={trendsDateRange}
                             onDateRangeChange={setTrendsDateRange}
                             isLoading={trendsLoading}

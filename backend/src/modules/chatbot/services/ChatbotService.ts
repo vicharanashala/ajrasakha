@@ -369,7 +369,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         platformInstalls,
         domainSpikes,
         feedbackData,
-        dailyQuestionTrends,
+        // dailyQuestionTrends,
   // topFaqs,
   // topQuestionsFromCollection,
         responseAdherenceTable,
@@ -434,14 +434,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
         this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
         this.chatbotRepository.getDomainSpikes(60),
         this.chatbotRepository.getFeedbackData(source, undefined, userType),
-        this.chatbotRepository.getDailyQuestionTrends(
-          days,
-          source,
-          undefined,
-          userType,
-          startTime,
-          endTime,
-        ),
+        // this.chatbotRepository.getDailyQuestionTrends(
+        //   days,
+        //   source,
+        //   undefined,
+        //   userType,
+        //   startTime,
+        //   endTime,
+        // ),
 // this.chatbotRepository.getTopFaqs(
 //   source,
 //   undefined,
@@ -537,7 +537,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         platformInstalls,
         domainSpikes,
         feedbackData,
-        dailyQuestionTrends,
+        // dailyQuestionTrends,
 // topFaqs,
 // topQuestionsFromCollection,
         responseAdherenceTable,
@@ -2249,13 +2249,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyQuestionTrends(days = 30, userType = 'all') {
+  async getDailyQuestionTrends(days = 30, source?: string, userType = 'all', startTime?: string, endTime?: string) {
     try {
       return await this.chatbotRepository.getDailyQuestionTrends(
         days,
-        undefined,
+        source,
         undefined,
         userType,
+        startTime,
+        endTime,
       );
     } catch (error) {
       throw new InternalServerError(
