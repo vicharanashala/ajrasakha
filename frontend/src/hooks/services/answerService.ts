@@ -162,7 +162,6 @@ export class AnswerService {
   async fetchAiInitialAnswer(
     payload: IFetchAnswerPayload,
   ): Promise<any | null> {
-    return;
     try {
       return apiFetch<any>(`${this._baseUrl}/fetch-ai-answer`, {
         method: "POST",

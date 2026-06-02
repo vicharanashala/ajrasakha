@@ -22,7 +22,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { AnswerService } from '../services/AnswerService.js';
-import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
@@ -72,6 +72,15 @@ export class AnswerController {
       return this.answerService.reRouteReviewAnswer(userId, body)
     }
     return this.answerService.reviewAnswer(userId, body);
+  }
+
+  @OpenAPI({summary: 'Fetch AI initial answer through backend proxy'})
+  @Post('/fetch-ai-answer')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async fetchAiInitialAnswer(@Body() body: FetchAiInitialAnswerBody) {
+    return this.answerService.fetchAiInitialAnswer(body);
   }
 
   @Get('/submissions')

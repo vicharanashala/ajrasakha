@@ -26,6 +26,28 @@ import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 import { TimerDisplay } from "../../components/timer-display";
 import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import { useFetchAnswer } from "@/hooks/api/answer/useGetAiInitialAnswer";
+import type { SourceItem } from "@/types";
+import { toast } from "sonner";
+
+type AiAnswerResponse = {
+  answer?: string;
+  sources?: Array<{
+    source_name?: string;
+    source_url?: string;
+    source?: string;
+    page_no?: string | number;
+    page?: string | number;
+  }>;
+  contexts?: Array<{
+    meta_data?: {
+      source_name?: string;
+      source_url?: string;
+      source?: string;
+      page_no?: string | number;
+      page?: string | number;
+    };
+  }>;
+};
 
 type QaHeaderProps = {
   questions: any
@@ -46,8 +68,25 @@ type QaHeaderProps = {
   questionItemRefs: React.MutableRefObject<Record<string, HTMLDivElement>>;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
   onToggleCollapse: () => void;
+  onAiAnswerFetched?: (questionId: string, answer: string, sources: SourceItem[]) => void;
   hideControls?: boolean;
 }
+
+const normalizeAiAnswerSources = (result: AiAnswerResponse | null | undefined): SourceItem[] => {
+  const apiSources = result?.sources?.length
+    ? result.sources
+    : result?.contexts?.map((context) => context.meta_data).filter(Boolean);
+
+  return (apiSources || [])
+    .map((source) => ({
+      sourceType: "other" as const,
+      sourceName: source?.source_name?.trim(),
+      source: source?.source_url || source?.source || "",
+      page: source?.page_no ?? source?.page,
+    }))
+    .filter((source) => source.source);
+};
+
 const QaPreferencesDialog = ({
   reviewLevel,
   source,
@@ -238,6 +277,7 @@ const QaQuestionItem = ({
   hidePriority = false,
   selectedState,
   onStateChange,
+  onAiAnswerFetched,
 }: {
   question: any;
   selectedQuestion: string | null;
@@ -246,16 +286,36 @@ const QaQuestionItem = ({
   hidePriority?: boolean;
   selectedState: string;
   onStateChange: (state: string) => void;
+  onAiAnswerFetched?: (questionId: string, answer: string, sources: SourceItem[]) => void;
 }) => {
   const { mutate: fetchAnswer, isPending } = useFetchAnswer();
   const states = STATES;
   const fetchAiInitialAnswer = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
+    onQuestionSelect(question.id);
     fetchAnswer(
       {
         query: question.text,
-        crop: question.details.crop,
+        crop: question.details?.crop || "",
         state: selectedState,
+      },
+      {
+        onSuccess: (result: AiAnswerResponse | null) => {
+          if (!result?.answer) {
+            toast.error("AI answer was not returned.");
+            return;
+          }
+
+          onAiAnswerFetched?.(
+            question.id,
+            result.answer,
+            normalizeAiAnswerSources(result),
+          );
+          toast.success("AI answer added to draft.");
+        },
+        onError: () => {
+          toast.error("Failed to fetch AI answer.");
+        },
       },
     );
   };
@@ -375,8 +435,9 @@ const QaQuestionItem = ({
                     size="sm"
                     className="h-8 px-3 text-xs"
                     onClick={fetchAiInitialAnswer}
+                    disabled={isPending}
                   >
-                    Fetch
+                    {isPending ? "Fetching..." : "Fetch"}
                   </Button>
                 )}
               </div>
@@ -494,6 +555,7 @@ export const QaHeader = ({ questions,
   scrollRef,
   setQuestionRef,
   onToggleCollapse,
+  onAiAnswerFetched,
   hideControls = false,
 }: QaHeaderProps) => {
   const [questionStates, setQuestionStates] = useState<
@@ -662,6 +724,7 @@ export const QaHeader = ({ questions,
                       [question.id]: state,
                     }))
                   }
+                  onAiAnswerFetched={onAiAnswerFetched}
                 />
               ))}
             </RadioGroup>
