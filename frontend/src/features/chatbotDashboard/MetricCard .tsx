@@ -268,6 +268,16 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
       ? kpi.querySummaries[granularity]?.totalQueries?.toLocaleString() ?? kpi.value
       : kpi.value;
 
+  const dailyActiveFarmerPct = (() => {
+    if (kpi.id !== "dau") return null;
+    const raw = String(activeCardValue ?? "");
+    const [activeStr, totalStr] = raw.split("/").map((v) => v?.replace(/,/g, "").trim());
+    const active = Number(activeStr);
+    const total = Number(totalStr);
+    if (!Number.isFinite(active) || !Number.isFinite(total) || total <= 0) return null;
+    return ((active / total) * 100).toFixed(2);
+  })();
+
   return (
     <>
       {/* <Card className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]"> */}
@@ -438,6 +448,11 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
               >
                 {activeCardValue}
               </div>
+              {kpi.id === "dau" && dailyActiveFarmerPct !== null && (
+                <div className="text-[11px] text-muted-foreground">
+                  {dailyActiveFarmerPct}% farmers asked at least one question today
+                </div>
+              )}
             </div>
           </div>
 

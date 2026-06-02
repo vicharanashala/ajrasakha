@@ -17,7 +17,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/atoms/chart";
-import { Loader2 } from "lucide-react";
+import { InfoIcon, Loader2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -62,7 +62,28 @@ export const ChurnRateChart = ({ source, userType }: ChurnRateChartProps) => {
     <Card className="pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300 mb-7">
       <CardHeader className="border-b py-5">
         <div className="flex flex-col gap-2">
-          <CardTitle>Monthly Churn Rate</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Monthly Churn Rate</CardTitle>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+
+              <TooltipContent className="max-w-[320px]">
+                <p>
+                  Churn Rate measures the percentage of users who were active in
+                  the previous month but did not return in the current month. A
+                  higher churn rate indicates more users are discontinuing their
+                  engagement.
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Formula: (Previously Active Users Who Did Not Return ÷
+                  Previously Active Users) × 100
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <div className="flex justify-between items-center">
             <CardDescription>
               Percentage of previously active users who did not return in the

@@ -13,7 +13,6 @@ import {
   Leaf,
   Link2,
   MapPin,
-  MessageSquare,
   Sprout,
 } from "lucide-react";
 import { useState } from "react";
@@ -145,13 +144,32 @@ export const QuestionDetailsCard = ({
           </div>
         </div>
 
-        {question.source === "WHATSAPP" && question.threadId && (
-          <div className="flex flex-col items-end min-w-0">
-            <span className="text-muted-foreground">WhatsApp Thread ID</span>
+        <div className="flex flex-col items-end gap-1 min-w-0">
+          {question.source === "WHATSAPP" && question.threadId && (
+            <div className="flex flex-col items-end min-w-0">
+              <span className="text-muted-foreground">WhatsApp Thread ID</span>
+              <ThreadIdLink threadId={question.threadId} />
+            </div>
+          )}
 
-            <ThreadIdLink threadId={question.threadId} />
-          </div>
-        )}
+          {question.source !== "WHATSAPP" && question.threadId && (
+            <div className="flex flex-col items-end">
+              <span className="text-muted-foreground">Thread ID</span>
+              <span className="rounded-md border bg-muted px-2 py-1 text-xs font-medium text-foreground break-all">
+                {question.threadId}
+              </span>
+            </div>
+          )}
+
+          {question.messageId && (
+            <div className="flex flex-col items-end">
+              <span className="text-muted-foreground">Message ID</span>
+              <span className="rounded-md border bg-muted px-2 py-1 text-xs font-medium text-foreground break-all">
+                {question.messageId}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {showMoreDetails && (
