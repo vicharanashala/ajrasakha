@@ -89,7 +89,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
+ const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     categories = DEFAULT_CATEGORIES,
 }) => {
     // Determine maximum total count among all categories to scale progress bars proportionally
@@ -137,3 +137,5 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
       </div>
     );
 };
+
+export default DashboardQueryCategories;

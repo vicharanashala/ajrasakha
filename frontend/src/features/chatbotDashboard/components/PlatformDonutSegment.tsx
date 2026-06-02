@@ -2,11 +2,12 @@ import { CardHeader, CardTitle } from "@/components/atoms/card";
 import { Globe, Maximize2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useUserMertices } from "../hooks/useDashboardData";
 
-interface PlatformData {
-  count: number;
-  platform: string;
-}
+// interface PlatformData {
+//   // count: number;
+//   // platform: string;
+// }
 
 interface PlatformIconProps {
   platform: string;
@@ -15,7 +16,9 @@ interface PlatformIconProps {
 }
 
 interface PlatformDonutSegmentsProps {
-  rawData: PlatformData[];
+  // rawData: PlatformData[];
+  source: string,
+  userType: string,
 }
 
 const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className }) => {
@@ -75,9 +78,10 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
   return <Globe className={className} style={{ color }} />;
 };
 
-export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({
-  rawData,
+ const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({
+  source, userType
 }) => {
+      const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, userType);
   const [active, setActive] = useState<null | { label: string; count: number }>(
     null,
   );
@@ -93,16 +97,16 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({
   };
 
   const { segmentsLayout, totalCount } = useMemo(() => {
-    const total = rawData.reduce((sum, item) => sum + item.count, 0);
-    const layout = rawData.map((item) => ({
+    const total = userMetricesData?.platformInstalls?.reduce((sum, item) => sum + item.count, 0);
+    const layout = userMetricesData?.platformInstalls?.map((item) => ({
       label: item.platform,
       count: item.count,
       color: PLATFORM_COLORS[item.platform] || PLATFORM_COLORS.default,
     }));
     return { segmentsLayout: layout, totalCount: total };
-  }, [rawData]);
+  }, [userMetricesData]);
 
-  const isEmpty = rawData.length === 0 || totalCount === 0;
+  const isEmpty = userMetricesData?.platformInstalls?.length === 0 || totalCount === 0;
 
   const VIEW = 130;
   const r = 48;
@@ -122,7 +126,7 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({
         className="flex-shrink-0 -rotate-90"
       >
         <defs>
-          {segmentsLayout.map((s) => (
+          {segmentsLayout?.map((s) => (
             <linearGradient
               key={s.label}
               id={`grad-${s.label}-${size}`}
@@ -144,7 +148,7 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({
           className="stroke-muted/40"
           strokeWidth={stroke}
         />
-        {segmentsLayout.map((seg) => {
+        {segmentsLayout?.map((seg) => {
           const dash = (seg.count / totalCount) * fullCirc;
           const el = (
             <circle
@@ -234,7 +238,7 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({
             </div>
 
             <div className="flex flex-col gap-1.5 w-full">
-              {segmentsLayout.map((s) => {
+              {segmentsLayout?.map((s) => {
                 const pct = ((s.count / totalCount) * 100).toFixed(1);
                 const isActive = active?.label === s.label;
                 return (
@@ -389,3 +393,4 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({
   );
 };
 
+export default PlatformDonutSegments;

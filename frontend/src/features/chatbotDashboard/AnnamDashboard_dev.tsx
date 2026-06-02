@@ -11,7 +11,7 @@ import type { DashboardFilterValues } from "./DashboardFilters";
 import { EightCardsComponent } from "./MetricCard ";
 import DailyActiveUsers from "./dailyActiveUsers";
 import { ChannelSplitCard } from "./components/ChannelSplitCard";
-import { DashboardQueryCategories } from "./DashboardQueryCategories";
+import  DashboardQueryCategories  from "./DashboardQueryCategories";
 import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
 import { AlertCard } from "./AlertCard";
 import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
@@ -21,10 +21,14 @@ import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
 import { WhatsAppUsersView } from "./WhatsAppUsersView";
-import { UserDemographicsSection } from "./components/UserDemographicsSection";
+// import { UserDemographicsSection } from "./components/UserDemographicsSection";
 // import { UserGrowthChart } from "./components/UserGrowthChart";
 const LazyUserGrowthChart = React.lazy(
   () => import("./components/UserGrowthChart"),
+);
+
+const LazyUserDemographicsSection = React.lazy(
+  () => import("./components/UserDemographicsSection")
 );
 import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
 import { TopCropsCard } from "./components/TopCropsCard";
@@ -32,7 +36,8 @@ import { useTopCrops } from "./hooks/useTopCrops";
 import { DailyQuestionTrendsChart } from "./components/DailyQuestionTrendsChart";
 import { TopFaqsLeaderboard } from "./components/TopFaqsLeaderboard";
 import { useInView } from "@/hooks/useInView";
-import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
+// import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
+import PlatformDonutSegments from "./components/PlatformDonutSegment";
 import { Maximize2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
@@ -242,6 +247,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const { ref: activeUsersRef, isVisible: isActiveUsersVisible } = useInView();
   const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } = useInView();
   const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
+  const {ref: userDemographicsRef, isVisible: isUserDemographicsVisible} = useInView();
   const shouldLoadQueryInsights = loadImmediately || isQueryInsightsVisible;
   const shouldLoadTrends = loadImmediately || isTrendsVisible;
   const shouldLoadFaqs = loadImmediately || isFaqsVisible;
@@ -506,7 +512,9 @@ useEffect(() => {
 
   const { data: dailyQuestionTrendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDailyQuestionTrends(source, trendsFilters.userType as string, trendsFilters.startTime, trendsFilters.endTime);
 
-  const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, filters.userType);
+    const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, filters.userType);
+
+    // console.log("userMetricesData", userMetricesData);
 
 const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp");
   return (
@@ -872,9 +880,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         <div
                           ref={(el) => {
                             sectionRefs.current["demographics"] = el;
+                            userDemographicsRef.current = el;
                           }}
                         >
-                          <UserDemographicsSection
+                          {/* <UserDemographicsSection
                             data={{
                               ageGroups: userMetricesData?.userDemographics?.ageGroups,
                               genderSplit: userMetricesData?.userDemographics?.genderSplit,
@@ -883,7 +892,12 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                             }}
                             source={source}
                             userType={filters.userType}
-                          />
+                          /> */}
+                          {isUserDemographicsVisible || loadImmediately ? (
+                            <Suspense fallback={<LazySectionSkeleton className="h-[400px]" />}>
+                              <LazyUserDemographicsSection source={source} userType={filters.userType} />
+                            </Suspense>
+                          ) :<LazySectionSkeleton />}
                         </div>
                       )}
                       {/* 2-col row */}
@@ -892,7 +906,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         {source !== "whatsapp" && (
                           <div className="h-full">
                             <PlatformDonutSegments
-                              rawData={userMetricesData?.platformInstalls}
+                              source={source}
+                              userType={filters.userType}
                             />
                           </div>
                         )}
