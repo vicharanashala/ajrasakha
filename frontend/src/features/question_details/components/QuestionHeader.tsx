@@ -9,6 +9,7 @@ import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { useState } from "react";
 import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
+import { useManualCheckDuplicate } from "@/hooks/api/question/useManualCheckDuplicate";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
@@ -74,6 +75,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     doHold();
   };
   const isQuestionOnHold = question.isOnHold;
+  const { mutate: checkDuplicate, isPending: isCheckingDuplicate } = useManualCheckDuplicate();
   const originalQuestion = question.originalQuestion?.trim();
 
   // For compare mode: reference answer (from the original/reference question)
@@ -228,6 +230,25 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 className="border-red-400/30 text-red-500 hover:bg-red-400/10 hover:text-red-500"
               >
                 Show Reference
+              </Button>
+            )}
+            {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && (
+              <Button
+                size="sm"
+                disabled={isCheckingDuplicate}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() =>
+                  checkDuplicate(question._id!, {
+                    onSuccess: (res) => {
+                      toast.success(
+                        `${res?.message ?? "Duplicate check complete"} Please refresh the page to check updated status.`,
+                      );
+                    },
+                    onError: () => toast.error("Duplicate check failed"),
+                  })
+                }
+              >
+                {isCheckingDuplicate ? "Checking..." : "Check Duplicate"}
               </Button>
             )}
             {!isDuplicate && (

@@ -1411,6 +1411,15 @@ export class QuestionController {
     };
   }
 
+  @Post('/:questionId/check-duplicate')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually trigger duplicate check for a question without a reference question' })
+  async manualCheckDuplicate(@Params() params: QuestionIdParam) {
+    const { questionId } = params;
+    return this.questionService.manualCheckDuplicate(questionId);
+  }
+
   @Patch('/:questionId/hold')
   @HttpCode(200)
   @Authorized()
