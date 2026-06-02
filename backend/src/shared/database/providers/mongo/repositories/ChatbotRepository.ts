@@ -8193,7 +8193,66 @@ export class ChatbotRepository implements IChatbotRepository {
         if (startDate) matchStage.createdAt.$gte = startDate;
         if (endDate) matchStage.createdAt.$lte = endDate;
       }
-      const result = await this.QuestionCollection.aggregate([
+
+      const previousMonthReferenceDate = startDate ?? new Date();
+      const previousMonthStart = new Date(
+        previousMonthReferenceDate.getFullYear(),
+        previousMonthReferenceDate.getMonth() - 1,
+        1,
+      );
+      const previousMonthEnd = new Date(
+        previousMonthReferenceDate.getFullYear(),
+        previousMonthReferenceDate.getMonth(),
+        1,
+      );
+
+      const previousMonthMatchStage = {
+        ...matchStage,
+        createdAt: {
+          $gte: previousMonthStart,
+          $lt: previousMonthEnd,
+        },
+      };
+
+      const avgCloseTimeStages = [
+        {
+          $group: {
+            _id: null,
+            totalQuestions: {$sum: 1},
+            closeTimeSumMs: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            avgCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$totalQuestions', 0]},
+                {$round: [{$divide: ['$closeTimeSumMs', {$multiply: ['$totalQuestions', 60000]}]}, 2]},
+                0,
+              ],
+            },
+          },
+        },
+      ];
+
+      const [result, previousMonthResult] = await Promise.all([
+        this.QuestionCollection.aggregate([
         {
           $match: matchStage,
         },
@@ -8275,18 +8334,19 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [{ $eq: ['$status', 'non_agri'] }, 1, 0],
               },
             },
-            avgCloseTimeMs: {
-              $avg: {
+            closeTimeSumMs: {
+              $sum: {
                 $cond: [
                   {
                     $and: [
                       {$eq: ['$status', 'closed']},
                       {$ne: ['$createdAt', null]},
                       {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
                   {$subtract: ['$closedAt', '$createdAt']},
-                  null,
+                  0,
                 ],
               },
             },
@@ -8310,17 +8370,32 @@ export class ChatbotRepository implements IChatbotRepository {
             duplicate: 1,
             nonAgri: 1,
             avgCloseTimeMinutes: {
-              $round: [{$divide: [{$ifNull: ['$avgCloseTimeMs', 0]}, 60000]}, 2],
+              $cond: [
+                {$gt: ['$totalQuestions', 0]},
+                {$round: [{$divide: ['$closeTimeSumMs', {$multiply: ['$totalQuestions', 60000]}]}, 2]},
+                0,
+              ],
             },
           },
         },
-      ]).toArray();
+        ]).toArray(),
+        this.QuestionCollection.aggregate([
+          {
+            $match: previousMonthMatchStage,
+          },
+          ...avgCloseTimeStages,
+        ]).toArray(),
+      ]);
 
-      return result[0] || {
-        totalQuestions: 0,
-        closedQuestions: 0,
-        inReviewQuestions: 0,
-        avgCloseTimeMinutes: 0,
+      return {
+        ...(result[0] || {
+          totalQuestions: 0,
+          closedQuestions: 0,
+          inReviewQuestions: 0,
+          avgCloseTimeMinutes: 0,
+        }),
+        previousMonthAvgCloseTimeMinutes:
+          previousMonthResult[0]?.avgCloseTimeMinutes || 0,
       };
     } catch (error) {
       throw new InternalServerError(

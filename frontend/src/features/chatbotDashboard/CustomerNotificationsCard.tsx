@@ -37,6 +37,10 @@ export function CustomerNotificationsCard({
   const totalClosedQuestions = safeNotified + safeNotNotified + safeUntracked;
   const notifiedPct =
     totalClosedQuestions > 0 ? (safeNotified / totalClosedQuestions) * 100 : 0;
+  const notNotifiedPct =
+    totalClosedQuestions > 0 ? (safeNotNotified / totalClosedQuestions) * 100 : 0;
+  const untrackedPct =
+    totalClosedQuestions > 0 ? (safeUntracked / totalClosedQuestions) * 100 : 0;
 
   return (
     <motion.div
@@ -247,7 +251,9 @@ export function CustomerNotificationsCard({
           </motion.div>
 
           <div className={`mt-3 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
-            {notifiedPct.toFixed(2)}% notified out of total closed questions
+            <span className="mr-4">{notifiedPct.toFixed(2)}% Notified</span>
+            <span className="mr-4">{notNotifiedPct.toFixed(2)}% Not notified</span>
+            <span>{untrackedPct.toFixed(2)}% Untracked</span>
           </div>
         </CardHeader>
       </Card>

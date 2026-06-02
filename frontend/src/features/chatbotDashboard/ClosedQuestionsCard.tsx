@@ -27,6 +27,7 @@ type ClosedQuestionsCardProps = {
   carryForward: number;
   statusBreakup: any;
   avgCloseTimeMinutes?: number;
+  previousMonthAvgCloseTimeMinutes?: number;
 };
 
 export function ClosedQuestionsCard({
@@ -39,6 +40,7 @@ export function ClosedQuestionsCard({
   carryForward,
   statusBreakup,
   avgCloseTimeMinutes = 0,
+  previousMonthAvgCloseTimeMinutes = 0,
 }: ClosedQuestionsCardProps) {
   const today = new Date();
 
@@ -397,6 +399,9 @@ export function ClosedQuestionsCard({
 
           <div className={`mt-3 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
             Average time to close a question: {formatDurationFromMinutes(avgCloseTimeMinutes)}
+            <span className="ml-4">
+              Previous month: {formatDurationFromMinutes(previousMonthAvgCloseTimeMinutes)}
+            </span>
           </div>
         </CardHeader>
       </Card>

@@ -754,6 +754,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                               questionStatusData?.closedVsTotalQuestions
                                 ?.avgCloseTimeMinutes
                             }
+                            previousMonthAvgCloseTimeMinutes={
+                              questionStatusData?.closedVsTotalQuestions
+                                ?.previousMonthAvgCloseTimeMinutes
+                            }
                           />
                           <CustomerNotificationsCard
                             notified={
