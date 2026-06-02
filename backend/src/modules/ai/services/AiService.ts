@@ -58,7 +58,7 @@ export class AiService {
         top_k: 3,
         threshold: 0.85,
         state: state,
-        district: district,
+       // district: district,
         crop: crop,
         //season: season,
         //domain: domain

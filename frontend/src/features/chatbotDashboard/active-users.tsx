@@ -137,6 +137,23 @@ export const ActiveUsersChart = ({
     setDateRange(undefined);
   };
 
+  const formatCohortLabel = (
+    value: string,
+    requestType: ActiveUserType,
+  ) => {
+    if (requestType === "monthly") {
+      return format(new Date(`${value}-01`), "MMM yyyy");
+    }
+    if (requestType === "weekly") {
+      const [year, week] = value.split("-W");
+      return `W${week} ${year}`;
+    }
+    if (requestType === "daily") {
+      return format(new Date(value), "dd-MM-yy");
+    }
+    return value;
+  };
+
   const renderDateRangePicker = () => (
     <div className="flex items-center gap-2">
       <Popover>
@@ -329,13 +346,18 @@ export const ActiveUsersChart = ({
                     axisLine={false}
                     tickMargin={8}
                     minTickGap={20}
+                    tickFormatter={(value) => formatCohortLabel(value, type)}
                   />
 
                   <YAxis tickLine={false} axisLine={false} tickMargin={8} />
 
                   <ChartTooltip
                     cursor={false}
-                    content={<ChartTooltipContent />}
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(value) => formatCohortLabel(value, type)}
+                      />
+                    }
                   />
 
                   <Area

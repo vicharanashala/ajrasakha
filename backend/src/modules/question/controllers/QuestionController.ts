@@ -63,6 +63,7 @@ import { UploadFileOptions } from '#root/modules/question/classes/validators/fil
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { FlexibleAuth } from '#root/shared/functions/flexibleAuth.js';
+import { InternalApiAuth } from '#root/shared/index.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
@@ -1005,6 +1006,25 @@ export class QuestionController {
     // };
     // this.auditTrailsService.createAuditTrail(auditPayload);
     return response;
+  }
+
+  @Patch('/:questionId')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Update question fields by ID using internal API key' })
+  async UpdateThreadId(
+    @Params() params: QuestionIdParam,
+    @Body() updates: Partial<IQuestion>,
+  ): Promise<{ modifiedCount: number }> {
+    const { questionId } = params;
+    try { 
+      return await this.questionService.updateQuestion(questionId, updates,true);
+    } catch (err: any) {
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to update question');
+    }
   }
 
   @Delete('/:questionId/allocation')

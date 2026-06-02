@@ -401,8 +401,9 @@ export class PaginatedUserDetailsResponse {
     type: 'number',
     readOnly: true,
   })
+  @IsOptional()
   @IsNumber()
-  activeUsers: number;
+  activeUsers?: number;
 
   @JSONSchema({
     description: 'Number of inactive users (users with no questions)',
@@ -410,8 +411,9 @@ export class PaginatedUserDetailsResponse {
     type: 'number',
     readOnly: true,
   })
+  @IsOptional()
   @IsNumber()
-  inactiveUsers: number;
+  inactiveUsers?: number;
 
   @JSONSchema({
     description: 'Total number of questions across all users',
@@ -419,8 +421,9 @@ export class PaginatedUserDetailsResponse {
     type: 'number',
     readOnly: true,
   })
+  @IsOptional()
   @IsNumber()
-  totalQuestions: number;
+  totalQuestions?: number;
 }
 
 // ─── Daily Question Trend Entry ───────────────────────────────────────────────

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { X, MapPin, Maximize2, Trash2, Pencil, Users } from "lucide-react";
+import { useState, useEffect,  useRef } from "react";
+import { X, MapPin, Trash2, Pencil, Users } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
   Card,
@@ -9,10 +9,10 @@ import {
 } from "@/components/atoms/card";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { useUserDetails, type UserDetail } from "./hooks/useUserDetails";
-import { useDashboardData } from "./hooks/useDashboardData";
-import { BarGraph } from "./components/shared/BarGrapgh";
+// import { useDashboardData } from "./hooks/useDashboardData";
+// import { BarGraph } from "./components/shared/BarGrapgh";
 import { Pagination } from "@/components/pagination";
-import { createPortal } from "react-dom";
+// import { createPortal } from "react-dom";
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -51,9 +51,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-import { TopCropsCard } from "./components/TopCropsCard";
-import { useTopCrops } from "./hooks/useTopCrops";
-import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
+// import { TopCropsCard } from "./components/TopCropsCard";
+// import { useTopCrops } from "./hooks/useTopCrops";
+// import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import UserQuestionsModal from "./UserQuestionModal";
 import { EditFarmerModal } from "./components/EditFarmerModal";
 import { AddFarmerModal } from "./components/AddFarmerModal";
@@ -135,7 +135,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
 };
 
 interface UserDetailsViewProps {
-  source?: "vicharanashala" | "annam" | "whatsapp";
+  source?: "vicharanashala" | "annam" | undefined;
   initialFilters?: Partial<UserDetailsFilters>;
   userType?: "all" | "external" | "internal";
 }
@@ -159,9 +159,9 @@ export function UserDetailsView({
   const [pageSize, setPageSize] = useState(12);
   const [sortBy, setSortBy] = useState<"totalQuestions" | "name">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
-  const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
-  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  // const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
+  // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
+  // const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{
     userId: string;
     source: string;
@@ -169,8 +169,8 @@ export function UserDetailsView({
   } | null>(null);
   const [userToEdit, setUserToEdit] = useState<UserDetail | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
-  const [hovered, setHovered] = useState<string | null>(null);
-  const [agriHovered, setAgriHovered] = useState<string | null>(null);
+  // const [hovered, setHovered] = useState<string | null>(null);
+  // const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
   // const scrollToTable = () => {
@@ -203,7 +203,7 @@ export function UserDetailsView({
     }
   }, [initialFilters]);
 
-  const { data, isLoading, error } = useUserDetails(
+  const { data, isLoading, error } = useUserDetails( 
     filters.startTime,
     filters.endTime,
     currentPage,
@@ -224,41 +224,41 @@ export function UserDetailsView({
     users,
     totalUsers,
     totalPages,
-    activeUsers,
-    inactiveUsers,
-    totalQuestions,
+    // activeUsers,
+    // inactiveUsers,
+    // totalQuestions,
   } = data;
 
   // Fetch dashboard data with the same filters for charts
-  const dashboardFilters = {
-    village: filters.village || "all",
-    crop: filters.crop || "all",
-    season: "all",
-    startTime: filters.startTime,
-    endTime: filters.endTime,
-    userType: userType,
-  };
-  const { data: dashboardData, isLoading: isDashboardLoading } =
-    useDashboardData(dashboardFilters, source);
-  const {
-    data: topCrops,
-    isLoading: isLoadingTopCrops,
-    error: errorLoadingTopCrops,
-  } = useTopCrops(source);
+  // const dashboardFilters = {
+  //   village: filters.village || "all",
+  //   crop: filters.crop || "all",
+  //   season: "all",
+  //   startTime: filters.startTime,
+  //   endTime: filters.endTime,
+  //   userType: userType,
+  // };
+  // const { data: dashboardData, isLoading: isDashboardLoading } =
+  //   useDashboardData(dashboardFilters, source);
+  // const {
+  //   data: topCrops,
+  //   isLoading: isLoadingTopCrops,
+  //   error: errorLoadingTopCrops,
+  // } = useTopCrops(source);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
 
-  const {
-    data: dauTrend,
-    isLoading: dauLoading,
-    error: dauError,
-  } = useDailyUserTrend(
-    30,
-    source,
-    filters.userType,
-    source === "annam" || source === "vicharanashala",
-  );
+  // const {
+  //   data: dauTrend,
+  //   isLoading: dauLoading,
+  //   error: dauError,
+  // } = useDailyUserTrend(
+  //   30,
+  //   source,
+  //   filters.userType,
+  //   source === "annam" || source === "vicharanashala",
+  // );
   // console.log("DAU Trend data:", dauTrend, "Loading:", dauLoading, "Error:", dauError);
 
   // console.log("Dashboard data in UserDetailsView:", dashboardData, "Loading:", isDashboardLoading, "Error:", error);
@@ -281,37 +281,37 @@ export function UserDetailsView({
   //   error,
   // );
 
-  const todayCount =
-    dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
+  // const todayCount =
+  //   dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
 
   // Patch the DAU card to show "active today / total" instead of just total (same as dashboard)
-  const patchedKpiRow1 = useMemo(() => {
-    if (!dashboardData?.kpiRow1) return [];
-    // Use activeUsers from user details as the "today" count (users with activity in the filtered period)
-    // This makes sense in the context of User Details page where we're showing filtered data
-    return dashboardData.kpiRow1.map((card) => {
-      if (card.id === "dau") {
-        return {
-          ...card,
-          value: `${todayCount?.toLocaleString()} / ${Number(card.value).toLocaleString()}`,
-        };
-      }
-      return card;
-    });
-  }, [dashboardData?.kpiRow1, activeUsers, totalUsers]);
+  // const patchedKpiRow1 = useMemo(() => {
+  //   if (!dashboardData?.kpiRow1) return [];
+  //   // Use activeUsers from user details as the "today" count (users with activity in the filtered period)
+  //   // This makes sense in the context of User Details page where we're showing filtered data
+  //   return dashboardData.kpiRow1.map((card) => {
+  //     if (card.id === "dau") {
+  //       return {
+  //         ...card,
+  //         value: `${todayCount?.toLocaleString()} / ${Number(card.value).toLocaleString()}`,
+  //       };
+  //     }
+  //     return card;
+  //   });
+  // }, [dashboardData?.kpiRow1, activeUsers, totalUsers]);
 
   // Mark cards as dummy (to blur them) - same logic as dashboard
-  const dynamicIds = ["dau", "queries", "session"];
-  const kpiRow1WithOverlay = patchedKpiRow1.map((card) => ({
-    ...card,
-    isDummy: !dynamicIds.includes(card.id),
-  }));
+  // const dynamicIds = ["dau", "queries", "session"];
+  // const kpiRow1WithOverlay = patchedKpiRow1.map((card) => ({
+  //   ...card,
+  //   isDummy: !dynamicIds.includes(card.id),
+  // }));
 
-  const kpiRow2WithOverlay =
-    dashboardData?.kpiRow2.map((card) => ({
-      ...card,
-      isDummy: card.id !== "totalInstalls",
-    })) || [];
+  // const kpiRow2WithOverlay =
+  //   dashboardData?.kpiRow2.map((card) => ({
+  //     ...card,
+  //     isDummy: card.id !== "totalInstalls",
+  //   })) || [];
 
   const handleApplyFilters = (newFilters: UserDetailsFilters) => {
     setFilters(newFilters);
@@ -347,10 +347,10 @@ export function UserDetailsView({
     filters.inactiveOnly ||
     filters.lowFeedbackOnly;
 
-  const dateLabel =
-    filters.startTime && filters.endTime
-      ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
-      : "All time";
+  // const dateLabel =
+  //   filters.startTime && filters.endTime
+  //     ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
+  //     : "All time";
 
   const handleSaveEditedUser = async (payload: {
     name?: string;
@@ -379,7 +379,7 @@ export function UserDetailsView({
       platformHistory?: { os: string; timestamp: string }[];
     };
   }) => {
-    console.log("Payload is----", payload)
+    // console.log("Payload is----", payload)
     if (!userToEdit) return;
     await updateUserMutation.mutateAsync({
       userId: userToEdit.userId,
@@ -564,184 +564,6 @@ export function UserDetailsView({
                       users.map((user, idx) => {
                         const fp = user.farmerProfile;
                         return (
-                          // <ContextMenu key={user.userId}>
-                          //   <ContextMenuTrigger asChild>
-                          //     <TableRow className="text-center">
-                          //       <TableCell className="align-middle">
-                          //         {(currentPage - 1) * pageSize + idx + 1}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {/* <span
-                          //     className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          //       user.totalQuestions > 0
-                          //         ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                          //         : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                          //     }`}
-                          //   >
-                          //     {user.totalQuestions.toLocaleString()}
-                          //   </span> */}
-
-                          //         <Button
-                          //           onClick={() => {
-                          //             setSelectedUser(user);
-                          //             setQuestionModalOpen(true);
-                          //           }}
-                          //           className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold hover:cursor-pointer ${
-                          //             user.totalQuestions > 0
-                          //               ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                          //               : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                          //           }`}
-                          //         >
-                          //           {user.totalQuestions.toLocaleString()}
-                          //         </Button>
-                          //       </TableCell>
-
-                          //       <TableCell className="align-middle font-medium whitespace-nowrap">
-                          //         {user.name}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {user.email}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.farmerName ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.age ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.gender ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.villageName ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.blockName ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.district ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.state ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.phoneNo ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.languagePreference ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.yearsOfExperience ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         <CropsCell crops={fp?.cropsCultivated} />
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         <CropsCell crops={fp?.primaryCrop} />
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         <CropsCell crops={fp?.secondaryCrop} />
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.awarenessOfKCC == null
-                          //           ? "—"
-                          //           : fp.awarenessOfKCC
-                          //             ? "Yes"
-                          //             : "No"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.usesAgriApps == null
-                          //           ? "—"
-                          //           : fp.usesAgriApps
-                          //             ? "Yes"
-                          //             : "No"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.highestEducatedPerson ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.numberOfSmartphones ?? "—"}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle whitespace-nowrap">
-                          //         {fp?.platformHistory &&
-                          //         fp.platformHistory.length > 0 ? (
-                          //           <div className="flex flex-col items-center">
-                          //             <span>
-                          //               {
-                          //                 fp.platformHistory[
-                          //                   fp.platformHistory.length - 1
-                          //                 ].os
-                          //               }
-                          //             </span>
-                          //             <span className="text-xs text-gray-400">
-                          //               {new Date(
-                          //                 fp.platformHistory[
-                          //                   fp.platformHistory.length - 1
-                          //                 ].timestamp,
-                          //               ).toLocaleDateString("en-GB", {
-                          //                 day: "2-digit",
-                          //                 month: "2-digit",
-                          //                 year: "2-digit",
-                          //               })}
-                          //             </span>
-                          //           </div>
-                          //         ) : (
-                          //           (fp?.platform ?? "—")
-                          //         )}
-                          //       </TableCell>
-                          //       <TableCell className="align-middle">
-                          //         {fp?.location?.latitude &&
-                          //         fp?.location?.longitude ? (
-                          //           <a
-                          //             href={`https://maps.google.com/?q=${fp.location.latitude},${fp.location.longitude}`}
-                          //             target="_blank"
-                          //             rel="noopener noreferrer"
-                          //             title="View on Maps"
-                          //             className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
-                          //             onClick={(e) => e.stopPropagation()}
-                          //           >
-                          //             <MapPin className="h-4 w-4" />
-                          //           </a>
-                          //         ) : (
-                          //           "—"
-                          //         )}
-                          //       </TableCell>
-                          //     </TableRow>
-                          //   </ContextMenuTrigger>
-                          //   {isAdmin && (
-                          //     <ContextMenuContent>
-                          //       <ContextMenuItem
-                          //         className="cursor-pointer flex items-center gap-2"
-                          //         onClick={(e) => {
-                          //           e.stopPropagation();
-                          //           setUserToEdit(user);
-                          //         }}
-                          //       >
-                          //         <Pencil className="h-4 w-4" />
-                          //         Edit
-                          //       </ContextMenuItem>
-                          //       <ContextMenuItem
-                          //         className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
-                          //         onClick={(e) => {
-                          //           e.stopPropagation();
-                          //           setConfirmEmail("");
-                          //           setUserToDelete({
-                          //             userId: user.userId,
-                          //             source,
-                          //             email: user.email,
-                          //           });
-                          //         }}
-                          //       >
-                          //         <Trash2 className="h-4 w-4 text-red-600" />
-                          //         Delete
-                          //       </ContextMenuItem>
-                          //     </ContextMenuContent>
-                          //   )}
-                          // </ContextMenu>
-                          // ─── Drop-in replacement for your existing ContextMenu block ─────────────────
-                          // All state references (currentPage, pageSize, setSelectedUser, setQuestionModalOpen,
-                          // setUserToEdit, setConfirmEmail, setUserToDelete, source, isAdmin) remain unchanged.
-                          // Only the visuals are improved.
-
                           <ContextMenu key={user.userId} modal={false}>
                             <ContextMenuTrigger asChild>
                               <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
@@ -758,17 +580,17 @@ export function UserDetailsView({
                                     onClick={() => {
                                       setSelectedUser(user);
                                       setQuestionModalOpen(true);
+                                      console.log("Button clicked")
                                     }}
                                     className={`inline-flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full text-xs font-semibold transition-colors ${
                                       user.totalQuestions > 0
                                         ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
-                                        : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default pointer-events-none"
+                                        : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default"
                                     }`}
-                                    disabled={user.totalQuestions === 0}
                                     title={
-                                      user.totalQuestions > 0
-                                        ? "View queries"
-                                        : undefined
+                                      
+                                        "View queries"
+                                    
                                     }
                                   >
                                     {user.totalQuestions.toLocaleString()}

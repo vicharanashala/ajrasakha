@@ -1843,16 +1843,14 @@ export class ChatbotRepository implements IChatbotRepository {
         );
       });
 
-      console.log(
-        districts.map(d => ({
-          original: d,
-          normalized: this.normalizeDistrictName(d),
-        })),
-      );
 
-      const data = result.sort((a, b) => b.totalQuestions - a.totalQuestions);
-      // console.log('Data is', data);
+      const data = result.sort((a, b) => {
+        if (a.district.toLowerCase() === 'all') return 1;
+        if (b.district.toLowerCase() === 'all') return -1;
 
+        return b.totalQuestions - a.totalQuestions;
+      });     
+      
       return data;
     } catch (error) {
       throw new Error('Failed to fetch district analytics: ${error}');
@@ -4253,6 +4251,7 @@ export class ChatbotRepository implements IChatbotRepository {
     sortOrder = 'asc',
     lowFeedbackOnly = false,
     activeTodayByProfile = false,
+    missingDemographicField = '',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -4352,6 +4351,20 @@ export class ChatbotRepository implements IChatbotRepository {
         ];
       }
 
+      if (missingDemographicField) {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {farmerProfile: {$exists: true, $ne: null}},
+          {
+            $or: [
+              {[`farmerProfile.${missingDemographicField}`]: {$exists: false}},
+              {[`farmerProfile.${missingDemographicField}`]: null},
+              {[`farmerProfile.${missingDemographicField}`]: ''},
+            ],
+          },
+        ];
+      }
+
       const allUsers = await this.users.find(userFilter, {session}).toArray();
 
       // Merge
@@ -4439,12 +4452,12 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Compute summary stats over the full filtered set
       const totalUsers = finalList.length;
-      const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
-      const inactiveUsers = totalUsers - activeUsers;
-      const totalQuestions = finalList.reduce(
-        (sum, u) => sum + u.totalQuestions,
-        0,
-      );
+      // const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
+      // const inactiveUsers = totalUsers - activeUsers;
+      // const totalQuestions = finalList.reduce(
+      //   (sum, u) => sum + u.totalQuestions,
+      //   0,
+      // );
       const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
 
       // Paginate
@@ -4455,9 +4468,9 @@ export class ChatbotRepository implements IChatbotRepository {
         users,
         totalUsers,
         totalPages,
-        activeUsers,
-        inactiveUsers,
-        totalQuestions,
+        // activeUsers,
+        // inactiveUsers,
+        // totalQuestions,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user details: ${error}`);
@@ -5283,6 +5296,13 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
 
       const userDocFilter = this.buildUserDocFilter(userType);
+      const totalUsers = await this.users.countDocuments(
+        {
+          ...userDocFilter,
+          farmerProfile: { $exists: true, $ne: null },
+        },
+        { session },
+      );
 
       const [ageRaw, genderRaw, expRaw, landRaw] = await Promise.all([
         // Age group buckets
@@ -5298,7 +5318,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $bucket: {
                   groupBy: '$farmerProfile.age',
-                  boundaries: [18, 30, 45, 60],
+                  boundaries: [16, 30, 45, 60],
                   default: '60+',
                   output: {count: {$sum: 1}},
                 },
@@ -5391,21 +5411,26 @@ export class ChatbotRepository implements IChatbotRepository {
         total === 0 ? 0 : parseFloat(((count / total) * 100).toFixed(2));
 
       const ageBoundaryLabel: Record<string | number, string> = {
-        18: '18-30',
+        16: '16-30',
         30: '30-45',
         45: '45-60',
         '60+': '60+',
       };
-      const ageTotal = ageRaw.reduce((s, r) => s + r.count, 0);
       const ageGroupsMap = new Map(ageRaw.map(r => [r._id, r.count]));
 
-      const ageGroups: DemographicEntry[] = [18, 30, 45, '60+'].map(key => {
+      const ageGroups: DemographicEntry[] = [16, 30, 45, '60+'].map(key => {
         const count = ageGroupsMap.get(key) || 0;
         return {
           label: ageBoundaryLabel[key],
           count,
-          pct: toPct(count, ageTotal),
+          pct: toPct(count, totalUsers),
         };
+      });
+      const providedAgeCount = ageGroups.reduce((s, g) => s + g.count, 0);
+      ageGroups.push({
+        label: 'Not Provided',
+        count: totalUsers - providedAgeCount,
+        pct: toPct(totalUsers - providedAgeCount, totalUsers),
       });
 
       let maleCount = 0;
@@ -5423,20 +5448,25 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       });
 
-      const genderTotal = maleCount + femaleCount + othersCount;
+      const providedGenderCount = maleCount + femaleCount + othersCount;
       const genderSplit: DemographicEntry[] = [
-        {label: 'Male', count: maleCount, pct: toPct(maleCount, genderTotal)},
+        {label: 'Male', count: maleCount, pct: toPct(maleCount, totalUsers)},
         {
           label: 'Female',
           count: femaleCount,
-          pct: toPct(femaleCount, genderTotal),
+          pct: toPct(femaleCount, totalUsers),
         },
         {
           label: 'Others',
           count: othersCount,
-          pct: toPct(othersCount, genderTotal),
+          pct: toPct(othersCount, totalUsers),
         },
-      ].filter(g => g.count > 0);
+        {
+          label: 'Not Provided',
+          count: totalUsers - providedGenderCount,
+          pct: toPct(totalUsers - providedGenderCount, totalUsers),
+        }
+      ].filter(g => g.count > 0 || g.label === 'Not Provided');
 
       const expBoundaryLabel: Record<string | number, string> = {
         0: 'Less than 2 yrs',
@@ -5445,24 +5475,40 @@ export class ChatbotRepository implements IChatbotRepository {
         10: '10 - 20 yrs',
         '20+': '20+ yrs',
       };
-      const expTotal = expRaw.reduce((s, r) => s + r.count, 0);
-      const farmingExperience: DemographicEntry[] = expRaw.map(r => ({
-        label: expBoundaryLabel[r._id] ?? String(r._id),
-        count: r.count,
-        pct: toPct(r.count, expTotal),
-      }));
+      let providedExpCount = 0;
+      const farmingExperience: DemographicEntry[] = expRaw.map(r => {
+        providedExpCount += r.count;
+        return {
+          label: expBoundaryLabel[r._id] ?? String(r._id),
+          count: r.count,
+          pct: toPct(r.count, totalUsers),
+        };
+      });
+      farmingExperience.push({
+        label: 'Not Provided',
+        count: totalUsers - providedExpCount,
+        pct: toPct(totalUsers - providedExpCount, totalUsers),
+      });
 
       const landBoundaryLabel: Record<string | number, string> = {
         0: 'Small',
         2: 'Medium',
         Large: 'Large',
       };
-      const landTotal = landRaw.reduce((s, r) => s + r.count, 0);
-      const landHolding: DemographicEntry[] = landRaw.map(r => ({
-        label: landBoundaryLabel[r._id] ?? String(r._id),
-        count: r.count,
-        pct: toPct(r.count, landTotal),
-      }));
+      let providedLandCount = 0;
+      const landHolding: DemographicEntry[] = landRaw.map(r => {
+        providedLandCount += r.count;
+        return {
+          label: landBoundaryLabel[r._id] ?? String(r._id),
+          count: r.count,
+          pct: toPct(r.count, totalUsers),
+        };
+      });
+      landHolding.push({
+        label: 'Not Provided',
+        count: totalUsers - providedLandCount,
+        pct: toPct(totalUsers - providedLandCount, totalUsers),
+      });
 
       return {ageGroups, genderSplit, farmingExperience, landHolding};
     } catch (error) {
@@ -5715,11 +5761,7 @@ export class ChatbotRepository implements IChatbotRepository {
     const currentMonth =
       month ||
       `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    console.log({
-      startDate: startDate,
-      endDate: endDate,
-    });
-    console.log('current month', currentMonth);
+ 
     // let districtAnalytics;
     const kpiData = await this.getKpiSummary(
       source,
@@ -5737,14 +5779,12 @@ export class ChatbotRepository implements IChatbotRepository {
       session,
       userType,
     );
-    console.log('Weekly queries', weeklyQueries);
     const dailyQueries = await this.getDailyAnalytics(
       currentMonth,
       source,
       session,
       userType,
     );
-    console.log('dailyQueries', dailyQueries);
     const dauTrends = await this.getDailyUserTrend(
       days,
       source,
@@ -5909,19 +5949,44 @@ export class ChatbotRepository implements IChatbotRepository {
   async getPlatformInstalls(
     source: 'vicharanashala',
     session?: ClientSession,
+    userType = 'all',
   ): Promise<PlatformInstallEntry[]> {
     try {
       await this.init(source);
+      const userDocFilter = this.buildUserDocFilter(userType);
       const result = await this.users
         .aggregate<PlatformInstallEntry>([
           {
             $match: {
-              'farmerProfile.platform': {$exists: true, $ne: null},
+              farmerProfile: {$exists: true, $ne: null},
+              ...userDocFilter,
+            },
+          },
+          {
+            $project: {
+              platform: {
+                $let: {
+                  vars: {
+                    rawPlatform: {
+                      $trim: {
+                        input: {$ifNull: ['$farmerProfile.platform', '']},
+                      },
+                    },
+                  },
+                  in: {
+                    $cond: [
+                      {$eq: ['$$rawPlatform', '']},
+                      'Unknown',
+                      '$$rawPlatform',
+                    ],
+                  },
+                },
+              },
             },
           },
           {
             $group: {
-              _id: '$farmerProfile.platform',
+              _id: '$platform',
               count: {$sum: 1},
             },
           },

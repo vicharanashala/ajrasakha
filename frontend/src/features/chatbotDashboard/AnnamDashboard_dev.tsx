@@ -865,6 +865,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                               farmingExperience: data.farmingExperience,
                               landHolding: (data as any).landHolding ?? [],
                             }}
+                            source={source}
+                            userType={filters.userType}
                           />
                         </div>
                       )}
@@ -1249,10 +1251,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                           ) : (
                             <LazySectionSkeleton className="h-[620px]" />
                           )}
-                          {/* <ChurnRateChart
+                          <ChurnRateChart
                             source={source}
                             userType={filters.userType}
-                          /> */}
+                          />
                         </div>  
                       )}
                       {source !== "whatsapp" && (

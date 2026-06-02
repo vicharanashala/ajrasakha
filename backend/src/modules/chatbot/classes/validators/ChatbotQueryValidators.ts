@@ -191,4 +191,9 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sortOrder: 'asc' | 'desc' = 'desc';
+
+  @JSONSchema({ example: 'age', description: 'Filter by users missing a specific demographic field in farmerProfile' })
+  @IsOptional()
+  @IsString()
+  missingDemographicField?: string;
 }
