@@ -1,12 +1,18 @@
 import OpenAI from 'openai';
 import {aiConfig} from '#root/config/ai.js';
 
-const GEMMA_API_KEY = aiConfig.gemma_api_key;
-
-const client = new OpenAI({
-  apiKey: GEMMA_API_KEY,
+const gemmaClient = new OpenAI({
+  apiKey: aiConfig.gemma_api_key,
   baseURL: aiConfig.gemma_api,
 });
+
+const minimaxClient = new OpenAI({
+  apiKey: aiConfig.minimax_api_key,
+  baseURL: aiConfig.minimax_api,
+});
+
+const PRIMARY_MODEL = 'google/gemma-4-E4B-it';
+const FALLBACK_MODEL = 'MiniMaxAI/MiniMax-M2.7';
 
 /**
  * Single LLM call that classifies the input question as:
@@ -29,16 +35,13 @@ export async function checkConceptDuplicate(
 
   const formattedQuestions =
     referenceQuestions.length > 0
-      ? referenceQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")
-      : "(no candidate questions)";
+      ? referenceQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')
+      : '(no candidate questions)';
 
-  const response = await client.chat.completions.create({
-    model: "MiniMaxAI/MiniMax-M2.7",
-    temperature: 0,
-    messages: [
-      {
-        role: "system",
-        content: `
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    {
+      role: 'system',
+      content: `
 You are a classifier for an agricultural advisory platform.
 
 Classify the input question into exactly ONE of three outcomes:
@@ -59,11 +62,11 @@ Classify the input question into exactly ONE of three outcomes:
 Output rules:
 * Return ONLY one of: NON_AGRI, NONE, or a single candidate number.
 * No explanation, no extra text.
-        `,
-      },
-      {
-        role: 'user',
-        content: `Input Question:
+      `,
+    },
+    {
+      role: 'user',
+      content: `Input Question:
 ${questionA}
 
 Candidate Questions:
@@ -71,34 +74,57 @@ ${formattedQuestions}
 
 Return ONLY one of: NON_AGRI, NONE, or the matching candidate number.
 `,
-      },
-    ],
-  });
+    },
+  ];
 
-  const raw = response.choices?.[0]?.message?.content?.trim() ?? "";
-  console.log(`LLM response: "${raw}"`);
+  let raw: string;
 
+  try {
+    const response = await gemmaClient.chat.completions.create({
+      model: PRIMARY_MODEL,
+      temperature: 0,
+      messages,
+    });
+    raw = response.choices?.[0]?.message?.content?.trim() ?? '';
+    console.log(`[${PRIMARY_MODEL}] response: "${raw}"`);
+  } catch (primaryErr: any) {
+    console.warn(`[${PRIMARY_MODEL}] failed (${primaryErr?.message}), falling back to ${FALLBACK_MODEL}`);
+    const fallbackResponse = await minimaxClient.chat.completions.create({
+      model: FALLBACK_MODEL,
+      temperature: 0,
+      messages,
+    });
+    raw = fallbackResponse.choices?.[0]?.message?.content?.trim() ?? '';
+    console.log(`[${FALLBACK_MODEL}] response: "${raw}"`);
+  }
+
+  return parseResponse(raw, referenceQuestions);
+}
+
+function parseResponse(
+  raw: string,
+  referenceQuestions: string[],
+): { isNonAgri: boolean; matchedIndex: number | null } {
   const upper = raw.toUpperCase();
 
-  if (upper.includes("NON_AGRI") || upper.includes("NON-AGRI") || upper.includes("NONAGRI")) {
+  if (upper.includes('NON_AGRI') || upper.includes('NON-AGRI') || upper.includes('NONAGRI')) {
     return { isNonAgri: true, matchedIndex: null };
   }
 
-  if (upper === "NONE") {
+  if (upper === 'NONE') {
     return { isNonAgri: false, matchedIndex: null };
   }
 
-  // Parse candidate number (1-based) → 0-based index
-  const cleaned = raw.replace(/\D/g, "");
+  const cleaned = raw.replace(/\D/g, '');
   const parsed = parseInt(cleaned, 10);
   if (isNaN(parsed)) {
-    console.log("Invalid LLM response, treating as no match");
+    console.log('Invalid LLM response, treating as no match');
     return { isNonAgri: false, matchedIndex: null };
   }
 
   const zeroIndex = parsed - 1;
   if (zeroIndex < 0 || zeroIndex >= referenceQuestions.length) {
-    console.log("LLM returned out-of-range candidate index, treating as no match");
+    console.log('LLM returned out-of-range candidate index, treating as no match');
     return { isNonAgri: false, matchedIndex: null };
   }
 

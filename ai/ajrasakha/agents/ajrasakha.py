@@ -95,51 +95,51 @@ _GDB_EMPTY_SENTINEL = "NO_RELEVANT_CONTENT"
 logger = logging.getLogger(__name__)
 
 
-# async def ajrasakha_node(
-#     state: AjraSakhaState,
-#     config: RunnableConfig,
-#     *,
-#     store: BaseStore | None = None,
-# ) -> dict:
-#     main_tools = await _get_main_tools_legacy()
-#     merged_configurable = dict((config.get("configurable") or {}))
-#     merged_configurable["location"] = state.get("location")
-#     enriched_config = patch_config(config, configurable=merged_configurable)
-#     llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
-#     long_term_summary = await load_long_term_summary(store, config)
-#     summary_context = (
-#         f"Long-term memory from previous daily threads:\n{long_term_summary}"
-#         if long_term_summary
-#         else "Long-term memory from previous daily threads:\nNo previous summary available."
-#     )
-#     messages = [
-#         SystemMessage(content=WHATSAPP_SYSTEM_PROMPT),
-#         SystemMessage(content=summary_context),
-#     ]
-#     loc_ctx = main_agent_location_context_message(state.get("location"))
-#     if loc_ctx:
-#         messages.append(loc_ctx)
-#     messages.extend(list(state["messages"]))
+async def ajrasakha_node(
+    state: AjraSakhaState,
+    config: RunnableConfig,
+    *,
+    store: BaseStore | None = None,
+) -> dict:
+    main_tools = await _get_main_tools_legacy()
+    merged_configurable = dict((config.get("configurable") or {}))
+    merged_configurable["location"] = state.get("location")
+    enriched_config = patch_config(config, configurable=merged_configurable)
+    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
+    long_term_summary = await load_long_term_summary(store, config)
+    summary_context = (
+        f"Long-term memory from previous daily threads:\n{long_term_summary}"
+        if long_term_summary
+        else "Long-term memory from previous daily threads:\nNo previous summary available."
+    )
+    messages = [
+        SystemMessage(content=WHATSAPP_SYSTEM_PROMPT),
+        SystemMessage(content=summary_context),
+    ]
+    loc_ctx = main_agent_location_context_message(state.get("location"))
+    if loc_ctx:
+        messages.append(loc_ctx)
+    messages.extend(list(state["messages"]))
 
-#     try:
-#         response = await llm.ainvoke(messages, config=enriched_config)
-#     except (asyncio.CancelledError, TimeoutError, APITimeoutError,
-#             APIConnectionError) as exc:
-#         logger.warning(
-#             "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
-#             type(exc).__name__, exc,
-#         )
-#         return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-#     except APIStatusError as exc:
-#         if exc.status_code >= 500:
-#             logger.warning(
-#                 "Anthropic server error (%s) — returning safe fallback",
-#                 exc.status_code,
-#             )
-#             return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-#         raise  # 4xx errors (auth, rate-limit) should still propagate
+    try:
+        response = await llm.ainvoke(messages, config=enriched_config)
+    except (asyncio.CancelledError, TimeoutError, APITimeoutError,
+            APIConnectionError) as exc:
+        logger.warning(
+            "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
+            type(exc).__name__, exc,
+        )
+        return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+    except APIStatusError as exc:
+        if exc.status_code >= 500:
+            logger.warning(
+                "Anthropic server error (%s) — returning safe fallback",
+                exc.status_code,
+            )
+            return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+        raise  # 4xx errors (auth, rate-limit) should still propagate
 
-#     return {"messages": [response], "location": state.get("location")}
+    return {"messages": [response], "location": state.get("location")}
 
 
 async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:

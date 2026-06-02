@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useDashboardData } from "./hooks/useDashboardData";
+import { useDashboardData, useTopFaqs } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
@@ -15,7 +15,6 @@ import { DashboardQueryCategories } from "./DashboardQueryCategories";
 import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
 import { AlertCard } from "./AlertCard";
 import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
-import { Spinner } from "@/components/atoms/spinner";
 import { GeoCard } from "./GeoCard";
 import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
@@ -57,7 +56,7 @@ import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
 import { useClosedAndNotifedData, useInactiveWhatsappUsers, useMonthlyChurnRate, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useTransform } from "framer-motion";
 import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
@@ -139,6 +138,13 @@ const loadingSkeletonRows = [
   },
 ];
 
+function LazySectionSkeleton({ className = "h-[300px]" }: { className?: string }) {
+  return (
+    <div className={cn("w-full rounded-xl border border-border/60 bg-card/40 p-4", className)}>
+      <Skeleton className="h-full w-full rounded-lg" />
+    </div>
+  );
+}
 
 export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam' | 'whatsapp'; onSourceChange?: (source: 'vicharanashala' | 'annam' | 'whatsapp') => void }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
@@ -146,16 +152,18 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  const isAppAnalyticsSource = source === "annam" || source === "vicharanashala";
+  const loadImmediately = !isAppAnalyticsSource;
   const { data, isLoading, isFetching, error } = useDashboardData(
     filters,
     source,
-    source === "annam" || source === "vicharanashala",
+    isAppAnalyticsSource,
   );
   const [
     inactiveUsersPage,
     setInactiveUsersPage,
   ] = useState(1);
-  const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage);
+  const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage, source === "whatsapp");
   const [closed2hDateRange, setClosed2hDateRange] = useState<DateRange | undefined>(undefined);
   const [questionStatusDateRange, setQuestionStatusDateRange] = useState<DateRange | undefined>(undefined);
   const [customerNotificationsDateRange, setCustomerNotificationsDateRange] = useState<DateRange | undefined>(undefined);
@@ -225,7 +233,21 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
       setIsInactiveWhatsappModalOpen(true);
     }, []);
 
-  const {data: queryCategories} = useQueryCategories(source);
+  const { ref: growthRef, isVisible: isGrowthVisible } = useInView();
+  const { ref: queryInsightsRef, isVisible: isQueryInsightsVisible } = useInView();
+  const { ref: trendsRef, isVisible: isTrendsVisible } = useInView();
+  const { ref: faqsRef, isVisible: isFaqsVisible } = useInView();
+  const { ref: activeUsersRef, isVisible: isActiveUsersVisible } = useInView();
+  const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } = useInView();
+  const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
+  const shouldLoadQueryInsights = loadImmediately || isQueryInsightsVisible;
+  const shouldLoadTrends = loadImmediately || isTrendsVisible;
+  const shouldLoadFaqs = loadImmediately || isFaqsVisible;
+  const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
+  const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
+  const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
+
+  const {data: queryCategories} = useQueryCategories(source, shouldLoadQueryInsights);
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
   const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
   const [responseAdherenceDate, setResponseAdherenceDate] = useState<string>(
@@ -247,14 +269,16 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const { data: trendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDashboardData(
     trendsFilters,
     source,
-    true,
+    shouldLoadTrends,
   );
-  const { data: faqsData, isLoading: faqsLoading, isFetching: faqsFetching } = useDashboardData(
-    faqsFilters,
-    source,
-    true,
-  );
-
+  // const { data: faqsDataa, isLoading: faqsLoadinga, isFetching: faqsFetchinga } = useDashboardData(
+  //   faqsFilters,
+  //   source,
+  //   shouldLoadFaqs,
+  // );
+  const {data: faqsData, isLoading: faqsLoading, isFetching: faqsFetching} = useTopFaqs(
+    source, faqsFilters.userType, faqsFilters.startTime, faqsFilters.endTime);
+// console.log(faqsDataa,"----faqs filters", faqsFilters, faqsData);
   const responseAdherenceFilters = useMemo(() => {
     const selectedDate = parseInputDateToLocalDate(responseAdherenceDate);
     const startTime = new Date(selectedDate);
@@ -291,16 +315,16 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     isFetching: isResponseAdherenceFetching,
   } = useDashboardData(responseAdherenceFilters, source);
 
-  const {
-    data: dauTrend,
-    isLoading: dauLoading,
-    error: dauError,
-  } = useDailyUserTrend(
-    30,
-    source,
-    filters.userType,
-    source === "annam" || source === "vicharanashala",
-  );
+  // const {
+  //   data: dauTrend,
+  //   isLoading: dauLoading,
+  //   error: dauError,
+  // } = useDailyUserTrend(
+  //   30,
+  //   source,
+  //   filters.userType,
+  //   isGrowthVisible && isAppAnalyticsSource,
+  // );
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
   >(undefined);
@@ -308,8 +332,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     data: topCrops,
     isLoading: isLoadingTopCrops,
     error: errorLoadingtopCrops,
-  } = useTopCrops(source);
-  const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
+  } = useTopCrops(source, shouldLoadQueryInsights);
+  // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   const [hovered, setHovered] = useState<string | null>(null);
   const [agriHovered, setAgriHovered] = useState<string | null>(null);
@@ -317,7 +341,6 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const sectionRefs = useRef<
     Partial<Record<DashboardView, HTMLDivElement | null>>
   >({});
-  const { ref: growthRef, isVisible: isGrowthVisible } = useInView();
   const scrollTo = (view: DashboardView) => {
     setTimeout(
       () =>
@@ -413,7 +436,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     filters.userType as any,
     'totalQuestions',
     'desc',
-    true // activeTodayByProfile
+    true, // activeTodayByProfile
+    isAppAnalyticsSource,
   );
 
   // Patch the DAU card to show "today / total" instead of just total
@@ -478,7 +502,7 @@ useEffect(() => {
   }
 }, [source]);
 
-const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
+const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp");
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -681,16 +705,19 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                             />
                           </div>
                         )}
-                        <div
-                          className={`grid gap-4 mb-6 ${
-                            source === "whatsapp"
-                              ? "grid-cols-1 lg:grid-cols-[1fr_1fr_1.4fr_1.4fr]"
-                              : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
-                          }`}
-                        >
+                          <div
+                            className={`grid gap-4 mb-6 items-stretch ${source === "whatsapp"
+                                ? "grid-cols-1 lg:grid-cols-[0.6fr_1fr_1.4fr_1.4fr]"
+                                : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
+                              }`}
+                          >
                           {source === "whatsapp" && (
                             <WhatsAppUniqueUsersCard
                               totalUsers={unqueWhatsAppUsers}
+                              onClick={() => {
+                                setActiveView("user-details");
+                                scrollTo("user-details");
+                              }}
                             />
                           )}
 
@@ -725,6 +752,14 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                               questionStatusData?.carryForward
                             }
                             statusBreakup={questionStatusData?.closedVsTotalQuestions}
+                            avgCloseTimeMinutes={
+                              questionStatusData?.closedVsTotalQuestions
+                                ?.avgCloseTimeMinutes
+                            }
+                            previousMonthAvgCloseTimeMinutes={
+                              questionStatusData?.closedVsTotalQuestions
+                                ?.previousMonthAvgCloseTimeMinutes
+                            }
                           />
                           <CustomerNotificationsCard
                             notified={
@@ -774,15 +809,13 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                     error={dauError}
                   /> */}
                         {/* {isGrowthVisible ? source === "whatsapp" ?(<div className="h-full w-full blur-sm opacity-90"></div>):( */}
-                        {/* {isGrowthVisible ? ( */}
-                          <Suspense fallback={<Spinner />}>
+                        {isGrowthVisible || loadImmediately ? (
+                          <Suspense fallback={<LazySectionSkeleton />}>
                             <LazyUserGrowthChart source={source} />
                           </Suspense>
-                        {/* ) : (
-                          <div className="h-[300px] flex items-center justify-center text-gray-400">
-                            <div className="h-[300px] bg-gray-100 dark:bg-[#1a1a1a] animate-pulse rounded-xl" />
-                          </div>
-                        )} */}
+                        ) : (
+                          <LazySectionSkeleton />
+                        )}
 
                         <div
                           ref={(el) => {
@@ -842,6 +875,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                               farmingExperience: data.farmingExperience,
                               landHolding: (data as any).landHolding ?? [],
                             }}
+                            source={source}
+                            userType={filters.userType}
                           />
                         </div>
                       )}
@@ -1071,7 +1106,12 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div
+                        ref={(el) => {
+                          queryInsightsRef.current = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+                      >
                         <motion.div
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -1081,13 +1121,17 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                           }}
                           className="h-full"
                         >
-                          <DashboardQueryCategories
-                            categories={
-                              source === "whatsapp"
-                                ? queryCategories
-                                : data.queryCategories
-                            }
-                          />
+                          {shouldLoadQueryInsights ? (
+                            <DashboardQueryCategories
+                              categories={
+                                source === "whatsapp"
+                                  ? queryCategories
+                                  : data.queryCategories
+                              }
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[360px]" />
+                          )}
                         </motion.div>
 
                         <motion.div
@@ -1103,49 +1147,76 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                           }}
                           className="h-full"
                         >
-                          <TopCropsCard
-                            topCrops={topCrops}
-                            isLoadingTopCrops={isLoadingTopCrops}
-                            errorLoadingtopCrops={errorLoadingtopCrops}
-                          />
+                          {shouldLoadQueryInsights ? (
+                            <TopCropsCard
+                              topCrops={topCrops}
+                              isLoadingTopCrops={isLoadingTopCrops}
+                              errorLoadingtopCrops={errorLoadingtopCrops}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[360px]" />
+                          )}
                         </motion.div>
                       </div>
 
                       {/* Chatbot Quality & FAQ Analytics Section Header */}
                       {/* Daily Trends & FAQ Leaderboard Grid */}
                       {/* Row 1: Daily Trends & Feedback Data */}
-                      <div className="grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6">
-                        <DailyQuestionTrendsChart
-                          trends={(trendsData as any).dailyQuestionTrends}
-                          dateRange={trendsDateRange}
-                          onDateRangeChange={setTrendsDateRange}
-                          isLoading={trendsLoading}
-                        />
+                      <div
+                        ref={(el) => {
+                          trendsRef.current = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6"
+                      >
+                        {shouldLoadTrends ? (
+                          <DailyQuestionTrendsChart
+                            trends={(trendsData as any).dailyQuestionTrends}
+                            dateRange={trendsDateRange}
+                            onDateRangeChange={setTrendsDateRange}
+                            isLoading={trendsLoading}
+                          />
+                        ) : (
+                          <LazySectionSkeleton className="h-[320px]" />
+                        )}
                       </div>
 
                       {/* Row 2: State Analytics & FAQ Leaderboard */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-                        <DashboardStateWiseAnalytics
-                          source={source}
-                          userType={filters.userType}
-                        />
+                      <div
+                        ref={(el) => {
+                          faqsRef.current = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
+                      >
+                        {shouldLoadFaqs ? (
+                          <>
+                            <DashboardStateWiseAnalytics
+                              source={source}
+                              userType={filters.userType}
+                            />
 
-                        <TopFaqsLeaderboard
-                          faqs={(faqsData as any).topFaqs}
-                          topQuestionsFromCollection={
-                            (faqsData as any).topQuestionsFromCollection
-                          }
-                          repeatQueryCount={(faqsData as any).repeatQueryCount}
-                          repeatQueryRatePct={
-                            (faqsData as any).repeatQueryRatePct
-                          }
-                          avgQuestionsPerUserDay={
-                            (faqsData as any).avgQuestionsPerUserDay
-                          }
-                          dateRange={faqsDateRange}
-                          onDateRangeChange={setFaqsDateRange}
-                          isLoading={faqsLoading}
-                        />
+                            <TopFaqsLeaderboard
+                              faqs={(faqsData as any)?.topFaqs}
+                              topQuestionsFromCollection={
+                                (faqsData as any)?.topQuestionsFromCollection
+                              }
+                              repeatQueryCount={(faqsData as any)?.repeatQueryCount}
+                              repeatQueryRatePct={
+                                (faqsData as any)?.repeatQueryRatePct
+                              }
+                              avgQuestionsPerUserDay={
+                                (faqsData as any)?.avgQuestionsPerUserDay
+                              }
+                              dateRange={faqsDateRange}
+                              onDateRangeChange={setFaqsDateRange}
+                              isLoading={faqsLoading}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <LazySectionSkeleton className="h-[500px]" />
+                            <LazySectionSkeleton className="h-[500px]" />
+                          </>
+                        )}
                       </div>
 
                       {/* Geo + Health */}
@@ -1170,42 +1241,67 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers();
                         </div>
                       </div>
                       {source !== "whatsapp" && (
-                        <div className="">
-                          <ActiveUsersChart
+                        <div
+                          ref={(el) => {
+                            activeUsersRef.current = el;
+                          }}
+                          className=""
+                        >
+                          {shouldLoadActiveUsers ? (
+                            <>
+                              <ActiveUsersChart
+                                source={source}
+                                userType={filters.userType}
+                              />
+                              <RetentionMetricsChart
+                                source={source}
+                                userType={filters.userType}
+                              />
+                            </>
+                          ) : (
+                            <LazySectionSkeleton className="h-[620px]" />
+                          )}
+                          <ChurnRateChart
                             source={source}
                             userType={filters.userType}
                           />
-                          <RetentionMetricsChart
-                            source={source}
-                            userType={filters.userType}
-                          />
-                          {/* <ChurnRateChart
-                            source={source}
-                            userType={filters.userType}
-                          /> */}
                         </div>  
                       )}
                       {source !== "whatsapp" && (
-                        <div className="mt-4 mb-4">
-                          <WeatherConcernAnalyticsCard
-                            source={source}
-                            userType={filters.userType}
-                            filters={weatherConcernFilters}
-                            onFiltersChange={setWeatherConcernFilters}
-                          />
+                        <div
+                          ref={(el) => {
+                            weatherConcernRef.current = el;
+                          }}
+                          className="mt-4 mb-4"
+                        >
+                          {shouldLoadWeatherConcern ? (
+                            <WeatherConcernAnalyticsCard
+                              source={source}
+                              userType={filters.userType}
+                              filters={weatherConcernFilters}
+                              onFiltersChange={setWeatherConcernFilters}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[360px]" />
+                          )}
                         </div>
                       )}
                       {source !== "whatsapp" && (
                         <div
                           ref={(el) => {
                             sectionRefs.current["user-details"] = el;
+                            userDetailsRef.current = el;
                           }}
                         >
-                          <UserDetailsView
-                            source={source}
-                            initialFilters={userDetailsInitialFilters}
-                            userType={filters.userType}
-                          />
+                          {shouldLoadUserDetails ? (
+                            <UserDetailsView
+                              source={source}
+                              initialFilters={userDetailsInitialFilters}
+                              userType={filters.userType}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[520px]" />
+                          )}
                         </div>
                       )}
                       {source === "whatsapp" && (

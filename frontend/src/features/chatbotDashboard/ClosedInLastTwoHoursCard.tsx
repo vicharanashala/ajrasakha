@@ -30,6 +30,11 @@ export function ClosedInLastTwoHoursCard({
   onDateRangeChange,
   isLoading,
 }: ClosedInLastTwoHoursCardProps) {
+  const safeCount = count ?? 0;
+  const safeTotalClosed = totalClosed ?? 0;
+  const closedWithinTwoHoursPct =
+    safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -41,7 +46,7 @@ export function ClosedInLastTwoHoursCard({
           border
           border-border
           rounded-2xl
-          h-fit 
+          h-full
           ${source === "whatsapp" ? "pb-2" : "pb-5"}
           bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
           `}
@@ -55,52 +60,11 @@ export function ClosedInLastTwoHoursCard({
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <div className="flex items-center gap-2">
-              <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-              Closed within 2 Hours
-            </div>
-
-            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 gap-1 flex items-center shrink-0"
-                  >
-                    <CalendarIcon className="h-3 w-3 text-muted-foreground" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
-                      ) : (
-                        format(dateRange.from, "MMM dd")
-                      )
-                    ) : (
-                      "All Time"
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-[100]" align="end">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from ?? new Date()}
-                    selected={dateRange}
-                    onSelect={onDateRangeChange}
-                    disabled={{ after: new Date() }}
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-              {dateRange && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full shrink-0"
-                  onClick={() => onDateRangeChange?.(undefined)}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              )}
+            <div className="text-sm text-muted-foreground flex gap-2 items-center">
+              <div className="flex items-center gap-2">
+                <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+                Closed within 2 Hours
+              </div>
             </div>
           </motion.div>
 
@@ -129,7 +93,7 @@ export function ClosedInLastTwoHoursCard({
               }}
               key={`${count ?? 0}-${totalClosed ?? 0}`}
             >
-              {count ?? 0} / {totalClosed ?? 0}
+              {safeCount} / {safeTotalClosed}
             </motion.div>
 
             <TooltipProvider>
@@ -154,6 +118,10 @@ export function ClosedInLastTwoHoursCard({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          </div>
+
+          <div className={`mt-2 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
+            {closedWithinTwoHoursPct.toFixed(2)}% of questions were closed within 2 hours
           </div>
         </CardHeader>
       </Card>

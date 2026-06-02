@@ -21,7 +21,10 @@ from ajrasakha.agents.config import SYNTHESIZE_MODEL
 from ajrasakha.agents.language import language_directive_for_synthesis
 from ajrasakha.agents.translation_catalog import language_pair_from_plan, synthesis_lang_label
 from ajrasakha.agents.memory import load_long_term_summary
-from ajrasakha.agents.location_context import main_agent_location_context_message
+from ajrasakha.agents.location_context import (
+    is_location_information_tool_name,
+    main_agent_location_context_message,
+)
 from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.prompts import EMPTY_GDB_REPLY, LLM_FALLBACK_MSG, SYNTHESIZER_SYSTEM_PROMPT
@@ -143,7 +146,11 @@ OUTPUT CONTRACT (NON-NEGOTIABLE):
 
 
 def _format_non_gdb_tool_results(messages: list[BaseMessage]) -> str:
-    """Collect non-GDB tool outputs for the synthesizer, skipping reviewer upload."""
+    """Collect specialist tool outputs for the current turn (weather, market, soil, etc.).
+
+    Skips GDB, reviewer upload, and location_information_tool — location is thread
+    context only and must not trigger the similar-match expert-queue deferral.
+    """
     last_human_idx = -1
     for i in range(len(messages) - 1, -1, -1):
         if isinstance(messages[i], HumanMessage):
@@ -156,8 +163,11 @@ def _format_non_gdb_tool_results(messages: list[BaseMessage]) -> str:
     for msg in messages[last_human_idx + 1:]:
         if isinstance(msg, ToolMessage):
             name = getattr(msg, "name", "tool")
-            # Skip GDB (handled separately) and reviewer upload (question logging only)
-            if name == "gdb" or name == "upload_question_to_reviewer_system":
+            if (
+                name == "gdb"
+                or name == "upload_question_to_reviewer_system"
+                or is_location_information_tool_name(name)
+            ):
                 continue
             text = _message_to_text(msg)
             if text:
@@ -343,7 +353,7 @@ async def synthesize_node(
             )
 
         # If other specialist tools also have results, defer to expert-queue
-        # (reviewer upload is already excluded by _format_non_gdb_tool_results)
+        # (reviewer upload and location_information_tool excluded by _format_non_gdb_tool_results)
         if other_tools.strip():
             logger.info(
                 "Similar match from GDB but specialist tools also have results — expert-queue"

@@ -1896,8 +1896,11 @@ export class QuestionRepository implements IQuestionRepository {
           const rid = question.referenceQuestionId as any;
           if (rid instanceof ObjectId) {
             refId = rid;
-          } else if (rid && rid.buffer) {
-            // stored as BSON Binary — extract the underlying Buffer
+          } else if (rid?.buffer?.data) {
+            // stored as serialized Buffer object {buffer: {type:"Buffer", data:[...]}}
+            refId = new ObjectId(Buffer.from(rid.buffer.data));
+          } else if (rid?.buffer && Buffer.isBuffer(rid.buffer)) {
+            // stored as BSON Binary with actual Buffer
             refId = new ObjectId(rid.buffer);
           } else {
             refId = new ObjectId(String(rid));
@@ -2107,6 +2110,17 @@ export class QuestionRepository implements IQuestionRepository {
         updates.closedAt = new Date(updates.closedAt);
       }
 
+      if (updates.referenceQuestionId) {
+        const rid = updates.referenceQuestionId as any;
+        if (rid instanceof ObjectId) {
+          // already correct
+        } else if (rid?.buffer?.data) {
+          updates.referenceQuestionId = new ObjectId(Buffer.from(rid.buffer.data));
+        } else {
+          updates.referenceQuestionId = new ObjectId(String(rid));
+        }
+      }
+
       const contextValue = (updates as any).context;
       if (contextValue) {
         delete (updates as any).context;
@@ -2172,6 +2186,27 @@ export class QuestionRepository implements IQuestionRepository {
     } catch (error) {
       throw new InternalServerError(
         `Error while updating Question: More info: ${error}`,
+      );
+    }
+  }
+
+  async updateThreadId(questionId: string, threadId: string, session?: ClientSession): Promise<{ modifiedCount: number; }> {
+    try {
+      await this.init()
+      if (!questionId || !isValidObjectId(questionId)) {
+        throw new BadRequestError('Invalid or missing questionId');
+      }
+      if (!threadId) {
+        throw new BadRequestError('Invalid or missing threadId');
+      }
+      return await this.QuestionCollection.updateOne(
+        { _id: new ObjectId(questionId) },
+        { $set: { threadId:threadId ,updatedAt: new Date() } },
+        { session },
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while updating thread ID: More info: ${error}`,
       );
     }
   }

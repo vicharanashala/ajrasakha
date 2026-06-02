@@ -72,6 +72,7 @@ export interface IQuestionService {
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
+    threadUpdate?:boolean
   ): Promise<{modifiedCount: number}>;
 
   /** Auto allocate experts */
