@@ -91,6 +91,23 @@ export const RetentionMetricsChart = ({
     endDate,
   );
 
+  const formatCohortLabel = (
+    value: string,
+    requestType: RetentionType,
+  ) => {
+    if (requestType === "monthly") {
+      return format(new Date(`${value}-01`), "MMM yyyy");
+    }
+    if (requestType === "weekly") {
+      const [year, week] = value.split("-W");
+      return `W${week} ${year}`;
+    }
+    if (requestType === "daily") {
+      return format(new Date(value), "dd-MM-yy");
+    }
+    return value;
+  };
+
   const renderDateRangePicker = () => (
     <div className="flex items-center gap-2">
       <Popover>
@@ -272,15 +289,9 @@ export const RetentionMetricsChart = ({
                     minTickGap={20}
                     padding={{ right: 30, left: 30 }}
                     interval={data.length < 15 ? 0 : "preserveStartEnd"}
-                    tickFormatter={(value) => {
-                      if (requestType === "weekly") {
-                        const [year, week] = value.split("-W");
-
-                        return `${year.slice(2)} W${week}`;
-                      }
-
-                      return value;
-                    }}
+                    tickFormatter={(value) =>
+                      formatCohortLabel(value, requestType)
+                    }
                   />
 
                   <YAxis
@@ -296,15 +307,9 @@ export const RetentionMetricsChart = ({
                     content={
                       <ChartTooltipContent
                         indicator="line"
-                        labelFormatter={(value) => {
-                          if (requestType === "weekly") {
-                            const [year, week] = value.split("-W");
-
-                            return `Week ${week}, ${year}`;
-                          }
-
-                          return value;
-                        }}
+                        labelFormatter={(value) =>
+                          formatCohortLabel(value, requestType)
+                        }
                         formatter={(value, name) => [
                           `${value}%`,
                           chartConfig[name as keyof typeof chartConfig]?.label,

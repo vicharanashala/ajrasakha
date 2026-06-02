@@ -148,7 +148,14 @@ export interface IQuestionRepository {
     session?: ClientSession,
     addText?: boolean,
   ): Promise<{modifiedCount: number}>;
-
+  /**
+   * Updates a specific question.
+   * @param questionId - The ID of the question to update.
+   * @param threadId - The ID of the thread to update.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an object containing IQuestion.
+   */
+  updateThreadId(questionId: string, threadId: string, session?: ClientSession): Promise<{modifiedCount: number}>;
   /**
    * Updates a specific question.
    * @param questionId - The ID of the question to update.

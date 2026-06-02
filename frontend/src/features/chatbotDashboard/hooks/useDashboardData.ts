@@ -469,3 +469,34 @@ export function useDashboardData(
 
   return { data: safeData, isLoading, isFetching, error: error ?? null };
 }
+
+
+export const useTopFaqs = (
+  source: string = 'vicharanashala',
+  userType: string = 'all',
+  startTime?: Date,
+  endTime?: Date
+) => {
+  const params = new URLSearchParams();
+  params.append("source", source);
+  params.append("userType", userType);
+  if (startTime) params.append("startTime", startTime.toISOString());
+  if (endTime) params.append("endTime", endTime.toISOString());
+  return useQuery({
+    queryKey: [
+      "top-faqs",
+      source,
+      userType,
+      startTime,
+      endTime
+    ],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DashboardApiResponse>(
+        `${API_BASE_URL}/analytics/top-faqs?${params.toString()}`
+      );
+      return result;
+    }
+  });
+}

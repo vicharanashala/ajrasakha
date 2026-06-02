@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { X, MapPin, Maximize2, Trash2, Pencil, Users } from "lucide-react";
+import { useState, useEffect,  useRef } from "react";
+import { X, MapPin, Trash2, Pencil, Users } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
   Card,
@@ -9,10 +9,10 @@ import {
 } from "@/components/atoms/card";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { useUserDetails, type UserDetail } from "./hooks/useUserDetails";
-import { useDashboardData } from "./hooks/useDashboardData";
-import { BarGraph } from "./components/shared/BarGrapgh";
+// import { useDashboardData } from "./hooks/useDashboardData";
+// import { BarGraph } from "./components/shared/BarGrapgh";
 import { Pagination } from "@/components/pagination";
-import { createPortal } from "react-dom";
+// import { createPortal } from "react-dom";
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -51,9 +51,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-import { TopCropsCard } from "./components/TopCropsCard";
-import { useTopCrops } from "./hooks/useTopCrops";
-import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
+// import { TopCropsCard } from "./components/TopCropsCard";
+// import { useTopCrops } from "./hooks/useTopCrops";
+// import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import UserQuestionsModal from "./UserQuestionModal";
 import { EditFarmerModal } from "./components/EditFarmerModal";
 import { AddFarmerModal } from "./components/AddFarmerModal";
@@ -135,7 +135,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
 };
 
 interface UserDetailsViewProps {
-  source?: "vicharanashala" | "annam" | "whatsapp";
+  source?: "vicharanashala" | "annam" | undefined;
   initialFilters?: Partial<UserDetailsFilters>;
   userType?: "all" | "external" | "internal";
 }
@@ -159,9 +159,9 @@ export function UserDetailsView({
   const [pageSize, setPageSize] = useState(12);
   const [sortBy, setSortBy] = useState<"totalQuestions" | "name">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
-  const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
-  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  // const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
+  // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
+  // const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{
     userId: string;
     source: string;
@@ -169,8 +169,8 @@ export function UserDetailsView({
   } | null>(null);
   const [userToEdit, setUserToEdit] = useState<UserDetail | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
-  const [hovered, setHovered] = useState<string | null>(null);
-  const [agriHovered, setAgriHovered] = useState<string | null>(null);
+  // const [hovered, setHovered] = useState<string | null>(null);
+  // const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
   // const scrollToTable = () => {
@@ -203,7 +203,7 @@ export function UserDetailsView({
     }
   }, [initialFilters]);
 
-  const { data, isLoading, error } = useUserDetails(
+  const { data, isLoading, error } = useUserDetails( 
     filters.startTime,
     filters.endTime,
     currentPage,
@@ -224,41 +224,41 @@ export function UserDetailsView({
     users,
     totalUsers,
     totalPages,
-    activeUsers,
-    inactiveUsers,
-    totalQuestions,
+    // activeUsers,
+    // inactiveUsers,
+    // totalQuestions,
   } = data;
 
   // Fetch dashboard data with the same filters for charts
-  const dashboardFilters = {
-    village: filters.village || "all",
-    crop: filters.crop || "all",
-    season: "all",
-    startTime: filters.startTime,
-    endTime: filters.endTime,
-    userType: userType,
-  };
-  const { data: dashboardData, isLoading: isDashboardLoading } =
-    useDashboardData(dashboardFilters, source);
-  const {
-    data: topCrops,
-    isLoading: isLoadingTopCrops,
-    error: errorLoadingTopCrops,
-  } = useTopCrops(source);
+  // const dashboardFilters = {
+  //   village: filters.village || "all",
+  //   crop: filters.crop || "all",
+  //   season: "all",
+  //   startTime: filters.startTime,
+  //   endTime: filters.endTime,
+  //   userType: userType,
+  // };
+  // const { data: dashboardData, isLoading: isDashboardLoading } =
+  //   useDashboardData(dashboardFilters, source);
+  // const {
+  //   data: topCrops,
+  //   isLoading: isLoadingTopCrops,
+  //   error: errorLoadingTopCrops,
+  // } = useTopCrops(source);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
 
-  const {
-    data: dauTrend,
-    isLoading: dauLoading,
-    error: dauError,
-  } = useDailyUserTrend(
-    30,
-    source,
-    filters.userType,
-    source === "annam" || source === "vicharanashala",
-  );
+  // const {
+  //   data: dauTrend,
+  //   isLoading: dauLoading,
+  //   error: dauError,
+  // } = useDailyUserTrend(
+  //   30,
+  //   source,
+  //   filters.userType,
+  //   source === "annam" || source === "vicharanashala",
+  // );
   // console.log("DAU Trend data:", dauTrend, "Loading:", dauLoading, "Error:", dauError);
 
   // console.log("Dashboard data in UserDetailsView:", dashboardData, "Loading:", isDashboardLoading, "Error:", error);
@@ -281,37 +281,37 @@ export function UserDetailsView({
   //   error,
   // );
 
-  const todayCount =
-    dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
+  // const todayCount =
+  //   dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
 
   // Patch the DAU card to show "active today / total" instead of just total (same as dashboard)
-  const patchedKpiRow1 = useMemo(() => {
-    if (!dashboardData?.kpiRow1) return [];
-    // Use activeUsers from user details as the "today" count (users with activity in the filtered period)
-    // This makes sense in the context of User Details page where we're showing filtered data
-    return dashboardData.kpiRow1.map((card) => {
-      if (card.id === "dau") {
-        return {
-          ...card,
-          value: `${todayCount?.toLocaleString()} / ${Number(card.value).toLocaleString()}`,
-        };
-      }
-      return card;
-    });
-  }, [dashboardData?.kpiRow1, activeUsers, totalUsers]);
+  // const patchedKpiRow1 = useMemo(() => {
+  //   if (!dashboardData?.kpiRow1) return [];
+  //   // Use activeUsers from user details as the "today" count (users with activity in the filtered period)
+  //   // This makes sense in the context of User Details page where we're showing filtered data
+  //   return dashboardData.kpiRow1.map((card) => {
+  //     if (card.id === "dau") {
+  //       return {
+  //         ...card,
+  //         value: `${todayCount?.toLocaleString()} / ${Number(card.value).toLocaleString()}`,
+  //       };
+  //     }
+  //     return card;
+  //   });
+  // }, [dashboardData?.kpiRow1, activeUsers, totalUsers]);
 
   // Mark cards as dummy (to blur them) - same logic as dashboard
-  const dynamicIds = ["dau", "queries", "session"];
-  const kpiRow1WithOverlay = patchedKpiRow1.map((card) => ({
-    ...card,
-    isDummy: !dynamicIds.includes(card.id),
-  }));
+  // const dynamicIds = ["dau", "queries", "session"];
+  // const kpiRow1WithOverlay = patchedKpiRow1.map((card) => ({
+  //   ...card,
+  //   isDummy: !dynamicIds.includes(card.id),
+  // }));
 
-  const kpiRow2WithOverlay =
-    dashboardData?.kpiRow2.map((card) => ({
-      ...card,
-      isDummy: card.id !== "totalInstalls",
-    })) || [];
+  // const kpiRow2WithOverlay =
+  //   dashboardData?.kpiRow2.map((card) => ({
+  //     ...card,
+  //     isDummy: card.id !== "totalInstalls",
+  //   })) || [];
 
   const handleApplyFilters = (newFilters: UserDetailsFilters) => {
     setFilters(newFilters);
@@ -347,10 +347,10 @@ export function UserDetailsView({
     filters.inactiveOnly ||
     filters.lowFeedbackOnly;
 
-  const dateLabel =
-    filters.startTime && filters.endTime
-      ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
-      : "All time";
+  // const dateLabel =
+  //   filters.startTime && filters.endTime
+  //     ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
+  //     : "All time";
 
   const handleSaveEditedUser = async (payload: {
     name?: string;
@@ -379,7 +379,7 @@ export function UserDetailsView({
       platformHistory?: { os: string; timestamp: string }[];
     };
   }) => {
-    console.log("Payload is----", payload)
+    // console.log("Payload is----", payload)
     if (!userToEdit) return;
     await updateUserMutation.mutateAsync({
       userId: userToEdit.userId,

@@ -92,7 +92,7 @@ export interface IChatbotService {
     },
   ): Promise<QueryAnalyticsResponse>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string,sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean): Promise<PaginatedUserDetails>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string,sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string, userType?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(weeks?: number, source?: string, userType?: string): Promise<WeeklySessionDurationEntry[]>;
   // generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
@@ -103,7 +103,7 @@ export interface IChatbotService {
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
   getDailyQuestionTrends(days?: number, userType?: string): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
-  getTopFaqs(source?: string, userType?: string): Promise<Array<{ question: string; count: number }>>;
+  getTopFaqs(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<Array<{ question: string; count: number }>>;
   getDistrictAnalyticsByState(state: string, source?: string, userType?: string): Promise<DistrictAnalyticsEntry[]>;
   getWeatherConcernAnalytics(filters?: WeatherConcernAnalyticsFilters, source?: string, userType?: string): Promise<WeatherConcernAnalyticsResponse>;
   deleteUser(userId: string, source: string): Promise<boolean>;
@@ -145,9 +145,9 @@ export interface IChatbotService {
       role?: string;
     },
   ): Promise<boolean>;
-  getDailyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ):Promise<any>;
-  getMonthlyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ): Promise<any>;
-  getWeeklyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ): Promise<any>;
+  // getDailyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ):Promise<any>;
+  // getMonthlyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ): Promise<any>;
+  // getWeeklyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ): Promise<any>;
   getRetentionMetrics(  
       source: string,
       userType: string,
@@ -160,4 +160,13 @@ export interface IChatbotService {
 
   getClosedAndNotifedData(source?: string, startDate?: string, endDate?: string): Promise<any>;
   getMonthlyChurnRate(source: string, userType: string):Promise<any>;
+  getActiveUsersTrend(
+      source: string,
+      userType: string,
+      requestType: string,
+      startDate?: Date,
+      endDate?: Date,
+    ) : Promise<any>;
+  getTopQuestionsFromCollection(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
+  getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
 }
