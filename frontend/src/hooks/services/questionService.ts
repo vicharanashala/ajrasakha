@@ -698,6 +698,10 @@ export class QuestionService {
   );
 }
 
+  async manualCheckDuplicate(questionId: string): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
+  }
+
   async getQuestionStatusSummary(
     filter: AdvanceFilterValues,
     search: string,
