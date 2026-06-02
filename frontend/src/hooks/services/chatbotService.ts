@@ -195,4 +195,27 @@ export class ChatbotService {
       `${this._baseUrl}/monthly-churn-rate?${params.toString()}`,
     );
   }
+
+  async getActiveUsersTrend(
+    source: string,
+    userType: string,
+    requestType: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+    params.append("source", source);
+    params.append("userType", userType);
+    params.append("requestType", requestType);
+      return apiFetch<any>(
+      `${this._baseUrl}/active-users-trend?${params.toString()}`,
+    );
+  }
 }
