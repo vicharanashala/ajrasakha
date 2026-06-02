@@ -206,7 +206,7 @@ export const ActiveUsersChart = ({
                   <TooltipContent className="max-w-[260px]">
                     <p>
                       {type === "daily" &&
-                        "Shows unique users active each day based on their latest activity timestamp.)"}
+                        "Shows unique users active each day based on their latest activity timestamp."}
 
                       {type === "weekly" &&
                         "Shows unique users active each ISO week based on their latest activity timestamp."}
