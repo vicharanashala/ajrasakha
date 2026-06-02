@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/atoms/button";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { CalendarIcon, X } from "lucide-react";
+import { BadgeCheck, CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
@@ -120,8 +120,18 @@ export function ClosedInLastTwoHoursCard({
             </TooltipProvider>
           </div>
 
-          <div className={`mt-2 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
-            {closedWithinTwoHoursPct.toFixed(2)}% of questions were closed within 2 hours
+          <div
+            className={`flex items-center gap-2 text-xs text-muted-foreground ${
+              isLoading ? "opacity-50" : ""
+            }`}
+          >
+            <BadgeCheck className="h-4 w-4 text-primary" />
+            <span>
+              <span className="font-bold">
+                {closedWithinTwoHoursPct.toFixed(2)}%
+              </span>{" "}
+              of questions were resolved within 2 hours
+            </span>
           </div>
         </CardHeader>
       </Card>

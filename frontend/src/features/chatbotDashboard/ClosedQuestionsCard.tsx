@@ -13,7 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/atoms/popover";
-import { CalendarIcon, X } from "lucide-react";
+import { CalendarIcon, Clock3, X } from "lucide-react";
 import { format, isSameDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
@@ -369,7 +369,7 @@ export function ClosedQuestionsCard({
                         (10:30 PM to 12:00 AM)
                       </p>
                     ) : (
-                      <p>The count of questions that are not yet closed.</p>
+                      <p>The count of questions that are currently in review by the moderators.</p>
                     )}
                   </TooltipContent>
                 </Tooltip>
@@ -397,12 +397,32 @@ export function ClosedQuestionsCard({
             </motion.div>
           </motion.div>
 
-          <div className={`mt-3 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
+          {/* <div className={`mt-3 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
             Average time to close a question: {formatDurationFromMinutes(avgCloseTimeMinutes)}
             <span className="ml-4">
               Previous month: {formatDurationFromMinutes(previousMonthAvgCloseTimeMinutes)}
             </span>
+          </div> */}
+          <div
+            className={`mt-3 flex flex-wrap items-center gap-3 ${
+              isLoading ? "opacity-50" : ""
+            }`}
+          >
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Clock3 className="h-4 w-4 text-primary" />
+              <span className="font-medium">Average Resolution Time:</span>
+              <span className="font-semibold">
+                {formatDurationFromMinutes(avgCloseTimeMinutes)}
+              </span>
+            </div>
           </div>
+
+          {/* <div className="flex items-center gap-1 text-sm text-foreground">
+            <span className="font-medium">Previous Month:</span>
+            <span className="font-semibold">
+              {formatDurationFromMinutes(previousMonthAvgCloseTimeMinutes)}
+            </span>
+          </div> */}
         </CardHeader>
       </Card>
     </motion.div>
