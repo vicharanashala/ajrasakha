@@ -98,7 +98,7 @@ export class ContextService extends BaseService implements IContextService {
 
     const useSarvamModel = SARVAM_ONLY_LANGS.has(targetLang);
     const model = useSarvamModel ? 'sarvam-translate:v1' : 'mayura:v1';
-    const source_language_code = useSarvamModel ? (sourceLang ?? 'en-IN') : 'auto';
+    const source_language_code = sourceLang ?? 'auto';
     // API character limits: mayura:v1 = 1000, sarvam-translate:v1 = 2000
 
     if(targetLang === 'en-IN') return { translated_text: text };
