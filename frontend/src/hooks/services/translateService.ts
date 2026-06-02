@@ -1,4 +1,3 @@
-// Your account is pending admin verification. Please contact an administrator.
 import { env } from "@/config/env";
 import { apiFetch } from "@/hooks/api/api-fetch";
 
