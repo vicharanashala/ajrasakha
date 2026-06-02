@@ -433,7 +433,7 @@ export function useDashboardData(
       userType,
     ],
     enabled,
-    placeholderData: (prev) => prev,
+    // placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
 
