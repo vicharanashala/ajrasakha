@@ -13,11 +13,13 @@ export interface FarmerProfile {
   phoneNo?: string;
   languagePreference?: string;
   yearsOfExperience?: number;
+  landhold?: number;
   cropsCultivated?: string[];
   primaryCrop?: string;
   secondaryCrop?: string;
   awarenessOfKCC?: boolean;
   usesAgriApps?: boolean;
+  nearestKVK?: string;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
   platform?: string;
