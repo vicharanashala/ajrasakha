@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useDailyQuestionTrends, useDashboardData, useTopFaqs } from "./hooks/useDashboardData";
+import { useDailyQuestionTrends, useDashboardData, useTopFaqs, useUserMertices } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
@@ -506,6 +506,8 @@ useEffect(() => {
 
   const { data: dailyQuestionTrendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDailyQuestionTrends(source, trendsFilters.userType as string, trendsFilters.startTime, trendsFilters.endTime);
 
+  const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, filters.userType);
+
 const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp");
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
@@ -874,10 +876,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         >
                           <UserDemographicsSection
                             data={{
-                              ageGroups: data.ageGroups,
-                              genderSplit: data.genderSplit,
-                              farmingExperience: data.farmingExperience,
-                              landHolding: (data as any).landHolding ?? [],
+                              ageGroups: userMetricesData?.userDemographics?.ageGroups,
+                              genderSplit: userMetricesData?.userDemographics?.genderSplit,
+                              farmingExperience: userMetricesData?.userDemographics?.farmingExperience,
+                              landHolding: userMetricesData?.userDemographics?.landHolding ?? [],
                             }}
                             source={source}
                             userType={filters.userType}
@@ -890,7 +892,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         {source !== "whatsapp" && (
                           <div className="h-full">
                             <PlatformDonutSegments
-                              rawData={data.platformInstalls}
+                              rawData={userMetricesData?.platformInstalls}
                             />
                           </div>
                         )}
@@ -918,7 +920,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                               {[
                                 {
                                   label: "KCC Awareness",
-                                  data: data.kccAwareness,
+                                  data: userMetricesData?.kccAndAgriAppUsage?.kccAwareness,
                                   hovered,
                                   setHover: setHovered,
                                   color: "hsl(142 71% 45%)",
@@ -926,7 +928,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                                 },
                                 {
                                   label: "Uses Agri Apps",
-                                  data: data.agriAppUsage,
+                                  data: userMetricesData?.kccAndAgriAppUsage?.agriAppUsage,
                                   hovered: agriHovered,
                                   setHover: setAgriHovered,
                                   color: "hsl(217 91% 60%)",
@@ -1092,19 +1094,19 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                           <FeedbackCard
                             title="Feedback Data"
                             positiveFeedbacksCount={
-                              data?.feedbackData?.stats?.positiveCount
+                              userMetricesData?.feedbackData?.stats?.positiveCount
                             }
                             negativeFeedbacksCount={
-                              data?.feedbackData?.stats?.negativeCount
+                              userMetricesData?.feedbackData?.stats?.negativeCount
                             }
                             positiveFeedbacks={
-                              data?.feedbackData?.positiveFeedbacks
+                              userMetricesData?.feedbackData?.positiveFeedbacks
                             }
                             negativeFeedbacks={
-                              data?.feedbackData?.negativeFeedbacks
+                              userMetricesData?.feedbackData?.negativeFeedbacks
                             }
                             averageRating={
-                              data?.feedbackData?.stats?.averageRating
+                              userMetricesData?.feedbackData?.stats?.averageRating
                             }
                           />
                         )}

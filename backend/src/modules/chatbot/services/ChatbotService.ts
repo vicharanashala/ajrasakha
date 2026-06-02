@@ -364,11 +364,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
         avgSessionDurationMin,
         weeklySessionDuration,
         monthlySessionDuration,
-        demographics,
-        kccAndAgri,
-        platformInstalls,
+        // demographics,
+        // kccAndAgri,
+        // platformInstalls,
         domainSpikes,
-        feedbackData,
+        // feedbackData,
         // dailyQuestionTrends,
   // topFaqs,
   // topQuestionsFromCollection,
@@ -425,15 +425,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-        this.chatbotRepository.getUserDemographics(source, undefined, userType),
-        this.chatbotRepository.getKccAndAgriAppStats(
-          source,
-          undefined,
-          userType,
-        ),
-        this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
+        // this.chatbotRepository.getUserDemographics(source, undefined, userType),
+        // this.chatbotRepository.getKccAndAgriAppStats(
+        //   source,
+        //   undefined,
+        //   userType,
+        // ),
+        // this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
         this.chatbotRepository.getDomainSpikes(60),
-        this.chatbotRepository.getFeedbackData(source, undefined, userType),
+        // this.chatbotRepository.getFeedbackData(source, undefined, userType),
         // this.chatbotRepository.getDailyQuestionTrends(
         //   days,
         //   source,
@@ -528,15 +528,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
         weeklyQueries,
         monthlyQueries: monthlyQueries,
         monthlySessionDuration,
-        ageGroups: demographics.ageGroups,
-        genderSplit: demographics.genderSplit,
-        farmingExperience: demographics.farmingExperience,
-        landHolding: demographics.landHolding,
-        kccAwareness: kccAndAgri.kccAwareness,
-        agriAppUsage: kccAndAgri.agriAppUsage,
-        platformInstalls,
+        // ageGroups: demographics.ageGroups,
+        // genderSplit: demographics.genderSplit,
+        // farmingExperience: demographics.farmingExperience,
+        // // landHolding: demographics.landHolding,
+        // kccAwareness: kccAndAgri.kccAwareness,
+        // agriAppUsage: kccAndAgri.agriAppUsage,
+        // platformInstalls,
         domainSpikes,
-        feedbackData,
+        // feedbackData,
         // dailyQuestionTrends,
 // topFaqs,
 // topQuestionsFromCollection,
@@ -2566,4 +2566,23 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getUsersMetrics(source?: string, userType?: string): Promise<any> {
+    try{
+      const [userDemographics, platformInstalls, kccAndAgriAppUsage, feedbackData] = await Promise.all([
+        this.chatbotRepository.getUserDemographics(source, undefined, userType),
+        this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
+        this.chatbotRepository.getKccAndAgriAppStats(source, undefined, userType),
+        this.chatbotRepository.getFeedbackData(source, undefined, userType)
+      ])
+      return {
+        userDemographics,
+        platformInstalls,
+        kccAndAgriAppUsage,
+        feedbackData
+      };
+
+    }catch(error){
+      throw new InternalServerError(`Failed to fetch users metrics: ${error}`);
+    }
+  }
 }
