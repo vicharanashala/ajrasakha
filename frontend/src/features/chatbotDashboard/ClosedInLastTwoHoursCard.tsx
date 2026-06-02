@@ -64,6 +64,32 @@ export function ClosedInLastTwoHoursCard({
               <div className="flex items-center gap-2">
                 <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
                 Closed within 2 Hours
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <motion.span
+                        className="
+                      flex h-4 w-4 cursor-pointer
+                      items-center justify-center
+                      rounded-full border text-[10px]
+                      "
+                        whileHover={{ scale: 1.15 }}
+                        whileTap={{ scale: 0.92 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 15,
+                        }}
+                      >
+                        i
+                      </motion.span>
+                    </TooltipTrigger>
+
+                    <TooltipContent className="max-w-[240px]">
+                      <p>Questions closed within 2hours</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
           </motion.div>
@@ -95,29 +121,6 @@ export function ClosedInLastTwoHoursCard({
             >
               {safeCount} / {safeTotalClosed}
             </motion.div>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <motion.span
-                    className="
-                      flex h-4 w-4 cursor-pointer
-                      items-center justify-center
-                      rounded-full border text-[10px]
-                      "
-                    whileHover={{ scale: 1.15 }}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                  >
-                    i
-                  </motion.span>
-                </TooltipTrigger>
-
-                <TooltipContent className="max-w-[240px]">
-                  <p>Questions closed within 2hours</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </div>
 
           <div
