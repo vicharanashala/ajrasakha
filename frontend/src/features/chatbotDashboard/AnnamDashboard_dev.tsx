@@ -33,7 +33,7 @@ import { DailyQuestionTrendsChart } from "./components/DailyQuestionTrendsChart"
 import { TopFaqsLeaderboard } from "./components/TopFaqsLeaderboard";
 import { useInView } from "@/hooks/useInView";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, X, Users, RefreshCw, UserMinus, HelpCircle } from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import type { DateRange } from "react-day-picker";
@@ -1257,10 +1257,49 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         >
                           {shouldLoadActiveUsers ? (
                             <Tabs value={activeChartTab} onValueChange={setActiveChartTab} className="w-full">
-                              <TabsList className="grid w-full max-w-md grid-cols-3 mb-6">
-                                <TabsTrigger value="dau">Daily Active Users</TabsTrigger>
-                                <TabsTrigger value="retention">User Retention</TabsTrigger>
-                                <TabsTrigger value="churn">Monthly Churn</TabsTrigger>
+                              <TabsList className="grid w-full max-w-xl grid-cols-3 mb-4">
+                                <TabsTrigger value="dau" className="flex items-center justify-center gap-1.5">
+                                  <Users className="h-3.5 w-3.5" />
+                                  <span>Daily Active Users</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center p-0.5 text-muted-foreground/60 hover:text-muted-foreground">
+                                        <HelpCircle className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Shows daily, weekly, or monthly active chatbot user trends based on latest activity.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TabsTrigger>
+                                <TabsTrigger value="retention" className="flex items-center justify-center gap-1.5">
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                  <span>User Retention</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center p-0.5 text-muted-foreground/60 hover:text-muted-foreground">
+                                        <HelpCircle className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Tracks D1, D7, and D30 cohort-based user retention over time.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TabsTrigger>
+                                <TabsTrigger value="churn" className="flex items-center justify-center gap-1.5">
+                                  <UserMinus className="h-3.5 w-3.5" />
+                                  <span>Monthly Churn</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center p-0.5 text-muted-foreground/60 hover:text-muted-foreground">
+                                        <HelpCircle className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Measures the percentage of users active in the previous month who did not return.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TabsTrigger>
                               </TabsList>
                               <TabsContent value="dau" className="mt-0">
                                 {activeChartTab === "dau" && (
