@@ -29,3 +29,10 @@ export type RetentionMetricsQuery = {
   userType?: string;
   requestType?: string;
 }
+
+export type TopFaqsQuery = {
+  userType?: string;
+  source?: string;
+  startTime?: string;
+  endTime?: string;
+}

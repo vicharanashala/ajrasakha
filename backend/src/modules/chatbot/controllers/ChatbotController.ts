@@ -39,7 +39,7 @@ import {
   TopCropsResponse,
   DistrictAnalyticsEntryResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
-import { ActiveUsersQuery, GrowthQuery, GrowthResponse, RetentionMetricsQuery } from '../types/chatbot.type.js';
+import { ActiveUsersQuery, GrowthQuery, GrowthResponse, RetentionMetricsQuery, TopFaqsQuery } from '../types/chatbot.type.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 
@@ -871,6 +871,29 @@ async getUserQuestionsData(
     const requestType = query.requestType;
 
     return await this.chatbotService.getActiveUsersTrend( source, userType, requestType, startDate, endDate,);
+  }
+
+  @Get('/top-faqs')
+  @HttpCode(200)
+  @Authorized()
+  async getTopFaqs(@QueryParams() query: TopFaqsQuery): Promise<any> {
+    const startTime = query.startTime
+      ? new Date(query.startTime).toString()
+      : undefined;
+
+    const endTime = query.endTime
+      ? new Date(query.endTime).toString()
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    const[topFaqs, topQuestionsFromCollection, repeatQueryCountData] = await Promise.all([
+      this.chatbotService.getTopFaqs(source, userType, startTime, endTime),
+      this.chatbotService.getTopQuestionsFromCollection(source, userType, startTime, endTime),
+      this.chatbotService.getRepeatQueryCount(source, userType, startTime, endTime),
+    ]); 
+
+    return { topFaqs, topQuestionsFromCollection, ...repeatQueryCountData };
   }
 
 }

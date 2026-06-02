@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useDashboardData } from "./hooks/useDashboardData";
+import { useDashboardData, useTopFaqs } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
@@ -56,7 +56,7 @@ import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
 import { useClosedAndNotifedData, useInactiveWhatsappUsers, useMonthlyChurnRate, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useTransform } from "framer-motion";
 import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
@@ -271,12 +271,14 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     source,
     shouldLoadTrends,
   );
-  const { data: faqsData, isLoading: faqsLoading, isFetching: faqsFetching } = useDashboardData(
-    faqsFilters,
-    source,
-    shouldLoadFaqs,
-  );
-
+  // const { data: faqsDataa, isLoading: faqsLoadinga, isFetching: faqsFetchinga } = useDashboardData(
+  //   faqsFilters,
+  //   source,
+  //   shouldLoadFaqs,
+  // );
+  const {data: faqsData, isLoading: faqsLoading, isFetching: faqsFetching} = useTopFaqs(
+    source, faqsFilters.userType, faqsFilters.startTime, faqsFilters.endTime);
+// console.log(faqsDataa,"----faqs filters", faqsFilters, faqsData);
   const responseAdherenceFilters = useMemo(() => {
     const selectedDate = parseInputDateToLocalDate(responseAdherenceDate);
     const startTime = new Date(selectedDate);
@@ -313,16 +315,16 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     isFetching: isResponseAdherenceFetching,
   } = useDashboardData(responseAdherenceFilters, source);
 
-  const {
-    data: dauTrend,
-    isLoading: dauLoading,
-    error: dauError,
-  } = useDailyUserTrend(
-    30,
-    source,
-    filters.userType,
-    isGrowthVisible && isAppAnalyticsSource,
-  );
+  // const {
+  //   data: dauTrend,
+  //   isLoading: dauLoading,
+  //   error: dauError,
+  // } = useDailyUserTrend(
+  //   30,
+  //   source,
+  //   filters.userType,
+  //   isGrowthVisible && isAppAnalyticsSource,
+  // );
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
   >(undefined);
@@ -331,7 +333,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     isLoading: isLoadingTopCrops,
     error: errorLoadingtopCrops,
   } = useTopCrops(source, shouldLoadQueryInsights);
-  const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
+  // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   const [hovered, setHovered] = useState<string | null>(null);
   const [agriHovered, setAgriHovered] = useState<string | null>(null);
@@ -1185,16 +1187,16 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                             />
 
                             <TopFaqsLeaderboard
-                              faqs={(faqsData as any).topFaqs}
+                              faqs={(faqsData as any)?.topFaqs}
                               topQuestionsFromCollection={
-                                (faqsData as any).topQuestionsFromCollection
+                                (faqsData as any)?.topQuestionsFromCollection
                               }
-                              repeatQueryCount={(faqsData as any).repeatQueryCount}
+                              repeatQueryCount={(faqsData as any)?.repeatQueryCount}
                               repeatQueryRatePct={
-                                (faqsData as any).repeatQueryRatePct
+                                (faqsData as any)?.repeatQueryRatePct
                               }
                               avgQuestionsPerUserDay={
-                                (faqsData as any).avgQuestionsPerUserDay
+                                (faqsData as any)?.avgQuestionsPerUserDay
                               }
                               dateRange={faqsDateRange}
                               onDateRangeChange={setFaqsDateRange}

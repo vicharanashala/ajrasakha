@@ -1118,242 +1118,242 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-      // Calculate repeatQueryCount from messages (trim, lowercase, aggregate repeat counts)
-      let repeatQueryRaw;
-      if (source === 'whatsapp') {
-        repeatQueryRaw = await this.QuestionCollection.aggregate(
-          [
-            {
-              $match: {
-                source: 'WHATSAPP',
+// // Calculate repeatQueryCount from messages (trim, lowercase, aggregate repeat counts)
+// let repeatQueryRaw;
+// if (source === 'whatsapp') {
+//   repeatQueryRaw = await this.QuestionCollection.aggregate(
+//     [
+//       {
+//         $match: {
+//           source: 'WHATSAPP',
 
-                ...(queryMatch.createdAt && {
-                  createdAt: queryMatch.createdAt,
-                }),
-              },
-            },
-            {
-              $group: {
-                _id: {
-                  $ifNull: ['$referenceQuestionId', '$_id'],
-                },
-                count: {
-                  $sum: 1,
-                },
-              },
-            },
-            {
-              $match: {
-                count: {
-                  $gt: 1,
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                totalRepeats: {
-                  $sum: {
-                    $subtract: ['$count', 1],
-                  },
-                },
-              },
-            },
-          ],
-          {session},
-        ).toArray();
-      } else {
-        repeatQueryRaw = await this.messagesCollection
-          .aggregate(
-            [
-              {$match: queryMatch},
-              ...userTypeLookupStages,
-              {
-                $group: {
-                  _id: {$toLower: {$trim: {input: '$text'}}},
-                  count: {$sum: 1},
-                },
-              },
-              {
-                $match: {count: {$gt: 1}},
-              },
-              {
-                $group: {
-                  _id: null,
-                  totalRepeats: {$sum: {$subtract: ['$count', 1]}},
-                },
-              },
-            ],
-            {session},
-          )
-          .toArray();
-      }
-      const repeatQueryCount = repeatQueryRaw[0]?.totalRepeats ?? 0;
+//           ...(queryMatch.createdAt && {
+//             createdAt: queryMatch.createdAt,
+//           }),
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: {
+//             $ifNull: ['$referenceQuestionId', '$_id'],
+//           },
+//           count: {
+//             $sum: 1,
+//           },
+//         },
+//       },
+//       {
+//         $match: {
+//           count: {
+//             $gt: 1,
+//           },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           totalRepeats: {
+//             $sum: {
+//               $subtract: ['$count', 1],
+//             },
+//           },
+//         },
+//       },
+//     ],
+//     {session},
+//   ).toArray();
+// } else {
+//   repeatQueryRaw = await this.messagesCollection
+//     .aggregate(
+//       [
+//         {$match: queryMatch},
+//         ...userTypeLookupStages,
+//         {
+//           $group: {
+//             _id: {$toLower: {$trim: {input: '$text'}}},
+//             count: {$sum: 1},
+//           },
+//         },
+//         {
+//           $match: {count: {$gt: 1}},
+//         },
+//         {
+//           $group: {
+//             _id: null,
+//             totalRepeats: {$sum: {$subtract: ['$count', 1]}},
+//           },
+//         },
+//       ],
+//       {session},
+//     )
+//     .toArray();
+// }
+// const repeatQueryCount = repeatQueryRaw[0]?.totalRepeats ?? 0;
 
-      // Count total queries to get percentage
-      let totalQueriesRaw;
-      if (source === 'whatsapp') {
-        totalQueriesRaw = await this.QuestionCollection.aggregate(
-          [
-            {
-              $match: {
-                source: 'WHATSAPP',
-                ...(queryMatch.createdAt && {
-                  createdAt: queryMatch.createdAt,
-                }),
-              },
-            },
-            {
-              $count: 'count',
-            },
-          ],
-          {session},
-        ).toArray();
-      } else {
-        totalQueriesRaw = await this.messagesCollection
-          .aggregate(
-            [{$match: queryMatch}, ...userTypeLookupStages, {$count: 'count'}],
-            {session},
-          )
-          .toArray();
-      }
+// // Count total queries to get percentage
+// let totalQueriesRaw;
+// if (source === 'whatsapp') {
+//   totalQueriesRaw = await this.QuestionCollection.aggregate(
+//     [
+//       {
+//         $match: {
+//           source: 'WHATSAPP',
+//           ...(queryMatch.createdAt && {
+//             createdAt: queryMatch.createdAt,
+//           }),
+//         },
+//       },
+//       {
+//         $count: 'count',
+//       },
+//     ],
+//     {session},
+//   ).toArray();
+// } else {
+//   totalQueriesRaw = await this.messagesCollection
+//     .aggregate(
+//       [{$match: queryMatch}, ...userTypeLookupStages, {$count: 'count'}],
+//       {session},
+//     )
+//     .toArray();
+// }
 
-      const totalQueries = totalQueriesRaw[0]?.count ?? 0;
-      const repeatQueryRatePct =
-        totalQueries > 0
-          ? Math.round((repeatQueryCount / totalQueries) * 100 * 10) / 10
-          : 0;
-      // Avg questions per user per day over the filtered range (or default to last 30 days)
-      const avgQuestionsMatch: any = {
-        isCreatedByUser: true,
-        isDeleted: {$ne: true},
-        text: {$exists: true, $ne: null, $nin: ['', ' ']},
-      };
-      if (startTime || endTime) {
-        avgQuestionsMatch.createdAt = {};
-        if (startTime) {
-          avgQuestionsMatch.createdAt.$gte = new Date(startTime);
-        }
-        if (endTime) {
-          avgQuestionsMatch.createdAt.$lte = new Date(endTime);
-        }
-      }
+// const totalQueries = totalQueriesRaw[0]?.count ?? 0;
+// const repeatQueryRatePct =
+//   totalQueries > 0
+//     ? Math.round((repeatQueryCount / totalQueries) * 100 * 10) / 10
+//     : 0;
+// // Avg questions per user per day over the filtered range (or default to last 30 days)
+// const avgQuestionsMatch: any = {
+//   isCreatedByUser: true,
+//   isDeleted: {$ne: true},
+//   text: {$exists: true, $ne: null, $nin: ['', ' ']},
+// };
+// if (startTime || endTime) {
+//   avgQuestionsMatch.createdAt = {};
+//   if (startTime) {
+//     avgQuestionsMatch.createdAt.$gte = new Date(startTime);
+//   }
+//   if (endTime) {
+//     avgQuestionsMatch.createdAt.$lte = new Date(endTime);
+//   }
+// }
 
-      let avgQuestionsRaw;
-      if (source === 'whatsapp') {
-        avgQuestionsRaw = await this.QuestionCollection.aggregate(
-          [
-            {
-              $match: {
-                source: 'WHATSAPP',
-                ...(avgQuestionsMatch.createdAt && {
-                  createdAt: avgQuestionsMatch.createdAt,
-                }),
-              },
-            },
+// let avgQuestionsRaw;
+// if (source === 'whatsapp') {
+//   avgQuestionsRaw = await this.QuestionCollection.aggregate(
+//     [
+//       {
+//         $match: {
+//           source: 'WHATSAPP',
+//           ...(avgQuestionsMatch.createdAt && {
+//             createdAt: avgQuestionsMatch.createdAt,
+//           }),
+//         },
+//       },
 
-            {
-              $group: {
-                _id: {
-                  day: {
-                    $dateToString: {
-                      format: '%Y-%m-%d',
-                      date: '$createdAt',
-                      timezone: '+05:30',
-                    },
-                  },
-                  user: {
-                    $ifNull: ['$userId', '$threadId'],
-                  },
-                },
-                userDailyCount: {
-                  $sum: 1,
-                },
-              },
-            },
+//       {
+//         $group: {
+//           _id: {
+//             day: {
+//               $dateToString: {
+//                 format: '%Y-%m-%d',
+//                 date: '$createdAt',
+//                 timezone: '+05:30',
+//               },
+//             },
+//             user: {
+//               $ifNull: ['$userId', '$threadId'],
+//             },
+//           },
+//           userDailyCount: {
+//             $sum: 1,
+//           },
+//         },
+//       },
 
-            {
-              $group: {
-                _id: '$_id.day',
-                dayTotalQuestions: {
-                  $sum: '$userDailyCount',
-                },
-                dayUniqueUsers: {
-                  $sum: 1,
-                },
-              },
-            },
+//       {
+//         $group: {
+//           _id: '$_id.day',
+//           dayTotalQuestions: {
+//             $sum: '$userDailyCount',
+//           },
+//           dayUniqueUsers: {
+//             $sum: 1,
+//           },
+//         },
+//       },
 
-            {
-              $group: {
-                _id: null,
-                avgQuestionsPerUserDay: {
-                  $avg: {
-                    $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
-                  },
-                },
-              },
-            },
-          ],
-          {session},
-        ).toArray();
-      } else {
-        avgQuestionsRaw = await this.messagesCollection
-          .aggregate(
-            [
-              {$match: avgQuestionsMatch},
-              ...userTypeLookupStages,
-              {
-                $group: {
-                  _id: {
-                    day: {
-                      $dateToString: {
-                        format: '%Y-%m-%d',
-                        date: '$createdAt',
-                        timezone: '+05:30',
-                      },
-                    },
-                    user: '$user',
-                  },
-                  userDailyCount: {$sum: 1},
-                },
-              },
-              {
-                $group: {
-                  _id: '$_id.day',
-                  dayTotalQuestions: {$sum: '$userDailyCount'},
-                  dayUniqueUsers: {$sum: 1},
-                },
-              },
-              {
-                $group: {
-                  _id: null,
-                  avgQuestionsPerUserDay: {
-                    $avg: {$divide: ['$dayTotalQuestions', '$dayUniqueUsers']},
-                  },
-                },
-              },
-            ],
-            {session},
-          )
-          .toArray();
-      }
-      const avgQuestionsPerUserDay =
-        avgQuestionsRaw[0]?.avgQuestionsPerUserDay ?? 0;
+//       {
+//         $group: {
+//           _id: null,
+//           avgQuestionsPerUserDay: {
+//             $avg: {
+//               $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
+//             },
+//           },
+//         },
+//       },
+//     ],
+//     {session},
+//   ).toArray();
+// } else {
+//   avgQuestionsRaw = await this.messagesCollection
+//     .aggregate(
+//       [
+//         {$match: avgQuestionsMatch},
+//         ...userTypeLookupStages,
+//         {
+//           $group: {
+//             _id: {
+//               day: {
+//                 $dateToString: {
+//                   format: '%Y-%m-%d',
+//                   date: '$createdAt',
+//                   timezone: '+05:30',
+//                 },
+//               },
+//               user: '$user',
+//             },
+//             userDailyCount: {$sum: 1},
+//           },
+//         },
+//         {
+//           $group: {
+//             _id: '$_id.day',
+//             dayTotalQuestions: {$sum: '$userDailyCount'},
+//             dayUniqueUsers: {$sum: 1},
+//           },
+//         },
+//         {
+//           $group: {
+//             _id: null,
+//             avgQuestionsPerUserDay: {
+//               $avg: {$divide: ['$dayTotalQuestions', '$dayUniqueUsers']},
+//             },
+//           },
+//         },
+//       ],
+//       {session},
+//     )
+//     .toArray();
+// }
+// const avgQuestionsPerUserDay =
+//   avgQuestionsRaw[0]?.avgQuestionsPerUserDay ?? 0;
       return {
         dau: totalUsers,
         dauLastMonthPct,
         dailyQueries: todayQueryCount,
         avgSessionDurationMin: Math.round((avgMs / 60000) * 10) / 10,
         csatRating: 0,
-        repeatQueryRatePct,
+// repeatQueryRatePct,
         voiceUsageSharePct: 0,
         totalAppInstalls,
         inactiveUsersLast3Days: Math.max(0, totalUsers - activeCount),
         duplicateQuestionsCount,
         lowFeedbackUsersCount: Math.max(0, totalUsers - feedbackCount),
-        avgQuestionsPerUserDay: Math.round(avgQuestionsPerUserDay * 100) / 100,
-        repeatQueryCount,
+// avgQuestionsPerUserDay: Math.round(avgQuestionsPerUserDay * 100) / 100,
+// repeatQueryCount,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get KPI summary: ${error}`);
@@ -8767,4 +8767,243 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
+
+  async getRepeatQueryCount(
+    source?: string,
+    userType?: string,
+    startTime?: string, 
+    endTime?: string,
+    session?: ClientSession
+  ): Promise<any> {
+    try {
+      await this.init(source);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+      const queryMatch: any = {
+        isCreatedByUser: true,
+        isDeleted: {$ne: true},
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
+      };
+      if (startTime || endTime) {
+        queryMatch.createdAt = {};
+        if (startTime) {
+          queryMatch.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          queryMatch.createdAt.$lte = new Date(endTime);
+        }
+      }
+      let repeatQueryRaw;
+      if (source === 'whatsapp') {
+        repeatQueryRaw = await this.QuestionCollection.aggregate(
+          [
+            {
+              $match: {
+                source: 'WHATSAPP',
+                ...(queryMatch.createdAt && {
+                  createdAt: queryMatch.createdAt,
+                }),
+              },
+            },
+            {
+              $group: {
+                _id: {
+                  $ifNull: ['$referenceQuestionId', '$_id'],
+                },
+                count: {
+                  $sum: 1,
+                },
+              },
+            },
+            {
+              $match: {
+                count: {
+                  $gt: 1,
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                totalRepeats: {
+                  $sum: {
+                    $subtract: ['$count', 1],
+                  },
+                },
+              },
+            },
+          ],
+          {session},
+        ).toArray();
+      } else {
+        repeatQueryRaw = await this.messagesCollection
+          .aggregate(
+            [
+              {$match: queryMatch},
+              ...userTypeLookupStages,
+              {
+                $group: {
+                  _id: {$toLower: {$trim: {input: '$text'}}},
+                  count: {$sum: 1},
+                },
+              },
+              {
+                $match: {count: {$gt: 1}},
+              },
+              {
+                $group: {
+                  _id: null,
+                  totalRepeats: {$sum: {$subtract: ['$count', 1]}},
+                },
+              },
+            ],
+            {session},
+          )
+          .toArray();
+      }
+      const repeatQueryCount = repeatQueryRaw[0]?.totalRepeats ?? 0;
+
+      // Count total queries to get percentage
+      let totalQueriesRaw;
+      if (source === 'whatsapp') {
+        totalQueriesRaw = await this.QuestionCollection.aggregate(
+          [
+            {
+              $match: {
+                source: 'WHATSAPP',
+                ...(queryMatch.createdAt && {
+                  createdAt: queryMatch.createdAt,
+                }),
+              },
+            },
+            {
+              $count: 'count',
+            },
+          ],
+          {session},
+        ).toArray();
+      } else {
+        totalQueriesRaw = await this.messagesCollection
+          .aggregate(
+            [{$match: queryMatch}, ...userTypeLookupStages, {$count: 'count'}],
+            {session},
+          )
+          .toArray();
+      }
+      const totalQueries = totalQueriesRaw[0]?.count ?? 0;
+      const repeatQueryRatePct =
+        totalQueries > 0
+          ? Math.round((repeatQueryCount / totalQueries) * 100 * 10) / 10
+          : 0;
+      const avgQuestionsMatch: any = {
+        isCreatedByUser: true,
+        isDeleted: {$ne: true},
+        text: {$exists: true, $ne: null, $nin: ['', ' ']},
+      };
+      let avgQuestionsRaw;
+      if (source === 'whatsapp') {
+        avgQuestionsRaw = await this.QuestionCollection.aggregate(
+          [
+            {
+              $match: {
+                source: 'WHATSAPP',
+                ...(avgQuestionsMatch.createdAt && {
+                  createdAt: avgQuestionsMatch.createdAt,
+                }),
+              },
+            },
+
+            {
+              $group: {
+                _id: {
+                  day: {
+                    $dateToString: {
+                      format: '%Y-%m-%d',
+                      date: '$createdAt',
+                      timezone: '+05:30',
+                    },
+                  },
+                  user: {
+                    $ifNull: ['$userId', '$threadId'],
+                  },
+                },
+                userDailyCount: {
+                  $sum: 1,
+                },
+              },
+            },
+
+            {
+              $group: {
+                _id: '$_id.day',
+                dayTotalQuestions: {
+                  $sum: '$userDailyCount',
+                },
+                dayUniqueUsers: {
+                  $sum: 1,
+                },
+              },
+            },
+
+            {
+              $group: {
+                _id: null,
+                avgQuestionsPerUserDay: {
+                  $avg: {
+                    $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
+                  },
+                },
+              },
+            },
+          ],
+          {session},
+        ).toArray();
+      } else {
+        avgQuestionsRaw = await this.messagesCollection
+          .aggregate(
+            [
+              {$match: avgQuestionsMatch},
+              ...userTypeLookupStages,
+              {
+                $group: {
+                  _id: {
+                    day: {
+                      $dateToString: {
+                        format: '%Y-%m-%d',
+                        date: '$createdAt',
+                        timezone: '+05:30',
+                      },
+                    },
+                    user: '$user',
+                  },
+                  userDailyCount: {$sum: 1},
+                },
+              },
+              {
+                $group: {
+                  _id: '$_id.day',
+                  dayTotalQuestions: {$sum: '$userDailyCount'},
+                  dayUniqueUsers: {$sum: 1},
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgQuestionsPerUserDay: {
+                    $avg: {$divide: ['$dayTotalQuestions', '$dayUniqueUsers']},
+                  },
+                },
+              },
+            ],
+            {session},
+          )
+          .toArray();
+      }
+      const avgQuestionsPerUserDay =
+        avgQuestionsRaw[0]?.avgQuestionsPerUserDay ?? 0;
+      return { repeatQueryCount, repeatQueryRatePct, avgQuestionsPerUserDay: Math.round(avgQuestionsPerUserDay * 100) / 100 };
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch repeat query count: ${error}`);
+    }
+  }
+
 }

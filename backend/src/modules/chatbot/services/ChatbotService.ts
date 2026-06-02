@@ -370,8 +370,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         domainSpikes,
         feedbackData,
         dailyQuestionTrends,
-        topFaqs,
-        topQuestionsFromCollection,
+  // topFaqs,
+  // topQuestionsFromCollection,
         responseAdherenceTable,
         dailySummary,
         weeklySummary,
@@ -442,20 +442,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
           startTime,
           endTime,
         ),
-        this.chatbotRepository.getTopFaqs(
-          source,
-          undefined,
-          userType,
-          startTime,
-          endTime,
-        ),
-        this.chatbotRepository.getTopQuestionsFromCollection(
-          source,
-          undefined,
-          userType,
-          startTime,
-          endTime,
-        ),
+// this.chatbotRepository.getTopFaqs(
+//   source,
+//   undefined,
+//   userType,
+//   startTime,
+//   endTime,
+// ),
+// this.chatbotRepository.getTopQuestionsFromCollection(
+//   source,
+//   undefined,
+//   userType,
+//   startTime,
+//   endTime,
+// ),
         this.chatbotRepository
           .getResponseAdherenceTable(
             undefined,
@@ -538,8 +538,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         domainSpikes,
         feedbackData,
         dailyQuestionTrends,
-        topFaqs,
-        topQuestionsFromCollection,
+// topFaqs,
+// topQuestionsFromCollection,
         responseAdherenceTable,
         querySummaries: {
           daily: dailySummary,
@@ -2264,12 +2264,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTopFaqs(source = 'vicharanashala', userType = 'all') {
+  async getTopFaqs(source = 'vicharanashala', userType = 'all', startTime?: string, endTime?: string) {
     try {
       return await this.chatbotRepository.getTopFaqs(
         source,
         undefined,
         userType,
+        startTime,
+        endTime,
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
@@ -2534,4 +2536,32 @@ export class ChatbotService extends BaseService implements IChatbotService {
     ) : Promise<any> {
       return await this.chatbotRepository.getActiveUsersTrend(source, userType, requestType, startDate, endDate);
   }
+
+  async getTopQuestionsFromCollection(source = 'vicharanashala', userType = 'all', startTime?: string, endTime?: string): Promise<any> {
+    try {
+      return await this.chatbotRepository.getTopQuestionsFromCollection(
+        source,
+        undefined,
+        userType,
+        startTime,
+        endTime,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
+    }
+  }
+
+  async  getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any> {
+    try {
+      return await this.chatbotRepository.getRepeatQueryCount(
+        source,
+        userType,
+        startTime,
+        endTime,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch repeat query count: ${error}`);
+    }
+  }
+
 }
