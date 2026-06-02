@@ -489,6 +489,7 @@ export interface IQuestionFullData {
   originalQuestion?: string;
   closedAt?: string;
   threadId?: string;
+  messageId?: string;
   approved_moderator:{
     name: string;
     email: string;
