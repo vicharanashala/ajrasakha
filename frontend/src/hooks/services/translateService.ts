@@ -1,3 +1,4 @@
+// Your account is pending admin verification. Please contact an administrator.
 import { env } from "@/config/env";
 import { apiFetch } from "@/hooks/api/api-fetch";
 
@@ -9,7 +10,6 @@ export async function translateService(
   sourceLang?: string,
 ): Promise<string> {
   if (!text.trim()) return text;
-  if(targetLang === 'en-IN') return text;
   if (text.length > MAX_TOTAL_CHARS)
     throw new Error(`Text is too long to translate (max ${MAX_TOTAL_CHARS} characters)`);
 
