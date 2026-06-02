@@ -519,7 +519,10 @@ export interface IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
     session?: ClientSession,
-  ) : Promise<any>;
+  ) : Promise<{
+  _id: string;
+  activeUsers: number;
+}[]>;
 
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string, session?: ClientSession): Promise<any>;
 

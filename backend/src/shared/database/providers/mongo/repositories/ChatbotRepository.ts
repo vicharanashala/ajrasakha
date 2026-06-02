@@ -83,6 +83,11 @@ interface IConversation {
   updatedAt: Date;
 }
 
+export interface IActiveUser {
+  _id: string;
+  activeUsers: number;
+}[]
+
 const WEATHER_CONCERNS = {
   rain: [
     'rain',
@@ -8718,7 +8723,7 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
     session?: ClientSession,
-  ) : Promise<any> {
+  ) : Promise<IActiveUser[]> {
     try {
       await this.init(source);
 
@@ -8852,9 +8857,10 @@ export class ChatbotRepository implements IChatbotRepository {
         });
       }
 
-      return await this.users
+      const data =  await this.users
         .aggregate(pipeline, { session })
         .toArray();
+      return data as IActiveUser[];
     } catch (error) {
       throw new InternalServerError(
         `Failed to get ${requestType} active users trend: ${error}`,

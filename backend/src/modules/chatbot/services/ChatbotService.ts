@@ -10,6 +10,10 @@ import type {
   ChatbotConversationData,
   WeatherConcernAnalyticsFilters,
   PaginatedUserDetails,
+  UserDemographics,
+  PlatformInstallEntry,
+  KccAndAgriAppStats,
+  FeedbackData,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -2535,7 +2539,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
       requestType: string,
       startDate?: Date,
       endDate?: Date,
-    ) : Promise<any> {
+    ) : Promise<{
+  _id: string;
+  activeUsers: number;
+}[]> {
       return await this.chatbotRepository.getActiveUsersTrend(source, userType, requestType, startDate, endDate);
   }
 
@@ -2566,7 +2573,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getUsersMetrics(source?: string, userType?: string): Promise<any> {
+  async getUsersMetrics(source?: string, userType?: string): Promise<{ userDemographics: UserDemographics; platformInstalls: PlatformInstallEntry[]; kccAndAgriAppUsage: KccAndAgriAppStats; feedbackData: FeedbackData}>{
     try{
       const [userDemographics, platformInstalls, kccAndAgriAppUsage, feedbackData] = await Promise.all([
         this.chatbotRepository.getUserDemographics(source, undefined, userType),

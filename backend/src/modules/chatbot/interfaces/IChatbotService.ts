@@ -167,7 +167,10 @@ export interface IChatbotService {
       requestType: string,
       startDate?: Date,
       endDate?: Date,
-    ) : Promise<any>;
+    ) : Promise<{
+  _id: string;
+  activeUsers: number;
+}[]>;
   getTopQuestionsFromCollection(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
 }
