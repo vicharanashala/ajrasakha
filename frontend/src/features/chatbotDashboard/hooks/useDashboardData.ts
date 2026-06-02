@@ -530,3 +530,27 @@ export const useDailyQuestionTrends = (
     }
   });
 }
+
+export const useUserMertices = (
+  source: string = 'vicharanashala',
+  userType: string = 'all',
+) => {
+  const params = new URLSearchParams();
+  params.append("source", source);
+  params.append("userType", userType);
+  return useQuery({
+    queryKey: [
+      "user-metrices",
+      source,
+      userType,
+    ],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DashboardApiResponse>(
+        `${API_BASE_URL}/analytics/users-metrices?${params.toString()}`
+      );
+      return result;
+    }
+  });
+}
