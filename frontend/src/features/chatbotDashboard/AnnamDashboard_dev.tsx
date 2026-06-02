@@ -752,6 +752,14 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                               questionStatusData?.carryForward
                             }
                             statusBreakup={questionStatusData?.closedVsTotalQuestions}
+                            avgCloseTimeMinutes={
+                              questionStatusData?.closedVsTotalQuestions
+                                ?.avgCloseTimeMinutes
+                            }
+                            previousMonthAvgCloseTimeMinutes={
+                              questionStatusData?.closedVsTotalQuestions
+                                ?.previousMonthAvgCloseTimeMinutes
+                            }
                           />
                           <CustomerNotificationsCard
                             notified={
