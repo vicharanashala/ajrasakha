@@ -1374,7 +1374,7 @@ export const CropManagementModal = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[10, 25, 50, 100].map((v) => (
+                    {[12, 25, 50, 100].map((v) => (
                       <SelectItem key={v} value={v.toString()} className="text-xs">{v}</SelectItem>
                     ))}
                   </SelectContent>
@@ -1443,7 +1443,7 @@ export const CropManagementModal = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[10, 25, 50, 100].map((v) => (
+                    {[12, 25, 50, 100].map((v) => (
                       <SelectItem key={v} value={v.toString()} className="text-xs">{v}</SelectItem>
                     ))}
                   </SelectContent>
@@ -1512,7 +1512,7 @@ export const CropManagementModal = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[10, 25, 50, 100].map((v) => (
+                    {[12, 25, 50, 100].map((v) => (
                       <SelectItem key={v} value={v.toString()} className="text-xs">{v}</SelectItem>
                     ))}
                   </SelectContent>
