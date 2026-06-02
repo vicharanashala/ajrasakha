@@ -63,6 +63,7 @@ import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -149,6 +150,7 @@ function LazySectionSkeleton({ className = "h-[300px]" }: { className?: string }
 export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam' | 'whatsapp'; onSourceChange?: (source: 'vicharanashala' | 'annam' | 'whatsapp') => void }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
+  const [activeChartTab, setActiveChartTab] = useState<string>("dau");
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
@@ -1254,23 +1256,40 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                           className=""
                         >
                           {shouldLoadActiveUsers ? (
-                            <>
-                              <ActiveUsersChart
-                                source={source}
-                                userType={filters.userType}
-                              />
-                              <RetentionMetricsChart
-                                source={source}
-                                userType={filters.userType}
-                              />
-                            </>
+                            <Tabs value={activeChartTab} onValueChange={setActiveChartTab} className="w-full">
+                              <TabsList className="grid w-full max-w-md grid-cols-3 mb-6">
+                                <TabsTrigger value="dau">Daily Active Users</TabsTrigger>
+                                <TabsTrigger value="retention">User Retention</TabsTrigger>
+                                <TabsTrigger value="churn">Monthly Churn</TabsTrigger>
+                              </TabsList>
+                              <TabsContent value="dau" className="mt-0">
+                                {activeChartTab === "dau" && (
+                                  <ActiveUsersChart
+                                    source={source}
+                                    userType={filters.userType}
+                                  />
+                                )}
+                              </TabsContent>
+                              <TabsContent value="retention" className="mt-0">
+                                {activeChartTab === "retention" && (
+                                  <RetentionMetricsChart
+                                    source={source}
+                                    userType={filters.userType}
+                                  />
+                                )}
+                              </TabsContent>
+                              <TabsContent value="churn" className="mt-0">
+                                {activeChartTab === "churn" && (
+                                  <ChurnRateChart
+                                    source={source}
+                                    userType={filters.userType}
+                                  />
+                                )}
+                              </TabsContent>
+                            </Tabs>
                           ) : (
-                            <LazySectionSkeleton className="h-[620px]" />
+                            <LazySectionSkeleton className="h-[400px]" />
                           )}
-                          <ChurnRateChart
-                            source={source}
-                            userType={filters.userType}
-                          />
                         </div>  
                       )}
                       {source !== "whatsapp" && (
