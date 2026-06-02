@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react";
 import { useAuthStore } from "@/stores/auth-store";
-import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { loginWithEmail } from "@/lib/firebase";
 import { useSignup } from "@/hooks/api/auth/useSignup";
@@ -13,6 +12,7 @@ import {
 } from "../utils/validate";
 import type { AuthError, AuthFormData, UseAuthFormReturn } from "../types";
 import { isDevelopment } from "@/shared/app";
+import { useToast } from "@/shared/components/toast";
 
 /**
  * Custom hook to manage the state and behavior of an Auth form
@@ -34,6 +34,9 @@ export const useAuthForm = (
     confirmPassword: "",
     name: "",
   });
+
+  //new toast 
+  const {error:toastError,warning:toastWarning,success:toastSuccess} = useToast();
   const [errors, setErrors] = useState<Record<string, string>>({}); // validation errors
   const [isLoading, setIsLoading] = useState(false); // tracks API submission
   const [showPassword, setShowPassword] = useState(false); // password visibility toggle
@@ -107,7 +110,7 @@ export const useAuthForm = (
 
     // Stop submission if form is invalid
     if (!validateForm()) {
-      toast.error("Please fix form errors.");
+      toastError("Please fix form errors.");
       return;
     }
 
@@ -129,7 +132,7 @@ export const useAuthForm = (
         if (!isDevelopment) {
           setIsEmailSent(true);
         }
-        toast.success(response?.message || "Registration successful!");
+        toastSuccess(response?.message || "Registration successful!");
         handleModeChange("login")
 
         return;
@@ -157,13 +160,13 @@ export const useAuthForm = (
         console.error("Auth failed", error);
       }
       if (code === "auth/email-already-in-use" || code === "EMAIL_EXISTS") {
-        toast.error("This email is already registered. Please log in instead.");
+        toastError("This email is already registered. Please log in instead.");
       } else if (
         code === "auth/invalid-credential" ||
         code === "auth/wrong-password" ||
         code === "INVALID_LOGIN_CREDENTIALS"
       ) {
-        toast.error("Invalid Credentials");
+        toastError("Invalid Credentials");
       } else {
         // toast.error("Something went wrong. Please try again.");
         let message =
@@ -192,9 +195,9 @@ export const useAuthForm = (
           // fallback: do nothing, use original message
         }
         if (message === "User Is Blocked. Please Contact Moderator") {
-          toast.warning(authError.message);
+          toastWarning(authError.message??message);
         } else {
-          toast.error(message);
+          toastError(message);
         }
       }
     } finally {
