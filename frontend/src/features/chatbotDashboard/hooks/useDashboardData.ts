@@ -10,9 +10,10 @@ import {
 } from "../utils/dashboardHelpers";
 import type { DailyEntry, AnalyticsEntry } from "../utils/dashboardHelpers";
 import type { DashboardFilterValues } from "../DashboardFilters";
-import type { DemographicEntry, FeedbackData } from "../types";
+import type { DemographicEntry, FeedbackData, UserDemographics } from "../types";
 import type { IPlatformInstallEntry } from "../types";
 import type { DomainSpikeEntry } from "../components/DomainSpikesModal";
+import type { KccAndAgriAppStats, PlatformInstallEntry } from "@/types";
 export type DashboardDataType = typeof DASHBOARD_DATA;
 
 interface DashboardApiResponse {
@@ -531,6 +532,13 @@ export const useDailyQuestionTrends = (
   });
 }
 
+interface UsermetricsResponse {
+  userDemographics: UserDemographics;
+  platformInstalls: PlatformInstallEntry[];
+  kccAndAgriAppUsage: KccAndAgriAppStats;
+  feedbackData: FeedbackData;
+}
+
 export const useUserMertices = (
   source: string = 'vicharanashala',
   userType: string = 'all',
@@ -547,10 +555,10 @@ export const useUserMertices = (
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
-      const result = await apiFetch<DashboardApiResponse>(
+      const result = await apiFetch(
         `${API_BASE_URL}/analytics/users-metrices?${params.toString()}`
       );
-      return result;
+      return result as UsermetricsResponse;
     }
   });
 }
