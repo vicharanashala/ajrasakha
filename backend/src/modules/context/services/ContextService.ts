@@ -179,6 +179,23 @@ export class ContextService extends BaseService implements IContextService {
     return response.json();
   }
 
+  private _maskUntranslatables(text: string): { masked: string; restore: (t: string) => string } {
+    const tokens: string[] = [];
+
+    // Replace URLs and emojis with sequential placeholders __T0__, __T1__, …
+    const urlRegex = /https?:\/\/[^\s)>]+/g;
+    const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
+
+    const masked = text
+      .replace(urlRegex, (match) => { tokens.push(match); return `__T${tokens.length - 1}__`; })
+      .replace(emojiRegex, (match) => { tokens.push(match); return `__T${tokens.length - 1}__`; });
+
+    const restore = (translated: string) =>
+      translated.replace(/__T(\d+)__/g, (_, i) => tokens[Number(i)] ?? '');
+
+    return { masked, restore };
+  }
+
   private async _callSarvamTranslate(
     input: string,
     source_language_code: string,
@@ -186,13 +203,15 @@ export class ContextService extends BaseService implements IContextService {
     model: string,
     apiKey: string,
   ): Promise<string> {
+    const { masked, restore } = this._maskUntranslatables(input);
+
     const response = await fetch('https://api.sarvam.ai/translate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'api-subscription-key': apiKey,
       },
-      body: JSON.stringify({ input, source_language_code, target_language_code, model }),
+      body: JSON.stringify({ input: masked, source_language_code, target_language_code, model }),
     });
 
     if (!response.ok) {
@@ -205,6 +224,6 @@ export class ContextService extends BaseService implements IContextService {
       throw new InternalServerError('Sarvam API returned empty translation');
     }
 
-    return data.translated_text;
+    return restore(data.translated_text);
   }
 }
