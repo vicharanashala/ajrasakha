@@ -29,7 +29,6 @@ type ClosedQuestionsCardProps = {
   statusBreakup: any;
   avgCloseTimeMinutes?: number;
   previousMonthAvgCloseTimeMinutes?: number;
-  source: string;
 };
 
 export function ClosedQuestionsCard({
@@ -43,7 +42,6 @@ export function ClosedQuestionsCard({
   statusBreakup,
   avgCloseTimeMinutes = 0,
   previousMonthAvgCloseTimeMinutes = 0,
-  source,
 }: ClosedQuestionsCardProps) {
   const today = new Date();
 

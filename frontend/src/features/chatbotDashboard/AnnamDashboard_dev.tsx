@@ -908,7 +908,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                               questionStatusData?.closedVsTotalQuestions
                                 ?.previousMonthAvgCloseTimeMinutes
                             }
-                            source={source}
+                            statusBreakup={questionStatusData?.closedVsTotalQuestions}
                           />
                           <CustomerNotificationsCard
                             notified={
