@@ -12,12 +12,12 @@ import {
   Get,
   ForbiddenError,
 } from 'routing-controllers';
-import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
-import {inject, injectable} from 'inversify';
-import {GLOBAL_TYPES} from '#root/types.js';
+import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+import { inject, injectable } from 'inversify';
+import { GLOBAL_TYPES } from '#root/types.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
-import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
-import {IUser} from '#root/shared/index.js';
+import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
+import { IUser } from '#root/shared/index.js';
 import multer from 'multer';
 import { ContextResponse } from '../classes/validators/ContextValidator.js';
 import { ContextService } from '../services/ContextService.js';
@@ -40,7 +40,7 @@ export class ContextController {
   constructor(
     @inject(GLOBAL_TYPES.ContextService)
     private readonly contextService: IContextService,
-  ) {}
+  ) { }
 
   @OpenAPI({
     summary: 'Add a new context',
@@ -66,11 +66,11 @@ export class ContextController {
   @HttpCode(201)
   @Authorized()
   async addContext(
-    @Body() body: {transcript: string},
+    @Body() body: { transcript: string },
     @CurrentUser() user: IUser,
-  ): Promise<{insertedId: string}> {
+  ): Promise<{ insertedId: string }> {
     verifyNotTester(user);
-    const {transcript} = body;
+    const { transcript } = body;
     const userId = user._id.toString();
     return this.contextService.addContext(userId, transcript);
   }
