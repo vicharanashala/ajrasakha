@@ -4870,6 +4870,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       {
         queue: toObjectIdArray(newQueue || []),
         popHistory: true,
+        expertIdToRemove: updatedById,
       },
       session,
     );

@@ -12,8 +12,6 @@ export class AuditTrailsService
   extends BaseService
   implements IAuditTrailsService
 {
-  private readonly env: string;
-
   constructor(
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsRepository)
     private readonly auditTrailsRepository: IAuditTrailsRepository,
@@ -22,18 +20,11 @@ export class AuditTrailsService
     private readonly mongoDatabase: MongoDatabase,
   ) {
     super(mongoDatabase);
-
-    this.env = process.env.NODE_ENV || 'development';
   }
   async createAuditTrail(paload: ModeratorAuditTrail): Promise<string> {
-    if(this.env !== 'production') {
-      return;
-    }
-    // Implement the logic to create an audit trail
-
     return await this.auditTrailsRepository.createAuditTrail(
       this.normalizeAuditToObjectId(paload),
-    )
+    );
   }
 
   async getAuditTrails(
