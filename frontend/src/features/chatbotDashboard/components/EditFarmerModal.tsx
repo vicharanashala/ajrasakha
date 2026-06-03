@@ -27,7 +27,7 @@ import {
 type EditableUser = {
   userId: string;
   name: string;
-  role?: string;
+  userRole?: string;
   farmerProfile?: {
     farmerName?: string;
     age?: number;
@@ -68,7 +68,7 @@ interface EditFarmerModalProps {
   isSaving?: boolean;
   onSave: (payload: {
     name?: string;
-    role?: string;
+    userRole?: string;
     farmerProfile?: {
       farmerName?: string;
       age?: number;
@@ -101,7 +101,7 @@ type DemographicDetailsProps = {
 
 type FormState = {
   name: string;
-  role: string;
+  userRole: string;
   farmerName: string;
   age: string;
   gender: string;
@@ -126,7 +126,7 @@ type FormState = {
 
 const EMPTY_FORM: FormState = {
   name: "",
-  role: "",
+  userRole: "",
   farmerName: "",
   age: "",
   gender: "",
@@ -246,7 +246,7 @@ export function EditFarmerModal({
     setErrors({});
     setForm({
       name: user.name ?? "",
-      role: user.role ?? "",
+      userRole: user.userRole ?? "",
       farmerName: fp?.farmerName ?? "",
       age: fp?.age != null ? String(fp.age) : "",
       gender: fp?.gender
@@ -290,7 +290,7 @@ export function EditFarmerModal({
     try {
       await onSave({
         name: form.name.trim() || undefined,
-        role: form.role.trim() || undefined,
+        userRole: form.userRole.trim() || undefined,
         farmerProfile: {
           farmerName: form.farmerName.trim() || undefined,
           age: parsedAge,
@@ -439,14 +439,14 @@ const UserInformationSection = ({
         </div>
 
         <div>
-          <label className="text-sm font-medium">Role</label>
+          <label className="text-sm font-medium">User Role</label>
 
           <select
-            value={form.role}
-            onChange={(e) => handleChange("role", e.target.value)}
+            value={form.userRole}
+            onChange={(e) => handleChange("userRole", e.target.value)}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="USER">USER</option>
+
 
             <option value="FARMER">FARMER</option>
 

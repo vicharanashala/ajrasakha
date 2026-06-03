@@ -30,8 +30,8 @@ export function downloadUrl(path: string) {
   return `${FAQ_API}/files/download/${path}`;
 }
 
-export function outputDownloadUrl(state: string, crop: string) {
-  return `${FAQ_API}/app/output/${encodeURIComponent(state)}/${encodeURIComponent(crop)}`;
+export function outputDownloadUrl(state: string, district: string, crop: string) {
+  return `${FAQ_API}/app/output/${encodeURIComponent(state)}/${encodeURIComponent(district)}/${encodeURIComponent(crop)}`;
 }
 
 export async function deleteFile(path: string) {
@@ -122,11 +122,13 @@ export async function uploadFile(
 export async function uploadAuditedFile(
   file: File,
   state: string,
+  district: string,
   crop: string,
 ) {
   const fd = new FormData();
   fd.append("file", file);
   fd.append("state", state);
+  fd.append("district", district);
   fd.append("crop", crop);
   const res = await fetch(`${FAQ_API}/files/upload-audited`, {
     method: "POST",
@@ -179,8 +181,9 @@ export async function runFull(body: object) {
 // FAQ Cluster — app utility
 // ---------------------------------------------------------------------------
 
-export async function getNextState(state = "", domains: string[] = []) {
+export async function getNextState(state = "", domains: string[] = [], district = "") {
   const params = new URLSearchParams({ state });
+  if (district) params.set("district", district);
   for (const d of domains) params.append("domains", d);
   const res = await fetch(`${FAQ_API}/app/next-state?${params}`);
   return _handleResponse(res);

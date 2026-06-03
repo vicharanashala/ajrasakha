@@ -1427,8 +1427,40 @@ export class QuestionController {
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async holdQuestion(@Params() params: QuestionIdParam, @CurrentUser() user: IUser, @Body() body: { action: "hold" | "unhold" }) {
     const { questionId } = params;
-    const { action } = body
-    return await this.questionService.holdQuestion(questionId, user._id.toString(), action);
+    const { action } = body;
+
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: action === 'hold' ? AuditAction.QUESTION_HOLD : AuditAction.QUESTION_UNHOLD,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId },
+      createdAt: new Date(),
+    };
+
+    try {
+      const result = await this.questionService.holdQuestion(questionId, user._id.toString(), action);
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        changes: { after: { action, questionId } },
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return result;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorMessage: err?.message,
+        },
+      });
+      throw err;
+    }
   }
 
   @Get('/:questionId/generate-answer')

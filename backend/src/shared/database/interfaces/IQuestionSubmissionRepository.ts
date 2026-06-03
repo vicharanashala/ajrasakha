@@ -173,6 +173,7 @@ export interface IQuestionSubmissionRepository {
     update: {
       queue?: ObjectId[];
       popHistory?: boolean;
+      expertIdToRemove?: string;
     },
     session?: ClientSession,
   ): Promise<void>;

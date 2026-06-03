@@ -44,6 +44,7 @@ interface IUser {
   username?: string;
   email?: string;
   role?: string;
+  userRole?: string;
   createdAt: Date;
   updatedAt: Date;
   farmerProfile?: {
@@ -4378,6 +4379,7 @@ export class ChatbotRepository implements IChatbotRepository {
         name: u.name || u.username || 'Unknown',
         email: u.email || '',
         role: u.role || '',
+        userRole: u.userRole || '',
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         createdAt: u.createdAt,
         farmerProfile: u.farmerProfile
@@ -6540,7 +6542,7 @@ export class ChatbotRepository implements IChatbotRepository {
     source: string,
     data: {
       name?: string;
-      role?: string;
+      userRole?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -6582,10 +6584,10 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-      if (typeof data?.role === 'string') {
-        const trimmedRole = data.role.trim();
-        if (trimmedRole) {
-          setPayload.role = trimmedRole;
+      if (typeof data?.userRole === 'string') {
+        const trimmedUserRole = data.userRole.trim();
+        if (trimmedUserRole) {
+          setPayload.userRole = trimmedUserRole;
         }
       }
 
@@ -6651,7 +6653,7 @@ export class ChatbotRepository implements IChatbotRepository {
       email: string;
       name: string;
       password: string;
-      role?: string;
+      userRole?: string;
     },
   ): Promise<boolean> {
     if (source === 'whatsapp') {
@@ -6686,7 +6688,8 @@ export class ChatbotRepository implements IChatbotRepository {
         password: hashedPassword,
         avatar: null,
         provider: 'local',
-        role: data.role || 'FARMER',
+        role: 'USER',
+        userRole: data.userRole || 'FARMER',
         plugins: [],
         twoFactorEnabled: false,
         termsAccepted: false,

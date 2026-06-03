@@ -659,7 +659,7 @@ export class ChatbotController {
     @Body()
     body: {
       name?: string;
-      role?: string;
+      userRole?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -711,7 +711,7 @@ export class ChatbotController {
       email: string;
       name: string;
       password: string;
-      role?: string;
+      userRole?: string;
     },
   ) {
     if (!source) {

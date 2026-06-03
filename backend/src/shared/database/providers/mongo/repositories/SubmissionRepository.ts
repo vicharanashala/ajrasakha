@@ -275,43 +275,27 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     try {
       await this.init();
 
-      const submission = await this.getByQuestionId(questionId, session);
-
-      if (!submission) {
-        throw new NotFoundError(
-          `Failed to find submission while updating history!`,
-        );
+      const setFields: Record<string, any> = { 'history.$[entry].updatedAt': new Date() };
+      for (const [key, value] of Object.entries(updatedDoc)) {
+        setFields[`history.$[entry].${key}`] = value;
       }
 
-      const submissionHistory = submission.history || [];
-
-      if (submissionHistory.length === 0) {
-        throw new BadRequestError(`No history found to update!`);
-      }
-
-      const updatedHistory = [...submissionHistory];
-
-      const indexToUpdate = updatedHistory.findIndex(
-        history => history.updatedBy.toString() === userId,
-      );
-
-      if (indexToUpdate === -1) {
-        throw new BadRequestError(
-          `No matching history found for userId: ${userId}`,
-        );
-      }
-
-      updatedHistory[indexToUpdate] = {
-        ...updatedHistory[indexToUpdate],
-        ...updatedDoc,
-        updatedAt: new Date(),
-      };
-
-      await this.QuestionSubmissionCollection.updateOne(
+      const result = await this.QuestionSubmissionCollection.updateOne(
         { questionId: new ObjectId(questionId) },
-        { $set: { history: updatedHistory } },
-        { session },
+        { $set: setFields },
+        {
+          session,
+          arrayFilters: [{ 'entry.updatedBy': new ObjectId(userId) }],
+        },
       );
+
+      if (result.matchedCount === 0) {
+        throw new NotFoundError(`Failed to find submission for questionId: ${questionId}`);
+      }
+
+      if (result.modifiedCount === 0) {
+        throw new BadRequestError(`No matching history entry found for userId: ${userId}`);
+      }
     } catch (error) {
       throw new InternalServerError(
         `Failed to update history / More: ${error}`,
@@ -3796,6 +3780,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     update: {
       queue?: ObjectId[];
       popHistory?: boolean;
+      expertIdToRemove?: string;
     },
     session?: ClientSession,
   ): Promise<void> {
@@ -3812,7 +3797,17 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         updateDoc.$set.queue = update.queue;
       }
 
-      if (update.popHistory) {
+      if (update.popHistory && update.expertIdToRemove) {
+        // Only remove the history entry if it is still 'in-review'.
+        // $pop blindly removes the last element even after the expert has
+        // already submitted (status changed to 'reviewed'), causing data loss.
+        updateDoc.$pull = {
+          history: {
+            updatedBy: new ObjectId(update.expertIdToRemove),
+            status: 'in-review',
+          },
+        };
+      } else if (update.popHistory) {
         updateDoc.$pop = { history: 1 };
       }
 
