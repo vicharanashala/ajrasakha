@@ -1,5 +1,10 @@
 {
 	"dependencies": {
-		"pdfkit": "^0.18.0"
+		"pdfkit": "^0.18.0",
+		"plivo": "^4.77.1",
+		"ws": "^8.21.0"
+	},
+	"devDependencies": {
+		"@types/ws": "^8.18.1"
 	}
 }
