@@ -2,16 +2,12 @@ import { Card, CardHeader } from "@/components/atoms/card";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { motion } from "framer-motion";
-import { Button } from "@/components/atoms/button";
-import { Calendar } from "@/components/atoms/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { BadgeCheck, CalendarIcon, X, InfoIcon } from "lucide-react";
-import { format } from "date-fns";
+import { BadgeCheck, InfoIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 type ClosedInLastTwoHoursCardProps = {
   source: string;
@@ -54,71 +50,77 @@ export function ClosedInLastTwoHoursCard({
         <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
         <CardHeader className="pb-10">
-          <motion.div
-            className="text-sm text-muted-foreground flex items-center justify-between gap-2 mb-4"
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-          >
-            <div className="text-sm text-muted-foreground flex gap-2 items-center">
-              <div className="flex items-center gap-2">
-                <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-                Closed within 2 Hours
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help ml-1" />
-                  </TooltipTrigger>
+          {isLoading ? (
+            <Skeleton className="h-full w-full rounded-2xl" />
+          ) : (
+            <>
+              <motion.div
+                className="text-sm text-muted-foreground flex items-center justify-between gap-2 mb-4"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+              >
+                <div className="text-sm text-muted-foreground flex gap-2 items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+                    Closed within 2 Hours
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help ml-1" />
+                      </TooltipTrigger>
 
-                  <TooltipContent className="max-w-[240px]">
-                    <p>Questions closed within 2 hours of creation.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          </motion.div>
+                      <TooltipContent className="max-w-[240px]">
+                        <p>Questions closed within 2 hours of creation.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+              </motion.div>
 
-          <div
-            className="
+              <div
+                className="
               flex
               items-center
               justify-between
               gap-2
               "
-          >
-            <motion.div
-              className={`
+              >
+                <motion.div
+                  className={`
                 text-3xl
                 font-bold
                 tracking-tight
                 ${isLoading ? "opacity-50" : ""}
                 `}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{
-                duration: 0.4,
-                delay: 0.15,
-                type: "spring",
-                stiffness: 200,
-              }}
-              key={`${count ?? 0}-${totalClosed ?? 0}`}
-            >
-              {safeCount} / {safeTotalClosed}
-            </motion.div>
-          </div>
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{
+                    duration: 0.4,
+                    delay: 0.15,
+                    type: "spring",
+                    stiffness: 200,
+                  }}
+                  key={`${count ?? 0}-${totalClosed ?? 0}`}
+                >
+                  {safeCount} / {safeTotalClosed}
+                </motion.div>
+              </div>
 
-          <div
-            className={`flex items-center gap-2 text-xs text-muted-foreground ${
-              isLoading ? "opacity-50" : ""
-            }`}
-          >
-            <BadgeCheck className="h-4 w-4 text-primary" />
-            <span>
-              <span className="font-bold">
-                {closedWithinTwoHoursPct.toFixed(2)}%
-              </span>{" "}
-              of questions were resolved within 2 hours
-            </span>
-          </div>
+              <div
+                className={`flex items-center gap-2 text-xs text-muted-foreground ${
+                  isLoading ? "opacity-50" : ""
+                }`}
+              >
+                <BadgeCheck className="h-4 w-4 text-primary" />
+                <span>
+                  <span className="font-bold">
+                    {closedWithinTwoHoursPct.toFixed(2)}%
+                  </span>{" "}
+                  of questions were resolved within 2 hours
+                </span>
+              </div>
+            </>
+          )}
         </CardHeader>
       </Card>
     </motion.div>

@@ -296,22 +296,17 @@ export function AnnamDashboard_dev({
     [customerNotificationsDateRange, getISOStringsForDateRange],
   );
 
-  const { data: closed2hData, isFetching: isClosed2hFetching } =
-    useClosedAndNotifedData(
-      source,
-      closed2hRange.startTime,
-      closed2hRange.endTime,
-    );
-  const { data: questionStatusData, isFetching: isQuestionStatusFetching } =
-    useClosedAndNotifedData(
-      source,
-      questionStatusRange.startTime,
-      questionStatusRange.endTime,
-    );
-  const {
-    data: customerNotificationsData,
-    isFetching: isCustomerNotificationsFetching,
-  } = useClosedAndNotifedData(
+  const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } = useClosedAndNotifedData(
+    source,
+    closed2hRange.startTime,
+    closed2hRange.endTime,
+  );
+  const { data: questionStatusData, isLoading: isQuestionStatusLoading, isFetching: isQuestionStatusFetching } = useClosedAndNotifedData(
+    source,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
+  );
+  const { data: customerNotificationsData, isLoading: isCustomerNotificationsLoading, isFetching: isCustomerNotificationsFetching } = useClosedAndNotifedData(
     source,
     customerNotificationsRange.startTime,
     customerNotificationsRange.endTime,
@@ -652,9 +647,7 @@ export function AnnamDashboard_dev({
 
   // console.log("userMetricesData", userMetricesData);
 
-  const { data: unqueWhatsAppUsers } = useUniqueWhatsappUsers(
-    source === "whatsapp",
-  );
+const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLoading: isUniqueWhatsAppUsersLoading} = useUniqueWhatsappUsers(source === "whatsapp");
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -765,12 +758,14 @@ export function AnnamDashboard_dev({
                     />
                   )}
 
+  
+                {/* 
                   {isFetching && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center">
                       {/* <Spinner
                         text="Preparing dashboard insights and refreshing analytics..."
                         fullScreen={false}
-                      /> */}
+                      /> 
                       {loadingSkeletonRows.map((row, rowIndex) => (
                         <div
                           key={rowIndex}
@@ -786,8 +781,8 @@ export function AnnamDashboard_dev({
                         </div>
                       ))}
                     </div>
-                  )}
-                  {isLoading ? (
+                  )} */}
+                  {/* {isLoading ? (
                     <div className="space-y-5 animate-pulse">
                       {loadingSkeletonRows.map((row, rowIndex) => (
                         <div
@@ -804,7 +799,7 @@ export function AnnamDashboard_dev({
                         </div>
                       ))}
                     </div>
-                  ) : (
+                  ) : (  */}
                     <>
                       <div
                         ref={(el) => {
@@ -838,18 +833,22 @@ export function AnnamDashboard_dev({
                               title="Daily Queries"
                               analytics={dailyAnalytics}
                               granularity="daily"
+                              isLoading={isFetching || isLoading}
                             />
 
                             <WhatsAppAnalyticsCard
                               title="Weekly Queries"
                               analytics={weeklyAnalytics}
                               granularity="weekly"
+                              isLoading={isFetching || isLoading}
+
                             />
 
                             <WhatsAppAnalyticsCard
                               title="Monthly Queries"
                               analytics={monthlyAnalytics}
                               granularity="monthly"
+                              isLoading={isFetching || isLoading}                              
                             />
                           </div>
                         )}
@@ -867,6 +866,7 @@ export function AnnamDashboard_dev({
                                 setActiveView("user-details");
                                 scrollTo("user-details");
                               }}
+                              isLoading={isUniqueWhatsAppUsersLoading || isUniqueWhatsAppUsersFetching}
                             />
                           )}
 
@@ -879,7 +879,7 @@ export function AnnamDashboard_dev({
                             }
                             dateRange={closed2hDateRange}
                             onDateRangeChange={setClosed2hDateRange}
-                            isLoading={isClosed2hFetching}
+                            isLoading={isClosed2hFetching || isClosed2hLoading}
                           />
                           <ClosedQuestionsCard
                             closedQuestions={
@@ -896,10 +896,9 @@ export function AnnamDashboard_dev({
                             }
                             dateRange={questionStatusDateRange}
                             onDateRangeChange={setQuestionStatusDateRange}
-                            isLoading={isQuestionStatusFetching}
-                            carryForward={questionStatusData?.carryForward}
-                            statusBreakup={
-                              questionStatusData?.closedVsTotalQuestions
+                            isLoading={isQuestionStatusFetching || isQuestionStatusLoading}
+                            carryForward={
+                              questionStatusData?.carryForward
                             }
                             avgCloseTimeMinutes={
                               questionStatusData?.closedVsTotalQuestions
@@ -909,6 +908,7 @@ export function AnnamDashboard_dev({
                               questionStatusData?.closedVsTotalQuestions
                                 ?.previousMonthAvgCloseTimeMinutes
                             }
+                            source={source}
                           />
                           <CustomerNotificationsCard
                             notified={
@@ -924,10 +924,8 @@ export function AnnamDashboard_dev({
                                 ?.untrackedClosedQuestions
                             }
                             dateRange={customerNotificationsDateRange}
-                            onDateRangeChange={
-                              setCustomerNotificationsDateRange
-                            }
-                            isLoading={isCustomerNotificationsFetching}
+                            onDateRangeChange={setCustomerNotificationsDateRange}
+                            isLoading={isCustomerNotificationsFetching || isCustomerNotificationsLoading}
                           />
                         </div>
                         {source !== "whatsapp" && (
@@ -1584,7 +1582,7 @@ export function AnnamDashboard_dev({
                         </div>
                       )}
                     </>
-                  )}
+                  
                 </div>
               )}
             </div>
