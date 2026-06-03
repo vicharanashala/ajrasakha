@@ -19,11 +19,11 @@ The goal is simple:
 
 We currently support 3 types of tests.
 
-| Type | Purpose | File Name |
-|---|---|---|
-| Unit Test | Test service/business logic |`*.unit.test.ts`|
-| Integration Test | Test database/repository logic |`*.integration.test.ts`|
-| API Test | Test API endpoints/controllers |`*.api.test.ts`|
+| Type             | Purpose                        | File Name               |
+| ---------------- | ------------------------------ | ----------------------- |
+| Unit Test        | Test service/business logic    | `*.unit.test.ts`        |
+| Integration Test | Test database/repository logic | `*.integration.test.ts` |
+| API Test         | Test API endpoints/controllers | `*.api.test.ts`         |
 
 ---
 
@@ -198,7 +198,18 @@ pnpm vitest run src/modules/question/tests/QuestionService.unit.test.ts
 - test only one feature at a time
 - use mocks where possible
 - use `.env.test`
+
+```
+DB_URL=mongodb://localhost:27017
+DB_NAME=ajrasakha_test
+NODE_ENV=test
+VAPID_EMAIL=test@test.com
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+```
+
 - keep tests independent
+- can generate your own keys using `npx web-push generate-vapid-keys`
 
 ---
 
@@ -212,14 +223,20 @@ pnpm vitest run src/modules/question/tests/QuestionService.unit.test.ts
 
 ---
 
+# Check Coverage
+
+- to check if the unit tests are covering everything, use the following command:
+  `pnpm vitest run --coverage`
+- Open live server of the index file generated: `backend/src/coverage/html/index.html`
+
+---
+
 # Current Recommendation
 
 For now, prefer writing:
 
 1. Unit tests
 2. Repository integration tests
-
-Avoid complex controller/API tests unless necessary.
 
 ---
 
