@@ -286,6 +286,14 @@ The `tools/` directory is co-located for convenience but each tool server runs a
 
 ## Running with Docker
 
+**Local dev** (build from source, single Postgres): use `docker-compose.yml` and `aegra up`.
+
+**VM / Portainer** (pre-built image, postgres3 + pool limits): use [`docker-compose.portainer.yml`](docker-compose.portainer.yml). Set stack secrets in Portainer; do not override `DATABASE_URL` with host port `5434` — the compose file points at `postgres3:5432` on the Docker network.
+
+```bash
+docker compose -f docker-compose.portainer.yml up -d
+```
+
 Start all services (Postgres, Redis, API):
 ```
 aegra up

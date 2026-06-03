@@ -4882,8 +4882,14 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<{
     totalQuestions: number;
     statuses: {status: string; count: number}[];
+    sourceCounts: {source: string; count: number}[];
   }> {
-    return this.questionRepo.getQuestionStatusSummary(query, body);
+    const result = await this.questionRepo.getQuestionStatusSummary(query, body);
+    return {
+      totalQuestions: result.totalQuestions,
+      statuses: result.statuses,
+      sourceCounts: (result as any).sourceCounts ?? [],
+    };
   }
 
   async getExprtIdByIndex(
