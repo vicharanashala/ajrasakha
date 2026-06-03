@@ -433,7 +433,7 @@ export function useDashboardData(
       userType,
     ],
     enabled,
-    placeholderData: (prev) => prev,
+    // placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
 
@@ -495,6 +495,60 @@ export const useTopFaqs = (
       const API_BASE_URL = env.apiBaseUrl();
       const result = await apiFetch<DashboardApiResponse>(
         `${API_BASE_URL}/analytics/top-faqs?${params.toString()}`
+      );
+      return result;
+    }
+  });
+}
+
+export const useDailyQuestionTrends = (
+  source: string = 'vicharanashala',
+  userType: string = 'all',
+  startDate?: Date,
+  endDate?: Date
+) => {
+  const params = new URLSearchParams();
+  params.append("source", source);
+  params.append("userType", userType);
+  if (startDate) params.append("startDate", startDate.toISOString());
+  if (endDate) params.append("endDate", endDate.toISOString());
+  return useQuery({
+    queryKey: [
+      "daily-question-trends",
+      source,
+      userType,
+      startDate,
+      endDate
+    ],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DashboardApiResponse>(
+        `${API_BASE_URL}/analytics/daily-question-trends?${params.toString()}`
+      );
+      return result;
+    }
+  });
+}
+
+export const useUserMertices = (
+  source: string = 'vicharanashala',
+  userType: string = 'all',
+) => {
+  const params = new URLSearchParams();
+  params.append("source", source);
+  params.append("userType", userType);
+  return useQuery({
+    queryKey: [
+      "user-metrices",
+      source,
+      userType,
+    ],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DashboardApiResponse>(
+        `${API_BASE_URL}/analytics/users-metrices?${params.toString()}`
       );
       return result;
     }

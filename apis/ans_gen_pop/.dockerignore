@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.env
+.venv
+venv/
+.git/
+.gitignore
+.vscode/
+.idea/
+README.md

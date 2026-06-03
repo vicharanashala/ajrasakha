@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Eye, X, Trash2, Pencil, Users } from "lucide-react";
+import { Eye, X, Trash2, Pencil, Users, InfoIcon, UserPlus, Search, AlertCircle, Inbox, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/atoms/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import {
   Card,
   CardContent,
@@ -53,6 +54,8 @@ import { EditFarmerModal } from "./components/EditFarmerModal";
 import { AddFarmerModal } from "./components/AddFarmerModal";
 import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
 import { useAddUser } from "./hooks/useAddUser";
+import { motion,AnimatePresence } from "framer-motion";
+import { Badge } from "@/components/atoms/badge";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -296,7 +299,7 @@ export function UserDetailsView({
 
   const handleSaveEditedUser = async (payload: {
     name?: string;
-    role?: string;
+    userRole?: string;
     farmerProfile?: {
       farmerName?: string;
       age?: number;
@@ -335,7 +338,7 @@ export function UserDetailsView({
     email: string;
     name: string;
     password: string;
-    role?: string;
+    userRole?: string;
   }) => {
     await addUserMutation.mutateAsync({
       source,
@@ -360,282 +363,775 @@ export function UserDetailsView({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto pb-5 min-w-0 ">
-      {/* Users table */}
+    //     <div className="flex-1 overflow-y-auto pb-5 min-w-0 bg-gradient-to-b from-background to-muted/30">
+    //       {/* Users table */}
+    //       <div ref={tableRef}>
+    //         <Card
+    //           className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300
+    //  dark:border-[#2a2a2a]"
+    //         >
+    //           <CardHeader className="pb-4 border-b border-border/60 ">
+    //             <motion.div
+    //               initial={{ opacity: 0, y: -8 }}
+    //               animate={{ opacity: 1, y: 0 }}
+    //               transition={{ duration: 0.35, ease: "easeOut" }}
+    //               className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+    //             >
+    //               {/* Title */}
+    //               <div className="min-w-0 flex items-start gap-3">
+    //                 <motion.div
+    //                   whileHover={{ rotate: -6, scale: 1.05 }}
+    //                   transition={{ type: "spring", stiffness: 300, damping: 18 }}
+    //                   className="p-2 rounded-lg bg-primary/10 ring-1 ring-primary/15 shrink-0"
+    //                 >
+    //                   <Users className="h-4 w-4 text-primary" />
+    //                 </motion.div>
+    //                 <div className="min-w-0">
+    //                   <CardTitle className="text-base font-semibold tracking-tight truncate">
+    //                     All Farmers
+    //                   </CardTitle>
+    //                   <p className="text-sm text-muted-foreground mt-0.5">
+    //                     View and manage farmer details, activity, and preferences.
+    //                   </p>
+    //                 </div>
+    //               </div>
+
+    //               {/* Search */}
+    //               <div className="relative w-full lg:max-w-xs lg:flex-1">
+    //                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+    //                 <Input
+    //                   type="text"
+    //                   placeholder="Search by name or email..."
+    //                   value={filters.search}
+    //                   onChange={(e) =>
+    //                     setFilters((d) => ({ ...d, search: e.target.value }))
+    //                   }
+    //                   className="h-10 pl-9 pr-9 bg-background focus-visible:ring-primary/30 focus-visible:border-primary transition-all"
+    //                 />
+    //                 {filters.search && (
+    //                   <motion.button
+    //                     initial={{ opacity: 0, scale: 0.8 }}
+    //                     animate={{ opacity: 1, scale: 1 }}
+    //                     onClick={() => setFilters((d) => ({ ...d, search: "" }))}
+    //                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+    //                     aria-label="Clear search"
+    //                   >
+    //                     <X className="h-3.5 w-3.5" />
+    //                   </motion.button>
+    //                 )}
+    //               </div>
+
+    //               {/* Actions */}
+    //               <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
+    //                 {isFiltered && (
+    //                   <motion.div
+    //                     initial={{ opacity: 0, x: 8 }}
+    //                     animate={{ opacity: 1, x: 0 }}
+    //                     exit={{ opacity: 0, x: 8 }}
+    //                   >
+    //                     <Button
+    //                       variant="ghost"
+    //                       size="sm"
+    //                       className="h-9 px-3 text-muted-foreground hover:text-foreground"
+    //                       onClick={handleResetFilters}
+    //                     >
+    //                       <X className="h-4 w-4 mr-1.5" />
+    //                       Clear Filters
+    //                     </Button>
+    //                   </motion.div>
+    //                 )}
+
+    //                 <UserDetailsPreferenceFilter
+    //                   filters={filters}
+    //                   onApply={handleApplyFilters}
+    //                   hideFields={["userType"]}
+    //                 />
+
+    //                 {isAdmin &&
+    //                   (source === "annam" || source === "vicharanashala") && (
+    //                     <motion.div
+    //                       whileHover={{ y: -1 }}
+    //                       whileTap={{ scale: 0.97 }}
+    //                     >
+    //                       <Button
+    //                         size="sm"
+    //                         className="h-9 px-3.5 gap-1.5 shadow-sm shadow-primary/20"
+    //                         onClick={() => setIsAddModalOpen(true)}
+    //                       >
+    //                         <UserPlus className="h-4 w-4" />
+    //                         Add Farmer
+    //                       </Button>
+    //                     </motion.div>
+    //                   )}
+    //               </div>
+    //             </motion.div>
+    //           </CardHeader>
+    //           <CardContent className="p-0">
+    //             {isLoading && (
+    //               <div className="space-y-3 p-4">
+    //                 <Skeleton className="h-10 w-full rounded-md" />
+    //                 <Skeleton className="h-10 w-full rounded-md" />
+    //                 <Skeleton className="h-10 w-full rounded-md" />
+    //                 <Skeleton className="h-10 w-full rounded-md" />
+    //                 <Skeleton className="h-10 w-full rounded-md" />
+    //               </div>
+    //             )}
+
+    //             {error && (
+    //               <div className="px-4 py-8 text-center text-red-500 text-sm">
+    //                 Failed to load user details. Please try again.
+    //               </div>
+    //             )}
+
+    //             {!isLoading && !error && (
+    //               <div className="rounded-lg border bg-card overflow-x-auto">
+    //                 <Table className="min-w-[980px]">
+    //                   <TableHeader className="bg-card sticky top-0 z-10">
+    //                     <TableRow>
+    //                       <TableHead className="text-center w-12">S.No</TableHead>
+    //                       <TableHead
+    //                         className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
+    //                         onClick={() =>
+    //                           userType === "external" && handleSort("name")
+    //                         }
+    //                       >
+    //                         Name
+    //                       </TableHead>
+    //                       <TableHead className="text-center">Farmer Name</TableHead>
+    //                       <TableHead className="text-center">Email</TableHead>
+    //                       <TableHead className="text-center">User Role</TableHead>
+    //                       <TableHead
+    //                         className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
+    //                         onClick={() =>
+    //                           userType === "external" &&
+    //                           handleSort("totalQuestions")
+    //                         }
+    //                       >
+    //                         <div className="flex items-center justify-center gap-1">
+    //                           Query Asked
+    //                           {sortBy === "totalQuestions" ? (
+    //                             <span className="text-blue-600 dark:text-blue-400">
+    //                               {sortOrder === "desc" ? "↓" : "↑"}
+    //                             </span>
+    //                           ) : (
+    //                             <span className="text-gray-400 dark:text-gray-500">
+    //                               ↕
+    //                             </span>
+    //                           )}
+    //                         </div>
+    //                       </TableHead>
+    //                       <TableHead className="text-center">View More</TableHead>
+    //                       {isAdmin && (
+    //                         <TableHead className="text-center">Actions</TableHead>
+    //                       )}
+    //                     </TableRow>
+    //                   </TableHeader>
+    //                   <TableBody>
+    //                     {users.length === 0 ? (
+    //                       <TableRow>
+    //                         <TableCell
+    //                           colSpan={isAdmin ? 8 : 7}
+    //                           className="text-center py-10 text-muted-foreground"
+    //                         >
+    //                           {isFiltered
+    //                             ? "No users match your filters."
+    //                             : "No users found."}
+    //                         </TableCell>
+    //                       </TableRow>
+    //                     ) : (
+    //                       users.map((user, idx) => {
+    //                         return (
+    //                           <ContextMenu key={user.userId} modal={false}>
+    //                             <ContextMenuTrigger asChild>
+    //                               <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
+    //                                 {/* S.No */}
+    //                                 <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
+    //                                   {(currentPage - 1) * pageSize + idx + 1}
+    //                                 </TableCell>
+
+    //                                 {/* Name */}
+    //                                 <TableCell className="align-middle font-medium whitespace-nowrap">
+    //                                   {user.name || <EmptyValue />}
+    //                                 </TableCell>
+
+    //                                 {/* Farmer Name */}
+    //                                 <TableCell className="align-middle whitespace-nowrap">
+    //                                   {user.farmerProfile?.farmerName || (
+    //                                     <EmptyValue />
+    //                                   )}
+    //                                 </TableCell>
+
+    //                                 {/* Email */}
+    //                                 <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
+    //                                   {user.email || <EmptyValue />}
+    //                                 </TableCell>
+
+    //                                 {/* User Role */}
+    //                                 <TableCell className="align-middle whitespace-nowrap">
+    //                                   {user.userRole || <EmptyValue />}
+    //                                 </TableCell>
+
+    //                                 {/* Queries asked */}
+    //                                 <TableCell className="align-middle">
+    //                                   <Button
+    //                                     variant="ghost"
+    //                                     size="sm"
+    //                                     onClick={() => {
+    //                                       setSelectedUser(user);
+    //                                       setQuestionModalOpen(true);
+    //                                     }}
+    //                                     className={`inline-flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full text-xs font-semibold transition-colors ${
+    //                                       user.totalQuestions > 0
+    //                                         ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
+    //                                         : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default"
+    //                                     }`}
+    //                                     title={"View queries"}
+    //                                   >
+    //                                     {user.totalQuestions.toLocaleString()}
+    //                                   </Button>
+    //                                 </TableCell>
+
+    //                                 {/* View more */}
+    //                                 <TableCell className="align-middle">
+    //                                   <Button
+    //                                     variant="outline"
+    //                                     size="sm"
+    //                                     onClick={() => setUserToView(user)}
+    //                                     className="h-8"
+    //                                   >
+    //                                     <Eye className="h-4 w-4" />
+    //                                     View More
+    //                                   </Button>
+    //                                 </TableCell>
+
+    //                                 {isAdmin && (
+    //                                   <TableCell className="align-middle">
+    //                                     <div className="flex items-center justify-center gap-2">
+    //                                       <Button
+    //                                         variant="ghost"
+    //                                         size="icon"
+    //                                         className="h-8 w-8"
+    //                                         onClick={() => handleEditUser(user)}
+    //                                         title="Edit farmer"
+    //                                       >
+    //                                         <Pencil className="h-4 w-4" />
+    //                                       </Button>
+    //                                       <Button
+    //                                         variant="ghost"
+    //                                         size="icon"
+    //                                         className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50"
+    //                                         onClick={() => handleDeleteUser(user)}
+    //                                         title="Delete farmer"
+    //                                       >
+    //                                         <Trash2 className="h-4 w-4" />
+    //                                       </Button>
+    //                                     </div>
+    //                                   </TableCell>
+    //                                 )}
+    //                               </TableRow>
+    //                             </ContextMenuTrigger>
+
+    //                             {isAdmin && (
+    //                               <ContextMenuContent>
+    //                                 <ContextMenuItem
+    //                                   className="cursor-pointer flex items-center gap-2"
+    //                                   onSelect={() => {
+    //                                     setUserToEdit(user);
+    //                                   }}
+    //                                 >
+    //                                   <Pencil className="h-4 w-4" />
+    //                                   Edit
+    //                                 </ContextMenuItem>
+    //                                 <ContextMenuItem
+    //                                   className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
+    //                                   onSelect={() => {
+    //                                     setConfirmEmail("");
+    //                                     setUserToDelete({
+    //                                       userId: user.userId,
+    //                                       source,
+    //                                       email: user.email,
+    //                                     });
+    //                                   }}
+    //                                 >
+    //                                   <Trash2 className="h-4 w-4 text-red-600" />
+    //                                   Delete
+    //                                 </ContextMenuItem>
+    //                               </ContextMenuContent>
+    //                             )}
+    //                           </ContextMenu>
+    //                         );
+    //                       })
+    //                     )}
+    //                   </TableBody>
+    //                 </Table>
+    //                 {/* Pagination footer */}
+    //                 {totalPages > 0 && (
+    //                   <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+    //                     <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+    //                       <span className="text-xs text-(--muted-foreground)">
+    //                         Showing{" "}
+    //                         {users.length > 0
+    //                           ? (currentPage - 1) * pageSize + 1
+    //                           : 0}
+    //                         –{(currentPage - 1) * pageSize + users.length} of{" "}
+    //                         {totalUsers} users
+    //                       </span>
+    //                       <Pagination
+    //                         currentPage={currentPage}
+    //                         totalPages={totalPages}
+    //                         onPageChange={(page) => setCurrentPage(page)}
+    //                         limit={pageSize}
+    //                         onLimitChange={setPageSize}
+    //                       />
+    //                     </div>
+    //                   </div>
+    //                 )}
+    //               </div>
+    //             )}
+    //             <UserQuestionsModal
+    //               open={questionModalOpen}
+    //               onOpenChange={setQuestionModalOpen}
+    //               user={selectedUser}
+    //               source={source}
+    //               userType={userType}
+    //             />
+    //             <FarmerDetailsModal
+    //               open={!!userToView}
+    //               onOpenChange={(open) => {
+    //                 if (!open) setUserToView(null);
+    //               }}
+    //               user={userToView}
+    //               isAdmin={isAdmin}
+    //               onEdit={handleEditUser}
+    //               onDelete={handleDeleteUser}
+    //             />
+    //           </CardContent>
+    //         </Card>
+    //       </div>
+
+    //       <AddFarmerModal
+    //         open={isAddModalOpen}
+    //         onOpenChange={setIsAddModalOpen}
+    //         isSaving={addUserMutation.isPending}
+    //         onSave={handleAddUser}
+    //       />
+
+    //       <EditFarmerModal
+    //         open={!!userToEdit}
+    //         onOpenChange={(open) => {
+    //           if (!open) setUserToEdit(null);
+    //         }}
+    //         user={userToEdit}
+    //         isSaving={updateUserMutation.isPending}
+    //         onSave={handleSaveEditedUser}
+    //       />
+
+    //       <AlertDialog
+    //         open={!!userToDelete}
+    //         onOpenChange={(open) => {
+    //           if (!open) {
+    //             setUserToDelete(null);
+    //             setConfirmEmail("");
+    //           }
+    //         }}
+    //       >
+    //         <AlertDialogContent>
+    //           <AlertDialogHeader>
+    //             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+    //             <AlertDialogDescription>
+    //               This action cannot be undone. This will permanently delete the
+    //               farmer and remove their data. To confirm this action, enter the
+    //               email address <strong>{userToDelete?.email}</strong> in the box
+    //               below.
+    //             </AlertDialogDescription>
+    //             <Input
+    //               value={confirmEmail}
+    //               onChange={(e) => setConfirmEmail(e.target.value)}
+    //               placeholder="Enter email to confirm"
+    //             />
+    //           </AlertDialogHeader>
+    //           <AlertDialogFooter>
+    //             <AlertDialogCancel>Cancel</AlertDialogCancel>
+    //             <AlertDialogAction
+    //               className="bg-red-600 hover:bg-red-700 text-white"
+    //               disabled={confirmEmail !== userToDelete?.email}
+    //               onClick={() => {
+    //                 if (userToDelete) {
+    //                   deleteUserMutation.mutate(userToDelete);
+    //                   setUserToDelete(null);
+    //                   setConfirmEmail("");
+    //                 }
+    //               }}
+    //             >
+    //               Continue
+    //             </AlertDialogAction>
+    //           </AlertDialogFooter>
+    //         </AlertDialogContent>
+    //       </AlertDialog>
+    //     </div>
+    <div className="flex-1 overflow-y-auto  min-w-0 bg-gradient-to-b from-background to-muted/30">
       <div ref={tableRef}>
-        <Card
-          className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
- dark:border-[#2a2a2a]"
-        >
-          <CardHeader className="pb-4 border-b">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              {/* Title Section */}
-              <div className="min-w-0">
-                <CardTitle className="text-base font-semibold tracking-tight flex items-center gap-2">
-                  <div className="p-1.5 rounded-md bg-primary/10">
-                    <Users className="h-4 w-4 text-primary" />
-                  </div>
-                  All Farmers
-                </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  View and manage farmer details, activity, and preferences.
-                </p>
+        <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/60 shadow-sm hover:shadow-md transition-shadow duration-300">
+          {/* ─────────── Header ─────────── */}
+          <CardHeader className="pb-4 border-b border-border/60">
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+            >
+              {/* Title */}
+              <div className="min-w-0 flex items-start gap-3">
+                <motion.div
+                  whileHover={{ rotate: -6, scale: 1.05 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 18 }}
+                  className="p-2 rounded-lg bg-primary/10 ring-1 ring-primary/15 shrink-0"
+                >
+                  <Users className="h-4 w-4 text-primary" />
+                </motion.div>
+                <div className="min-w-0">
+                  <CardTitle className="text-base font-semibold tracking-tight truncate">
+                    All Farmers
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    View and manage farmer details, activity, and preferences.
+                  </p>
+                </div>
               </div>
 
-              {/* Actions Section */}
-              <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap">
-                {isFiltered && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 px-3"
-                    onClick={handleResetFilters}
-                  >
-                    <X className="h-4 w-4 mr-1.5" />
-                    Clear Filters
-                  </Button>
-                )}
-
-                {isAdmin &&
-                  (source === "annam" || source === "vicharanashala") && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="h-9 px-3 bg-primary hover:bg-primary/90 text-white font-medium shadow-sm transition-colors duration-200 flex items-center gap-1.5"
-                      onClick={() => setIsAddModalOpen(true)}
+              {/* Search */}
+              <div className="relative w-full lg:max-w-xs lg:flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={filters.search}
+                  onChange={(e) =>
+                    setFilters((d) => ({ ...d, search: e.target.value }))
+                  }
+                  className="h-10 pl-9 pr-9 bg-background focus-visible:ring-primary/30 focus-visible:border-primary transition-all"
+                />
+                <AnimatePresence>
+                  {filters.search && (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      onClick={() => setFilters((d) => ({ ...d, search: "" }))}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Clear search"
                     >
-                      <Users className="h-4 w-4" />
-                      Add Farmer
-                    </Button>
+                      <X className="h-3.5 w-3.5" />
+                    </motion.button>
                   )}
+                </AnimatePresence>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
+                <AnimatePresence>
+                  {isFiltered && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 8 }}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 px-3 text-muted-foreground hover:text-foreground"
+                        onClick={handleResetFilters}
+                      >
+                        <X className="h-4 w-4 mr-1.5" />
+                        Clear Filters
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <UserDetailsPreferenceFilter
                   filters={filters}
                   onApply={handleApplyFilters}
                   hideFields={["userType"]}
                 />
+
+                {isAdmin &&
+                  (source === "annam" || source === "vicharanashala") && (
+                    <motion.div
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <Button
+                        size="sm"
+                        className="h-9 px-3.5 gap-1.5 shadow-sm shadow-primary/20"
+                        onClick={() => setIsAddModalOpen(true)}
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        Add Farmer
+                      </Button>
+                    </motion.div>
+                  )}
               </div>
-            </div>
+            </motion.div>
           </CardHeader>
+
+          {/* ─────────── Content ─────────── */}
           <CardContent className="p-0">
+            {/* Loading */}
             {isLoading && (
-              <div className="space-y-3 p-4">
-                <Skeleton className="h-10 w-full rounded-md" />
-                <Skeleton className="h-10 w-full rounded-md" />
-                <Skeleton className="h-10 w-full rounded-md" />
-                <Skeleton className="h-10 w-full rounded-md" />
-                <Skeleton className="h-10 w-full rounded-md" />
+              <div className="space-y-2 p-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-md" />
+                ))}
               </div>
             )}
 
+            {/* Error */}
             {error && (
-              <div className="px-4 py-8 text-center text-red-500 text-sm">
-                Failed to load user details. Please try again.
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center"
+              >
+                <div className="p-3 rounded-full bg-destructive/10">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                </div>
+                <p className="text-sm font-medium text-foreground">
+                  Something went wrong
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Failed to load user details. Please try again.
+                </p>
+              </motion.div>
             )}
 
+            {/* Table */}
             {!isLoading && !error && (
-              <div className="rounded-lg border bg-card overflow-x-auto">
+              <div className="overflow-x-auto">
                 <Table className="min-w-[980px]">
-                  <TableHeader className="bg-card sticky top-0 z-10">
-                    <TableRow>
-                      <TableHead className="text-center w-12">S.No</TableHead>
-                      <TableHead
-                        className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
-                        onClick={() =>
-                          userType === "external" && handleSort("name")
-                        }
-                      >
-                        Name
+                  <TableHeader className="bg-muted/40 sticky top-0 z-10 backdrop-blur">
+                    <TableRow className="hover:bg-transparent border-border/60">
+                      <TableHead className="text-center w-12 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        S.No
                       </TableHead>
-                      <TableHead className="text-center">Farmer Name</TableHead>
-                      <TableHead className="text-center">Email</TableHead>
-                      <TableHead className="text-center">Role</TableHead>
-                      <TableHead
-                        className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
-                        onClick={() =>
-                          userType === "external" &&
-                          handleSort("totalQuestions")
-                        }
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          Query Asked
-                          {sortBy === "totalQuestions" ? (
-                            <span className="text-blue-600 dark:text-blue-400">
-                              {sortOrder === "desc" ? "↓" : "↑"}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 dark:text-gray-500">
-                              ↕
-                            </span>
-                          )}
-                        </div>
+
+                      <SortableHead
+                        label="Name"
+                        field="name"
+                        active={sortBy === "name"}
+                        order={sortOrder}
+                        disabled={userType !== "external"}
+                        // onSort={handleSort}
+                      />
+
+                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Farmer Name
                       </TableHead>
-                      <TableHead className="text-center">View More</TableHead>
+                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Email
+                      </TableHead>
+                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        User Role
+                      </TableHead>
+
+                      <SortableHead
+                        label="Query Asked"
+                        field="totalQuestions"
+                        active={sortBy === "totalQuestions"}
+                        order={sortOrder}
+                        disabled={userType !== "external"}
+                        // onSort={handleSort}
+                      />
+
+                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        View More
+                      </TableHead>
                       {isAdmin && (
-                        <TableHead className="text-center">Actions</TableHead>
+                        <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Actions
+                        </TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
                     {users.length === 0 ? (
-                      <TableRow>
+                      <TableRow className="hover:bg-transparent">
                         <TableCell
                           colSpan={isAdmin ? 8 : 7}
-                          className="text-center py-10 text-muted-foreground"
+                          className="text-center py-16"
                         >
-                          {isFiltered
-                            ? "No users match your filters."
-                            : "No users found."}
+                          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                            <div className="p-3 rounded-full bg-muted">
+                              <Inbox className="h-5 w-5" />
+                            </div>
+                            <p className="text-sm font-medium text-foreground">
+                              {isFiltered
+                                ? "No matches found"
+                                : "No farmers yet"}
+                            </p>
+                            <p className="text-xs">
+                              {isFiltered
+                                ? "Try adjusting your filters or search."
+                                : "Farmers you add will appear here."}
+                            </p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      users.map((user, idx) => {
-                        return (
-                          <ContextMenu key={user.userId} modal={false}>
-                            <ContextMenuTrigger asChild>
-                              <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
-                                {/* S.No */}
-                                <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
-                                  {(currentPage - 1) * pageSize + idx + 1}
-                                </TableCell>
+                      users.map((user, idx) => (
+                        <ContextMenu key={user.userId} modal={false}>
+                          <ContextMenuTrigger asChild>
+                            <motion.tr
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{
+                                duration: 0.18,
+                                delay: Math.min(idx * 0.02, 0.2),
+                              }}
+                              className="group text-center border-b border-border/40 hover:bg-muted/40 transition-colors duration-150"
+                            >
+                              <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
+                                {(currentPage - 1) * pageSize + idx + 1}
+                              </TableCell>
 
-                                {/* Name */}
-                                <TableCell className="align-middle font-medium whitespace-nowrap">
-                                  {user.name || <EmptyValue />}
-                                </TableCell>
+                              <TableCell className="align-middle font-medium whitespace-nowrap">
+                                {user.name || <EmptyValue />}
+                              </TableCell>
 
-                                {/* Farmer Name */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {user.farmerProfile?.farmerName || (
-                                    <EmptyValue />
-                                  )}
-                                </TableCell>
-
-                                {/* Email */}
-                                <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
-                                  {user.email || <EmptyValue />}
-                                </TableCell>
-
-                                {/* Role */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {user.role || <EmptyValue />}
-                                </TableCell>
-
-                                {/* Queries asked */}
-                                <TableCell className="align-middle">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedUser(user);
-                                      setQuestionModalOpen(true);
-                                    }}
-                                    className={`inline-flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full text-xs font-semibold transition-colors ${
-                                      user.totalQuestions > 0
-                                        ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
-                                        : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default"
-                                    }`}
-                                    title={
-                                      
-                                        "View queries"
-                                    
-                                    }
-                                  >
-                                    {user.totalQuestions.toLocaleString()}
-                                  </Button>
-                                </TableCell>
-
-                                {/* View more */}
-                                <TableCell className="align-middle">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setUserToView(user)}
-                                    className="h-8"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                    View More
-                                  </Button>
-                                </TableCell>
-
-                                {isAdmin && (
-                                  <TableCell className="align-middle">
-                                    <div className="flex items-center justify-center gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() => handleEditUser(user)}
-                                        title="Edit farmer"
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50"
-                                        onClick={() => handleDeleteUser(user)}
-                                        title="Delete farmer"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
+                              <TableCell className="align-middle whitespace-nowrap">
+                                {user.farmerProfile?.farmerName || (
+                                  <EmptyValue />
                                 )}
+                              </TableCell>
 
-                              </TableRow>
-                            </ContextMenuTrigger>
+                              <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
+                                {user.email || <EmptyValue />}
+                              </TableCell>
 
-                            {isAdmin && (
-                              <ContextMenuContent>
-                                <ContextMenuItem
-                                  className="cursor-pointer flex items-center gap-2"
-                                  onSelect={() => {
-                                    setUserToEdit(user);
+                              <TableCell className="align-middle whitespace-nowrap">
+                                {user.userRole ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="font-normal"
+                                  >
+                                    {user.userRole}
+                                  </Badge>
+                                ) : (
+                                  <EmptyValue />
+                                )}
+                              </TableCell>
+
+                              <TableCell className="align-middle">
+                                <button
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    setQuestionModalOpen(true);
                                   }}
+                                  disabled={user.totalQuestions === 0}
+                                  title="View queries"
+                                  className={`inline-flex items-center justify-center min-w-[36px] h-6 px-2.5 rounded-full text-xs font-semibold transition-all ${
+                                    user.totalQuestions > 0
+                                      ? "bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 cursor-pointer"
+                                      : "bg-muted text-muted-foreground cursor-default"
+                                  }`}
                                 >
-                                  <Pencil className="h-4 w-4" />
-                                  Edit
-                                </ContextMenuItem>
-                                <ContextMenuItem
-                                  className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
-                                  onSelect={() => {
-                                    setConfirmEmail("");
-                                    setUserToDelete({
-                                      userId: user.userId,
-                                      source,
-                                      email: user.email,
-                                    });
-                                  }}
+                                  {user.totalQuestions.toLocaleString()}
+                                </button>
+                              </TableCell>
+
+                              <TableCell className="align-middle">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setUserToView(user)}
+                                  className="h-8 gap-1.5"
                                 >
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                  Delete
-                                </ContextMenuItem>
-                              </ContextMenuContent>
-                            )}
-                          </ContextMenu>
-                        );
-                      })
+                                  <Eye className="h-3.5 w-3.5" />
+                                  View More
+                                </Button>
+                              </TableCell>
+
+                              {isAdmin && (
+                                <TableCell className="align-middle">
+                                  <div className="flex items-center justify-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                                      onClick={() => handleEditUser(user)}
+                                      title="Edit farmer"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                      onClick={() => handleDeleteUser(user)}
+                                      title="Delete farmer"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              )}
+                            </motion.tr>
+                          </ContextMenuTrigger>
+
+                          {isAdmin && (
+                            <ContextMenuContent className="w-40">
+                              <ContextMenuItem
+                                className="cursor-pointer gap-2"
+                                onSelect={() => setUserToEdit(user)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                                Edit
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer gap-2"
+                                onSelect={() => {
+                                  setConfirmEmail("");
+                                  setUserToDelete({
+                                    userId: user.userId,
+                                    source,
+                                    email: user.email,
+                                  });
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          )}
+                        </ContextMenu>
+                      ))
                     )}
                   </TableBody>
                 </Table>
-                {/* Pagination footer */}
+
+                {/* Pagination */}
                 {totalPages > 0 && (
-                  <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+                  <div className="px-4 py-3 border-t border-border/60 bg-muted/20">
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-                      <span className="text-xs text-(--muted-foreground)">
+                      <span className="text-xs text-muted-foreground">
                         Showing{" "}
-                        {users.length > 0
-                          ? (currentPage - 1) * pageSize + 1
-                          : 0}
-                        –{(currentPage - 1) * pageSize + users.length} of{" "}
-                        {totalUsers} users
+                        <span className="font-medium text-foreground">
+                          {users.length > 0
+                            ? (currentPage - 1) * pageSize + 1
+                            : 0}
+                          –{(currentPage - 1) * pageSize + users.length}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-medium text-foreground">
+                          {totalUsers}
+                        </span>{" "}
+                        users
                       </span>
                       <Pagination
                         currentPage={currentPage}
                         totalPages={totalPages}
-                        onPageChange={(page) => setCurrentPage(page)}
+                        onPageChange={setCurrentPage}
                         limit={pageSize}
                         onLimitChange={setPageSize}
                       />
@@ -644,6 +1140,7 @@ export function UserDetailsView({
                 )}
               </div>
             )}
+
             <UserQuestionsModal
               open={questionModalOpen}
               onOpenChange={setQuestionModalOpen}
@@ -653,9 +1150,7 @@ export function UserDetailsView({
             />
             <FarmerDetailsModal
               open={!!userToView}
-              onOpenChange={(open) => {
-                if (!open) setUserToView(null);
-              }}
+              onOpenChange={(open) => !open && setUserToView(null)}
               user={userToView}
               isAdmin={isAdmin}
               onEdit={handleEditUser}
@@ -674,14 +1169,13 @@ export function UserDetailsView({
 
       <EditFarmerModal
         open={!!userToEdit}
-        onOpenChange={(open) => {
-          if (!open) setUserToEdit(null);
-        }}
+        onOpenChange={(open) => !open && setUserToEdit(null)}
         user={userToEdit}
         isSaving={updateUserMutation.isPending}
         onSave={handleSaveEditedUser}
       />
 
+      {/* Delete confirmation */}
       <AlertDialog
         open={!!userToDelete}
         onOpenChange={(open) => {
@@ -693,23 +1187,28 @@ export function UserDetailsView({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              farmer and remove their data. To confirm this action, enter the
-              email address <strong>{userToDelete?.email}</strong> in the box
+            <div className="mx-auto mb-2 p-3 rounded-full bg-destructive/10 w-fit">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+            </div>
+            <AlertDialogTitle className="text-center">
+              Delete this farmer?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              This action cannot be undone. To confirm, type{" "}
+              <strong className="text-foreground">{userToDelete?.email}</strong>{" "}
               below.
             </AlertDialogDescription>
             <Input
               value={confirmEmail}
               onChange={(e) => setConfirmEmail(e.target.value)}
               placeholder="Enter email to confirm"
+              className="mt-3"
             />
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               disabled={confirmEmail !== userToDelete?.email}
               onClick={() => {
                 if (userToDelete) {
@@ -719,11 +1218,48 @@ export function UserDetailsView({
                 }
               }}
             >
-              Continue
+              Delete Farmer
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+
+
+function SortableHead({
+  label,
+  field,
+  active,
+  order,
+  disabled,
+  onSort,
+}: {
+  label: string;
+  field: string;
+  active: boolean;
+  order: "asc" | "desc";
+  disabled: boolean;
+  onSort?: (f: string) => void;
+}) {
+  const Icon = !active ? ArrowUpDown : order === "desc" ? ArrowDown : ArrowUp;
+  return (
+    <TableHead
+      // onClick={() => !disabled && onSort(field)}
+      className={`text-center text-xs font-medium uppercase tracking-wide transition-colors ${
+        disabled
+          ? "cursor-not-allowed opacity-50 text-muted-foreground"
+          : "cursor-pointer hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      <div className="inline-flex items-center justify-center gap-1.5">
+        {label}
+        <Icon
+          className={`h-3 w-3 ${active ? "text-primary" : "text-muted-foreground/60"}`}
+        />
+      </div>
+    </TableHead>
   );
 }

@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/atoms/button";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { CalendarIcon, X } from "lucide-react";
+import { CalendarIcon, CheckCircle2, CircleHelp, CircleOff, X, InfoIcon } from "lucide-react";
 import { format } from "date-fns";
 
 import type { DateRange } from "react-day-picker";
@@ -74,10 +74,22 @@ export function CustomerNotificationsCard({
               <div className="flex items-center gap-2">
                 <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
                 Customer Notifications
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help ml-1" />
+                  </TooltipTrigger>
+
+                  <TooltipContent className="max-w-[260px]">
+                    <p>Notification delivery breakdown for closed questions.</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="flex items-center gap-1.5"
+              onClick={(e) => e.stopPropagation()}
+            >
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -85,15 +97,11 @@ export function CustomerNotificationsCard({
                     className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 gap-1 flex items-center shrink-0"
                   >
                     <CalendarIcon className="h-3 w-3 text-muted-foreground" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
-                      ) : (
-                        format(dateRange.from, "MMM dd")
-                      )
-                    ) : (
-                      "All Time"
-                    )}
+                    {dateRange?.from
+                      ? dateRange.to
+                        ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
+                        : format(dateRange.from, "MMM dd")
+                      : "All Time"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 z-[100]" align="end">
@@ -118,32 +126,8 @@ export function CustomerNotificationsCard({
                   <X className="h-3 w-3" />
                 </Button>
               )}
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <motion.span
-                      className="
-                    flex h-4 w-4 cursor-pointer
-                    items-center justify-center
-                    rounded-full border text-[10px]
-                  "
-                      whileHover={{ scale: 1.15 }}
-                      whileTap={{ scale: 0.92 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                    >
-                      i
-                    </motion.span>
-                  </TooltipTrigger>
-
-                  <TooltipContent className="max-w-[260px]">
-                    <p>Notification delivery breakdown for closed questions.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             </div>
           </motion.div>
-
           {/* Stats */}
           <motion.div
             className={`mt-5 flex items-center justify-between gap-4 ${isLoading ? "opacity-50" : ""}`}
@@ -249,11 +233,25 @@ export function CustomerNotificationsCard({
               </motion.span>
             </motion.div>
           </motion.div>
+          <div
+            className={`mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground ${
+              isLoading ? "opacity-50" : ""
+            }`}
+          >
+            <div className="flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3 text-primary" />
+              <span>{notifiedPct.toFixed(2)}% Notified</span>
+            </div>
 
-          <div className={`mt-3 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
-            <span className="mr-4">{notifiedPct.toFixed(2)}% Notified</span>
-            <span className="mr-4">{notNotifiedPct.toFixed(2)}% Not notified</span>
-            <span>{untrackedPct.toFixed(2)}% Untracked</span>
+            <div className="flex items-center gap-1">
+              <CircleOff className="h-3 w-3 text-primary" />
+              <span>{notNotifiedPct.toFixed(2)}% Not Notified</span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <CircleHelp className="h-3 w-3 text-primary" />
+              <span>{untrackedPct.toFixed(2)}% Untracked</span>
+            </div>
           </div>
         </CardHeader>
       </Card>

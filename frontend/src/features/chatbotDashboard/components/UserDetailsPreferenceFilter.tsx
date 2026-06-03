@@ -235,7 +235,7 @@ export function UserDetailsPreferenceFilter({
             </FilterSection>
           )}
 
-          {/* Search */}
+          {/* Search
           <FilterSection icon={<Search className="h-3.5 w-3.5" />} label="Name / Email">
             <input
               type="text"
@@ -244,7 +244,7 @@ export function UserDetailsPreferenceFilter({
               onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
               className={inputClass}
             />
-          </FilterSection>
+          </FilterSection> */}
 
           {/* Crop */}
           {!hideFields.includes('crop') && (

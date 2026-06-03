@@ -32,15 +32,15 @@ export interface DashboardResponse {
   dailyQueries: any[];
   weeklyQueries: any[];
   monthlyQueries: any[];
-  ageGroups: DemographicEntry[];
-  genderSplit: DemographicEntry[];
-  farmingExperience: DemographicEntry[];
-  kccAwareness: DemographicEntry[];
-  agriAppUsage: DemographicEntry[];
-  landHolding: DemographicEntry[];
-  platformInstalls: PlatformInstallEntry[];
+  ageGroups?: DemographicEntry[];
+  genderSplit?: DemographicEntry[];
+  farmingExperience?: DemographicEntry[];
+  kccAwareness?: DemographicEntry[];
+  agriAppUsage?: DemographicEntry[];
+  landHolding?: DemographicEntry[];
+  platformInstalls?: PlatformInstallEntry[];
   domainSpikes: DomainSpikeEntry[];
-  feedbackData: FeedbackData;
+  feedbackData?: FeedbackData;
   responseAdherenceTable?: ResponseAdherenceTable;
   dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;
   topFaqs?: Array<{ question: string; count: number }>;
@@ -102,7 +102,8 @@ export interface IChatbotService {
   getGrowth(source: string, range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
-  getDailyQuestionTrends(days?: number, userType?: string): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
+  getDailyQuestionTrends(days?: number, source?: string, userType?: string, startTime?: string, endTime?: string): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
+  getUsersMetrics(source?: string, userType?: string): Promise<any>;
   getTopFaqs(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<Array<{ question: string; count: number }>>;
   getDistrictAnalyticsByState(state: string, source?: string, userType?: string): Promise<DistrictAnalyticsEntry[]>;
   getWeatherConcernAnalytics(filters?: WeatherConcernAnalyticsFilters, source?: string, userType?: string): Promise<WeatherConcernAnalyticsResponse>;
@@ -112,7 +113,7 @@ export interface IChatbotService {
     source: string,
     data: {
       name?: string;
-      role?: string;
+      userRole?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -142,7 +143,7 @@ export interface IChatbotService {
     data: {
       email: string;
       name: string;
-      role?: string;
+      userRole?: string;
     },
   ): Promise<boolean>;
   // getDailyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ):Promise<any>;

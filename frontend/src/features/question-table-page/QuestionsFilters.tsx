@@ -111,9 +111,10 @@ type QuestionsFiltersProps = {
   setView: (v: "grid" | "table") => void;
   handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
   isBulkAllocatingPae: boolean;
+  onAnswerModeChange?: (mode: string) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "search";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -163,6 +164,7 @@ export const QuestionsFilters = ({
   setView,
   handleBulkAllocateToPae,
   isBulkAllocatingPae,
+  onAnswerModeChange,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -184,6 +186,7 @@ export const QuestionsFilters = ({
   const [answerMode, setAnswerMode] = useState<AnswerMode>(() =>
     filterToAnswerMode(appliedFilters),
   );
+  const prevAnswerModeRef = useRef<AnswerMode>(filterToAnswerMode(appliedFilters));
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -450,6 +453,26 @@ export const QuestionsFilters = ({
   const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
     let nextFilters: AdvanceFilterValues;
 
+    if (nextAnswerMode === "search") {
+      // Search Results tab → fetch all sources, reset client-side mode
+      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined };
+      prevAnswerModeRef.current = "search";
+      setAnswerMode("search");
+      setAdvanceFilterValues(nextFilters);
+      onChange(nextFilters);
+      onAnswerModeChange?.("search");
+      return;
+    }
+
+    // When search is active, switching tabs just filters the already-fetched
+    // results client-side — no API call needed.
+    if (search) {
+      prevAnswerModeRef.current = nextAnswerMode;
+      setAnswerMode(nextAnswerMode);
+      onAnswerModeChange?.(nextAnswerMode);
+      return;
+    }
+
     if (nextAnswerMode === "non_agri") {
       nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined };
       if (answerMode === "draft") nextFilters.status = "all";
@@ -464,10 +487,21 @@ export const QuestionsFilters = ({
       if (answerMode === "draft") nextFilters.status = "all";
     }
 
+    prevAnswerModeRef.current = nextAnswerMode;
     setAnswerMode(nextAnswerMode);
     setAdvanceFilterValues(nextFilters);
     onChange(nextFilters);
   };
+
+  // Auto-switch to Search Results tab when user types; revert when cleared
+  useEffect(() => {
+    if (search && answerMode !== "search") {
+      prevAnswerModeRef.current = answerMode;
+      handleAnswerModeChange("search");
+    } else if (!search && answerMode === "search") {
+      handleAnswerModeChange(prevAnswerModeRef.current);
+    }
+  }, [search]);
 
   const clearAddQuestionError = (field: keyof AddQuestionValidationErrors) => {
     setAddQuestionErrors((prev) => {
@@ -485,7 +519,12 @@ export const QuestionsFilters = ({
 
   useEffect(() => {
     setAdvanceFilterValues(appliedFilters);
-    setAnswerMode(filterToAnswerMode(appliedFilters));
+    // Don't override answerMode while search is active — the "search" tab
+    // sets source:"all" which filterToAnswerMode resolves to "ajraskha" (fallback),
+    // which would reset the active tab back to AJRASAKHA.
+    if (!search) {
+      setAnswerMode(filterToAnswerMode(appliedFilters));
+    }
   }, [appliedFilters]);
 
   const handleApplyFilters = (myPreference?: IMyPreference) => {
@@ -739,6 +778,7 @@ export const QuestionsFilters = ({
       <AnswerModeSwitcher
         answerMode={answerMode}
         handleAnswerModeChange={handleAnswerModeChange}
+        hasSearch={!!search}
       />
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">

@@ -880,6 +880,36 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
   }
 
+  async manualCheckDuplicate(questionId: string): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string }> {
+    const question = await this.questionRepo.getById(questionId);
+
+    if (question.referenceQuestionId) {
+      return { message: 'Question already has a reference question assigned.', isDuplicate: true };
+    }
+
+    const logData: Record<string, any> = { questionId, manual: true };
+    const duplicateResult = await this.checkDuplicateQuestion(question, question.details, logData);
+
+    if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
+      const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
+      await this.questionRepo.updateQuestion(questionId, {
+        status: 'duplicate',
+        similarityScore,
+        referenceQuestionId,
+        referenceQuestion,
+        referenceSource,
+      });
+      return { message: 'Duplicate detected and question updated.', isDuplicate: true, referenceQuestionId: referenceQuestionId?.toString() };
+    }
+
+    if (duplicateResult?.isNonAgri) {
+      await this.questionRepo.updateQuestion(questionId, { status: 'non_agri' });
+      return { message: 'Question marked as non-agri.', isDuplicate: false };
+    }
+
+    return { message: 'No duplicate found. Question remains open.', isDuplicate: false };
+  }
+
   async addQuestion(
     userId: string,
     body: AddQuestionBodyDto,
@@ -4840,6 +4870,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       {
         queue: toObjectIdArray(newQueue || []),
         popHistory: true,
+        expertIdToRemove: updatedById,
       },
       session,
     );

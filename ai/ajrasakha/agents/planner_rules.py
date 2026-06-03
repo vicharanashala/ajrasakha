@@ -132,6 +132,43 @@ def is_crop_clarify_turn(messages: list[BaseMessage]) -> bool:
     return False
 
 
+def was_crop_clarify_asked(messages: list[BaseMessage]) -> bool:
+    """True if the thread already contains a crop clarification question from the bot."""
+    for msg in messages:
+        if isinstance(msg, AIMessage) and _CROP_CLARIFY_RE.search(_message_to_text(msg)):
+            return True
+    return False
+
+
+def has_specific_crop(crop: str | None) -> bool:
+    """True when the farmer named a concrete crop (not all/general placeholders)."""
+    return crop_counts_as_resolved(crop) and not is_crop_placeholder(crop)
+
+
+def crop_slot_satisfied(crop: str | None) -> bool:
+    """True when the crop slot is filled for completeness (includes all/general)."""
+    return crop_counts_as_resolved(crop)
+
+
+def apply_crop_one_shot_fallback(
+    messages: list[BaseMessage],
+    entities: PlannerEntities,
+    domains: list[str],
+) -> PlannerEntities:
+    """After one crop clarify, default missing crop to all instead of asking again."""
+    canonical = [normalize_domain(d) for d in (domains or [])] or ["General"]
+    if not any(domain_requires_crop(d) for d in canonical):
+        return entities
+    crop = entities.get("crop")
+    if has_specific_crop(crop):
+        return entities
+    if was_crop_clarify_asked(messages) and not has_specific_crop(crop):
+        out = dict(entities)
+        out["crop"] = "all"
+        return out
+    return entities
+
+
 def resolve_crop_for_turn(messages: list[BaseMessage]) -> Optional[str]:
     """Crop from latest message, or last few human lines only during crop clarify."""
     if is_crop_clarify_turn(messages):
@@ -332,9 +369,7 @@ def _finalize_location_and_crop_completeness(
     canonical_domains = [normalize_domain(d) for d in (domains or [])] or ["General"]
     needs_crop = (
         any(domain_requires_crop(d) for d in canonical_domains)
-        and (
-            not crop_counts_as_resolved(crop) or is_crop_placeholder(crop)
-        )
+        and not crop_slot_satisfied(crop)
     )
 
     if not has_state and not has_gps:
@@ -372,6 +407,8 @@ def apply_planner_completeness_rules(
     out: PlannerPlan = dict(plan)
     latest = latest_human_text(messages)
     entities = _merge_entities(out, messages, location, prev_entities)
+    domains_for_crop = list(out.get("domains") or [normalize_domain(out.get("domain") or "General")])
+    entities = apply_crop_one_shot_fallback(messages, entities, domains_for_crop)
     out["entities"] = entities
 
     has_state, _, has_gps = _location_status(entities, location)

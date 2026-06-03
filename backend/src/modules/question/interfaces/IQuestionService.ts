@@ -56,6 +56,11 @@ export interface IQuestionService {
     context: string,
   ): Promise<GeneratedQuestionResponse[]>;
 
+  /** Manually trigger duplicate check for a question without a reference */
+  manualCheckDuplicate(
+    questionId: string,
+  ): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string }>;
+
   /** Create a new question */
   addQuestion(
     userId: string,

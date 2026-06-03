@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useDashboardData, useTopFaqs } from "./hooks/useDashboardData";
+import { useDailyQuestionTrends, useDashboardData, useTopFaqs, useUserMertices } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
@@ -33,7 +33,7 @@ import { DailyQuestionTrendsChart } from "./components/DailyQuestionTrendsChart"
 import { TopFaqsLeaderboard } from "./components/TopFaqsLeaderboard";
 import { useInView } from "@/hooks/useInView";
 import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, X, Users, RefreshCw, UserMinus, HelpCircle, InfoIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import type { DateRange } from "react-day-picker";
@@ -63,6 +63,7 @@ import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -149,10 +150,11 @@ function LazySectionSkeleton({ className = "h-[300px]" }: { className?: string }
 export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam' | 'whatsapp'; onSourceChange?: (source: 'vicharanashala' | 'annam' | 'whatsapp') => void }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
+  const [activeChartTab, setActiveChartTab] = useState<string>("dau");
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-  const isAppAnalyticsSource = source === "annam" || source === "vicharanashala";
+  const isAppAnalyticsSource = source === "annam" || source === "vicharanashala" || source === "whatsapp";
   const loadImmediately = !isAppAnalyticsSource;
   const { data, isLoading, isFetching, error } = useDashboardData(
     filters,
@@ -218,6 +220,8 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     customerNotificationsRange.endTime,
   );
 
+
+
   useEffect(() => {
     setClosed2hDateRange(undefined);
     setQuestionStatusDateRange(undefined);
@@ -266,11 +270,11 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     endTime: faqsDateRange?.to,
   }), [filters, faqsDateRange]);
 
-  const { data: trendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDashboardData(
-    trendsFilters,
-    source,
-    shouldLoadTrends,
-  );
+  // const { data: trendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDashboardData(
+  //   trendsFilters,
+  //   source,
+  //   shouldLoadTrends,
+  // );
   // const { data: faqsDataa, isLoading: faqsLoadinga, isFetching: faqsFetchinga } = useDashboardData(
   //   faqsFilters,
   //   source,
@@ -501,6 +505,10 @@ useEffect(() => {
     }));
   }
 }, [source]);
+
+  const { data: dailyQuestionTrendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDailyQuestionTrends(source, trendsFilters.userType as string, trendsFilters.startTime, trendsFilters.endTime);
+
+  const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, filters.userType);
 
 const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp");
   return (
@@ -870,10 +878,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         >
                           <UserDemographicsSection
                             data={{
-                              ageGroups: data.ageGroups,
-                              genderSplit: data.genderSplit,
-                              farmingExperience: data.farmingExperience,
-                              landHolding: (data as any).landHolding ?? [],
+                              ageGroups: userMetricesData?.userDemographics?.ageGroups,
+                              genderSplit: userMetricesData?.userDemographics?.genderSplit,
+                              farmingExperience: userMetricesData?.userDemographics?.farmingExperience,
+                              landHolding: userMetricesData?.userDemographics?.landHolding ?? [],
                             }}
                             source={source}
                             userType={filters.userType}
@@ -886,7 +894,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         {source !== "whatsapp" && (
                           <div className="h-full">
                             <PlatformDonutSegments
-                              rawData={data.platformInstalls}
+                              rawData={userMetricesData?.platformInstalls}
                             />
                           </div>
                         )}
@@ -905,16 +913,26 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
 
                             <div className="flex items-center gap-2 mb-5">
                               <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-                              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                                Knowledge & Awareness
-                              </h3>
+                              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
+                                 <span>Knowledge & Awareness</span>
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                     <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                                       <InfoIcon className="h-3.5 w-3.5" />
+                                     </span>
+                                   </TooltipTrigger>
+                                   <TooltipContent className="normal-case tracking-normal">
+                                     Shows survey statistics on KCC awareness and agricultural app usage.
+                                   </TooltipContent>
+                                 </Tooltip>
+                               </h3>
                             </div>
 
                             <div className="flex flex-wrap gap-6 justify-center items-center h-[calc(100%-3rem)] overflow-hidden">
                               {[
                                 {
                                   label: "KCC Awareness",
-                                  data: data.kccAwareness,
+                                  data: userMetricesData?.kccAndAgriAppUsage?.kccAwareness,
                                   hovered,
                                   setHover: setHovered,
                                   color: "hsl(142 71% 45%)",
@@ -922,7 +940,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                                 },
                                 {
                                   label: "Uses Agri Apps",
-                                  data: data.agriAppUsage,
+                                  data: userMetricesData?.kccAndAgriAppUsage?.agriAppUsage,
                                   hovered: agriHovered,
                                   setHover: setAgriHovered,
                                   color: "hsl(217 91% 60%)",
@@ -1088,19 +1106,19 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                           <FeedbackCard
                             title="Feedback Data"
                             positiveFeedbacksCount={
-                              data?.feedbackData?.stats?.positiveCount
+                              userMetricesData?.feedbackData?.stats?.positiveCount
                             }
                             negativeFeedbacksCount={
-                              data?.feedbackData?.stats?.negativeCount
+                              userMetricesData?.feedbackData?.stats?.negativeCount
                             }
                             positiveFeedbacks={
-                              data?.feedbackData?.positiveFeedbacks
+                              userMetricesData?.feedbackData?.positiveFeedbacks
                             }
                             negativeFeedbacks={
-                              data?.feedbackData?.negativeFeedbacks
+                              userMetricesData?.feedbackData?.negativeFeedbacks
                             }
                             averageRating={
-                              data?.feedbackData?.stats?.averageRating
+                              userMetricesData?.feedbackData?.stats?.averageRating
                             }
                           />
                         )}
@@ -1170,7 +1188,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                       >
                         {shouldLoadTrends ? (
                           <DailyQuestionTrendsChart
-                            trends={(trendsData as any).dailyQuestionTrends}
+                            trends={dailyQuestionTrendsData}
                             dateRange={trendsDateRange}
                             onDateRangeChange={setTrendsDateRange}
                             isLoading={trendsLoading}
@@ -1248,23 +1266,79 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                           className=""
                         >
                           {shouldLoadActiveUsers ? (
-                            <>
-                              <ActiveUsersChart
-                                source={source}
-                                userType={filters.userType}
-                              />
-                              <RetentionMetricsChart
-                                source={source}
-                                userType={filters.userType}
-                              />
-                            </>
+                            <Tabs value={activeChartTab} onValueChange={setActiveChartTab} className="w-full">
+                              <TabsList className="grid w-full max-w-xl grid-cols-3 mb-4">
+                                <TabsTrigger value="dau" className="flex items-center justify-center gap-1.5">
+                                  <Users className="h-3.5 w-3.5" />
+                                  <span>Daily Active Users</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center p-0.5 text-muted-foreground/60 hover:text-muted-foreground">
+                                        <HelpCircle className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Shows daily, weekly, or monthly active chatbot user trends based on latest activity.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TabsTrigger>
+                                <TabsTrigger value="retention" className="flex items-center justify-center gap-1.5">
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                  <span>User Retention</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center p-0.5 text-muted-foreground/60 hover:text-muted-foreground">
+                                        <HelpCircle className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Tracks D1, D7, and D30 cohort-based user retention over time.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TabsTrigger>
+                                <TabsTrigger value="churn" className="flex items-center justify-center gap-1.5">
+                                  <UserMinus className="h-3.5 w-3.5" />
+                                  <span>Monthly Churn</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center p-0.5 text-muted-foreground/60 hover:text-muted-foreground">
+                                        <HelpCircle className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Measures the percentage of users active in the previous month who did not return.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TabsTrigger>
+                              </TabsList>
+                              <TabsContent value="dau" className="mt-0">
+                                {activeChartTab === "dau" && (
+                                  <ActiveUsersChart
+                                    source={source}
+                                    userType={filters.userType}
+                                  />
+                                )}
+                              </TabsContent>
+                              <TabsContent value="retention" className="mt-0">
+                                {activeChartTab === "retention" && (
+                                  <RetentionMetricsChart
+                                    source={source}
+                                    userType={filters.userType}
+                                  />
+                                )}
+                              </TabsContent>
+                              <TabsContent value="churn" className="mt-0">
+                                {activeChartTab === "churn" && (
+                                  <ChurnRateChart
+                                    source={source}
+                                    userType={filters.userType}
+                                  />
+                                )}
+                              </TabsContent>
+                            </Tabs>
                           ) : (
-                            <LazySectionSkeleton className="h-[620px]" />
+                            <LazySectionSkeleton className="h-[400px]" />
                           )}
-                          <ChurnRateChart
-                            source={source}
-                            userType={filters.userType}
-                          />
                         </div>  
                       )}
                       {source !== "whatsapp" && (
