@@ -34,6 +34,7 @@ import AuditPage from "./AuditPage";
 import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
 import { CallInterface } from "./CallInterface";
 import { CallHistory } from "./CallHistory";
+import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 
@@ -62,7 +63,6 @@ export const PlaygroundPage = () => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
   };
-  const targetUserId = env.plivo.targetUserId();
   // Set default tab based on user role when user data loads
   useEffect(() => {
     if (!user) return;
@@ -241,7 +241,7 @@ export const PlaygroundPage = () => {
                   </HoverCard>
                 </TabsTrigger>
 
-                {targetUserId && user?._id == targetUserId && (
+                {user?.isCallAgent && user?.isCallAgentActive && (user?.role === "moderator" || user?.role === "expert") && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
@@ -284,6 +284,16 @@ export const PlaygroundPage = () => {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                )}
+
+                {user?.role === "moderator" && (
+                  <TabsTrigger
+                    value="manage_agents"
+                    onClick={() => handleTabChange("manage_agents")}
+                    className={activeTab === "manage_agents" ? "bg-accent text-accent-foreground" : ""}
+                  >
+                    Manage Agents
+                  </TabsTrigger>
                 )}
 
                 {user && user.role !== "expert" && (
@@ -483,7 +493,7 @@ export const PlaygroundPage = () => {
                 </div>
               </TabsContent>
 
-              {targetUserId && user?._id == targetUserId && (
+              {user?.isCallAgent && user?.isCallAgentActive && (user?.role === "moderator" || user?.role === "expert") && (
                 <TabsContent
                   value="call_interface"
                   className={cn(
@@ -499,7 +509,7 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {targetUserId && user?._id == targetUserId && (
+              {user?.isCallAgent && user?.isCallAgentActive && (user?.role === "moderator" || user?.role === "expert") && (
                 <TabsContent
                   value="call_history"
                   className={cn(
@@ -530,6 +540,22 @@ export const PlaygroundPage = () => {
                   )}
                 >
                   <DataProcessingDashboard />
+                </TabsContent>
+              )}
+
+              {user?.role === "moderator" && (
+                <TabsContent
+                  value="manage_agents"
+                  className={cn(
+                    "mt-0 border-0 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ManageCallAgents />
                 </TabsContent>
               )}
               {/* {user && (

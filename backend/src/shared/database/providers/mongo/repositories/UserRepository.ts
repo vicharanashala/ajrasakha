@@ -1507,4 +1507,94 @@ export class UserRepository implements IUserRepository {
       );
     }
   }
+
+  async findCallAgents(session?: ClientSession): Promise<IUser[]> {
+    try {
+      await this.init();
+
+      const agents = await this.usersCollection
+        .find(
+          {
+            isCallAgent: true,
+            role: { $in: ['expert', 'moderator'] },
+          },
+          { session },
+        )
+        .toArray();
+
+      // Convert ObjectId to string for _id field
+      return agents.map((agent) => ({
+        ...agent,
+        _id: agent._id?.toString(),
+      })) as IUser[];
+    } catch (error) {
+      throw new InternalServerError('Failed to find call agents');
+    }
+  }
+
+  async setCallAgentStatus(
+    userId: string,
+    isCallAgent: boolean,
+    isCallAgentActive: boolean,
+    session?: ClientSession,
+  ): Promise<IUser> {
+    try {
+      await this.init();
+      const result = await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            isCallAgent,
+            isCallAgentActive,
+            updatedAt: new Date(),
+          },
+        },
+        { returnDocument: 'after', session },
+      );
+      if (!result) {
+        throw new NotFoundError('User not found');
+      }
+      // Convert ObjectId to string for _id field
+      return {
+        ...result,
+        _id: result._id?.toString(),
+      } as IUser;
+    } catch (error) {
+      throw new InternalServerError('Failed to set call agent status');
+    }
+  }
+
+  async toggleCallAgentActive(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<IUser> {
+    try {
+      await this.init();
+      const user = await this.usersCollection.findOne(
+        { _id: new ObjectId(userId) },
+        { session },
+      );
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+      const newStatus = !user.isCallAgentActive;
+      const result = await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            isCallAgentActive: newStatus,
+            updatedAt: new Date(),
+          },
+        },
+        { returnDocument: 'after', session },
+      );
+      // Convert ObjectId to string for _id field
+      return {
+        ...result,
+        _id: result._id?.toString(),
+      } as IUser;
+    } catch (error) {
+      throw new InternalServerError('Failed to toggle call agent active status');
+    }
+  }
 }

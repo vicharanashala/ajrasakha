@@ -889,4 +889,88 @@ export class UserController {
     const updatedUser = await this.userService.verifyUser(userId, isVerified);
     return updatedUser;
   }
+
+  @OpenAPI({
+    summary: 'Get all call agents',
+    description: 'Retrieves list of all users who are call agents (experts/moderators with isCallAgent: true). Moderator access required.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'Call agents retrieved successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Moderator access required',
+  })
+  @Get('/call-agents')
+  @HttpCode(200)
+  @Authorized(['moderator'])
+  async getCallAgents(): Promise<IUser[]> {
+    return await this.userService.getCallAgents();
+  }
+
+  @OpenAPI({
+    summary: 'Set user as call agent',
+    description: 'Sets or removes a user as a call agent. Moderator access required.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'Call agent status updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid user or role',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Moderator access required',
+  })
+  @Post('/call-agents')
+  @HttpCode(200)
+  @Authorized(['moderator'])
+  async setCallAgentStatus(
+    @Body() body: { userId: string; isCallAgent: boolean; isCallAgentActive: boolean },
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    const { userId, isCallAgent, isCallAgentActive } = body;
+    return await this.userService.setCallAgentStatus(userId, isCallAgent, isCallAgentActive, currentUser.role);
+  }
+
+  @OpenAPI({
+    summary: 'Toggle call agent active status',
+    description: 'Toggles the active status of a call agent. Moderator access required.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'Call agent active status toggled successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - User is not a call agent',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Moderator access required',
+  })
+  @Patch('/call-agents/:id/toggle-active')
+  @HttpCode(200)
+  @Authorized(['moderator'])
+  async toggleCallAgentActive(
+    @Param('id') userId: string,
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    return await this.userService.toggleCallAgentActive(userId, currentUser.role);
+  }
 }

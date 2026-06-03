@@ -504,4 +504,61 @@ export class UserService extends BaseService {
       };
     });
   }
+
+  async getCallAgents(): Promise<IUser[]> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.findCallAgents(session);
+    });
+  }
+
+
+  async setCallAgentStatus(
+    userId: string,
+    isCallAgent: boolean,
+    isCallAgentActive: boolean,
+    requestingUserRole?: string,
+  ): Promise<IUser> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      // Only moderators can manage call agents
+      if (requestingUserRole !== 'moderator') {
+        throw new ForbiddenError('Only moderators can manage call agents');
+      }
+  const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+      // Only experts and moderators can be call agents
+      if (isCallAgent && user.role !== 'expert' && user.role !== 'moderator') {
+        throw new BadRequestError(
+          'Only experts and moderators can be set as call agents',
+        );
+      }
+      return await this.userRepo.setCallAgentStatus(
+        userId,
+        isCallAgent,
+        isCallAgentActive,
+        session,
+      );
+    });
+  }
+
+
+
+  async toggleCallAgentActive(userId: string, requestingUserRole?: string): Promise<IUser> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      // Only moderators can manage call agents
+      if (requestingUserRole !== 'moderator') {
+        throw new ForbiddenError('Only moderators can manage call agents');
+      }
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (!user.isCallAgent) {
+        throw new BadRequestError('User is not a call agent');
+      }
+      return await this.userRepo.toggleCallAgentActive(userId, session);
+    });
+  }
 }

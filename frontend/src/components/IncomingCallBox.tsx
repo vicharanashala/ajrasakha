@@ -10,6 +10,7 @@ import { env } from "@/config/env";
 import Plivo from 'plivo-browser-sdk';
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { FarmerDetails } from "./FarmerDetails";
+import { toast } from "sonner";
 
 interface IncomingCall {
   uuid: string;
@@ -118,21 +119,12 @@ export const IncomingCallBox = ({
     };
   }, [callStatus, incomingCall]);
 
-  // Initialize Plivo SDK (NPM package) - Only for admins
+  // Initialize Plivo SDK (NPM package) - Only for call agents
   useEffect(() => {
     // Check if current user is authorized to use Plivo
-    const targetUserId = env.plivo.targetUserId();
-    const currentUserId = currentUser?._id;
-
-    if (targetUserId && currentUserId !== targetUserId) {
-      // console.log(`🚫 [IncomingCallBox] User ${currentUserId} not authorized. Target user: ${targetUserId}`);
+    if (!currentUser?.isCallAgent || !currentUser?.isCallAgentActive) {
       return;
     }
-
-    if (!targetUserId) {
-      // console.log('⚠️ [IncomingCallBox] No TARGET_USER_ID configured, allowing all users');
-    }
-
     // Skip if still loading
     if (isUserLoading) {
       // console.log('🔒 [IncomingCallBox] Skipping Plivo init - user still loading');
@@ -479,6 +471,7 @@ export const IncomingCallBox = ({
       "rounded-xl transition-all duration-300",
       callStatus === 'incoming' ? "p-[2px] from-white via-white to-white animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.4)]" : ""
     )}>
+            {/* <button onClick={() => handleRedial("+919606751041")}>Redial</button> */}
       <Card className={cn(
         "transition-all duration-300 overflow-hidden",
         callStatus === 'incoming' ? "border-2 border-white" : "",
