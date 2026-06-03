@@ -56,6 +56,7 @@ import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
 import { useAddUser } from "./hooks/useAddUser";
 import { motion,AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/atoms/badge";
+import { useDebounce } from "@/hooks/ui/useDebounce";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -117,6 +118,7 @@ export function UserDetailsView({
   // const [hovered, setHovered] = useState<string | null>(null);
   // const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+const debouncedSearch = useDebounce(filters.search, 500);
 
   // const scrollToTable = () => {
   //   setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
@@ -148,12 +150,12 @@ export function UserDetailsView({
     }
   }, [initialFilters]);
 
-  const { data, isLoading, error } = useUserDetails( 
+  const { data, isLoading, error } = useUserDetails(
     filters.startTime,
     filters.endTime,
     currentPage,
     pageSize,
-    filters.search,
+    debouncedSearch,
     source,
     filters.crop,
     filters.village,
