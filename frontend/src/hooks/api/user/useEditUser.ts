@@ -40,19 +40,20 @@ export const useEditUser = () => {
 
 
 
-export const useBlockUser = (userId:string,action:string) => {
-  const { error: toastError } = useToast();
-  const queryClient =useQueryClient();
-  return useMutation({
-    mutationKey:['block_users'],
-    mutationFn: async (): Promise<void | null> => {
-     return await userService.isBlockUser(userId,action)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({queryKey:['users']})
-    },
-    onError:() => {
-      toastError(`Failed to ${action} Expert`)
-    }
-  })
-}
+//reduntant code, not in use, can be deleted after confirmation
+// export const useBlockUser = (userId:string,action:string) => {
+//   const { error: toastError } = useToast();
+//   const queryClient =useQueryClient();
+//   return useMutation({
+//     mutationKey:['block_users'],
+//     mutationFn: async (): Promise<void | null> => {
+//      return await userService.isBlockUser(userId,action)
+//     },
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({queryKey:['users']})
+//     },
+//     onError:() => {
+//       toastError(`Failed to ${action} Expert`)
+//     }
+//   })
+// }
