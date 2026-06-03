@@ -13,7 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/atoms/popover";
-import { CalendarIcon, Clock3, X } from "lucide-react";
+import { CalendarIcon, Clock3, X, InfoIcon } from "lucide-react";
 import { format, isSameDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
@@ -79,20 +79,9 @@ export function ClosedQuestionsCard({
                 Question Status
               </div>
 
-              <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <motion.span
-                      whileHover={{ scale: 1.15 }}
-                      whileTap={{ scale: 0.92 }}
-                      className="
-                        flex h-4 w-4 cursor-pointer
-                        items-center justify-center
-                        rounded-full border text-[10px]
-                      "
-                    >
-                      i
-                    </motion.span>
+                    <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help ml-1" />
                   </TooltipTrigger>
 
                   <TooltipContent
@@ -231,8 +220,7 @@ export function ClosedQuestionsCard({
                     </div>
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
-            </div>
+              </div>
 
             <div
               className="flex items-center gap-1.5"

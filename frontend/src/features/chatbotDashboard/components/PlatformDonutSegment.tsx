@@ -1,8 +1,9 @@
 import { CardHeader, CardTitle } from "@/components/atoms/card";
-import { Globe, Maximize2, X } from "lucide-react";
+import { Globe, Maximize2, X, InfoIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useUserMertices } from "../hooks/useDashboardData";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 // interface PlatformData {
 //   // count: number;
@@ -189,8 +190,18 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
 
         <div className="flex items-center gap-2 mb-4">
           <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-          <h3 className="text-xs font-semibold tracking-wider uppercase text-foreground/60">
-            Installations by Platform
+          <h3 className="text-xs font-semibold tracking-wider uppercase text-foreground/60 flex items-center gap-1.5">
+            <span>Installations by Platform</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                  <InfoIcon className="h-3.5 w-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="normal-case tracking-normal">
+                Shows user distribution split across different operating systems (Android, iOS, Windows, macOS, Linux).
+              </TooltipContent>
+            </Tooltip>
           </h3>
         </div>
 
