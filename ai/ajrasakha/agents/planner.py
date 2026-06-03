@@ -257,7 +257,7 @@ def _resolve_state_deterministic(
     location: Optional[dict],
     prev_entities: Optional[PlannerEntities] = None,
 ) -> Optional[str]:
-    """Deterministically resolve state: prev_entities (previous turns), then latest text, then history, then GPS."""
+    """Deterministically resolve state: prev_entities (previous turns), then latest text, then GPS."""
     # Priority 0: State from previous planner turns (carry-over from clarification)
     if prev_entities and prev_entities.get("state"):
         return prev_entities.get("state")
@@ -265,11 +265,7 @@ def _resolve_state_deterministic(
     state_from_latest = extract_state_from_text(latest_human_text(messages))
     if state_from_latest:
         return state_from_latest
-    # Priority 2: Conversation history (last 4 human turns)
-    state_from_history = _extract_state_from_history(messages, max_turns=4)
-    if state_from_history:
-        return state_from_history
-    # Priority 3: GPS thread location
+    # Priority 2: GPS thread location
     return gps_state_from_location(location)
 
 
@@ -401,7 +397,10 @@ async def planner_node(
 
     location = state.get("location")
     # Extract previous entities BEFORE LLM call so state can be carried forward
-    prev_entities: PlannerEntities = dict(state.get("plan", {}).get("entities") or {})
+    prev_plan = state.get("plan") or {}
+    prev_entities: PlannerEntities = {}
+    if prev_plan and not prev_plan.get("is_complete", True):
+        prev_entities = dict(prev_plan.get("entities") or {})
 
     state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
     crop_resolved = resolve_crop_for_turn(messages)

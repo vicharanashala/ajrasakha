@@ -231,35 +231,30 @@ def merge_entities_from_rephrased_query(
 
     # --- State/District Resolution (STRICT PRIORITY) ---
     
-    # Priority 1: LLM extracted entities (district + state from rephrased_query)
-    district_from_llm = merged.get("district")
-    state_from_llm = merged.get("state")
+    # Priority 1: Explicit mention in the current query text
+    state_from_text = extract_state_from_text(text)
     
-    if district_from_llm and state_from_llm:
-        # Both district and state from LLM → use both
-        pass  # Already in merged
-    elif state_from_llm:
-        # Only state from LLM → district will be set below (history or GPS or "all")
-        pass  # State already set
+    if state_from_text:
+        merged["state"] = state_from_text
+        # We also want to take district from LLM if LLM extracted one, but only if state was mentioned
+        if plan.get("entities", {}).get("district"):
+            merged["district"] = plan.get("entities", {}).get("district")
     else:
-        # Priority 2: Check current rephrased query (state only via regex)
-        state_from_text = extract_state_from_text(text)
-        
-        if state_from_text:
-            merged["state"] = state_from_text
-            # District NOT found in text → will come from history/GPS/LLM
+        # Priority 2: GPS Fallback
+        gps_state = gps_state_from_location(location)
+        if gps_state:
+            merged["state"] = gps_state
+            # Always clear district if we fall back to GPS state, so it takes GPS city or 'all'
+            merged.pop("district", None)
         else:
-            # Priority 3: Check conversation history (last 4 human turns, most recent first)
-            state_from_history = _extract_state_from_history(messages, max_turns=4)
-            
-            if state_from_history:
-                merged["state"] = state_from_history
+            # Priority 3: Fallback to LLM entities (which might come from history) or prev_entities
+            state_from_llm = plan.get("entities", {}).get("state")
+            if state_from_llm:
+                merged["state"] = state_from_llm
+            elif prev_entities and prev_entities.get("state"):
+                merged["state"] = prev_entities.get("state")
             else:
-                # Priority 4: GPS fallback (last resort)
-                gps_state = gps_state_from_location(location)
-                if gps_state:
-                    merged["state"] = gps_state
-                # else: no state found anywhere → will trigger clarification
+                merged.pop("state", None)
     
     # --- District Resolution ---
     # District only from: LLM entities OR GPS (never from text regex)
