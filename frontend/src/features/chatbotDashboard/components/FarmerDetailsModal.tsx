@@ -177,7 +177,7 @@ export function FarmerDetailsModal({
               <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <DetailItem label="Name" value={user.name} />
                 <DetailItem label="Email" value={user.email} />
-                <DetailItem label="Role" value={user.role} />
+                <DetailItem label="Role" value={user.userRole || user.role} />
                 <DetailItem
                   label="Query asked"
                   value={user.totalQuestions?.toLocaleString()}

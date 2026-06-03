@@ -173,6 +173,7 @@ export interface UserDetailEntry {
   name: string;
   email: string;
   role?: string;
+  userRole?: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
@@ -466,7 +467,7 @@ export interface IChatbotRepository {
     source: string,
     data: {
       name?: string;
-      role?: string;
+      userRole?: string;
       farmerProfile?: Partial<FarmerProfile>;
     },
   ): Promise<boolean>;
@@ -476,7 +477,7 @@ export interface IChatbotRepository {
       email: string;
       name: string;
       password: string;
-      role?: string;
+      userRole?: string;
     },
   ): Promise<boolean>;
 

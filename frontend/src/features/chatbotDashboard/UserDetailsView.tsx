@@ -297,7 +297,7 @@ export function UserDetailsView({
 
   const handleSaveEditedUser = async (payload: {
     name?: string;
-    role?: string;
+    userRole?: string;
     farmerProfile?: {
       farmerName?: string;
       age?: number;
@@ -336,7 +336,7 @@ export function UserDetailsView({
     email: string;
     name: string;
     password: string;
-    role?: string;
+    userRole?: string;
   }) => {
     await addUserMutation.mutateAsync({
       source,
@@ -451,7 +451,7 @@ export function UserDetailsView({
                       </TableHead>
                       <TableHead className="text-center">Farmer Name</TableHead>
                       <TableHead className="text-center">Email</TableHead>
-                      <TableHead className="text-center">Role</TableHead>
+                      <TableHead className="text-center">User Role</TableHead>
                       <TableHead
                         className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
                         onClick={() =>
@@ -518,9 +518,9 @@ export function UserDetailsView({
                                   {user.email || <EmptyValue />}
                                 </TableCell>
 
-                                {/* Role */}
+                                {/* User Role */}
                                 <TableCell className="align-middle whitespace-nowrap">
-                                  {user.role || <EmptyValue />}
+                                  {user.userRole || <EmptyValue />}
                                 </TableCell>
 
                                 {/* Queries asked */}
