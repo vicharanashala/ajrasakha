@@ -39,7 +39,7 @@ export interface DashboardResponse {
   agriAppUsage?: DemographicEntry[];
   landHolding?: DemographicEntry[];
   platformInstalls?: PlatformInstallEntry[];
-  domainSpikes: DomainSpikeEntry[];
+  domainSpikes?: DomainSpikeEntry[];
   feedbackData?: FeedbackData;
   responseAdherenceTable?: ResponseAdherenceTable;
   dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;

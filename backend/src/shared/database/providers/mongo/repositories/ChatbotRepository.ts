@@ -1107,22 +1107,23 @@ export class ChatbotRepository implements IChatbotRepository {
           existingMsgIdSet.has(q.messageId),
         ).length;
       }
+    
 
       // Construct matches based on startTime and endTime if provided
-      const queryMatch: any = {
-        isCreatedByUser: true,
-        isDeleted: {$ne: true},
-        text: {$exists: true, $ne: null, $nin: ['', ' ']},
-      };
-      if (startTime || endTime) {
-        queryMatch.createdAt = {};
-        if (startTime) {
-          queryMatch.createdAt.$gte = new Date(startTime);
-        }
-        if (endTime) {
-          queryMatch.createdAt.$lte = new Date(endTime);
-        }
-      }
+      // const queryMatch: any = {
+      //   isCreatedByUser: true,
+      //   isDeleted: {$ne: true},
+      //   text: {$exists: true, $ne: null, $nin: ['', ' ']},
+      // };
+      // if (startTime || endTime) {
+      //   queryMatch.createdAt = {};
+      //   if (startTime) {
+      //     queryMatch.createdAt.$gte = new Date(startTime);
+      //   }
+      //   if (endTime) {
+      //     queryMatch.createdAt.$lte = new Date(endTime);
+      //   }
+      // }
 
 // // Calculate repeatQueryCount from messages (trim, lowercase, aggregate repeat counts)
 // let repeatQueryRaw;
@@ -1461,11 +1462,11 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.initReviewSystem();
 
       const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-
+      const source = _source === "whatsapp" ? 'WHATSAPP' : 'AJRASAKHA';
       const pipeline = [
         {
           $match: {
-            source: 'AJRASAKHA',
+            source: source,
             'details.domain': {
               $exists: true,
               $nin: [null, ''],

@@ -1317,9 +1317,10 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                           {shouldLoadQueryInsights ? (
                             <DashboardQueryCategories
                               categories={
-                                source === "whatsapp"
-                                  ? queryCategories
-                                  : data.queryCategories
+                                queryCategories
+                                // source === "whatsapp"
+                                //   ? queryCategories
+                                //   : data.queryCategories
                               }
                             />
                           ) : (
