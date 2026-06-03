@@ -42,6 +42,7 @@ import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
 import { useVerifyUser } from "@/hooks/api/user/useVerifyUser";
 import { useToggleSTF } from "@/hooks/api/user/useToggleSTF";
 import AvatarComponent from "./avatar-component";
+import { toast } from "@/shared/components/toast";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -83,11 +84,16 @@ export const UsersTable = ({
 }: UserTableProps) => {
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
-  const { mutate: blockExpert } = useBlockUser();
+  const { mutateAsync: blockExpert } = useBlockUser();
   const { mutate: toggleUserRole } = useToggleRole();
   const handleBlock = async () => {
     const action = isCurrentlyBlocked ? "unblock" : "block";
-    blockExpert({ userId: userIdToBlock, action: action });
+    await toast.promise(blockExpert({ userId: userIdToBlock, action: action }),{
+      loading: isCurrentlyBlocked ? "Unblocking user..." : "Blocking user...",
+      success: isCurrentlyBlocked ? "User unblocked successfully" : "User blocked successfully",
+      error: `Failed to ${isCurrentlyBlocked ? "unblock" : "block"} user`
+    })
+    
   };
   const handleToggleRole = (userId: string, userRole: string, selectedRole?: string) => {
     console.log("Users data is", { userId, userRole, selectedRole })
