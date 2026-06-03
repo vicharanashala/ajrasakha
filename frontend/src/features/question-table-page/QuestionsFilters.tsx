@@ -804,7 +804,7 @@ export const QuestionsFilters = ({
           </Tooltip>
         </TooltipProvider>
 
-        {userRole !== "expert" && (
+        {userRole !== "expert" && userRole !== "tester" && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -826,7 +826,7 @@ export const QuestionsFilters = ({
         {isSelectionModeOn && (
           <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
             {/* Allocate to PAE */}
-            {userRole !== "expert" && answerMode.toLowerCase() === "draft" && (
+            {userRole !== "expert" && userRole !== "tester" && answerMode.toLowerCase() === "draft" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -844,7 +844,7 @@ export const QuestionsFilters = ({
             )}
 
             {/* Allocate to EXPERTS */}
-            {userRole !== "expert" && answerMode.toLowerCase() !== "draft" && (
+            {userRole !== "expert" && userRole !== "tester" && answerMode.toLowerCase() !== "draft" && (
               <div className="relative inline-block">
                 <Button
                   variant="outline"
@@ -880,32 +880,34 @@ export const QuestionsFilters = ({
             )}
 
             {/* Bulk delete with count */}
-            <ConfirmationModal
-              title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${selectedQuestionIds.length
-                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
-                }? This action is irreversible.`}
-              confirmText="Delete"
-              cancelText="Cancel"
-              isLoading={bulkDeletingQuestions}
-              type="delete"
-              onConfirm={handleBulkDelete}
-              trigger={
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={
-                    selectedQuestionIds.length === 0 || bulkDeletingQuestions
-                  }
-                  className="flex items-center gap-2 transition-all"
-                >
-                  <Trash className="h-4 w-4" />
-                  {bulkDeletingQuestions
-                    ? `Deleting (${selectedQuestionIds.length})...`
-                    : `Delete (${selectedQuestionIds.length})`}
-                </Button>
-              }
-            />
+            {userRole !== "tester" && (
+              <ConfirmationModal
+                title="Delete Selected Questions?"
+                description={`Are you sure you want to delete ${selectedQuestionIds.length
+                  } selected question${selectedQuestionIds.length > 1 ? "s" : ""
+                  }? This action is irreversible.`}
+                confirmText="Delete"
+                cancelText="Cancel"
+                isLoading={bulkDeletingQuestions}
+                type="delete"
+                onConfirm={handleBulkDelete}
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={
+                      selectedQuestionIds.length === 0 || bulkDeletingQuestions
+                    }
+                    className="flex items-center gap-2 transition-all"
+                  >
+                    <Trash className="h-4 w-4" />
+                    {bulkDeletingQuestions
+                      ? `Deleting (${selectedQuestionIds.length})...`
+                      : `Delete (${selectedQuestionIds.length})`}
+                  </Button>
+                }
+              />
+            )}
 
             {/* Cancel selection */}
             <Button
@@ -1100,7 +1102,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* update crops */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1154,7 +1156,7 @@ export const QuestionsFilters = ({
               )} */}
 
               {/* reallocate */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <button
                   className="relative w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1190,7 +1192,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* send outreach rport */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
               {/* preferences */}
@@ -1231,7 +1233,7 @@ export const QuestionsFilters = ({
                     onOpenDialog={() => setIsSidebarOpen(false)}
                   />
                 </div>
-                {userRole !== "moderator" && (
+                {userRole !== "moderator" && userRole !== "tester" && (
                   <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                     <DownloadFilteredReportButton
                       onOpenDialog={() => setIsSidebarOpen(false)}

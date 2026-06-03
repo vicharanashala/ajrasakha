@@ -10,10 +10,12 @@ import {
   UploadedFile,
   UseBefore,
   Get,
+  ForbiddenError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IUser} from '#root/shared/index.js';
 import multer from 'multer';
@@ -67,6 +69,7 @@ export class ContextController {
     @Body() body: {transcript: string},
     @CurrentUser() user: IUser,
   ): Promise<{insertedId: string}> {
+    verifyNotTester(user);
     const {transcript} = body;
     const userId = user._id.toString();
     return this.contextService.addContext(userId, transcript);
