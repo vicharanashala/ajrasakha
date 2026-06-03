@@ -84,7 +84,7 @@ export const UsersTable = ({
 }: UserTableProps) => {
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
-  const { mutateAsync: blockExpert } = useBlockUser();
+  const { mutateAsync: blockExpert } = useBlockUser(userRole === "admin" ? { isAdmin: true } : {});
   const { mutate: toggleUserRole } = useToggleRole();
   const handleBlock = async () => {
     const action = isCurrentlyBlocked ? "unblock" : "block";
