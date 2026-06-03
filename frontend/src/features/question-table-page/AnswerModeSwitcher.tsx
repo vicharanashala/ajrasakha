@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
-import { FileText, LeafyGreen, MessageCircle, Radio, Sparkles, UserCheck, UserRound } from "lucide-react";
+import { FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export const MODES = [
@@ -28,16 +28,20 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
         "Questions assigned to PAE experts (pae_review: true)",
     non_agri:
         "Non-agricultural questions separated for dedicated tracking",
+    search:
+        "Search results across all sources",
 };
 
-type Mode = typeof MODES[number]["id"];
+type Mode = typeof MODES[number]["id"] | "search";
 
 export function AnswerModeSwitcher({
     answerMode,
     handleAnswerModeChange,
+    hasSearch = false,
 }: {
     answerMode: Mode;
     handleAnswerModeChange: (mode: Mode) => void;
+    hasSearch?: boolean;
 }) {
     const groupRef = useRef<HTMLDivElement>(null);
     const [glider, setGlider] = useState({ left: 0, width: 0 });
@@ -64,9 +68,30 @@ export function AnswerModeSwitcher({
                 style={{ left: glider.left, width: glider.width }}
             />
 
+            {hasSearch && (
+                <Tooltip delayDuration={1200}>
+                    <TooltipTrigger asChild>
+                        <button
+                            data-mode="search"
+                            onClick={() => handleAnswerModeChange("search")}
+                            className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${answerMode === "search"
+                                ? "text-primary-foreground scale-[1.02]"
+                                : "text-muted-foreground hover:text-foreground"
+                                }`}
+                        >
+                            <Search className="h-4 w-4" />
+                            Search Results
+                        </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-sm">
+                        {MODE_DESCRIPTIONS["search"]}
+                    </TooltipContent>
+                </Tooltip>
+            )}
+
             {MODES.map(({ id, label, icon: Icon }) => (
                 <Tooltip key={id} delayDuration={1200}>
-                    <TooltipTrigger asChild >
+                    <TooltipTrigger asChild>
                         <button
                             data-mode={id}
                             onClick={() => handleAnswerModeChange(id)}
@@ -79,11 +104,9 @@ export function AnswerModeSwitcher({
                             {(id === "draft" || id === "pae" || id === "non_agri") && (
                                 <TopRightBadge label="new" right={0} />
                             )}
-
                             {label}
                         </button>
                     </TooltipTrigger>
-
                     <TooltipContent side="top" className="max-w-xs text-sm">
                         {MODE_DESCRIPTIONS[id]}
                     </TooltipContent>
