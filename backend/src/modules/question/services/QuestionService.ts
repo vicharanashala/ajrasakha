@@ -1177,6 +1177,28 @@ export class QuestionService extends BaseService implements IQuestionService {
           ]);
         }
       } else {
+        const isTimeBoundedQuestion =
+          source === 'AJRASAKHA' || source === 'WHATSAPP';
+
+        if (isTimeBoundedQuestion) {
+          const threadValidation = await this.validateTimeBoundQuestionThread(
+            questionId,
+            baseQuestion.threadId,
+          );
+          console.log("threadValidation ", threadValidation);
+          if (!threadValidation.isValid) {
+            console.log("Npt valid")
+            logData.outcome = 'TESTING_THREAD_ID';
+            logData.threadValidationReason = threadValidation.reason;
+            chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+
+            await this.questionRepo.updateQuestion(questionId, {
+              isTesting: true,
+            });
+            return;
+          }
+        }
+
         // AJRASAKHA / WHATSAPP — duplicate check then notify moderators
         try {
           const duplicateResult = await this.checkDuplicateQuestion(
@@ -1244,6 +1266,33 @@ export class QuestionService extends BaseService implements IQuestionService {
         `[processQuestionInBackground] Failed for questionId=${questionId}:`,
         error?.message,
       );
+    }
+  }
+
+  private async validateTimeBoundQuestionThread(
+    questionId: string,
+    threadId?: string,
+  ): Promise<{isValid: boolean; reason?: string}> {
+    if (!threadId?.trim()) {
+      return {isValid: false, reason: 'THREAD_ID_MISSING'};
+    }
+
+    try {
+      const matchedQuestion = await this.getMatchedQuestion(questionId);
+      if (!matchedQuestion) {
+        return {isValid: false, reason: 'MATCHED_QUESTION_EMPTY'};
+      }
+
+      return {isValid: true};
+    } catch (error: any) {
+      console.error(
+        `[validateTimeBoundQuestionThread] Failed for questionId=${questionId}:`,
+        error?.message,
+      );
+      return {
+        isValid: false,
+        reason: error?.message || 'MATCHED_QUESTION_FAILED',
+      };
     }
   }
 
@@ -4879,10 +4928,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQuestionStatusSummary(
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
-  ): Promise<{
-    totalQuestions: number;
-    statuses: {status: string; count: number}[];
-  }> {
+  ): Promise<any> {
     return this.questionRepo.getQuestionStatusSummary(query, body);
   }
 
