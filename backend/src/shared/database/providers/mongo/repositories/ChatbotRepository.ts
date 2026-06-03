@@ -4713,10 +4713,21 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
-      const user = await this.users.findOne({email: email}, {session});
+      const userLookup =
+        ObjectId.isValid(email)
+          ? {$or: [{_id: new ObjectId(email)}, {email}]}
+          : {email};
+      const user = await this.users.findOne(userLookup, {session});
 
       if (!user) {
-        throw new Error('User not found');
+        return {
+          total: 0,
+          totalPages: 0,
+          currentPage: page,
+          limit,
+          items: [],
+          allMessageIds: [],
+        };
       }
 
       const skip = (page - 1) * limit;
@@ -4898,9 +4909,13 @@ export class ChatbotRepository implements IChatbotRepository {
   ) {
     try {
       await this.init(source);
-      const user = await this.users.findOne({email: userEmail}, {session});
+      const userLookup =
+        ObjectId.isValid(userEmail)
+          ? {$or: [{_id: new ObjectId(userEmail)}, {email: userEmail}]}
+          : {email: userEmail};
+      const user = await this.users.findOne(userLookup, {session});
       if (!user) {
-        throw new Error('User not found');
+        return null;
       }
       return {
         userId: String(user._id),
@@ -4919,7 +4934,11 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(source);
 
-      const user = await this.users.findOne({email}, {session});
+      const userLookup =
+        ObjectId.isValid(email)
+          ? {$or: [{_id: new ObjectId(email)}, {email}]}
+          : {email};
+      const user = await this.users.findOne(userLookup, {session});
 
       if (!user) {
         return [];

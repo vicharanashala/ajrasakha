@@ -876,18 +876,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     page = 1,
     limit = 10,
+    userId = '',
   ) {
-    const user = await this.chatbotRepository.getUserData(userEmail, source);
-
-    // Always fetch messages
-    const messages = await this.chatbotRepository.getUsersMessages(
-      userEmail,
-      source,
-      undefined,
-      userType,
-      page,
-      limit,
-    );
+    const userIdentifier = userId || userEmail;
+    const user = await this.chatbotRepository.getUserData(userIdentifier, source);
 
     // No user found
     if (!user) {
@@ -900,13 +892,29 @@ export class ChatbotService extends BaseService implements IChatbotService {
           items: [],
         },
 
-        messages,
+        messages: {
+          total: 0,
+          totalPages: 0,
+          currentPage: page,
+          limit,
+          items: [],
+        },
       };
     }
 
+    // Always fetch messages
+    const messages = await this.chatbotRepository.getUsersMessages(
+      userIdentifier,
+      source,
+      undefined,
+      userType,
+      page,
+      limit,
+    );
+
     // Extract messageIds
     const messageIds = await this.chatbotRepository.getAllUserMessageIds(
-      userEmail,
+      userIdentifier,
       source,
     );
 
@@ -2473,9 +2481,18 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
-   async notifyUser(userEmail: string, messageId: string, message:string): Promise<any>{
-    const user = await this.chatbotRepository.getUserData(userEmail, "annam")
-    console.log('User id for notification', user.userId);
+   async notifyUser(userEmail: string, messageId: string, message:string, source = 'vicharanashala', userId = ''): Promise<any>{
+    const user = await this.chatbotRepository.getUserData(userId || userEmail, source)
+    if (!user) {
+      throw new BadRequestError('User not found');
+    }
+    if (!appConfig.WEB_WEBHOOK_API_URL) {
+      throw new InternalServerError('WEB_WEBHOOK_API_URL is not configured');
+    }
+    if (!appConfig.WEB_WEBHOOK_API_KEY) {
+      throw new InternalServerError('WEB_WEBHOOK_API_KEY is not configured');
+    }
+
     const webhookPayload = {
       customMessage: message,
       userId: user.userId.toString(),
@@ -2489,7 +2506,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       );
       if (!response?.ok || response.status < 200 || response.status >= 300) {
         throw new InternalServerError(
-          `Webhook failed with status ${response?.status}, ${response.body ? `response: ${response.body}` : 'no response body'}`,
+          `Webhook rejected notification request with status ${response?.status}. Check WEB_WEBHOOK_API_KEY and WEB_WEBHOOK_API_URL.`,
         );
       }
 

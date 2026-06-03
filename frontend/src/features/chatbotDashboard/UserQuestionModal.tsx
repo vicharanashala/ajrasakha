@@ -89,6 +89,7 @@ const UserQuestionsModal = ({
     userType as any,
     currentPage,
     10,
+    user?.userId || "",
   );
   // console.log("UserQuestionModal data", fullData);
   const latestMessageId = fullData?.messages?.items?.[0]?.messageId;
@@ -119,6 +120,7 @@ const UserQuestionsModal = ({
         open={open}
         onOpenChange={onOpenChange}
         user={user}
+        source={source}
         items={items}
         isLoading={isLoading}
         totalCount={totalCount}
@@ -230,6 +232,7 @@ interface ActiveData {
 }
 
 interface UserInfo {
+  userId?: string;
   name: string;
   email: string;
   phoneNo: string;
@@ -239,6 +242,7 @@ interface UserActivityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user?: UserInfo;
+  source: string;
   items: ActivityItem[];
   isLoading?: boolean;
   totalCount?: number;
@@ -289,7 +293,7 @@ function EmptyState({ viewType }: { viewType: string }) {
   );
 }
 
-function LoadingState({ viewType }: { viewType: string }) {
+function LoadingState() {
   return (
     <div className="space-y-3 py-2">
       {[1, 2, 3].map((i) => (
@@ -377,6 +381,7 @@ function UserActivityDialog({
   open,
   onOpenChange,
   user,
+  source,
   items,
   isLoading = false,
   totalCount = 0,
@@ -434,8 +439,10 @@ function UserActivityDialog({
                 disabled={!customMessage?.trim() || isPending}
                 onClick={() => {
                   notifyUser({
-                    userEmail: user.email,
-                    messageId: latestMessageId ?? null,
+                    userEmail: user?.email,
+                    userId: (user as any)?.userId,
+                    source,
+                    messageId: latestMessageId,
                     message: customMessage,
                   });
 
@@ -635,7 +642,7 @@ function UserActivityDialog({
           {/* ── Content ── */}
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2.5">
             {isLoading ? (
-              <LoadingState viewType={viewType} />
+              <LoadingState />
             ) : items.length === 0 ? (
               <EmptyState viewType={viewType} />
             ) : (

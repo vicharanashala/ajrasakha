@@ -7,19 +7,26 @@ export function useNotifyUser() {
   return useMutation({
     mutationFn: async ({
       userEmail,
+      userId,
+      source,
       messageId,
       message,
     }: {
-      userEmail: string;
-      messageId: string;
-      message: string | null ;
+      userEmail?: string;
+      userId?: string;
+      source: string;
+      messageId?: string | null;
+      message: string;
     }) => {
+      const params = new URLSearchParams();
+      if (userEmail) params.set('userEmail', userEmail);
+      if (userId) params.set('userId', userId);
+      params.set('source', source);
+      if (messageId) params.set('messageId', messageId);
+      params.set('message', message);
+
       const result = await apiFetch<any>(
-        `${env.apiBaseUrl()}/analytics/notify-user?userEmail=${encodeURIComponent(
-          userEmail,
-        )}&messageId=${encodeURIComponent(
-          messageId,
-        )}&message=${encodeURIComponent(message)}`,
+        `${env.apiBaseUrl()}/analytics/notify-user?${params.toString()}`,
         {
           method: 'POST',
         },

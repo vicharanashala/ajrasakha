@@ -820,6 +820,7 @@ export class ChatbotController {
   @Authorized()
   async getUserQuestionsData(
     @QueryParam('userEmail') userEmail: string,
+    @QueryParam('userId') userId: string,
 
     @QueryParam('source')
     source: string = 'vicharanashala',
@@ -850,6 +851,7 @@ export class ChatbotController {
       userType,
       Number(page),
       Number(limit),
+      userId,
     );
   }
 
@@ -858,10 +860,12 @@ export class ChatbotController {
   @Authorized()
   async notifyUser(
     @QueryParam('userEmail') userEmail: string,
+    @QueryParam('userId') userId: string,
+    @QueryParam('source') source: string = 'vicharanashala',
     @QueryParam('messageId') messageId: string,
     @QueryParam('message') message: string,
   ) {
-    return this.chatbotService.notifyUser(userEmail, messageId, message);
+    return this.chatbotService.notifyUser(userEmail, messageId, message, source, userId);
   }
 
   @Get('/closed-notified-data')

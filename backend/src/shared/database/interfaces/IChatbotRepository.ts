@@ -372,7 +372,7 @@ export interface IChatbotRepository {
 
   getUsersMessages(email: string, source?: string, session?: ClientSession, userType?: string, page?: number, limit?: number): Promise<any>;
 
-  getUserData(userEmail: string, source: string, session?: ClientSession): Promise<{ userId: string; name: string }>;
+  getUserData(userEmail: string, source: string, session?: ClientSession): Promise<{ userId: string; name: string } | null>;
 
   getAllUserMessageIds(email: string, source?: string, session?: ClientSession): Promise<string[]>;
 

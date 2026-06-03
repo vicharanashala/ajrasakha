@@ -13,6 +13,7 @@ export interface UserQuestion {
 
 export interface UserMessage {
   message: string;
+  messageId?: string;
   createdAt: string;
   updatedAt: string;
   repeatedCount: number;
@@ -33,17 +34,38 @@ export interface UserActivityResponse {
   messages: PaginatedResponse<UserMessage>;
 }
 
+const emptyUserActivityResponse = (
+  page: number,
+  limit: number,
+): UserActivityResponse => ({
+  questions: {
+    total: 0,
+    totalPages: 1,
+    currentPage: page,
+    limit,
+    items: [],
+  },
+  messages: {
+    total: 0,
+    totalPages: 1,
+    currentPage: page,
+    limit,
+    items: [],
+  },
+});
+
 export function useUserQuestionsData(
   userEmail: string,
   source: string,
   userType: string,
   page = 1,
   limit = 10,
+  userId = '',
 ) {
   const { data, isLoading, error } = useQuery<UserActivityResponse, Error>({
-    queryKey: ["user-questions-data", userEmail, source, userType, page, limit],
+    queryKey: ["user-questions-data", userEmail, userId, source, userType, page, limit],
 
-    enabled: !!userEmail,
+    enabled: !!userEmail || !!userId,
 
     staleTime: 30 * 1000,
 
@@ -52,7 +74,8 @@ export function useUserQuestionsData(
 
       const params = new URLSearchParams();
 
-      params.set("userEmail", userEmail);
+      if (userEmail) params.set("userEmail", userEmail);
+      if (userId) params.set("userId", userId);
       params.set("source", source);
       params.set("userType", userType);
       params.set("page", String(page));
@@ -62,45 +85,12 @@ export function useUserQuestionsData(
         `${API_BASE_URL}/analytics/user-questions-data?${params.toString()}`,
       );
 
-      return (
-        result ?? {
-          questions: {
-            totalQuestions: 0,
-            totalPages: 1,
-            currentPage: 1,
-            limit: 10,
-            items: [],
-          },
-          messages: {
-            totalMessages: 0,
-            totalPages: 1,
-            currentPage: 1,
-            limit: 10,
-            items: [],
-          },
-        }
-      );
+      return result ?? emptyUserActivityResponse(page, limit);
     },
   });
 
   return {
-    data: data ?? {
-      questions: {
-        totalQuestions: 0,
-        totalPages: 1,
-        currentPage: 1,
-        limit: 10,
-        items: [],
-      },
-
-      messages: {
-        totalMessages: 0,
-        totalPages: 1,
-        currentPage: 1,
-        limit: 10,
-        items: [],
-      },
-    },
+    data: data ?? emptyUserActivityResponse(page, limit),
 
     isLoading,
 
