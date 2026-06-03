@@ -3,7 +3,11 @@ import { UserService } from "../../services/userService";
 
 const userService = new UserService();
 
-export const useBlockUser = () => {
+interface UseBlockUserProps {
+  isAdmin?: boolean;
+}
+
+export const useBlockUser = ({ isAdmin }: UseBlockUserProps = {}) => {
   const queryClient =useQueryClient();
   return useMutation({
     mutationKey:['block_user'],
@@ -12,10 +16,12 @@ export const useBlockUser = () => {
     },
     onSuccess: () => {
       //  Refresh admin users list
-      queryClient.invalidateQueries({
-        queryKey: ["users"],
-        exact: false,
-      });
+      if (isAdmin) {
+        queryClient.invalidateQueries({
+          queryKey: ["admin"],
+          exact: false,
+        });
+      }
 
       //  Refresh moderator experts list
       queryClient.invalidateQueries({
