@@ -37,7 +37,7 @@ describe('QuestionController.addQuestion - Bulk Upload', () => {
     mockContextService = {};
 
     mockAuditTrailsService = {
-      createAuditTrail: vi.fn(),
+      createAuditTrail: vi.fn(async () => undefined),
     };
 
     controller = new QuestionController(

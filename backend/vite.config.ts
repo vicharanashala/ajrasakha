@@ -42,5 +42,9 @@ export default defineConfig({
       'src/**/*.api.test.ts',
     ],
     hookTimeout: 30000,
+    coverage: {
+      provider: 'v8',
+      reporter: [['html', {subdir: 'html'}], 'json', 'text'],
+    },
   },
 });
