@@ -49,7 +49,7 @@ import {
 import {GLOBAL_TYPES} from '#root/types.js';
 import {UserService} from '#root/modules/user/services/UserService.js';
 import { IActiveUser } from '#root/shared/database/providers/mongo/repositories/ChatbotRepository.js';
-import { FeedbackData, KccAndAgriAppStats, PlatformInstallEntry, UserDemographics } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { FeedbackData, KccAndAgriAppStats, PlatformInstallEntry, ResponseAdherenceTable, UserDemographics } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -987,4 +987,29 @@ export class ChatbotController {
 
     return await this.chatbotService.getUsersMetrics(source, userType);
   }
+
+  @Get('/response-adherence-table-data')
+  @HttpCode(200)
+  @Authorized()
+  async getResponseAderenceTable(
+    @QueryParams() query: ActiveUsersQuery,
+  ): Promise<ResponseAdherenceTable> {
+    const startDate = query.startDate
+      ? new Date(query.startDate).toISOString()
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate).toISOString()
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getResponseAdherenceTable(
+      source,
+      userType,
+      startDate,
+      endDate,
+    );
+  }
+  
 }

@@ -21,17 +21,17 @@ import type {
 import { GrowthResponse } from '../types/chatbot.type.js';
 
 export interface DashboardResponse {
-  kpi: KpiSummary;
-  dau: DailyActiveUsersEntry[];
-  channelSplit: ChannelSplitEntry[];
-  voiceAccuracy: VoiceAccuracyEntry[];
-  geo: GeoStateEntry[];
-  queryCategories: QueryCategoryEntry[];
-  weeklySessionDuration: WeeklySessionDurationEntry[];
-  monthlySessionDuration: MonthlySessionDurationEntry[];
-  dailyQueries: any[];
-  weeklyQueries: any[];
-  monthlyQueries: any[];
+  kpi?: KpiSummary;
+  dau?: DailyActiveUsersEntry[];
+  channelSplit?: ChannelSplitEntry[];
+  voiceAccuracy?: VoiceAccuracyEntry[];
+  geo?: GeoStateEntry[];
+  queryCategories?: QueryCategoryEntry[];
+  weeklySessionDuration?: WeeklySessionDurationEntry[];
+  monthlySessionDuration?: MonthlySessionDurationEntry[];
+  dailyQueries?: any[];
+  weeklyQueries?: any[];
+  monthlyQueries?: any[];
   ageGroups?: DemographicEntry[];
   genderSplit?: DemographicEntry[];
   farmingExperience?: DemographicEntry[];
@@ -173,4 +173,5 @@ export interface IChatbotService {
 }[]>;
   getTopQuestionsFromCollection(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
+  getResponseAdherenceTable(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<ResponseAdherenceTable>;
 }

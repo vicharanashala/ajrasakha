@@ -13,7 +13,7 @@ import type { DashboardFilterValues } from "../DashboardFilters";
 import type { DemographicEntry, FeedbackData, UserDemographics } from "../types";
 import type { IPlatformInstallEntry } from "../types";
 import type { DomainSpikeEntry } from "../components/DomainSpikesModal";
-import type { KccAndAgriAppStats, PlatformInstallEntry } from "@/types";
+import type { KccAndAgriAppStats, PlatformInstallEntry, ResponseAdherenceTable } from "@/types";
 export type DashboardDataType = typeof DASHBOARD_DATA;
 
 interface DashboardApiResponse {
@@ -560,5 +560,31 @@ export const useUserMertices = (
       );
       return result as UsermetricsResponse;
     }
+  });
+}
+
+export const useResponseAdherenceTable = (source?: string, userType?: string, startTime?: Date, endTime?: Date, shouldLoad?: boolean) => {
+  const params = new URLSearchParams();
+  params.append("source", source || 'vicharanashala');
+  params.append("userType", userType || 'all');
+  if (startTime) params.append("startDate", startTime.toISOString());
+  if (endTime) params.append("endDate", endTime.toISOString());
+  return useQuery({
+    queryKey: [
+      "response-adherence-table",
+      source,
+      userType,
+      startTime,
+      endTime
+    ],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<ResponseAdherenceTable>(
+        `${API_BASE_URL}/analytics/response-adherence-table-data?${params.toString()}`
+      );
+      return result;
+    },
+    enabled: shouldLoad
   });
 }

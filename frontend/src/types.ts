@@ -1071,3 +1071,36 @@ export interface FeedbackData{
     totalFeedbacks: number
   }
 }
+
+
+export interface ResponseAdherenceTable {
+  date: string;
+  time: string;
+  timeWindow: string;
+  whatsappQueriesAsked: number;
+  ajrasakhaQueriesAsked: number;
+  whatsappPushedToReviewer: number;
+  ajrasakhaPushedToReviewer: number;
+  whatsappAnsweredWithin120Min: number;
+  ajrasakhaAnsweredWithin120Min: number;
+  whatsappMarkedDuplicate: number;
+  ajrasakhaMarkedDuplicate: number;
+  whatsappDynamicWeather: number;
+  ajrasakhaDynamicWeather: number;
+  whatsappDynamicMarket: number;
+  ajrasakhaDynamicMarket: number;
+  whatsappDynamicSchemes: number;
+  ajrasakhaDynamicSchemes: number;
+  whatsappNonGdbWithin120: number;
+  ajrasakhaNonGdbWithin120: number;
+  whatsappInReview: number;
+  ajrasakhaInReview: number;
+  whatsappOpen: number;
+  ajrasakhaOpen: number;
+  whatsappDelayed: number;
+  ajrasakhaDelayed: number;
+  whatsappAverageResponseMinutes: number;
+  ajrasakhaAverageResponseMinutes: number;
+  whatsappAdherencePct: number;
+  ajrasakhaAdherencePct: number;
+}

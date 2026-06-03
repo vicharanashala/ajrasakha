@@ -14,6 +14,7 @@ import type {
   PlatformInstallEntry,
   KccAndAgriAppStats,
   FeedbackData,
+  ResponseAdherenceTable,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -376,7 +377,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         // dailyQuestionTrends,
   // topFaqs,
   // topQuestionsFromCollection,
-        responseAdherenceTable,
+        // responseAdherenceTable,
         dailySummary,
         weeklySummary,
         monthlySummary,
@@ -460,45 +461,45 @@ export class ChatbotService extends BaseService implements IChatbotService {
 //   startTime,
 //   endTime,
 // ),
-        this.chatbotRepository
-          .getResponseAdherenceTable(
-            undefined,
-            userType,
-            startTime,
-            endTime,
-            source,
-          )
-          .catch(() => ({
-            date: '',
-            time: '',
-            timeWindow: '',
-            whatsappQueriesAsked: 0,
-            ajrasakhaQueriesAsked: 0,
-            whatsappPushedToReviewer: 0,
-            ajrasakhaPushedToReviewer: 0,
-            whatsappAnsweredWithin120Min: 0,
-            ajrasakhaAnsweredWithin120Min: 0,
-            whatsappMarkedDuplicate: 0,
-            ajrasakhaMarkedDuplicate: 0,
-            whatsappDynamicWeather: 0,
-            ajrasakhaDynamicWeather: 0,
-            whatsappDynamicMarket: 0,
-            ajrasakhaDynamicMarket: 0,
-            whatsappDynamicSchemes: 0,
-            ajrasakhaDynamicSchemes: 0,
-            whatsappNonGdbWithin120: 0,
-            ajrasakhaNonGdbWithin120: 0,
-            whatsappInReview: 0,
-            ajrasakhaInReview: 0,
-            whatsappOpen: 0,
-            ajrasakhaOpen: 0,
-            whatsappDelayed: 0,
-            ajrasakhaDelayed: 0,
-            whatsappAverageResponseMinutes: 0,
-            ajrasakhaAverageResponseMinutes: 0,
-            whatsappAdherencePct: 0,
-            ajrasakhaAdherencePct: 0,
-          })),
+        // this.chatbotRepository
+        //   .getResponseAdherenceTable(
+        //     undefined,
+        //     userType,
+        //     startTime,
+        //     endTime,
+        //     source,
+        //   )
+        //   .catch(() => ({
+        //     date: '',
+        //     time: '',
+        //     timeWindow: '',
+        //     whatsappQueriesAsked: 0,
+        //     ajrasakhaQueriesAsked: 0,
+        //     whatsappPushedToReviewer: 0,
+        //     ajrasakhaPushedToReviewer: 0,
+        //     whatsappAnsweredWithin120Min: 0,
+        //     ajrasakhaAnsweredWithin120Min: 0,
+        //     whatsappMarkedDuplicate: 0,
+        //     ajrasakhaMarkedDuplicate: 0,
+        //     whatsappDynamicWeather: 0,
+        //     ajrasakhaDynamicWeather: 0,
+        //     whatsappDynamicMarket: 0,
+        //     ajrasakhaDynamicMarket: 0,
+        //     whatsappDynamicSchemes: 0,
+        //     ajrasakhaDynamicSchemes: 0,
+        //     whatsappNonGdbWithin120: 0,
+        //     ajrasakhaNonGdbWithin120: 0,
+        //     whatsappInReview: 0,
+        //     ajrasakhaInReview: 0,
+        //     whatsappOpen: 0,
+        //     ajrasakhaOpen: 0,
+        //     whatsappDelayed: 0,
+        //     ajrasakhaDelayed: 0,
+        //     whatsappAverageResponseMinutes: 0,
+        //     ajrasakhaAverageResponseMinutes: 0,
+        //     whatsappAdherencePct: 0,
+        //     ajrasakhaAdherencePct: 0,
+        //   })),
         this.chatbotRepository.getQuerySummaryByPeriod(
           'daily',
           source,
@@ -544,7 +545,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         // dailyQuestionTrends,
 // topFaqs,
 // topQuestionsFromCollection,
-        responseAdherenceTable,
+        // responseAdherenceTable,
         querySummaries: {
           daily: dailySummary,
           weekly: weeklySummary,
@@ -2592,4 +2593,47 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Failed to fetch users metrics: ${error}`);
     }
   }
-}
+
+  async getResponseAdherenceTable(source?:string, userType?: string, startTime?: string, endTime?: string): Promise<ResponseAdherenceTable> {
+    return this.chatbotRepository
+          .getResponseAdherenceTable(
+            undefined,
+            userType,
+            startTime,
+            endTime,
+            source,
+          )
+          .catch(() => ({
+            date: '',
+            time: '',
+            timeWindow: '',
+            whatsappQueriesAsked: 0,
+            ajrasakhaQueriesAsked: 0,
+            whatsappPushedToReviewer: 0,
+            ajrasakhaPushedToReviewer: 0,
+            whatsappAnsweredWithin120Min: 0,
+            ajrasakhaAnsweredWithin120Min: 0,
+            whatsappMarkedDuplicate: 0,
+            ajrasakhaMarkedDuplicate: 0,
+            whatsappDynamicWeather: 0,
+            ajrasakhaDynamicWeather: 0,
+            whatsappDynamicMarket: 0,
+            ajrasakhaDynamicMarket: 0,
+            whatsappDynamicSchemes: 0,
+            ajrasakhaDynamicSchemes: 0,
+            whatsappNonGdbWithin120: 0,
+            ajrasakhaNonGdbWithin120: 0,
+            whatsappInReview: 0,
+            ajrasakhaInReview: 0,
+            whatsappOpen: 0,
+            ajrasakhaOpen: 0,
+            whatsappDelayed: 0,
+            ajrasakhaDelayed: 0,
+            whatsappAverageResponseMinutes: 0,
+            ajrasakhaAverageResponseMinutes: 0,
+            whatsappAdherencePct: 0,
+            ajrasakhaAdherencePct: 0,
+          }));
+  }
+
+  }
