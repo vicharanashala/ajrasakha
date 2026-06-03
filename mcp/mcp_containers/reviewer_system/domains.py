@@ -26,6 +26,7 @@ crop_required_domains = {
 # 2. Domains where crop is automatically "all" / Non-Crop (crop_all_domains)
 crop_all_domains = {
     # --- Your Primary Domain ---
+    "Weather",
     "Soil Health Card",
     "Soil Testing",
     
