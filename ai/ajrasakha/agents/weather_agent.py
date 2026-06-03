@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 WEATHER_GEMMA_BASE_URL = os.getenv("WEATHER_GEMMA_BASE_URL", "http://100.100.108.44:8014/v1")
-IMD_WEATHER_API_URL = os.getenv("IMD_WEATHER_API_URL", "http://100.100.108.44:6003/imd/weather")
+IMD_WEATHER_API_URL = os.getenv("IMD_WEATHER_API_URL", "http://100.100.108.44:6103/imd/weather")
 
 
 async def classify_weather_query(query: str) -> str:
