@@ -223,14 +223,14 @@ export async function stopJob(jobId: string) {
 // ---------------------------------------------------------------------------
 
 export async function getPopStates() {
-  const res = await fetch(`${POP_API}/pop/states`);
+  const res = await fetch(`${POP_API}/states`);
   const data = await _handleResponse(res);
   return Array.isArray(data) ? { states: data } : data;
 }
 
 export async function getPopCrops(state: string) {
   const res = await fetch(
-    `${POP_API}/pop/crops?state=${encodeURIComponent(state)}`,
+    `${POP_API}/crops?state=${encodeURIComponent(state)}`,
   );
   const data = await _handleResponse(res);
   return Array.isArray(data) ? { crops: data } : data;
@@ -238,36 +238,36 @@ export async function getPopCrops(state: string) {
 
 export async function getPopDocs(state: string, crop: string) {
   const res = await fetch(
-    `${POP_API}/pop/docs?state=${encodeURIComponent(state)}&crop=${encodeURIComponent(crop)}`,
+    `${POP_API}/docs?state=${encodeURIComponent(state)}&crop=${encodeURIComponent(crop)}`,
   );
   const data = await _handleResponse(res);
   return Array.isArray(data) ? { docs: data } : data;
 }
 
 export async function getPopJob(jobId: string) {
-  const res = await fetch(`${POP_API}/pop/jobs/${jobId}`);
+  const res = await fetch(`${POP_API}/jobs/${jobId}`);
   return _handleResponse(res);
 }
 
 export async function stopPopJob(jobId: string) {
-  const res = await fetch(`${POP_API}/pop/jobs/${jobId}/stop`, {
+  const res = await fetch(`${POP_API}/jobs/${jobId}/stop`, {
     method: "POST",
   });
   return _handleResponse(res);
 }
 
 export async function getPopDataTree() {
-  const res = await fetch(`${POP_API}/pop/data/tree`);
+  const res = await fetch(`${POP_API}/data/tree`);
   return _handleResponse(res);
 }
 
 export async function getPopOutputTree() {
-  const res = await fetch(`${POP_API}/pop/output/tree`);
+  const res = await fetch(`${POP_API}/output/tree`);
   return _handleResponse(res);
 }
 
 export async function getPopStateTable() {
-  const res = await fetch(`${POP_API}/pop/state-table`);
+  const res = await fetch(`${POP_API}/state-table`);
   return _handleResponse(res);
 }
 
@@ -281,7 +281,7 @@ export async function runPop(body: object) {
 }
 
 export async function createPopState(state: string) {
-  const res = await fetch(`${POP_API}/pop/state`, {
+  const res = await fetch(`${POP_API}/state`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ state }),
@@ -290,7 +290,7 @@ export async function createPopState(state: string) {
 }
 
 export async function createPopCrop(state: string, crop: string) {
-  const res = await fetch(`${POP_API}/pop/crop`, {
+  const res = await fetch(`${POP_API}/crop`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ state, crop }),
@@ -303,7 +303,7 @@ export async function uploadPopDoc(file: File, state: string, crop: string) {
   fd.append("file", file);
   fd.append("state", state);
   fd.append("crop", crop);
-  const res = await fetch(`${POP_API}/pop/upload-doc`, {
+  const res = await fetch(`${POP_API}/upload-doc`, {
     method: "POST",
     body: fd,
   });
@@ -316,7 +316,7 @@ export async function deletePopDoc(
   docName: string,
 ) {
   const params = new URLSearchParams({ state, crop, doc_name: docName });
-  const res = await fetch(`${POP_API}/pop/doc?${params}`, {
+  const res = await fetch(`${POP_API}/doc?${params}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -324,7 +324,7 @@ export async function deletePopDoc(
 
 export async function deleteEmptyPopCrop(state: string, crop: string) {
   const params = new URLSearchParams({ state, crop });
-  const res = await fetch(`${POP_API}/pop/crop?${params}`, {
+  const res = await fetch(`${POP_API}/crop?${params}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -332,14 +332,14 @@ export async function deleteEmptyPopCrop(state: string, crop: string) {
 
 export async function deleteEmptyPopState(state: string) {
   const params = new URLSearchParams({ state });
-  const res = await fetch(`${POP_API}/pop/state?${params}`, {
+  const res = await fetch(`${POP_API}/state?${params}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
 }
 
 export function popDownloadUrl(path: string) {
-  return `${POP_API}/pop/download/${path}`;
+  return `${POP_API}/download/${path}`;
 }
 
 export function popOutputDownloadUrl(
@@ -348,7 +348,7 @@ export function popOutputDownloadUrl(
   docName: string,
 ) {
   const params = new URLSearchParams({ state, crop, doc_name: docName });
-  return `${POP_API}/pop/output?${params}`;
+  return `${POP_API}/output?${params}`;
 }
 
 export async function uploadPopFile(
@@ -360,14 +360,14 @@ export async function uploadPopFile(
     return _uploadChunked(
       file,
       dest,
-      `${POP_API}/pop/upload-chunk`,
+      `${POP_API}/upload-chunk`,
       onProgress,
     );
   const fd = new FormData();
   fd.append("file", file);
   const url = dest
-    ? `${POP_API}/pop/upload?dest=${encodeURIComponent(dest)}`
-    : `${POP_API}/pop/upload`;
+    ? `${POP_API}/upload?dest=${encodeURIComponent(dest)}`
+    : `${POP_API}/upload`;
   const res = await fetch(url, { method: "POST", body: fd });
   const result = await _handleResponse(res);
   onProgress?.(100);
@@ -375,14 +375,14 @@ export async function uploadPopFile(
 }
 
 export async function deletePopFile(path: string) {
-  const res = await fetch(`${POP_API}/pop/files/${path}`, {
+  const res = await fetch(`${POP_API}/files/${path}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
 }
 
 export async function deletePopFolder(path: string) {
-  const res = await fetch(`${POP_API}/pop/folders/${path}`, {
+  const res = await fetch(`${POP_API}/folders/${path}`, {
     method: "DELETE",
   });
   return _handleResponse(res);
@@ -399,7 +399,7 @@ export async function uploadPopAuditedFile(
   fd.append("state", state);
   fd.append("crop", crop);
   fd.append("doc_name", docName);
-  const res = await fetch(`${POP_API}/pop/upload-audited`, {
+  const res = await fetch(`${POP_API}/upload-audited`, {
     method: "POST",
     body: fd,
   });
