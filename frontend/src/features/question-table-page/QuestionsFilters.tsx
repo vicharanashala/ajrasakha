@@ -1233,7 +1233,7 @@ export const QuestionsFilters = ({
                     onOpenDialog={() => setIsSidebarOpen(false)}
                   />
                 </div>
-                {userRole !== "moderator" && userRole !== "tester" && (
+                {userRole !== "moderator" && (
                   <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                     <DownloadFilteredReportButton
                       onOpenDialog={() => setIsSidebarOpen(false)}
