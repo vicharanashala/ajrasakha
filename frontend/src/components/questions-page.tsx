@@ -213,19 +213,14 @@ export const QuestionsPage = ({
     ],
   );
 
-  // When search is active fetch all results in one shot so client-side tab
-  // filtering (AJRASAKHA / Manual / WhatsApp / Outreach) works across the
-  // full result set — not just the current page.
-  const searchLimit = 500;
-
   const {
     data: questionData,
     isLoading,
     isFetching,
     refetch,
   } = useGetAllDetailedQuestions(
-    debouncedSearch ? 1 : currentPage,
-    debouncedSearch ? searchLimit : limit,
+    currentPage,
+    limit,
     filter,
     debouncedSearch,
     viewMode === "all",
@@ -305,11 +300,11 @@ export const QuestionsPage = ({
   }, [currentItems, selectedQuestionId]);
 
   const totalPages = viewMode === "all"
-    ? (debouncedSearch ? 1 : (questionData?.totalPages || 0))
+    ? (questionData?.totalPages || 0)
     : (reviewData?.totalPages || 0);
 
   const displayTotal = viewMode === "all"
-    ? (debouncedSearch ? filteredQuestions.length : (questionData?.totalCount || 0))
+    ? (questionData?.totalCount || 0)
     : (reviewData?.totalDocs || 0);
   const currentPageVal = viewMode === "all" ? currentPage : reviewPage;
 
