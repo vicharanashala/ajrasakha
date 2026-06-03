@@ -689,10 +689,10 @@ export class QuestionRepository implements IQuestionRepository {
       let result = [];
 
       const isSearchTermObjectId = isValidObjectId(search);
-      // Use vector search only for longer natural-language queries (>= 4 words or > 30 chars).
-      // Short/literal strings like "question q33" should use text search for exact matching.
-      const searchWordCount = search ? search.trim().split(/\s+/).length : 0;
-      const isSemanticQuery = searchWordCount >= 4 || (search?.trim().length ?? 0) > 30;
+      // Vector search is disabled for the keyword search path — users expect
+      // exact/regex keyword matching, not semantic similarity results.
+      // The semantic path is kept but will never trigger when search is set.
+      const isSemanticQuery = false;
       if (
         !isSearchTermObjectId &&
         isSemanticQuery &&
