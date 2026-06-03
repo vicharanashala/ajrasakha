@@ -803,16 +803,81 @@ export class ChatbotRepository implements IChatbotRepository {
    * getExternalUserIds() + buildUserMessageFilter() which caused a separate DB
    * query for every method call.
    */
+  // private buildUserTypeLookupStages(userType: string): any[] {
+  //   if (userType === 'all') return [];
+
+  //   const stages: any[] = [
+  //     {
+  //       $addFields: {
+  //         _userOid: {
+  //           $cond: [
+  //             {$and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}]},
+  //             {$toObjectId: '$user'},
+  //             null,
+  //           ],
+  //         },
+  //       },
+  //     },
+  //     {
+  //       $lookup: {
+  //         from: 'users',
+  //         localField: '_userOid',
+  //         foreignField: '_id',
+  //         as: '_userDoc',
+  //       },
+  //     },
+  //   ];
+
+  //   if (userType === 'external') {
+  //     // $unwind without preserveNull drops messages with no matching user (correct)
+  //     stages.push(
+  //       {$unwind: '$_userDoc'},
+  //       {$match: {'_userDoc.email': {$regex: '^rup', $options: 'i'}}},
+  //     );
+  //   } else {
+  //     // internal: preserve messages from unknown users, exclude 'rup' emails
+  //     stages.push(
+  //       {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: true}},
+  //       {$match: {'_userDoc.email': {$not: {$regex: '^rup', $options: 'i'}}}},
+  //     );
+  //   }
+
+  //   stages.push({$unset: ['_userOid', '_userDoc']});
+  //   return stages;
+  // }
+
+  // private buildUserDocFilter(userType: string): Record<string, any> {
+  //   if (userType === 'all') return {};
+  //   return userType === 'external'
+  //     ? {email: {$regex: '^rup', $options: 'i'}}
+  //     : {email: {$not: {$regex: '^rup', $options: 'i'}}};
+  // }
   private buildUserTypeLookupStages(userType: string): any[] {
     if (userType === 'all') return [];
 
-    const stages: any[] = [
+    const userRoleMatch =
+      userType === 'external'
+        ? {
+            '_userDoc.userRole': {
+              $in: ['FARMER', 'COORDINATOR'],
+            },
+          }
+        : {
+            '_userDoc.userRole': 'INTERNAL',
+          };
+
+    return [
       {
         $addFields: {
           _userOid: {
             $cond: [
-              {$and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}]},
-              {$toObjectId: '$user'},
+              {
+                $and: [
+                  { $ne: ['$user', null] },
+                  { $ne: ['$user', ''] },
+                ],
+              },
+              { $toObjectId: '$user' },
               null,
             ],
           },
@@ -826,42 +891,98 @@ export class ChatbotRepository implements IChatbotRepository {
           as: '_userDoc',
         },
       },
+      {
+        $unwind: '$_userDoc',
+      },
+      {
+        $match: userRoleMatch,
+      },
+      {
+        $unset: ['_userOid', '_userDoc'],
+      },
     ];
-
-    if (userType === 'external') {
-      // $unwind without preserveNull drops messages with no matching user (correct)
-      stages.push(
-        {$unwind: '$_userDoc'},
-        {$match: {'_userDoc.email': {$regex: '^rup', $options: 'i'}}},
-      );
-    } else {
-      // internal: preserve messages from unknown users, exclude 'rup' emails
-      stages.push(
-        {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: true}},
-        {$match: {'_userDoc.email': {$not: {$regex: '^rup', $options: 'i'}}}},
-      );
-    }
-
-    stages.push({$unset: ['_userOid', '_userDoc']});
-    return stages;
   }
 
   private buildUserDocFilter(userType: string): Record<string, any> {
     if (userType === 'all') return {};
-    return userType === 'external'
-      ? {email: {$regex: '^rup', $options: 'i'}}
-      : {email: {$not: {$regex: '^rup', $options: 'i'}}};
+    if (userType === 'external') {
+      return {
+        userRole: { $in: ['FARMER', 'COORDINATOR'] },
+      };
+    }
+    return {
+      userRole: 'INTERNAL',
+    };
   }
 
+  // private buildQuestionUserTypeLookupStages(userType: string): any[] {
+  //   if (userType === 'all') return [];
+
+  //   const stages: any[] = [
+  //     {
+  //       $addFields: {
+  //         _userOid: {
+  //           $cond: [
+  //             {$and: [{$ne: ['$userId', null]}, {$ne: ['$userId', '']}]},
+  //             {$toObjectId: '$userId'},
+  //             null,
+  //           ],
+  //         },
+  //       },
+  //     },
+  //     {
+  //       $lookup: {
+  //         from: 'users',
+  //         localField: '_userOid',
+  //         foreignField: '_id',
+  //         as: '_userDoc',
+  //       },
+  //     },
+  //   ];
+
+  //   const userDocFilter = this.buildUserDocFilter(userType);
+  //   const transformedFilter: Record<string, any> = {};
+  //   for (const key of Object.keys(userDocFilter)) {
+  //     transformedFilter[`_userDoc.${key}`] = userDocFilter[key];
+  //   }
+
+  //   if (userType === 'external') {
+  //     stages.push({$unwind: '$_userDoc'}, {$match: transformedFilter});
+  //   } else {
+  //     stages.push(
+  //       {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: true}},
+  //       {$match: transformedFilter},
+  //     );
+  //   }
+
+  //   stages.push({$unset: ['_userOid', '_userDoc']});
+  //   return stages;
+  // }
   private buildQuestionUserTypeLookupStages(userType: string): any[] {
     if (userType === 'all') return [];
 
-    const stages: any[] = [
+    const userRoleMatch =
+      userType === 'external'
+        ? {
+            '_userDoc.userRole': {
+              $in: ['FARMER', 'COORDINATOR'],
+            },
+          }
+        : {
+            '_userDoc.userRole': 'INTERNAL',
+          };
+
+    return [
       {
         $addFields: {
           _userOid: {
             $cond: [
-              {$and: [{$ne: ['$userId', null]}, {$ne: ['$userId', '']}]},
+              {
+                $and: [
+                  {$ne: ['$userId', null]},
+                  {$ne: ['$userId', '']},
+                ],
+              },
               {$toObjectId: '$userId'},
               null,
             ],
@@ -876,25 +997,16 @@ export class ChatbotRepository implements IChatbotRepository {
           as: '_userDoc',
         },
       },
+      {
+        $unwind: '$_userDoc',
+      },
+      {
+        $match: userRoleMatch,
+      },
+      {
+        $unset: ['_userOid', '_userDoc'],
+      },
     ];
-
-    const userDocFilter = this.buildUserDocFilter(userType);
-    const transformedFilter: Record<string, any> = {};
-    for (const key of Object.keys(userDocFilter)) {
-      transformedFilter[`_userDoc.${key}`] = userDocFilter[key];
-    }
-
-    if (userType === 'external') {
-      stages.push({$unwind: '$_userDoc'}, {$match: transformedFilter});
-    } else {
-      stages.push(
-        {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: true}},
-        {$match: transformedFilter},
-      );
-    }
-
-    stages.push({$unset: ['_userOid', '_userDoc']});
-    return stages;
   }
 
   private escapeRegex(value: string): string {
@@ -6273,7 +6385,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDailyQuestionTrends(
+  async getDailyQuestionTrends( 
     days = 30,
     source?: string,
     session?: ClientSession,
@@ -6306,16 +6418,16 @@ export class ChatbotRepository implements IChatbotRepository {
           matchQuery.createdAt.$lte = new Date(endTime);
         }
       }
-
-      const userTypeLookupStages =
-        this.buildQuestionUserTypeLookupStages(userType);
+      // commenting out as we cant filter users in review system for this data, need to rectify
+      // const userTypeLookupStages =
+      //   this.buildQuestionUserTypeLookupStages(userType);
 
       const result = await this.QuestionCollection.aggregate(
         [
           {
             $match: matchQuery,
           },
-          ...userTypeLookupStages,
+          // ...userTypeLookupStages,
           {
             $group: {
               _id: {
