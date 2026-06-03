@@ -221,6 +221,7 @@ export interface IQuestionService {
   ): Promise<{
     totalQuestions: number;
     statuses: {status: string; count: number}[];
+    sourceCounts: {source: string; count: number}[];
   }>;
 
   getExprtIdByIndex(questionId: string, index: number): Promise<string | null>;

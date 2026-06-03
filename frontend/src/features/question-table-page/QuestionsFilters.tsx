@@ -618,7 +618,8 @@ export const QuestionsFilters = ({
   const offset = useRef({ x: 0, y: 0 });
   const [isBadgeExpanded, setIsBadgeExpanded] = useState(false);
   const hasDragged = useRef(false);
-  const { data: statusSummary, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
+  const { data: statusSummaryRaw, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
+  const statusSummary = statusSummaryRaw as import("@/hooks/api/question/useGetQuestionStatusSummary").QuestionStatusSummary | null;
 
   // Dynamically clamp the badge position based on its estimated sizes to prevent it from ever clipping off the screen
   const estimatedBadgeHeight = isBadgeExpanded ? 240 : 50;
@@ -779,6 +780,8 @@ export const QuestionsFilters = ({
         answerMode={answerMode}
         handleAnswerModeChange={handleAnswerModeChange}
         hasSearch={!!search}
+        sourceCounts={statusSummary?.sourceCounts}
+        totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
       />
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">

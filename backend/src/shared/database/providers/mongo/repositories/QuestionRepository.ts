@@ -4799,7 +4799,7 @@ export class QuestionRepository implements IQuestionRepository {
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
     session?: ClientSession,
-  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
+  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[]; sourceCounts: { source: string; count: number }[] }> {
     await this.init();
 
     const { filter } = await buildQuestionFilter(
@@ -4860,34 +4860,38 @@ export class QuestionRepository implements IQuestionRepository {
       }
     }
 
-    const results = await this.QuestionCollection.aggregate(
-      [
-        { $match: filter },
-        {
-          $group: {
-            _id: '$status',
-            count: { $sum: 1 },
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            status: '$_id',
-            count: 1,
-          },
-        },
-      ],
-      { session },
-    ).toArray();
+    const [statusResults, sourceResults] = await Promise.all([
+      this.QuestionCollection.aggregate(
+        [
+          { $match: filter },
+          { $group: { _id: '$status', count: { $sum: 1 } } },
+          { $project: { _id: 0, status: '$_id', count: 1 } },
+        ],
+        { session },
+      ).toArray(),
+      this.QuestionCollection.aggregate(
+        [
+          { $match: filter },
+          { $group: { _id: '$source', count: { $sum: 1 } } },
+          { $project: { _id: 0, source: '$_id', count: 1 } },
+        ],
+        { session },
+      ).toArray(),
+    ]);
 
-    const statuses = results.map(r => ({
+    const statuses = statusResults.map(r => ({
       status: r.status as string,
+      count: r.count as number,
+    }));
+
+    const sourceCounts = sourceResults.map(r => ({
+      source: r.source as string,
       count: r.count as number,
     }));
 
     const totalQuestions = statuses.reduce((sum, s) => sum + s.count, 0);
 
-    return { totalQuestions, statuses };
+    return { totalQuestions, statuses, sourceCounts };
   }
 
 
