@@ -11,7 +11,7 @@ export const useGetCurrentUser = (options?:{enabled?:boolean}) => {
     queryFn: async () => {
       return await userService.getCurrentUser();
     },
-    enabled:options?.enabled
+    enabled: options?.enabled ?? true,
   });
 
   return { data, isLoading, error };

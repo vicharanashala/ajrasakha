@@ -3,8 +3,17 @@ import webPush from 'web-push';
 import {ISubscription} from '#root/shared/index.js';
 // import { CORE_TYPES, NotificationService } from '#root/modules/core/index.js';
 // import { getContainer } from '#root/bootstrap/loadModules.js';
+
+const getVapidSubject = () => {
+  const subject = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL || '';
+  if (subject.startsWith('mailto:') || subject.startsWith('http://') || subject.startsWith('https://')) {
+    return subject;
+  }
+  return `mailto:${subject}`;
+};
+
 webPush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL}`,
+  getVapidSubject(),
   process.env.VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!,
 );

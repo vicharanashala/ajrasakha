@@ -5,12 +5,17 @@ export const triggerWebhook = async (
     label: string,
 ) => {
     // try {
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+
+        if (apiKey) {
+            headers['x-internal-api-key'] = apiKey;
+        }
+
         const response = await fetch(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-internal-api-key': apiKey,
-            },
+            headers,
             body: JSON.stringify(payload),
         });
 

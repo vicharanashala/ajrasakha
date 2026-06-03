@@ -2489,12 +2489,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
     if (!appConfig.WEB_WEBHOOK_API_URL) {
       throw new InternalServerError('WEB_WEBHOOK_API_URL is not configured');
     }
-    if (!appConfig.WEB_WEBHOOK_API_KEY) {
-      throw new InternalServerError('WEB_WEBHOOK_API_KEY is not configured');
-    }
 
     const webhookPayload = {
       customMessage: message,
+      question: message,
+      answer: message,
       userId: user.userId.toString(),
       type: 'CUSTOM',
     };
@@ -2506,7 +2505,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       );
       if (!response?.ok || response.status < 200 || response.status >= 300) {
         throw new InternalServerError(
-          `Webhook rejected notification request with status ${response?.status}. Check WEB_WEBHOOK_API_KEY and WEB_WEBHOOK_API_URL.`,
+          `Webhook rejected notification request with status ${response?.status}${response?.body ? `, response: ${response.body}` : ''}`,
         );
       }
 
