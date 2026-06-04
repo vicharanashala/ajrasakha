@@ -2,8 +2,10 @@ import cron from 'node-cron';
 import { getContainer } from '../loadModules.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
+import { appConfig } from '#root/config/app.js';
 
 // Run every 2 minutes, all day — time-bound questions can arrive at any hour
+if(!appConfig.isDevelopment){
 cron.schedule(
   '0 */2 * * * *',
   async () => {
@@ -18,4 +20,5 @@ cron.schedule(
     }
   },
   { timezone: 'Asia/Kolkata' },
-);
+)
+}
