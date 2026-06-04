@@ -623,7 +623,7 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
                             Date
                           </th>
                           <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                            Value
+                            Total Queries
                           </th>
                         </tr>
                       </thead>
