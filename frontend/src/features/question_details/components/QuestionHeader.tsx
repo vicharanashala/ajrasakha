@@ -478,7 +478,18 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                       {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
                                     </span>
                                     {s.source && (
-                                      <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                      /^https?:\/\//i.test(s.source) ? (
+                                        <a
+                                          href={s.source}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="break-all pl-3 text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
+                                        >
+                                          {s.source}
+                                        </a>
+                                      ) : (
+                                        <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                      )
                                     )}
                                   </li>
                                 ))}
@@ -527,7 +538,18 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                       {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
                                     </span>
                                     {s.source && (
-                                      <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                      /^https?:\/\//i.test(s.source) ? (
+                                        <a
+                                          href={s.source}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="break-all pl-3 text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
+                                        >
+                                          {s.source}
+                                        </a>
+                                      ) : (
+                                        <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                      )
                                     )}
                                   </li>
                                 ))}
@@ -572,9 +594,20 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                               {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
                             </span>
                             {s.source && (
-                              <span className="break-all pl-4 text-xs text-muted-foreground">
-                                {s.source}
-                              </span>
+                              /^https?:\/\//i.test(s.source) ? (
+                                <a
+                                  href={s.source}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="break-all pl-4 text-xs text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
+                                >
+                                  {s.source}
+                                </a>
+                              ) : (
+                                <span className="break-all pl-4 text-xs text-muted-foreground">
+                                  {s.source}
+                                </span>
+                              )
                             )}
                           </li>
                         ))}
