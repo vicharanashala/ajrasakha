@@ -35,7 +35,7 @@ Example:
 
 ```text
 
-src/modules/question/tests/
+src/modules/context/tests/
 
 ```
 
@@ -43,11 +43,15 @@ Examples:
 
 ```text
 
-src/modules/question/tests/QuestionService.unit.test.ts
+backend/src/modules/context/tests/ContextController.api.test.ts
+=> FOR: backend/src/modules/context/controllers/ContextController.ts
 
-src/modules/crop/tests/CropRepository.integration.test.ts
+backend/src/modules/context/tests/ContextService.unit.test.ts
+=> FOR: backend/src/modules/context/services/ContextService.ts
 
-src/modules/auth/tests/Auth.api.test.ts
+backend/src/modules/context/tests/ContextRepository.integration.test.ts
+=> FOR: backend/src/shared/database/providers/mongo/repositories/ContextRepository.ts
+
 
 ```
 
@@ -69,6 +73,183 @@ Examples:
 
 ---
 
+# API Test Example
+
+Use API tests for:
+
+- endpoints
+- request/response validation
+- authentication flows
+
+Example:
+=>`backend/src/modules/context/tests/ContextController.api.test.ts`
+=> FOR: `backend/src/modules/context/controllers/ContextController.ts`
+
+```ts
+import 'reflect-metadata';
+import request from 'supertest';
+import Express from 'express';
+import {useExpressServer, useContainer} from 'routing-controllers';
+import {Container} from 'inversify';
+import {describe, it, expect, beforeAll, beforeEach, vi} from 'vitest';
+
+import {InversifyAdapter} from '#root/inversify-adapter.js';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {HttpErrorHandler} from '#shared/index.js';
+
+import {ContextController} from '../controllers/ContextController.js';
+
+const mockUser = {
+  _id: '664f000000000000000000001',
+  role: 'admin',
+  firebaseUID: 'firebase-admin-uid',
+  email: 'admin@test.com',
+  firstName: 'Admin',
+  lastName: 'User',
+  status: 'active',
+  isBlocked: false,
+};
+
+const mockContextService = {
+  addContext: vi.fn(),
+  translate: vi.fn(),
+};
+
+describe('ContextController', () => {
+  let app: any;
+
+  beforeAll(() => {
+    const container = new Container();
+
+    container.bind(ContextController).toSelf().inSingletonScope();
+
+    container
+      .bind(GLOBAL_TYPES.ContextService)
+      .toConstantValue(mockContextService);
+
+    container.bind(HttpErrorHandler).toSelf().inSingletonScope();
+
+    useContainer(new InversifyAdapter(container));
+
+    app = useExpressServer(Express(), {
+      controllers: [ContextController],
+      middlewares: [HttpErrorHandler],
+      defaultErrorHandler: false,
+      validation: true,
+
+      authorizationChecker: async () => true,
+
+      currentUserChecker: async () => mockUser,
+    });
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('POST /context', () => {
+    it('creates context successfully', async () => {
+      mockContextService.addContext.mockResolvedValueOnce({
+        insertedId: 'context-123',
+      });
+
+      const res = await request(app).post('/context').send({
+        transcript: 'This is a transcript',
+      });
+
+      expect(res.status).toBe(201);
+
+      expect(res.body).toEqual({
+        insertedId: 'context-123',
+      });
+
+      expect(mockContextService.addContext).toHaveBeenCalledWith(
+        mockUser._id,
+        'This is a transcript',
+      );
+    });
+
+    it('returns 500 when service throws', async () => {
+      mockContextService.addContext.mockRejectedValueOnce(
+        new Error('Failed to create context'),
+      );
+
+      const res = await request(app).post('/context').send({
+        transcript: 'test transcript',
+      });
+
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('POST /context/translate', () => {
+    it('translates successfully', async () => {
+      mockContextService.translate.mockResolvedValueOnce({
+        translated_text: 'नमस्ते',
+      });
+
+      const res = await request(app).post('/context/translate').send({
+        text: 'Hello',
+        targetLang: 'hi-IN',
+      });
+
+      expect(res.status).toBe(200);
+
+      expect(res.body).toEqual({
+        translated_text: 'नमस्ते',
+      });
+
+      expect(mockContextService.translate).toHaveBeenCalledWith(
+        'Hello',
+        'hi-IN',
+        undefined,
+      );
+    });
+
+    it('passes sourceLang when provided', async () => {
+      mockContextService.translate.mockResolvedValueOnce({
+        translated_text: 'नमस्ते',
+      });
+
+      await request(app).post('/context/translate').send({
+        text: 'Hello',
+        targetLang: 'hi-IN',
+        sourceLang: 'en-IN',
+      });
+
+      expect(mockContextService.translate).toHaveBeenCalledWith(
+        'Hello',
+        'hi-IN',
+        'en-IN',
+      );
+    });
+
+    it('returns 500 when translation service throws', async () => {
+      mockContextService.translate.mockRejectedValueOnce(
+        new Error('Translation failed'),
+      );
+
+      const res = await request(app).post('/context/translate').send({
+        text: 'Hello',
+        targetLang: 'hi-IN',
+      });
+
+      expect(res.status).toBe(500);
+    });
+  });
+});
+```
+
+File naming:
+
+```text
+
+Question.api.test.ts
+
+```
+
+---
+
 # Unit Test Example
 
 Use unit tests for:
@@ -79,21 +260,232 @@ Use unit tests for:
 - business logic
 
 Example:
+=>`backend/src/modules/context/tests/ContextService.unit.test.ts`
+=> FOR: `backend/src/modules/context/services/ContextService.ts`
+
+backend/src/modules/context/tests/ContextRepository.integration.test.ts
+=> FOR: backend/src/shared/database/providers/mongo/repositories/ContextRepository.ts
 
 ```ts
-import {describe, it, expect, vi} from 'vitest';
+import 'reflect-metadata';
+import {describe, it, expect, beforeEach, vi} from 'vitest';
+import {BadRequestError, InternalServerError} from 'routing-controllers';
 
-describe('QuestionService', () => {
-  it('creates question successfully', async () => {
-    const mockRepo = {
-      create: vi.fn().mockResolvedValue({
-        id: '1',
+import {ContextService} from '../services/ContextService.js';
+import {appConfig} from '#root/config/app.js';
 
-        title: 'Test Question',
-      }),
-    };
+describe('ContextService', () => {
+  let service: ContextService;
 
-    expect(mockRepo.create).toBeDefined();
+  const mockContextRepo = {
+    addContext: vi.fn(),
+    getById: vi.fn(),
+  };
+
+  const mockQuestionService = {};
+  const mockDatabase = {};
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    service = new ContextService(
+      mockContextRepo as any,
+      mockQuestionService as any,
+      mockDatabase as any,
+    );
+
+    vi.spyOn(service as any, '_withTransaction').mockImplementation(
+      async (callback: any) => callback({}),
+    );
+
+    appConfig.sarvamAPI = 'fake-api-key';
+  });
+
+  describe('addContext', () => {
+    it('creates context successfully', async () => {
+      mockContextRepo.addContext.mockResolvedValueOnce({
+        insertedId: 'context-123',
+      });
+
+      const result = await service.addContext('user-1', 'sample transcript');
+
+      expect(result).toEqual({
+        insertedId: 'context-123',
+      });
+
+      expect(mockContextRepo.addContext).toHaveBeenCalled();
+    });
+
+    it('throws when transcript is empty', async () => {
+      await expect(service.addContext('user-1', '')).rejects.toThrow(
+        InternalServerError,
+      );
+    });
+
+    it('throws when transcript is whitespace', async () => {
+      await expect(service.addContext('user-1', '   ')).rejects.toThrow(
+        InternalServerError,
+      );
+    });
+  });
+
+  describe('getById', () => {
+    it('returns context successfully', async () => {
+      const context = {
+        _id: 'context-1',
+        text: 'sample',
+      };
+
+      mockContextRepo.getById.mockResolvedValueOnce(context);
+
+      const result = await service.getById('context-1');
+
+      expect(result).toEqual(context);
+    });
+
+    it('throws when contextId is missing', async () => {
+      await expect(service.getById('')).rejects.toThrow(InternalServerError);
+    });
+
+    it('throws when context not found', async () => {
+      mockContextRepo.getById.mockResolvedValueOnce(null);
+
+      await expect(service.getById('missing-id')).rejects.toThrow(
+        BadRequestError,
+      );
+    });
+  });
+
+  describe('translate', () => {
+    beforeEach(() => {
+      appConfig.sarvamAPI = 'fake-api-key';
+
+      vi.spyOn(service as any, '_callSarvamTranslate').mockResolvedValue(
+        'translated',
+      );
+    });
+
+    it('throws when api key is missing', async () => {
+      appConfig.sarvamAPI = '';
+
+      await expect(service.translate('hello', 'hi-IN')).rejects.toThrow(
+        BadRequestError,
+      );
+    });
+
+    it('throws when text is missing', async () => {
+      await expect(service.translate('', 'hi-IN')).rejects.toThrow(
+        BadRequestError,
+      );
+    });
+
+    it('throws when targetLang is missing', async () => {
+      await expect(service.translate('hello', '')).rejects.toThrow(
+        BadRequestError,
+      );
+    });
+
+    it('throws when text exceeds max length', async () => {
+      const text = 'a'.repeat(30001);
+
+      await expect(service.translate(text, 'hi-IN')).rejects.toThrow(
+        BadRequestError,
+      );
+    });
+
+    it('uses mayura directly for non-sarvam languages', async () => {
+      const spy = vi.spyOn(service as any, '_callSarvamTranslate');
+
+      await service.translate('Hello world', 'fr-FR');
+
+      expect(spy).toHaveBeenCalledWith(
+        'Hello world',
+        'auto',
+        'fr-FR',
+        'mayura:v1',
+        expect.any(String),
+      );
+    });
+
+    it('uses two-step translation for sarvam language without sourceLang', async () => {
+      const spy = vi.spyOn(service as any, '_callSarvamTranslate');
+
+      await service.translate('Hello world', 'hi-IN');
+
+      expect(spy).toHaveBeenNthCalledWith(
+        1,
+        'Hello world',
+        'auto',
+        'en-IN',
+        'mayura:v1',
+        expect.any(String),
+      );
+
+      expect(spy).toHaveBeenNthCalledWith(
+        2,
+        'translated',
+        'en-IN',
+        'hi-IN',
+        'sarvam-translate:v1',
+        expect.any(String),
+      );
+    });
+
+    it('uses direct sarvam translation when sourceLang is provided', async () => {
+      const spy = vi.spyOn(service as any, '_callSarvamTranslate');
+
+      await service.translate('Hello world', 'ur-IN', 'ta-IN');
+
+      expect(spy).toHaveBeenCalledWith(
+        'Hello world',
+        'ta-IN',
+        'ur-IN',
+        'sarvam-translate:v1',
+        expect.any(String),
+      );
+    });
+
+    it('uses two-step translation for en-IN without sourceLang', async () => {
+      const spy = vi.spyOn(service as any, '_callSarvamTranslate');
+
+      const result = await service.translate('Hello world', 'en-IN');
+
+      expect(result).toEqual({
+        translated_text: 'translated',
+      });
+
+      expect(spy).toHaveBeenCalledTimes(1);
+
+      expect(spy).toHaveBeenCalledWith(
+        'Hello world',
+        'auto',
+        'en-IN',
+        'mayura:v1',
+        expect.any(String),
+      );
+    });
+
+    it('splits large text into multiple chunks', async () => {
+      const spy = vi.spyOn(service as any, '_callSarvamTranslate');
+
+      const largeText = 'a'.repeat(2500);
+
+      await service.translate(largeText, 'fr-FR');
+
+      expect(spy.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    it('joins translated chunks', async () => {
+      vi.spyOn(service as any, '_callSarvamTranslate')
+        .mockResolvedValueOnce('chunk1')
+        .mockResolvedValueOnce('chunk2')
+        .mockResolvedValueOnce('chunk3');
+
+      const result = await service.translate('a'.repeat(2500), 'fr-FR');
+
+      expect(result.translated_text).toContain('chunk1');
+      expect(result.translated_text).toContain('chunk2');
+    });
   });
 });
 ```
@@ -118,13 +510,130 @@ Use integration tests for:
 
 Example:
 
-```ts
-import {describe, it, expect} from 'vitest';
+=>`backend/src/modules/context/tests/ContextRepository.integration.test.ts`
+=> FOR: `backend/src/shared/database/providers/mongo/repositories/ContextRepository.ts`
 
-describe('CropRepository integration', () => {
-  it('creates crop in database', async () => {
-    expect(true).toBe(true);
+```ts
+import 'reflect-metadata';
+import {describe, it, expect, beforeAll, afterAll} from 'vitest';
+import * as dotenv from 'dotenv';
+
+dotenv.config({
+  path: '.env.test',
+});
+
+import {MongoDatabase} from '#root/shared/database/providers/mongo/MongoDatabase.js';
+import {ContextRepository} from '#root/shared/database/providers/mongo/repositories/ContextRepository.js';
+
+const DB_URL = process.env.DB_URL!;
+const DB_NAME = process.env.DB_NAME!;
+console.log({
+  DB_URL,
+  DB_NAME,
+});
+
+const TS = Date.now();
+
+const TEST_CONTEXT_TEXT = `
+This is a context integration test.
+Timestamp: ${TS}
+`;
+
+let db: MongoDatabase;
+let repo: ContextRepository;
+let createdContextId: string;
+
+beforeAll(async () => {
+  console.log('Creating db');
+
+  db = new MongoDatabase(DB_URL, DB_NAME);
+
+  console.log('Calling init');
+
+  await db.init();
+
+  console.log('Init complete');
+
+  repo = new ContextRepository(db as any);
+
+  console.log('Getting collection');
+
+  const collection = await db.getCollection('contexts');
+
+  console.log('Deleting');
+
+  await collection.deleteMany({
+    text: {$regex: `Timestamp: ${TS}`},
   });
+
+  console.log('Done');
+}, 30000);
+
+afterAll(async () => {
+  if (createdContextId) {
+    const collection = await db.getCollection('contexts');
+
+    const {ObjectId} = await import('mongodb');
+
+    await collection.deleteOne({
+      _id: new ObjectId(createdContextId),
+    });
+  }
+
+  await db.disconnect();
+}, 30000);
+
+describe('ContextRepository integration', () => {
+  it('addContext — inserts a new context', async () => {
+    const result = await repo.addContext(TEST_CONTEXT_TEXT);
+
+    expect(result).toBeDefined();
+    expect(result.insertedId).toBeDefined();
+
+    createdContextId = result.insertedId;
+  }, 30000);
+
+  it('addContext — document exists in database', async () => {
+    const collection = await db.getCollection('contexts');
+
+    const doc = await collection.findOne({
+      text: TEST_CONTEXT_TEXT,
+    });
+
+    expect(doc).not.toBeNull();
+  });
+
+  it('getById — returns inserted context', async () => {
+    const context = await repo.getById(createdContextId);
+
+    expect(context).not.toBeNull();
+
+    expect(context?._id?.toString()).toBe(createdContextId);
+
+    expect(context?.text).toContain('This is a context integration test');
+  }, 30000);
+
+  it('getById — returns null for unknown id', async () => {
+    const context = await repo.getById('664f00000000000000000099');
+
+    expect(context).toBeNull();
+  }, 30000);
+
+  it('addContext — throws for empty text', async () => {
+    await expect(repo.addContext('')).rejects.toThrow();
+  }, 30000);
+
+  it('addContext — throws for undefined text', async () => {
+    await expect(repo.addContext(undefined as any)).rejects.toThrow();
+  }, 30000);
+
+  it('getById — throws for invalid object id', async () => {
+    await expect(repo.getById('invalid-id')).rejects.toThrow();
+  }, 30000);
+
+  it('getById — throws for empty id', async () => {
+    await expect(repo.getById('')).rejects.toThrow();
+  }, 30000);
 });
 ```
 
@@ -133,36 +642,6 @@ File naming:
 ```text
 
 CropRepository.integration.test.ts
-
-```
-
----
-
-# API Test Example
-
-Use API tests for:
-
-- endpoints
-- request/response validation
-- authentication flows
-
-Example:
-
-```ts
-import request from 'supertest';
-
-describe('Question API', () => {
-  it('GET /questions returns 200', async () => {
-    expect(true).toBe(true);
-  });
-});
-```
-
-File naming:
-
-```text
-
-Question.api.test.ts
 
 ```
 
