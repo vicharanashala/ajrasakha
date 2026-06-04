@@ -29,6 +29,9 @@ def test_normalize_gdb_response_exact_match():
     assert result["is_exact"] is True
     assert result["exact_match"]["question_id"] == "507f1f77bcf86cd799439011"
     assert result["exact_match"]["similarity_score"] == 1
+    assert result["exact_match"]["chosen_for_answer"] is True
+    assert result["chosen_for_answer"] is True
+    assert result["chosen_question_id"] == "507f1f77bcf86cd799439011"
     assert result["is_similar"] is False
     assert result["classification_audit"]["status"] == "exact_bypass"
 

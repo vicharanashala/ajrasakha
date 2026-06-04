@@ -88,7 +88,11 @@ async def gdb_search(
     if strict_results:
         pair = strict_results[0]
         response["exact_match"] = match_entry(
-            pair, RETRIEVAL_SOURCE_STRICT_EXACT, similarity_score=1.0
+            pair,
+            RETRIEVAL_SOURCE_STRICT_EXACT,
+            similarity_score=1.0,
+            chosen_for_answer=True,
+            answer_from_class="strict_exact",
         )
         response["classification_audit"] = {
             "status": "exact_bypass",
@@ -96,6 +100,9 @@ async def gdb_search(
             "evaluations": [],
             "selected_question_id": pair.question_id,
             "selection_rule": "strict_exact",
+            "selection_method": "strict_exact",
+            "chosen_for_answer": True,
+            "answer_from_class": "strict_exact",
         }
         log.info("gdb_search done path=strict_exact question_id=%s", pair.question_id)
         return response

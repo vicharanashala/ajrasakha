@@ -113,10 +113,21 @@ def _normalize_gdb_response(raw_json: dict, rephrased: str, crop: str, state: st
     exact = raw_json.get("exact_match") or {}
     if exact and (exact.get("answer") or exact.get("question")):
         result["is_exact"] = True
-        pair = _match_to_pair_dict(exact)
+        pair = _match_to_pair_dict(exact, chosen=True)
         if pair.get("similarity_score") is None:
             pair["similarity_score"] = 1
+        if not pair.get("answer_from_class"):
+            pair["answer_from_class"] = "strict_exact"
         result["exact_match"] = pair
+        audit = result.get("classification_audit") or {}
+        result["chosen_question_id"] = exact.get("question_id") or audit.get(
+            "selected_question_id"
+        )
+        result["answer_from_class"] = (
+            exact.get("answer_from_class") or audit.get("answer_from_class") or "strict_exact"
+        )
+        result["chosen_for_answer"] = True
+        result["selection_method"] = audit.get("selection_method") or "strict_exact"
 
     selected = raw_json.get("selected_match")
     if isinstance(selected, dict) and selected and (selected.get("answer") or selected.get("question")):
