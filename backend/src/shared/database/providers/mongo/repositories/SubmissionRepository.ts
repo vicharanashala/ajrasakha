@@ -168,6 +168,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
           $set: {
             reviewDelayNotificationSent: false,
+            currentExpertAllocatedAt: null,
           },
         },
         { session },
@@ -3171,33 +3172,33 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       [
         {
           $match: {
-        $or: [
-          // Type A — Never answered
-          {
-            history: { $size: 0 },
-            lastRespondedBy: null,
-            createdAt: { $lte: oneHourAgo },
-          },
+            $or: [
+              // Type A — Never answered
+              {
+                history: { $size: 0 },
+                lastRespondedBy: null,
+                createdAt: { $lte: oneHourAgo },
+              },
 
-          // Type B — Last update stuck in-review
-          {
-            'history.1': {$exists: true},
-            $expr: {
-              $let: {
-                vars: {
-                  lastHistory: {$arrayElemAt: ['$history', -1]},
-                },
-                in: {
-                  $and: [
-                    {$eq: ['$$lastHistory.status', 'in-review']},
-                    {$lte: ['$$lastHistory.createdAt', oneHourAgo]},
-                  ],
+              // Type B — Last update stuck in-review
+              {
+                'history.1': { $exists: true },
+                $expr: {
+                  $let: {
+                    vars: {
+                      lastHistory: { $arrayElemAt: ['$history', -1] },
+                    },
+                    in: {
+                      $and: [
+                        { $eq: ['$$lastHistory.status', 'in-review'] },
+                        { $lte: ['$$lastHistory.createdAt', oneHourAgo] },
+                      ],
+                    },
+                  },
                 },
               },
-            },
+            ],
           },
-        ],
-      },
         },
         {
           $lookup: {
@@ -3210,9 +3211,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         {
           $unwind: '$question',
         },
-        ...(limit ? [{$limit: limit}] : []),
+        ...(limit ? [{ $limit: limit }] : []),
       ],
-      {session},
+      { session },
     ).toArray();
   }
   async findById(id: string): Promise<IQuestionSubmission | null> {
@@ -4059,11 +4060,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
         },
       ],
-      {session},
+      { session },
     ).toArray();
   }
 
-    //get delayed questions
+  //get delayed questions
   async getDelayedReviews(session: ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]> {
     try {
       await this.init();

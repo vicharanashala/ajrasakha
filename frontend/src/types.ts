@@ -1,7 +1,7 @@
 import type { UserCredential } from "firebase/auth";
 import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {

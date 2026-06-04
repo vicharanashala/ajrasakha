@@ -8,6 +8,7 @@ import { ObjectId } from 'mongodb';
 interface AssignmentJob {
   submissionId: string;
   expertId: string;
+  appendExpert?: boolean;
 }
 
 interface WorkerData {
@@ -51,6 +52,20 @@ const notificationRepo = new NotificationRepository(database);
 await (notificationRepo as any).init();
 
 const notificationService = new NotificationService(notificationRepo, database);
+
+async function getExpertDisplayName(expertId?: string | null): Promise<string> {
+  if (!expertId) return 'Unknown';
+  try {
+    const user = await userRepo.findById(expertId);
+    if (!user) return 'Unknown';
+    const first = (user as any).firstName?.toString().trim() || '';
+    const last = (user as any).lastName?.toString().trim() || '';
+    const full = `${first} ${last}`.trim();
+    return full || 'Unknown';
+  } catch {
+    return 'Unknown';
+  }
+}
 
 /* ---------------- WORK ---------------- */
 (async () => {
@@ -98,11 +113,7 @@ const notificationService = new NotificationService(notificationRepo, database);
         });
       }
 
-      // 🟢 TYPE A: Penalize first expert if no history exists (initial delay)
-      if (history.length === 0) {
-        const firstExpert = queue[0]?.toString();
-        if (firstExpert) await userRepo.updateReputationScore(firstExpert, false);
-      }
+
 
       // Deep Replacement (Purge Inactive): replace inactive experts in the queue
       // ENSURE UNIQUENESS: Only replace the FIRST occurrence encountered at or after currentExpertIndex
@@ -167,7 +178,63 @@ const notificationService = new NotificationService(notificationRepo, database);
       }
       */
 
-      if (modified) {
+      if (job.appendExpert) {
+        // ── PUSH MODE (time-bound reallocation) ──────────────────────────────
+        // Append the new expert instead of replacing the stuck one so the full
+        // allocation history is preserved.
+
+        // Penalize the stuck expert
+        if (history.length === 0) {
+          // No history yet — penalize queue[0] who was allocated but never answered
+          const firstExpert = queue[0]?.toString();
+          if (firstExpert) {
+            await userRepo.updateReputationScore(firstExpert, false);
+            affectedExpertIds.add(firstExpert);
+          }
+        } else {
+          const lastHistory = history[history.length - 1];
+          if (lastHistory?.status === 'in-review') {
+            const stuckExpertId = lastHistory.updatedBy?.toString();
+            if (stuckExpertId) {
+              await userRepo.updateReputationScore(stuckExpertId, false);
+              affectedExpertIds.add(stuckExpertId);
+            }
+          }
+        }
+
+        // Push new expert into queue and add a fresh in-review history entry
+        const pushQueue = [...queue, new ObjectId(newExpertId)];
+        const pushHistory = [
+          ...history,
+          {
+            updatedBy: new ObjectId(newExpertId),
+            status: 'in-review',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ];
+
+        await submissionRepo.updateById(job.submissionId, {
+          $set: {
+            queue: pushQueue,
+            history: pushHistory,
+            updatedAt: now,
+            reviewDelayNotificationSent: false,
+            currentExpertAllocatedAt: now,
+            currentExpertOpenedAt: null,
+          },
+        });
+
+        affectedExpertIds.add(newExpertId);
+        await notificationService.saveTheNotifications(
+          'A time-bound question has been reassigned to you',
+          'Question Reassigned',
+          submission.questionId.toString(),
+          newExpertId,
+          'answer_creation',
+        );
+      } else if (modified) {
+        // ── REPLACE MODE (default workload balancing) ─────────────────────────
         const updatedHistory = [...history];
 
         // 1. If the expert currently in-review was replaced, update the history entry to the new expert
@@ -183,31 +250,83 @@ const notificationService = new NotificationService(notificationRepo, database);
           }
         }
 
-        // 2. Penalize the expert who was stuck (TYPE B logic from main)
-        // Only penalize 'in-review' experts — 'reviewed' experts already completed their work
-        // and were decremented by reviewAnswer; decrementing them again would be incorrect.
+        // 2. Penalize the expert who was stuck
         if (history.length > 0) {
+          // Reviewer case: penalize only 'in-review' experts — 'reviewed' experts already completed their work
           const lastHistory = history[history.length - 1];
           if (lastHistory?.status === 'in-review') {
             const stuckExpertId = lastHistory.updatedBy?.toString();
             if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
           }
+        } else {
+          // Author case: penalize author who never answered
+          if (currentExpertId) await userRepo.updateReputationScore(currentExpertId, false);
         }
 
         // 3. Save updates to Submission
+        // Reset time-bound tracking: start the 45-min clock for the new expert
         await submissionRepo.updateById(job.submissionId, {
-          $set: { queue: newQueue, history: updatedHistory, updatedAt: now, reviewDelayNotificationSent:false },
+          $set: {
+            queue: newQueue,
+            history: updatedHistory,
+            updatedAt: now,
+            reviewDelayNotificationSent: false,
+            currentExpertAllocatedAt: now,
+            currentExpertOpenedAt: null,
+          },
         });
 
-        // 4. Notify new expert
+        // 4. Notify new expert (role-aware notification for time-bound questions)
+        const isAuthorPosition = currentExpertIndex === 0 && history.length === 0;
         affectedExpertIds.add(newExpertId);
         await notificationService.saveTheNotifications(
-          'Tasks have been reallocated to your queue',
-          'Workload Reassigned',
+          isAuthorPosition
+            ? 'A time-bound question has been assigned to you for answering'
+            : 'A time-bound question has been reassigned to you for review',
+          isAuthorPosition ? 'Answer Creation Assigned' : 'Review Reassigned',
           submission.questionId.toString(),
           newExpertId,
-          'answer_creation'
+          isAuthorPosition ? 'answer_creation' : 'peer_review',
         );
+
+        // 5. Notify all moderators and admins about the reallocation
+        try {
+          console.log(`📢 [Worker] Fetching moderators and admins for reallocation notification...`);
+          const [moderators, admins] = await Promise.all([
+            (userRepo as any).findModerators(),
+            (userRepo as any).findAdmins(),
+          ]);
+          console.log(`📢 [Worker] Found ${moderators?.length ?? 0} moderators and ${admins?.length ?? 0} admins`);
+          const [oldExpertName, newExpertName] = await Promise.all([
+            getExpertDisplayName(currentExpertId),
+            getExpertDisplayName(newExpertId),
+          ]);
+          const rawQuestionText = (question as any)?.question?.toString().trim() || '';
+          const truncatedQuestion = rawQuestionText.length > 80
+            ? `${rawQuestionText.slice(0, 80)}...`
+            : rawQuestionText;
+          const notifTitle = truncatedQuestion || 'Time-Bound Question Reallocated';
+          const notifMessage = `Question auto-reallocated from expert ${oldExpertName} to ${newExpertName} (${isAuthorPosition ? 'author' : 'reviewer'})`;
+          const allRecipients = [...(moderators || []), ...(admins || [])];
+          for (const recipient of allRecipients) {
+            const recipientId = recipient._id?.toString();
+            if (!recipientId) continue;
+            try {
+              await notificationService.saveTheNotifications(
+                notifMessage,
+                notifTitle,
+                submission.questionId.toString(),
+                recipientId,
+                'expert_replacement',
+              );
+              console.log(`📢 [Worker] Notified moderator/admin ${recipientId}`);
+            } catch (notifErr: any) {
+              console.error(`⚠️ [Worker] Failed to notify ${recipientId}:`, notifErr?.message);
+            }
+          }
+        } catch (err: any) {
+          console.error(`⚠️ [Worker] Failed to notify moderators/admins for submission ${job.submissionId}:`, err?.message);
+        }
       }
 
       processed++;

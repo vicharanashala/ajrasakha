@@ -162,6 +162,44 @@ export class AnswerService extends BaseService implements IAnswerService {
     );
   }
 
+  private async notifyModeratorsAndAdminsForApproval(
+    questionId: string,
+    questionText: string | undefined,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      const [moderators, admins] = await Promise.all([
+        this.userRepo.findModerators(),
+        this.userRepo.findAdmins(session),
+      ]);
+      const recipients = [...(moderators || []), ...(admins || [])];
+      if (!recipients.length) return;
+
+      const trimmed = (questionText || '').trim();
+      const title = trimmed
+        ? (trimmed.length > 80 ? `${trimmed.slice(0, 80)}...` : trimmed)
+        : 'Question Ready for Approval';
+      const message = 'A question is ready for your approval';
+
+      for (const r of recipients) {
+        const id = (r as any)._id?.toString();
+        if (!id) continue;
+        await this.notificationService.saveTheNotifications(
+          message,
+          title,
+          questionId,
+          id,
+          'moderator_approval' as INotificationType,
+          session,
+        ).catch((err: any) => {
+          console.error(`[ModeratorApproval] Failed to notify ${id}:`, err?.message);
+        });
+      }
+    } catch (err: any) {
+      console.error('[ModeratorApproval] Failed to notify moderators/admins:', err?.message);
+    }
+  }
+
   async reviewAnswer(
     userId: string,
     body: ReviewAnswerBody,
@@ -399,6 +437,14 @@ export class AnswerService extends BaseService implements IAnswerService {
             session,
           );
 
+          // For time-bound questions: mark as opened so the cron won't reallocate
+          if (question.source === 'AJRASAKHA' || question.source === 'WHATSAPP') {
+            const sub = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+            if (sub && !sub.currentExpertOpenedAt) {
+              await this.questionSubmissionRepo.markQuestionOpenedByExpert(questionId, userId);
+            }
+          }
+
           // PAE experts skip the peer-review cycle — mark as pae_submitted for moderator action
           if (isPaeExpert) {
             await this.questionRepo.updateQuestion(
@@ -461,11 +507,15 @@ export class AnswerService extends BaseService implements IAnswerService {
               session,
             );
 
+            const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
             await this.questionRepo.updateQuestion(
               questionId,
               { status: 'in-review' },
               session,
             );
+            if (wasOpenOrDelayed) {
+              await this.notifyModeratorsAndAdminsForApproval(questionId, (question as any)?.question, session);
+            }
 
             // Decrement the workload/reputation score
             const IS_INCREMENT = false;
@@ -705,7 +755,11 @@ export class AnswerService extends BaseService implements IAnswerService {
           }
 
           // Case 2: Current user is the last in the queue but the queue isn't full
+          // Time-bound questions (AJRASAKHA/WHATSAPP) are managed by their own
+          // cron — do NOT auto-expand the queue when an expert submits.
+          const isTimeBound = question.source === 'AJRASAKHA' || question.source === 'WHATSAPP';
           if (
+            !isTimeBound &&
             currentUserIndexInQueue === currentSumbmissionQueue.length - 1 &&
             currentSumbmissionQueue.length < 10 &&
             question.isAutoAllocate
@@ -717,12 +771,20 @@ export class AnswerService extends BaseService implements IAnswerService {
 
         // Check the history limit reaced, if reached then question status will be in-review
         if (currentSubmissionHistory.length == 10) {
+          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
           await this.questionRepo.updateQuestion(
             questionId,
             { status: 'in-review' },
             session,
           );
+          if (wasOpenOrDelayed) {
+            await this.notifyModeratorsAndAdminsForApproval(questionId, (question as any)?.question, session);
+          }
         }
+
+        // Clear opened-at timestamp now that expert has submitted their response
+        await this.questionSubmissionRepo.clearCurrentExpertOpenedAt(questionId, session);
+
         // Decrement the reputation score of user since the user reviewed
         const IS_INCREMENT = false;
         await this.userRepo.updateReputationScore(
@@ -870,11 +932,15 @@ export class AnswerService extends BaseService implements IAnswerService {
               'Failed to create review entry. Please try again.',
             );
           }
+          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
           await this.questionRepo.updateQuestion(
             questionId,
             { status: 'in-review' },
             session,
           );
+          if (wasOpenOrDelayed) {
+            await this.notifyModeratorsAndAdminsForApproval(questionId, (question as any)?.question, session);
+          }
 
           reviewId = new ObjectId(insertedId);
         }
@@ -2012,13 +2078,15 @@ answer: ${updates.answer}`;
           aiInitialAnswer: updates.answer ?? '',
           // totalAnswersCount: 1,
           isAutoAllocate: true,
+          status:"open"
         },
         session,
         isAddTextRequired,
       );
 
-      let queue: ObjectId[] = [];
-      let initialExpert: any = null;
+    /*  if (question.status !== 'open' && question.status !== 'delayed') {
+        let queue: ObjectId[] = [];
+        let initialExpert: any = null;
 
       if (isAjrasakha) {
         // Special Task Force allocation for Ajrasakha (4 experts)
@@ -2070,28 +2138,49 @@ answer: ${updates.answer}`;
             'Cannot approve AI answer after expert reviews have started',
           );
         }
-        await this.questionSubmissionRepo.updateQueue(
-          updates.questionId.toString(),
-          queue,
-          session,
-        );
-      }
 
-      if (initialExpert) {
-        await this.userRepo.updateReputationScore(
-          initialExpert._id.toString(),
-          true,
+        let submission = await this.questionSubmissionRepo.getByQuestionId(
+          updates.questionId,
           session,
         );
-        await this.notificationService.saveTheNotifications(
-          `A Question has been assigned for answering`,
-          'Answer Creation Assigned',
-          updates.questionId.toString(),
-          initialExpert._id.toString(),
-          'answer_creation',
-          session,
-        );
-      }
+
+        if (!submission) {
+          const submissionData: IQuestionSubmission = {
+            questionId: new ObjectId(updates.questionId.toString()),
+            lastRespondedBy: new ObjectId(userId),
+            history: [],
+            queue,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          await this.questionSubmissionRepo.addSubmission(submissionData, session);
+        } else {
+          if (submission.history.length > 0) {
+            throw new BadRequestError('Cannot approve AI answer after expert reviews have started');
+          }
+          await this.questionSubmissionRepo.updateQueue(
+            updates.questionId.toString(),
+            queue,
+            session,
+          );
+        }
+
+        if (initialExpert) {
+          await this.userRepo.updateReputationScore(
+            initialExpert._id.toString(),
+            true,
+            session,
+          );
+          await this.notificationService.saveTheNotifications(
+            `A Question has been assigned for answering`,
+            'Answer Creation Assigned',
+            updates.questionId.toString(),
+            initialExpert._id.toString(),
+            'answer_creation',
+            session
+          );
+        }
+      }*/
 
       return { modifiedCount: 1 };
     });

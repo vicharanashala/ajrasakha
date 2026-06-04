@@ -51,7 +51,7 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 
 ## Feature flag
 
-- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → retrieval_sanitizer (when applicable) → synthesize → **translate_answer** → END. `empty_gdb_reply` → **translate_answer** (sheet footers only, no LLM). (`sanitize_answer` is commented out.)
+- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → **gdb_passthrough** (GDB hit) or **synthesize** (specialist-only) or **empty_gdb_reply** → **translate_answer** → END. Golden retrieval uses FastAPI + Gemma classification (no retrieval_sanitizer, no synthesizer LLM on GDB hits). (`sanitize_answer` is commented out.)
 
 ## Language (vocal + script)
 
@@ -59,13 +59,14 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 - **Romanized / Latin typing:** `script_language=English`, `vocal_language=<spoken>` (e.g. Romanized Telugu → English + Telugu; Hinglish → English + Hindi).
 - **Native script:** `script_language` and `vocal_language` match (e.g. both Hindi for Devanagari).
 - **Fixed strings** (exact cells, no LLM paraphrase): testing disclaimer, 2-hour expert-queue text, state/crop follow-ups — keyed by `(script_language, vocal_language)`.
-- **Synthesis** writes an English advisory body only (no sources, no testing disclaimer, no 2-hour text).
-- **translate_answer** has two deterministic paths (see `plan.translate_path`):
-  - **`empty_gdb_reply`** sets `translate_path=empty_gdb` → sheet **2-hour + testing** only (no translate LLM).
-  - **`synthesize`** → translate body when needed → GDB **sources + author** → sheet **testing disclaimer** only (no 2-hour on this path).
-- Expert-queue turns route to `empty_gdb_reply` only (not synthesize).
+- **GDB passthrough** uses the Golden expert answer text as-is (no synthesizer rephrase LLM); **translate_answer** may still translate + append sources/testing.
+- **Synthesize** runs only when GDB is empty but weather/mandi/soil/schemes returned data.
+- **translate_answer** paths (see `plan.translate_path`):
+  - **`empty_gdb_reply`** → sheet **2-hour + testing** only (no translate LLM).
+  - **`gdb_passthrough` / synthesize** → translate body when needed → GDB **sources + author** → sheet **testing disclaimer** only (no 2-hour on this path).
+- Expert-queue turns route to `empty_gdb_reply` only.
 - `USE_PLANNER_GRAPH=false`: legacy single-LLM `ajrasakha` + `tools` loop.
 
-## Synthesizer
+## Synthesizer (GDB bypass)
 
-The synthesizer LLM does not bind tools. It only composes the English advisory body from tool results; footers are appended in `translate_answer`.
+The synthesizer node is **not used when GDB returns an exact or similar expert answer** (`gdb_passthrough` → `translate_answer`). It still runs for **specialist-only** turns (e.g. weather with no GDB hit). Footers are appended in `translate_answer`.

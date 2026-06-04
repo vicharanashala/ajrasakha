@@ -17,10 +17,12 @@ import {
   UploadedFile,
   BadRequestError,
   InternalServerError,
+  ForbiddenError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {
   IQuestion,
   IQuestionSubmission,
@@ -118,6 +120,7 @@ export class ReRouteController {
     @Body() body: AllocateReRouteExpertsRequest,
     @CurrentUser() user: IUser,
   ):Promise<{message:string}> {
+    verifyNotTester(user);
     const {_id: userId} = user;
     const {questionId} = params;
     const {expertId,answerId,moderatorId,comment,status} = body;
@@ -264,6 +267,7 @@ export class ReRouteController {
     @Body() body: {reason:string,moderatorId:string,role:string,expertId:string},
     @CurrentUser() user: IUser,
   ):Promise<{message:string}> {
+    verifyNotTester(user);
    // const expertId = user._id.toString();
     const {rerouteId,questionId} = params;
     const {reason,moderatorId,role,expertId} = body
@@ -367,7 +371,9 @@ export class ReRouteController {
   async moderatorRejected(
     @Params() params: ModeratorRejectParam,
     @Body() body: {status:RerouteStatus,reason:string},
+    @CurrentUser() user: IUser,
   ):Promise<{message:string}> {
+    verifyNotTester(user);
     const {questionId,expertId} = params;
     const {status,reason} = body
     await this.reRouteService.moderatorReject(questionId.toString(),expertId.toString(),status,reason)
