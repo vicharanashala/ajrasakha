@@ -52,7 +52,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     open: false,
     type: "hold",
   });
-  const { mutateAsync: holdQuestion, isPending: isHolding } = useHoldQuestion();
+  const { mutateAsync: holdQuestion } = useHoldQuestion();
   const handleHold = () => {
     if (!question?._id) return;
     setConfirmDialog({ open: true, type: question.isOnHold ? "unhold" : "hold", });
@@ -100,8 +100,8 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
 
   const sortedHistory = [...(question?.submission?.history || [])].sort(
     (a, b) =>
-      new Date(a.updatedAt).getTime() -
-      new Date(b.updatedAt).getTime()
+      new Date(a.updatedAt ?? "").getTime() -
+      new Date(b.updatedAt ?? "").getTime()
   );
 
   const latestHistory =
@@ -112,7 +112,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const diffMs =
     latestHistory && question?.closedAt
       ? new Date(question.closedAt).getTime() -
-        new Date(latestHistory.updatedAt).getTime()
+        new Date(latestHistory.updatedAt ?? "").getTime()
       : null;
 
   const formattedTime = (() => {
@@ -163,6 +163,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-start sm:justify-end sm:flex-shrink-0">
             <div className="flex flex-wrap justify-end gap-2">
               {currentUser.role != "expert" &&
+                currentUser.role !== "tester" &&
                 isQuestionAllocatedToExpert &&
                 question.status !== "closed" && (
                   <Button
@@ -232,7 +233,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 Show Reference
               </Button>
             )}
-            {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && (
+            {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && currentUser.role !== "tester" && (
               <Button
                 size="sm"
                 disabled={isCheckingDuplicate}

@@ -449,7 +449,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
         <div className="mb-2 px-2 py-1 rounded-md border border-transparent shadow-sm text-sm font-semibold ">
           Question #{(currentPage - 1) * limit + idx + 1}
         </div>
-        {userRole !== "expert" && !isSelected && (
+        {userRole !== "expert" && userRole !== "tester" && !isSelected && (
           <>
             <ContextMenuSeparator />
 
@@ -475,68 +475,72 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           View
         </ContextMenuItem>
 
-        <ContextMenuSeparator />
-
-        {userRole === "expert" ? (
-          <ContextMenuItem
-            onSelect={(e) => {
-              // SetTimeout is essential becuase it will resolve the UI Overlay conflicts happening due to edit modal being opened before closing the context menu
-              setTimeout(() => {
-                e.preventDefault();
-                setSelectedQuestion(q);
-                setEditOpen(true);
-              }, 0);
-            }}
-          >
-            <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
-            Raise Flag
-          </ContextMenuItem>
-        ) : (
+        {userRole !== "tester" && (
           <>
-            <ContextMenuItem
-              // onSelect={(e) => {
-              //   e.preventDefault();
-              //   setSelectedQuestion(q);
-              //   setEditOpen(true);
-              // }}
-              onSelect={(e) => {
-                // SetTimeout is essential becuase it will resolve the UI Overlay conflicts happening due to edit modal being opened before closing the context menu
-                setTimeout(() => {
-                  e.preventDefault();
-                  setSelectedQuestion(q);
-                  setEditOpen(true);
-                }, 0);
-              }}
-            >
-              <Edit className="w-4 h-4 mr-2 text-blue-500" />
-              {updatingQuestion ? "Editing..." : "Edit"}
-            </ContextMenuItem>
-
             <ContextMenuSeparator />
 
-            <ContextMenuItem onSelect={(e) => e.preventDefault()}>
-              <ConfirmationModal
-                title="Delete Question Permanently?"
-                description="Are you sure you want to delete this question? This action is irreversible."
-                confirmText="Delete"
-                cancelText="Cancel"
-                isLoading={deletingQuestion}
-                type="delete"
-                onConfirm={() => {
-                  if (!q || !q._id) {
-                    toast.error("Question id not founded");
-                    return;
-                  }
-                  handleDelete(q._id!);
+            {userRole === "expert" ? (
+              <ContextMenuItem
+                onSelect={(e) => {
+                  // SetTimeout is essential becuase it will resolve the UI Overlay conflicts happening due to edit modal being opened before closing the context menu
+                  setTimeout(() => {
+                    e.preventDefault();
+                    setSelectedQuestion(q);
+                    setEditOpen(true);
+                  }, 0);
                 }}
-                trigger={
-                  <div className="flex items-center gap-2 ">
-                    <Trash className="w-4 h-4 text-red-600 mr-2" />
-                    {deletingQuestion ? "Deleting..." : "Delete"}
-                  </div>
-                }
-              />
-            </ContextMenuItem>
+              >
+                <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
+                Raise Flag
+              </ContextMenuItem>
+            ) : (
+              <>
+                <ContextMenuItem
+                  // onSelect={(e) => {
+                  //   e.preventDefault();
+                  //   setSelectedQuestion(q);
+                  //   setEditOpen(true);
+                  // }}
+                  onSelect={(e) => {
+                    // SetTimeout is essential becuase it will resolve the UI Overlay conflicts happening due to edit modal being opened before closing the context menu
+                    setTimeout(() => {
+                      e.preventDefault();
+                      setSelectedQuestion(q);
+                      setEditOpen(true);
+                    }, 0);
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-2 text-blue-500" />
+                  {updatingQuestion ? "Editing..." : "Edit"}
+                </ContextMenuItem>
+
+                <ContextMenuSeparator />
+
+                <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+                  <ConfirmationModal
+                    title="Delete Question Permanently?"
+                    description="Are you sure you want to delete this question? This action is irreversible."
+                    confirmText="Delete"
+                    cancelText="Cancel"
+                    isLoading={deletingQuestion}
+                    type="delete"
+                    onConfirm={() => {
+                      if (!q || !q._id) {
+                        toast.error("Question id not founded");
+                        return;
+                      }
+                      handleDelete(q._id!);
+                    }}
+                    trigger={
+                      <div className="flex items-center gap-2 ">
+                        <Trash className="w-4 h-4 text-red-600 mr-2" />
+                        {deletingQuestion ? "Deleting..." : "Delete"}
+                      </div>
+                    }
+                  />
+                </ContextMenuItem>
+              </>
+            )}
           </>
         )}
       </ContextMenuContent>

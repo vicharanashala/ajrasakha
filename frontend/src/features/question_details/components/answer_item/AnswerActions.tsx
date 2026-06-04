@@ -98,11 +98,12 @@ export const AnswerActions = ({
 }: AnswerActionsProps) => {
   const showActions =
     userRole !== "expert" &&
+    userRole !== "tester" &&
     (questionStatus === "in-review" || questionStatus === "re-routed" || questionStatus === "pae_submitted") &&
     lastAnswerId === answer?._id;
-  const showAprroveButton = userRole !== "expert" &&
+  const showAprroveButton = userRole !== "tester" && (userRole !== "expert" &&
     ((questionStatus === "in-review" || questionStatus === "re-routed") &&
-      (lastAnswerApprovalCount ?? 0) >= 3) || questionStatus === "pae_submitted"
+      (lastAnswerApprovalCount ?? 0) >= 3) || questionStatus === "pae_submitted")
 
   return (
     <div className="flex items-center justify-center gap-2">

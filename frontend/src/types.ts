@@ -1,6 +1,6 @@
 import type { UserCredential } from "firebase/auth";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
