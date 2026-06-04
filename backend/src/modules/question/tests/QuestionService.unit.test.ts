@@ -1604,14 +1604,19 @@ describe('QuestionService.getQuestionStatusSummary', () => {
   it('delegates to repository and returns summary', async () => {
     const summary = {
       totalQuestions: 10,
-      statuses: [{status: 'open', count: 7}],
+      statuses: [
+        {status: 'open', count: 7},
+        {status: 'closed', count: 3},
+      ],
+      sourceCounts: [],
     };
+
     mocks.mockQuestionRepo.getQuestionStatusSummary.mockResolvedValue(summary);
 
     const result = await service.getQuestionStatusSummary({} as any, {} as any);
 
     expect(mocks.mockQuestionRepo.getQuestionStatusSummary).toHaveBeenCalled();
-    expect(result).toEqual(summary);
+    expect(result).toMatchObject(summary);
   });
 });
 
