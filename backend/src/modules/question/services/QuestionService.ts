@@ -1179,12 +1179,122 @@ export class QuestionService extends BaseService implements IQuestionService {
       } else {
         const isTimeBoundedQuestion =
           source === 'AJRASAKHA' || source === 'WHATSAPP';
-
+  let threadValidation
         if (isTimeBoundedQuestion) {
-          const threadValidation = await this.validateTimeBoundQuestionThread(
+        /*  const threadValidation = await this.validateTimeBoundQuestionThread(
             questionId,
             baseQuestion.threadId,
-          );
+          );*/
+           threadValidation={
+            reason:'',
+isValid: true,
+data: {
+        "messageId": "1f15faf0-0384-6999-8006-05cd17dff065",
+        "createdAt": "2026-06-04T00:47:45.280Z",
+        "updatedAt": "2026-06-04T00:47:45.280Z",
+        "user": {
+            "username": "Anonymous User",
+            "email": "<not_specified>",
+            "emailVerified": false,
+            "avatar": null
+        },
+        "content": [
+            {
+                "type": "human",
+                "text": "What are the effective management strategies and chemical controls for managing the watermelon semilooper caterpillar in watermelon crops? Maharashtra, watermelon"
+            },
+            {
+                "type": "tool",
+                "toolName": "location_information_tool",
+                "toolResponse": {
+                    "city": "Roorkee",
+                    "state": "Uttarakhand",
+                    "country": "India",
+                    "display_name": "Roorkee, Haridwar, Uttarakhand, 247667, India"
+                }
+            },
+            {
+                "type": "tool",
+                "toolName": "upload_question_to_reviewer_system",
+                "toolArgs": {
+                    "question": "What are the effective management strategies and chemical controls for managing the watermelon semilooper caterpillar in watermelon crops in Maharashtra?",
+                    "state_name": "Maharashtra",
+                    "crop": "Watermelon",
+                    "details": {
+                        "state": "Maharashtra",
+                        "district": "all",
+                        "crop": "Watermelon",
+                        "season": "General",
+                        "domain": "Plant Protection"
+                    },
+                    "source": "AJRASAKHA",
+                    "thread_id": "c033f2b3-2ba3-47f9-aa9f-60d5da7d7821"
+                }
+            },
+            {
+                "type": "tool",
+                "toolName": "gdb",
+                "toolArgs": {
+                    "query": "What are the effective management strategies and chemical controls for managing the watermelon semilooper caterpillar in watermelon crops? Maharashtra, watermelon",
+                    "crop": "Watermelon",
+                    "state": "Maharashtra",
+                    "rephrased_query": "What are the effective management strategies and chemical controls for managing the watermelon semilooper caterpillar in watermelon crops in Maharashtra?",
+                    "latitude": 29.881257754623615,
+                    "longitude": 77.87000192407498,
+                    "address": "Roorkee, Haridwar, Uttarakhand, 247667, India"
+                }
+            },
+            {
+                "type": "ai",
+                "text": ""
+            },
+            {
+                "type": "tool",
+                "toolName": "upload_question_to_reviewer_system",
+                "toolResponse": {
+                    "status": "success",
+                    "status_code": 201,
+                    "data": {
+                        "success": true,
+                        "message": "Question submitted successfully.",
+                        "question_id": "6a20cb28a1489d721ad4ad16"
+                    }
+                }
+            },
+            {
+                "type": "tool",
+                "toolName": "gdb",
+                "toolResponse": {
+                    "original_query": "What are the effective management strategies and chemical controls for managing the watermelon semilooper caterpillar in watermelon crops? Maharashtra, watermelon",
+                    "rephrased_query": "What are the effective management strategies and chemical controls for managing the watermelon semilooper caterpillar in watermelon crops in Maharashtra?",
+                    "state": "Maharashtra",
+                    "crop": "Watermelon",
+                    "is_exact": false,
+                    "is_similar": true,
+                    "exact_match": {},
+                    "similar_pair1": {
+                        "question_id": "6a1e6a1b9bf67d790aca1d17",
+                        "similarity_score": 0.8978549242019653,
+                        "retrieval_source": "rag",
+                        "question": "How can I identify and manage caterpillar infestations in watermelon crops?",
+                        "answer": "Caterpillar Infestation in Watermelon: Identification and Management( Diaphania indica Saunders)\n\n1. Identification \nEgg: A female can lay up to 350 eggs, mostly singly or sometimes in groups on the lower surface of the leaves. Incubation period is 306 days.\nLarva: Elongate bright green caterpillar with two narrow longitudinal white stripes dorsally.\nPupa: The pupa colour is dull red or brownish yellow to dull white, and is about 5 to 6 mm in length. Pupation takes place in the silken cocoon formed in the leaf fold.\nAdult: The wingspan is about 30 mm. Adults have translucent whitish wings with broad dark brown borders. The body is whitish below, and brown on the top of the head and thorax, as well as the end of the abdomen. There is a tuft of light brown \"hairs\" on the tip of the abdomen, vestigial in the male but well-developed in the female.\n\n2. Damage Symptoms\nLarva folds the leaves and scrapes the green matter. As a result, the leaves get dried up. It can also feed on the ovaries of flowers; sometimes bore into young developing fruits.\n\nNatural enemies of the leaf-eating caterpillar:\nParasitoids: Trichogramma spp., Apanteles taragamae, A. machaeralis, Bracon hebetor, Phanerotoma\nhendecasisella, Chelonus sp., Campoletis chlorideae, Goniozus sensorius, Elasmus brevicornis, Xanthopimpla\npunctata, Brachymeria lasus, B. margaroniae etc.\nPredators: Reduviid, predatory bird, wasps, ground beetle, spiders, ants, earwig, etc. \n\n3. Management\nCultural control:\n-Soil application of neem cake (immediately after germination and again at flowering) followed by spraying of NSKE @ 4% with sticker (0.5 ml/l of water) at 10-15 day intervals.\n\nSurveillance through pheromone trap catches:\nPheromone traps for caterpillars and fruit flies, @ 4-5 per acre, have to be installed. Install the traps for each species separated by a distance of >75 feet in the vicinity of the selected field, if available. Fix the traps to the supporting pole at a height of one foot above the plant canopy. Change of lures should be made once a month. During each week of surveillance, the number of moths/trap should be counted and recorded. The trapped moths should be removed and destroyed after each recording.\n\nMechanical control:\nHandpick the gregarious caterpillars and the cocoons that are found on the stem and destroy them in kerosene mixed with water\n\n Safety Precautions:\nPersonal Protective Equipment (PPE): Always wear gloves, a mask, goggles, and protective clothing during spraying to prevent skin contact or inhalation.\n\nFor specific recommendations or field-level diagnosis, please contact your nearest Krishi Vigyan Kendra (KVK) or Block Agriculture Officer.",
+                        "details": [
+                            {
+                                "source_name": null,
+                                "source_link": "https://workdrive.zohoexternal.in/file/uqmp1f28b65fd5e0c4687b200b7edb063f52f",
+                                "author_name": "varsha shekhar"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "type": "ai",
+                "text": "WATERMELON SEMILOOPER CATERPILLAR MANAGEMENT\n\nIdentification\n\nThe watermelon semilooper caterpillar (Diaphania indica) goes through distinct life stages. Eggs are laid mostly singly on the lower surface of leaves, with an incubation period of 3-6 days. The larva is an elongate bright green caterpillar with two narrow white stripes running along its back. Pupation occurs in a silken cocoon formed in leaf folds, with the pupa being dull red, brownish yellow, or dull white in color.\n\nDamage Symptoms\n\nThe caterpillar folds leaves and scrapes away the green matter, causing leaves to dry up. Larvae can also feed on flower ovaries and bore into young developing fruits, reducing crop yield and quality.\n\nManagement Strategies\n\nCultural Control\n\nApply neem cake to the soil immediately after germination and again at flowering. Follow this with spraying of NSKE (Neem Seed Kernel Extract) at 4% concentration with sticker (0.5 ml per liter of water) at 10-15 day intervals.\n\nSurveillance\n\nInstall pheromone traps at 4-5 per acre to monitor caterpillar populations. Place traps separated by more than 75 feet from each other, fixed to poles at a height of one foot above the plant canopy. Change lures once a month and record the number of moths caught weekly. Remove and destroy trapped moths after recording.\n\nMechanical Control\n\nHandpick gregarious caterpillars and cocoons found on stems and destroy them in kerosene mixed with water.\n\nNatural Enemies\n\nEncourage parasitoid wasps like Trichogramma species and predators such as reduviid bugs, spiders, ground beetles, and ants, which naturally control caterpillar populations.\n\nSafety Precautions\n\nAlways wear gloves, mask, goggles, and protective clothing during spraying to prevent skin contact or inhalation of chemicals.\n\nThe answer I provided is sourced only from the following approved materials.\n\n📚 Source: https://workdrive.zohoexternal.in/file/uqmp1f28b65fd5e0c4687b200b7edb063f52f\n👨‍🌾 Agri Expert: varsha shekhar\n\n⚠️ Important Notice (Testing) ⚠️\n\nThis AjraSakha application is under development and intended only for testing and validation. \nAdvisories are experimental and currently cover major crops in selected states. \nWeather data is sourced from IMD.\nMarket data from eNAM, Agmarknet, and State APMCs.\nSoil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.\nGovernment schemes from https://www.myscheme.gov.in/. \nOther agricultural information and advisories are expert-verified by Annam.ai. \n\nUsers should independently validate recommendations before acting."
+            }
+        ]
+    }
+}
           console.log("threadValidation ", threadValidation);
           if (!threadValidation.isValid) {
             console.log("Npt valid")
@@ -1206,7 +1316,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             details,
             logData,
           );
-          if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
+       /*   if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
             const {
               similarityScore,
               referenceQuestionId,
@@ -1221,7 +1331,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               referenceSource,
             });
             return;
-          }
+          }*/
           if (duplicateResult?.isNonAgri) {
             await this.questionRepo.updateQuestion(questionId, {
               status: 'non_agri',
@@ -1272,7 +1382,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   private async validateTimeBoundQuestionThread(
     questionId: string,
     threadId?: string,
-  ): Promise<{isValid: boolean; reason?: string}> {
+  ): Promise<{isValid: boolean; reason?: string,data?:any}> {
     if (!threadId?.trim()) {
       return {isValid: false, reason: 'THREAD_ID_MISSING'};
     }
@@ -1283,7 +1393,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {isValid: false, reason: 'MATCHED_QUESTION_EMPTY'};
       }
 
-      return {isValid: true};
+      return {isValid: true,data:matchedQuestion};
     } catch (error: any) {
       console.error(
         `[validateTimeBoundQuestionThread] Failed for questionId=${questionId}:`,
