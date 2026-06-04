@@ -1306,6 +1306,47 @@ data: {
               isTesting: true,
             });
             return;
+          } else {
+            // Extract the last GDB tool response from thread content
+            const content: any[] = threadValidation.data?.content || [];
+            const gdbToolCalls = content.filter(
+              (c: any) => c.type === 'tool' && c.toolName === 'gdb' && c.toolResponse,
+            );
+            const lastGdbResponse = gdbToolCalls.length > 0
+              ? gdbToolCalls[gdbToolCalls.length - 1].toolResponse
+              : null;
+
+            if (lastGdbResponse) {
+              const isExact: boolean = lastGdbResponse.is_exact === true;
+              const isSimilar: boolean = lastGdbResponse.is_similar === true;
+
+              if (isExact && !isSimilar) {
+                // Exact match found in GDB — mark as duplicate using exact_match data
+                const exactMatch = lastGdbResponse.exact_match;
+                await this.questionRepo.updateQuestion(questionId, {
+                  status: 'duplicate',
+                  similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
+                  referenceQuestionId: new ObjectId(String(exactMatch.question_id)),
+                  referenceQuestion: exactMatch.question,
+                  referenceSource: 'reviewer',
+                  isExact: true,
+                });
+                return;
+              } else if (!isExact && isSimilar) {
+                // Similar match found in GDB — mark as duplicate using similar_pair1 data
+                const similarPair = lastGdbResponse.similar_pair1;
+                await this.questionRepo.updateQuestion(questionId, {
+                  status: 'duplicate',
+                  similarityScore: Number((similarPair.similarity_score * 100).toFixed(2)),
+                  referenceQuestionId: new ObjectId(String(similarPair.question_id)),
+                  referenceQuestion: similarPair.question,
+                  referenceSource: 'reviewer',
+                  isExact: false,
+                });
+                return;
+              }
+              // Both false — fall through to existing duplicate check below
+            }
           }
         }
 

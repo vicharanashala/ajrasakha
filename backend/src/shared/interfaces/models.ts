@@ -93,6 +93,7 @@ export interface IQuestion {
   referenceQuestionId?: ObjectId;
   referenceQuestion?: string;
   referenceSource?: string;
+  isExact?: boolean;
   saved_to_draft?: boolean;
   pae_review?: boolean;
   firstAllocationAt?: Date;
