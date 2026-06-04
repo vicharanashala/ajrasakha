@@ -27,7 +27,7 @@ def test_language_directive_hinglish_pair():
 def test_localized_disclaimers_from_sheet_english():
     assert "Important Notice" in get_localized_warning_text(script_language="English", vocal_language="English")
     assert "agri expert" in get_localized_empty_reply_body(script_language="English", vocal_language="English")
-    assert get_localized_state_question(script_language="English", vocal_language="English") == "Which state are you in?"
+    assert get_localized_state_question(script_language="English", vocal_language="English") == "Which state and district are you in?"
     assert get_localized_crop_question(script_language="English", vocal_language="English") == "Which crop are you growing?"
 
 
