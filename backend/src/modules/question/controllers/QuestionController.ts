@@ -1636,4 +1636,41 @@ export class QuestionController {
 
     }
   }
+
+  // ─── Time-bound question endpoints ──────────────────────────────────────────
+
+  @Post('/reallocate-timebound')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Reallocate time-bound questions pending > 45 min to experts with < 3 active time-bound questions' })
+  async reallocateTimeBound(@CurrentUser() user: IUser) {
+    const result = await this.questionService.reallocateTimeBoundQuestions();
+    this.auditTrailsService.createAuditTrail({
+      category: AuditCategory.QUESTION,
+      action: AuditAction.REALLOCATE_QUESTIONS,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      changes: { after: { type: 'timeBound', ...result } },
+      outcome: { status: OutComeStatus.SUCCESS },
+      createdAt: new Date(),
+    });
+    return result;
+  }
+
+  @Post('/:questionId/mark-opened')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Mark that the current expert has opened a time-bound question (blocks 45-min auto-reallocation)' })
+  async markQuestionOpened(
+    @Param('questionId') questionId: string,
+    @CurrentUser() user: IUser,
+  ) {
+    await this.questionService.markQuestionOpened(questionId, user._id.toString());
+    return { success: true };
+  }
 }
