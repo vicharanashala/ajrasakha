@@ -245,7 +245,7 @@ export const PlaygroundPage = () => {
                     <span>ChatBot Analytics</span>
                   </TabsTrigger>
                 )}
-                {user && (user.role === "moderator" || user.role === "tester" || user.role === "admin") && (
+                {user && (user.role === "moderator" || user.role === "admin") && (
                   <TabsTrigger
                     value="data_processing"
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
