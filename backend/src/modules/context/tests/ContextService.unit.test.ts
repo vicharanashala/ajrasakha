@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import {describe, it, expect, beforeEach, vi} from 'vitest';
-import {BadRequestError} from 'routing-controllers';
+import {BadRequestError, InternalServerError} from 'routing-controllers';
 
 import {ContextService} from '../services/ContextService.js';
 import {appConfig} from '#root/config/app.js';
@@ -14,7 +14,6 @@ describe('ContextService', () => {
   };
 
   const mockQuestionService = {};
-
   const mockDatabase = {};
 
   beforeEach(() => {
@@ -29,6 +28,8 @@ describe('ContextService', () => {
     vi.spyOn(service as any, '_withTransaction').mockImplementation(
       async (callback: any) => callback({}),
     );
+
+    appConfig.sarvamAPI = 'fake-api-key';
   });
 
   describe('addContext', () => {
@@ -47,16 +48,57 @@ describe('ContextService', () => {
     });
 
     it('throws when transcript is empty', async () => {
-      await expect(service.addContext('user-1', '')).rejects.toThrow();
+      await expect(service.addContext('user-1', '')).rejects.toThrow(
+        InternalServerError,
+      );
+    });
+
+    it('throws when transcript is whitespace', async () => {
+      await expect(service.addContext('user-1', '   ')).rejects.toThrow(
+        InternalServerError,
+      );
+    });
+  });
+
+  describe('getById', () => {
+    it('returns context successfully', async () => {
+      const context = {
+        _id: 'context-1',
+        text: 'sample',
+      };
+
+      mockContextRepo.getById.mockResolvedValueOnce(context);
+
+      const result = await service.getById('context-1');
+
+      expect(result).toEqual(context);
+    });
+
+    it('throws when contextId is missing', async () => {
+      await expect(service.getById('')).rejects.toThrow(InternalServerError);
+    });
+
+    it('throws when context not found', async () => {
+      mockContextRepo.getById.mockResolvedValueOnce(null);
+
+      await expect(service.getById('missing-id')).rejects.toThrow(
+        BadRequestError,
+      );
     });
   });
 
   describe('translate', () => {
     beforeEach(() => {
-      appConfig.sarvamAPI = 'fake-api-key';
-
       vi.spyOn(service as any, '_callSarvamTranslate').mockResolvedValue(
         'translated',
+      );
+    });
+
+    it('throws when api key is missing', async () => {
+      appConfig.sarvamAPI = '';
+
+      await expect(service.translate('hello', 'hi-IN')).rejects.toThrow(
+        BadRequestError,
       );
     });
 
@@ -80,44 +122,56 @@ describe('ContextService', () => {
       );
     });
 
-    it('uses mayura model for supported languages', async () => {
+    it('returns original text when target language is en-IN', async () => {
+      const spy = vi.spyOn(service as any, '_callSarvamTranslate');
+
+      const result = await service.translate('Hello world', 'en-IN');
+
+      expect(result).toEqual({
+        translated_text: 'Hello world',
+      });
+
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('uses sarvam model for hi-IN', async () => {
       const spy = vi.spyOn(service as any, '_callSarvamTranslate');
 
       await service.translate('Hello world', 'hi-IN');
 
       expect(spy).toHaveBeenCalledWith(
         'Hello world',
-        'auto',
-        'hi-IN',
-        'mayura:v1',
-        expect.any(String),
-      );
-    });
-
-    it('uses sarvam model for sarvam-only languages', async () => {
-      const spy = vi.spyOn(service as any, '_callSarvamTranslate');
-
-      await service.translate('Hello world', 'ur-IN');
-
-      expect(spy).toHaveBeenCalledWith(
-        'Hello world',
         'en-IN',
+        'hi-IN',
+        'sarvam-translate:v1',
+        expect.any(String),
+      );
+    });
+
+    it('uses provided source language for sarvam model', async () => {
+      const spy = vi.spyOn(service as any, '_callSarvamTranslate');
+
+      await service.translate('Hello world', 'ur-IN', 'ta-IN');
+
+      expect(spy).toHaveBeenCalledWith(
+        'Hello world',
+        'ta-IN',
         'ur-IN',
         'sarvam-translate:v1',
         expect.any(String),
       );
     });
 
-    it('uses provided source language for sarvam-only language', async () => {
+    it('uses mayura model for non-sarvam language', async () => {
       const spy = vi.spyOn(service as any, '_callSarvamTranslate');
 
-      await service.translate('Hello world', 'ur-IN', 'hi-IN');
+      await service.translate('Hello world', 'fr-FR');
 
       expect(spy).toHaveBeenCalledWith(
         'Hello world',
-        'hi-IN',
-        'ur-IN',
-        'sarvam-translate:v1',
+        'auto',
+        'fr-FR',
+        'mayura:v1',
         expect.any(String),
       );
     });
@@ -127,7 +181,7 @@ describe('ContextService', () => {
 
       const largeText = 'a'.repeat(2500);
 
-      await service.translate(largeText, 'hi-IN');
+      await service.translate(largeText, 'fr-FR');
 
       expect(spy.mock.calls.length).toBeGreaterThan(1);
     });
@@ -138,9 +192,10 @@ describe('ContextService', () => {
         .mockResolvedValueOnce('chunk2')
         .mockResolvedValueOnce('chunk3');
 
-      const result = await service.translate('a'.repeat(2500), 'hi-IN');
+      const result = await service.translate('a'.repeat(2500), 'fr-FR');
 
-      expect(result.translated_text).toContain('chunk');
+      expect(result.translated_text).toContain('chunk1');
+      expect(result.translated_text).toContain('chunk2');
     });
   });
 });
