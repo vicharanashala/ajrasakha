@@ -1,4 +1,4 @@
-import type { IUser,ReviewLevelCount } from "@/types";
+import type { IUser, ReviewLevelCount } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 import { formatDateLocal } from "@/utils/formatDate";
@@ -13,9 +13,9 @@ export class UserService {
     return apiFetch<IUser>(`${this._baseUrl}/me`);
   }
 
-   async useGetAllUsers(): Promise<IUsersNameResponse | null> {
-  return apiFetch<IUsersNameResponse>(`${this._baseUrl}/all`);
-}
+  async useGetAllUsers(): Promise<IUsersNameResponse | null> {
+    return apiFetch<IUsersNameResponse>(`${this._baseUrl}/all`);
+  }
 
 
   async edit(user: Partial<IUser>): Promise<void | null> {
@@ -25,21 +25,21 @@ export class UserService {
     });
   }
 
-   async notificationDeletePreference(preference:string):Promise<void | null>{
-    return apiFetch<void>(`${this._baseUrl}/`,{
-      body:JSON.stringify({ preference }),
-      method:"PATCH"
+  async notificationDeletePreference(preference: string): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/`, {
+      body: JSON.stringify({ preference }),
+      method: "PATCH"
     })
   }
 
-  async useGetAllExperts(page:number,limit:number,search:string,sort:string,filter:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number} | null>{
-    return apiFetch<{experts:IUser[]; totalExperts:number; totalPages:number}>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`);
+  async useGetAllExperts(page: number, limit: number, search: string, sort: string, filter: string): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number } | null> {
+    return apiFetch<{ experts: IUser[]; totalExperts: number; totalPages: number }>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`);
   }
 
-  async isBlockUser(userId:string,action:string):Promise<void | null>{
-    return apiFetch<void>(`${this._baseUrl}/expert`,{
-      body:JSON.stringify({ userId,action }),
-      method:"PATCH"
+  async isBlockUser(userId: string, action: string): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/expert`, {
+      body: JSON.stringify({ userId, action }),
+      method: "PATCH"
     })
   }
 
@@ -51,7 +51,7 @@ export class UserService {
   }
 
   async updateUserStatus(userId: string, status: string) {
-    return apiFetch<{message: string}>(`${this._baseUrl}/status`, {
+    return apiFetch<{ message: string }>(`${this._baseUrl}/status`, {
       method: "PATCH",
       body: JSON.stringify({ userId, status }),
     });
@@ -64,11 +64,11 @@ export class UserService {
     });
   }
 
-  async toggleUserRole(userId: string, currentRole: string, selectedRole? : string): Promise<IUser | null> {
+  async toggleUserRole(userId: string, currentRole: string, selectedRole?: string): Promise<IUser | null> {
     if (currentRole === "admin") {
       throw new Error("Admin role cannot be changed");
     }
-    
+
     const newRole = selectedRole;
     return apiFetch<IUser>(`${this._baseUrl}/${userId}/role`, {
       method: "PATCH",
@@ -76,12 +76,12 @@ export class UserService {
     });
   }
 
-   async Getuser(email:string):Promise<IUser| null>{
+  async Getuser(email: string): Promise<IUser | null> {
     return apiFetch<IUser | null>(
       `${this._baseUrl}/details/${encodeURIComponent(email)}`
     );
   }
-  async getUserReviewLevel(userId?:string|undefined,startTime?:Date|undefined,endTime?:Date|undefined,role?:string,state?:string,crop?:string,domain?:string,status?:string,normalised_crop?:string): Promise<ReviewLevelCount[] | null> {
+  async getUserReviewLevel(userId?: string | undefined, startTime?: Date | undefined, endTime?: Date | undefined, role?: string, state?: string, crop?: string, domain?: string, status?: string, normalised_crop?: string): Promise<ReviewLevelCount[] | null> {
     const params = new URLSearchParams();
 
     if (startTime) {
@@ -91,34 +91,27 @@ export class UserService {
     if (endTime) {
       params.append("endTime", formatDateLocal(endTime));
     }
-    if(userId)
-    {
+    if (userId) {
       params.append("userId", userId)
     }
-   
-    if(role)
-    {
-      params.append("role",role)
+
+    if (role) {
+      params.append("role", role)
     }
-    if(state)
-    {
-      params.append("state",state)
+    if (state) {
+      params.append("state", state)
     }
-    if(crop)
-    {
-      params.append("crop",crop)
+    if (crop) {
+      params.append("crop", crop)
     }
-    if(domain)
-    {
-      params.append("domain",domain)
+    if (domain) {
+      params.append("domain", domain)
     }
-    if(status)
-    {
-      params.append("status",status)
+    if (status) {
+      params.append("status", status)
     }
-    if(normalised_crop)
-    {
-      params.append("normalised_crop",normalised_crop)
+    if (normalised_crop) {
+      params.append("normalised_crop", normalised_crop)
     }
     return apiFetch<ReviewLevelCount[]>(`${this._baseUrl}/review-level?${params.toString()}`);
   }
@@ -127,6 +120,23 @@ export class UserService {
     return apiFetch<IUser>(`${this._baseUrl}/${userId}/verify`, {
       method: "PATCH",
       body: JSON.stringify({ isVerified }),
+    });
+  }
+
+  async getCallAgents(): Promise<IUser[] | null> {
+    return apiFetch<IUser[]>(`${this._baseUrl}/call-agents`);
+  }
+
+  async setCallAgentStatus(userId: string, isCallAgent: boolean, isCallAgentActive: boolean): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/set-call-agents`, {
+      method: "POST",
+      body: JSON.stringify({ userId, isCallAgent, isCallAgentActive }),
+    });
+  }
+
+  async toggleCallAgentActive(userId: string): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/call-agents/${userId}/toggle-active`, {
+      method: "PATCH",
     });
   }
 }

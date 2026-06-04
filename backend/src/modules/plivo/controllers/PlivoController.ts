@@ -32,7 +32,7 @@ export class PlivoController {
 
   constructor(
     @inject(PLIVO_TYPES.CallDetailsRepository) private callDetailsRepository: ICallDetailsRepository
-  ) {}
+  ) { }
 
 
   @Post('/answer')
@@ -48,7 +48,7 @@ export class PlivoController {
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
                     <Response>
                               <Stream contentType="audio/x-l16;rate=16000"
-          noiseCancellation="true" audioTrack="both" 
+          noiseCancellation="true" audioTrack="both" noise_cancellation_level="85"
           >${streamUrl}</Stream>
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
 import { Button } from "./atoms/button";
 import { toast } from "sonner";
-import { Search, Plus, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Check, X } from "lucide-react";
 import { Input } from "./atoms/input";
 import { UserService } from "@/hooks/services/userService";
 
@@ -14,6 +14,8 @@ export const ManageCallAgents = () => {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [addingAgents, setAddingAgents] = useState(false);
 
   useEffect(() => {
     fetchCallAgents();
@@ -33,18 +35,12 @@ export const ManageCallAgents = () => {
   };
 
   const fetchAllUsers = async () => {
-    // try {
-    //   // Use admin endpoint to get full user objects with all fields
-    //   const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/users/admin/all?page=1&limit=100&role=ALL`, {
-    //     headers: {
-    //       'Authorization': `Bearer ${localStorage.getItem('token')}`,
-    //     },
-    //   });
-    //   const data = await response.json();
-    //   setAllUsers(data.users || []);
-    // } catch (error: any) {
-    //   toast.error(error.message || "Failed to fetch users");
-    // }
+    try {
+      const data = await userService.useGetAllExperts(1, 100, '', '', '');
+      setAllUsers(data?.experts || []);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to fetch users");
+    }
   };
 
   const handleToggleActive = async (userId: string) => {
@@ -71,20 +67,39 @@ export const ManageCallAgents = () => {
     }
   };
 
-  const handleAddAgent = async (userId: string) => {
+  const handleToggleSelection = (userId: string) => {
+    setSelectedUserId((prev) => (prev === userId ? null : userId));
+  };
+
+  const handleConfirmAddAgents = async () => {
+    if (!selectedUserId) {
+      toast.error("Please select a user to add as a call agent");
+      return;
+    }
+
     try {
-      await userService.setCallAgentStatus(userId, true, true);
+      setAddingAgents(true);
+      await userService.setCallAgentStatus(selectedUserId, true, false);
       toast.success("Call agent added successfully");
+
+      setSelectedUserId(null);
       setShowAddModal(false);
       fetchCallAgents();
     } catch (error: any) {
       toast.error(error.message || "Failed to add call agent");
+    } finally {
+      setAddingAgents(false);
     }
+  };
+
+  const handleCloseModal = () => {
+    setSelectedUserId(null);
+    setShowAddModal(false);
   };
 
   const filteredUsers = allUsers.filter(
     (u) =>
-      (u.role === "expert" || u.role === "moderator") &&
+      u.role === "expert" &&
       !u.isCallAgent &&
       (u.firstName?.toLowerCase().includes(search.toLowerCase()) ||
         u.lastName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -132,20 +147,18 @@ export const ManageCallAgents = () => {
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        agent.role === "moderator"
+                      className={`text-xs px-2 py-1 rounded-full ${agent.role === "moderator"
                           ? "bg-purple-100 text-purple-700"
                           : "bg-blue-100 text-blue-700"
-                      }`}
+                        }`}
                     >
                       {agent.role}
                     </span>
                     <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        agent.isCallAgentActive
+                      className={`text-xs px-2 py-1 rounded-full ${agent.isCallAgentActive
                           ? "bg-green-100 text-green-700"
                           : "bg-gray-100 text-gray-700"
-                      }`}
+                        }`}
                     >
                       {agent.isCallAgentActive ? "Active" : "Inactive"}
                     </span>
@@ -188,58 +201,97 @@ export const ManageCallAgents = () => {
 
       {/* Add Agent Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card p-6 rounded-lg w-full max-w-md space-y-4">
-            <h2 className="text-xl font-bold">Add Call Agent</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card p-6 rounded-lg w-full max-w-lg space-y-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold">Add Call Agents</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCloseModal}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search users..."
+                placeholder="Search users by name or email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
               />
             </div>
-            <div className="max-h-64 overflow-y-auto space-y-2">
+            <div className="max-h-80 overflow-y-auto space-y-2">
               {filteredUsers.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  No users found
+                <div className="text-center py-8 text-muted-foreground">
+                  {search ? "No users match your search" : "No users available to add"}
                 </div>
               ) : (
-                filteredUsers.map((u) => (
-                  <div
-                    key={u._id}
-                    className="flex items-center justify-between p-3 hover:bg-accent rounded cursor-pointer"
-                    onClick={() => handleAddAgent(String(u._id))}
-                  >
-                    <div>
-                      <div className="font-medium">
-                        {u.firstName} {u.lastName}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {u.email}
-                      </div>
-                    </div>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        u.role === "moderator"
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-blue-100 text-blue-700"
-                      }`}
+                filteredUsers.map((u) => {
+                  const isSelected = selectedUserId === String(u._id);
+                  return (
+                    <div
+                      key={u._id}
+                      className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border ${isSelected
+                          ? "bg-primary/10 border-primary/30 hover:bg-primary/15"
+                          : "bg-card border-border hover:bg-accent hover:border-accent"
+                        }`}
+                      onClick={() => handleToggleSelection(String(u._id))}
                     >
-                      {u.role}
-                    </span>
-                  </div>
-                ))
+                      <div className="flex items-center gap-3 flex-1">
+                        <div
+                          className={`flex items-center justify-center w-5 h-5 rounded-full border transition-colors ${isSelected
+                              ? "border-primary bg-background"
+                              : "border-input bg-background hover:border-primary"
+                            }`}
+                        >
+                          {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium">
+                            {u.firstName} {u.lastName}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {u.email}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+                        {u.role}
+                      </span>
+                    </div>
+                  );
+                })
               )}
             </div>
-            <Button
-              variant="outline"
-              onClick={() => setShowAddModal(false)}
-              className="w-full"
-            >
-              Cancel
-            </Button>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={handleCloseModal}
+                className="flex-1"
+                disabled={addingAgents}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmAddAgents}
+                className="flex-1 gap-2"
+                disabled={!selectedUserId || addingAgents}
+              >
+                {addingAgents ? (
+                  <>Adding...</>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Confirm
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       )}

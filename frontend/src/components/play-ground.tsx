@@ -245,11 +245,10 @@ export const PlaygroundPage = () => {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
-                        className={`px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-1 ${
-                          ["call_interface", "call_history"].includes(activeTab)
+                        className={`px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-1 ${["call_interface", "call_history"].includes(activeTab)
                             ? "bg-accent text-accent-foreground"
                             : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                        }`}
+                          }`}
                       >
                         Call Agent
                         <ChevronDownIcon className="w-3.5 h-3.5 opacity-60" />
@@ -286,7 +285,7 @@ export const PlaygroundPage = () => {
                   </DropdownMenu>
                 )}
 
-                {user?.role === "moderator" && (
+                {user?.role === "admin" && (
                   <TabsTrigger
                     value="manage_agents"
                     onClick={() => handleTabChange("manage_agents")}
@@ -522,7 +521,7 @@ export const PlaygroundPage = () => {
                   )}
                 >
                   <div className="w-full max-w-full px-4 md:px-6 py-2">
-                    <CallHistory onRedial={() => {}} />
+                    <CallHistory onRedial={() => { }} />
                   </div>
                 </TabsContent>
               )}
@@ -543,7 +542,7 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {user?.role === "moderator" && (
+              {user?.role === "admin" && (
                 <TabsContent
                   value="manage_agents"
                   className={cn(

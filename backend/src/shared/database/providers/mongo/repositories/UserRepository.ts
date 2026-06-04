@@ -549,7 +549,7 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     const submissionCollection = await this.db.getCollection<any>('question_submissions');
-    
+
     const userObjectId = new ObjectId(userId);
     const userIdStr = userId.toString();
 
@@ -567,7 +567,7 @@ export class UserRepository implements IUserRepository {
         {
           $and: [
             { history: { $not: { $size: 0 } } },
-            { 
+            {
               $expr: {
                 $and: [
                   { $eq: [{ $arrayElemAt: ['$history.status', -1] }, 'in-review'] },
@@ -1319,7 +1319,7 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError(`Failed to update IsBlock`);
     }
   }
-  
+
   async updateSTFStatus(
     userId: string,
     action: string,
@@ -1329,14 +1329,14 @@ export class UserRepository implements IUserRepository {
     try {
       const special_task_force = action === 'assign';
       await this.usersCollection.updateOne(
-        {_id: new ObjectId(userId)},
+        { _id: new ObjectId(userId) },
         {
           $set: {
             special_task_force,
             updatedAt: new Date(),
           },
         },
-        {upsert: true, session},
+        { upsert: true, session },
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update STF status`);
@@ -1522,10 +1522,10 @@ export class UserRepository implements IUserRepository {
         )
         .toArray();
 
-      // Convert ObjectId to string for _id field
+      // Convert ObjectId to string and return minimal data
       return agents.map((agent) => ({
         ...agent,
-        _id: agent._id?.toString(),
+        _id: agent._id.toString(),
       })) as IUser[];
     } catch (error) {
       throw new InternalServerError('Failed to find call agents');
@@ -1554,10 +1554,10 @@ export class UserRepository implements IUserRepository {
       if (!result) {
         throw new NotFoundError('User not found');
       }
-      // Convert ObjectId to string for _id field
+      const plainResult = JSON.parse(JSON.stringify(result));
       return {
-        ...result,
-        _id: result._id?.toString(),
+        ...plainResult,
+        _id: result._id.toString(),
       } as IUser;
     } catch (error) {
       throw new InternalServerError('Failed to set call agent status');
@@ -1588,10 +1588,10 @@ export class UserRepository implements IUserRepository {
         },
         { returnDocument: 'after', session },
       );
-      // Convert ObjectId to string for _id field
+      const plainResult = JSON.parse(JSON.stringify(result));
       return {
-        ...result,
-        _id: result._id?.toString(),
+        ...plainResult,
+        _id: result._id.toString(),
       } as IUser;
     } catch (error) {
       throw new InternalServerError('Failed to toggle call agent active status');

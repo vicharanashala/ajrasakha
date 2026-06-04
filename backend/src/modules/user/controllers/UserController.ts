@@ -17,16 +17,16 @@ import {
   InternalServerError,
   ForbiddenError
 } from 'routing-controllers';
-import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
-import {inject, injectable} from 'inversify';
-import {GLOBAL_TYPES} from '#root/types.js';
+import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+import { inject, injectable } from 'inversify';
+import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
   NotificationRetentionType,
   UserRole,
 } from '#root/shared/interfaces/models.js';
-import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
-import {UserService} from '#root/modules/user/services/UserService.js';
+import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
+import { UserService } from '#root/modules/user/services/UserService.js';
 import {
   BlockUnblockBody,
   NotificationDeletePreferenceDTO,
@@ -62,7 +62,7 @@ export class UserController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
-  ) {}
+  ) { }
 
   @OpenAPI({
     summary: 'Get current user',
@@ -188,7 +188,7 @@ export class UserController {
       isVerified?: string;
       isSTF?: string;
     },
-    
+
   ) {
     const pageNum = Number(query.page) || 1;
     const limitNum = Number(query.limit) || 10;
@@ -231,7 +231,7 @@ export class UserController {
   async getAllUsersName(
     @CurrentUser() user: IUser,
     @QueryParams()
-  query: {
+    query: {
       page?: number;
       limit?: number;
       search?: string;
@@ -240,12 +240,12 @@ export class UserController {
     },
   ): Promise<UsersNameResponseDto> {
     const {
-    page = 1,
-    limit = 10,
-    search = '',
-    sort = '',
-    filter = '',
-  } = query;
+      page = 1,
+      limit = 10,
+      search = '',
+      sort = '',
+      filter = '',
+    } = query;
     const userId = user._id.toString();
     return await this.userService.getAllUsersforManualSelect(
       userId,
@@ -279,14 +279,14 @@ export class UserController {
   async updateAutoDeleteNotificationPreference(
     @Body() body: NotificationDeletePreferenceDTO,
     @CurrentUser() currentUser: IUser,
-  ): Promise<{message: string}> {
+  ): Promise<{ message: string }> {
     const userId = currentUser._id.toString();
-    const {preference} = body;
+    const { preference } = body;
     await this.userService.updateAutoDeleteNotificationPreference(
       preference,
       userId,
     );
-    return {message: 'Notification preference updated successfully'};
+    return { message: 'Notification preference updated successfully' };
   }
 
   @OpenAPI({
@@ -310,10 +310,10 @@ export class UserController {
   @Authorized()
   async updateIncentiveAndPenalty(
     @Body() body: UpdatePenaltyAndIncentive,
-  ): Promise<{message: string}> {
-    const {type, userId} = body;
+  ): Promise<{ message: string }> {
+    const { type, userId } = body;
     await this.userService.updatePenaltyAndIncentive(userId, type);
-    return {message: `${type} updated successfully`};
+    return { message: `${type} updated successfully` };
   }
 
   @OpenAPI({
@@ -341,7 +341,7 @@ export class UserController {
       filter: string;
     },
   ) {
-    const {page = 1, limit = 10, search = '', sort = '', filter = ''} = query;
+    const { page = 1, limit = 10, search = '', sort = '', filter = '' } = query;
     return await this.userService.findAllExperts(
       Number(page),
       Number(limit),
@@ -373,14 +373,14 @@ export class UserController {
   async BlockAndUnblockExpert(
     @Body() body: BlockUnblockBody,
     @CurrentUser() user: IUser,
-  ): Promise<{message: string}> {
-    const {action, userId} = body;
+  ): Promise<{ message: string }> {
+    const { action, userId } = body;
     const expertDetails = await this.userService.getUserById(userId);
     if (!expertDetails) {
       throw new NotFoundError('User not found');
     }
 
-    let auditPayload : ModeratorAuditTrail = {
+    let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_MANAGEMENT,
       action: action === 'block' ? AuditAction.BLOCK_EXPERT : AuditAction.UNBLOCK_EXPERT,
       actor: {
@@ -396,8 +396,8 @@ export class UserController {
         email: expertDetails.email,
         role: expertDetails.role,
       },
-      changes:{
-        before:{
+      changes: {
+        before: {
           status: action === 'block' ? 'unblocked' : 'blocked',
         },
       },
@@ -405,12 +405,12 @@ export class UserController {
         status: OutComeStatus.SUCCESS,
       },
     };
-    try{
+    try {
       await this.userService.blockUnblockExperts(userId, action);
-    } catch(err: any){  
+    } catch (err: any) {
       auditPayload = {
-        ...auditPayload,          
-          outcome: {
+        ...auditPayload,
+        outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to block/unblock expert',
@@ -419,8 +419,8 @@ export class UserController {
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
-      if(err instanceof InternalServerError){
-          throw new InternalServerError(err.message);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
       }
       throw new BadRequestError(
         err?.message || 'Failed to block/unblock expert',
@@ -428,15 +428,15 @@ export class UserController {
     }
     auditPayload = {
       ...auditPayload,
-      changes:{
+      changes: {
         ...auditPayload.changes,
-        after:{
+        after: {
           status: action === 'block' ? 'blocked' : 'unblocked',
         }
       }
     }
     this.auditTrailsService.createAuditTrail(auditPayload);
-    return {message: `${action} Expert successfully`};
+    return { message: `${action} Expert successfully` };
   }
 
   @OpenAPI({
@@ -539,12 +539,12 @@ export class UserController {
   @HttpCode(200)
   @Authorized()
   async updateActivityStatus(
-    @Body() body: {userId: string; status: 'active' | 'in-active'},
+    @Body() body: { userId: string; status: 'active' | 'in-active' },
     @CurrentUser() user: IUser,
-  ): Promise<{message: string}> {
-    const {userId, status} = body;
+  ): Promise<{ message: string }> {
+    const { userId, status } = body;
     const expertDetails = await this.userService.getUserById(userId);
-    let auditPayload : ModeratorAuditTrail = {
+    let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_MANAGEMENT,
       action: status === 'active' ? AuditAction.ACTIVATE_EXPERT : AuditAction.DEACTIVATE_EXPERT,
       actor: {
@@ -560,8 +560,8 @@ export class UserController {
         email: expertDetails.email,
         role: expertDetails.role,
       },
-      changes:{
-        before:{
+      changes: {
+        before: {
           status: status === 'in-active' ? 'active' : 'in-active',
         },
       },
@@ -569,12 +569,12 @@ export class UserController {
         status: OutComeStatus.SUCCESS,
       },
     };
-    try{
+    try {
       await this.userService.updateActivityStatus(userId, status);
-    } catch(err: any){  
+    } catch (err: any) {
       auditPayload = {
-        ...auditPayload,          
-          outcome: {
+        ...auditPayload,
+        outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to update expert status',
@@ -583,8 +583,8 @@ export class UserController {
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
-      if(err instanceof InternalServerError){
-          throw new InternalServerError(err.message);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
       }
       throw new BadRequestError(
         err?.message || 'Failed to update expert status',
@@ -592,15 +592,15 @@ export class UserController {
     }
     auditPayload = {
       ...auditPayload,
-      changes:{
+      changes: {
         ...auditPayload.changes,
-        after:{
+        after: {
           status: status === 'in-active' ? 'in-active' : 'active',
         }
       }
     }
     this.auditTrailsService.createAuditTrail(auditPayload);
-    return {message: `Expert status updated to ${status} successfully`};
+    return { message: `Expert status updated to ${status} successfully` };
   }
 
   @OpenAPI({
@@ -630,7 +630,7 @@ export class UserController {
     console.log("New Role", body.role)
     let prevUserDetails = await this.userService.getUserById(userId);
     let updatedUser;
-    let auditPayload : ModeratorAuditTrail = {
+    let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ROLE_MANAGEMENT,
       action: AuditAction.TOGGLE_ROLE,
       actor: {
@@ -646,8 +646,8 @@ export class UserController {
         email: prevUserDetails.email,
         role: prevUserDetails.role,
       },
-      changes:{
-        before:{
+      changes: {
+        before: {
           role: prevUserDetails.role,
         }
       },
@@ -656,16 +656,16 @@ export class UserController {
       },
     };
 
-    try{
+    try {
       updatedUser = await this.userService.updateUserRole(
         currentUser,
         userId,
         body.role
       );
-    } catch(err: any){
+    } catch (err: any) {
       auditPayload = {
-        ...auditPayload,          
-          outcome: {
+        ...auditPayload,
+        outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to toggle user role',
@@ -674,7 +674,7 @@ export class UserController {
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
-      if(err instanceof InternalServerError){
+      if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
       throw new BadRequestError(
@@ -683,16 +683,16 @@ export class UserController {
     }
     auditPayload = {
       ...auditPayload,
-      changes:{
+      changes: {
         ...auditPayload.changes,
-        after:{
+        after: {
           role: body.role,
         }
       }
     }
     this.auditTrailsService.createAuditTrail(auditPayload);
-    return {message: `User role has been changed successfully!!`, user: updatedUser};
-   }
+    return { message: `User role has been changed successfully!!`, user: updatedUser };
+  }
 
   @OpenAPI({
     summary: 'Get user details by email',
@@ -709,9 +709,9 @@ export class UserController {
   @Get('/details/:email')
   @HttpCode(200)
   async getUserDetails(
-    @Params() params: {email: string},
+    @Params() params: { email: string },
   ): Promise<IUser | null> {
-    const {email} = params;
+    const { email } = params;
     return await this.userService.getUserByEmail(email);
   }
 
@@ -749,12 +749,12 @@ export class UserController {
     let expertDetails: IUser | null = null;
     let result:
       | {
-          questionsAffected: number;
-          removedQueues: number;
-          workloadBefore: number;
-          workloadAfter: number;
-          questionIds: string[];
-        }
+        questionsAffected: number;
+        removedQueues: number;
+        workloadBefore: number;
+        workloadAfter: number;
+        questionIds: string[];
+      }
       | null = null;
 
     const auditPayloadBase: ModeratorAuditTrail = {
@@ -788,12 +788,12 @@ export class UserController {
           before: {
             targetExpert: expertDetails
               ? {
-                  id: expertDetails._id?.toString(),
-                  name: `${expertDetails.firstName} ${expertDetails.lastName || ''}`.trim(),
-                  email: expertDetails.email,
-                  role: expertDetails.role,
-                  workload: expertDetails.reputation_score ?? 0,
-                }
+                id: expertDetails._id?.toString(),
+                name: `${expertDetails.firstName} ${expertDetails.lastName || ''}`.trim(),
+                email: expertDetails.email,
+                role: expertDetails.role,
+                workload: expertDetails.reputation_score ?? 0,
+              }
               : null,
           },
         },
@@ -822,12 +822,12 @@ export class UserController {
         before: {
           targetExpert: expertDetails
             ? {
-                id: expertDetails._id?.toString(),
-                name: `${expertDetails.firstName} ${expertDetails.lastName || ''}`.trim(),
-                email: expertDetails.email,
-                role: expertDetails.role,
-                workload: result?.workloadBefore ?? 0,
-              }
+              id: expertDetails._id?.toString(),
+              name: `${expertDetails.firstName} ${expertDetails.lastName || ''}`.trim(),
+              email: expertDetails.email,
+              role: expertDetails.role,
+              workload: result?.workloadBefore ?? 0,
+            }
             : null,
         },
         after: {
@@ -880,12 +880,12 @@ export class UserController {
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
     // manual admin check
-  if (currentUser.role !== 'admin') {
-    throw new ForbiddenError(
-      'Only admins can verify users',
-    );
-  }
-    const {isVerified} = body;
+    if (currentUser.role !== 'admin') {
+      throw new ForbiddenError(
+        'Only admins can verify users',
+      );
+    }
+    const { isVerified } = body;
     const updatedUser = await this.userService.verifyUser(userId, isVerified);
     return updatedUser;
   }
@@ -933,15 +933,20 @@ export class UserController {
     statusCode: 403,
     description: 'Forbidden - Moderator access required',
   })
-  @Post('/call-agents')
+  @Post('/set-call-agents')
   @HttpCode(200)
-  @Authorized(['moderator'])
+  @Authorized(['admin'])
   async setCallAgentStatus(
     @Body() body: { userId: string; isCallAgent: boolean; isCallAgentActive: boolean },
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
     const { userId, isCallAgent, isCallAgentActive } = body;
-    return await this.userService.setCallAgentStatus(userId, isCallAgent, isCallAgentActive, currentUser.role);
+    try {
+      const res = await this.userService.setCallAgentStatus(userId, isCallAgent, isCallAgentActive, currentUser.role);
+      return res;
+    } catch (err) {
+      throw err;
+    }
   }
 
   @OpenAPI({
