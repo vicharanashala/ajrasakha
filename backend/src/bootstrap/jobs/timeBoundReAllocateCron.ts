@@ -5,7 +5,7 @@ import { QuestionService } from '#root/modules/core/index.js';
 
 // Run every 1 minutes, all day — time-bound questions can arrive at any hour
 cron.schedule(
-  '*/30 * * * * *',
+  '0 */2 * * * *',
   async () => {
     console.log('<<CRON>> [TimeBound] Running 45-min time-bound reallocation job...');
     try {
