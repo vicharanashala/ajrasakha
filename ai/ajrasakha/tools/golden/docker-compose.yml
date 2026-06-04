@@ -4,9 +4,8 @@
 # Or from ajrasakha/ai:
 #   docker compose -f ajrasakha/tools/golden/docker-compose.yml up --build -d
 #
-# Requires env vars in ajrasakha/ai/.env (see ../../.env.example):
-#   GOLDEN_MONGODB_URI, GOLDEN_MONGODB_INDEX, GOLDEN_MONGODB_SEARCH_INDEX,
-#   GOLDEN_EMBEDDING_ENDPOINT, GEMMA_MODEL, GEMMA_BASE_URL
+# Requires .env in this directory (see .env.example):
+#   cp .env.example .env
 
 services:
   golden-api:
@@ -17,7 +16,7 @@ services:
     ports:
       - "8110:8005"
     env_file:
-      - ../../../.env
+      - .env
     environment:
       PYTHONUNBUFFERED: "1"
     restart: unless-stopped
