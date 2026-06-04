@@ -3376,6 +3376,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
           'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft', 'non_agri'] },
           'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': {$eq: true}
         },
       },
       { $sort: { 'question.createdAt': 1 } },
