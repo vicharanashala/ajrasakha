@@ -346,6 +346,7 @@ export function AnnamDashboard_dev({
   const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
   const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
   const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
+  const shouldLoadUserDemographics = loadImmediately || isUserDemographicsVisible;
 
   const { data: queryCategories } = useQueryCategories(
     source,
@@ -398,6 +399,7 @@ export function AnnamDashboard_dev({
     faqsFilters.userType,
     faqsFilters.startTime,
     faqsFilters.endTime,
+    shouldLoadFaqs,
   );
   // console.log(faqsDataa,"----faqs filters", faqsFilters, faqsData);
   const responseAdherenceFilters = useMemo(() => {
@@ -570,7 +572,8 @@ export function AnnamDashboard_dev({
     "totalQuestions",
     "desc",
     true, // activeTodayByProfile
-    isAppAnalyticsSource,
+    undefined,
+    shouldLoadActiveUsers,
   );
 
   // Patch the DAU card to show "today / total" instead of just total
@@ -637,13 +640,14 @@ export function AnnamDashboard_dev({
     trendsFilters.userType as string,
     trendsFilters.startTime,
     trendsFilters.endTime,
+    shouldLoadTrends,
   );
 
   const {
     data: userMetricesData,
     isLoading: usermetricsLoading,
     isFetching: usermetricsFetching,
-  } = useUserMertices(source, filters.userType);
+  } = useUserMertices(source, filters.userType, shouldLoadUserDemographics);
 
   // console.log("userMetricesData", userMetricesData);
 
@@ -1039,6 +1043,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                               <LazyUserDemographicsSection
                                 source={source}
                                 userType={filters.userType}
+                                shouldLoadUserDemographics={shouldLoadUserDemographics}
                               />
                             </Suspense>
                           ) : (

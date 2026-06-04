@@ -225,6 +225,7 @@ function EnlargedHorizontalBars({ segments, onSegmentClick }: { segments: { labe
 interface Props {
   source: "vicharanashala" | "annam" | "whatsapp";
   userType: "all" | "external" | "internal";
+  shouldLoadUserDemographics?: boolean;
 }
 
 function DemographicCard({
@@ -350,8 +351,8 @@ function DemographicCard({
   );
 }
 
- function UserDemographicsSection({ source, userType }: Props) {
-    const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, userType);
+ function UserDemographicsSection({ source, userType, shouldLoadUserDemographics }: Props) {
+    const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, userType, shouldLoadUserDemographics);
   const [selectedMissingField, setSelectedMissingField] = useState<{ title: string; key: string } | null>(null);
 
   const ageSegments = (userMetricesData?.userDemographics?.ageGroups ?? []).map((d) => ({ ...d, color: AGE_COLORS[d.label] ?? "#6B7280" }));

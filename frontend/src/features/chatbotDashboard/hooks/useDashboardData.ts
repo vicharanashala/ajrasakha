@@ -476,7 +476,8 @@ export const useTopFaqs = (
   source: string = 'vicharanashala',
   userType: string = 'all',
   startTime?: Date,
-  endTime?: Date
+  endTime?: Date,
+  enabled?: boolean,
 ) => {
   const params = new URLSearchParams();
   params.append("source", source);
@@ -498,7 +499,8 @@ export const useTopFaqs = (
         `${API_BASE_URL}/analytics/top-faqs?${params.toString()}`
       );
       return result;
-    }
+    },
+    enabled
   });
 }
 
@@ -506,7 +508,8 @@ export const useDailyQuestionTrends = (
   source: string = 'vicharanashala',
   userType: string = 'all',
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
+  enabled?: boolean,
 ) => {
   const params = new URLSearchParams();
   params.append("source", source);
@@ -528,7 +531,8 @@ export const useDailyQuestionTrends = (
         `${API_BASE_URL}/analytics/daily-question-trends?${params.toString()}`
       );
       return result;
-    }
+    },
+    enabled
   });
 }
 
@@ -542,6 +546,7 @@ interface UsermetricsResponse {
 export const useUserMertices = (
   source: string = 'vicharanashala',
   userType: string = 'all',
+  shouldLoadUserDemographics: boolean = false,
 ) => {
   const params = new URLSearchParams();
   params.append("source", source);
@@ -559,7 +564,8 @@ export const useUserMertices = (
         `${API_BASE_URL}/analytics/users-metrices?${params.toString()}`
       );
       return result as UsermetricsResponse;
-    }
+    }, 
+    enabled: shouldLoadUserDemographics,
   });
 }
 
