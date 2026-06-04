@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ajrasakha.agents.ajrasakha import empty_gdb_reply_node
 from ajrasakha.agents.plan_executor import (
-    route_after_sanitizer,
+    route_after_execute,
     should_expert_queue_reply,
 )
 from ajrasakha.agents.prompts import EXPERT_QUEUE_REPLY_MARKER
@@ -77,25 +77,25 @@ def test_should_not_expert_queue_when_gdb_has_similar_pair():
     assert should_expert_queue_reply(state) is False
 
 
-def test_route_after_sanitizer_to_empty_gdb_reply():
-    assert route_after_sanitizer(_state_after_sanitizer_filter()) == "empty_gdb_reply"
+def test_route_after_execute_to_empty_gdb_reply():
+    assert route_after_execute(_state_after_sanitizer_filter()) == "empty_gdb_reply"
 
 
-def test_route_after_sanitizer_empty_when_weather_planned_but_no_tool_content():
+def test_route_after_execute_empty_when_weather_planned_but_no_tool_content():
     """Planner requested weather but tool returned nothing — still expert-queue."""
     state = _state_after_sanitizer_filter()
     state["plan"] = {**state["plan"], "weather": True}
-    assert route_after_sanitizer(state) == "empty_gdb_reply"
+    assert route_after_execute(state) == "empty_gdb_reply"
 
 
-def test_route_after_sanitizer_synthesize_when_weather_has_content():
+def test_route_after_execute_synthesize_when_weather_has_content():
     """Empty GDB + non-empty weather tool → synthesize (not expert-queue)."""
     state = _state_after_sanitizer_filter()
     state["plan"] = {**state["plan"], "weather": True}
     state["messages"].append(
         ToolMessage(content="Rain expected tomorrow", tool_call_id="w1", name="weather")
     )
-    assert route_after_sanitizer(state) == "synthesize"
+    assert route_after_execute(state) == "synthesize"
 
 
 async def test_empty_gdb_reply_sets_translate_path():
