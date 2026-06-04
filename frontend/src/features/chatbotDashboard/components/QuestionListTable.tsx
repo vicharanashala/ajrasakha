@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
+import { Input } from "@/components/atoms/input";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Pagination } from "@/components/pagination";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,12 @@ export type QuestionListPagination = {
   onPageSizeChange?: (pageSize: number) => void;
 };
 
+type QuestionListSearch = {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+};
+
 type QuestionListTableProps<T> = {
   data: T[];
   columns: QuestionListColumn<T>[];
@@ -44,6 +51,8 @@ type QuestionListTableProps<T> = {
   initialSortKey?: string;
   initialSortDirection?: QuestionListSortDirection;
   onSortChange?: (key: string, direction: QuestionListSortDirection) => void;
+  search?: QuestionListSearch;
+  showPageSizeSelector?: boolean;
   className?: string;
   tableClassName?: string;
 };
@@ -97,6 +106,8 @@ export function QuestionListTable<T>({
   initialSortKey,
   initialSortDirection = "asc",
   onSortChange,
+  search,
+  showPageSizeSelector = false,
   className,
   tableClassName,
 }: QuestionListTableProps<T>) {
@@ -176,11 +187,19 @@ export function QuestionListTable<T>({
 
   if (loading) {
     return (
-      <div className={cn("space-y-2 p-4", className)}>
+      <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
+        {search && (
+          <QuestionListSearchInput
+            search={search}
+            onResetPage={() => setInternalPage(1)}
+          />
+        )}
+        <div className="space-y-2 p-4">
         <div className="sr-only">{loadingMessage}</div>
         {Array.from({ length: 6 }).map((_, index) => (
           <Skeleton key={index} className="h-10 w-full rounded-md" />
         ))}
+        </div>
       </div>
     );
   }
@@ -195,16 +214,30 @@ export function QuestionListTable<T>({
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center py-20 text-sm text-gray-400 dark:text-gray-500">
-        {emptyMessage}
+      <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
+        {search && (
+          <QuestionListSearchInput
+            search={search}
+            onResetPage={() => setInternalPage(1)}
+          />
+        )}
+        <div className="flex items-center justify-center py-20 text-sm text-gray-400 dark:text-gray-500">
+          {emptyMessage}
+        </div>
       </div>
     );
   }
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <table className={cn("w-full min-w-max text-sm border-collapse", tableClassName)}>
+      {search && (
+        <QuestionListSearchInput
+          search={search}
+          onResetPage={() => setInternalPage(1)}
+        />
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <table className={cn("w-full table-fixed text-sm border-collapse", tableClassName)}>
           <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-[#1f1f1f] border-b border-gray-200 dark:border-[#2a2a2a]">
             <tr>
               {visibleColumns.map((column) => {
@@ -292,7 +325,7 @@ export function QuestionListTable<T>({
             currentPage={displayPage}
             totalPages={totalPages}
             onPageChange={(page) => activePagination.onPageChange?.(page)}
-            limit={activePagination.pageSize}
+            limit={showPageSizeSelector ? activePagination.pageSize : undefined}
             onLimitChange={(pageSize) => {
               activePagination.onPageSizeChange?.(pageSize);
               activePagination.onPageChange?.(1);
@@ -300,6 +333,43 @@ export function QuestionListTable<T>({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function QuestionListSearchInput({
+  search,
+  onResetPage,
+}: {
+  search: QuestionListSearch;
+  onResetPage: () => void;
+}) {
+  const handleChange = (value: string) => {
+    onResetPage();
+    search.onChange(value);
+  };
+
+  return (
+    <div className="shrink-0 border-b border-gray-100 px-6 py-3 dark:border-[#2a2a2a]">
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+        <Input
+          value={search.value}
+          onChange={(event) => handleChange(event.target.value)}
+          placeholder={search.placeholder ?? "Search questions..."}
+          className="h-9 pl-9 pr-9 text-sm"
+        />
+        {search.value && (
+          <button
+            type="button"
+            onClick={() => handleChange("")}
+            className="absolute right-2 top-1/2 rounded-md p-1 text-gray-400 transition-colors -translate-y-1/2 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+            aria-label="Clear search"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -312,12 +382,12 @@ export function FarmerInfoCell({
   secondary?: ReactNode;
 }) {
   return (
-    <div className="min-w-[140px]">
-      <div className="font-medium text-gray-800 dark:text-gray-100">
+    <div className="min-w-0">
+      <div className="truncate font-medium text-gray-800 dark:text-gray-100">
         {renderDefaultValue(primary)}
       </div>
       {secondary && (
-        <div className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+        <div className="mt-0.5 truncate text-xs text-gray-400 dark:text-gray-500">
           {secondary}
         </div>
       )}

@@ -98,7 +98,8 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         key: "index",
         label: "#",
         align: "center",
-        cellClassName: "w-8 text-xs text-gray-400 dark:text-gray-500",
+        className: "w-10",
+        cellClassName: "text-xs text-gray-400 dark:text-gray-500",
         render: (_row, index) => index + 1,
       },
       {
@@ -108,7 +109,8 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         tooltip: "Farmer identity or WhatsApp contact when available",
         sortAccessor: (row) =>
           source === "whatsapp" ? row.mobileNumber : row.farmerName,
-        cellClassName: "whitespace-nowrap",
+        className: "w-[13%]",
+        cellClassName: "overflow-hidden",
         render: (row) =>
           source === "whatsapp" ? (
             <WhatsappHistoryLink mobileNumber={row.mobileNumber} />
@@ -121,10 +123,11 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         label: source === "whatsapp" ? "Thread ID" : "Username",
         sortable: true,
         sortAccessor: (row) => (source === "whatsapp" ? row.threadId : row.email),
-        cellClassName: "max-w-[220px] whitespace-nowrap text-gray-600 dark:text-gray-300",
+        className: "w-[15%]",
+        cellClassName: "truncate text-gray-600 dark:text-gray-300",
         render: (row) => {
           const value = source === "whatsapp" ? row.threadId : row.email;
-          return value?.length > 25 ? `${value.slice(0, 25)}...` : value;
+          return value;
         },
       },
       {
@@ -133,6 +136,8 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         visible: source !== "whatsapp",
         sortable: true,
         sortAccessor: (row) => `${row.village ?? ""} ${row.block ?? ""}`,
+        className: "w-[12%]",
+        cellClassName: "overflow-hidden",
         render: (row) => (
           <FarmerInfoCell primary={row.village} secondary={row.block} />
         ),
@@ -142,6 +147,8 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         label: "District / State",
         sortable: true,
         sortAccessor: (row) => `${row.district ?? ""} ${row.state ?? ""}`,
+        className: "w-[13%]",
+        cellClassName: "overflow-hidden",
         render: (row) => (
           <FarmerInfoCell primary={row.district} secondary={row.state} />
         ),
@@ -149,8 +156,11 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
       {
         key: "source",
         label: "Source",
+        visible: source === "whatsapp",
         sortable: true,
         sortAccessor: () => source,
+        className: "w-[7%]",
+        cellClassName: "truncate",
         render: () => source,
       },
       {
@@ -158,7 +168,8 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         label: "Created At",
         sortable: true,
         sortAccessor: (row) => new Date(row.createdAt),
-        cellClassName: "whitespace-nowrap",
+        className: "w-[14%]",
+        cellClassName: "truncate",
         render: (row) => formatDate(row.createdAt),
       },
       {
@@ -167,7 +178,8 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         sortable: true,
         tooltip: "Question asked by the farmer",
         sortAccessor: (row) => row.question,
-        cellClassName: "max-w-[260px]",
+        className: "w-[18%]",
+        cellClassName: "overflow-hidden",
         render: (row) => (
           <TranslatableText
             text={row.question ?? ""}
@@ -182,7 +194,8 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         sortable: true,
         tooltip: "Reference question matched by duplicate detection",
         sortAccessor: (row) => row.referenceQuestion,
-        cellClassName: "max-w-[260px] text-gray-500 dark:text-gray-400 italic",
+        className: "w-[18%]",
+        cellClassName: "overflow-hidden text-gray-500 dark:text-gray-400 italic",
         render: (row) => (
           <TranslatableText
             text={row.referenceQuestion ?? ""}
@@ -197,6 +210,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         align: "center",
         sortable: true,
         sortAccessor: (row) => row.similarityScore,
+        className: "w-[7%]",
         render: (row) => scoreBadge(row.similarityScore),
       },
     ];
@@ -254,9 +268,18 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
           }
           getRowKey={(row) => row.questionId}
           enableInternalPagination
-          initialPageSize={25}
+          initialPageSize={12}
           initialSortKey="similarityScore"
           initialSortDirection="desc"
+          search={{
+            value: filters.search,
+            placeholder: "Search...",
+            onChange: (search) =>
+              setFilters((current) => ({
+                ...current,
+                search,
+              })),
+          }}
         />
 
         {/* Footer */}
