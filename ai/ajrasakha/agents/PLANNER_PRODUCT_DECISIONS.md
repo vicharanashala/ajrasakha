@@ -51,7 +51,7 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 
 ## Feature flag
 
-- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → retrieval_sanitizer (when applicable) → synthesize → **translate_answer** → END. `empty_gdb_reply` → **translate_answer** (sheet footers only, no LLM). (`sanitize_answer` is commented out.)
+- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → synthesize → **translate_answer** → END. Golden retrieval uses FastAPI + Gemma classification (no retrieval_sanitizer). `empty_gdb_reply` → **translate_answer** (sheet footers only, no LLM). (`sanitize_answer` is commented out.)
 
 ## Language (vocal + script)
 
