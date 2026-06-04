@@ -335,16 +335,10 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
               )}
 
               <div className="flex flex-col gap-1 py-1">
-                <TooltipProvider>
+                <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
-                        // className={`cursor-pointer hover:underline`}
-                        // onClick={() => {
-                        //   // if (!isClickable || hasSelectedQuestions) return;
-                        //   onViewMore(q._id?.toString() || "");
-                        // }}
-
                          className={`cursor-pointer ${isClickable
                           ? hasSelectedQuestions
                             ? ""
@@ -368,6 +362,14 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                         {truncate(q.question, 50)}
                       </span>
                     </TooltipTrigger>
+                    <TooltipContent
+                      side="bottom"
+                      align="start"
+                      sideOffset={6}
+                      className="max-w-md whitespace-pre-wrap break-words text-sm leading-snug"
+                    >
+                      {q.question}
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
 
