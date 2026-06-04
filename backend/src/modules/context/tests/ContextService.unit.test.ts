@@ -89,6 +89,8 @@ describe('ContextService', () => {
 
   describe('translate', () => {
     beforeEach(() => {
+      appConfig.sarvamAPI = 'fake-api-key';
+
       vi.spyOn(service as any, '_callSarvamTranslate').mockResolvedValue(
         'translated',
       );
@@ -122,25 +124,37 @@ describe('ContextService', () => {
       );
     });
 
-    it('returns original text when target language is en-IN', async () => {
+    it('uses mayura directly for non-sarvam languages', async () => {
       const spy = vi.spyOn(service as any, '_callSarvamTranslate');
 
-      const result = await service.translate('Hello world', 'en-IN');
+      await service.translate('Hello world', 'fr-FR');
 
-      expect(result).toEqual({
-        translated_text: 'Hello world',
-      });
-
-      expect(spy).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledWith(
+        'Hello world',
+        'auto',
+        'fr-FR',
+        'mayura:v1',
+        expect.any(String),
+      );
     });
 
-    it('uses sarvam model for hi-IN', async () => {
+    it('uses two-step translation for sarvam language without sourceLang', async () => {
       const spy = vi.spyOn(service as any, '_callSarvamTranslate');
 
       await service.translate('Hello world', 'hi-IN');
 
-      expect(spy).toHaveBeenCalledWith(
+      expect(spy).toHaveBeenNthCalledWith(
+        1,
         'Hello world',
+        'auto',
+        'en-IN',
+        'mayura:v1',
+        expect.any(String),
+      );
+
+      expect(spy).toHaveBeenNthCalledWith(
+        2,
+        'translated',
         'en-IN',
         'hi-IN',
         'sarvam-translate:v1',
@@ -148,7 +162,7 @@ describe('ContextService', () => {
       );
     });
 
-    it('uses provided source language for sarvam model', async () => {
+    it('uses direct sarvam translation when sourceLang is provided', async () => {
       const spy = vi.spyOn(service as any, '_callSarvamTranslate');
 
       await service.translate('Hello world', 'ur-IN', 'ta-IN');
@@ -162,15 +176,21 @@ describe('ContextService', () => {
       );
     });
 
-    it('uses mayura model for non-sarvam language', async () => {
+    it('uses two-step translation for en-IN without sourceLang', async () => {
       const spy = vi.spyOn(service as any, '_callSarvamTranslate');
 
-      await service.translate('Hello world', 'fr-FR');
+      const result = await service.translate('Hello world', 'en-IN');
+
+      expect(result).toEqual({
+        translated_text: 'translated',
+      });
+
+      expect(spy).toHaveBeenCalledTimes(1);
 
       expect(spy).toHaveBeenCalledWith(
         'Hello world',
         'auto',
-        'fr-FR',
+        'en-IN',
         'mayura:v1',
         expect.any(String),
       );
