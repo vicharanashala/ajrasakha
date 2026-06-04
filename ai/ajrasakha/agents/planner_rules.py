@@ -197,24 +197,29 @@ def merge_entities_from_rephrased_query(
     # Priority 1: Explicit mention in the current query text
     state_from_text = extract_state_from_text(text)
     
+    llm_state = plan.get("entities", {}).get("state")
+    llm_district = plan.get("entities", {}).get("district")
+    
     if state_from_text:
         merged["state"] = state_from_text
-        # We also want to take district from LLM if LLM extracted one, but only if state was mentioned
-        if plan.get("entities", {}).get("district"):
-            merged["district"] = plan.get("entities", {}).get("district")
+        if llm_district:
+            merged["district"] = llm_district
+    elif llm_state or llm_district:
+        # Priority 2: LLM successfully extracted a location (e.g. district "Varanasi" -> state "Uttar Pradesh")
+        if llm_state:
+            merged["state"] = llm_state
+        if llm_district:
+            merged["district"] = llm_district
     else:
-        # Priority 2: GPS Fallback
+        # Priority 3: GPS Fallback
         gps_state = gps_state_from_location(location)
         if gps_state:
             merged["state"] = gps_state
             # Always clear district if we fall back to GPS state, so it takes GPS city or 'all'
             merged.pop("district", None)
         else:
-            # Priority 3: Fallback to LLM entities (which might come from history) or prev_entities
-            state_from_llm = plan.get("entities", {}).get("state")
-            if state_from_llm:
-                merged["state"] = state_from_llm
-            elif prev_entities and prev_entities.get("state"):
+            # Priority 4: Fallback to previous entities
+            if prev_entities and prev_entities.get("state"):
                 merged["state"] = prev_entities.get("state")
             else:
                 merged.pop("state", None)
