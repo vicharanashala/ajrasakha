@@ -6636,6 +6636,15 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getUserById(userId: string, source: string): Promise<any> {
+    try {
+      await this.init(source);
+      return await this.users.findOne({_id: new ObjectId(userId)});
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch user by id: ${error}`);
+    }
+  }
+
   async deleteUser(userId: string, source: string): Promise<boolean> {
     try {
       await this.init(source);

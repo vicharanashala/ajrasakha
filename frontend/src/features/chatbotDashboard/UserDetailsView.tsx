@@ -135,6 +135,10 @@ const debouncedSearch = useDebounce(filters.search, 500);
     });
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
+
   // useEffect(() => {
   //   scrollToTable();
   // }, []);

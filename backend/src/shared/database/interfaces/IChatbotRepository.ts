@@ -461,6 +461,7 @@ export interface IChatbotRepository {
   ): Promise<WeatherConcernAnalyticsResponse>;
 
   
+  getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
   updateUser(
     userId: string,
