@@ -556,6 +556,37 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   </p>
                 </div>
               )}
+
+              {/* Sources from the reference question's final answer */}
+              {!compareMode && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Sources
+                  </p>
+                  <div className="border rounded-md p-3 bg-muted/20">
+                    {question.referenceQuestionData.sources && question.referenceQuestionData.sources.length > 0 ? (
+                      <ul className="space-y-2">
+                        {question.referenceQuestionData.sources.map((s, i) => (
+                          <li key={i} className="text-sm flex flex-col gap-0.5">
+                            <span className="font-medium text-foreground">
+                              {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
+                            </span>
+                            {s.source && (
+                              <span className="break-all pl-4 text-xs text-muted-foreground">
+                                {s.source}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">
+                        No sources available
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
