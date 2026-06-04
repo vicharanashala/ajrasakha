@@ -81,11 +81,17 @@ if (NODE_ENV === 'production' || NODE_ENV === 'staging') {
   Sentry.setupExpressErrorHandler(app);
 }
 
+const proxyOnError = (label: string) => (err: Error, _req: any, res: any) => {
+  console.error(`[proxy:${label}] ${err.message}`);
+  if (!res.headersSent) res.status(502).json({ error: `${label} service unavailable`, detail: err.message });
+};
+
 if (faqPopConfig.faqApiUrl) {
   app.use('/api/faq', createProxyMiddleware({
     target: faqPopConfig.faqApiUrl,
     changeOrigin: true,
     pathRewrite: { '^/api/faq': '' },
+    on: { error: proxyOnError('faq') },
   }));
 }
 if (faqPopConfig.popApiUrl) {
@@ -93,6 +99,7 @@ if (faqPopConfig.popApiUrl) {
     target: faqPopConfig.popApiUrl,
     changeOrigin: true,
     pathRewrite: { '^/api/pop': '' },
+    on: { error: proxyOnError('pop') },
   }));
 }
 

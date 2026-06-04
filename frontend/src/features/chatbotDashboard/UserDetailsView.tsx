@@ -1,6 +1,7 @@
-import { useState, useEffect,  useRef } from "react";
-import { X, MapPin, Trash2, Pencil, Users } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Eye, X, Trash2, Pencil, Users, InfoIcon, UserPlus, Search, AlertCircle, Inbox, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/atoms/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import {
   Card,
   CardContent,
@@ -45,80 +46,24 @@ import {
   UserDetailsPreferenceFilter,
   type UserDetailsFilters,
 } from "./components/UserDetailsPreferenceFilter";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/atoms/tooltip";
 // import { TopCropsCard } from "./components/TopCropsCard";
 // import { useTopCrops } from "./hooks/useTopCrops";
 // import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import UserQuestionsModal from "./UserQuestionModal";
 import { EditFarmerModal } from "./components/EditFarmerModal";
 import { AddFarmerModal } from "./components/AddFarmerModal";
+import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
 import { useAddUser } from "./hooks/useAddUser";
+import { motion,AnimatePresence } from "framer-motion";
+import { Badge } from "@/components/atoms/badge";
+import { useDebounce } from "@/hooks/ui/useDebounce";
 
-const VISIBLE_CROPS = 2;
+const EMPTY_VALUE = "Not provided";
 
-function CropsCell({ crops }: { crops: string | string[] | undefined | null }) {
-  const cropList = Array.isArray(crops)
-    ? crops
-    : crops
-      ? crops
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : [];
-
-  if (cropList.length === 0) return <span>—</span>;
-
-  const visible = cropList.slice(0, VISIBLE_CROPS);
-  const hidden = cropList.slice(VISIBLE_CROPS);
-
-  return (
-    <div className="flex flex-col items-center gap-0.5">
-      {visible.map((c, i) => (
-        <span
-          key={i}
-          className="px-1.5 py-0.5 rounded text-xs max-w-[120px] truncate text-center"
-          title={c}
-        >
-          {c}
-        </span>
-      ))}
-
-      {hidden.length > 0 && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 cursor-default">
-                +{hidden.length}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent
-              side="bottom"
-              className="
-                p-2
-                min-w-[100px]
-                bg-white text-gray-900 border border-gray-200
-                dark:bg-[#1a1a1a] dark:text-gray-100 dark:border-gray-700
-              "
-            >
-              <div className="flex flex-col gap-2 text-center">
-                {cropList.map((c, i) => (
-                  <span key={i} className="text-xs whitespace-nowrap">
-                    {c}
-                  </span>
-                ))}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
-    </div>
-  );
+function EmptyValue() {
+  return <span className="text-muted-foreground">{EMPTY_VALUE}</span>;
 }
+
 const DEFAULT_FILTERS: UserDetailsFilters = {
   search: "",
   crop: "",
@@ -168,10 +113,12 @@ export function UserDetailsView({
     email: string;
   } | null>(null);
   const [userToEdit, setUserToEdit] = useState<UserDetail | null>(null);
+  const [userToView, setUserToView] = useState<UserDetail | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
   // const [hovered, setHovered] = useState<string | null>(null);
   // const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+const debouncedSearch = useDebounce(filters.search, 500);
 
   // const scrollToTable = () => {
   //   setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
@@ -188,6 +135,10 @@ export function UserDetailsView({
     });
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
+
   // useEffect(() => {
   //   scrollToTable();
   // }, []);
@@ -203,12 +154,12 @@ export function UserDetailsView({
     }
   }, [initialFilters]);
 
-  const { data, isLoading, error } = useUserDetails( 
+  const { data, isLoading, error } = useUserDetails(
     filters.startTime,
     filters.endTime,
     currentPage,
     pageSize,
-    filters.search,
+    debouncedSearch,
     source,
     filters.crop,
     filters.village,
@@ -354,7 +305,7 @@ export function UserDetailsView({
 
   const handleSaveEditedUser = async (payload: {
     name?: string;
-    role?: string;
+    userRole?: string;
     farmerProfile?: {
       farmerName?: string;
       age?: number;
@@ -393,7 +344,7 @@ export function UserDetailsView({
     email: string;
     name: string;
     password: string;
-    role?: string;
+    userRole?: string;
   }) => {
     await addUserMutation.mutateAsync({
       source,
@@ -402,502 +353,791 @@ export function UserDetailsView({
     setIsAddModalOpen(false);
   };
 
+  const handleEditUser = (user: UserDetail) => {
+    setUserToView(null);
+    setUserToEdit(user);
+  };
+
+  const handleDeleteUser = (user: UserDetail) => {
+    setUserToView(null);
+    setConfirmEmail("");
+    setUserToDelete({
+      userId: user.userId,
+      source,
+      email: user.email,
+    });
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto pb-5 min-w-0 ">
-      {/* Users table */}
+    //     <div className="flex-1 overflow-y-auto pb-5 min-w-0 bg-gradient-to-b from-background to-muted/30">
+    //       {/* Users table */}
+    //       <div ref={tableRef}>
+    //         <Card
+    //           className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300
+    //  dark:border-[#2a2a2a]"
+    //         >
+    //           <CardHeader className="pb-4 border-b border-border/60 ">
+    //             <motion.div
+    //               initial={{ opacity: 0, y: -8 }}
+    //               animate={{ opacity: 1, y: 0 }}
+    //               transition={{ duration: 0.35, ease: "easeOut" }}
+    //               className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+    //             >
+    //               {/* Title */}
+    //               <div className="min-w-0 flex items-start gap-3">
+    //                 <motion.div
+    //                   whileHover={{ rotate: -6, scale: 1.05 }}
+    //                   transition={{ type: "spring", stiffness: 300, damping: 18 }}
+    //                   className="p-2 rounded-lg bg-primary/10 ring-1 ring-primary/15 shrink-0"
+    //                 >
+    //                   <Users className="h-4 w-4 text-primary" />
+    //                 </motion.div>
+    //                 <div className="min-w-0">
+    //                   <CardTitle className="text-base font-semibold tracking-tight truncate">
+    //                     All Farmers
+    //                   </CardTitle>
+    //                   <p className="text-sm text-muted-foreground mt-0.5">
+    //                     View and manage farmer details, activity, and preferences.
+    //                   </p>
+    //                 </div>
+    //               </div>
+
+    //               {/* Search */}
+    //               <div className="relative w-full lg:max-w-xs lg:flex-1">
+    //                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+    //                 <Input
+    //                   type="text"
+    //                   placeholder="Search by name or email..."
+    //                   value={filters.search}
+    //                   onChange={(e) =>
+    //                     setFilters((d) => ({ ...d, search: e.target.value }))
+    //                   }
+    //                   className="h-10 pl-9 pr-9 bg-background focus-visible:ring-primary/30 focus-visible:border-primary transition-all"
+    //                 />
+    //                 {filters.search && (
+    //                   <motion.button
+    //                     initial={{ opacity: 0, scale: 0.8 }}
+    //                     animate={{ opacity: 1, scale: 1 }}
+    //                     onClick={() => setFilters((d) => ({ ...d, search: "" }))}
+    //                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+    //                     aria-label="Clear search"
+    //                   >
+    //                     <X className="h-3.5 w-3.5" />
+    //                   </motion.button>
+    //                 )}
+    //               </div>
+
+    //               {/* Actions */}
+    //               <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
+    //                 {isFiltered && (
+    //                   <motion.div
+    //                     initial={{ opacity: 0, x: 8 }}
+    //                     animate={{ opacity: 1, x: 0 }}
+    //                     exit={{ opacity: 0, x: 8 }}
+    //                   >
+    //                     <Button
+    //                       variant="ghost"
+    //                       size="sm"
+    //                       className="h-9 px-3 text-muted-foreground hover:text-foreground"
+    //                       onClick={handleResetFilters}
+    //                     >
+    //                       <X className="h-4 w-4 mr-1.5" />
+    //                       Clear Filters
+    //                     </Button>
+    //                   </motion.div>
+    //                 )}
+
+    //                 <UserDetailsPreferenceFilter
+    //                   filters={filters}
+    //                   onApply={handleApplyFilters}
+    //                   hideFields={["userType"]}
+    //                 />
+
+    //                 {isAdmin &&
+    //                   (source === "annam" || source === "vicharanashala") && (
+    //                     <motion.div
+    //                       whileHover={{ y: -1 }}
+    //                       whileTap={{ scale: 0.97 }}
+    //                     >
+    //                       <Button
+    //                         size="sm"
+    //                         className="h-9 px-3.5 gap-1.5 shadow-sm shadow-primary/20"
+    //                         onClick={() => setIsAddModalOpen(true)}
+    //                       >
+    //                         <UserPlus className="h-4 w-4" />
+    //                         Add Farmer
+    //                       </Button>
+    //                     </motion.div>
+    //                   )}
+    //               </div>
+    //             </motion.div>
+    //           </CardHeader>
+    //           <CardContent className="p-0">
+    //             {isLoading && (
+    //               <div className="space-y-3 p-4">
+    //                 <Skeleton className="h-10 w-full rounded-md" />
+    //                 <Skeleton className="h-10 w-full rounded-md" />
+    //                 <Skeleton className="h-10 w-full rounded-md" />
+    //                 <Skeleton className="h-10 w-full rounded-md" />
+    //                 <Skeleton className="h-10 w-full rounded-md" />
+    //               </div>
+    //             )}
+
+    //             {error && (
+    //               <div className="px-4 py-8 text-center text-red-500 text-sm">
+    //                 Failed to load user details. Please try again.
+    //               </div>
+    //             )}
+
+    //             {!isLoading && !error && (
+    //               <div className="rounded-lg border bg-card overflow-x-auto">
+    //                 <Table className="min-w-[980px]">
+    //                   <TableHeader className="bg-card sticky top-0 z-10">
+    //                     <TableRow>
+    //                       <TableHead className="text-center w-12">S.No</TableHead>
+    //                       <TableHead
+    //                         className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
+    //                         onClick={() =>
+    //                           userType === "external" && handleSort("name")
+    //                         }
+    //                       >
+    //                         Name
+    //                       </TableHead>
+    //                       <TableHead className="text-center">Farmer Name</TableHead>
+    //                       <TableHead className="text-center">Email</TableHead>
+    //                       <TableHead className="text-center">User Role</TableHead>
+    //                       <TableHead
+    //                         className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
+    //                         onClick={() =>
+    //                           userType === "external" &&
+    //                           handleSort("totalQuestions")
+    //                         }
+    //                       >
+    //                         <div className="flex items-center justify-center gap-1">
+    //                           Query Asked
+    //                           {sortBy === "totalQuestions" ? (
+    //                             <span className="text-blue-600 dark:text-blue-400">
+    //                               {sortOrder === "desc" ? "↓" : "↑"}
+    //                             </span>
+    //                           ) : (
+    //                             <span className="text-gray-400 dark:text-gray-500">
+    //                               ↕
+    //                             </span>
+    //                           )}
+    //                         </div>
+    //                       </TableHead>
+    //                       <TableHead className="text-center">View More</TableHead>
+    //                       {isAdmin && (
+    //                         <TableHead className="text-center">Actions</TableHead>
+    //                       )}
+    //                     </TableRow>
+    //                   </TableHeader>
+    //                   <TableBody>
+    //                     {users.length === 0 ? (
+    //                       <TableRow>
+    //                         <TableCell
+    //                           colSpan={isAdmin ? 8 : 7}
+    //                           className="text-center py-10 text-muted-foreground"
+    //                         >
+    //                           {isFiltered
+    //                             ? "No users match your filters."
+    //                             : "No users found."}
+    //                         </TableCell>
+    //                       </TableRow>
+    //                     ) : (
+    //                       users.map((user, idx) => {
+    //                         return (
+    //                           <ContextMenu key={user.userId} modal={false}>
+    //                             <ContextMenuTrigger asChild>
+    //                               <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
+    //                                 {/* S.No */}
+    //                                 <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
+    //                                   {(currentPage - 1) * pageSize + idx + 1}
+    //                                 </TableCell>
+
+    //                                 {/* Name */}
+    //                                 <TableCell className="align-middle font-medium whitespace-nowrap">
+    //                                   {user.name || <EmptyValue />}
+    //                                 </TableCell>
+
+    //                                 {/* Farmer Name */}
+    //                                 <TableCell className="align-middle whitespace-nowrap">
+    //                                   {user.farmerProfile?.farmerName || (
+    //                                     <EmptyValue />
+    //                                   )}
+    //                                 </TableCell>
+
+    //                                 {/* Email */}
+    //                                 <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
+    //                                   {user.email || <EmptyValue />}
+    //                                 </TableCell>
+
+    //                                 {/* User Role */}
+    //                                 <TableCell className="align-middle whitespace-nowrap">
+    //                                   {user.userRole || <EmptyValue />}
+    //                                 </TableCell>
+
+    //                                 {/* Queries asked */}
+    //                                 <TableCell className="align-middle">
+    //                                   <Button
+    //                                     variant="ghost"
+    //                                     size="sm"
+    //                                     onClick={() => {
+    //                                       setSelectedUser(user);
+    //                                       setQuestionModalOpen(true);
+    //                                     }}
+    //                                     className={`inline-flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full text-xs font-semibold transition-colors ${
+    //                                       user.totalQuestions > 0
+    //                                         ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
+    //                                         : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default"
+    //                                     }`}
+    //                                     title={"View queries"}
+    //                                   >
+    //                                     {user.totalQuestions.toLocaleString()}
+    //                                   </Button>
+    //                                 </TableCell>
+
+    //                                 {/* View more */}
+    //                                 <TableCell className="align-middle">
+    //                                   <Button
+    //                                     variant="outline"
+    //                                     size="sm"
+    //                                     onClick={() => setUserToView(user)}
+    //                                     className="h-8"
+    //                                   >
+    //                                     <Eye className="h-4 w-4" />
+    //                                     View More
+    //                                   </Button>
+    //                                 </TableCell>
+
+    //                                 {isAdmin && (
+    //                                   <TableCell className="align-middle">
+    //                                     <div className="flex items-center justify-center gap-2">
+    //                                       <Button
+    //                                         variant="ghost"
+    //                                         size="icon"
+    //                                         className="h-8 w-8"
+    //                                         onClick={() => handleEditUser(user)}
+    //                                         title="Edit farmer"
+    //                                       >
+    //                                         <Pencil className="h-4 w-4" />
+    //                                       </Button>
+    //                                       <Button
+    //                                         variant="ghost"
+    //                                         size="icon"
+    //                                         className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50"
+    //                                         onClick={() => handleDeleteUser(user)}
+    //                                         title="Delete farmer"
+    //                                       >
+    //                                         <Trash2 className="h-4 w-4" />
+    //                                       </Button>
+    //                                     </div>
+    //                                   </TableCell>
+    //                                 )}
+    //                               </TableRow>
+    //                             </ContextMenuTrigger>
+
+    //                             {isAdmin && (
+    //                               <ContextMenuContent>
+    //                                 <ContextMenuItem
+    //                                   className="cursor-pointer flex items-center gap-2"
+    //                                   onSelect={() => {
+    //                                     setUserToEdit(user);
+    //                                   }}
+    //                                 >
+    //                                   <Pencil className="h-4 w-4" />
+    //                                   Edit
+    //                                 </ContextMenuItem>
+    //                                 <ContextMenuItem
+    //                                   className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
+    //                                   onSelect={() => {
+    //                                     setConfirmEmail("");
+    //                                     setUserToDelete({
+    //                                       userId: user.userId,
+    //                                       source,
+    //                                       email: user.email,
+    //                                     });
+    //                                   }}
+    //                                 >
+    //                                   <Trash2 className="h-4 w-4 text-red-600" />
+    //                                   Delete
+    //                                 </ContextMenuItem>
+    //                               </ContextMenuContent>
+    //                             )}
+    //                           </ContextMenu>
+    //                         );
+    //                       })
+    //                     )}
+    //                   </TableBody>
+    //                 </Table>
+    //                 {/* Pagination footer */}
+    //                 {totalPages > 0 && (
+    //                   <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+    //                     <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+    //                       <span className="text-xs text-(--muted-foreground)">
+    //                         Showing{" "}
+    //                         {users.length > 0
+    //                           ? (currentPage - 1) * pageSize + 1
+    //                           : 0}
+    //                         –{(currentPage - 1) * pageSize + users.length} of{" "}
+    //                         {totalUsers} users
+    //                       </span>
+    //                       <Pagination
+    //                         currentPage={currentPage}
+    //                         totalPages={totalPages}
+    //                         onPageChange={(page) => setCurrentPage(page)}
+    //                         limit={pageSize}
+    //                         onLimitChange={setPageSize}
+    //                       />
+    //                     </div>
+    //                   </div>
+    //                 )}
+    //               </div>
+    //             )}
+    //             <UserQuestionsModal
+    //               open={questionModalOpen}
+    //               onOpenChange={setQuestionModalOpen}
+    //               user={selectedUser}
+    //               source={source}
+    //               userType={userType}
+    //             />
+    //             <FarmerDetailsModal
+    //               open={!!userToView}
+    //               onOpenChange={(open) => {
+    //                 if (!open) setUserToView(null);
+    //               }}
+    //               user={userToView}
+    //               isAdmin={isAdmin}
+    //               onEdit={handleEditUser}
+    //               onDelete={handleDeleteUser}
+    //             />
+    //           </CardContent>
+    //         </Card>
+    //       </div>
+
+    //       <AddFarmerModal
+    //         open={isAddModalOpen}
+    //         onOpenChange={setIsAddModalOpen}
+    //         isSaving={addUserMutation.isPending}
+    //         onSave={handleAddUser}
+    //       />
+
+    //       <EditFarmerModal
+    //         open={!!userToEdit}
+    //         onOpenChange={(open) => {
+    //           if (!open) setUserToEdit(null);
+    //         }}
+    //         user={userToEdit}
+    //         isSaving={updateUserMutation.isPending}
+    //         onSave={handleSaveEditedUser}
+    //       />
+
+    //       <AlertDialog
+    //         open={!!userToDelete}
+    //         onOpenChange={(open) => {
+    //           if (!open) {
+    //             setUserToDelete(null);
+    //             setConfirmEmail("");
+    //           }
+    //         }}
+    //       >
+    //         <AlertDialogContent>
+    //           <AlertDialogHeader>
+    //             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+    //             <AlertDialogDescription>
+    //               This action cannot be undone. This will permanently delete the
+    //               farmer and remove their data. To confirm this action, enter the
+    //               email address <strong>{userToDelete?.email}</strong> in the box
+    //               below.
+    //             </AlertDialogDescription>
+    //             <Input
+    //               value={confirmEmail}
+    //               onChange={(e) => setConfirmEmail(e.target.value)}
+    //               placeholder="Enter email to confirm"
+    //             />
+    //           </AlertDialogHeader>
+    //           <AlertDialogFooter>
+    //             <AlertDialogCancel>Cancel</AlertDialogCancel>
+    //             <AlertDialogAction
+    //               className="bg-red-600 hover:bg-red-700 text-white"
+    //               disabled={confirmEmail !== userToDelete?.email}
+    //               onClick={() => {
+    //                 if (userToDelete) {
+    //                   deleteUserMutation.mutate(userToDelete);
+    //                   setUserToDelete(null);
+    //                   setConfirmEmail("");
+    //                 }
+    //               }}
+    //             >
+    //               Continue
+    //             </AlertDialogAction>
+    //           </AlertDialogFooter>
+    //         </AlertDialogContent>
+    //       </AlertDialog>
+    //     </div>
+    <div className="flex-1 overflow-y-auto  min-w-0 bg-gradient-to-b from-background to-muted/30">
       <div ref={tableRef}>
-        <Card
-          className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
- dark:border-[#2a2a2a]"
-        >
-          <CardHeader className="pb-4 border-b">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              {/* Title Section */}
-              <div className="min-w-0">
-                <CardTitle className="text-base font-semibold tracking-tight flex items-center gap-2">
-                  <div className="p-1.5 rounded-md bg-primary/10">
-                    <Users className="h-4 w-4 text-primary" />
-                  </div>
-                  All Farmers
-                </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  View and manage farmer details, activity, and preferences.
-                </p>
+        <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/60 shadow-sm hover:shadow-md transition-shadow duration-300">
+          {/* ─────────── Header ─────────── */}
+          <CardHeader className="pb-4 border-b border-border/60">
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+            >
+              {/* Title */}
+              <div className="min-w-0 flex items-start gap-3">
+                <motion.div
+                  whileHover={{ rotate: -6, scale: 1.05 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 18 }}
+                  className="p-2 rounded-lg bg-primary/10 ring-1 ring-primary/15 shrink-0"
+                >
+                  <Users className="h-4 w-4 text-primary" />
+                </motion.div>
+                <div className="min-w-0">
+                  <CardTitle className="text-base font-semibold tracking-tight truncate">
+                    All Farmers
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    View and manage farmer details, activity, and preferences.
+                  </p>
+                </div>
               </div>
 
-              {/* Actions Section */}
-              <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap">
-                {isFiltered && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 px-3"
-                    onClick={handleResetFilters}
-                  >
-                    <X className="h-4 w-4 mr-1.5" />
-                    Clear Filters
-                  </Button>
-                )}
-
-                {isAdmin &&
-                  (source === "annam" || source === "vicharanashala") && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="h-9 px-3 bg-primary hover:bg-primary/90 text-white font-medium shadow-sm transition-colors duration-200 flex items-center gap-1.5"
-                      onClick={() => setIsAddModalOpen(true)}
+              {/* Search */}
+              <div className="relative w-full lg:max-w-xs lg:flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={filters.search}
+                  onChange={(e) =>
+                    setFilters((d) => ({ ...d, search: e.target.value }))
+                  }
+                  className="h-10 pl-9 pr-9 bg-background focus-visible:ring-primary/30 focus-visible:border-primary transition-all"
+                />
+                <AnimatePresence>
+                  {filters.search && (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      onClick={() => setFilters((d) => ({ ...d, search: "" }))}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Clear search"
                     >
-                      <Users className="h-4 w-4" />
-                      Add Farmer
-                    </Button>
+                      <X className="h-3.5 w-3.5" />
+                    </motion.button>
                   )}
+                </AnimatePresence>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
+                <AnimatePresence>
+                  {isFiltered && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 8 }}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 px-3 text-muted-foreground hover:text-foreground"
+                        onClick={handleResetFilters}
+                      >
+                        <X className="h-4 w-4 mr-1.5" />
+                        Clear Filters
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <UserDetailsPreferenceFilter
                   filters={filters}
                   onApply={handleApplyFilters}
                   hideFields={["userType"]}
                 />
+
+                {isAdmin &&
+                  (source === "annam" || source === "vicharanashala") && (
+                    <motion.div
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <Button
+                        size="sm"
+                        className="h-9 px-3.5 gap-1.5 shadow-sm shadow-primary/20"
+                        onClick={() => setIsAddModalOpen(true)}
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        Add Farmer
+                      </Button>
+                    </motion.div>
+                  )}
               </div>
-            </div>
+            </motion.div>
           </CardHeader>
+
+          {/* ─────────── Content ─────────── */}
           <CardContent className="p-0">
+            {/* Loading */}
             {isLoading && (
-              <div className="space-y-3 p-4">
-                <Skeleton className="h-10 w-full rounded-md" />
-                <Skeleton className="h-10 w-full rounded-md" />
-                <Skeleton className="h-10 w-full rounded-md" />
-                <Skeleton className="h-10 w-full rounded-md" />
-                <Skeleton className="h-10 w-full rounded-md" />
+              <div className="space-y-2 p-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-md" />
+                ))}
               </div>
             )}
 
+            {/* Error */}
             {error && (
-              <div className="px-4 py-8 text-center text-red-500 text-sm">
-                Failed to load user details. Please try again.
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center"
+              >
+                <div className="p-3 rounded-full bg-destructive/10">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                </div>
+                <p className="text-sm font-medium text-foreground">
+                  Something went wrong
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Failed to load user details. Please try again.
+                </p>
+              </motion.div>
             )}
 
+            {/* Table */}
             {!isLoading && !error && (
-              <div className="rounded-lg border bg-card overflow-x-auto">
-                <Table className="min-w-[1600px]">
-                  <TableHeader className="bg-card sticky top-0 z-10">
-                    <TableRow>
-                      <TableHead className="text-center w-12">S.No</TableHead>
-                      <TableHead
-                        className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
-                        onClick={() =>
-                          userType === "external" &&
-                          handleSort("totalQuestions")
-                        }
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          Query Asked
-                          {sortBy === "totalQuestions" ? (
-                            <span className="text-blue-600 dark:text-blue-400">
-                              {sortOrder === "desc" ? "↓" : "↑"}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 dark:text-gray-500">
-                              ↕
-                            </span>
-                          )}
-                        </div>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[980px]">
+                  <TableHeader className="bg-muted/40 sticky top-0 z-10 backdrop-blur">
+                    <TableRow className="hover:bg-transparent border-border/60">
+                      <TableHead className="text-center w-12 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        S.No
                       </TableHead>
-                      <TableHead
-                        className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
-                        onClick={() =>
-                          userType === "external" && handleSort("name")
-                        }
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          Name
-                          {sortBy === "name" ? (
-                            <span className="text-blue-600 dark:text-blue-400">
-                              {sortOrder === "desc" ? "↓" : "↑"}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 dark:text-gray-500">
-                              ↕
-                            </span>
-                          )}
-                        </div>
+
+                      <SortableHead
+                        label="Name"
+                        field="name"
+                        active={sortBy === "name"}
+                        order={sortOrder}
+                        disabled={userType !== "external"}
+                        // onSort={handleSort}
+                      />
+
+                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Farmer Name
                       </TableHead>
-                      <TableHead className="text-center">Email</TableHead>
-                      <TableHead className="text-center">Farmer Name</TableHead>
-                      <TableHead className="text-center">Age</TableHead>
-                      <TableHead className="text-center">Gender</TableHead>
-                      <TableHead className="text-center">Village</TableHead>
-                      <TableHead className="text-center">Block</TableHead>
-                      <TableHead className="text-center">District</TableHead>
-                      <TableHead className="text-center">State</TableHead>
-                      <TableHead className="text-center">Phone</TableHead>
-                      <TableHead className="text-center">Language</TableHead>
-                      <TableHead className="text-center">Exp. (Yrs)</TableHead>
-                      <TableHead className="text-center">Crops</TableHead>
-                      <TableHead className="text-center">
-                        Primary Crop
+                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Email
                       </TableHead>
-                      <TableHead className="text-center">
-                        Secondary Crop
+                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        User Role
                       </TableHead>
-                      <TableHead className="text-center">KCC Aware</TableHead>
-                      <TableHead className="text-center">Agri Apps</TableHead>
-                      <TableHead className="text-center">Education</TableHead>
-                      <TableHead className="text-center">Smartphones</TableHead>
-                      <TableHead className="text-center">Platform</TableHead>
-                      <TableHead className="text-center">Location</TableHead>
+
+                      <SortableHead
+                        label="Query Asked"
+                        field="totalQuestions"
+                        active={sortBy === "totalQuestions"}
+                        order={sortOrder}
+                        disabled={userType !== "external"}
+                        // onSort={handleSort}
+                      />
+
+                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        View More
+                      </TableHead>
+                      {isAdmin && (
+                        <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Actions
+                        </TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
                     {users.length === 0 ? (
-                      <TableRow>
+                      <TableRow className="hover:bg-transparent">
                         <TableCell
-                          colSpan={23}
-                          className="text-center py-10 text-muted-foreground"
+                          colSpan={isAdmin ? 8 : 7}
+                          className="text-center py-16"
                         >
-                          {isFiltered
-                            ? "No users match your filters."
-                            : "No users found."}
+                          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                            <div className="p-3 rounded-full bg-muted">
+                              <Inbox className="h-5 w-5" />
+                            </div>
+                            <p className="text-sm font-medium text-foreground">
+                              {isFiltered
+                                ? "No matches found"
+                                : "No farmers yet"}
+                            </p>
+                            <p className="text-xs">
+                              {isFiltered
+                                ? "Try adjusting your filters or search."
+                                : "Farmers you add will appear here."}
+                            </p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      users.map((user, idx) => {
-                        const fp = user.farmerProfile;
-                        return (
-                          <ContextMenu key={user.userId} modal={false}>
-                            <ContextMenuTrigger asChild>
-                              <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
-                                {/* S.No */}
-                                <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
-                                  {(currentPage - 1) * pageSize + idx + 1}
-                                </TableCell>
+                      users.map((user, idx) => (
+                        <ContextMenu key={user.userId} modal={false}>
+                          <ContextMenuTrigger asChild>
+                            <motion.tr
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{
+                                duration: 0.18,
+                                delay: Math.min(idx * 0.02, 0.2),
+                              }}
+                              className="group text-center border-b border-border/40 hover:bg-muted/40 transition-colors duration-150"
+                            >
+                              <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
+                                {(currentPage - 1) * pageSize + idx + 1}
+                              </TableCell>
 
-                                {/* Queries asked */}
-                                <TableCell className="align-middle">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedUser(user);
-                                      setQuestionModalOpen(true);
-                                      console.log("Button clicked")
-                                    }}
-                                    className={`inline-flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full text-xs font-semibold transition-colors ${
-                                      user.totalQuestions > 0
-                                        ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
-                                        : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default"
-                                    }`}
-                                    title={
-                                      
-                                        "View queries"
-                                    
-                                    }
+                              <TableCell className="align-middle font-medium whitespace-nowrap">
+                                {user.name || <EmptyValue />}
+                              </TableCell>
+
+                              <TableCell className="align-middle whitespace-nowrap">
+                                {user.farmerProfile?.farmerName || (
+                                  <EmptyValue />
+                                )}
+                              </TableCell>
+
+                              <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
+                                {user.email || <EmptyValue />}
+                              </TableCell>
+
+                              <TableCell className="align-middle whitespace-nowrap">
+                                {user.userRole ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="font-normal"
                                   >
-                                    {user.totalQuestions.toLocaleString()}
-                                  </Button>
-                                </TableCell>
+                                    {user.userRole}
+                                  </Badge>
+                                ) : (
+                                  <EmptyValue />
+                                )}
+                              </TableCell>
 
-                                {/* Name */}
-                                <TableCell className="align-middle font-medium whitespace-nowrap">
-                                  {user.name}
-                                </TableCell>
-
-                                {/* Email */}
-                                <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
-                                  {user.email}
-                                </TableCell>
-
-                                {/* Farmer Name */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.farmerName ?? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Age */}
-                                <TableCell className="align-middle tabular-nums">
-                                  {fp?.age ?? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Gender */}
-                                <TableCell className="align-middle">
-                                  {fp?.gender ? (
-                                    <span
-                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                        fp.gender?.toUpperCase() === "MALE"
-                                          ? "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
-                                          : fp.gender?.toUpperCase() ===
-                                              "FEMALE"
-                                            ? "bg-pink-50 dark:bg-pink-950 text-pink-700 dark:text-pink-300"
-                                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                                      }`}
-                                    >
-                                      {fp.gender}
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Village */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.villageName ?? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Block */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.blockName ?? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* District */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.district ?? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* State */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.state ?? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Phone */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.phoneNo ? (
-                                    <a
-                                      href={`tel:${fp.phoneNo}`}
-                                      className="text-blue-600 dark:text-blue-400 hover:underline text-xs tabular-nums"
-                                    >
-                                      {fp.phoneNo}
-                                    </a>
-                                  ) : (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Language */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.languagePreference ?? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Experience */}
-                                <TableCell className="align-middle tabular-nums">
-                                  {fp?.yearsOfExperience != null ? (
-                                    <span>
-                                      {fp.yearsOfExperience}{" "}
-                                      <span className="text-muted-foreground text-xs">
-                                        yrs
-                                      </span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Crops cultivated */}
-                                <TableCell className="align-middle">
-                                  <CropsCell crops={fp?.cropsCultivated} />
-                                </TableCell>
-
-                                {/* Primary crop */}
-                                <TableCell className="align-middle">
-                                  <CropsCell crops={fp?.primaryCrop} />
-                                </TableCell>
-
-                                {/* Secondary crop */}
-                                <TableCell className="align-middle">
-                                  <CropsCell crops={fp?.secondaryCrop} />
-                                </TableCell>
-
-                                {/* KCC Aware */}
-                                <TableCell className="align-middle">
-                                  {fp?.awarenessOfKCC == null ? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  ) : fp.awarenessOfKCC ? (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300">
-                                      Yes
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400">
-                                      No
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Agri Apps */}
-                                <TableCell className="align-middle">
-                                  {fp?.usesAgriApps == null ? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  ) : fp.usesAgriApps ? (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300">
-                                      Yes
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400">
-                                      No
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Education */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.highestEducatedPerson ?? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Smartphones */}
-                                <TableCell className="align-middle tabular-nums">
-                                  {fp?.numberOfSmartphones ?? (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Platform */}
-                                <TableCell className="align-middle whitespace-nowrap">
-                                  {fp?.platformHistory &&
-                                  fp.platformHistory.length > 0 ? (
-                                    <div className="flex flex-col items-center leading-tight gap-0.5">
-                                      <span className="font-medium text-xs">
-                                        {
-                                          fp.platformHistory[
-                                            fp.platformHistory.length - 1
-                                          ].os
-                                        }
-                                      </span>
-                                      <span className="text-[11px] text-muted-foreground tabular-nums">
-                                        {new Date(
-                                          fp.platformHistory[
-                                            fp.platformHistory.length - 1
-                                          ].timestamp,
-                                        ).toLocaleDateString("en-GB", {
-                                          day: "2-digit",
-                                          month: "2-digit",
-                                          year: "2-digit",
-                                        })}
-                                      </span>
-                                    </div>
-                                  ) : fp?.platform ? (
-                                    <span className="text-xs">
-                                      {fp.platform}
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-
-                                {/* Location */}
-                                <TableCell className="align-middle">
-                                  {fp?.location?.latitude &&
-                                  fp?.location?.longitude ? (
-                                    <a
-                                      href={`https://maps.google.com/?q=${fp.location.latitude},${fp.location.longitude}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      title="View on Google Maps"
-                                      className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <MapPin className="h-4 w-4" />
-                                    </a>
-                                  ) : (
-                                    <span className="text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            </ContextMenuTrigger>
-
-                            {isAdmin && (
-                              <ContextMenuContent>
-                                <ContextMenuItem
-                                  className="cursor-pointer flex items-center gap-2"
-                                  onSelect={() => {
-                                    setUserToEdit(user);
+                              <TableCell className="align-middle">
+                                <button
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    setQuestionModalOpen(true);
                                   }}
+                                  disabled={user.totalQuestions === 0}
+                                  title="View queries"
+                                  className={`inline-flex items-center justify-center min-w-[36px] h-6 px-2.5 rounded-full text-xs font-semibold transition-all ${
+                                    user.totalQuestions > 0
+                                      ? "bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 cursor-pointer"
+                                      : "bg-muted text-muted-foreground cursor-default"
+                                  }`}
                                 >
-                                  <Pencil className="h-4 w-4" />
-                                  Edit
-                                </ContextMenuItem>
-                                <ContextMenuItem
-                                  className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
-                                  onSelect={() => {
-                                    setConfirmEmail("");
-                                    setUserToDelete({
-                                      userId: user.userId,
-                                      source,
-                                      email: user.email,
-                                    });
-                                  }}
+                                  {user.totalQuestions.toLocaleString()}
+                                </button>
+                              </TableCell>
+
+                              <TableCell className="align-middle">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setUserToView(user)}
+                                  className="h-8 gap-1.5"
                                 >
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                  Delete
-                                </ContextMenuItem>
-                              </ContextMenuContent>
-                            )}
-                          </ContextMenu>
-                        );
-                      })
+                                  <Eye className="h-3.5 w-3.5" />
+                                  View More
+                                </Button>
+                              </TableCell>
+
+                              {isAdmin && (
+                                <TableCell className="align-middle">
+                                  <div className="flex items-center justify-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                                      onClick={() => handleEditUser(user)}
+                                      title="Edit farmer"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                      onClick={() => handleDeleteUser(user)}
+                                      title="Delete farmer"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              )}
+                            </motion.tr>
+                          </ContextMenuTrigger>
+
+                          {isAdmin && (
+                            <ContextMenuContent className="w-40">
+                              <ContextMenuItem
+                                className="cursor-pointer gap-2"
+                                onSelect={() => setUserToEdit(user)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                                Edit
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer gap-2"
+                                onSelect={() => {
+                                  setConfirmEmail("");
+                                  setUserToDelete({
+                                    userId: user.userId,
+                                    source,
+                                    email: user.email,
+                                  });
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          )}
+                        </ContextMenu>
+                      ))
                     )}
                   </TableBody>
                 </Table>
-                {/* Pagination footer */}
+
+                {/* Pagination */}
                 {totalPages > 0 && (
-                  <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+                  <div className="px-4 py-3 border-t border-border/60 bg-muted/20">
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-                      <span className="text-xs text-(--muted-foreground)">
+                      <span className="text-xs text-muted-foreground">
                         Showing{" "}
-                        {users.length > 0
-                          ? (currentPage - 1) * pageSize + 1
-                          : 0}
-                        –{(currentPage - 1) * pageSize + users.length} of{" "}
-                        {totalUsers} users
+                        <span className="font-medium text-foreground">
+                          {users.length > 0
+                            ? (currentPage - 1) * pageSize + 1
+                            : 0}
+                          –{(currentPage - 1) * pageSize + users.length}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-medium text-foreground">
+                          {totalUsers}
+                        </span>{" "}
+                        users
                       </span>
                       <Pagination
                         currentPage={currentPage}
                         totalPages={totalPages}
-                        onPageChange={(page) => setCurrentPage(page)}
+                        onPageChange={setCurrentPage}
                         limit={pageSize}
                         onLimitChange={setPageSize}
                       />
@@ -906,12 +1146,21 @@ export function UserDetailsView({
                 )}
               </div>
             )}
+
             <UserQuestionsModal
               open={questionModalOpen}
               onOpenChange={setQuestionModalOpen}
               user={selectedUser}
               source={source}
               userType={userType}
+            />
+            <FarmerDetailsModal
+              open={!!userToView}
+              onOpenChange={(open) => !open && setUserToView(null)}
+              user={userToView}
+              isAdmin={isAdmin}
+              onEdit={handleEditUser}
+              onDelete={handleDeleteUser}
             />
           </CardContent>
         </Card>
@@ -926,14 +1175,13 @@ export function UserDetailsView({
 
       <EditFarmerModal
         open={!!userToEdit}
-        onOpenChange={(open) => {
-          if (!open) setUserToEdit(null);
-        }}
+        onOpenChange={(open) => !open && setUserToEdit(null)}
         user={userToEdit}
         isSaving={updateUserMutation.isPending}
         onSave={handleSaveEditedUser}
       />
 
+      {/* Delete confirmation */}
       <AlertDialog
         open={!!userToDelete}
         onOpenChange={(open) => {
@@ -945,23 +1193,28 @@ export function UserDetailsView({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              farmer and remove their data. To confirm this action, enter the
-              email address <strong>{userToDelete?.email}</strong> in the box
+            <div className="mx-auto mb-2 p-3 rounded-full bg-destructive/10 w-fit">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+            </div>
+            <AlertDialogTitle className="text-center">
+              Delete this farmer?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              This action cannot be undone. To confirm, type{" "}
+              <strong className="text-foreground">{userToDelete?.email}</strong>{" "}
               below.
             </AlertDialogDescription>
             <Input
               value={confirmEmail}
               onChange={(e) => setConfirmEmail(e.target.value)}
               placeholder="Enter email to confirm"
+              className="mt-3"
             />
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               disabled={confirmEmail !== userToDelete?.email}
               onClick={() => {
                 if (userToDelete) {
@@ -971,11 +1224,48 @@ export function UserDetailsView({
                 }
               }}
             >
-              Continue
+              Delete Farmer
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+
+
+function SortableHead({
+  label,
+  field,
+  active,
+  order,
+  disabled,
+  onSort,
+}: {
+  label: string;
+  field: string;
+  active: boolean;
+  order: "asc" | "desc";
+  disabled: boolean;
+  onSort?: (f: string) => void;
+}) {
+  const Icon = !active ? ArrowUpDown : order === "desc" ? ArrowDown : ArrowUp;
+  return (
+    <TableHead
+      // onClick={() => !disabled && onSort(field)}
+      className={`text-center text-xs font-medium uppercase tracking-wide transition-colors ${
+        disabled
+          ? "cursor-not-allowed opacity-50 text-muted-foreground"
+          : "cursor-pointer hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      <div className="inline-flex items-center justify-center gap-1.5">
+        {label}
+        <Icon
+          className={`h-3 w-3 ${active ? "text-primary" : "text-muted-foreground/60"}`}
+        />
+      </div>
+    </TableHead>
   );
 }

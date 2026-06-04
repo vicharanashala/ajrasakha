@@ -24,11 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import {
-  useDailyActiveUsersTrend,
-  useWeeklyActiveUsersTrend,
-  useMontlyActiveUsersTrend,
-} from "@/features/chatbotDashboard/hooks/useActiveUsersAnalytics";
+import { useActiveUsersTrend } from "@/features/chatbotDashboard/hooks/useActiveUsersAnalytics";
 import { Skeleton } from "@/components/atoms/skeleton";
 import {
   Tooltip,
@@ -59,7 +55,6 @@ const chartConfig = {
 } satisfies ChartConfig;
 const defaultDateRange: DateRange | undefined = undefined;
 
-
 type ActiveUserType = "daily" | "weekly" | "monthly";
 
 type ActiveUsersChartProps = {
@@ -75,47 +70,23 @@ export const ActiveUsersChart = ({
   const [dateRange, setDateRange] = useState<DateRange | undefined>(
     defaultDateRange,
   );
-  const { data: dailyData, isFetching: dailyLoading } =
-    useDailyActiveUsersTrend(source, userType, dateRange?.from, dateRange?.to);
 
-  const { data: weeklyData, isFetching: weeklyLoading } =
-    useWeeklyActiveUsersTrend(source, userType, dateRange?.from, dateRange?.to);
-
-  const { data: monthlyData, isFetching: monthlyLoading } =
-    useMontlyActiveUsersTrend(source, userType, dateRange?.from, dateRange?.to);
-
-  const isFetching = dailyLoading || weeklyLoading || monthlyLoading;
+  const { data, isFetching } = useActiveUsersTrend(
+    source,
+    userType,
+    type,
+    dateRange?.from,
+    dateRange?.to,
+  );
 
   const chartData = useMemo(() => {
-    switch (type) {
-      case "daily":
-        return (
-          dailyData?.map((item) => ({
-            label: item._id,
-            value: item.dau,
-          })) ?? []
-        );
-
-      case "weekly":
-        return (
-          weeklyData?.map((item) => ({
-            label: item._id,
-            value: item.wau,
-          })) ?? []
-        );
-
-      case "monthly":
-        return (
-          monthlyData?.map((item) => ({
-            label: item._id,
-            value: item.mau,
-          })) ?? []
-        );
-
-      default:
-        return [];
-    }
-  }, [type, dailyData, weeklyData, monthlyData]);
+    return (
+      data?.map((item) => ({
+        label: item._id,
+        value: item.activeUsers,
+      })) ?? []
+    );
+  }, [data]);
 
   const chartTitle = useMemo(() => {
     switch (type) {
@@ -137,10 +108,7 @@ export const ActiveUsersChart = ({
     setDateRange(undefined);
   };
 
-  const formatCohortLabel = (
-    value: string,
-    requestType: ActiveUserType,
-  ) => {
+  const formatCohortLabel = (value: string, requestType: ActiveUserType) => {
     if (requestType === "monthly") {
       return format(new Date(`${value}-01`), "MMM yyyy");
     }
@@ -238,7 +206,7 @@ export const ActiveUsersChart = ({
                   <TooltipContent className="max-w-[260px]">
                     <p>
                       {type === "daily" &&
-                        "Shows unique users active each day based on their latest activity timestamp.)"}
+                        "Shows unique users active each day based on their latest activity timestamp."}
 
                       {type === "weekly" &&
                         "Shows unique users active each ISO week based on their latest activity timestamp."}
@@ -355,7 +323,9 @@ export const ActiveUsersChart = ({
                     cursor={false}
                     content={
                       <ChartTooltipContent
-                        labelFormatter={(value) => formatCohortLabel(value, type)}
+                        labelFormatter={(value) =>
+                          formatCohortLabel(value, type)
+                        }
                       />
                     }
                   />

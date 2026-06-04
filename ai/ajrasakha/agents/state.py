@@ -48,6 +48,24 @@ class RetrievalSanitizerAudit(TypedDict, total=False):
     llm_parse_ok: bool
 
 
+class GoldenClassificationEvaluation(TypedDict, total=False):
+    question_id: str
+    similarity_score: Optional[float]
+    retrieved_question: str
+    classification: str
+    reason: str
+    llm_parse_ok: bool
+    action: str
+
+
+class GoldenRetrievalAudit(TypedDict, total=False):
+    status: str  # exact_bypass | selected | empty
+    model: str
+    evaluations: list[GoldenClassificationEvaluation]
+    selected_question_id: Optional[str]
+    selection_rule: str
+
+
 class PlannerPlan(TypedDict, total=False):
     domain: Optional[str]
     domains: list[str]  # Canonical domains, ordered (max ~3)
@@ -97,8 +115,19 @@ def replace_sanitizer_audit(
     return right
 
 
+def replace_golden_retrieval_audit(
+    left: Optional[GoldenRetrievalAudit],
+    right: Optional[GoldenRetrievalAudit],
+) -> Optional[GoldenRetrievalAudit]:
+    """Per-turn Gemma classification audit from Golden API (curl /threads/.../state)."""
+    if right is None:
+        return left
+    return right
+
+
 class AjraSakhaState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     location: Annotated[Optional[Location], merge_location_dict]
     plan: Annotated[Optional[PlannerPlan], merge_plan]
     sanitizer_audit: Annotated[Optional[RetrievalSanitizerAudit], replace_sanitizer_audit]
+    golden_retrieval_audit: Annotated[Optional[GoldenRetrievalAudit], replace_golden_retrieval_audit]

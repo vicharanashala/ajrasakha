@@ -1,19 +1,30 @@
-import os
 import json
 import logging
+import os
 import re
 from typing import Optional
 
+import httpx
+from dotenv import load_dotenv
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
-from langchain_mcp_adapters.client import MultiServerMCPClient
 
-from ajrasakha.agents.config import MCP_URLS
+from ajrasakha.agents.config import GOLDEN_API_URL
+
+load_dotenv()
+
 logger = logging.getLogger(__name__)
+GOLDEN_API_TIMEOUT_S = float(os.getenv("GOLDEN_API_TIMEOUT_S", "120"))
+_GDB_SEARCH_PATH = "/v1/gdb/search"
 
-# Maximum number of similar pairs to return in the response.
-MAX_SIMILAR_PAIRS = 5
+
+def _golden_search_url() -> str:
+    """Build POST URL from GOLDEN_API_URL (base host:port only, or full path)."""
+    base = (GOLDEN_API_URL or "").rstrip("/")
+    if base.endswith(_GDB_SEARCH_PATH):
+        return base
+    return f"{base}{_GDB_SEARCH_PATH}"
 
 
 def _standardize_label(value: str) -> str:
@@ -24,7 +35,12 @@ def _standardize_label(value: str) -> str:
 
 
 class GDBInput(BaseModel):
-    query: str
+    rephrased_query: str = Field(
+        ...,
+        description=(
+            "Planner English query (spelling/grammar cleaned). Required for Golden DB search."
+        ),
+    )
     crop: str = Field(
         ...,
         description=(
@@ -38,10 +54,6 @@ class GDBInput(BaseModel):
             "Indian state for Golden DB retrieval (required). Use thread location state "
             "or the state in the farmer's message; use 'all' only as a last resort."
         ),
-    )
-    rephrased_query: Optional[str] = Field(
-        None,
-        description="The query refined by the planner agent (grammar/spelling corrected)."
     )
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -69,83 +81,103 @@ def _normalize_details_list(raw_details) -> list[dict]:
     return []
 
 
-def _normalize_gdb_response(raw_json: dict, query: str, rephrased: str, crop: str, state: str) -> dict:
-    """Post-process the raw GDB MCP response into a structured format.
-
-    Output format:
-    {
-      "original_query": "...",
-      "rephrased_query": "...",
-      "state": "...",
-      "crop": "...",
-      "is_exact": true/false,
-      "is_similar": true/false,
-      "exact_match": { question, answer, details: [{source_name, source_link, author_name}, ...] },
-      "similar_pair1": { question, answer, details: [{source_name, source_link, author_name}, ...] },
-      "similar_pair2": { ... },
-      ...top 5 pairs
+def _match_to_pair_dict(match: dict, *, chosen: bool = False) -> dict:
+    details_list = _normalize_details_list(match.get("details") or [])
+    answer_from_class = match.get("answer_from_class") or match.get("gemma_class")
+    out = {
+        "question_id": match.get("question_id") or "",
+        "similarity_score": match.get("similarity_score"),
+        "retrieval_source": match.get("retrieval_source"),
+        "gemma_class": match.get("gemma_class"),
+        "answer_from_class": answer_from_class,
+        "question": match.get("question") or "",
+        "answer": match.get("answer") or "",
+        "details": details_list,
+        "chosen_for_answer": match.get("chosen_for_answer", chosen),
     }
-    """
+    return out
+
+
+def _normalize_gdb_response(raw_json: dict, rephrased: str, crop: str, state: str) -> dict:
+    """Post-process Golden API response for LangGraph / synthesizer."""
     result: dict = {
-        "original_query": raw_json.get("original_query", query),
         "rephrased_query": raw_json.get("rephrased_query", rephrased),
         "state": raw_json.get("state", state),
         "crop": raw_json.get("crop", crop),
         "is_exact": False,
         "is_similar": False,
+        "exact_match": {},
+        "classification_audit": raw_json.get("classification_audit") or {},
     }
 
-    # ── Exact match ──────────────────────────────────────────────────────
     exact = raw_json.get("exact_match") or {}
     if exact and (exact.get("answer") or exact.get("question")):
         result["is_exact"] = True
-        details_list = _normalize_details_list(exact.get("details") or [])
-        result["exact_match"] = {
-            "question": exact.get("question") or "",
-            "answer": exact.get("answer") or "",
-            "details": details_list,
-        }
-    else:
-        result["exact_match"] = {}
-
-    # ── Similar matches (top 5) ──────────────────────────────────────────
-    similar_raw = raw_json.get("similar_match") or {}
-    if isinstance(similar_raw, dict) and similar_raw:
-        # Sort by pair key numerically (pair_1, pair_2, ...)
-        sorted_keys = sorted(
-            similar_raw.keys(),
-            key=lambda x: int("".join(filter(str.isdigit, x)) or "0"),
+        pair = _match_to_pair_dict(exact, chosen=True)
+        if pair.get("similarity_score") is None:
+            pair["similarity_score"] = 1
+        if not pair.get("answer_from_class"):
+            pair["answer_from_class"] = "strict_exact"
+        result["exact_match"] = pair
+        audit = result.get("classification_audit") or {}
+        result["chosen_question_id"] = exact.get("question_id") or audit.get(
+            "selected_question_id"
         )
-        # Limit to top MAX_SIMILAR_PAIRS
-        top_keys = sorted_keys[:MAX_SIMILAR_PAIRS]
+        result["answer_from_class"] = (
+            exact.get("answer_from_class") or audit.get("answer_from_class") or "strict_exact"
+        )
+        result["chosen_for_answer"] = True
+        result["selection_method"] = audit.get("selection_method") or "strict_exact"
 
-        if top_keys:
-            result["is_similar"] = True
-
-        for idx, key in enumerate(top_keys, 1):
-            pair = similar_raw[key]
-            if not isinstance(pair, dict):
-                continue
-            details_list = _normalize_details_list(pair.get("details") or [])
-            result[f"similar_pair{idx}"] = {
-                "question": pair.get("question") or "",
-                "answer": pair.get("answer") or "",
-                "details": details_list,
-            }
+    selected = raw_json.get("selected_match")
+    if isinstance(selected, dict) and selected and (selected.get("answer") or selected.get("question")):
+        result["is_similar"] = True
+        result["similar_pair1"] = _match_to_pair_dict(selected, chosen=True)
+        audit = result.get("classification_audit") or {}
+        result["chosen_question_id"] = selected.get("question_id") or audit.get(
+            "selected_question_id"
+        )
+        result["answer_from_class"] = (
+            selected.get("answer_from_class")
+            or selected.get("gemma_class")
+            or audit.get("answer_from_class")
+        )
+        result["chosen_for_answer"] = True
+        result["selection_method"] = audit.get("selection_method")
 
     return result
 
 
+async def _call_golden_api(
+    rephrased_query: str,
+    crop: str,
+    state: str,
+) -> dict | None:
+    url = _golden_search_url()
+    payload = {
+        "rephrased_query": rephrased_query,
+        "crop": crop,
+        "state": state,
+    }
+    timeout = httpx.Timeout(GOLDEN_API_TIMEOUT_S)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.post(url, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+    if isinstance(data, dict):
+        return data
+    return None
+
+
 @tool(args_schema=GDBInput)
 async def gdb(
-    query: str,
+    rephrased_query: str,
     crop: str,
     state: str,
     latitude: Optional[float],
     longitude: Optional[float],
     address: Optional[str],
     config: RunnableConfig,
-    rephrased_query: Optional[str] = None,
 ) -> str:
     """
     Query the golden database directly for crop/disease/pest/farming knowledge.
@@ -161,118 +193,55 @@ async def gdb(
         return val.strip()
 
     resolved_crop = _standardize_label(clean_fallback(crop))
-    # State comes directly from the planner's deterministic resolution.
-    # We no longer override it from the thread's injected location config,
-    # because the planner already resolved state from query text or GPS.
     resolved_state = _standardize_label(clean_fallback(state))
-    resolved_rephrased = (rephrased_query or "").strip() or query
+    resolved_rephrased = (rephrased_query or "").strip()
 
-    fallback_response = json.dumps({
-        "original_query": query,
-        "rephrased_query": resolved_rephrased,
-        "state": resolved_state,
-        "crop": resolved_crop,
-        "is_exact": False,
-        "is_similar": False,
-        "exact_match": {},
-    })
+    search_url = _golden_search_url()
 
-    print("[gdb_agent] gdb() called — starting MCP connection", flush=True)
+    def _fallback(error: str | None = None) -> str:
+        audit: dict = {"status": "empty", "evaluations": [], "source": "gdb_agent_fallback"}
+        if error:
+            audit["golden_api_error"] = error
+            audit["golden_api_url"] = search_url
+        return json.dumps({
+            "rephrased_query": resolved_rephrased,
+            "state": resolved_state,
+            "crop": resolved_crop,
+            "is_exact": False,
+            "is_similar": False,
+            "exact_match": {},
+            "classification_audit": audit,
+        })
+
+    logger.info(
+        "gdb() POST %s rephrased_query=%r crop=%s state=%s",
+        search_url,
+        resolved_rephrased[:80],
+        resolved_crop,
+        resolved_state,
+    )
 
     try:
-        # Load GDB MCP endpoint URL from the environment or config
-        # gdb_url = os.getenv("GDB_MCP_URL")
-
-
-
-        # if not gdb_url:
-        #     from ajrasakha.agents.config import MCP_URLS
-        #     gdb_url = MCP_URLS.get("gdb")
-
-        # if not gdb_url:
-        #     logger.error("GDB_MCP_URL is not configured in .env or config!")
-        #     return fallback_response
-
-        # logger.info("Connecting to decoupled GDB MCP server at: %s", gdb_url)
-        
-        # Instantiate MultiServerMCPClient to invoke tool remotely
-        # client = MultiServerMCPClient(
-        #     {
-        #         "mcp_golden": {
-        #             "url": gdb_url,
-        #             "transport": "streamable_http",
-        #         }
-        #     }
-        # )
-
-        mcp_url = MCP_URLS["gdb"]
-        print(f"[gdb_agent] Connecting MCP → {mcp_url}", flush=True)
-
-        client = MultiServerMCPClient(
-            {
-                "mcp_golden": {
-                    "url": mcp_url,
-                    "transport": "streamable-http",
-                }
-            }
+        raw_data = await _call_golden_api(
+            resolved_rephrased, resolved_crop, resolved_state
         )
-        print("[gdb_agent] MultiServerMCPClient created OK", flush=True)
+        if not raw_data:
+            return _fallback("empty response from Golden API")
 
-        tools = await client.get_tools()
-        print(f"[gdb_agent] MCP get_tools() OK — tools: {[t.name for t in tools]}", flush=True)
+        normalized = _normalize_gdb_response(
+            raw_data, resolved_rephrased, resolved_crop, resolved_state
+        )
+        logger.info(
+            "GDB response: is_exact=%s is_similar=%s audit_status=%s",
+            normalized.get("is_exact"),
+            normalized.get("is_similar"),
+            (normalized.get("classification_audit") or {}).get("status"),
+        )
+        return json.dumps(normalized)
 
-        gdb_search_tool = next((t for t in tools if "gdb_search" in t.name), None)
-
-        if not gdb_search_tool:
-            logger.error("gdb_search tool not found on decoupled MCP server. Available tools: %s", [t.name for t in tools])
-            print("[gdb_agent] MCP FAILED — gdb_search tool not found on server", flush=True)
-            return fallback_response
-
-        print(f"[gdb_agent] MCP connected — using tool: {gdb_search_tool.name}", flush=True)
-
-        # Invoke the decoupled native RAG pipeline directly
-        logger.info("Invoking decoupled native GDB search (query=%s, rephrased_query=%s, crop=%s, state=%s)", query, resolved_rephrased, resolved_crop, resolved_state)
-        result = await gdb_search_tool.ainvoke({
-            "query": query,
-            "crop": resolved_crop,
-            "state": resolved_state,
-            "rephrased_query": resolved_rephrased
-        })
-        
-        # Parse and normalise the response
-        if isinstance(result, list):
-            res_str = "".join([
-                item.get("text", "") if isinstance(item, dict)
-                else str(item)
-                for item in result
-            ])
-        else:
-            res_str = str(result)
-            
-        res_str = res_str.strip()
-        if not res_str or res_str.upper() == "NO_RELEVANT_CONTENT":
-            return fallback_response
-
-        # Post-process into structured format with is_exact/is_similar flags
-        try:
-            raw_data = json.loads(res_str)
-            if isinstance(raw_data, dict):
-                normalized = _normalize_gdb_response(
-                    raw_data, query, resolved_rephrased, resolved_crop, resolved_state
-                )
-                logger.info(
-                    "GDB response: is_exact=%s, is_similar=%s",
-                    normalized.get("is_exact"),
-                    normalized.get("is_similar"),
-                )
-                return json.dumps(normalized)
-        except json.JSONDecodeError:
-            pass
-
-        # If response isn't JSON, return as-is
-        return res_str
-
+    except httpx.HTTPStatusError as exc:
+        logger.error("gdb Golden API HTTP error: %s %s", exc.response.status_code, exc)
+        return _fallback(f"HTTP {exc.response.status_code}: {exc}")
     except Exception as exc:
-        logger.error("gdb query execution failed: %s", exc, exc_info=True)
-        print(f"[gdb_agent] MCP FAILED — {type(exc).__name__}: {exc}", flush=True)
-        return fallback_response
+        logger.error("gdb Golden API call failed: %s", exc, exc_info=True)
+        return _fallback(str(exc))

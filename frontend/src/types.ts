@@ -1,6 +1,6 @@
 import type { UserCredential } from "firebase/auth";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -489,6 +489,7 @@ export interface IQuestionFullData {
   originalQuestion?: string;
   closedAt?: string;
   threadId?: string;
+  messageId?: string;
   approved_moderator:{
     name: string;
     email: string;
@@ -956,10 +957,16 @@ enum AuditCategory {
   OUTREACH_REPORT = 'OUTREACH_REPORT',
   AGENTS_INTERFACE = 'AGENTS_INTERFACE', // PENDING, not on priority
   DOWNLOAD_REPORTS = 'DOWNLOAD_REPORTS',
-  ANSWER = 'ANSWER'
+  ANSWER = 'ANSWER',
+  FARMER_MANAGEMENT = 'FARMER_MANAGEMENT',
 }
 
 enum AuditAction {
+  // Farmer
+  ADD_FARMER = 'ADD_FARMER',
+  UPDATE_FARMER = 'UPDATE_FARMER',
+  DELETE_FARMER = 'DELETE_FARMER',
+
   // Question
   QUESTION_ADD = 'QUESTION_ADD',
   QUESTION_UPDATE = 'QUESTION_UPDATE',

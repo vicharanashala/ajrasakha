@@ -47,10 +47,13 @@ from ajrasakha.agents.location_context import (
 )
 from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
+    apply_crop_one_shot_fallback,
     apply_planner_completeness_rules,
+    crop_slot_satisfied,
     format_conversation_for_planner,
     merge_entities_from_rephrased_query,
     resolve_crop_for_turn,
+    was_crop_clarify_asked,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
@@ -302,21 +305,25 @@ async def _apply_domain_and_crop_async(
     question = plan.get("rephrased_query") or user_text
     original = plan.get("original_query_en") or user_text
 
+    entities = apply_crop_one_shot_fallback(messages, entities, domains)
+
     crop_required = False
     crop_required_any = any(domain_requires_crop(d) for d in domains)
 
-    # Always-ask safety rule: if ANY selected domain requires a crop and crop is missing,
-    # we must ask for crop (no classifier-based skipping).
+    # Crop-required domains: ask once, then fall back to crop=all if still unresolved.
     if crop_required_any:
         crop = crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
-        if crop and crop_counts_as_resolved(crop) and not is_crop_placeholder(crop):
-            entities["crop"] = (
-                "all" if crop.lower() == "all"
-                else crop[0].upper() + crop[1:].lower()
-            )
+        if crop_slot_satisfied(crop):
+            if crop and str(crop).strip().lower() == "all":
+                entities["crop"] = "all"
+            elif crop and not is_crop_placeholder(crop):
+                entities["crop"] = crop[0].upper() + crop[1:].lower()
             crop_required = False
-        else:
+        elif not was_crop_clarify_asked(messages):
             crop_required = True
+        else:
+            entities["crop"] = "all"
+            crop_required = False
     elif domains[0] in CROP_ALL_DOMAINS:
         entities["crop"] = "all"
         crop_required = False
@@ -346,9 +353,7 @@ def _check_question_completeness(
         follow_up = get_state_follow_up(script, vocal)
         return False, missing, follow_up
 
-    if crop_required and (
-        not crop_counts_as_resolved(crop_resolved) or is_crop_placeholder(crop_resolved)
-    ):
+    if crop_required and not crop_slot_satisfied(crop_resolved):
         missing.append("crop")
         follow_up = get_crop_follow_up(script, vocal)
         return False, missing, follow_up

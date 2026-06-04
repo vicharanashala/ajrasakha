@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, InfoIcon } from "lucide-react";
 import { Badge } from "./components/shared/Badge";
 import { DomainSpikesModal } from "./components/DomainSpikesModal";
 import { useDomainSpikes } from "./hooks/useDomainSpikes";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 interface Alert {
   id: number;
@@ -52,8 +53,18 @@ export function AlertCard({
       {/* Header */}
       <div className="flex items-start justify-between mb-3.5">
         <div className="min-w-0 flex-1 mr-2">
-          <div className="text-[13px] font-medium text-[var(--card-foreground)]">
-            Alerts &amp; Notifications
+          <div className="text-[13px] font-medium text-[var(--card-foreground)] flex items-center gap-1.5">
+            <span>Alerts &amp; Notifications</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                  <InfoIcon className="h-3.5 w-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Key metrics that need attention, including inactive users and duplicate questions.
+              </TooltipContent>
+            </Tooltip>
           </div>
           <div className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
             Key metrics that need attention

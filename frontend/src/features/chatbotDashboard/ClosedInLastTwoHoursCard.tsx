@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/atoms/button";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { CalendarIcon, X } from "lucide-react";
+import { BadgeCheck, CalendarIcon, X, InfoIcon } from "lucide-react";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
@@ -30,6 +30,11 @@ export function ClosedInLastTwoHoursCard({
   onDateRangeChange,
   isLoading,
 }: ClosedInLastTwoHoursCardProps) {
+  const safeCount = count ?? 0;
+  const safeTotalClosed = totalClosed ?? 0;
+  const closedWithinTwoHoursPct =
+    safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -59,6 +64,15 @@ export function ClosedInLastTwoHoursCard({
               <div className="flex items-center gap-2">
                 <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
                 Closed within 2 Hours
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help ml-1" />
+                  </TooltipTrigger>
+
+                  <TooltipContent className="max-w-[240px]">
+                    <p>Questions closed within 2 hours of creation.</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           </motion.div>
@@ -88,31 +102,22 @@ export function ClosedInLastTwoHoursCard({
               }}
               key={`${count ?? 0}-${totalClosed ?? 0}`}
             >
-              {count ?? 0} / {totalClosed ?? 0}
+              {safeCount} / {safeTotalClosed}
             </motion.div>
+          </div>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <motion.span
-                    className="
-                      flex h-4 w-4 cursor-pointer
-                      items-center justify-center
-                      rounded-full border text-[10px]
-                      "
-                    whileHover={{ scale: 1.15 }}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                  >
-                    i
-                  </motion.span>
-                </TooltipTrigger>
-
-                <TooltipContent className="max-w-[240px]">
-                  <p>Questions closed within 2hours</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <div
+            className={`flex items-center gap-2 text-xs text-muted-foreground ${
+              isLoading ? "opacity-50" : ""
+            }`}
+          >
+            <BadgeCheck className="h-4 w-4 text-primary" />
+            <span>
+              <span className="font-bold">
+                {closedWithinTwoHoursPct.toFixed(2)}%
+              </span>{" "}
+              of questions were resolved within 2 hours
+            </span>
           </div>
         </CardHeader>
       </Card>

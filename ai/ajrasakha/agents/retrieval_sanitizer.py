@@ -425,7 +425,6 @@ async def retrieval_sanitizer_node(
     rephrased_query = (
         plan.get("rephrased_query")
         or gdb_data.get("rephrased_query")
-        or gdb_data.get("original_query")
         or ""
     )
 

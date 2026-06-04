@@ -11,7 +11,7 @@ type AnalyticsItem = {
   totalQuestions: number;
   closedQuestions: number;
   period: string;
-  averageCloseTimeMinutes: number;
+  averageCloseTimeMinutes?: number;
   closedInPeriod?: number;
   delayed?: number;
   draft?: number;
