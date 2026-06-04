@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/atoms/card";
-import { Download, Smartphone, Apple, Maximize2, X } from "lucide-react";
+import { Download, Smartphone, Apple, Maximize2, X, Info as InfoIcon } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/atoms/tooltip";
 import { TotalQueriesModal } from "./components/TotalQueriesModal";
 import { ActiveFarmersTable } from "./components/ActiveFarmersTable";
 import type { QueryGranularity } from "./components/TotalQueriesModal";
@@ -278,6 +279,21 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
     return ((active / total) * 100).toFixed(2);
   })();
 
+  const kpiTooltipText = (() => {
+    switch (kpi.id) {
+      case "totalInstalls":
+        return "Total number of app installations and profiles submitted by users.";
+      case "dau":
+        return "Daily Active Users: Represents farmers who were active today out of total registered users.";
+      case "queries":
+        return "Total questions asked by users (unique + duplicate queries).";
+      case "session":
+        return "Average duration of user interaction sessions with the chatbot.";
+      default:
+        return null;
+    }
+  })();
+
   return (
     <>
       {/* <Card className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]"> */}
@@ -291,7 +307,7 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
           style={{ background: kpi.accentColor }}
         />
 
-]        {kpi.sparkPoints && (
+        {kpi.sparkPoints && (
           <button
             onClick={() => setIsMaximized(true)}
             className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
@@ -439,8 +455,20 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
               </div>
             )}
             <div className="flex min-w-0 flex-col gap-1">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
-                {activeCardLabel}
+              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <span>{activeCardLabel}</span>
+                {kpiTooltipText && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground normal-case tracking-normal">
+                        <InfoIcon className="h-3 w-3" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="normal-case tracking-normal text-xs font-normal">
+                      {kpiTooltipText}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               <div
                 className="text-2xl font-bold leading-tight tracking-tight tabular-nums dark:text-slate-100"
