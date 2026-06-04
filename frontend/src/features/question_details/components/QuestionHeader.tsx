@@ -483,7 +483,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                           href={s.source}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="break-all pl-3 text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
+                                          className="break-all pl-3 text-primary hover:text-primary/80 hover:underline"
                                         >
                                           {s.source}
                                         </a>
@@ -543,7 +543,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                           href={s.source}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="break-all pl-3 text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
+                                          className="break-all pl-3 text-primary hover:text-primary/80 hover:underline"
                                         >
                                           {s.source}
                                         </a>
@@ -599,7 +599,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                   href={s.source}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="break-all pl-4 text-xs text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
+                                  className="break-all pl-4 text-xs text-primary hover:text-primary/80 hover:underline"
                                 >
                                   {s.source}
                                 </a>
