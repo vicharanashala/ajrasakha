@@ -810,3 +810,42 @@ FORBIDDEN — never output any of the following:
 DO NOT include source attribution blocks or testing disclaimers — those are appended automatically by the system.
 
 """.strip()
+
+WEATHER_CLASSIFICATION_PROMPT = """Classify the farmer weather query into exactly one of these categories:
+- "forecast" (for weather/rain/temperature forecast in next hours, days, tomorrow, next week)
+- "current_aws" (for current/live temperature, wind, rain, or real-time conditions)
+- "district_warnings" (for specific local alerts, warnings, or weather threat codes)
+- "district_rainfall" (for rainfall statistics, season stats vs normal in the district)
+- "district" (for both district warnings and rainfall statistics together)
+- "subdivision_warnings" (for national/all-India meteorological subdivision warnings)
+- "subdivision_rainfall" (for national/all-India subdivision rainfall distribution forecasts)
+- "bundle" (for a complete all-in-one bundle of forecast, current station observations, and district details)
+
+Do not output any other word. Return only the selected category name in lowercase.
+
+Examples:
+Query: Will it rain tomorrow in Rohtak?
+Category: forecast
+
+Query: Is there any storm or heavy rain alert for my district?
+Category: district_warnings
+
+Query: How is the weather right now?
+Category: current_aws
+
+Query: What is the normal rainfall vs actual rainfall in my area?
+Category: district_rainfall
+
+Query: Show me all subdivision warnings for India.
+Category: subdivision_warnings
+
+Query: Give me the complete weather bundle with forecast and live observations.
+Category: bundle
+
+Query: Give me subdivision rainfall distribution for India.
+Category: subdivision_rainfall
+
+Query: District alert and rain statistics.
+Category: district
+"""
+

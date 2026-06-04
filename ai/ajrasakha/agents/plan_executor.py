@@ -17,9 +17,10 @@ from ajrasakha.agents.location_context import (
     gps_state_from_location,
     has_gps_coordinates,
     merge_location_dict,
+    forward_geocode,
 )
 from ajrasakha.agents.language import text_matches_user_language
-from ajrasakha.agents.config import resolve_question_source
+from ajrasakha.agents.config import resolve_question_source, resolve_thread_id
 from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
 from ajrasakha.agents.retrieval_sanitizer import (
@@ -129,6 +130,7 @@ async def build_tool_calls_from_plan(
     location_tool_name: str,
     reviewer_tool_name: str,
     question_source: str | None = None,
+    thread_id: str | None = None,
     extra_chemicals: Optional[list[str]] = None,
 ) -> list[dict[str, Any]]:
     """Build LangChain tool_call dicts for one parallel batch."""
@@ -164,21 +166,24 @@ async def build_tool_calls_from_plan(
         })
 
     if question_source and str(question_source).strip():
+        reviewer_args: dict[str, Any] = {
+            "question": reviewer_question,
+            "state_name": state_name,
+            "crop": crop,
+            "details": {
+                "state": state_name,
+                "district": district,
+                "crop": crop,
+                "season": "General",
+                "domain": domain,
+            },
+            "source": str(question_source).strip(),
+        }
+        if thread_id and str(thread_id).strip():
+            reviewer_args["thread_id"] = str(thread_id).strip()
         calls.append({
             "name": reviewer_tool_name,
-            "args": {
-                "question": reviewer_question,
-                "state_name": state_name,
-                "crop": crop,
-                "details": {
-                    "state": state_name,
-                    "district": district,
-                    "crop": crop,
-                    "season": "General",
-                    "domain": domain,
-                },
-                "source": str(question_source).strip(),
-            },
+            "args": reviewer_args,
             "id": _new_tool_call_id(),
             "type": "tool_call",
         })
@@ -191,6 +196,28 @@ async def build_tool_calls_from_plan(
     lat = loc.get("latitude")
     lon = loc.get("longitude")
     addr = loc.get("address")
+
+    # Transient / Query-Specific Location resolving (e.g. Varanasi vs. Faridabad)
+    is_custom_location = False
+    home_state = gps_state_from_location(loc) or loc.get("state")
+    home_city = loc.get("city")
+    
+    curr_state_ent = entities.get("state")
+    curr_dist_ent = entities.get("district")
+    
+    if (lat is not None and lon is not None) or (home_state or home_city):
+        if curr_state_ent and home_state and curr_state_ent.strip().lower() != home_state.strip().lower():
+            is_custom_location = True
+        elif curr_dist_ent and home_city and curr_dist_ent.strip().lower() != home_city.strip().lower() and curr_dist_ent.strip().lower() != "all":
+            is_custom_location = True
+            
+    if is_custom_location:
+        logger.info("build_tool_calls_from_plan: Geocoding custom transient location state=%s district=%s", state_name, district)
+        custom_res = await forward_geocode(state_name, district if district != "all" else None)
+        if custom_res:
+            lat = custom_res.get("latitude")
+            lon = custom_res.get("longitude")
+            addr = custom_res.get("address")
 
     if plan.get("weather"):
         calls.append({
@@ -341,31 +368,48 @@ async def ensure_location_node(
     state: AjraSakhaState,
     config: RunnableConfig,
 ) -> dict:
-    """Resolve GPS to state/district when coordinates exist but place names do not."""
-    loc = state.get("location")
-    if not _needs_location_resolve(loc):
-        return {}
+    """Resolve GPS to state/district when coordinates exist but place names do not, OR geocode state/district when coordinates do not exist."""
+    loc = state.get("location") or {}
+    plan = state.get("plan") or {}
+    entities = plan.get("entities") or {}
 
-    location_tool = await get_location_tool()
-    tool_node = await get_main_tool_node()
-    ai_msg = AIMessage(
-        content="",
-        tool_calls=[{
-            "name": location_tool.name,
-            "args": {"latitude": loc["latitude"], "longitude": loc["longitude"]},
-            "id": _new_tool_call_id(),
-            "type": "tool_call",
-        }],
-    )
-    exec_state = {**state, "messages": list(state.get("messages") or []) + [ai_msg]}
-    merged_configurable = dict((config.get("configurable") or {}))
-    merged_configurable["location"] = loc
-    enriched = patch_config(config, configurable=merged_configurable)
-    result = await tool_node.ainvoke(exec_state, config=enriched)
-    new_msgs = result.get("messages") or []
-    updates = extract_location_updates_from_new_tool_messages(new_msgs, loc)
-    merged_loc = merge_location_dict(loc, updates) if updates else loc
-    return {"messages": new_msgs, "location": merged_loc}
+    # Scenario 1: Coordinates exist but place names do not (Reverse Geocoding)
+    if _needs_location_resolve(loc):
+        location_tool = await get_location_tool()
+        tool_node = await get_main_tool_node()
+        ai_msg = AIMessage(
+            content="",
+            tool_calls=[{
+                "name": location_tool.name,
+                "args": {"latitude": loc["latitude"], "longitude": loc["longitude"]},
+                "id": _new_tool_call_id(),
+                "type": "tool_call",
+            }],
+        )
+        exec_state = {**state, "messages": list(state.get("messages") or []) + [ai_msg]}
+        merged_configurable = dict((config.get("configurable") or {}))
+        merged_configurable["location"] = loc
+        enriched = patch_config(config, configurable=merged_configurable)
+        result = await tool_node.ainvoke(exec_state, config=enriched)
+        new_msgs = result.get("messages") or []
+        updates = extract_location_updates_from_new_tool_messages(new_msgs, loc)
+        merged_loc = merge_location_dict(loc, updates) if updates else loc
+        return {"messages": new_msgs, "location": merged_loc}
+
+    # Scenario 2: Coordinates are missing, but state/district exist in plan entities (Home Location registration)
+    lat = loc.get("latitude")
+    lon = loc.get("longitude")
+    state_resolved = entities.get("state")
+    district_resolved = entities.get("district")
+
+    if (lat is None or lon is None) and (state_resolved or district_resolved):
+        logger.info("ensure_location_node: Geocoding home location for state=%s district=%s", state_resolved, district_resolved)
+        geocode_res = await forward_geocode(state_resolved, district_resolved)
+        if geocode_res:
+            merged_loc = merge_location_dict(loc, geocode_res)
+            return {"location": merged_loc}
+
+    return {}
 
 
 async def execute_plan_node(
@@ -383,6 +427,7 @@ async def execute_plan_node(
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
     question_source = resolve_question_source(config)
+    thread_id = resolve_thread_id(config)
     tool_calls = await build_tool_calls_from_plan(
         plan,
         user_query,
@@ -390,6 +435,7 @@ async def execute_plan_node(
         location_tool_name=location_tool.name,
         reviewer_tool_name=reviewer_tool.name,
         question_source=question_source,
+        thread_id=thread_id,
     )
     if not tool_calls:
         return {}
@@ -433,6 +479,7 @@ async def execute_plan_node(
             location_tool_name=location_tool.name,
             reviewer_tool_name=reviewer_tool.name,
             question_source=question_source,
+            thread_id=thread_id,
             extra_chemicals=extra_chems,
         )
         chem_only = [c for c in second_calls if c.get("name") == "chemical_checker"]

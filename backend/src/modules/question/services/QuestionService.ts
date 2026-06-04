@@ -880,6 +880,36 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
   }
 
+  async manualCheckDuplicate(questionId: string): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string }> {
+    const question = await this.questionRepo.getById(questionId);
+
+    if (question.referenceQuestionId) {
+      return { message: 'Question already has a reference question assigned.', isDuplicate: true };
+    }
+
+    const logData: Record<string, any> = { questionId, manual: true };
+    const duplicateResult = await this.checkDuplicateQuestion(question, question.details, logData);
+
+    if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
+      const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
+      await this.questionRepo.updateQuestion(questionId, {
+        status: 'duplicate',
+        similarityScore,
+        referenceQuestionId,
+        referenceQuestion,
+        referenceSource,
+      });
+      return { message: 'Duplicate detected and question updated.', isDuplicate: true, referenceQuestionId: referenceQuestionId?.toString() };
+    }
+
+    if (duplicateResult?.isNonAgri) {
+      await this.questionRepo.updateQuestion(questionId, { status: 'non_agri' });
+      return { message: 'Question marked as non-agri.', isDuplicate: false };
+    }
+
+    return { message: 'No duplicate found. Question remains open.', isDuplicate: false };
+  }
+
   async addQuestion(
     userId: string,
     body: AddQuestionBodyDto,
@@ -889,6 +919,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Extract fields before normalizing keys to lowercase
       const aiInitialAnswer = body.aiInitialAnswer || '';
       const messageIdFromBody = body.messageId;
+      const threadIdFromBody = body.threadId;
       const userIdFromBody = body.userId;
       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
       const popContextFromBody = body.popContext;
@@ -907,6 +938,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         body.details.crop = toTitleCase(body.details.crop as string);
       }
       const messageId = messageIdFromBody;
+      const threadId = threadIdFromBody;
       const bodyUserId = userIdFromBody;
       const referenceQuestionDetails = referenceQuestionDetailsFromBody;
       const popContext = popContextFromBody;
@@ -1032,6 +1064,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: new Date(),
           ...(source !== 'AGRI_EXPERT' && {originalQuestion: originalquestion}),
           ...(messageId && {messageId}),
+          ...(threadId && {threadId}),
           ...(referenceQuestionDetails?.length && {referenceQuestionDetails}),
           ...(popContext && {popContext}),
         };
@@ -1312,6 +1345,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
+    threadUpdate?:boolean
   ): Promise<{modifiedCount: number}> {
     try {
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
@@ -1381,7 +1415,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             `Cannot close this question as it has non-final answer`,
           );
         }
-
+        if(threadUpdate){
+          return await this.questionRepo.updateThreadId(questionId, updates.threadId!, session);
+        }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
     } catch (error) {
@@ -4857,6 +4893,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       {
         queue: toObjectIdArray(newQueue || []),
         popHistory: true,
+        expertIdToRemove: updatedById,
       },
       session,
     );
@@ -4868,8 +4905,14 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<{
     totalQuestions: number;
     statuses: {status: string; count: number}[];
+    sourceCounts: {source: string; count: number}[];
   }> {
-    return this.questionRepo.getQuestionStatusSummary(query, body);
+    const result = await this.questionRepo.getQuestionStatusSummary(query, body);
+    return {
+      totalQuestions: result.totalQuestions,
+      statuses: result.statuses,
+      sourceCounts: (result as any).sourceCounts ?? [],
+    };
   }
 
   async getExprtIdByIndex(

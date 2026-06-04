@@ -11,7 +11,19 @@ type AnalyticsItem = {
   totalQuestions: number;
   closedQuestions: number;
   period: string;
-  averageCloseTimeMinutes: number;
+  averageCloseTimeMinutes?: number;
+  closedInPeriod?: number;
+  delayed?: number;
+  draft?: number;
+  duplicate?: number;
+  hold?: number;
+  inReview?: number;
+  open?: number;
+  paeSubmitted?: number;
+  pass?: number;
+  rerouted?: number;
+  carryForward?: number;
+  nonAgri?: number;
 };
 
 type WhatsAppAnalyticsCardProps = {
@@ -26,8 +38,8 @@ export function WhatsAppAnalyticsCard({
   granularity,
 }: WhatsAppAnalyticsCardProps) {
   const latest = analytics.at(-1);
-  const totalQueries = latest?.queryCount || 0;
-  const maxPoint = Math.max(...analytics.map((item) => item.queryCount), 1);
+  const totalQueries = latest?.totalQuestions || 0;
+  const maxPoint = Math.max(...analytics.map((item) => item.totalQuestions), 1);
 
   const formatLabel = (period: string) => {
     if (granularity === "daily") {
@@ -58,9 +70,9 @@ export function WhatsAppAnalyticsCard({
   };
 
   const currentLabelMap = {
-    daily: "Current Day Queries",
-    weekly: "Current Week Queries",
-    monthly: "Current Month Queries",
+    daily: "Current Day Questions",
+    weekly: "Current Week Questions",
+    monthly: "Current Month Questions",
   };
 
   const formatCloseTime = (minutes: number) => {
@@ -133,10 +145,7 @@ export function WhatsAppAnalyticsCard({
               </TooltipTrigger>
 
               <TooltipContent className="max-w-[260px]">
-                <p>
-                  Displays query trends along with question counts, closed
-                  questions, and average closure time for the selected period.
-                </p>
+                <p>Displays questions metrics for {granularity} granularity</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -155,7 +164,7 @@ export function WhatsAppAnalyticsCard({
           "
         >
           {analytics.map((item, index) => {
-            const height = (item.queryCount / maxPoint) * 100;
+            const height = (item.totalQuestions / maxPoint) * 100;
 
             return (
               <div
@@ -191,9 +200,15 @@ export function WhatsAppAnalyticsCard({
                   <TooltipContent
                     side="top"
                     className="
-                        min-w-[220px]
+                        min-w-[240px]
                         rounded-xl
                         p-4
+                        max-h-[35vh]
+                        overflow-y-auto
+                        scrollbar-thin
+                        scrollbar-track-transparent
+                        scrollbar-thumb-emerald-700
+                        hover:scrollbar-thumb-emerald-600
                       "
                   >
                     <div className="space-y-2">
@@ -202,13 +217,9 @@ export function WhatsAppAnalyticsCard({
                       </div>
 
                       <div className="flex justify-between gap-6">
-                        <span className="text-muted-foreground">Queries</span>
-
-                        <span className="font-medium">{item.queryCount}</span>
-                      </div>
-
-                      <div className="flex justify-between gap-6">
-                        <span className="text-muted-foreground">Questions</span>
+                        <span className="text-muted-foreground">
+                          Total Questions opened
+                        </span>
 
                         <span className="font-medium">
                           {item.totalQuestions}
@@ -216,7 +227,9 @@ export function WhatsAppAnalyticsCard({
                       </div>
 
                       <div className="flex justify-between gap-6">
-                        <span className="text-muted-foreground">Closed</span>
+                        <span className="text-muted-foreground">
+                          Questions closed
+                        </span>
 
                         <span className="font-medium">
                           {item.closedQuestions}
@@ -224,10 +237,111 @@ export function WhatsAppAnalyticsCard({
                       </div>
 
                       <div className="flex justify-between gap-6">
-                        <span className="text-muted-foreground">Avg Close</span>
+                        <span className="text-muted-foreground">
+                          Questions Delayed
+                        </span>
+
+                        <span className="font-medium">{item.delayed}</span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Questions in draft
+                        </span>
+
+                        <span className="font-medium">{item.draft}</span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Duplicate Questions
+                        </span>
+
+                        <span className="font-medium">{item.duplicate}</span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Questions in hold
+                        </span>
+
+                        <span className="font-medium">{item.hold}</span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Questions in Review
+                        </span>
+
+                        <span className="font-medium">{item.inReview}</span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Questions open
+                        </span>
+
+                        <span className="font-medium">{item.open}</span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Questions paeSubmitted
+                        </span>
+
+                        <span className="font-medium">{item.paeSubmitted}</span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Questions pass
+                        </span>
+
+                        <span className="font-medium">{item.pass}</span>
+                      </div>
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Questions rerouted
+                        </span>
+
+                        <span className="font-medium">{item.rerouted}</span>
+                      </div>
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Non agri Questions
+                        </span>
+
+                        <span className="font-medium">{item.nonAgri}</span>
+                      </div>
+                      {index == analytics.length - 1 &&
+                        granularity === "daily" && (
+                          <div className="flex justify-between gap-6">
+                            <span className="text-muted-foreground">
+                              Questions CarryForward
+                            </span>
+
+                            <span className="font-medium">
+                              {item.carryForward}
+                            </span>
+                          </div>
+                        )}
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Avg Closure time
+                        </span>
 
                         <span className="font-medium">
                           {formatCloseTime(item.averageCloseTimeMinutes)}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between gap-6">
+                        <span className="text-muted-foreground">
+                          Total Questions closed(For selected time)
+                        </span>
+
+                        <span className="font-medium">
+                          {item?.closedInPeriod}
                         </span>
                       </div>
                     </div>

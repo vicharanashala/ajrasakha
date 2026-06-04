@@ -62,7 +62,8 @@ import { QuestionService } from '../services/QuestionService.js';
 import { UploadFileOptions } from '#root/modules/question/classes/validators/fileUploadOptions.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
-import { InternalApiAuth } from '#root/shared/functions/internalApiAuth.js';
+import { FlexibleAuth } from '#root/shared/functions/flexibleAuth.js';
+import { InternalApiAuth } from '#root/shared/index.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
@@ -167,7 +168,7 @@ export class QuestionController {
 
   @Post('/')
   @HttpCode(201)
-  @UseBefore(InternalApiAuth)
+  @UseBefore(FlexibleAuth)
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   @OpenAPI({ summary: 'Add a new question (single or bulk upload)' })
   async addQuestion(
@@ -914,7 +915,7 @@ export class QuestionController {
 
   @Put('/:questionId')
   @HttpCode(200)
-  @UseBefore(InternalApiAuth)
+  @UseBefore(FlexibleAuth)
   @ResponseSchema(QuestionResponse, { isArray: true })
   @OpenAPI({ summary: 'Update a question by ID' })
   async updateQuestion(
@@ -1005,6 +1006,25 @@ export class QuestionController {
     // };
     // this.auditTrailsService.createAuditTrail(auditPayload);
     return response;
+  }
+
+  @Patch('/:questionId')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Update question fields by ID using internal API key' })
+  async UpdateThreadId(
+    @Params() params: QuestionIdParam,
+    @Body() updates: Partial<IQuestion>,
+  ): Promise<{ modifiedCount: number }> {
+    const { questionId } = params;
+    try { 
+      return await this.questionService.updateQuestion(questionId, updates,true);
+    } catch (err: any) {
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to update question');
+    }
   }
 
   @Delete('/:questionId/allocation')
@@ -1371,7 +1391,7 @@ export class QuestionController {
 
   @Post('/check-status')
   @HttpCode(200)
-  @UseBefore(InternalApiAuth)
+  @UseBefore(FlexibleAuth)
   @OpenAPI({ summary: 'Check status of multiple questions' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async checkStatus(
@@ -1391,6 +1411,15 @@ export class QuestionController {
     };
   }
 
+  @Post('/:questionId/check-duplicate')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually trigger duplicate check for a question without a reference question' })
+  async manualCheckDuplicate(@Params() params: QuestionIdParam) {
+    const { questionId } = params;
+    return this.questionService.manualCheckDuplicate(questionId);
+  }
+
   @Patch('/:questionId/hold')
   @HttpCode(200)
   @Authorized()
@@ -1398,8 +1427,40 @@ export class QuestionController {
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async holdQuestion(@Params() params: QuestionIdParam, @CurrentUser() user: IUser, @Body() body: { action: "hold" | "unhold" }) {
     const { questionId } = params;
-    const { action } = body
-    return await this.questionService.holdQuestion(questionId, user._id.toString(), action);
+    const { action } = body;
+
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: action === 'hold' ? AuditAction.QUESTION_HOLD : AuditAction.QUESTION_UNHOLD,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId },
+      createdAt: new Date(),
+    };
+
+    try {
+      const result = await this.questionService.holdQuestion(questionId, user._id.toString(), action);
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        changes: { after: { action, questionId } },
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return result;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorMessage: err?.message,
+        },
+      });
+      throw err;
+    }
   }
 
   @Get('/:questionId/generate-answer')

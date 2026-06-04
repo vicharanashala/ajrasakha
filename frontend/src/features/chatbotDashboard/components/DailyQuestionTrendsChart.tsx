@@ -12,12 +12,13 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
-import { BarChart2, AreaChart as AreaChartIcon, CalendarIcon, RefreshCcw } from "lucide-react";
+import { BarChart2, AreaChart as AreaChartIcon, CalendarIcon, RefreshCcw, InfoIcon } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Spinner } from "@/components/atoms/spinner";
+import { Skeleton } from "@/components/atoms/skeleton";
+import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 interface DailyQuestionTrend {
   day: string;
@@ -84,8 +85,18 @@ export function DailyQuestionTrendsChart({
     >
       <CardHeader className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 border-b border-border/40 gap-4 shrink-0">
         <div>
-          <CardTitle className="text-base font-semibold tracking-wide text-foreground">
-            Daily Question Trends
+          <CardTitle className="text-base font-semibold tracking-wide text-foreground flex items-center gap-1.5">
+            <span>Daily Question Trends</span>
+            <ShadcnTooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                  <InfoIcon className="h-3.5 w-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Visualizes daily volume of questions, highlighting unique vs duplicate questions.
+              </TooltipContent>
+            </ShadcnTooltip>
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
             Breakdown of unique vs duplicate chatbot questions asked daily
@@ -168,8 +179,8 @@ export function DailyQuestionTrendsChart({
 
       <CardContent className="pt-6 pb-4 pl-2 pr-4 flex-1 min-h-0 relative">
         {isLoading && (
-          <div className="absolute inset-0 bg-[#121212]/50 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-b-xl">
-            <Spinner text="Updating trends..." />
+          <div className="absolute inset-0 z-10 rounded-b-xl bg-background/70 p-4 backdrop-blur-[1px]">
+            <Skeleton className="h-full w-full rounded-lg" />
           </div>
         )}
 

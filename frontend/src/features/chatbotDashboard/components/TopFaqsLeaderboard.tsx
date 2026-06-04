@@ -2,14 +2,15 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { ScrollArea } from "@/components/atoms/scroll-area";
-import { MessageSquare, Award, MessageCircle, RefreshCw, BarChart2, Maximize2, X, CalendarIcon, RefreshCcw } from "lucide-react";
+import { MessageSquare, Award, MessageCircle, RefreshCw, BarChart2, Maximize2, X, CalendarIcon, RefreshCcw, InfoIcon } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Spinner } from "@/components/atoms/spinner";
+import { Skeleton } from "@/components/atoms/skeleton";
+import { TranslatableText } from "./TranslatableText";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 interface TopFaqEntry {
   question: string;
@@ -100,8 +101,18 @@ export function TopFaqsLeaderboard({
         <div className="flex items-center gap-2.5">
           <Award className="w-5 h-5 text-amber-500 shrink-0" />
           <div>
-            <CardTitle className="text-base font-semibold tracking-wide text-foreground">
-              Top 10 FAQ Leaderboard
+            <CardTitle className="text-base font-semibold tracking-wide text-foreground flex items-center gap-1.5">
+              <span>Top 10 FAQ Leaderboard</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                    <InfoIcon className="h-3.5 w-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Lists the top 10 most common queries received by the chatbot, ranked by total count.
+                </TooltipContent>
+              </Tooltip>
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
               Most frequently asked questions from user chat messages
@@ -250,8 +261,8 @@ export function TopFaqsLeaderboard({
 
       <CardContent className="pt-3 flex-1 min-h-0 pr-1 pb-3 relative">
         {isLoading && (
-          <div className="absolute inset-0 bg-[#121212]/50 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-b-xl">
-            <Spinner text="Updating leaderboard..." />
+          <div className="absolute inset-0 z-10 rounded-b-xl bg-background/70 p-4 backdrop-blur-[1px]">
+            <Skeleton className="h-full w-full rounded-lg" />
           </div>
         )}
 
@@ -267,58 +278,36 @@ export function TopFaqsLeaderboard({
           </div>
         ) : (
           <ScrollArea className="h-full w-full pr-3">
-            <TooltipProvider delayDuration={300}>
-              <div className="space-y-1.5 pb-2">
-                {leaderboardList.map((item, index) => {
-                  const intensity = Math.max(
-                    0.04,
-                    (item.count / maxCount) * 0.15,
-                  );
-                  return (
-                    <div
-                      key={index}
-                      className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-white/[0.03] transition-colors duration-200 group"
-                    >
-                      {getRankBadge(index)}
+            <div className="space-y-1.5 pb-2">
+              {leaderboardList.map((item, index) => {
+                const intensity = Math.max(
+                  0.04,
+                  (item.count / maxCount) * 0.15,
+                );
+                return (
+                  <div
+                    key={index}
+                    className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-white/[0.03] transition-colors duration-200 group"
+                  >
+                    {getRankBadge(index)}
 
-                      <div className="flex-1 min-w-0">
-                        {/* Chat bubble */}
-                        <div
-                          className="relative rounded-xl rounded-tl-sm px-3 py-1.5 border border-border/30"
-                          style={{
-                            backgroundColor: `rgba(55, 138, 221, ${intensity})`,
-                          }}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <Tooltip>
-                              <TooltipTrigger className="text-left w-full flex-1 min-w-0 cursor-help">
-                                <p className="text-xs font-medium leading-relaxed break-words line-clamp-2 text-slate-700 dark:text-gray-200">
-                                  {item.question}
-                                </p>
-                              </TooltipTrigger>
+                    <div className="flex-1 min-w-0">
+                      {/* Chat bubble */}
+                      <div
+                        className="relative rounded-xl rounded-tl-sm px-3 py-1.5 border border-border/30"
+                        style={{
+                          backgroundColor: `rgba(55, 138, 221, ${intensity})`,
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <TranslatableText
+                            text={item.question}
+                            showTooltip
+                            textClassName="text-xs line-clamp-2"
+                          />
 
-                              <TooltipContent
-                                side="top"
-                                align="start"
-                                className="
-        max-w-xs sm:max-w-sm
-        rounded-xl
-        border border-slate-200 dark:border-white/[0.08]
-        bg-white dark:bg-[#18181b]
-        text-slate-700 dark:text-gray-200
-        shadow-2xl
-        px-3 py-2.5
-        text-xs leading-relaxed
-        break-words
-        z-50
-      "
-                              >
-                                {item.question}
-                              </TooltipContent>
-                            </Tooltip>
-
-                            <span
-                              className="
+                          <span
+                            className="
       inline-flex items-center gap-1
       shrink-0 mt-0.5
       rounded-full
@@ -329,25 +318,24 @@ export function TopFaqsLeaderboard({
       text-[#378ADD]
       shadow-sm
     "
-                            >
-                              <MessageSquare className="w-2.5 h-2.5" />
-                              {item.count.toLocaleString()}
-                            </span>
-                          </div>
-                          {/* Bubble tail */}
-                          <div
-                            className="absolute -left-1.5 top-2.5 w-3 h-3 rotate-45 border-l border-b border-border/30"
-                            style={{
-                              backgroundColor: `rgba(55, 138, 221, ${intensity})`,
-                            }}
-                          />
+                          >
+                            <MessageSquare className="w-2.5 h-2.5" />
+                            {item.count.toLocaleString()}
+                          </span>
                         </div>
+                        {/* Bubble tail */}
+                        <div
+                          className="absolute -left-1.5 top-2.5 w-3 h-3 rotate-45 border-l border-b border-border/30"
+                          style={{
+                            backgroundColor: `rgba(55, 138, 221, ${intensity})`,
+                          }}
+                        />
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </TooltipProvider>
+                  </div>
+                );
+              })}
+            </div>
           </ScrollArea>
         )}
       </CardContent>
@@ -472,9 +460,11 @@ export function TopFaqsLeaderboard({
                                 }}
                               >
                                 <div className="flex items-start justify-between gap-3">
-                                  <p className="text-sm font-medium leading-relaxed break-words text-slate-700 dark:text-gray-100">
-                                    {item.question}
-                                  </p>
+                                  <TranslatableText
+                                    text={item.question}
+                                    textClassName="text-sm text-slate-700 dark:text-gray-100"
+                                    translateButtonClassName="h-8 text-xs"
+                                  />
 
                                   <span
                                     className={`inline-flex items-center gap-1.5 shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold shadow-sm ${

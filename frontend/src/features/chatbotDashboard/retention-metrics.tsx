@@ -5,7 +5,7 @@ import { useState } from "react";
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { Loader2, CalendarIcon, RefreshCcw } from "lucide-react";
+import { CalendarIcon, InfoIcon, RefreshCcw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -28,6 +28,7 @@ import {
 } from "@/components/atoms/popover";
 import { Button } from "@/components/atoms/button";
 import { Calendar } from "@/components/atoms/calendar";
+import { Skeleton } from "@/components/atoms/skeleton";
 import {
   Select,
   SelectContent,
@@ -89,6 +90,23 @@ export const RetentionMetricsChart = ({
     startDate,
     endDate,
   );
+
+  const formatCohortLabel = (
+    value: string,
+    requestType: RetentionType,
+  ) => {
+    if (requestType === "monthly") {
+      return format(new Date(`${value}-01`), "MMM yyyy");
+    }
+    if (requestType === "weekly") {
+      const [year, week] = value.split("-W");
+      return `W${week} ${year}`;
+    }
+    if (requestType === "daily") {
+      return format(new Date(value), "dd-MM-yy");
+    }
+    return value;
+  };
 
   const renderDateRangePicker = () => (
     <div className="flex items-center gap-2">
@@ -159,7 +177,7 @@ export const RetentionMetricsChart = ({
   );
 
   return (
-    <Card className="mt-7">
+    <Card className="mt-7 mb-7 pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
       <CardHeader className="border-b py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="grid gap-1">
@@ -182,20 +200,20 @@ export const RetentionMetricsChart = ({
                         text-[10px]
                       "
                     >
-                      i
+                      <InfoIcon className="h-3 w-3" />
                     </span>
                   </TooltipTrigger>
 
-                  <TooltipContent className="max-w-[260px]">
+                  <TooltipContent className="max-w-[300px]">
                     <p>
                       {requestType === "daily" &&
-                        "Shows retention grouped by day cohorts."}
+                        "Retention measures how many users return after their first activity. This view groups users into daily cohorts based on the day they first engaged and tracks how many return on subsequent days."}
 
                       {requestType === "weekly" &&
-                        "Shows retention grouped by ISO week cohorts."}
+                        "Retention measures how many users return after their first activity. This view groups users into weekly cohorts based on the week they first engaged and tracks how many return in the following weeks."}
 
                       {requestType === "monthly" &&
-                        "Shows retention grouped by monthly cohorts."}
+                        "Retention measures how many users return after their first activity. This view groups users into monthly cohorts based on the month they first engaged and tracks how many return in the following months."}
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -232,8 +250,8 @@ export const RetentionMetricsChart = ({
 
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         {isFetching ? (
-          <div className="flex h-[320px] items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="h-[320px]">
+            <Skeleton className="h-full w-full rounded-xl" />
           </div>
         ) : !data?.length ? (
           <div
@@ -271,15 +289,9 @@ export const RetentionMetricsChart = ({
                     minTickGap={20}
                     padding={{ right: 30, left: 30 }}
                     interval={data.length < 15 ? 0 : "preserveStartEnd"}
-                    tickFormatter={(value) => {
-                      if (requestType === "weekly") {
-                        const [year, week] = value.split("-W");
-
-                        return `${year.slice(2)} W${week}`;
-                      }
-
-                      return value;
-                    }}
+                    tickFormatter={(value) =>
+                      formatCohortLabel(value, requestType)
+                    }
                   />
 
                   <YAxis
@@ -295,15 +307,9 @@ export const RetentionMetricsChart = ({
                     content={
                       <ChartTooltipContent
                         indicator="line"
-                        labelFormatter={(value) => {
-                          if (requestType === "weekly") {
-                            const [year, week] = value.split("-W");
-
-                            return `Week ${week}, ${year}`;
-                          }
-
-                          return value;
-                        }}
+                        labelFormatter={(value) =>
+                          formatCohortLabel(value, requestType)
+                        }
                         formatter={(value, name) => [
                           `${value}%`,
                           chartConfig[name as keyof typeof chartConfig]?.label,

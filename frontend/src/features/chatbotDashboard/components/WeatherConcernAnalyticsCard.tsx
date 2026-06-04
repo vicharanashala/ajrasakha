@@ -9,13 +9,14 @@ import {
   Cloud,
   Zap,
   X,
- CloudSun,
- Info
+  CloudSun,
+  InfoIcon
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 import {
   DISTRICTS,
@@ -24,7 +25,7 @@ import {
   WEATHER_CONCERN_LABELS,
 } from "@/components/MetaData";
 
-import { Spinner } from "@/components/atoms/spinner";
+import { Skeleton } from "@/components/atoms/skeleton";
 import { Calendar } from "@/components/atoms/calendar";
 
 import {
@@ -326,19 +327,18 @@ const visibleConcerns = showAllConcerns
             <div className="flex items-center gap-2">
               <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-wide text-foreground">
                 <CloudSun className="h-5 w-5 text-primary" />
-
                 <span>Weather Concern Analytics</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                      <InfoIcon className="h-3.5 w-3.5" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    Percentages may not total 100% because a single user query can contain multiple weather concerns (e.g. rain and flooding).
+                  </TooltipContent>
+                </Tooltip>
               </CardTitle>
-
-              <div className="group relative">
-                <Info className="h-4 w-4 cursor-pointer text-muted-foreground" />
-
-                <div className="absolute left-6 top-0 z-20 hidden w-72 rounded-md border border-border bg-popover p-3 text-xs text-muted-foreground shadow-md group-hover:block">
-                  Percentages may not total 100% because a single user query can
-                  contain multiple weather concerns. For example, one query may
-                  mention both rain and flooding.
-                </div>
-              </div>
             </div>
 
             <p className="mt-1 text-xs text-muted-foreground">
@@ -448,8 +448,8 @@ const visibleConcerns = showAllConcerns
 
         <div className="relative min-h-[220px]">
           {isLoading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/70 backdrop-blur-sm">
-              <Spinner text="Loading weather concerns..." />
+            <div className="absolute inset-0 z-10 rounded-md bg-background/70 p-4 backdrop-blur-sm">
+              <Skeleton className="h-full w-full rounded-lg" />
             </div>
           )}
 

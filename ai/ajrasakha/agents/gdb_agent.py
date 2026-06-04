@@ -1,19 +1,35 @@
-import os
 import json
 import logging
 import re
+from datetime import timedelta
 from typing import Optional
 
 from langchain_core.runnables import RunnableConfig
-from langchain_core.tools import tool
+from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_mcp_adapters.tools import load_mcp_tools
 
 from ajrasakha.agents.config import MCP_URLS
+
 logger = logging.getLogger(__name__)
+
+GDB_MCP_SERVER = "mcp_golden"
+# gdb_search runs strict + atlas + embed/vector; default MCP HTTP timeout (30s) is too short.
+GDB_MCP_HTTP_TIMEOUT = timedelta(seconds=120)
+GDB_MCP_SSE_READ_TIMEOUT = timedelta(seconds=300)
 
 # Maximum number of similar pairs to return in the response.
 MAX_SIMILAR_PAIRS = 5
+
+
+def _gdb_mcp_connection() -> dict:
+    return {
+        "url": MCP_URLS["gdb"],
+        "transport": "streamable-http",
+        "timeout": GDB_MCP_HTTP_TIMEOUT,
+        "sse_read_timeout": GDB_MCP_SSE_READ_TIMEOUT,
+    }
 
 
 def _standardize_label(value: str) -> str:
@@ -80,8 +96,8 @@ def _normalize_gdb_response(raw_json: dict, query: str, rephrased: str, crop: st
       "crop": "...",
       "is_exact": true/false,
       "is_similar": true/false,
-      "exact_match": { question, answer, details: [{source_name, source_link, author_name}, ...] },
-      "similar_pair1": { question, answer, details: [{source_name, source_link, author_name}, ...] },
+      "exact_match": { question_id, similarity_score, question, answer, details: [...] },
+      "similar_pair1": { question_id, similarity_score, question, answer, details: [...] },
       "similar_pair2": { ... },
       ...top 5 pairs
     }
@@ -101,6 +117,9 @@ def _normalize_gdb_response(raw_json: dict, query: str, rephrased: str, crop: st
         result["is_exact"] = True
         details_list = _normalize_details_list(exact.get("details") or [])
         result["exact_match"] = {
+            "question_id": exact.get("question_id") or "",
+            "similarity_score": 1,
+            "retrieval_source": exact.get("retrieval_source") or "strict_exact",
             "question": exact.get("question") or "",
             "answer": exact.get("answer") or "",
             "details": details_list,
@@ -128,6 +147,9 @@ def _normalize_gdb_response(raw_json: dict, query: str, rephrased: str, crop: st
                 continue
             details_list = _normalize_details_list(pair.get("details") or [])
             result[f"similar_pair{idx}"] = {
+                "question_id": pair.get("question_id") or "",
+                "similarity_score": pair.get("similarity_score"),
+                "retrieval_source": pair.get("retrieval_source"),
                 "question": pair.get("question") or "",
                 "answer": pair.get("answer") or "",
                 "details": details_list,
@@ -177,69 +199,51 @@ async def gdb(
         "exact_match": {},
     })
 
-    print("[gdb_agent] gdb() called — starting MCP connection", flush=True)
+    mcp_url = MCP_URLS["gdb"]
+    logger.info("gdb() connecting MCP → %s (single session)", mcp_url)
 
     try:
-        # Load GDB MCP endpoint URL from the environment or config
-        # gdb_url = os.getenv("GDB_MCP_URL")
+        connection = _gdb_mcp_connection()
+        client = MultiServerMCPClient({GDB_MCP_SERVER: connection})
 
+        async with client.session(GDB_MCP_SERVER) as session:
+            tools = await load_mcp_tools(
+                session,
+                connection=connection,
+                server_name=GDB_MCP_SERVER,
+            )
+            logger.info("MCP tools loaded: %s", [t.name for t in tools])
 
+            gdb_search_tool = next((t for t in tools if "gdb_search" in t.name), None)
+            if not gdb_search_tool:
+                logger.error(
+                    "gdb_search tool not found. Available tools: %s",
+                    [t.name for t in tools],
+                )
+                return fallback_response
 
-        # if not gdb_url:
-        #     from ajrasakha.agents.config import MCP_URLS
-        #     gdb_url = MCP_URLS.get("gdb")
+            logger.info(
+                "Invoking %s (query=%r, rephrased=%r, crop=%s, state=%s)",
+                gdb_search_tool.name,
+                query[:80],
+                resolved_rephrased[:80],
+                resolved_crop,
+                resolved_state,
+            )
+            try:
+                result = await gdb_search_tool.ainvoke({
+                    "query": query,
+                    "crop": resolved_crop,
+                    "state": resolved_state,
+                    "rephrased_query": resolved_rephrased,
+                })
+            except ToolException as exc:
+                logger.error("gdb_search returned MCP error: %s", exc)
+                return fallback_response
 
-        # if not gdb_url:
-        #     logger.error("GDB_MCP_URL is not configured in .env or config!")
-        #     return fallback_response
-
-        # logger.info("Connecting to decoupled GDB MCP server at: %s", gdb_url)
-        
-        # Instantiate MultiServerMCPClient to invoke tool remotely
-        # client = MultiServerMCPClient(
-        #     {
-        #         "mcp_golden": {
-        #             "url": gdb_url,
-        #             "transport": "streamable_http",
-        #         }
-        #     }
-        # )
-
-        mcp_url = MCP_URLS["gdb"]
-        print(f"[gdb_agent] Connecting MCP → {mcp_url}", flush=True)
-
-        client = MultiServerMCPClient(
-            {
-                "mcp_golden": {
-                    "url": mcp_url,
-                    "transport": "streamable-http",
-                }
-            }
-        )
-        print("[gdb_agent] MultiServerMCPClient created OK", flush=True)
-
-        tools = await client.get_tools()
-        print(f"[gdb_agent] MCP get_tools() OK — tools: {[t.name for t in tools]}", flush=True)
-
-        gdb_search_tool = next((t for t in tools if "gdb_search" in t.name), None)
-
-        if not gdb_search_tool:
-            logger.error("gdb_search tool not found on decoupled MCP server. Available tools: %s", [t.name for t in tools])
-            print("[gdb_agent] MCP FAILED — gdb_search tool not found on server", flush=True)
-            return fallback_response
-
-        print(f"[gdb_agent] MCP connected — using tool: {gdb_search_tool.name}", flush=True)
-
-        # Invoke the decoupled native RAG pipeline directly
-        logger.info("Invoking decoupled native GDB search (query=%s, rephrased_query=%s, crop=%s, state=%s)", query, resolved_rephrased, resolved_crop, resolved_state)
-        result = await gdb_search_tool.ainvoke({
-            "query": query,
-            "crop": resolved_crop,
-            "state": resolved_state,
-            "rephrased_query": resolved_rephrased
-        })
-        
         # Parse and normalise the response
+        if isinstance(result, tuple) and len(result) >= 1:
+            result = result[0]
         if isinstance(result, list):
             res_str = "".join([
                 item.get("text", "") if isinstance(item, dict)
@@ -272,7 +276,9 @@ async def gdb(
         # If response isn't JSON, return as-is
         return res_str
 
+    except ToolException as exc:
+        logger.error("gdb MCP tool error: %s", exc)
+        return fallback_response
     except Exception as exc:
-        logger.error("gdb query execution failed: %s", exc, exc_info=True)
-        print(f"[gdb_agent] MCP FAILED — {type(exc).__name__}: {exc}", flush=True)
+        logger.error("gdb MCP call failed: %s", exc, exc_info=True)
         return fallback_response

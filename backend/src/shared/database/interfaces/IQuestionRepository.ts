@@ -148,7 +148,14 @@ export interface IQuestionRepository {
     session?: ClientSession,
     addText?: boolean,
   ): Promise<{modifiedCount: number}>;
-
+  /**
+   * Updates a specific question.
+   * @param questionId - The ID of the question to update.
+   * @param threadId - The ID of the thread to update.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an object containing IQuestion.
+   */
+  updateThreadId(questionId: string, threadId: string, session?: ClientSession): Promise<{modifiedCount: number}>;
   /**
    * Updates a specific question.
    * @param questionId - The ID of the question to update.
@@ -439,7 +446,7 @@ export interface IQuestionRepository {
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
     session?: ClientSession,
-  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>
+  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[]; sourceCounts: { source: string; count: number }[] }>
 
   /**
    * Get PAE (Principal Agri Experts) metrics totals across all sources.

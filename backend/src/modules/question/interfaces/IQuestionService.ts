@@ -56,6 +56,11 @@ export interface IQuestionService {
     context: string,
   ): Promise<GeneratedQuestionResponse[]>;
 
+  /** Manually trigger duplicate check for a question without a reference */
+  manualCheckDuplicate(
+    questionId: string,
+  ): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string }>;
+
   /** Create a new question */
   addQuestion(
     userId: string,
@@ -72,6 +77,7 @@ export interface IQuestionService {
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
+    threadUpdate?:boolean
   ): Promise<{modifiedCount: number}>;
 
   /** Auto allocate experts */
@@ -215,6 +221,7 @@ export interface IQuestionService {
   ): Promise<{
     totalQuestions: number;
     statuses: {status: string; count: number}[];
+    sourceCounts: {source: string; count: number}[];
   }>;
 
   getExprtIdByIndex(questionId: string, index: number): Promise<string | null>;

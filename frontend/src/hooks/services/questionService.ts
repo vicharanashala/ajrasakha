@@ -20,7 +20,6 @@ import { auth } from "@/config/firebase";
 import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
-const INTERNAL_API_KEY = env.internalApiKey();
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
   private _reRouteUrl = `${API_BASE_URL}/reroute`;
@@ -240,8 +239,8 @@ export class QuestionService {
       method: "POST",
       body,
       headers: isFormData
-        ? { "x-internal-api-key": INTERNAL_API_KEY } // Let browser set multipart boundary automatically
-        : { "x-internal-api-key": INTERNAL_API_KEY, "Content-Type": "application/json" },
+        ? undefined // Let browser set multipart boundary automatically
+        : { "Content-Type": "application/json" },
     });
   }
 
@@ -252,7 +251,7 @@ export class QuestionService {
     return apiFetch<IDetailedQuestion>(`${this._baseUrl}/${questionId}`, {
       method: "PUT",
       body: JSON.stringify(updatedData),
-      headers: { "x-internal-api-key": INTERNAL_API_KEY, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
     });
   }
 
@@ -712,12 +711,17 @@ export class QuestionService {
   );
 }
 
+  async manualCheckDuplicate(questionId: string): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
+  }
+
   async getQuestionStatusSummary(
     filter: AdvanceFilterValues,
     search: string,
   ): Promise<{
     totalQuestions: number;
     statuses: { status: string; count: number }[];
+    sourceCounts: { source: string; count: number }[];
   } | null> {
     const params = new URLSearchParams();
 

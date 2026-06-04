@@ -142,7 +142,7 @@ export function MultiSelector({ value, onChange, names, placeholder }) {
 
 // ── StateSelector ─────────────────────────────────────────────────────────────
 
-export function StateSelector({ value, onChange, stateNames }) {
+export function StateSelector({ value, onChange, stateNames, placeholder = 'Search state…' }) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -217,7 +217,7 @@ export function StateSelector({ value, onChange, stateNames }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="relative" ref={containerRef}>
-        <input type="text" className={inputClass} placeholder="Search state…" value={displayText}
+        <input type="text" className={inputClass} placeholder={placeholder} value={displayText}
           onChange={handleInput} onFocus={() => { computePos(); setOpen(true); }}
           onBlur={() => { if (!expanded) setTimeout(() => { setOpen(false); setHighlightedIndex(-1); }, 150); }}
           onKeyDown={handleKeyDown} />
@@ -316,7 +316,7 @@ function buildInitialValues(fields) {
 
 // ── RunTile ───────────────────────────────────────────────────────────────────
 
-export default function RunTile({ title, description, fields, onRun, cropNames, domainNames, stateNames, onJobDone, tileKey }) {
+export default function RunTile({ title, description, fields, onRun, cropNames, domainNames, stateNames, stateDistrictMap, onJobDone, tileKey }) {
   const [values, setValues] = useState(() => buildInitialValues(fields));
   const [submitting, setSubmitting] = useState(false);
 
@@ -328,6 +328,14 @@ export default function RunTile({ title, description, fields, onRun, cropNames, 
   const pollRef = useRef(null);
 
   function setValue(key, val) { setValues((prev) => ({ ...prev, [key]: val })); }
+
+  const prevStateRef = useRef(values['state']);
+  useEffect(() => {
+    if (prevStateRef.current !== values['state']) {
+      prevStateRef.current = values['state'];
+      setValue('district', '');
+    }
+  }, [values['state']]);
 
   function stopPolling() {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -394,18 +402,21 @@ export default function RunTile({ title, description, fields, onRun, cropNames, 
     setSubmitting(true);
     try {
       const stateValue = values['state'] || '';
+      const districtValue = values['district'] || '';
       const domains = values['domains'] || [];
-      const { name: stateFolder } = await getNextState(stateValue, domains);
-      body.pre_output = `${stateFolder}/${stateFolder}.csv`;
+      const nextState = await getNextState(stateValue, domains, districtValue);
+      const innerFolder = nextState.name;
+      const stateSlug = nextState.state;
+      body.pre_output = `${stateSlug}/${innerFolder}/${innerFolder}.csv`;
 
-      setStateName(stateFolder);
+      setStateName(innerFolder);
       setLastRunDomains(domains);
       const result = await onRun(body);
       const jid = result.job_id;
       setJobId(jid);
       setJobData({ job_id: jid, status: 'running', stdout: '', stderr: '' });
       toast.success(`Job queued → ${jid}`);
-      persistJob(jid, stateFolder, domains);
+      persistJob(jid, innerFolder, domains);
       startPolling(jid);
     } catch (err) {
       toast.error(err.message || 'Unknown error');
@@ -513,6 +524,23 @@ export default function RunTile({ title, description, fields, onRun, cropNames, 
               <StateSelector value={values[f.key]} onChange={(v) => setValue(f.key, v)} stateNames={stateNames} />
             </div>
           );
+          if (f.type === 'district-selector') {
+            const districtNames = (stateDistrictMap && values['state'])
+              ? (stateDistrictMap[values['state']] || [])
+              : [];
+            return (
+              <div key={f.key} className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">{f.label}</label>
+                <StateSelector
+                  value={values[f.key]}
+                  onChange={(v) => setValue(f.key, v)}
+                  stateNames={districtNames}
+                  placeholder="Search district…"
+                />
+                {f.hint && <p className="text-xs text-muted-foreground/70 italic">{f.hint}</p>}
+              </div>
+            );
+          }
           return (
             <div key={f.key} className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">{f.label}</label>

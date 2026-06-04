@@ -12,11 +12,40 @@ import { Button } from "@/components/atoms/button";
 import { useUserQuestionsData } from "./hooks/useUserQuestionData";
 
 import { useEffect, useMemo, useState } from "react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/atoms/accordion";
-import { Activity, ChevronLeft, ChevronRight, CircleHelp, Clock, HelpCircle, History, Inbox, Mail, MessageSquare, MessageSquareText, User } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/atoms/accordion";
+import {
+  Activity,
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  Clock,
+  HelpCircle,
+  History,
+  Inbox,
+  Mail,
+  MessageSquare,
+  MessageSquareText,
+  Phone,
+  User,
+} from "lucide-react";
 import { Switch } from "@/components/atoms/switch";
 import { Label } from "@/components/atoms/label";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
+
+import { Textarea } from "@/components/atoms/textarea";
+import { TranslatableText } from "./components/TranslatableText";
+import { useNotifyUser } from "./hooks/useNotifyUser";
 
 interface UserQuestionsModalProps {
   open: boolean;
@@ -43,6 +72,12 @@ const UserQuestionsModal = ({
 
   const [selectedTimeline, setSelectedTimeline] = useState<string[]>([]);
 
+  const [notifyModalOpen, setNotifyModalOpen] = useState(false);
+
+  const [customMessage, setCustomMessage] = useState(
+    "Hello! We noticed you are recently not active. Any problems you are facing?",
+  );
+
   // Reset page when modal closes or user changes
   useEffect(() => {
     setCurrentPage(1);
@@ -55,60 +90,31 @@ const UserQuestionsModal = ({
     currentPage,
     10,
   );
-
   // console.log("UserQuestionModal data", fullData);
+  const latestMessageId = fullData?.messages?.items?.[0]?.messageId;
   const activeData = useMemo(() => {
     return viewType === "questions" ? fullData?.questions : fullData?.messages;
   }, [viewType, fullData]);
 
   const items = useMemo(() => {
-  return activeData?.items || [];
-}, [activeData]);
+    return activeData?.items || [];
+  }, [activeData]);
 
   const totalCount =
     viewType === "questions"
       ? (fullData?.questions?.total ?? 0)
       : (user?.totalQuestions?.toLocaleString() ?? 0);
 
+  // const lastActiveTime = new Date(fullData?.messages.items[0].createdAt).toLocaleString();
+
   return (
     <>
-      {/* <Dialog open={timelineModalOpen} onOpenChange={setTimelineModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Repeat Timeline</DialogTitle>
-          </DialogHeader>
-
-          <div className="max-h-[60vh] overflow-y-auto">
-            <div className="flex flex-wrap gap-2">
-              {selectedTimeline
-                ?.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-                ?.map((date: string, idx: number) => (
-                  <div
-                    key={idx}
-                    className="
-                  text-sm
-                  border
-                  rounded-full
-                  px-4
-                  py-2
-                  bg-muted/30
-                  whitespace-nowrap
-                "
-                  >
-                    {new Date(date).toLocaleString()}
-                  </div>
-                ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog> */}
-
       <RepeatTimelineDialog
         open={timelineModalOpen}
         onOpenChange={setTimelineModalOpen}
         selectedTimeline={selectedTimeline}
       />
-      
+
       <UserActivityDialog
         open={open}
         onOpenChange={onOpenChange}
@@ -123,6 +129,12 @@ const UserQuestionsModal = ({
         activeData={activeData}
         setSelectedTimeline={setSelectedTimeline}
         setTimelineModalOpen={setTimelineModalOpen}
+        // lastActive={lastActiveTime}
+        notifyModalOpen={notifyModalOpen}
+        setNotifyModalOpen={setNotifyModalOpen}
+        customMessage={customMessage}
+        setCustomMessage={setCustomMessage}
+        latestMessageId={latestMessageId}
       />
     </>
   );
@@ -201,7 +213,7 @@ function RepeatTimelineDialog({
     </Dialog>
   );
 }
- 
+
 interface ActivityItem {
   question?: string;
   message?: string;
@@ -220,6 +232,7 @@ interface ActiveData {
 interface UserInfo {
   name: string;
   email: string;
+  phoneNo: string;
 }
 
 interface UserActivityDialogProps {
@@ -236,6 +249,14 @@ interface UserActivityDialogProps {
   activeData?: ActiveData;
   setSelectedTimeline: (dates: string[]) => void;
   setTimelineModalOpen: (open: boolean) => void;
+  // lastActive: string;
+  notifyModalOpen: boolean;
+  setNotifyModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+
+  customMessage: string;
+  setCustomMessage: React.Dispatch<React.SetStateAction<string>>;
+
+  latestMessageId?: string | null;
 }
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -259,7 +280,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-
 function EmptyState({ viewType }: { viewType: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
@@ -268,7 +288,6 @@ function EmptyState({ viewType }: { viewType: string }) {
     </div>
   );
 }
-
 
 function LoadingState({ viewType }: { viewType: string }) {
   return (
@@ -286,9 +305,6 @@ function LoadingState({ viewType }: { viewType: string }) {
     </div>
   );
 }
- 
-
-
 
 function ActivityCard({
   item,
@@ -307,9 +323,14 @@ function ActivityCard({
       <div className="flex items-start justify-between gap-3">
         {/* Left */}
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-[14.5px] leading-snug line-clamp-2 break-words text-foreground">
+          {/* <p className="font-medium text-[14.5px] leading-snug line-clamp-2 break-words text-foreground">
             {text}
-          </p>
+          </p> */}
+          <TranslatableText
+            text={text!}
+            showTooltip
+            textClassName="text-xs line-clamp-2"
+          />
           <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
             <Clock className="h-3 w-3 shrink-0" aria-hidden />
             {item.createdAt ? new Date(item.createdAt).toLocaleString() : "—"}
@@ -344,13 +365,15 @@ function ActivityCard({
             </TooltipProvider>
           )}
         </div>
+
+
+        
       </div>
     </div>
   );
 }
 
-
- function UserActivityDialog({
+function UserActivityDialog({
   open,
   onOpenChange,
   user,
@@ -364,387 +387,306 @@ function ActivityCard({
   activeData,
   setSelectedTimeline,
   setTimelineModalOpen,
+  // lastActive,
+
+  notifyModalOpen,
+  setNotifyModalOpen,
+  customMessage,
+  setCustomMessage,
+  latestMessageId,
 }: UserActivityDialogProps) {
   const totalPages = activeData?.totalPages ?? 1;
 
+  const { mutate: notifyUser, isPending } = useNotifyUser();
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-6xl w-[90vw] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0 [&>button]:hidden rounded-2xl">
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b shrink-0">
-          <DialogHeader className="p-0">
-            <DialogTitle className="flex items-center gap-2 text-base font-semibold">
-              <Activity className="h-4.5 w-4.5 text-primary" />
-              User Activity
+    <>
+      <Dialog open={notifyModalOpen} onOpenChange={setNotifyModalOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" />
+              Send Notification
             </DialogTitle>
           </DialogHeader>
 
-          {/* Toggle */}
-          <div className="flex items-center gap-2.5 bg-muted/40 border rounded-full px-3.5 py-1.5">
-            <MessageSquare
-              className={`h-3.5 w-3.5 transition-colors ${
-                viewType === "messages"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            />
-            <span
-              className={`text-xs font-medium transition-colors ${
-                viewType === "messages"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              Messages
-            </span>
-            <Switch
-              checked={viewType === "questions"}
-              onCheckedChange={(checked) => {
-                setCurrentPage(1);
-                setViewType(checked ? "questions" : "messages");
-              }}
-              className="data-[state=checked]:bg-primary scale-90"
-            />
-            <span
-              className={`text-xs font-medium transition-colors ${
-                viewType === "questions"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              Questions
-            </span>
-            <HelpCircle
-              className={`h-3.5 w-3.5 transition-colors ${
-                viewType === "questions"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            />
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Custom Message</Label>
+
+              <Textarea
+                placeholder="Write your custom notification message..."
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                className="min-h-[120px] resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setNotifyModalOpen(false)}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                disabled={!customMessage?.trim() || isPending}
+                onClick={() => {
+                  notifyUser({
+                    userEmail: user.email,
+                    messageId: latestMessageId ?? null,
+                    message: customMessage,
+                  });
+
+                  setNotifyModalOpen(false);
+                  setCustomMessage(
+                    "Hello! We noticed you are recently not active. Any problems you are facing?",
+                  );
+                }}
+              >
+                {isPending ? "Sending..." : "Send Notification"}
+              </Button>
+            </div>
           </div>
-        </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="!max-w-6xl w-[90vw] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0 [&>button]:hidden rounded-2xl">
+          {/* ── Header ── */}
+          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b shrink-0">
+            <div className="flex justify-start items-center gap-3">
+              <DialogHeader className="p-0">
+                <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+                  <Activity className="h-4.5 w-4.5 text-primary" />
+                  User Activity
+                </DialogTitle>
+              </DialogHeader>
 
-        {/* ── User Details ── */}
-        {user && (
-          <div className="px-6 border-b shrink-0">
-            <Accordion type="single" collapsible>
-              <AccordionItem value="user-details" className="border-none">
-                <AccordionTrigger className="py-3 hover:no-underline">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <User className="h-3.5 w-3.5 text-primary" />
-                    User Details
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="pb-3">
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      {
-                        label: "Name",
-                        value: user.name,
-                        icon: User,
-                      },
-                      {
-                        label: "Email",
-                        value: user.email,
-                        icon: Mail,
-                      },
-                      {
-                        label:
-                          viewType === "questions"
-                            ? "Total Questions"
-                            : "Total Messages",
-                        value: totalCount,
-                        icon:
-                          viewType === "questions"
-                            ? CircleHelp
-                            : MessageSquareText,
-                      },
-                    ].map(({ label, value, icon: Icon }) => (
-                      <div
-                        key={label}
-                        className="bg-muted/40 rounded-lg px-3 py-3 border"
+              {/* Action Buttons */}
+              <TooltipProvider>
+                <div className="flex items-center gap-2">
+                  {/* Call */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full"
+                        onClick={()=>window.location.href=`tel:+91${user?.phoneNo}`}
                       >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 rounded-md bg-primary/10 p-2">
-                            <Icon className="h-4 w-4 text-primary" />
-                          </div>
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
 
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] text-muted-foreground mb-0.5 uppercase tracking-wide font-medium">
-                              {label}
-                            </p>
+                    <TooltipContent>
+                      <p>Call User</p>
+                    </TooltipContent>
+                  </Tooltip>
 
-                            <p className="text-sm font-medium text-foreground truncate">
-                              {value}
-                            </p>
+                  {/* Mail */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full"
+                        onClick={()=>window.location.href=`mailto:${user?.email}`}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+
+                    <TooltipContent>
+                      <p>Send Email</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Notify */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => setNotifyModalOpen(true)}
+                      >
+                        <Bell className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+
+                    <TooltipContent>
+                      <p>Send Notification</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
+            </div>
+
+            {/* Toggle */}
+            <div className="flex items-center gap-2.5 bg-muted/40 border rounded-full px-3.5 py-1.5">
+              <MessageSquare
+                className={`h-3.5 w-3.5 transition-colors ${
+                  viewType === "messages"
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              />
+              <span
+                className={`text-xs font-medium transition-colors ${
+                  viewType === "messages"
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Messages
+              </span>
+              <Switch
+                checked={viewType === "questions"}
+                onCheckedChange={(checked) => {
+                  setCurrentPage(1);
+                  setViewType(checked ? "questions" : "messages");
+                }}
+                className="data-[state=checked]:bg-primary scale-90"
+              />
+              <span
+                className={`text-xs font-medium transition-colors ${
+                  viewType === "questions"
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Questions
+              </span>
+              <HelpCircle
+                className={`h-3.5 w-3.5 transition-colors ${
+                  viewType === "questions"
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* ── User Details ── */}
+          {user && (
+            <div className="px-6 border-b shrink-0">
+              <Accordion type="single" collapsible>
+                <AccordionItem value="user-details" className="border-none">
+                  <AccordionTrigger className="py-3 hover:no-underline">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <User className="h-3.5 w-3.5 text-primary" />
+                      User Details
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        {
+                          label: "Name",
+                          value: user.name,
+                          icon: User,
+                        },
+                        {
+                          label: "Email",
+                          value: user.email,
+                          icon: Mail,
+                        },
+                        {
+                          label:
+                            viewType === "questions"
+                              ? "Total Questions"
+                              : "Total Messages",
+                          value: totalCount,
+                          icon:
+                            viewType === "questions"
+                              ? CircleHelp
+                              : MessageSquareText,
+                        },
+                      ].map(({ label, value, icon: Icon }) => (
+                        <div
+                          key={label}
+                          className="bg-muted/40 rounded-lg px-3 py-3 border"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 rounded-md bg-primary/10 p-2">
+                              <Icon className="h-4 w-4 text-primary" />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] text-muted-foreground mb-0.5 uppercase tracking-wide font-medium">
+                                {label}
+                              </p>
+
+                              <p className="text-sm font-medium text-foreground truncate">
+                                {value}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </div>
-        )}
-
-        {/* ── Content ── */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2.5">
-          {isLoading ? (
-            <LoadingState viewType={viewType} />
-          ) : items.length === 0 ? (
-            <EmptyState viewType={viewType} />
-          ) : (
-            items.map((item, idx) => (
-              <ActivityCard
-                key={idx}
-                item={item}
-                viewType={viewType}
-                onTimelineClick={() => {
-                  setSelectedTimeline(item.repeatedAt ?? []);
-                  setTimelineModalOpen(true);
-                }}
-              />
-            ))
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
           )}
-        </div>
 
-        {/* ── Pagination ── */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-3.5 border-t shrink-0 bg-muted/10">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 rounded-lg"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Previous
-            </Button>
-
-            <span className="text-xs text-muted-foreground font-medium">
-              Page {currentPage} of {totalPages}
-            </span>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 rounded-lg"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => p + 1)}
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+          {/* ── Content ── */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2.5">
+            {isLoading ? (
+              <LoadingState viewType={viewType} />
+            ) : items.length === 0 ? (
+              <EmptyState viewType={viewType} />
+            ) : (
+              items.map((item, idx) => (
+                <ActivityCard
+                  key={idx}
+                  item={item}
+                  viewType={viewType}
+                  onTimelineClick={() => {
+                    setSelectedTimeline(item.repeatedAt ?? []);
+                    setTimelineModalOpen(true);
+                  }}
+                />
+              ))
+            )}
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+
+          {/* ── Pagination ── */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-3.5 border-t shrink-0 bg-muted/10">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 rounded-lg"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Previous
+              </Button>
+
+              <span className="text-xs text-muted-foreground font-medium">
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 rounded-lg"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
-
-
 export default UserQuestionsModal;
-
-
-
-
-
-
-
-
-
-  //  <Dialog open={open} onOpenChange={onOpenChange}>
-  //    <DialogContent className="!max-w-6xl w-[85vw] max-h-[95vh] overflow-hidden flex flex-col [&>button]:hidden">
-  //      <div className="flex items-center justify-between border-b pb-4">
-  //        <DialogHeader className="p-0">
-  //          <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
-  //            <Activity className="h-5 w-5 text-primary" />
-  //            <span>User Activity</span>
-  //          </DialogTitle>
-  //        </DialogHeader>
-
-  //        <div className="flex items-center gap-3 rounded-full border px-4 py-2 shadow-sm bg-muted/30">
-  //          <span
-  //            className={`text-sm font-medium transition-colors ${
-  //              viewType === "messages"
-  //                ? "text-primary"
-  //                : "text-muted-foreground"
-  //            }`}
-  //          >
-  //            All Messages
-  //          </span>
-
-  //          <Switch
-  //            id="questions-only"
-  //            checked={viewType === "questions"}
-  //            onCheckedChange={(checked) => {
-  //              setCurrentPage(1);
-  //              setViewType(checked ? "questions" : "messages");
-  //            }}
-  //            className="data-[state=checked]:bg-primary"
-  //          />
-
-  //          <span
-  //            className={`text-sm font-medium transition-colors ${
-  //              viewType === "questions"
-  //                ? "text-primary"
-  //                : "text-muted-foreground"
-  //            }`}
-  //          >
-  //            Questions Only
-  //          </span>
-  //        </div>
-  //      </div>
-
-  //      {user && (
-  //        <Accordion type="single" collapsible className="border-b pb-2">
-  //          <AccordionItem value="user-details" className="border-none">
-  //            <AccordionTrigger className="py-2 text-sm font-semibold hover:no-underline">
-  //              <div className="flex items-center gap-2">
-  //                <User className="h-4 w-4 text-primary" />
-  //                <span>User Details</span>
-  //              </div>
-  //            </AccordionTrigger>
-
-  //            <AccordionContent>
-  //              <div className="space-y-3 pt-2 text-sm">
-  //                <div>
-  //                  <span className="font-semibold">Name:</span> {user.name}
-  //                </div>
-
-  //                <div>
-  //                  <span className="font-semibold">Email:</span> {user.email}
-  //                </div>
-
-  //                <div>
-  //                  <span className="font-semibold">
-  //                    {viewType === "questions"
-  //                      ? "Total Questions:"
-  //                      : "Total Messages:"}
-  //                  </span>{" "}
-  //                  {totalCount}
-  //                </div>
-  //              </div>
-  //            </AccordionContent>
-  //          </AccordionItem>
-  //        </Accordion>
-  //      )}
-
-  //      <div className="flex-1 overflow-y-auto mt-4 space-y-4">
-  //        {isLoading ? (
-  //          <div className="text-center py-10">Loading {viewType}...</div>
-  //        ) : items.length === 0 ? (
-  //          <div className="text-center py-10 text-muted-foreground">
-  //            No {viewType} found.
-  //          </div>
-  //        ) : (
-  //          items.map((item: any, idx: number) => (
-  //            <div key={idx} className="border rounded-lg px-4 py-3">
-  //              {/* Top Section */}
-
-  //              <div className="flex items-start justify-between gap-4">
-  //                {/* Left Side */}
-
-  //                <div className="flex-1 min-w-0">
-  //                  <div className="font-medium break-words line-clamp-2">
-  //                    {viewType === "questions" ? item.question : item.message}
-  //                  </div>
-
-  //                  <div className="text-sm text-muted-foreground mt-2">
-  //                    Created:{" "}
-  //                    {item.createdAt
-  //                      ? new Date(item.createdAt).toLocaleString()
-  //                      : "—"}
-  //                  </div>
-  //                </div>
-
-  //                {/* Right Side */}
-
-  //                <div className="flex items-center gap-2 shrink-0">
-  //                  {/* Status */}
-
-  //                  {viewType === "questions" && (
-  //                    <Badge
-  //                      variant={
-  //                        item.status === "duplicate"
-  //                          ? "destructive"
-  //                          : item.status === "closed"
-  //                            ? "default"
-  //                            : "secondary"
-  //                      }
-  //                    >
-  //                      {item.status}
-  //                    </Badge>
-  //                  )}
-
-  //                  {/* Timeline Button */}
-
-  //                  {item.isDuplicate && item.repeatedCount - 1 > 0 && (
-  //                    <Button
-  //                      variant="outline"
-  //                      size="sm"
-  //                      onClick={() => {
-  //                        setSelectedTimeline(item.repeatedAt || []);
-
-  //                        setTimelineModalOpen(true);
-  //                      }}
-  //                    >
-  //                      {item.repeatedCount - 1 > 0
-  //                        ? `${item.repeatedCount - 1}X`
-  //                        : null}
-  //                    </Button>
-  //                  )}
-  //                </div>
-  //              </div>
-
-  //              {/* Dates */}
-
-  //              {/* <div className="text-sm text-muted-foreground flex flex-wrap gap-4">
-  //                 <div>
-  //                   Created:{" "}
-  //                   {item.createdAt
-  //                     ? new Date(item.createdAt).toLocaleString()
-  //                     : "—"}
-  //                 </div> */}
-
-  //              {/* <div>
-  //                   Updated:{" "}
-  //                   {item.updatedAt
-  //                     ? new Date(
-  //                         item.updatedAt,
-  //                       ).toLocaleString()
-  //                     : "—"}
-  //                 </div> */}
-  //            </div>
-  //          ))
-  //        )}
-  //      </div>
-
-  //      {activeData?.totalPages > 1 && (
-  //        <div className="flex items-center justify-between pt-4 border-t">
-  //          <Button
-  //            variant="outline"
-  //            disabled={currentPage === 1}
-  //            onClick={() => setCurrentPage((p) => p - 1)}
-  //          >
-  //            Previous
-  //          </Button>
-
-  //          <div className="text-sm text-muted-foreground">
-  //            Page {currentPage} of {activeData?.totalPages}
-  //          </div>
-
-  //          <Button
-  //            variant="outline"
-  //            disabled={currentPage === activeData?.totalPages}
-  //            onClick={() => setCurrentPage((p) => p + 1)}
-  //          >
-  //            Next
-  //          </Button>
-  //        </div>
-  //      )}
-  //    </DialogContent>
-  //  </Dialog>;

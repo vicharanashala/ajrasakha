@@ -143,11 +143,23 @@ export class CropRepository implements ICropRepository {
 
       // Filter by type if provided.
       // 'crop' includes documents where type is explicitly 'crop' OR type field doesn't exist (legacy data).
+      // 'other' is a catch-all for anything that is NOT 'crop' and NOT 'chemical'.
       if (query?.type) {
         if (query.type === 'crop') {
           filter.$and = [
             ...(filter.$and || []),
             { $or: [{ type: 'crop' }, { type: { $exists: false } }] },
+          ];
+        } else if (query.type === 'other') {
+          filter.$and = [
+            ...(filter.$and || []),
+            {
+              $and: [
+                { type: { $exists: true } },
+                { type: { $ne: 'crop' } },
+                { type: { $ne: 'chemical' } },
+              ],
+            },
           ];
         } else {
           filter.type = query.type;

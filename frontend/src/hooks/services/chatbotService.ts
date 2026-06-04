@@ -173,11 +173,49 @@ export class ChatbotService {
     );
   }
 
-  async getClosedAndNotifedData(source: string): Promise<any>{
+  async getClosedAndNotifedData(source: string, startDate?: string, endDate?: string): Promise<any>{
     const params = new URLSearchParams();
     params.append("source", source);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
     return apiFetch<any>(
       `${this._baseUrl}/closed-notified-data?${params.toString()}`,
+    );
+  }
+
+  async getMonthlyChurnRate(source: string, userType: string): Promise<any>{
+    const params = new URLSearchParams();
+    params.append("source", source);
+    params.append("userType", userType);
+    return apiFetch<any>(
+      `${this._baseUrl}/monthly-churn-rate?${params.toString()}`,
+    );
+  }
+
+  async getActiveUsersTrend(
+    source: string,
+    userType: string,
+    requestType: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+    params.append("source", source);
+    params.append("userType", userType);
+    params.append("requestType", requestType);
+      return apiFetch<any>(
+      `${this._baseUrl}/active-users-trend?${params.toString()}`,
     );
   }
 }

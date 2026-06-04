@@ -17,8 +17,9 @@ import {
   Cell,
   ResponsiveContainer,
 } from "recharts";
-import { Spinner } from "@/components/atoms/spinner";
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, X, InfoIcon } from "lucide-react";
+import { Skeleton } from "@/components/atoms/skeleton";
+import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 
 const colors = [
@@ -73,8 +74,10 @@ export const TopCropsCard = ({topCrops,
 
   if (isLoadingTopCrops) {
     return (
-      <Card className="h-full min-h-[300px] flex items-center justify-center">
-        <Spinner text="Loading Top Crops..." />
+      <Card className="h-full min-h-[300px] p-5">
+        <Skeleton className="h-5 w-44 rounded-md" />
+        <Skeleton className="mt-3 h-4 w-64 max-w-full rounded-md" />
+        <Skeleton className="mt-6 h-[260px] w-full rounded-lg" />
       </Card>
     );
   }
@@ -135,8 +138,18 @@ export const TopCropsCard = ({topCrops,
         </button>
 
         <CardHeader>
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Top Crops by Questions
+          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+            <span>Top Crops by Questions</span>
+            <ShadcnTooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground normal-case tracking-normal">
+                  <InfoIcon className="h-3.5 w-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="normal-case tracking-normal">
+                Highlights the top 5 crops mentioned in queries, with others grouped.
+              </TooltipContent>
+            </ShadcnTooltip>
           </CardTitle>
           <CardDescription>
             Most frequently asked crops. Total Matching Questions:{" "}

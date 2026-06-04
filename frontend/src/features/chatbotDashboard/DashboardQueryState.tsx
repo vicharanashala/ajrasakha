@@ -23,8 +23,10 @@ import {
 } from "@/components/atoms/command";
 
 import { Button } from "@/components/atoms/button";
+import { Skeleton } from "@/components/atoms/skeleton";
 
-import { ChevronsUpDown, Check } from "lucide-react";
+import { ChevronsUpDown, Check, InfoIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 // ─── TYPES ─────────────────────────────────────────────
 
@@ -225,8 +227,18 @@ export const DashboardStateWiseAnalytics = (
       {/* HEADER */}
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/40 shrink-0">
         <div>
-          <CardTitle className="text-base font-semibold tracking-wide text-foreground">
-            District Analytics
+          <CardTitle className="text-base font-semibold tracking-wide text-foreground flex items-center gap-1.5">
+            <span>District Analytics</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                  <InfoIcon className="h-3.5 w-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Shows the volume of questions split by district for the selected state.
+              </TooltipContent>
+            </Tooltip>
           </CardTitle>
 
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -339,17 +351,8 @@ export const DashboardStateWiseAnalytics = (
         {/* LOADING */}
 
         {isLoading && (
-          <div
-            className="
-            flex-1
-            flex
-            items-center
-            justify-center
-            text-sm
-            text-gray-500
-          "
-          >
-            Loading analytics...
+          <div className="flex-1">
+            <Skeleton className="h-full min-h-[360px] w-full rounded-xl" />
           </div>
         )}
 

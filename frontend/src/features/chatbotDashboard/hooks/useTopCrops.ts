@@ -3,7 +3,7 @@ import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
 import type { TopCropsResponse } from '../types';
 
-export function useTopCrops(source: string) {
+export function useTopCrops(source: string, enabled: boolean = true) {
   const params = new URLSearchParams();
   params.append("source", source);
   return useQuery<TopCropsResponse, Error>({
@@ -15,5 +15,6 @@ export function useTopCrops(source: string) {
       );
       return result || { totalQuestions: 0, topCrops: [] };
     },
+    enabled,
   });
 }

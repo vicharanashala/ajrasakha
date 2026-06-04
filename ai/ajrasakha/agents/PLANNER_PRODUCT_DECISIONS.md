@@ -45,7 +45,7 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 
 `domains.py` lists crop-required vs crop-all domains. `planner_rules.apply_planner_completeness_rules` enforces:
 - Location: state in **latest message** → resolved (district defaults to `all` if not in text); else GPS on thread → use reverse-geocoded state/city; no GPS and no state → ask **state only** (never district-only follow-up). District from GPS city only when lat/long present.
-- Crop: ask only when `domain_requires_crop` and crop not in **recent** farmer replies (last ~3 turns). Otherwise set crop="All".
+- Crop: ask only when `domain_requires_crop` and crop not in **recent** farmer replies (last ~3 turns). **One-shot clarify**: if a crop follow-up was already asked in the thread and the farmer still does not name a crop, set `crop="all"` and proceed (no repeated crop questions).
 - Schemes/insurance/PM-KISAN: `schemes=true`, block meta follow-ups ("what would you like to know…").
 - State/district must not leak from unrelated older questions in the thread.
 

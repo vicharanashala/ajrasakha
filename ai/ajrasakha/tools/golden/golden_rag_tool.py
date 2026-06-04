@@ -1,6 +1,9 @@
 import os
 import asyncio
 import json
+import logging
+import math
+from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 from mcp.server.fastmcp import FastMCP
 
@@ -12,6 +15,21 @@ from pymongo import AsyncMongoClient
 from dotenv import load_dotenv
 
 load_dotenv()
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+class ISTFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.fromtimestamp(record.created, IST)
+        return dt.strftime(datefmt or "%Y-%m-%d %H:%M:%S") + " IST"
+
+
+_log_handler = logging.StreamHandler()
+_log_handler.setFormatter(ISTFormatter("%(asctime)s %(levelname)s [golden-mcp] %(message)s"))
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO, handlers=[_log_handler])
+log = logging.getLogger(__name__)
 
 EMBEDDING_ENDPOINT = os.getenv("GOLDEN_EMBEDDING_ENDPOINT", "http://100.100.108.43:6001/embed")
 EMBEDDING_TIMEOUT_S = float(os.getenv("GOLDEN_EMBEDDING_TIMEOUT_S", "15"))
@@ -39,6 +57,64 @@ mcp = FastMCP(
         enable_dns_rebinding_protection=False
     )
 )
+
+# Sigmoid maps raw Atlas BM25 searchScore (~1–20+) into (0, 1) for audit/thresholds.
+ATLAS_SCORE_SIGMOID_CENTER = 5.0
+ATLAS_SCORE_SIGMOID_SCALE = 2.0
+GDB_ATLAS_TOP_K = 2
+GDB_VECTOR_TOP_K = 3
+GDB_MERGED_MAX_PAIRS = 5
+RETRIEVAL_SOURCE_ATLAS = "atlas"
+RETRIEVAL_SOURCE_RAG = "rag"
+RETRIEVAL_SOURCE_STRICT_EXACT = "strict_exact"
+
+
+def _normalize_atlas_search_score(score: float | None) -> float | None:
+    if score is None:
+        return None
+    return 1.0 / (1.0 + math.exp(-(score - ATLAS_SCORE_SIGMOID_CENTER) / ATLAS_SCORE_SIGMOID_SCALE))
+
+
+def _truncate_text(text: str | None, max_len: int = 100) -> str:
+    s = (text or "").replace("\n", " ").strip()
+    if len(s) <= max_len:
+        return s
+    return s[:max_len] + "..."
+
+
+def _log_search_hits(
+    path: str,
+    query: str,
+    crop: str,
+    state: str,
+    pairs: list["QuestionAnswerPair"],
+    *,
+    raw_scores: list[float | None] | None = None,
+) -> None:
+    if not pairs:
+        log.info(
+            "%s: no hits query=%r crop=%s state=%s",
+            path,
+            _truncate_text(query, 80),
+            crop,
+            state,
+        )
+        return
+    for i, pair in enumerate(pairs, 1):
+        extra = ""
+        if raw_scores and i - 1 < len(raw_scores) and raw_scores[i - 1] is not None:
+            raw = raw_scores[i - 1]
+            extra = f" raw_atlas={raw:.4f}"
+        log.info(
+            "%s[%d]: question_id=%s similarity_score=%s%s question=%r",
+            path,
+            i,
+            pair.question_id,
+            f"{pair.similarity_score:.4f}" if pair.similarity_score is not None else "n/a",
+            extra,
+            _truncate_text(pair.question_text, 80),
+        )
+
 
 class QuestionAnswerPair(BaseModel):
     question_id: str
@@ -174,8 +250,27 @@ async def golden_retriever_tool(
     if domain:
         filters["details.domain"] = domain
 
-    query_vector = await _embed_text(query)
-    docs = await _vector_search_questions(query_vector=query_vector, k=5, meta_filter=filters)
+    log.info(
+        "vector search start query=%r crop=%s state=%s endpoint=%s",
+        _truncate_text(query, 80),
+        crop,
+        state,
+        EMBEDDING_ENDPOINT,
+    )
+    try:
+        query_vector = await _embed_text(query)
+        docs = await _vector_search_questions(
+            query_vector=query_vector, k=5, meta_filter=filters
+        )
+    except Exception as exc:
+        log.warning(
+            "vector search failed (atlas-only fallback): %s: %s",
+            type(exc).__name__,
+            exc,
+        )
+        return []
+
+    log.info("vector search mongo returned %d doc(s)", len(docs))
     result = []
     for doc in docs:
         score = doc.get("vector_score")
@@ -194,6 +289,7 @@ async def golden_retriever_tool(
             similarity_score=score,
         )
         result.append(question_answer_pair)
+    _log_search_hits("vector", query, crop, state, result)
     return result
 
 
@@ -260,6 +356,12 @@ async def golden_strict_exact_search_tool(
     crop and state are required.
     """
     crop, state = _normalize_crop_state(crop, state)
+    log.info(
+        "strict exact search start query=%r crop=%s state=%s",
+        _truncate_text(query, 80),
+        crop,
+        state,
+    )
     meta_filter: dict = {
         "status": "closed",
     }
@@ -293,8 +395,10 @@ async def golden_strict_exact_search_tool(
 
     cursor = await questions_collection.aggregate(pipeline)
     raw_results = await cursor.to_list(length=10)
+    log.info("strict exact: atlas candidates=%d", len(raw_results))
 
     if not raw_results:
+        log.info("strict exact: no atlas candidates")
         return []
 
     import string
@@ -325,8 +429,15 @@ async def golden_strict_exact_search_tool(
                 sources=sources,
             )
             result.append(question_answer_pair)
+            log.info(
+                "strict exact: match question_id=%s question=%r",
+                question_id,
+                _truncate_text(question_answer_pair.question_text, 80),
+            )
             break  # Return only the first matching exact pair
 
+    if not result:
+        log.info("strict exact: no normalized-text match among %d candidate(s)", len(raw_results))
     return result
 
 
@@ -366,6 +477,16 @@ async def golden_exact_search_tool(
         meta_filter["details.season"] = season
     if domain:
         meta_filter["details.domain"] = domain
+
+    log.info(
+        "atlas keyword search start query=%r crop=%s state=%s min_score=%.2f season=%s domain=%s",
+        _truncate_text(query, 80),
+        crop,
+        state,
+        min_score,
+        season or "-",
+        domain or "-",
+    )
 
     pipeline = [
         # Step 1: Atlas full-text search on question + text fields only
@@ -407,34 +528,138 @@ async def golden_exact_search_tool(
     ]
     cursor = await questions_collection.aggregate(pipeline)
     raw_results = await cursor.to_list(length=5)
+    log.info("atlas keyword: mongo returned %d doc(s) after min_score filter", len(raw_results))
 
     if not raw_results:
+        log.info("atlas keyword: no hits")
         return []
 
     result = []
+    raw_scores: list[float | None] = []
     for doc in raw_results:
         question_id = str(doc["_id"])
+        raw_score = doc.get("search_score")
         try:
             answer, sources, author_name = await _get_answer_text_sources_and_author_name(
                 question_id
             )
         except Exception:
-            # Answer may not exist yet for some questions — skip gracefully
+            log.warning(
+                "atlas keyword: skip question_id=%s (answer lookup failed)",
+                question_id,
+            )
             continue
         if not answer:
+            log.warning(
+                "atlas keyword: skip question_id=%s raw_score=%s (no final answer)",
+                question_id,
+                raw_score,
+            )
             continue
 
+        norm_score = _normalize_atlas_search_score(raw_score)
         question_answer_pair = QuestionAnswerPair(
             question_id=question_id,
             question_text=doc.get("question") or doc.get("text", ""),
             answer_text=answer,
             author=author_name,
             sources=sources,
-            similarity_score=doc.get("search_score"),
+            similarity_score=norm_score,
         )
         result.append(question_answer_pair)
+        raw_scores.append(raw_score)
 
+    _log_search_hits("atlas", query, crop, state, result, raw_scores=raw_scores)
     return result
+
+
+def _similar_pair_entry(pair: QuestionAnswerPair, retrieval_source: str) -> dict:
+    return {
+        "question_id": pair.question_id or "",
+        "similarity_score": pair.similarity_score,
+        "retrieval_source": retrieval_source,
+        "question": pair.question_text,
+        "answer": pair.answer_text,
+        "details": _parse_sources(pair.sources, pair.author),
+    }
+
+
+def _build_merged_similar_match(
+    atlas_pairs: list[QuestionAnswerPair],
+    vector_pairs: list[QuestionAnswerPair],
+) -> dict:
+    """Merge atlas + RAG hits: priority slots, dedupe by question_id, backfill to GDB_MERGED_MAX_PAIRS."""
+    similar_match: dict = {}
+    seen_ids: set[str] = set()
+    slot = 1
+    atlas_priority_used = 0
+    vector_priority_used = 0
+    atlas_backfill_used = 0
+    vector_backfill_used = 0
+    dedup_skipped = 0
+
+    def _append(pair: QuestionAnswerPair, retrieval_source: str) -> bool:
+        nonlocal slot, dedup_skipped
+        if slot > GDB_MERGED_MAX_PAIRS:
+            return False
+        qid = pair.question_id or ""
+        if not qid:
+            return False
+        if qid in seen_ids:
+            dedup_skipped += 1
+            log.info(
+                "merge: skip duplicate question_id=%s (wanted source=%s)",
+                qid,
+                retrieval_source,
+            )
+            return False
+        seen_ids.add(qid)
+        similar_match[f"similar_pair{slot}"] = _similar_pair_entry(pair, retrieval_source)
+        log.info(
+            "merge: similar_pair%d retrieval_source=%s question_id=%s similarity_score=%s",
+            slot,
+            retrieval_source,
+            qid,
+            f"{pair.similarity_score:.4f}" if pair.similarity_score is not None else "n/a",
+        )
+        slot += 1
+        return True
+
+    atlas_i = 0
+    while atlas_i < len(atlas_pairs) and atlas_priority_used < GDB_ATLAS_TOP_K:
+        if _append(atlas_pairs[atlas_i], RETRIEVAL_SOURCE_ATLAS):
+            atlas_priority_used += 1
+        atlas_i += 1
+
+    vector_i = 0
+    while vector_i < len(vector_pairs) and vector_priority_used < GDB_VECTOR_TOP_K:
+        if _append(vector_pairs[vector_i], RETRIEVAL_SOURCE_RAG):
+            vector_priority_used += 1
+        vector_i += 1
+
+    while atlas_i < len(atlas_pairs) and slot <= GDB_MERGED_MAX_PAIRS:
+        if _append(atlas_pairs[atlas_i], RETRIEVAL_SOURCE_ATLAS):
+            atlas_backfill_used += 1
+        atlas_i += 1
+
+    while vector_i < len(vector_pairs) and slot <= GDB_MERGED_MAX_PAIRS:
+        if _append(vector_pairs[vector_i], RETRIEVAL_SOURCE_RAG):
+            vector_backfill_used += 1
+        vector_i += 1
+
+    log.info(
+        "merge: atlas_in=%d vector_in=%d priority(atlas=%d rag=%d) backfill(atlas=%d rag=%d) "
+        "dedup_skipped=%d total_pairs=%d",
+        len(atlas_pairs),
+        len(vector_pairs),
+        atlas_priority_used,
+        vector_priority_used,
+        atlas_backfill_used,
+        vector_backfill_used,
+        dedup_skipped,
+        len(similar_match),
+    )
+    return similar_match
 
 
 def _parse_sources(sources_raw, author_name) -> list[dict]:
@@ -493,15 +718,26 @@ async def gdb_search(
     domain: Optional[str] = None,
 ) -> str:
     """
-    Search the golden database directly using an optimized prioritized parallel execution strategy:
-    1. Fires strict exact matching, Atlas Search keyword matching, and semantic vector similarity search in parallel.
-    2. Enforces search priorities: strict exact search (1st priority), golden exact search (2nd priority), golden vector search (3rd priority).
-    3. Instantly short-circuits and cancels lower priority runs if a higher priority one returns valid results.
-    4. Returns a highly structured JSON response containing exact and similar matches with sources.
+    Search the golden database using parallel retrieval:
+    1. Strict exact (raw query), Atlas keyword (rephrased), and vector RAG (rephrased) run in parallel.
+    2. Strict exact short-circuits on hit (similarity_score=1).
+    3. Otherwise merge Atlas keyword + vector RAG: priority GDB_ATLAS_TOP_K + GDB_VECTOR_TOP_K,
+       dedupe by question_id, backfill up to GDB_MERGED_MAX_PAIRS unique pairs.
+    Each match includes question_id, similarity_score, and retrieval_source (atlas | rag) for audit.
     """
     crop = (crop or "").strip() or "all"
     state = (state or "").strip() or "all"
     rephrased = (rephrased_query or "").strip() or query
+
+    log.info(
+        "gdb_search start query=%r rephrased=%r crop=%s state=%s season=%s domain=%s",
+        _truncate_text(query, 80),
+        _truncate_text(rephrased, 80),
+        crop,
+        state,
+        season or "-",
+        domain or "-",
+    )
 
     response_data = {
         "original_query": query,
@@ -525,49 +761,64 @@ async def gdb_search(
 
     # 1. Await strict exact search (1st priority) - Uses EXACT raw query
     strict_results = await strict_task
+    log.info("gdb_search strict exact returned %d hit(s)", len(strict_results))
     if strict_results:
         exact_task.cancel()
         retriever_task.cancel()
-        print("GDB MCP: Found strict exact match. Short-circuiting lower priority searches.")
+        log.info("gdb_search: strict exact hit — cancelling atlas + vector tasks")
         pair = strict_results[0]
         response_data["exact_match"] = {
+            "question_id": pair.question_id or "",
+            "similarity_score": 1,
+            "retrieval_source": RETRIEVAL_SOURCE_STRICT_EXACT,
             "question": pair.question_text,
             "answer": pair.answer_text,
-            "details": _parse_sources(pair.sources, pair.author)
+            "details": _parse_sources(pair.sources, pair.author),
         }
+        log.info(
+            "gdb_search done path=strict_exact question_id=%s",
+            pair.question_id,
+        )
         return json.dumps(response_data)
 
-    # 2. Await keyword exact search (2nd priority) - Uses REPHRASED query
-    exact_results = await exact_task
-    if exact_results:
-        retriever_task.cancel()
-        print("GDB MCP: Strict exact search empty. Found keyword exact search match. Short-circuiting vector search.")
-        similar_match = {}
-        for idx, pair in enumerate(exact_results[:5], 1):
-            similar_match[f"similar_pair{idx}"] = {
-                "question": pair.question_text,
-                "answer": pair.answer_text,
-                "details": _parse_sources(pair.sources, pair.author)
-            }
+    # 2–3. Merge Atlas keyword (top 2) + vector RAG (top 3) when no strict exact
+    exact_out, retriever_out = await asyncio.gather(
+        exact_task, retriever_task, return_exceptions=True
+    )
+    if isinstance(exact_out, Exception):
+        log.warning("atlas keyword search failed: %s: %s", type(exact_out).__name__, exact_out)
+        exact_results: list = []
+    else:
+        exact_results = exact_out or []
+
+    if isinstance(retriever_out, Exception):
+        log.warning("vector search failed: %s: %s", type(retriever_out).__name__, retriever_out)
+        retriever_results: list = []
+    else:
+        retriever_results = retriever_out or []
+
+    log.info(
+        "gdb_search parallel done atlas_hits=%d vector_hits=%d (will merge top %d + %d)",
+        len(exact_results),
+        len(retriever_results),
+        GDB_ATLAS_TOP_K,
+        GDB_VECTOR_TOP_K,
+    )
+    similar_match = _build_merged_similar_match(exact_results or [], retriever_results or [])
+    if similar_match:
         response_data["similar_match"] = similar_match
+        log.info(
+            "gdb_search done path=merged_similar pairs=%d",
+            len(similar_match),
+        )
         return json.dumps(response_data)
 
-    # 3. Await semantic vector retriever (3rd priority) - Uses REPHRASED query
-    retriever_results = await retriever_task
-    if retriever_results:
-        print("GDB MCP: Exact and keyword search empty. Using vector retriever results.")
-        similar_match = {}
-        for idx, pair in enumerate(retriever_results[:5], 1):
-            similar_match[f"similar_pair{idx}"] = {
-                "question": pair.question_text,
-                "answer": pair.answer_text,
-                "details": _parse_sources(pair.sources, pair.author)
-            }
-        response_data["similar_match"] = similar_match
-        return json.dumps(response_data)
-
-    # 4. Fall back to empty structured JSON if all empty
-    print("GDB MCP: No matches found across any search priority.")
+    log.warning(
+        "gdb_search done path=empty (strict=%d atlas=%d vector=%d)",
+        len(strict_results),
+        len(exact_results or []),
+        len(retriever_results or []),
+    )
     return json.dumps(response_data)
 
 

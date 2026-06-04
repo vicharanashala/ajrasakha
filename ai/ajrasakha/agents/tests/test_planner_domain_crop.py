@@ -102,3 +102,27 @@ async def test_tool_flags_or_union_across_domains():
 def test_tool_flags_derived_from_domain():
     flags = apply_tool_flags_from_domain("Weather")
     assert flags == {"weather": True, "mandi": False, "soil": False, "schemes": False, "chemical_checker": False, "knowledge_base": False}
+
+
+@pytest.mark.asyncio
+async def test_crop_fallback_after_clarify_in_apply_domain_and_crop():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Plant Protection"],
+            rephrased_query="What is the problem with stubble burning?",
+            entities={"state": "Punjab"},
+        )
+    )
+    messages = [
+        HumanMessage(content="What is the problem with stubble burning?"),
+        AIMessage(content="Which crop are you growing?"),
+        HumanMessage(content="It does not matter."),
+    ]
+    out, _domain, crop_required = await _apply_domain_and_crop_async(
+        plan,
+        messages,
+        crop_prefilled=None,
+        config={},
+    )
+    assert crop_required is False
+    assert out["entities"]["crop"] == "all"

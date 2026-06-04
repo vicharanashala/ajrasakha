@@ -30,11 +30,9 @@ export async function checkDuplicateQuestionHelper(
       agri_specialist: item.source || "AGRI_EXPERT",
       referenceSource: "reviewer",
       score: item.score * 100,
-      id: item.id
-        ? new ObjectId(String(item.id))
-        : new ObjectId() // preserve the real reviewer question _id
-    })),
-    ...(questions.golden || []).map((item: any) => ({
+      id: new ObjectId(String(item.id)),
+    }))
+   /* ...(questions.golden || []).map((item: any) => ({
       question: item.question,
       answer: item.answer,
       agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
@@ -43,7 +41,7 @@ export async function checkDuplicateQuestionHelper(
       id: item.id
         ? new ObjectId(String(item.id))
         : new ObjectId()
-    })),
+    })),*/
   ];
 
   merged = Array.from(
