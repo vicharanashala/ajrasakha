@@ -33,6 +33,9 @@ export interface IUser {
   mobile?: string;
   university?: string;
   isVerified?: boolean;
+  /** The question currently assigned to this moderator for review.
+   *  Set by the moderator-queue cron; cleared when the moderator closes the question. */
+  assignedQuestionId?: ObjectId | string | null;
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -95,6 +98,11 @@ export interface IQuestion {
   saved_to_draft?: boolean;
   pae_review?: boolean;
   firstAllocationAt?: Date;
+  /** Moderator currently assigned to review this question.
+   *  Set by the cron; cleared when the question is closed. */
+  moderatorId?: ObjectId | string | null;
+  /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
+  moderatorAssignedAt?: Date | null;
   referenceQuestionDetails?: Array<{
     _id: ObjectId | string;
     duplicate: boolean;

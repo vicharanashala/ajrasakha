@@ -93,6 +93,10 @@ export class QuestionService {
       params.append("is_non_agri", "true");
     }
 
+    if (filter.moderatorId) {
+      params.append("moderatorId", filter.moderatorId);
+    }
+
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
     if (filter.states && filter.states.length > 0) {

@@ -322,6 +322,26 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 <span>{new Date(question.closedAt).toLocaleString()}</span>
               </div>
             )}
+
+          {/* Moderator assignment row — shown whenever moderatorId is set, regardless of question status */}
+          {question.assigned_moderator?.name &&
+            (currentUser.role === "moderator" || currentUser.role === "admin") && (
+              <div className="mt-3 flex items-center gap-2 p-2.5 rounded-lg border border-purple-200 bg-purple-50/60 dark:bg-purple-900/20 dark:border-purple-700/50">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-purple-500" />
+                  <span className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+                    Moderator
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground">•</span>
+                <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                  {question.assigned_moderator.name}
+                  <span className="ml-1.5 text-xs text-purple-500 dark:text-purple-400 font-normal">
+                    ({question.assigned_moderator.email})
+                  </span>
+                </span>
+              </div>
+            )}
         </div>
 
         {/* Created / Updated */}

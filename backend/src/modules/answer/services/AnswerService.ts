@@ -1912,7 +1912,8 @@ answer: ${updates.answer}`;
         session,
       );
 
-      // CLOSE QUESTION
+      // CLOSE QUESTION — keep moderatorId on the question for historical reference.
+      // Only clear it from the moderator's user document so the cron sees them as available.
       const questionEmbedding = await generateEmbedding(text);
 
       await this.questionRepo.updateQuestion(
@@ -1926,6 +1927,16 @@ answer: ${updates.answer}`;
         session,
         true,
       );
+
+      // Clear the question from the moderator's user document so the cron
+      // sees them as available immediately.
+      if (question.moderatorId) {
+        try {
+          await this.userRepo.clearAssignedQuestion(question.moderatorId.toString());
+        } catch (err: any) {
+          console.error('[ModeratorQueue] Failed to clear assignedQuestionId from moderator:', err?.message);
+        }
+      }
 
       // UPDATE ANSWER
       const answerEmbedding = await generateEmbedding(text);

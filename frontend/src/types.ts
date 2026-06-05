@@ -494,6 +494,8 @@ export interface IQuestionFullData {
     name: string;
     email: string;
   }
+  /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
+  assigned_moderator?: { name: string; email: string } | null;
   closedFinalAnswer?: {
     _id: string;
     questionId: string;
@@ -589,6 +591,8 @@ export interface IDetailedQuestion {
   referenceQuestionId?: string;
   referenceQuestion?: string
   referenceSource?: string;
+  /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
+  moderatorId?: string | null;
 }
 
 export interface IDetailedQuestionResponse {

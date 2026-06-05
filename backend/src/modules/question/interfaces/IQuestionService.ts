@@ -142,6 +142,7 @@ export interface IQuestionService {
   ): Promise<{
     question: IQuestion | null;
     approved_moderator: {name: string; email: string};
+    assigned_moderator: {name: string; email: string} | null;
   }>;
 
   /** Get expert’s allocated question page */
