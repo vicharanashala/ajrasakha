@@ -1179,13 +1179,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       } else {
         const isTimeBoundedQuestion =
           source === 'AJRASAKHA' || source === 'WHATSAPP';
-  let threadValidation
+        let threadValidation
         if (isTimeBoundedQuestion) {
-        /*  const threadValidation = await this.validateTimeBoundQuestionThread(
+         threadValidation = await this.validateTimeBoundQuestionThread(
             questionId,
             baseQuestion.threadId,
-          );*/
-           threadValidation={
+          );
+          /* threadValidation={
             reason:'',
 isValid: true,
 data: {
@@ -1294,7 +1294,7 @@ data: {
             }
         ]
     }
-}
+              }*/
           console.log("threadValidation ", threadValidation);
           if (!threadValidation.isValid) {
             console.log("Npt valid")
