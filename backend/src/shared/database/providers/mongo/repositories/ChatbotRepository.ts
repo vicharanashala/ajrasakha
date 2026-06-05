@@ -4682,8 +4682,8 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       const allUsers = await this.users.find(userFilter, {session}).toArray();
-      console.log('useres::',allUsers)
-      console.log('type of isverified:', isVerfied);
+      // console.log('useres::',allUsers)
+      // console.log('type of isverified:', isVerfied);
       // Merge
       const merged: UserDetailEntry[] = allUsers.map(u => ({
         userId: String(u._id),
