@@ -410,6 +410,7 @@ export class ChatbotController {
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
     const inactiveOnly = query.inactiveOnly === 'true';
     const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
+    const isVerified = query.isVerified === undefined ? true : query.isVerified === 'true';
     const activeTodayByProfile = query.activeTodayByProfile === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
@@ -428,6 +429,7 @@ export class ChatbotController {
       query.sortOrder,
       activeTodayByProfile,
       query.missingDemographicField,
+      isVerified,
     );
   }
 

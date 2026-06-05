@@ -4257,6 +4257,7 @@ export class ChatbotRepository implements IChatbotRepository {
     lowFeedbackOnly = false,
     activeTodayByProfile = false,
     missingDemographicField = '',
+    isVerfied = true,
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -4297,7 +4298,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
       };
-
+      userFilter.isVerified = isVerfied;
       if (activeTodayByProfile) {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
@@ -4371,7 +4372,8 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       const allUsers = await this.users.find(userFilter, {session}).toArray();
-
+      console.log('useres::',allUsers)
+      console.log('type of isverified:', isVerfied);
       // Merge
       const merged: UserDetailEntry[] = allUsers.map(u => ({
         userId: String(u._id),
@@ -4381,6 +4383,7 @@ export class ChatbotRepository implements IChatbotRepository {
         userRole: u.userRole || '',
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         createdAt: u.createdAt,
+        isVerified: u.isVerified,
         farmerProfile: u.farmerProfile
           ? // {
             //     farmerName: u.farmerProfile.farmerName,
@@ -9224,7 +9227,6 @@ export class ChatbotRepository implements IChatbotRepository {
           createdAt: user.createdAt,
         }),
       );
-      console.log('useres::',users)
       const totalUsers = result[0]?.meta[0]?.totalUsers || 0;
 
       return {

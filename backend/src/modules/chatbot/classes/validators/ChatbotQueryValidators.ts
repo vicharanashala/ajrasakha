@@ -196,4 +196,9 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsString()
   missingDemographicField?: string;
+
+   @JSONSchema({ example: 'true', description: 'If true, return only users who are verified' })
+  @IsOptional()
+  @IsString()
+  isVerified?: string;
 }

@@ -19,13 +19,7 @@ export const useVerifyUserAnalytics = () => {
     onSuccess: () => {
       // Refresh unverified users list
       queryClient.invalidateQueries({
-        queryKey: ["unverified_users"],
-        exact: false,
-      });
-
-      // Refresh admin users list
-      queryClient.invalidateQueries({
-        queryKey: ["admin"],
+        queryKey: ["user-details"],
         exact: false,
       });
     },

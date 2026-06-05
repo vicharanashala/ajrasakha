@@ -177,6 +177,7 @@ export interface UserDetailEntry {
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
+  isVerified?: boolean;
 }
 
 export interface PaginatedUserDetails { 
@@ -376,6 +377,7 @@ export interface IChatbotRepository {
     lowFeedbackOnly?: boolean,
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
+    isVerified?: boolean,
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
