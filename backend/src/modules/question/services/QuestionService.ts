@@ -1313,28 +1313,46 @@ export class QuestionService extends BaseService implements IQuestionService {
   private async validateTimeBoundQuestionThread(
     questionId: string,
     threadId?: string,
-  ): Promise<{isValid: boolean; reason?: string,data?:any}> {
+  ): Promise<{isValid: boolean; reason?: string; data?: any}> {
     if (!threadId?.trim()) {
       return {isValid: false, reason: 'THREAD_ID_MISSING'};
     }
 
-    try {
-      const matchedQuestion = await this.getMatchedQuestion(questionId);
-      if (!matchedQuestion) {
-        return {isValid: false, reason: 'MATCHED_QUESTION_EMPTY'};
+    // Retry with backoff — the external thread system may not have the data
+    // ready immediately after question creation (race between add and processing).
+    const retryDelaysMs = [3000, 6000, 12000];
+    let lastError: any;
+
+    for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
+      if (attempt > 0) {
+        const delay = retryDelaysMs[attempt - 1];
+        console.log(
+          `[validateTimeBoundQuestionThread] Retry ${attempt}/${retryDelaysMs.length} for questionId=${questionId} after ${delay}ms`,
+        );
+        await new Promise<void>(resolve => setTimeout(resolve, delay));
       }
 
-      return {isValid: true,data:matchedQuestion};
-    } catch (error: any) {
-      console.error(
-        `[validateTimeBoundQuestionThread] Failed for questionId=${questionId}:`,
-        error?.message,
-      );
-      return {
-        isValid: false,
-        reason: error?.message || 'MATCHED_QUESTION_FAILED',
-      };
+      try {
+        const matchedQuestion = await this.getMatchedQuestion(questionId);
+        if (matchedQuestion) {
+          return {isValid: true, data: matchedQuestion};
+        }
+      } catch (error: any) {
+        lastError = error;
+        console.warn(
+          `[validateTimeBoundQuestionThread] Attempt ${attempt + 1}/${retryDelaysMs.length + 1} failed for questionId=${questionId}: ${error?.message}`,
+        );
+      }
     }
+
+    console.error(
+      `[validateTimeBoundQuestionThread] All attempts exhausted for questionId=${questionId}:`,
+      lastError?.message,
+    );
+    return {
+      isValid: true,
+      reason: lastError?.message || 'MATCHED_QUESTION_FAILED',
+    };
   }
 
   async getQuestionDataById(questionId: string): Promise<IQuestion | null> {
