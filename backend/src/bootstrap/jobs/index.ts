@@ -5,7 +5,7 @@ import './dailyReport.js'
 // import './absentCron.js'
 import './reAllocateCron.js'
 import './timeBoundReAllocateCron.js'
-//import './embeddingBackfill.js'
+import './embeddingBackfill.js'
 export const initJobs = () => {
   console.log('[CRON] Jobs initialized.');
 };
