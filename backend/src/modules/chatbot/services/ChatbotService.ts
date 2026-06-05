@@ -1,5 +1,5 @@
 import {injectable, inject} from 'inversify';
-import {InternalServerError, BadRequestError} from 'routing-controllers';
+import {InternalServerError, BadRequestError, NotFoundError} from 'routing-controllers';
 import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
@@ -10,6 +10,7 @@ import type {
   ChatbotConversationData,
   WeatherConcernAnalyticsFilters,
   PaginatedUserDetails,
+  UnverifiedUserEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -20,7 +21,6 @@ import {
   getDateRange,
   mapToSeries,
 } from '../utils/chatbot.utils.js';
-import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 
 import PDFDocument from 'pdfkit';
 import {WhatsappUsers} from '#root/utils/dummyWhatsAppUsers.js';
@@ -37,8 +37,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotRepository)
     private readonly chatbotRepository: IChatbotRepository,
-    @inject(GLOBAL_TYPES.UserRepository)
-    private readonly userRepository: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
     @inject(WHATSAPP_TYPES.WhatsAppService)
@@ -2587,6 +2585,60 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
     }catch(error){
       throw new InternalServerError(`Failed to fetch users metrics: ${error}`);
+    }
+  }
+
+  async getAllUnverifiedUsers(
+    page: number = 1,
+    limit: number = 10,
+    search: string = '',
+    source : string = 'vicharanashala',
+  ): Promise<{
+    users: UnverifiedUserEntry[];
+    totalUsers: number;
+    totalPages: number;
+  }> {
+    try {
+      // Fetch unverified users using the dedicated repository method
+      const data = await this.chatbotRepository.findUnverifiedUsers(
+        page,
+        limit,
+        search,
+        source
+      );
+      return {
+        users: data.users,
+        totalUsers: data.totalUsers,
+        totalPages: data.totalPages,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch unverified users: ${error}`);
+    }
+  }
+
+  async verifyUser(
+    userId: string,
+    source = 'vicharanashala',
+  ): Promise<any> {
+    try {
+      if (!userId) {
+        throw new NotFoundError('User ID is required');
+      }
+
+      const updatedUser = await this.chatbotRepository.verifyUser(
+        userId,
+        source,
+      );
+
+      if (!updatedUser) {
+        throw new NotFoundError(`User not found`);
+      }
+      return updatedUser;
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to verify user with ID ${userId}: ${error}`,
+      );
     }
   }
 }

@@ -28,6 +28,7 @@ import type {
   DistrictAnalyticsEntry,
   FeedbackData,
   ResponseAdherenceTable,
+  UnverifiedUserEntry,
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
@@ -41,10 +42,13 @@ import crypto from 'crypto';
 interface IUser {
   _id?: any;
   name?: string;
+  firstName?: string;
+  lastName?: string;
   username?: string;
   email?: string;
   role?: string;
   userRole?: string;
+  isVerified?: boolean;
   createdAt: Date;
   updatedAt: Date;
   farmerProfile?: {
@@ -9109,6 +9113,111 @@ export class ChatbotRepository implements IChatbotRepository {
       return { repeatQueryCount, repeatQueryRatePct, avgQuestionsPerUserDay: Math.round(avgQuestionsPerUserDay * 100) / 100 };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch repeat query count: ${error}`);
+    }
+  }
+
+  async verifyUser(
+    userId: string,
+    source = 'vicharanashala',
+  ): Promise<any> {
+    try {
+      await this.init(source);
+
+      return await this.users.findOneAndUpdate(
+        {_id: new ObjectId(userId)},
+        {
+          $set: {
+            isVerified: true,
+            updatedAt: new Date(),
+          },
+        },
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to verify user: ${error}`);
+    }
+  }
+
+   async findUnverifiedUsers(
+    page: number,
+    limit: number,
+    search: string,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<{
+    users: UnverifiedUserEntry[];
+    totalUsers: number;
+    totalPages: number;
+  }> {
+    await this.init(source='vicharanashala');
+
+    try {
+      const skip = (page - 1) * limit;
+
+      const matchQuery: any = {
+        isVerified: false,
+      };
+
+      if (search) {
+        matchQuery.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { username: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+        ];
+      }
+
+      const result = await this.users
+        .aggregate([
+          { $match: matchQuery },
+          {
+            $facet: {
+              users: [
+                { $sort: { createdAt: -1 } },
+                { $skip: skip },
+                { $limit: limit },
+                {
+                  $project: {
+                    _id: 1,
+                    name: 1,
+                    username: 1,
+                    email: 1,
+                    createdAt: 1,
+                    role: 1,
+                  },
+                },
+              ],
+              meta: [{ $count: 'totalUsers' }],
+            },
+          },
+        ], { session })
+        .toArray();
+
+      const users: UnverifiedUserEntry[] = (result[0]?.users || []).map(
+        (user: {
+          _id: ObjectId | string;
+          name?: string;
+          username?: string;
+          email?: string;
+          role?: string;
+          createdAt?: Date;
+        }) => ({
+          _id: user._id.toString(),
+          name: user.name ?? '',
+          username: user.username ?? '',
+          email: user.email ?? '',
+          role: user.role ?? '',
+          createdAt: user.createdAt,
+        }),
+      );
+      console.log('useres::',users)
+      const totalUsers = result[0]?.meta[0]?.totalUsers || 0;
+
+      return {
+        users,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+      };
+    } catch (error) {
+      throw new InternalServerError('Failed to fetch unverified users');
     }
   }
 

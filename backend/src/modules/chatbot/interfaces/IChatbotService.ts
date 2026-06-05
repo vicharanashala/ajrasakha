@@ -17,6 +17,7 @@ import type {
   ResponseAdherenceTable,
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
+  UnverifiedUserEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -171,4 +172,15 @@ export interface IChatbotService {
     ) : Promise<any>;
   getTopQuestionsFromCollection(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
+  getAllUnverifiedUsers(
+    page?: number,
+    limit?: number,
+    search?: string,
+    source?: string,
+  ): Promise<{
+    users: UnverifiedUserEntry[];
+    totalUsers: number;
+    totalPages: number;
+  }>;
+  verifyUser(userId: string, source?: string): Promise<any>;
 }
