@@ -6,7 +6,7 @@ import json
 
 from langchain_core.messages import HumanMessage, ToolMessage
 
-from ajrasakha.agents.plan_executor import route_after_sanitizer
+from ajrasakha.agents.plan_executor import route_after_execute
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.answer_footers import collect_all_sources
 from ajrasakha.agents.state import AjraSakhaState
@@ -75,7 +75,7 @@ def testcollect_all_sources_only_for_pairs_with_answers():
     assert block.count("📚 Source") == 1
 
 
-def test_route_after_sanitizer_empty_when_all_answers_dropped():
+def test_route_after_execute_empty_when_all_answers_dropped():
     state: AjraSakhaState = {
         "messages": [
             HumanMessage(content="Crop advice?"),
@@ -87,11 +87,11 @@ def test_route_after_sanitizer_empty_when_all_answers_dropped():
         ],
         "plan": {"knowledge_base": True},
     }
-    assert route_after_sanitizer(state) == "empty_gdb_reply"
+    assert route_after_execute(state) == "empty_gdb_reply"
 
 
-def test_route_after_sanitizer_synthesize_when_weather_tool_has_content():
-    """Empty GDB after sanitizer + weather answer → synthesize from specialist tools."""
+def test_route_after_execute_synthesize_when_weather_tool_has_content():
+    """Empty GDB + weather answer → synthesize from specialist tools."""
     state: AjraSakhaState = {
         "messages": [
             HumanMessage(content="Weather and crop?"),
@@ -104,4 +104,4 @@ def test_route_after_sanitizer_synthesize_when_weather_tool_has_content():
         ],
         "plan": {"knowledge_base": True, "weather": True},
     }
-    assert route_after_sanitizer(state) == "synthesize"
+    assert route_after_execute(state) == "synthesize"

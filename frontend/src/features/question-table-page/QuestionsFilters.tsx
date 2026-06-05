@@ -804,7 +804,7 @@ export const QuestionsFilters = ({
           </Tooltip>
         </TooltipProvider>
 
-        {userRole !== "expert" && (
+        {userRole !== "expert" && userRole !== "tester" && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -826,7 +826,7 @@ export const QuestionsFilters = ({
         {isSelectionModeOn && (
           <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
             {/* Allocate to PAE */}
-            {userRole !== "expert" && answerMode.toLowerCase() === "draft" && (
+            {userRole !== "expert" && userRole !== "tester" && answerMode.toLowerCase() === "draft" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -844,7 +844,7 @@ export const QuestionsFilters = ({
             )}
 
             {/* Allocate to EXPERTS */}
-            {userRole !== "expert" && answerMode.toLowerCase() !== "draft" && (
+            {userRole !== "expert" && userRole !== "tester" && answerMode.toLowerCase() !== "draft" && (
               <div className="relative inline-block">
                 <Button
                   variant="outline"
@@ -858,8 +858,8 @@ export const QuestionsFilters = ({
                     setIsReAllocateSelectedQuestionsOpen(true);
                   }}
                   className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled
-                      ? "cursor-not-allowed text-green-600"
-                      : ""
+                    ? "cursor-not-allowed text-green-600"
+                    : ""
                     }`}
                 >
                   <UserCheck className="h-4 w-4" />
@@ -880,32 +880,34 @@ export const QuestionsFilters = ({
             )}
 
             {/* Bulk delete with count */}
-            <ConfirmationModal
-              title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${selectedQuestionIds.length
-                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
-                }? This action is irreversible.`}
-              confirmText="Delete"
-              cancelText="Cancel"
-              isLoading={bulkDeletingQuestions}
-              type="delete"
-              onConfirm={handleBulkDelete}
-              trigger={
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={
-                    selectedQuestionIds.length === 0 || bulkDeletingQuestions
-                  }
-                  className="flex items-center gap-2 transition-all"
-                >
-                  <Trash className="h-4 w-4" />
-                  {bulkDeletingQuestions
-                    ? `Deleting (${selectedQuestionIds.length})...`
-                    : `Delete (${selectedQuestionIds.length})`}
-                </Button>
-              }
-            />
+            {userRole !== "tester" && (
+              <ConfirmationModal
+                title="Delete Selected Questions?"
+                description={`Are you sure you want to delete ${selectedQuestionIds.length
+                  } selected question${selectedQuestionIds.length > 1 ? "s" : ""
+                  }? This action is irreversible.`}
+                confirmText="Delete"
+                cancelText="Cancel"
+                isLoading={bulkDeletingQuestions}
+                type="delete"
+                onConfirm={handleBulkDelete}
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={
+                      selectedQuestionIds.length === 0 || bulkDeletingQuestions
+                    }
+                    className="flex items-center gap-2 transition-all"
+                  >
+                    <Trash className="h-4 w-4" />
+                    {bulkDeletingQuestions
+                      ? `Deleting (${selectedQuestionIds.length})...`
+                      : `Delete (${selectedQuestionIds.length})`}
+                  </Button>
+                }
+              />
+            )}
 
             {/* Cancel selection */}
             <Button
@@ -1072,7 +1074,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* WhatsApp History */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== 'tester' && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative"
                   onClick={() => {
@@ -1100,7 +1102,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* update crops */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1154,7 +1156,7 @@ export const QuestionsFilters = ({
               )} */}
 
               {/* reallocate */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <button
                   className="relative w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1190,7 +1192,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* send outreach rport */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
               {/* preferences */}
@@ -1210,7 +1212,7 @@ export const QuestionsFilters = ({
           </section>
 
           {/* Section: Download Reports */}
-          {userRole !== "expert" && (
+          {userRole !== "expert" && userRole !== 'tester' && (
             <section>
               <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                 Download Reports
@@ -1346,8 +1348,8 @@ export const QuestionsFilters = ({
           }
         }}
         className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
-            ? "rounded-[16px] px-4 py-3 min-w-[220px]"
-            : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
+          ? "rounded-[16px] px-4 py-3 min-w-[220px]"
+          : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
           } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
           left: `${safeX}px`,
@@ -1379,8 +1381,8 @@ export const QuestionsFilters = ({
         {/* Expanded status breakdown */}
         <div
           className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
-              ? "grid-rows-[1fr] opacity-100"
-              : "grid-rows-[0fr] opacity-0"
+            ? "grid-rows-[1fr] opacity-100"
+            : "grid-rows-[0fr] opacity-0"
             }`}
         >
           <div className="overflow-hidden">

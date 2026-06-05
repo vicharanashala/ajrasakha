@@ -1,4 +1,4 @@
-import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {
   IAnswer,
   IContext,
@@ -9,19 +9,25 @@ import {
   QuestionStatus,
   IReroute,
   ISimilarQuestion,
-  ICheckStatusResponse
+  ICheckStatusResponse,
 } from '#root/shared/interfaces/models.js';
-import { GLOBAL_TYPES } from '#root/types.js';
-import { inject } from 'inversify';
-import { ClientSession, Collection, ObjectId } from 'mongodb';
-import { MongoDatabase } from '../MongoDatabase.js';
-import { isValidObjectId } from '#root/utils/isValidObjectId.js';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {inject} from 'inversify';
+import {ClientSession, Collection, ObjectId} from 'mongodb';
+import {MongoDatabase} from '../MongoDatabase.js';
+import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {
   BadRequestError,
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import { detailsArray, dummyEmbeddings, priorities, questionStatus, sources } from '#root/modules/question/utils/questionGen.js';
+import {
+  detailsArray,
+  dummyEmbeddings,
+  priorities,
+  questionStatus,
+  sources,
+} from '#root/modules/question/utils/questionGen.js';
 import {
   Analytics,
   AnalyticsItem,
@@ -33,20 +39,20 @@ import {
   QuestionStateBreakdownBySource,
   QuestionStatusOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
-import { getReviewerQueuePosition } from '#root/utils/getReviewerQueuePosition.js';
+import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
 import {
   QuestionLevelResponse,
   ReviewLevelTimeValue,
 } from '#root/modules/question/classes/transformers/QuestionLevel.js';
-import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
+import {buildQuestionFilter} from '#root/utils/buildQuestionFilter.js';
 import {
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
-import { buildReviewTimeline } from '#root/utils/buildReviewTat.js';
-import { getShiftFilter } from '#root/utils/date.utils.js';
+import {buildReviewTimeline} from '#root/utils/buildReviewTat.js';
+import {getShiftFilter} from '#root/utils/date.utils.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -66,7 +72,7 @@ export class QuestionRepository implements IQuestionRepository {
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
-  ) { }
+  ) {}
 
   private async init() {
     this.ContextCollection = await this.db.getCollection<IContext>('contexts');
@@ -85,7 +91,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   private async ensureIndexes() {
     try {
-      await this.QuestionCollection.createIndex({ status: 1, createdAt: 1 });
+      await this.QuestionCollection.createIndex({status: 1, createdAt: 1});
     } catch (error) {
       console.error('Failed to create index:', error);
     }
@@ -102,7 +108,7 @@ export class QuestionRepository implements IQuestionRepository {
     contextId: string,
     questions: string[],
     session?: ClientSession,
-  ): Promise<{ insertedCount: number }> {
+  ): Promise<{insertedCount: number}> {
     try {
       await this.init();
 
@@ -146,7 +152,7 @@ export class QuestionRepository implements IQuestionRepository {
         session,
       });
 
-      return { insertedCount: result.insertedCount };
+      return {insertedCount: result.insertedCount};
     } catch (error) {
       throw new InternalServerError(
         `Error while adding questions, More/ ${error}`,
@@ -201,7 +207,7 @@ export class QuestionRepository implements IQuestionRepository {
         session,
       });
 
-      return { ...newQuestion, _id: result.insertedId };
+      return {...newQuestion, _id: result.insertedId};
     } catch (error) {
       throw new InternalServerError(`Error while adding question: ${error}`);
     }
@@ -215,9 +221,9 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       if (!question._id) question._id = new ObjectId();
 
-      await this.QuestionCollection.insertOne(question, { session });
+      await this.QuestionCollection.insertOne(question, {session});
 
-      return { ...question, _id: question._id.toString() };
+      return {...question, _id: question._id.toString()};
     } catch (error) {
       throw new InternalServerError(`Failed to add question ${error}`);
     }
@@ -238,7 +244,7 @@ export class QuestionRepository implements IQuestionRepository {
         {
           context: new ObjectId(contextId),
         },
-        { session },
+        {session},
       ).toArray();
 
       const formattedQuestions: IQuestion[] = questions.map(q => ({
@@ -268,7 +274,7 @@ export class QuestionRepository implements IQuestionRepository {
         {
           _id: new ObjectId(questionId),
         },
-        { session },
+        {session},
       );
 
       if (!question)
@@ -288,17 +294,18 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   async findDetailedQuestions(
-    query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
+    query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
     body?: DetailedQuestionsBodyDto,
-  ): Promise<{ questions: IQuestion[]; totalPages: number; totalCount: number }> {
+  ): Promise<{questions: IQuestion[]; totalPages: number; totalCount: number}> {
     try {
       await this.init();
-      const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapeRegex = (str: string) =>
+        str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const caseInsensitiveStringFilter = (field: string, value?: string) => {
         if (value && value !== 'all') {
           const escapedValue = escapeRegex(value);
           // filter[field] = {$regex: `^${value}$`, $options: 'i'};
-          filter[field] = { $regex: `^${escapedValue}$`, $options: 'i' };
+          filter[field] = {$regex: `^${escapedValue}$`, $options: 'i'};
         }
       };
 
@@ -332,7 +339,7 @@ export class QuestionRepository implements IQuestionRepository {
         isOnHold,
         unallocatedQuestions,
         pae_review,
-        is_non_agri
+        is_non_agri,
       } = query;
       //  const filter: any = {};
       const filter: any = {
@@ -341,55 +348,70 @@ export class QuestionRepository implements IQuestionRepository {
         isTesting:{$ne:true},
       };
       if (pae_review) {
-        filter.pae_review = { $eq: true };
+        filter.pae_review = {$eq: true};
       }
       if (!pae_review) {
         filter.$or = [
-          { pae_review: { $eq: false } },
-          { pae_review: { $exists: false } }
+          {pae_review: {$eq: false}},
+          {pae_review: {$exists: false}},
         ];
       }
 
       // --- Hidden question filter ---
       if (hiddenQuestions === 'true' || status === 'pass') {
-        filter.isHidden = { $eq: true }; // filter by hidden questions
+        filter.isHidden = {$eq: true}; // filter by hidden questions
       }
 
       // --- on Hold question filter ---
-      if (isOnHold === 'true') filter.isOnHold = { $eq: true }; // filter by on hold questions
+      if (isOnHold === 'true') filter.isOnHold = {$eq: true}; // filter by on hold questions
 
       // --- Unallocated questions filter ---
       // Single aggregation: join questions (open/delayed) with question_submissions,
       // then match: no submission, OR empty queue, OR last history status != 'in-review' with non-empty queue
       if (unallocatedQuestions === 'true') {
         const unallocatedDocs = await this.QuestionCollection.aggregate([
-          { $match: { status: { $in: ['open', 'delayed'] } } },
+          {$match: {status: {$in: ['open', 'delayed']}}},
           {
             $lookup: {
               from: 'question_submissions',
-              let: { qId: '$_id' },
+              let: {qId: '$_id'},
               pipeline: [
-                { $match: { $expr: { $eq: ['$questionId', '$$qId'] } } },
-                { $project: { queue: 1, history: 1 } },
+                {$match: {$expr: {$eq: ['$questionId', '$$qId']}}},
+                {$project: {queue: 1, history: 1}},
               ],
               as: 'sub',
             },
           },
-          { $addFields: { sub: { $arrayElemAt: ['$sub', 0] } } },
+          {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
           {
             $match: {
               $or: [
                 // No submission OR empty queue
-                { $expr: { $eq: [{ $size: { $ifNull: ['$sub.queue', []] } }, 0] } },
+                {$expr: {$eq: [{$size: {$ifNull: ['$sub.queue', []]}}, 0]}},
                 // Queue not empty + history not empty + last history status != 'in-review'
                 {
                   $and: [
-                    { $expr: { $gt: [{ $size: { $ifNull: ['$sub.queue', []] } }, 0] } },
-                    { $expr: { $gt: [{ $size: { $ifNull: ['$sub.history', []] } }, 0] } },
+                    {$expr: {$gt: [{$size: {$ifNull: ['$sub.queue', []]}}, 0]}},
+                    {
+                      $expr: {
+                        $gt: [{$size: {$ifNull: ['$sub.history', []]}}, 0],
+                      },
+                    },
                     {
                       $expr: {
                         $ne: [
-                          { $arrayElemAt: [{ $map: { input: { $ifNull: ['$sub.history', []] }, as: 'h', in: '$$h.status' } }, -1] },
+                          {
+                            $arrayElemAt: [
+                              {
+                                $map: {
+                                  input: {$ifNull: ['$sub.history', []]},
+                                  as: 'h',
+                                  in: '$$h.status',
+                                },
+                              },
+                              -1,
+                            ],
+                          },
                           'in-review',
                         ],
                       },
@@ -399,10 +421,10 @@ export class QuestionRepository implements IQuestionRepository {
               ],
             },
           },
-          { $project: { _id: 1 } },
+          {$project: {_id: 1}},
         ]).toArray();
 
-        filter._id = { $in: unallocatedDocs.map((d) => d._id) };
+        filter._id = {$in: unallocatedDocs.map(d => d._id)};
       }
 
       //for duplicate questions.
@@ -411,7 +433,8 @@ export class QuestionRepository implements IQuestionRepository {
       //       :
 
       // --- setting the collection with respect to the duplicate questions filter ---
-      const questionsCollection = this.QuestionCollection as Collection<IQuestion>;
+      const questionsCollection = this
+        .QuestionCollection as Collection<IQuestion>;
 
       // --- Auto Allocate Filter ---
       if (autoAllocateFilter && autoAllocateFilter !== 'all') {
@@ -421,7 +444,6 @@ export class QuestionRepository implements IQuestionRepository {
           filter.isAutoAllocate = false;
         }
       }
-
 
       // --- Filters ---
 
@@ -436,18 +458,23 @@ export class QuestionRepository implements IQuestionRepository {
       if (is_non_agri === 'true' || is_non_agri === true) {
         filter.status = 'non_agri';
       } else if (filter.status === undefined) {
-        filter.status = { $ne: 'non_agri' };
+        filter.status = {$ne: 'non_agri'};
       }
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
-        filter['details.state'] = { $in: body.states };
+        filter['details.state'] = {$in: body.states};
       }
       if (crop && crop.length > 0) {
-        const validCrops = crop.filter((c) => c && c !== 'all');
+        const validCrops = crop.filter(c => c && c !== 'all');
         if (validCrops.length === 1) {
-          filter['details.crop'] = { $regex: `^${escapeRegex(validCrops[0])}$`, $options: 'i' };
+          filter['details.crop'] = {
+            $regex: `^${escapeRegex(validCrops[0])}$`,
+            $options: 'i',
+          };
         } else if (validCrops.length > 1) {
-          filter['details.crop'] = { $in: validCrops.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')) };
+          filter['details.crop'] = {
+            $in: validCrops.map(c => new RegExp(`^${escapeRegex(c)}$`, 'i')),
+          };
         }
       }
       caseInsensitiveStringFilter('details.domain', domain);
@@ -455,20 +482,20 @@ export class QuestionRepository implements IQuestionRepository {
       // --- Normalized Crop Filter (from body array) ---
       if (body?.normalisedCrops && body.normalisedCrops.length > 0) {
         const hasNotSet = body.normalisedCrops.includes('__NOT_SET__');
-        const realCrops = body.normalisedCrops.filter((c) => c !== '__NOT_SET__');
+        const realCrops = body.normalisedCrops.filter(c => c !== '__NOT_SET__');
         if (!hasNotSet) {
-          filter['details.normalised_crop'] = { $in: realCrops };
+          filter['details.normalised_crop'] = {$in: realCrops};
         } else {
           const orConditions: any[] = [
-            { 'details.normalised_crop': { $exists: false } },
-            { 'details.normalised_crop': null },
-            { 'details.normalised_crop': '' },
+            {'details.normalised_crop': {$exists: false}},
+            {'details.normalised_crop': null},
+            {'details.normalised_crop': ''},
           ];
           if (realCrops.length > 0) {
-            orConditions.push({ 'details.normalised_crop': { $in: realCrops } });
+            orConditions.push({'details.normalised_crop': {$in: realCrops}});
           }
           if (!filter.$and) filter.$and = [];
-          filter.$and.push({ $or: orConditions });
+          filter.$and.push({$or: orConditions});
         }
       }
       const approvalCount =
@@ -478,64 +505,64 @@ export class QuestionRepository implements IQuestionRepository {
       // --- Consecutive Approvals Filter ---
       if (approvalCount !== null && !isNaN(approvalCount)) {
         // Only exclude closed questions for consecutive approvals
-        filter.status = { $not: { $regex: '^closed$', $options: 'i' } };
+        filter.status = {$not: {$regex: '^closed$', $options: 'i'}};
 
-        const answers = await this.AnswersCollection.aggregate([
-          {
-            $group: {
-              _id: "$questionId",
-              latestCreatedAt: { $max: "$createdAt" }
-            }
-          },
-          {
-            $lookup: {
-              from: "answers",
-              let: { qId: "$_id", created: "$latestCreatedAt" },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [
-                        { $eq: ["$questionId", "$$qId"] },
-                        { $eq: ["$createdAt", "$$created"] }
-                      ]
-                    }
-                  }
-                },
-                {
-                  $project: {
-                    _id: 1,
-                    questionId: 1,
-                    approvalCount: 1,
-                    createdAt: 1
-                  }
-                }
-              ],
-              as: "latestAnswer"
-            }
-          },
-          { $unwind: "$latestAnswer" },
+        const answers = await this.AnswersCollection.aggregate(
+          [
+            {
+              $group: {
+                _id: '$questionId',
+                latestCreatedAt: {$max: '$createdAt'},
+              },
+            },
+            {
+              $lookup: {
+                from: 'answers',
+                let: {qId: '$_id', created: '$latestCreatedAt'},
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          {$eq: ['$questionId', '$$qId']},
+                          {$eq: ['$createdAt', '$$created']},
+                        ],
+                      },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 1,
+                      questionId: 1,
+                      approvalCount: 1,
+                      createdAt: 1,
+                    },
+                  },
+                ],
+                as: 'latestAnswer',
+              },
+            },
+            {$unwind: '$latestAnswer'},
 
-          {
-            $match: {
-              "latestAnswer.approvalCount": approvalCount
-            }
-          },
+            {
+              $match: {
+                'latestAnswer.approvalCount': approvalCount,
+              },
+            },
 
-          {
-            $project: {
-              questionId: "$_id"
-            }
-          }
-        ], { allowDiskUse: true }).toArray();
+            {
+              $project: {
+                questionId: '$_id',
+              },
+            },
+          ],
+          {allowDiskUse: true},
+        ).toArray();
 
-
-        const approvalFilteredIds = answers.map(a =>
-          a.questionId.toString(),
-        );
+        const approvalFilteredIds = answers.map(a => a.questionId.toString());
 
         if (approvalFilteredIds.length === 0) {
-          return { questions: [], totalPages: 0, totalCount: 0 };
+          return {questions: [], totalPages: 0, totalCount: 0};
         }
 
         // Intersect with existing _id filter if present
@@ -553,7 +580,6 @@ export class QuestionRepository implements IQuestionRepository {
           };
         }
       }
-
 
       if (answersCountMin !== undefined || answersCountMax !== undefined) {
         filter.totalAnswersCount = {};
@@ -599,7 +625,7 @@ export class QuestionRepository implements IQuestionRepository {
             break;
         }
 
-        if (startDate) filter.createdAt = { $gte: startDate };
+        if (startDate) filter.createdAt = {$gte: startDate};
       } else if (closedAtEnd || closedAtStart) {
         const filterDate: any = {};
 
@@ -619,7 +645,7 @@ export class QuestionRepository implements IQuestionRepository {
         filter.status = 'closed';
         filter.$expr = {
           $lte: [
-            { $subtract: ['$closedAt', '$createdAt'] },
+            {$subtract: ['$closedAt', '$createdAt']},
             2 * 60 * 60 * 1000, // 2 hours in milliseconds
           ],
         };
@@ -630,16 +656,16 @@ export class QuestionRepository implements IQuestionRepository {
         const submissions = await this.QuestionSubmissionCollection.find({
           'history.updatedBy': new ObjectId(user),
         })
-          .project({ questionId: 1 })
+          .project({questionId: 1})
           .toArray();
 
         questionIdsByUser = submissions.map(s => s.questionId.toString());
 
         if (questionIdsByUser.length === 0) {
-          return { questions: [], totalPages: 0, totalCount: 0 };
+          return {questions: [], totalPages: 0, totalCount: 0};
         }
 
-        filter._id = { $in: questionIdsByUser.map(id => new ObjectId(id)) };
+        filter._id = {$in: questionIdsByUser.map(id => new ObjectId(id))};
       }
       // --- review_level filter (Level 1–9) ---
       // --- review_level filter ---
@@ -656,14 +682,16 @@ export class QuestionRepository implements IQuestionRepository {
             requiredSize = 0;
           }
 
-          const submissionQuery: any = { history: { $size: requiredSize } };
+          const submissionQuery: any = {history: {$size: requiredSize}};
           // For levels > 0, only include submissions where the current level is still in-review
           if (numericLevel > 0) {
             submissionQuery[`history.${numericLevel}.status`] = 'in-review';
           }
 
-          const submissions = await this.QuestionSubmissionCollection.find(submissionQuery)
-            .project({ questionId: 1 })
+          const submissions = await this.QuestionSubmissionCollection.find(
+            submissionQuery,
+          )
+            .project({questionId: 1})
             .toArray();
 
           const levelFilteredIds = submissions.map(s =>
@@ -671,7 +699,7 @@ export class QuestionRepository implements IQuestionRepository {
           );
 
           if (levelFilteredIds.length === 0) {
-            return { questions: [], totalPages: 0, totalCount: 0 };
+            return {questions: [], totalPages: 0, totalCount: 0};
           }
 
           if (filter._id) {
@@ -681,7 +709,7 @@ export class QuestionRepository implements IQuestionRepository {
                 .filter(id => filter._id.$in.some((u: any) => u.equals(id))),
             };
           } else {
-            filter._id = { $in: levelFilteredIds.map(id => new ObjectId(id)) };
+            filter._id = {$in: levelFilteredIds.map(id => new ObjectId(id))};
           }
         }
       }
@@ -710,18 +738,19 @@ export class QuestionRepository implements IQuestionRepository {
               limit,
             },
           },
-          { $match: filter },
-          { $count: 'count' },
+          {$match: filter},
+          {$count: 'count'},
         ];
 
-        const countResult =
-          await questionsCollection.aggregate(countPipeline).toArray();
+        const countResult = await questionsCollection
+          .aggregate(countPipeline)
+          .toArray();
         totalCount = countResult[0]?.count ?? 0;
 
         const totalPages = Math.ceil(totalCount / limit);
 
         if (totalCount === 0) {
-          return { questions: [], totalPages, totalCount };
+          return {questions: [], totalPages, totalCount};
         }
 
         // --- DATA FETCH with vector search ---
@@ -735,7 +764,7 @@ export class QuestionRepository implements IQuestionRepository {
               limit,
             },
           },
-          { $match: filter },
+          {$match: filter},
           {
             $lookup: {
               from: 'question_submissions',
@@ -753,9 +782,9 @@ export class QuestionRepository implements IQuestionRepository {
                   vars: {
                     len: {
                       $cond: {
-                        if: { $gt: [{ $size: '$submissionData' }, 0] },
+                        if: {$gt: [{$size: '$submissionData'}, 0]},
                         then: {
-                          $size: { $arrayElemAt: ['$submissionData.history', 0] },
+                          $size: {$arrayElemAt: ['$submissionData.history', 0]},
                         },
                         else: 0,
                       },
@@ -763,9 +792,9 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                   in: {
                     $cond: {
-                      if: { $lte: ['$$len', 1] }, // 0 or 1 → return 0
+                      if: {$lte: ['$$len', 1]}, // 0 or 1 → return 0
                       then: 'Author',
-                      else: { $subtract: ['$$len', 1] }, // >=2 → len-1
+                      else: {$subtract: ['$$len', 1]}, // >=2 → len-1
                     },
                   },
                 },
@@ -783,7 +812,7 @@ export class QuestionRepository implements IQuestionRepository {
           {
             $addFields: {
               context: {
-                $ifNull: ['$context', { $arrayElemAt: ['$contextDoc.text', 0] }],
+                $ifNull: ['$context', {$arrayElemAt: ['$contextDoc.text', 0]}],
               },
             },
           },
@@ -800,8 +829,8 @@ export class QuestionRepository implements IQuestionRepository {
             $addFields: {
               submission: {
                 $cond: {
-                  if: { $gt: [{ $size: '$submission' }, 0] },
-                  then: { $arrayElemAt: ['$submission', 0] },
+                  if: {$gt: [{$size: '$submission'}, 0]},
+                  then: {$arrayElemAt: ['$submission', 0]},
                   else: null,
                 },
               },
@@ -812,26 +841,30 @@ export class QuestionRepository implements IQuestionRepository {
             $addFields: {
               submission: {
                 $cond: {
-                  if: { $ne: ['$submission', null] },
+                  if: {$ne: ['$submission', null]},
                   then: {
-                    _id: { $toString: '$submission._id' },
-                    questionId: { $toString: '$submission.questionId' },
+                    _id: {$toString: '$submission._id'},
+                    questionId: {$toString: '$submission.questionId'},
                     createdAt: '$submission.createdAt',
                     updatedAt: '$submission.updatedAt',
                     queue: {
                       $map: {
-                        input: { $ifNull: ['$submission.queue', []] },
+                        input: {$ifNull: ['$submission.queue', []]},
                         as: 'q',
-                        in: { $toString: '$$q' },
+                        in: {$toString: '$$q'},
                       },
                     },
                     history: {
                       $map: {
-                        input: { $ifNull: ['$submission.history', []] },
+                        input: {$ifNull: ['$submission.history', []]},
                         as: 'h',
                         in: {
                           updatedBy: {
-                            _id: { $toString: { $ifNull: ['$$h.updatedBy._id', '$$h.updatedBy'] } },
+                            _id: {
+                              $toString: {
+                                $ifNull: ['$$h.updatedBy._id', '$$h.updatedBy'],
+                              },
+                            },
                             name: '$$h.updatedBy.name',
                           },
                           status: '$$h.status',
@@ -850,11 +883,17 @@ export class QuestionRepository implements IQuestionRepository {
             $addFields: {
               authors_history: {
                 $map: {
-                  input: { $ifNull: ['$authors_history', []] },
+                  input: {$ifNull: ['$authors_history', []]},
                   as: 'ah',
                   in: {
-                    authorId: { $toString: { $ifNull: ['$$ah.authorId', '$$ah.authorId'] } },
-                    newAuthorId: { $toString: { $ifNull: ['$$ah.newAuthorId', '$$ah.newAuthorId'] } },
+                    authorId: {
+                      $toString: {$ifNull: ['$$ah.authorId', '$$ah.authorId']},
+                    },
+                    newAuthorId: {
+                      $toString: {
+                        $ifNull: ['$$ah.newAuthorId', '$$ah.newAuthorId'],
+                      },
+                    },
                     createdAt: '$$ah.createdAt',
                     reasonForChange: '$$ah.reasonForChange',
                   },
@@ -871,19 +910,23 @@ export class QuestionRepository implements IQuestionRepository {
               metrics: 0,
               embedding: 0,
               contextDoc: 0,
-              score: { $meta: 'vectorSearchScore' },
+              score: {$meta: 'vectorSearchScore'},
             },
           },
           {
             $addFields: {
               statusOrder: {
-                $cond: { if: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 1, else: 0 }
-              }
-            }
+                $cond: {
+                  if: {$eq: [{$toLower: '$status'}, 'closed']},
+                  then: 1,
+                  else: 0,
+                },
+              },
+            },
           },
-          { $sort: { statusOrder: 1, score: -1 } },
-          { $skip: (page - 1) * limit },
-          { $limit: limit },
+          {$sort: {statusOrder: 1, score: -1}},
+          {$skip: (page - 1) * limit},
+          {$limit: limit},
         ];
 
         result = await questionsCollection.aggregate(pipeline).toArray();
@@ -891,10 +934,10 @@ export class QuestionRepository implements IQuestionRepository {
         const formattedQuestions: IQuestion[] = result.map((q: any) => ({
           ...q,
           _id: q._id.toString(),
-          details: { ...q.details },
+          details: {...q.details},
         }));
 
-        return { questions: formattedQuestions, totalPages, totalCount };
+        return {questions: formattedQuestions, totalPages, totalCount};
       }
 
       if (search && search.trim() !== '') {
@@ -902,14 +945,14 @@ export class QuestionRepository implements IQuestionRepository {
         // are matched as-is rather than being interpreted as regex patterns.
         const escapedSearch = escapeRegex(search.trim());
         const searchConditions = [
-          { question: { $regex: escapedSearch, $options: 'i' } },
-          { 'details.crop': { $regex: escapedSearch, $options: 'i' } },
-          { 'details.state': { $regex: escapedSearch, $options: 'i' } },
-          { 'details.domain': { $regex: escapedSearch, $options: 'i' } },
+          {question: {$regex: escapedSearch, $options: 'i'}},
+          {'details.crop': {$regex: escapedSearch, $options: 'i'}},
+          {'details.state': {$regex: escapedSearch, $options: 'i'}},
+          {'details.domain': {$regex: escapedSearch, $options: 'i'}},
           {
             $expr: {
               $regexMatch: {
-                input: { $toString: '$_id' },
+                input: {$toString: '$_id'},
                 regex: escapedSearch,
                 options: 'i',
               },
@@ -921,8 +964,8 @@ export class QuestionRepository implements IQuestionRepository {
         // to avoid overwriting the existing $or condition
         if (filter.$or) {
           if (!filter.$and) filter.$and = [];
-          filter.$and.push({ $or: filter.$or });
-          filter.$and.push({ $or: searchConditions });
+          filter.$and.push({$or: filter.$or});
+          filter.$and.push({$or: searchConditions});
           delete filter.$or;
         } else {
           filter.$or = searchConditions;
@@ -934,36 +977,42 @@ export class QuestionRepository implements IQuestionRepository {
 
       // Determine sort order
       // let sortStage: any = { statusOrder: 1, createdAt: -1, _id: -1 };
-      let sortStage: any = { createdAt: -1, _id: -1 }
+      let sortStage: any = {createdAt: -1, _id: -1};
       let needsPriorityMapping = false;
       let needsReviewLevelSort = false;
 
       if (sort) {
         const lastUnderscore = sort.lastIndexOf('_');
-        const field = lastUnderscore === -1 ? sort : sort.slice(0, lastUnderscore);
-        const order = lastUnderscore === -1 ? 'desc' : sort.slice(lastUnderscore + 1);
+        const field =
+          lastUnderscore === -1 ? sort : sort.slice(0, lastUnderscore);
+        const order =
+          lastUnderscore === -1 ? 'desc' : sort.slice(lastUnderscore + 1);
         const sortOrder = order === 'asc' ? 1 : -1;
 
         if (field === 'question') {
-          sortStage = { statusOrder: 1, question: sortOrder, _id: -1 };
+          sortStage = {statusOrder: 1, question: sortOrder, _id: -1};
         } else if (field === 'state') {
-          sortStage = { statusOrder: 1, 'details.state': sortOrder, _id: -1 };
+          sortStage = {statusOrder: 1, 'details.state': sortOrder, _id: -1};
         } else if (field === 'crop') {
-          sortStage = { statusOrder: 1, 'details.crop': sortOrder, _id: -1 };
+          sortStage = {statusOrder: 1, 'details.crop': sortOrder, _id: -1};
         } else if (field === 'domain') {
-          sortStage = { statusOrder: 1, 'details.domain': sortOrder, _id: -1 };
+          sortStage = {statusOrder: 1, 'details.domain': sortOrder, _id: -1};
         } else if (field === 'priority') {
           needsPriorityMapping = true;
-          sortStage = { statusOrder: 1, priorityOrder: sortOrder, _id: -1 };
+          sortStage = {statusOrder: 1, priorityOrder: sortOrder, _id: -1};
         } else if (field === 'status') {
-          sortStage = { statusOrder: sortOrder, _id: -1 };
+          sortStage = {statusOrder: sortOrder, _id: -1};
         } else if (field === 'answers') {
-          sortStage = { statusOrder: 1, totalAnswersCount: sortOrder, _id: -1 };
+          sortStage = {statusOrder: 1, totalAnswersCount: sortOrder, _id: -1};
         } else if (field === 'created') {
-          sortStage = { statusOrder: 1, createdAt: sortOrder, _id: -1 };
+          sortStage = {statusOrder: 1, createdAt: sortOrder, _id: -1};
         } else if (field === 'review_level') {
           needsReviewLevelSort = true;
-          sortStage = { statusOrder: 1, review_level_sort_value: sortOrder, _id: -1 };
+          sortStage = {
+            statusOrder: 1,
+            review_level_sort_value: sortOrder,
+            _id: -1,
+          };
         }
       }
 
@@ -981,17 +1030,17 @@ export class QuestionRepository implements IQuestionRepository {
         .toArray();*/
 
       const aggregationPipeline: any[] = [
-        { $match: filter },
+        {$match: filter},
         {
           $addFields: {
             statusOrder: {
               $switch: {
                 branches: [
-                  { case: { $eq: [{ $toLower: '$status' }, 'open'] }, then: 1 },
-                  { case: { $eq: [{ $toLower: '$status' }, 'delayed'] }, then: 2 },
-                  { case: { $eq: [{ $toLower: '$status' }, 're-routed'] }, then: 3 },
-                  { case: { $eq: [{ $toLower: '$status' }, 'in-review'] }, then: 4 },
-                  { case: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 5 },
+                  {case: {$eq: [{$toLower: '$status'}, 'open']}, then: 1},
+                  {case: {$eq: [{$toLower: '$status'}, 'delayed']}, then: 2},
+                  {case: {$eq: [{$toLower: '$status'}, 're-routed']}, then: 3},
+                  {case: {$eq: [{$toLower: '$status'}, 'in-review']}, then: 4},
+                  {case: {$eq: [{$toLower: '$status'}, 'closed']}, then: 5},
                 ],
                 default: 6,
               },
@@ -1007,10 +1056,10 @@ export class QuestionRepository implements IQuestionRepository {
             priorityOrder: {
               $switch: {
                 branches: [
-                  { case: { $eq: ['$priority', 'critical'] }, then: 1 },
-                  { case: { $eq: ['$priority', 'high'] }, then: 2 },
-                  { case: { $eq: ['$priority', 'medium'] }, then: 3 },
-                  { case: { $eq: ['$priority', 'low'] }, then: 4 },
+                  {case: {$eq: ['$priority', 'critical']}, then: 1},
+                  {case: {$eq: ['$priority', 'high']}, then: 2},
+                  {case: {$eq: ['$priority', 'medium']}, then: 3},
+                  {case: {$eq: ['$priority', 'low']}, then: 4},
                 ],
                 default: 5,
               },
@@ -1036,9 +1085,9 @@ export class QuestionRepository implements IQuestionRepository {
                   vars: {
                     len: {
                       $cond: {
-                        if: { $gt: [{ $size: '$submissionData' }, 0] },
+                        if: {$gt: [{$size: '$submissionData'}, 0]},
                         then: {
-                          $size: { $arrayElemAt: ['$submissionData.history', 0] },
+                          $size: {$arrayElemAt: ['$submissionData.history', 0]},
                         },
                         else: 0,
                       },
@@ -1046,9 +1095,9 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                   in: {
                     $cond: {
-                      if: { $lte: ['$$len', 1] },
+                      if: {$lte: ['$$len', 1]},
                       then: 0,
-                      else: { $subtract: ['$$len', 1] },
+                      else: {$subtract: ['$$len', 1]},
                     },
                   },
                 },
@@ -1059,155 +1108,167 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       aggregationPipeline.push(
-        { $sort: sortStage },
-        { $skip: (page - 1) * limit },
-        { $limit: limit },
+        {$sort: sortStage},
+        {$skip: (page - 1) * limit},
+        {$limit: limit},
       );
 
-      result = await questionsCollection.aggregate([
-        ...aggregationPipeline,
+      result = await questionsCollection
+        .aggregate([
+          ...aggregationPipeline,
 
-        // JOIN submissions → extract history length
-        {
-          $lookup: {
-            from: 'question_submissions',
-            localField: '_id',
-            foreignField: 'questionId',
-            as: 'submissionData',
-          },
-        },
-        {
-          $addFields: {
-            review_level_number: {
-              $let: {
-                vars: {
-                  len: {
-                    $cond: {
-                      if: { $gt: [{ $size: '$submissionData' }, 0] },
-                      then: {
-                        $size: { $arrayElemAt: ['$submissionData.history', 0] },
-                      },
-                      else: 0,
-                    },
-                  },
-                },
-                in: {
-                  $cond: {
-                    if: { $lte: ['$$len', 1] }, // length 0 or 1 → return 0
-                    then: 'Author',
-                    else: { $subtract: ['$$len', 1] }, // length >=2 → length-1
-                  },
-                },
-              },
+          // JOIN submissions → extract history length
+          {
+            $lookup: {
+              from: 'question_submissions',
+              localField: '_id',
+              foreignField: 'questionId',
+              as: 'submissionData',
             },
           },
-        },
-
-        {
-          $lookup: {
-            from: 'contexts',
-            localField: 'contextId',
-            foreignField: '_id',
-            as: 'contextDoc',
-          },
-        },
-        {
-          $addFields: {
-            context: {
-              $ifNull: ['$context', { $arrayElemAt: ['$contextDoc.text', 0] }],
-            },
-          },
-        },
-
-        // JOIN submissions to get queue and history for timer calculation
-        {
-          $lookup: {
-            from: 'question_submissions',
-            localField: '_id',
-            foreignField: 'questionId',
-            as: 'submission',
-          },
-        },
-        {
-          $addFields: {
-            submission: {
-              $cond: {
-                if: { $gt: [{ $size: '$submission' }, 0] },
-                then: { $arrayElemAt: ['$submission', 0] },
-                else: null,
-              },
-            },
-          },
-        },
-        // Convert ObjectIds to strings for submission data
-        {
-          $addFields: {
-            submission: {
-              $cond: {
-                if: { $ne: ['$submission', null] },
-                then: {
-                  _id: { $toString: '$submission._id' },
-                  questionId: { $toString: '$submission.questionId' },
-                  createdAt: '$submission.createdAt',
-                  updatedAt: '$submission.updatedAt',
-                  queue: {
-                    $map: {
-                      input: { $ifNull: ['$submission.queue', []] },
-                      as: 'q',
-                      in: { $toString: '$$q' },
-                    },
-                  },
-                  history: {
-                    $map: {
-                      input: { $ifNull: ['$submission.history', []] },
-                      as: 'h',
-                      in: {
-                        updatedBy: {
-                          _id: { $toString: { $ifNull: ['$$h.updatedBy._id', '$$h.updatedBy'] } },
-                          name: '$$h.updatedBy.name',
+          {
+            $addFields: {
+              review_level_number: {
+                $let: {
+                  vars: {
+                    len: {
+                      $cond: {
+                        if: {$gt: [{$size: '$submissionData'}, 0]},
+                        then: {
+                          $size: {$arrayElemAt: ['$submissionData.history', 0]},
                         },
-                        status: '$$h.status',
-                        createdAt: '$$h.createdAt',
+                        else: 0,
                       },
                     },
                   },
-                },
-                else: null,
-              },
-            },
-          },
-        },
-        // JOIN authors_history from question document
-        {
-          $addFields: {
-            authors_history: {
-              $map: {
-                input: { $ifNull: ['$authors_history', []] },
-                as: 'ah',
-                in: {
-                  authorId: { $toString: { $ifNull: ['$$ah.authorId', '$$ah.authorId'] } },
-                  newAuthorId: { $toString: { $ifNull: ['$$ah.newAuthorId', '$$ah.newAuthorId'] } },
-                  createdAt: '$$ah.createdAt',
-                  reasonForChange: '$$ah.reasonForChange',
+                  in: {
+                    $cond: {
+                      if: {$lte: ['$$len', 1]}, // length 0 or 1 → return 0
+                      then: 'Author',
+                      else: {$subtract: ['$$len', 1]}, // length >=2 → length-1
+                    },
+                  },
                 },
               },
             },
           },
-        },
-        {
-          $project: {
-            submissionData: 0,
-            userId: 0,
-            updatedAt: 0,
-            contextId: 0,
-            metrics: 0,
-            embedding: 0,
-            contextDoc: 0,
-            priorityOrder: 0,
-            review_level_sort_value: 0,
+
+          {
+            $lookup: {
+              from: 'contexts',
+              localField: 'contextId',
+              foreignField: '_id',
+              as: 'contextDoc',
+            },
           },
-        },
-      ]).toArray();
+          {
+            $addFields: {
+              context: {
+                $ifNull: ['$context', {$arrayElemAt: ['$contextDoc.text', 0]}],
+              },
+            },
+          },
+
+          // JOIN submissions to get queue and history for timer calculation
+          {
+            $lookup: {
+              from: 'question_submissions',
+              localField: '_id',
+              foreignField: 'questionId',
+              as: 'submission',
+            },
+          },
+          {
+            $addFields: {
+              submission: {
+                $cond: {
+                  if: {$gt: [{$size: '$submission'}, 0]},
+                  then: {$arrayElemAt: ['$submission', 0]},
+                  else: null,
+                },
+              },
+            },
+          },
+          // Convert ObjectIds to strings for submission data
+          {
+            $addFields: {
+              submission: {
+                $cond: {
+                  if: {$ne: ['$submission', null]},
+                  then: {
+                    _id: {$toString: '$submission._id'},
+                    questionId: {$toString: '$submission.questionId'},
+                    createdAt: '$submission.createdAt',
+                    updatedAt: '$submission.updatedAt',
+                    queue: {
+                      $map: {
+                        input: {$ifNull: ['$submission.queue', []]},
+                        as: 'q',
+                        in: {$toString: '$$q'},
+                      },
+                    },
+                    history: {
+                      $map: {
+                        input: {$ifNull: ['$submission.history', []]},
+                        as: 'h',
+                        in: {
+                          updatedBy: {
+                            _id: {
+                              $toString: {
+                                $ifNull: ['$$h.updatedBy._id', '$$h.updatedBy'],
+                              },
+                            },
+                            name: '$$h.updatedBy.name',
+                          },
+                          status: '$$h.status',
+                          createdAt: '$$h.createdAt',
+                        },
+                      },
+                    },
+                  },
+                  else: null,
+                },
+              },
+            },
+          },
+          // JOIN authors_history from question document
+          {
+            $addFields: {
+              authors_history: {
+                $map: {
+                  input: {$ifNull: ['$authors_history', []]},
+                  as: 'ah',
+                  in: {
+                    authorId: {
+                      $toString: {$ifNull: ['$$ah.authorId', '$$ah.authorId']},
+                    },
+                    newAuthorId: {
+                      $toString: {
+                        $ifNull: ['$$ah.newAuthorId', '$$ah.newAuthorId'],
+                      },
+                    },
+                    createdAt: '$$ah.createdAt',
+                    reasonForChange: '$$ah.reasonForChange',
+                  },
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              submissionData: 0,
+              userId: 0,
+              updatedAt: 0,
+              contextId: 0,
+              metrics: 0,
+              embedding: 0,
+              contextDoc: 0,
+              priorityOrder: 0,
+              review_level_sort_value: 0,
+            },
+          },
+        ])
+        .toArray();
 
       // // --- Total count for pagination ---
       // const totalCount = await this.QuestionCollection.countDocuments(filter);
@@ -1231,10 +1292,10 @@ export class QuestionRepository implements IQuestionRepository {
       const formattedQuestions: IQuestion[] = result.map((q: any) => ({
         ...q,
         _id: q._id.toString(),
-        details: { ...q.details },
+        details: {...q.details},
       }));
 
-      return { questions: formattedQuestions, totalPages, totalCount };
+      return {questions: formattedQuestions, totalPages, totalCount};
     } catch (error) {
       throw new InternalServerError(`Failed to get Questions: ${error}`);
     }
@@ -1249,7 +1310,7 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
 
-      const { filter: sortFilter, page = 1, limit = 10 } = query;
+      const {filter: sortFilter, page = 1, limit = 10} = query;
 
       const skip = (page - 1) * limit;
 
@@ -1289,9 +1350,9 @@ export class QuestionRepository implements IQuestionRepository {
         // --------------------------------------------------
         {
           $addFields: {
-            historyCount: { $size: { $ifNull: ['$history', []] } },
-            lastHistory: { $arrayElemAt: ['$history', -1] },
-            firstInQueue: { $arrayElemAt: ['$queue', 0] },
+            historyCount: {$size: {$ifNull: ['$history', []]}},
+            lastHistory: {$arrayElemAt: ['$history', -1]},
+            firstInQueue: {$arrayElemAt: ['$queue', 0]},
           },
         },
 
@@ -1308,13 +1369,13 @@ export class QuestionRepository implements IQuestionRepository {
                 {
                   $or: [
                     // all → no filtering
-                    { $eq: [query.review_level, 'all'] },
+                    {$eq: [query.review_level, 'all']},
 
                     // Author → historyCount = 0
                     {
                       $and: [
-                        { $eq: [query.review_level, 'Author'] },
-                        { $eq: ['$historyCount', 0] },
+                        {$eq: [query.review_level, 'Author']},
+                        {$eq: ['$historyCount', 0]},
                       ],
                     },
 
@@ -1335,7 +1396,7 @@ export class QuestionRepository implements IQuestionRepository {
                                 {
                                   $toInt: {
                                     $arrayElemAt: [
-                                      { $split: [query.review_level, ' '] },
+                                      {$split: [query.review_level, ' ']},
                                       1,
                                     ],
                                   },
@@ -1358,13 +1419,13 @@ export class QuestionRepository implements IQuestionRepository {
                     // Case 1: User is current reviewer
                     {
                       $and: [
-                        { $eq: ['$lastHistory.updatedBy', userObjectId] },
-                        { $eq: ['$lastHistory.status', 'in-review'] },
+                        {$eq: ['$lastHistory.updatedBy', userObjectId]},
+                        {$eq: ['$lastHistory.status', 'in-review']},
                         {
                           $or: [
-                            { $not: ['$lastHistory.answer'] },
-                            { $eq: ['$lastHistory.answer', null] },
-                            { $eq: ['$lastHistory.answer', ''] },
+                            {$not: ['$lastHistory.answer']},
+                            {$eq: ['$lastHistory.answer', null]},
+                            {$eq: ['$lastHistory.answer', '']},
                           ],
                         },
                       ],
@@ -1373,8 +1434,8 @@ export class QuestionRepository implements IQuestionRepository {
                     // Case 2: First reviewer
                     {
                       $and: [
-                        { $eq: ['$historyCount', 0] },
-                        { $eq: ['$firstInQueue', userObjectId] },
+                        {$eq: ['$historyCount', 0]},
+                        {$eq: ['$firstInQueue', userObjectId]},
                       ],
                     },
                   ],
@@ -1389,25 +1450,29 @@ export class QuestionRepository implements IQuestionRepository {
         sub => new ObjectId(sub?.questionId),
       );
 
-      const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapeRegex = (str: string) =>
+        str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
       const filter: any = {
-        status: { $in: ['open', 'delayed', 'duplicate'] },
-        _id: { $in: questionIdsToAttempt },
+        status: {$in: ['open', 'delayed', 'duplicate']},
+        _id: {$in: questionIdsToAttempt},
       };
 
       // Apply preferences filters
       if (query.source && query.source !== 'all') {
-        filter.source = { $regex: `^${escapeRegex(query.source)}$`, $options: 'i' };
+        filter.source = {
+          $regex: `^${escapeRegex(query.source)}$`,
+          $options: 'i',
+        };
       }
       if (body?.states && body.states.length > 0) {
-        filter['details.state'] = { $in: body.states };
+        filter['details.state'] = {$in: body.states};
       }
       if (body?.crops && body.crops.length > 0) {
-        filter['details.crop'] = { $in: body.crops };
+        filter['details.crop'] = {$in: body.crops};
       }
 
-      const pipeline: any = [{ $match: filter }];
+      const pipeline: any = [{$match: filter}];
 
       // if (sortFilter === 'newest') {
       //   pipeline.push({$sort: {createdAt: -1}});
@@ -1424,10 +1489,10 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                { case: { $eq: ['$priority', 'critical'] }, then: 1 },
-                { case: { $eq: ['$priority', 'high'] }, then: 2 },
-                { case: { $eq: ['$priority', 'medium'] }, then: 3 },
-                { case: { $eq: ['$priority', 'low'] }, then: 4 },
+                {case: {$eq: ['$priority', 'critical']}, then: 1},
+                {case: {$eq: ['$priority', 'high']}, then: 2},
+                {case: {$eq: ['$priority', 'medium']}, then: 3},
+                {case: {$eq: ['$priority', 'low']}, then: 4},
               ],
               default: 5,
             },
@@ -1435,14 +1500,14 @@ export class QuestionRepository implements IQuestionRepository {
         },
       });
 
-      pipeline.push({ $sort: { priorityOrder: 1, createdAt: 1, _id: 1 } });
+      pipeline.push({$sort: {priorityOrder: 1, createdAt: 1, _id: 1}});
 
-      pipeline.push({ $skip: skip });
-      pipeline.push({ $limit: limit });
+      pipeline.push({$skip: skip});
+      pipeline.push({$limit: limit});
 
       pipeline.push({
         $project: {
-          id: { $toString: '$_id' },
+          id: {$toString: '$_id'},
           text: '$question',
           priority: '$priority',
           createdAt: '$createdAt',
@@ -1458,7 +1523,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       const results = await this.QuestionCollection.aggregate<QuestionResponse>(
         pipeline,
-        { session },
+        {session},
       ).toArray();
 
       return results;
@@ -1484,7 +1549,7 @@ export class QuestionRepository implements IQuestionRepository {
         {
           _id: questionObjectId,
         },
-        { projection: { userId: 0, embedding: 0 } },
+        {projection: {userId: 0, embedding: 0}},
       );
       if (!question) return null;
 
@@ -1563,7 +1628,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       // 6 Fetch all related answers and reviews
       const answers = await this.AnswersCollection.find({
-        _id: { $in: uniqueAnswerIds },
+        _id: {$in: uniqueAnswerIds},
       }).toArray();
 
       const normalizedAnswers = answers.map(a => ({
@@ -1591,9 +1656,9 @@ export class QuestionRepository implements IQuestionRepository {
       // Fetch associated reviews and reviewer details
       const reviews = await this.ReviewCollection.find({
         questionId: new ObjectId(questionId),
-        answerId: { $in: uniqueAnswerIds },
+        answerId: {$in: uniqueAnswerIds},
       })
-        .sort({ createdAt: -1 })
+        .sort({createdAt: -1})
         .toArray();
 
       const reviewerIds: ObjectId[] = reviews
@@ -1602,7 +1667,7 @@ export class QuestionRepository implements IQuestionRepository {
         .map(id => new ObjectId(id));
 
       const reviewerUsers = await this.UsersCollection.find({
-        _id: { $in: reviewerIds },
+        _id: {$in: reviewerIds},
       }).toArray();
 
       const reviewerMap = new Map(
@@ -1622,20 +1687,20 @@ export class QuestionRepository implements IQuestionRepository {
 
           reviewer: reviewer
             ? {
-              _id: reviewer._id.toString(),
-              firstName: isExpert
-                ? getReviewerQueuePosition(
-                  submission.queue,
-                  reviewer._id.toString(),
-                ) == 0
-                  ? 'Author'
-                  : `Reviewer ${getReviewerQueuePosition(
-                    submission.queue,
-                    reviewer._id.toString(),
-                  )}`
-                : reviewer.firstName + reviewer.lastName,
-              email: !isExpert && reviewer.email,
-            }
+                _id: reviewer._id.toString(),
+                firstName: isExpert
+                  ? getReviewerQueuePosition(
+                      submission.queue,
+                      reviewer._id.toString(),
+                    ) == 0
+                    ? 'Author'
+                    : `Reviewer ${getReviewerQueuePosition(
+                        submission.queue,
+                        reviewer._id.toString(),
+                      )}`
+                  : reviewer.firstName + reviewer.lastName,
+                email: !isExpert && reviewer.email,
+              }
             : null,
         };
       });
@@ -1668,20 +1733,20 @@ export class QuestionRepository implements IQuestionRepository {
               rerouteHistoryMap.set(answerIdKey, {
                 updatedBy: r.reroutedTo
                   ? {
-                    _id: r.reroutedTo?.toString(),
-                    name: isExpert
-                      ? getReviewerQueuePosition(
-                        submission?.queue,
-                        r.reroutedTo?.toString(),
-                      ) == 0
-                        ? 'Author'
-                        : `Reviewer ${getReviewerQueuePosition(
-                          submission?.queue,
-                          r.reroutedTo?.toString(),
-                        )}`
-                      : reroutedToUser?.firstName,
-                    email: !isExpert && reroutedToUser?.email,
-                  }
+                      _id: r.reroutedTo?.toString(),
+                      name: isExpert
+                        ? getReviewerQueuePosition(
+                            submission?.queue,
+                            r.reroutedTo?.toString(),
+                          ) == 0
+                          ? 'Author'
+                          : `Reviewer ${getReviewerQueuePosition(
+                              submission?.queue,
+                              r.reroutedTo?.toString(),
+                            )}`
+                        : reroutedToUser?.firstName,
+                      email: !isExpert && reroutedToUser?.email,
+                    }
                   : null,
                 answer: {
                   _id: r.answerId?.toString(),
@@ -1718,20 +1783,20 @@ export class QuestionRepository implements IQuestionRepository {
             rerouteHistoryMap.set(uniqueKey, {
               updatedBy: r.reroutedTo
                 ? {
-                  _id: r.reroutedTo?.toString(),
-                  name: isExpert
-                    ? getReviewerQueuePosition(
-                      submission?.queue,
-                      r.reroutedTo?.toString(),
-                    ) == 0
-                      ? 'Author'
-                      : `Reviewer ${getReviewerQueuePosition(
-                        submission?.queue,
-                        r.reroutedTo?.toString(),
-                      )}`
-                    : reroutedToUser?.firstName,
-                  email: !isExpert && reroutedToUser?.email,
-                }
+                    _id: r.reroutedTo?.toString(),
+                    name: isExpert
+                      ? getReviewerQueuePosition(
+                          submission?.queue,
+                          r.reroutedTo?.toString(),
+                        ) == 0
+                        ? 'Author'
+                        : `Reviewer ${getReviewerQueuePosition(
+                            submission?.queue,
+                            r.reroutedTo?.toString(),
+                          )}`
+                      : reroutedToUser?.firstName,
+                    email: !isExpert && reroutedToUser?.email,
+                  }
                 : null,
               answer: null,
               status: r.status,
@@ -1747,49 +1812,57 @@ export class QuestionRepository implements IQuestionRepository {
       });
 
       const rerouteHistory = Array.from(rerouteHistoryMap.values());
-      const reviewTimeline = buildReviewTimeline(submission?.history || [], submission?.queue || [], question?.createdAt,question.status);
-      
+      const reviewTimeline = buildReviewTimeline(
+        submission?.history || [],
+        submission?.queue || [],
+        question?.createdAt,
+        question.status,
+      );
+
       // 7 Populate submissions manually
       const submissionHistory =
         submission?.history?.map((h, index) => ({
           updatedBy: h.updatedBy
             ? {
-              _id: h.updatedBy?.toString(),
-              name: isExpert
-                ? getReviewerQueuePosition(
-                  submission.queue,
-                  h.updatedBy?.toString(),
-                ) == 0
-                  ? 'Author'
-                  : `Reviewer ${getReviewerQueuePosition(
-                    submission.queue,
-                    h.updatedBy?.toString(),
-                  )}`
-                : usersMap.get(h.updatedBy?.toString())?.firstName,
-              email:
-                !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
-              avatar: !isExpert && usersMap.get(h.updatedBy?.toString())?.avatar || null,
-            }
+                _id: h.updatedBy?.toString(),
+                name: isExpert
+                  ? getReviewerQueuePosition(
+                      submission.queue,
+                      h.updatedBy?.toString(),
+                    ) == 0
+                    ? 'Author'
+                    : `Reviewer ${getReviewerQueuePosition(
+                        submission.queue,
+                        h.updatedBy?.toString(),
+                      )}`
+                  : usersMap.get(h.updatedBy?.toString())?.firstName,
+                email:
+                  !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
+                avatar:
+                  (!isExpert &&
+                    usersMap.get(h.updatedBy?.toString())?.avatar) ||
+                  null,
+              }
             : [],
           answer: h.answer
             ? {
-              _id: h.answer?.toString(),
-              authorId: answersMap
-                .get(h.answer?.toString())
-                ?.authorId?.toString(),
-              answerIteration: answersMap.get(h.answer?.toString())
-                ?.answerIteration,
-              isFinalAnswer: answersMap.get(h.answer?.toString())
-                ?.isFinalAnswer,
-              answer: answersMap.get(h.answer?.toString())?.answer,
-              sources: answersMap.get(h.answer?.toString())?.sources,
-              approvalCount: answersMap.get(h.answer?.toString())
-                ?.approvalCount,
-              remarks: answersMap.get(h.answer?.toString())?.remarks,
-              createdAt: answersMap.get(h.answer?.toString())?.createdAt,
-              updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
-              reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
-            }
+                _id: h.answer?.toString(),
+                authorId: answersMap
+                  .get(h.answer?.toString())
+                  ?.authorId?.toString(),
+                answerIteration: answersMap.get(h.answer?.toString())
+                  ?.answerIteration,
+                isFinalAnswer: answersMap.get(h.answer?.toString())
+                  ?.isFinalAnswer,
+                answer: answersMap.get(h.answer?.toString())?.answer,
+                sources: answersMap.get(h.answer?.toString())?.sources,
+                approvalCount: answersMap.get(h.answer?.toString())
+                  ?.approvalCount,
+                remarks: answersMap.get(h.answer?.toString())?.remarks,
+                createdAt: answersMap.get(h.answer?.toString())?.createdAt,
+                updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
+                reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
+              }
             : null,
           status: h.status,
           //tat
@@ -1821,20 +1894,20 @@ export class QuestionRepository implements IQuestionRepository {
         questionId: submission?.questionId?.toString(),
         lastRespondedBy: lastRespondedId
           ? {
-            _id: lastRespondedId,
-            name: isExpert
-              ? getReviewerQueuePosition(
-                submission?.queue,
-                lastRespondedId,
-              ) == 0
-                ? 'Author'
-                : `Reviewer ${getReviewerQueuePosition(
-                  submission?.queue,
-                  lastRespondedId,
-                )}`
-              : usersMap.get(lastRespondedId)?.firstName,
-            email: !isExpert && usersMap.get(lastRespondedId)?.email,
-          }
+              _id: lastRespondedId,
+              name: isExpert
+                ? getReviewerQueuePosition(
+                    submission?.queue,
+                    lastRespondedId,
+                  ) == 0
+                  ? 'Author'
+                  : `Reviewer ${getReviewerQueuePosition(
+                      submission?.queue,
+                      lastRespondedId,
+                    )}`
+                : usersMap.get(lastRespondedId)?.firstName,
+              email: !isExpert && usersMap.get(lastRespondedId)?.email,
+            }
           : null,
         queue: submission?.queue?.map(q => ({
           _id: q.toString(),
@@ -1842,9 +1915,9 @@ export class QuestionRepository implements IQuestionRepository {
             ? getReviewerQueuePosition(submission.queue, q.toString()) == 0
               ? 'Author'
               : `Reviewer ${getReviewerQueuePosition(
-                submission.queue,
-                q.toString(),
-              )}`
+                  submission.queue,
+                  q.toString(),
+                )}`
             : usersMap.get(q.toString())?.firstName,
           email: !isExpert && usersMap.get(q.toString())?.email,
         })),
@@ -1856,7 +1929,10 @@ export class QuestionRepository implements IQuestionRepository {
 
       // 7.2 If question is closed with no submission queue, fetch the final answer directly
       let closedFinalAnswer: any = null;
-      if (question.status === 'closed' && (submission?.queue?.length ?? 0) === 0) {
+      if (
+        question.status === 'closed' &&
+        (submission?.queue?.length ?? 0) === 0
+      ) {
         const fa = await this.AnswersCollection.findOne({
           questionId: questionObjectId,
           isFinalAnswer: true,
@@ -1888,7 +1964,12 @@ export class QuestionRepository implements IQuestionRepository {
         status: string;
         details: Record<string, any>;
         text: string;
-        sources: { source: string; page?: string | number | null; sourceType?: string; sourceName?: string }[];
+        sources: {
+          source: string;
+          page?: string | number | null;
+          sourceType?: string;
+          sourceName?: string;
+        }[];
       } | null = null;
 
       if (question.referenceQuestionId) {
@@ -1909,12 +1990,12 @@ export class QuestionRepository implements IQuestionRepository {
 
           const [refQuestion, refFinalAnswer] = await Promise.all([
             this.QuestionCollection.findOne(
-              { _id: refId },
-              { projection: { question: 1, status: 1, details: 1, text: 1 } },
+              {_id: refId},
+              {projection: {question: 1, status: 1, details: 1, text: 1}},
             ) as any,
             this.AnswersCollection.findOne(
-              { questionId: refId, isFinalAnswer: true },
-              { projection: { sources: 1 } },
+              {questionId: refId, isFinalAnswer: true},
+              {projection: {sources: 1}},
             ) as any,
           ]);
 
@@ -1933,12 +2014,15 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       // 10 Final assembled question
-      const { aiApprovedAnswer, aiInitialAnswer, ...rest } = question;
+      const {aiApprovedAnswer, aiInitialAnswer, ...rest} = question;
 
       const result = {
         ...{
           ...rest,
-          aiInitialAnswer: aiInitialAnswer && aiInitialAnswer.trim() ? aiInitialAnswer : aiApprovedAnswer,
+          aiInitialAnswer:
+            aiInitialAnswer && aiInitialAnswer.trim()
+              ? aiInitialAnswer
+              : aiApprovedAnswer,
           contextId: question.contextId?.toString(),
           isAutoAllocate: question.isAutoAllocate ?? true,
         },
@@ -1972,62 +2056,62 @@ export class QuestionRepository implements IQuestionRepository {
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
       const result = await this.QuestionCollection.updateMany(
-            {
-              status: { $in: ['open'] },
-              isOnHold: { $ne: true },
-              pae_review:{$ne:true}
-            },
-            [
-              {
-                $set: {
-                  priority: {
-                    $cond: [
-                      {
-                        $and: [
-                          {
-                            $lte: [
-                              {
-                                $add: [
-                                  '$createdAt',
-                                  oneAndHalfHoursMs,
-                                  { $ifNull: ['$accumulatedHoldMs', 0] },
-                                ],
-                              },
-                              now,
-                            ],
-                          },
-                          {
-                            $ne: ['$priority', 'critical'],
-                          },
-                        ],
-                      },
-                      'critical',
-                      '$priority',
-                    ],
-                  },
-
-                  status: {
-                    $cond: [
+        {
+          status: {$in: ['open']},
+          isOnHold: {$ne: true},
+          pae_review: {$ne: true},
+        },
+        [
+          {
+            $set: {
+              priority: {
+                $cond: [
+                  {
+                    $and: [
                       {
                         $lte: [
                           {
                             $add: [
                               '$createdAt',
-                              twoHoursMs,
-                              { $ifNull: ['$accumulatedHoldMs', 0] },
+                              oneAndHalfHoursMs,
+                              {$ifNull: ['$accumulatedHoldMs', 0]},
                             ],
                           },
                           now,
                         ],
                       },
-                      'delayed',
-                      '$status',
+                      {
+                        $ne: ['$priority', 'critical'],
+                      },
                     ],
                   },
-                },
+                  'critical',
+                  '$priority',
+                ],
               },
-            ],
-          );
+
+              status: {
+                $cond: [
+                  {
+                    $lte: [
+                      {
+                        $add: [
+                          '$createdAt',
+                          twoHoursMs,
+                          {$ifNull: ['$accumulatedHoldMs', 0]},
+                        ],
+                      },
+                      now,
+                    ],
+                  },
+                  'delayed',
+                  '$status',
+                ],
+              },
+            },
+          },
+        ],
+      );
 
       console.log(
         ` Updated ${result.modifiedCount} questions to "delayed" status/ 'critical' priority.`,
@@ -2048,9 +2132,9 @@ export class QuestionRepository implements IQuestionRepository {
         typeof isAutoAllocate === 'boolean' ? !isAutoAllocate : false;
 
       return await this.QuestionCollection.findOneAndUpdate(
-        { _id: new ObjectId(questionId) },
-        { $set: { isAutoAllocate: autoAllocateValue } },
-        { session, returnDocument: 'after' },
+        {_id: new ObjectId(questionId)},
+        {$set: {isAutoAllocate: autoAllocateValue}},
+        {session, returnDocument: 'after'},
       );
     } catch (error) {
       throw new InternalServerError(
@@ -2065,7 +2149,7 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<IQuestion> {
     try {
       await this.init();
-      return this.QuestionCollection.findOne({ question: text }, { session });
+      return this.QuestionCollection.findOne({question: text}, {session});
     } catch (error) {
       throw new InternalServerError(
         `Failed to find question by text /More: ${error}`,
@@ -2078,7 +2162,7 @@ export class QuestionRepository implements IQuestionRepository {
     updates: Partial<IQuestion>,
     session?: ClientSession,
     addText?: boolean,
-  ): Promise<{ modifiedCount: number }> {
+  ): Promise<{modifiedCount: number}> {
     try {
       await this.init();
 
@@ -2096,7 +2180,7 @@ export class QuestionRepository implements IQuestionRepository {
         'updatedAt',
         'review_level_number',
         'submission',
-        'statusOrder'
+        'statusOrder',
       ];
 
       if (!addText) {
@@ -2116,7 +2200,9 @@ export class QuestionRepository implements IQuestionRepository {
         if (rid instanceof ObjectId) {
           // already correct
         } else if (rid?.buffer?.data) {
-          updates.referenceQuestionId = new ObjectId(Buffer.from(rid.buffer.data));
+          updates.referenceQuestionId = new ObjectId(
+            Buffer.from(rid.buffer.data),
+          );
         } else {
           updates.referenceQuestionId = new ObjectId(String(rid));
         }
@@ -2127,34 +2213,34 @@ export class QuestionRepository implements IQuestionRepository {
         delete (updates as any).context;
       }
 
-      const updateOperation: any = { $set: { ...updates, updatedAt: new Date() } };
+      const updateOperation: any = {$set: {...updates, updatedAt: new Date()}};
 
       if (contextValue) {
         const q = await this.QuestionCollection.findOne(
-          { _id: new ObjectId(questionId) },
-          { session },
+          {_id: new ObjectId(questionId)},
+          {session},
         );
         if (q && q.contextId) {
           await this.ContextCollection.updateOne(
-            { _id: q.contextId },
-            { $set: { text: contextValue } },
-            { session },
+            {_id: q.contextId},
+            {$set: {text: contextValue}},
+            {session},
           );
         }
         // Unset the context field from the question document to ensure it uses the one from context collection
-        (updateOperation as any).$unset = { context: 1 };
+        (updateOperation as any).$unset = {context: 1};
       }
 
       const result = await this.QuestionCollection.updateOne(
-        { _id: new ObjectId(questionId) },
+        {_id: new ObjectId(questionId)},
         updateOperation,
-        { session },
+        {session},
       );
 
       if (updates.status === 'in-review') {
         const submission = await this.QuestionSubmissionCollection.findOne(
-          { questionId: new ObjectId(questionId) },
-          { session },
+          {questionId: new ObjectId(questionId)},
+          {session},
         );
 
         if (submission) {
@@ -2174,16 +2260,16 @@ export class QuestionRepository implements IQuestionRepository {
               const remainingQueue = queue?.slice(0, currentIndex + 1);
 
               await this.QuestionSubmissionCollection.updateOne(
-                { questionId: new ObjectId(questionId) },
-                { $set: { queue: remainingQueue } },
-                { session },
+                {questionId: new ObjectId(questionId)},
+                {$set: {queue: remainingQueue}},
+                {session},
               );
             }
           }
         }
       }
 
-      return { modifiedCount: result.modifiedCount };
+      return {modifiedCount: result.modifiedCount};
     } catch (error) {
       throw new InternalServerError(
         `Error while updating Question: More info: ${error}`,
@@ -2191,9 +2277,13 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
-  async updateThreadId(questionId: string, threadId: string, session?: ClientSession): Promise<{ modifiedCount: number; }> {
+  async updateThreadId(
+    questionId: string,
+    threadId: string,
+    session?: ClientSession,
+  ): Promise<{modifiedCount: number}> {
     try {
-      await this.init()
+      await this.init();
       if (!questionId || !isValidObjectId(questionId)) {
         throw new BadRequestError('Invalid or missing questionId');
       }
@@ -2201,9 +2291,9 @@ export class QuestionRepository implements IQuestionRepository {
         throw new BadRequestError('Invalid or missing threadId');
       }
       return await this.QuestionCollection.updateOne(
-        { _id: new ObjectId(questionId) },
-        { $set: { threadId:threadId ,updatedAt: new Date() } },
-        { session },
+        {_id: new ObjectId(questionId)},
+        {$set: {threadId: threadId, updatedAt: new Date()}},
+        {session},
       );
     } catch (error) {
       throw new InternalServerError(
@@ -2215,7 +2305,7 @@ export class QuestionRepository implements IQuestionRepository {
   async deleteQuestion(
     questionId: string,
     session?: ClientSession,
-  ): Promise<{ deletedCount: number }> {
+  ): Promise<{deletedCount: number}> {
     try {
       await this.init();
 
@@ -2224,15 +2314,15 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       const result = await this.QuestionCollection.deleteOne(
-        { _id: new ObjectId(questionId) },
-        { session },
+        {_id: new ObjectId(questionId)},
+        {session},
       );
       const result1 = await this.ReRouteCollection.deleteOne(
-        { questionId: new ObjectId(questionId) },
-        { session },
+        {questionId: new ObjectId(questionId)},
+        {session},
       );
 
-      return { deletedCount: result.deletedCount };
+      return {deletedCount: result.deletedCount};
     } catch (error) {
       throw new InternalServerError(
         `Error while deleting Question::, More/ ${error}`,
@@ -2254,9 +2344,9 @@ export class QuestionRepository implements IQuestionRepository {
     const submissions = await this.QuestionSubmissionCollection.aggregate([
       {
         $addFields: {
-          lastHistory: { $arrayElemAt: ['$history', -1] },
-          historyCount: { $size: { $ifNull: ['$history', []] } },
-          firstInQueue: { $arrayElemAt: ['$queue', 0] },
+          lastHistory: {$arrayElemAt: ['$history', -1]},
+          historyCount: {$size: {$ifNull: ['$history', []]}},
+          firstInQueue: {$arrayElemAt: ['$queue', 0]},
         },
       },
       {
@@ -2266,9 +2356,9 @@ export class QuestionRepository implements IQuestionRepository {
               'lastHistory.updatedBy': userObjectId,
               'lastHistory.status': 'in-review',
               $or: [
-                { 'lastHistory.answer': { $exists: false } },
-                { 'lastHistory.answer': null },
-                { 'lastHistory.answer': '' },
+                {'lastHistory.answer': {$exists: false}},
+                {'lastHistory.answer': null},
+                {'lastHistory.answer': ''},
               ],
             },
             {
@@ -2286,30 +2376,30 @@ export class QuestionRepository implements IQuestionRepository {
 
     // 2. Same match filter as your main query
     const filter: any = {
-      status: { $in: ['open', 'delayed'] },
-      _id: { $in: questionIdsToAttempt },
+      status: {$in: ['open', 'delayed']},
+      _id: {$in: questionIdsToAttempt},
     };
 
     // 3. Recreate the same sorting pipeline
     const sortedQuestions = await this.QuestionCollection.aggregate([
-      { $match: filter },
+      {$match: filter},
       {
         $addFields: {
           priorityOrder: {
             $switch: {
               branches: [
-                { case: { $eq: ['$priority', 'critical'] }, then: 1 },
-                { case: { $eq: ['$priority', 'high'] }, then: 2 },
-                { case: { $eq: ['$priority', 'medium'] }, then: 3 },
-                { case: { $eq: ['$priority', 'low'] }, then: 4 },
+                {case: {$eq: ['$priority', 'critical']}, then: 1},
+                {case: {$eq: ['$priority', 'high']}, then: 2},
+                {case: {$eq: ['$priority', 'medium']}, then: 3},
+                {case: {$eq: ['$priority', 'low']}, then: 4},
               ],
               default: 5,
             },
           },
         },
       },
-      { $sort: { priorityOrder: 1, createdAt: 1, _id: 1 } },
-      { $project: { _id: 1 } },
+      {$sort: {priorityOrder: 1, createdAt: 1, _id: 1}},
+      {$project: {_id: 1}},
     ]).toArray();
 
     const index = sortedQuestions.findIndex(
@@ -2348,12 +2438,12 @@ export class QuestionRepository implements IQuestionRepository {
     session?: ClientSession,
   ): Promise<void> {
     await this.init();
-    const update: any = { status, updatedAt: new Date() };
+    const update: any = {status, updatedAt: new Date()};
     if (errorMessage) update.errorMessage = errorMessage;
     await this.QuestionCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: update },
-      { session },
+      {_id: new ObjectId(id)},
+      {$set: update},
+      {session},
     );
   }
 
@@ -2362,23 +2452,34 @@ export class QuestionRepository implements IQuestionRepository {
     session?: ClientSession,
   ): Promise<IQuestion[]> {
     await this.init();
-    return await this.QuestionCollection.find({ status }, { session }).toArray();
+    return await this.QuestionCollection.find({status}, {session}).toArray();
   }
 
-  async getClosedQuestionsCount(
-    session?: ClientSession,
-  ): Promise<number> {
+  async getClosedQuestionsCount(session?: ClientSession): Promise<number> {
     await this.init();
-    return await this.QuestionCollection.countDocuments({ status: 'closed' }, { session });
+    return await this.QuestionCollection.countDocuments(
+      {status: 'closed'},
+      {session},
+    );
   }
-
 
   async getYearAnalytics(
     goldenDataSelectedYear: string,
     customStartTime?: string,
     customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{ yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource; paeMetrics?: { assigned: number; submitted: number; closed: number } }> {
+  ): Promise<{
+    yearData: GoldenDatasetEntry[];
+    totalEntriesByType: number;
+    totalVerifiedByType: number;
+    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
+    questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
+    averageResponseTime?: {whatsapp: number; ajrasakha: number};
+    questionsAnsweredAfter120Min?: {whatsapp: number; ajrasakha: number};
+    questionStateBreakdown?: QuestionStateBreakdownBySource;
+    paeMetrics?: {assigned: number; submitted: number; closed: number};
+  }> {
     await this.init();
     const selectedYearNum = Number(goldenDataSelectedYear);
 
@@ -2387,8 +2488,8 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Build match condition with optional time filtering
     const matchCondition: any = {
-      createdAt: { $gte: startDate, $lt: endDate },
-      status: { $ne: 'pass' },
+      createdAt: {$gte: startDate, $lt: endDate},
+      status: {$ne: 'pass'},
     };
 
     // Add time filtering if provided
@@ -2400,17 +2501,37 @@ export class QuestionRepository implements IQuestionRepository {
         $and: [
           {
             $gte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              startHour * 60 + startMinute
-            ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
           },
           {
             $lte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              endHour * 60 + endMinute
-            ]
-          }
-        ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
       };
     }
 
@@ -2421,16 +2542,16 @@ export class QuestionRepository implements IQuestionRepository {
         },
         {
           $group: {
-            _id: { month: { $month: '$createdAt' } },
-            totalEntries: { $sum: 1 },
+            _id: {month: {$month: '$createdAt'}},
+            totalEntries: {$sum: 1},
             totalVerified: {
-              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] }
+              $sum: {$cond: [{$eq: ['$status', 'closed']}, 1, 0]},
             },
           },
         },
-        { $sort: { '_id.month': 1 } },
+        {$sort: {'_id.month': 1}},
       ],
-      { session },
+      {session},
     ).toArray();
 
     const formattedMonths = [
@@ -2449,7 +2570,7 @@ export class QuestionRepository implements IQuestionRepository {
     ];
 
     const formattedData: GoldenDatasetEntry[] = Array.from(
-      { length: 12 },
+      {length: 12},
       (_, i) => {
         const match = yearData.find(m => m._id.month === i + 1);
         return {
@@ -2461,25 +2582,87 @@ export class QuestionRepository implements IQuestionRepository {
         };
       },
     );
-    const totalEntriesByType = formattedData.reduce((sum, m) => sum + m.entries, 0);
-    const totalVerifiedByType = formattedData.reduce((sum, m) => sum + m.verified, 0);
+    const totalEntriesByType = formattedData.reduce(
+      (sum, m) => sum + m.entries,
+      0,
+    );
+    const totalVerifiedByType = formattedData.reduce(
+      (sum, m) => sum + m.verified,
+      0,
+    );
 
-    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
-    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
-    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
-    const questionsAnsweredAfter120Min = await this.getQuestionsAnsweredAfter120Minutes(session, startDate, endDate);
-    const questionStateBreakdown = await this.getQuestionStateBreakdown(session, startDate, endDate);
-    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
-    return { yearData: formattedData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min, questionStateBreakdown, paeMetrics };
+    const {moderatorBreakdown} = await this.getTodayApproved(
+      session,
+      startDate,
+      endDate,
+    );
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(
+      session,
+      startDate,
+      endDate,
+      customStartTime,
+      customEndTime,
+    );
+    const questionsAnsweredWithin120Min =
+      await this.getQuestionsAnsweredWithin120Minutes(
+        session,
+        startDate,
+        endDate,
+        customStartTime,
+        customEndTime,
+      );
+    const averageResponseTime = await this.getAverageResponseTime(
+      session,
+      startDate,
+      endDate,
+      customStartTime,
+      customEndTime,
+    );
+    const questionsAnsweredAfter120Min =
+      await this.getQuestionsAnsweredAfter120Minutes(
+        session,
+        startDate,
+        endDate,
+      );
+    const questionStateBreakdown = await this.getQuestionStateBreakdown(
+      session,
+      startDate,
+      endDate,
+    );
+    const paeMetrics = await this.getPAEMetrics(
+      session,
+      startDate,
+      endDate,
+      customStartTime,
+      customEndTime,
+    );
+    return {
+      yearData: formattedData,
+      totalEntriesByType,
+      totalVerifiedByType,
+      moderatorBreakdown,
+      questionSourceBreakdown,
+      questionsAnsweredWithin120Min,
+      averageResponseTime,
+      questionsAnsweredAfter120Min,
+      questionStateBreakdown,
+      paeMetrics,
+    };
   }
 
   /**
-  * get yearly analytics.
-  * @param session -MongoDB client session for transactions.
-  * @returns A promise that resolves to question document
-  */
-  async getTodayApproved(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<{ todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
+   * get yearly analytics.
+   * @param session -MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  async getTodayApproved(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
+    todayApproved: number;
+    moderatorBreakdown?: {moderatorName: string; count: number}[];
+  }> {
     await this.init();
 
     let start = startDate;
@@ -2493,7 +2676,7 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-    const moderatorBreakdown = await this.AnswersCollection.aggregate(
+    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
       [
         {
           $match: {
@@ -2503,13 +2686,13 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lt: end,
             },
-            approvedBy: { $exists: true, $ne: null }
+            approvedBy: {$exists: true, $ne: null},
           },
         },
         {
           $group: {
             _id: '$approvedBy',
-            count: { $sum: 1 },
+            count: {$sum: 1},
           },
         },
         {
@@ -2533,32 +2716,41 @@ export class QuestionRepository implements IQuestionRepository {
               $concat: [
                 '$moderator.firstName',
                 ' ',
-                { $ifNull: ['$moderator.lastName', ''] },
+                {$ifNull: ['$moderator.lastName', '']},
               ],
             },
             count: 1,
           },
         },
         {
-          $sort: { count: -1 },
+          $sort: {count: -1},
         },
       ],
-      { session }
-    ).toArray() as { moderatorName: string, count: number }[];
+      {session},
+    ).toArray()) as {moderatorName: string; count: number}[];
 
     // Calculate total from the breakdown
-    const totalApproved = moderatorBreakdown.reduce((sum, item) => sum + item.count, 0);
+    const totalApproved = moderatorBreakdown.reduce(
+      (sum, item) => sum + item.count,
+      0,
+    );
 
     return {
       todayApproved: totalApproved,
-      moderatorBreakdown: moderatorBreakdown
+      moderatorBreakdown: moderatorBreakdown,
     };
   }
 
-  async getQuestionSourceBreakdown(session?: ClientSession, startDate?: Date, endDate?: Date, customStartTime?: string, customEndTime?: string): Promise<{ whatsapp: number; ajrasakha: number }> {
+  async getQuestionSourceBreakdown(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string,
+  ): Promise<{whatsapp: number; ajrasakha: number}> {
     await this.init();
 
-    const matchCondition: any = { status: { $ne: 'pass' } };
+    const matchCondition: any = {status: {$ne: 'pass'}};
     /* if (startDate && endDate) {
        matchCondition.createdAt = { $gte: startDate, $lt: endDate };
      }*/
@@ -2581,53 +2773,103 @@ export class QuestionRepository implements IQuestionRepository {
         $and: [
           {
             $gte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              startHour * 60 + startMinute
-            ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
           },
           {
             $lte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              endHour * 60 + endMinute
-            ]
-          }
-        ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
       };
     }
 
-    const sourceBreakdown = await this.QuestionCollection.aggregate(
+    const sourceBreakdown = (await this.QuestionCollection.aggregate(
       [
-        ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
+        ...(Object.keys(matchCondition).length > 0
+          ? [{$match: matchCondition}]
+          : []),
         {
           $group: {
             _id: '$source',
-            count: { $sum: 1 },
+            count: {$sum: 1},
           },
         },
       ],
-      { session }
-    ).toArray() as { _id: string; count: number }[];
+      {session},
+    ).toArray()) as {_id: string; count: number}[];
 
-    const whatsapp = sourceBreakdown.find(s => s._id?.toLowerCase() === 'whatsapp')?.count ?? 0;
-    const ajrasakha = sourceBreakdown.find(s => s._id?.toLowerCase() === 'ajrasakha')?.count ?? 0;
+    const whatsapp =
+      sourceBreakdown.find(s => s._id?.toLowerCase() === 'whatsapp')?.count ??
+      0;
+    const ajrasakha =
+      sourceBreakdown.find(s => s._id?.toLowerCase() === 'ajrasakha')?.count ??
+      0;
 
-    return { whatsapp, ajrasakha };
+    return {whatsapp, ajrasakha};
   }
 
-  async getQuestionsAnsweredWithin120Minutes(session?: ClientSession, startDate?: Date, endDate?: Date, customStartTime?: string, customEndTime?: string): Promise<{ whatsapp: number; ajrasakha: number }> {
+  async getQuestionsAnsweredWithin120Minutes(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string,
+  ): Promise<{whatsapp: number; ajrasakha: number}> {
     await this.init();
 
     const matchCondition: any = {
       status: 'closed',
-      closedAt: { $exists: true },
-      createdAt: { $exists: true }
+      closedAt: {$exists: true},
+      createdAt: {$exists: true},
     };
 
     if (startDate && endDate) {
       // Filter by both createdAt and closedAt in IST format
       matchCondition.$or = [
-        { createdAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } },
-        { closedAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } }
+        {
+          createdAt: {
+            $gte: new Date(
+              `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`,
+            ),
+            $lt: new Date(
+              `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`,
+            ),
+          },
+        },
+        {
+          closedAt: {
+            $gte: new Date(
+              `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`,
+            ),
+            $lt: new Date(
+              `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`,
+            ),
+          },
+        },
       ];
     }
 
@@ -2640,140 +2882,168 @@ export class QuestionRepository implements IQuestionRepository {
         $and: [
           {
             $gte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              startHour * 60 + startMinute
-            ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
           },
           {
             $lte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              endHour * 60 + endMinute
-            ]
-          }
-        ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
       };
     }
 
-    const result = await this.QuestionCollection.aggregate(
+    const result = (await this.QuestionCollection.aggregate(
       [
-        { $match: matchCondition },
+        {$match: matchCondition},
         {
           $addFields: {
             timeTakenMinutes: {
-              $divide: [
-                { $subtract: ['$closedAt', '$createdAt'] },
-                60000
-              ]
-            }
-          }
+              $divide: [{$subtract: ['$closedAt', '$createdAt']}, 60000],
+            },
+          },
         },
         {
           $match: {
-            timeTakenMinutes: { $lte: 120 }
-          }
+            timeTakenMinutes: {$lte: 120},
+          },
         },
         {
           $group: {
             _id: '$source',
-            count: { $sum: 1 }
-          }
-        }
+            count: {$sum: 1},
+          },
+        },
       ],
-      { session }
-    ).toArray() as { _id: string; count: number }[];
+      {session},
+    ).toArray()) as {_id: string; count: number}[];
 
-    const whatsapp = result.find(s => s._id?.toLowerCase() === 'whatsapp')?.count ?? 0;
-    const ajrasakha = result.find(s => s._id?.toLowerCase() === 'ajrasakha')?.count ?? 0;
+    const whatsapp =
+      result.find(s => s._id?.toLowerCase() === 'whatsapp')?.count ?? 0;
+    const ajrasakha =
+      result.find(s => s._id?.toLowerCase() === 'ajrasakha')?.count ?? 0;
 
-    return { whatsapp, ajrasakha };
+    return {whatsapp, ajrasakha};
   }
 
   //get questions answered after 120 minutes
-  async getQuestionsAnsweredAfter120Minutes(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<{ whatsapp: number; ajrasakha: number }> {
+  async getQuestionsAnsweredAfter120Minutes(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{whatsapp: number; ajrasakha: number}> {
     await this.init();
 
     const matchCondition: any = {
       status: 'closed',
-      closedAt: { $exists: true },
-      createdAt: { $exists: true }
+      closedAt: {$exists: true},
+      createdAt: {$exists: true},
     };
 
     if (startDate && endDate) {
-      matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+      matchCondition.createdAt = {$gte: startDate, $lt: endDate};
     }
 
-    const result = await this.QuestionCollection.aggregate(
+    const result = (await this.QuestionCollection.aggregate(
       [
-        { $match: matchCondition },
+        {$match: matchCondition},
         {
           $addFields: {
             timeTakenMinutes: {
-              $divide: [
-                { $subtract: ['$closedAt', '$createdAt'] },
-                60000
-              ]
-            }
-          }
+              $divide: [{$subtract: ['$closedAt', '$createdAt']}, 60000],
+            },
+          },
         },
         {
           $match: {
-            timeTakenMinutes: { $gt: 120 }
-          }
+            timeTakenMinutes: {$gt: 120},
+          },
         },
         {
           $group: {
             _id: '$source',
-            count: { $sum: 1 }
-          }
-        }
+            count: {$sum: 1},
+          },
+        },
       ],
-      { session }
-    ).toArray() as { _id: string; count: number }[];
+      {session},
+    ).toArray()) as {_id: string; count: number}[];
 
-    const whatsapp = result.find(s => s._id?.toLowerCase() === 'whatsapp')?.count ?? 0;
-    const ajrasakha = result.find(s => s._id?.toLowerCase() === 'ajrasakha')?.count ?? 0;
+    const whatsapp =
+      result.find(s => s._id?.toLowerCase() === 'whatsapp')?.count ?? 0;
+    const ajrasakha =
+      result.find(s => s._id?.toLowerCase() === 'ajrasakha')?.count ?? 0;
 
-    return { whatsapp, ajrasakha };
+    return {whatsapp, ajrasakha};
   }
 
   //get questions state breakedown
-  async getQuestionStateBreakdown(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<QuestionStateBreakdownBySource> {
+  async getQuestionStateBreakdown(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<QuestionStateBreakdownBySource> {
     await this.init();
 
-    const matchCondition: any = { status: { $ne: 'pass' } };
+    const matchCondition: any = {status: {$ne: 'pass'}};
     if (startDate && endDate) {
-      matchCondition.createdAt = { $gte: startDate, $lt: endDate };
+      matchCondition.createdAt = {$gte: startDate, $lt: endDate};
     }
 
-    const stateBreakdown = await this.QuestionCollection.aggregate(
+    const stateBreakdown = (await this.QuestionCollection.aggregate(
       [
-        ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
+        ...(Object.keys(matchCondition).length > 0
+          ? [{$match: matchCondition}]
+          : []),
         {
           $group: {
             _id: {
               source: '$source',
               status: '$status',
             },
-            count: { $sum: 1 },
+            count: {$sum: 1},
           },
         },
       ],
-      { session }
-    ).toArray() as { _id: { source?: string; status?: string }; count: number }[];
+      {session},
+    ).toArray()) as {_id: {source?: string; status?: string}; count: number}[];
 
     const buildBreakdown = (sourceName: 'whatsapp' | 'ajrasakha') => {
       const sourceKey = sourceName.toUpperCase();
       const getCount = (status: string) =>
         stateBreakdown.find(
-          (item) =>
+          item =>
             item._id?.source?.toUpperCase() === sourceKey &&
             item._id?.status?.toLowerCase() === status,
         )?.count ?? 0;
 
       return [
-        { status: 'open', count: getCount('open') },
-        { status: 'passed', count: getCount('pass') },
-        { status: 'delayed', count: getCount('delayed') },
+        {status: 'open', count: getCount('open')},
+        {status: 'passed', count: getCount('pass')},
+        {status: 'delayed', count: getCount('delayed')},
       ];
     };
 
@@ -2788,39 +3058,37 @@ export class QuestionRepository implements IQuestionRepository {
     startDate?: Date,
     endDate?: Date,
     customStartTime?: string,
-    customEndTime?: string
-  ): Promise<{ whatsapp: number; ajrasakha: number }> {
-
+    customEndTime?: string,
+  ): Promise<{whatsapp: number; ajrasakha: number}> {
     await this.init();
 
     const matchCondition: any = {
       status: 'closed',
-      createdAt: { $exists: true },
-      closedAt: { $exists: true }
+      createdAt: {$exists: true},
+      closedAt: {$exists: true},
     };
 
     if (startDate && endDate) {
-
-     /* const startOfDay = new Date(
+      /* const startOfDay = new Date(
         `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`
       );
 
       const endOfDay = new Date(
         `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`
       );*/
-    const startOfDay = new Date(startDate);
-    startOfDay.setHours(0, 0, 0, 0);
+      const startOfDay = new Date(startDate);
+      startOfDay.setHours(0, 0, 0, 0);
 
-    const endOfDay = new Date(endDate);
-    endOfDay.setHours(23, 59, 59, 999);
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
 
       matchCondition.createdAt = {
         $gte: startOfDay,
-        $lte: endOfDay
+        $lte: endOfDay,
       };
       matchCondition.closedAt = {
         $gte: startOfDay,
-        $lte: endOfDay
+        $lte: endOfDay,
       };
     }
 
@@ -2829,12 +3097,9 @@ export class QuestionRepository implements IQuestionRepository {
      * Filters based on CREATED TIME
      */
     if (customStartTime && customEndTime) {
+      const [startHour, startMinute] = customStartTime.split(':').map(Number);
 
-      const [startHour, startMinute] =
-        customStartTime.split(':').map(Number);
-
-      const [endHour, endMinute] =
-        customEndTime.split(':').map(Number);
+      const [endHour, endMinute] = customEndTime.split(':').map(Number);
 
       const startTotalMinutes = startHour * 60 + startMinute;
       const endTotalMinutes = endHour * 60 + endMinute;
@@ -2850,22 +3115,22 @@ export class QuestionRepository implements IQuestionRepository {
                       {
                         $hour: {
                           date: '$createdAt',
-                          timezone: 'Asia/Kolkata'
-                        }
+                          timezone: 'Asia/Kolkata',
+                        },
                       },
-                      60
-                    ]
+                      60,
+                    ],
                   },
                   {
                     $minute: {
                       date: '$createdAt',
-                      timezone: 'Asia/Kolkata'
-                    }
-                  }
-                ]
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
               },
-              startTotalMinutes
-            ]
+              startTotalMinutes,
+            ],
           },
           {
             $lte: [
@@ -2876,34 +3141,33 @@ export class QuestionRepository implements IQuestionRepository {
                       {
                         $hour: {
                           date: '$createdAt',
-                          timezone: 'Asia/Kolkata'
-                        }
+                          timezone: 'Asia/Kolkata',
+                        },
                       },
-                      60
-                    ]
+                      60,
+                    ],
                   },
                   {
                     $minute: {
                       date: '$createdAt',
-                      timezone: 'Asia/Kolkata'
-                    }
-                  }
-                ]
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
               },
-              endTotalMinutes
-            ]
-          }
-        ]
+              endTotalMinutes,
+            ],
+          },
+        ],
       };
     }
 
     const pipeline = [
-
       /**
        * STEP 1: Match records
        */
       {
-        $match: matchCondition
+        $match: matchCondition,
       },
 
       /**
@@ -2914,12 +3178,12 @@ export class QuestionRepository implements IQuestionRepository {
           timeTakenHours: {
             $divide: [
               {
-                $subtract: ['$closedAt', '$createdAt']
+                $subtract: ['$closedAt', '$createdAt'],
               },
-              1000 * 60 * 60
-            ]
-          }
-        }
+              1000 * 60 * 60,
+            ],
+          },
+        },
       },
 
       /**
@@ -2928,15 +3192,15 @@ export class QuestionRepository implements IQuestionRepository {
       {
         $group: {
           _id: {
-            $toLower: '$source'
+            $toLower: '$source',
           },
           avgTime: {
-            $avg: '$timeTakenHours'
+            $avg: '$timeTakenHours',
           },
           totalTickets: {
-            $sum: 1
-          }
-        }
+            $sum: 1,
+          },
+        },
       },
 
       /**
@@ -2947,32 +3211,28 @@ export class QuestionRepository implements IQuestionRepository {
           _id: 0,
           source: '$_id',
           avgTime: {
-            $round: ['$avgTime', 1]
+            $round: ['$avgTime', 1],
           },
-          totalTickets: 1
-        }
-      }
-
+          totalTickets: 1,
+        },
+      },
     ];
 
-    const result = await this.QuestionCollection
-      .aggregate(pipeline, { session })
-      .toArray() as {
-        source: string;
-        avgTime: number;
-        totalTickets: number;
-      }[];
-      
+    const result = (await this.QuestionCollection.aggregate(pipeline, {
+      session,
+    }).toArray()) as {
+      source: string;
+      avgTime: number;
+      totalTickets: number;
+    }[];
 
-    const whatsapp =
-      result.find(r => r.source === 'whatsapp')?.avgTime ?? 0;
+    const whatsapp = result.find(r => r.source === 'whatsapp')?.avgTime ?? 0;
 
-    const ajrasakha =
-      result.find(r => r.source === 'ajrasakha')?.avgTime ?? 0;
+    const ajrasakha = result.find(r => r.source === 'ajrasakha')?.avgTime ?? 0;
 
     return {
       whatsapp,
-      ajrasakha
+      ajrasakha,
     };
   }
 
@@ -2982,7 +3242,18 @@ export class QuestionRepository implements IQuestionRepository {
     customStartTime?: string,
     customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{ weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource; paeMetrics?: { assigned: number; submitted: number; closed: number } }> {
+  ): Promise<{
+    weeksData: GoldenDatasetEntry[];
+    totalEntriesByType: number;
+    totalVerifiedByType: number;
+    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
+    questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
+    averageResponseTime?: {whatsapp: number; ajrasakha: number};
+    questionsAnsweredAfter120Min?: {whatsapp: number; ajrasakha: number};
+    questionStateBreakdown?: QuestionStateBreakdownBySource;
+    paeMetrics?: {assigned: number; submitted: number; closed: number};
+  }> {
     await this.init();
 
     const monthNames = [
@@ -3009,8 +3280,8 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Build match condition with optional time filtering
     const matchCondition: any = {
-      createdAt: { $gte: startDate, $lt: endDate },
-      status: { $ne: 'pass' },
+      createdAt: {$gte: startDate, $lt: endDate},
+      status: {$ne: 'pass'},
     };
 
     // Add time filtering if provided
@@ -3022,17 +3293,37 @@ export class QuestionRepository implements IQuestionRepository {
         $and: [
           {
             $gte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              startHour * 60 + startMinute
-            ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
           },
           {
             $lte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              endHour * 60 + endMinute
-            ]
-          }
-        ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
       };
     }
 
@@ -3043,21 +3334,21 @@ export class QuestionRepository implements IQuestionRepository {
         },
         {
           $addFields: {
-            weekOfMonth: { $ceil: { $divide: [{ $dayOfMonth: '$createdAt' }, 7] } },
+            weekOfMonth: {$ceil: {$divide: [{$dayOfMonth: '$createdAt'}, 7]}},
           },
         },
         {
           $group: {
-            _id: { week: '$weekOfMonth' },
-            totalEntries: { $sum: 1 },
+            _id: {week: '$weekOfMonth'},
+            totalEntries: {$sum: 1},
             totalVerified: {
-              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] }
+              $sum: {$cond: [{$eq: ['$status', 'closed']}, 1, 0]},
             },
           },
         },
-        { $sort: { '_id.week': 1 } },
+        {$sort: {'_id.week': 1}},
       ],
-      { session },
+      {session},
     ).toArray();
 
     const formattedWeeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
@@ -3072,17 +3363,72 @@ export class QuestionRepository implements IQuestionRepository {
         verified: match?.totalVerified ?? 0,
       };
     });
-    const totalEntriesByType = weeksDataRaw.reduce((acc, curr) => acc + (curr.totalEntries || 0), 0);
-    const totalVerifiedByType = weeksDataRaw.reduce((acc, curr) => acc + (curr.totalVerified || 0), 0);
+    const totalEntriesByType = weeksDataRaw.reduce(
+      (acc, curr) => acc + (curr.totalEntries || 0),
+      0,
+    );
+    const totalVerifiedByType = weeksDataRaw.reduce(
+      (acc, curr) => acc + (curr.totalVerified || 0),
+      0,
+    );
 
-    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
-    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
-    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
-    const questionsAnsweredAfter120Min = await this.getQuestionsAnsweredAfter120Minutes(session, startDate, endDate);
-    const questionStateBreakdown = await this.getQuestionStateBreakdown(session, startDate, endDate);
-    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
-    return { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min, questionStateBreakdown, paeMetrics };
+    const {moderatorBreakdown} = await this.getTodayApproved(
+      session,
+      startDate,
+      endDate,
+    );
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(
+      session,
+      startDate,
+      endDate,
+      customStartTime,
+      customEndTime,
+    );
+    const questionsAnsweredWithin120Min =
+      await this.getQuestionsAnsweredWithin120Minutes(
+        session,
+        startDate,
+        endDate,
+        customStartTime,
+        customEndTime,
+      );
+    const averageResponseTime = await this.getAverageResponseTime(
+      session,
+      startDate,
+      endDate,
+      customStartTime,
+      customEndTime,
+    );
+    const questionsAnsweredAfter120Min =
+      await this.getQuestionsAnsweredAfter120Minutes(
+        session,
+        startDate,
+        endDate,
+      );
+    const questionStateBreakdown = await this.getQuestionStateBreakdown(
+      session,
+      startDate,
+      endDate,
+    );
+    const paeMetrics = await this.getPAEMetrics(
+      session,
+      startDate,
+      endDate,
+      customStartTime,
+      customEndTime,
+    );
+    return {
+      weeksData,
+      totalEntriesByType,
+      totalVerifiedByType,
+      moderatorBreakdown,
+      questionSourceBreakdown,
+      questionsAnsweredWithin120Min,
+      averageResponseTime,
+      questionsAnsweredAfter120Min,
+      questionStateBreakdown,
+      paeMetrics,
+    };
   }
 
   async getWeekAnalytics(
@@ -3092,7 +3438,18 @@ export class QuestionRepository implements IQuestionRepository {
     customStartTime?: string,
     customEndTime?: string,
     session?: ClientSession,
-  ): Promise<{ dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource; paeMetrics?: { assigned: number; submitted: number; closed: number } }> {
+  ): Promise<{
+    dailyData: GoldenDatasetEntry[];
+    totalEntriesByType: number;
+    totalVerifiedByType: number;
+    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
+    questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
+    averageResponseTime?: {whatsapp: number; ajrasakha: number};
+    questionsAnsweredAfter120Min?: {whatsapp: number; ajrasakha: number};
+    questionStateBreakdown?: QuestionStateBreakdownBySource;
+    paeMetrics?: {assigned: number; submitted: number; closed: number};
+  }> {
     await this.init();
     const monthNames = [
       'January',
@@ -3124,8 +3481,8 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Build match condition with optional time filtering
     const matchCondition: any = {
-      createdAt: { $gte: startDate, $lt: endDate },
-      status: { $ne: 'pass' },
+      createdAt: {$gte: startDate, $lt: endDate},
+      status: {$ne: 'pass'},
     };
 
     // Add time filtering if provided
@@ -3137,17 +3494,37 @@ export class QuestionRepository implements IQuestionRepository {
         $and: [
           {
             $gte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              startHour * 60 + startMinute
-            ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
           },
           {
             $lte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              endHour * 60 + endMinute
-            ]
-          }
-        ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
       };
     }
     const dailyDataRaw = await this.QuestionCollection.aggregate(
@@ -3157,26 +3534,26 @@ export class QuestionRepository implements IQuestionRepository {
         },
         {
           $addFields: {
-            dayOfWeek: { $dayOfWeek: '$createdAt' },
+            dayOfWeek: {$dayOfWeek: '$createdAt'},
           },
         },
         {
           $group: {
-            _id: { day: '$dayOfWeek' },
-            totalEntries: { $sum: 1 },
+            _id: {day: '$dayOfWeek'},
+            totalEntries: {$sum: 1},
             totalVerified: {
-              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] }
+              $sum: {$cond: [{$eq: ['$status', 'closed']}, 1, 0]},
             },
           },
         },
-        { $sort: { '_id.day': 1 } },
+        {$sort: {'_id.day': 1}},
       ],
-      { session },
+      {session},
     ).toArray();
 
     const daysMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    const dailyData: GoldenDatasetEntry[] = Array.from({ length: 7 }, (_, i) => {
+    const dailyData: GoldenDatasetEntry[] = Array.from({length: 7}, (_, i) => {
       // MongoDB: 1 = Sunday, so index = dayOfWeek - 1
       const match = dailyDataRaw.find(d => d._id.day === i + 1);
       return {
@@ -3188,17 +3565,72 @@ export class QuestionRepository implements IQuestionRepository {
       };
     });
 
-    const totalEntriesByType = dailyDataRaw.reduce((acc, curr) => acc + curr.totalEntries, 0);
-    const totalVerifiedByType = dailyDataRaw.reduce((acc, curr) => acc + curr.totalVerified, 0);
+    const totalEntriesByType = dailyDataRaw.reduce(
+      (acc, curr) => acc + curr.totalEntries,
+      0,
+    );
+    const totalVerifiedByType = dailyDataRaw.reduce(
+      (acc, curr) => acc + curr.totalVerified,
+      0,
+    );
 
-    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate, customStartTime, customEndTime);
-    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate, customStartTime, customEndTime);
-    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate, customStartTime, customEndTime);
-    const questionsAnsweredAfter120Min = await this.getQuestionsAnsweredAfter120Minutes(session, startDate, endDate);
-    const questionStateBreakdown = await this.getQuestionStateBreakdown(session, startDate, endDate);
-    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
-    return { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min, questionStateBreakdown, paeMetrics };
+    const {moderatorBreakdown} = await this.getTodayApproved(
+      session,
+      startDate,
+      endDate,
+    );
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(
+      session,
+      startDate,
+      endDate,
+      customStartTime,
+      customEndTime,
+    );
+    const questionsAnsweredWithin120Min =
+      await this.getQuestionsAnsweredWithin120Minutes(
+        session,
+        startDate,
+        endDate,
+        customStartTime,
+        customEndTime,
+      );
+    const averageResponseTime = await this.getAverageResponseTime(
+      session,
+      startDate,
+      endDate,
+      customStartTime,
+      customEndTime,
+    );
+    const questionsAnsweredAfter120Min =
+      await this.getQuestionsAnsweredAfter120Minutes(
+        session,
+        startDate,
+        endDate,
+      );
+    const questionStateBreakdown = await this.getQuestionStateBreakdown(
+      session,
+      startDate,
+      endDate,
+    );
+    const paeMetrics = await this.getPAEMetrics(
+      session,
+      startDate,
+      endDate,
+      customStartTime,
+      customEndTime,
+    );
+    return {
+      dailyData,
+      totalEntriesByType,
+      totalVerifiedByType,
+      moderatorBreakdown,
+      questionSourceBreakdown,
+      questionsAnsweredWithin120Min,
+      averageResponseTime,
+      questionsAnsweredAfter120Min,
+      questionStateBreakdown,
+      paeMetrics,
+    };
   }
 
   async getDailyAnalytics(
@@ -3213,13 +3645,13 @@ export class QuestionRepository implements IQuestionRepository {
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: { moderatorName: string, count: number }[];
-    questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
-    questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
-    averageResponseTime?: { whatsapp: number; ajrasakha: number };
-    paeMetrics?: { assigned: number; submitted: number; closed: number };
-    questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number };
-    questionStateBreakdown?: QuestionStateBreakdownBySource
+    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
+    questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
+    averageResponseTime?: {whatsapp: number; ajrasakha: number};
+    paeMetrics?: {assigned: number; submitted: number; closed: number};
+    questionsAnsweredAfter120Min?: {whatsapp: number; ajrasakha: number};
+    questionStateBreakdown?: QuestionStateBreakdownBySource;
   }> {
     await this.init();
     const monthNames = [
@@ -3266,8 +3698,8 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Build match condition with optional time filtering
     const matchCondition: any = {
-      createdAt: { $gte: startDate, $lt: endDate },
-      status: { $ne: 'pass' },
+      createdAt: {$gte: startDate, $lt: endDate},
+      status: {$ne: 'pass'},
     };
 
     // Add time filtering if provided
@@ -3279,17 +3711,37 @@ export class QuestionRepository implements IQuestionRepository {
         $and: [
           {
             $gte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              startHour * 60 + startMinute
-            ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
           },
           {
             $lte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              endHour * 60 + endMinute
-            ]
-          }
-        ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
       };
     }
 
@@ -3300,8 +3752,10 @@ export class QuestionRepository implements IQuestionRepository {
         },
         {
           $addFields: {
-            hourOfDay: { $hour: { date: "$createdAt", timezone: "Asia/Kolkata" } },
-            dayOfWeek: { $dayOfWeek: { date: "$createdAt", timezone: "Asia/Kolkata" } },
+            hourOfDay: {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+            dayOfWeek: {
+              $dayOfWeek: {date: '$createdAt', timezone: 'Asia/Kolkata'},
+            },
           },
         },
         {
@@ -3311,19 +3765,19 @@ export class QuestionRepository implements IQuestionRepository {
         },
         {
           $group: {
-            _id: "$hourOfDay",
-            totalEntries: { $sum: 1 },
+            _id: '$hourOfDay',
+            totalEntries: {$sum: 1},
             totalVerified: {
-              $sum: { $cond: [{ $eq: ["$status", "closed"] }, 1, 0] }
+              $sum: {$cond: [{$eq: ['$status', 'closed']}, 1, 0]},
             },
           },
         },
         {
-          $sort: { _id: 1 }
+          $sort: {_id: 1},
         },
       ],
-      { session },
-    ).toArray()
+      {session},
+    ).toArray();
 
     // const answers = await this.QuestionCollection.aggregate(
     //   [
@@ -3357,7 +3811,7 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Initialize all 24 hours with 0 entries
     const hourlyData: GoldenDatasetEntry[] = Array.from(
-      { length: 24 },
+      {length: 24},
       (_, i) => {
         const match = answers.find(a => a._id === i);
         return {
@@ -3371,11 +3825,27 @@ export class QuestionRepository implements IQuestionRepository {
       },
     );
 
-    const totalEntriesByType = answers.reduce((acc, curr) => acc + curr.totalEntries, 0);
-    const totalVerifiedByType = answers.reduce((acc, curr) => acc + curr.totalVerified, 0);
+    const totalEntriesByType = answers.reduce(
+      (acc, curr) => acc + curr.totalEntries,
+      0,
+    );
+    const totalVerifiedByType = answers.reduce(
+      (acc, curr) => acc + curr.totalVerified,
+      0,
+    );
 
     // Filter moderator breakdown for the specific day
-    const dayStartDate = new Date(yearNum, monthNum, startDay + selectedDayNum - dayMap[Object.keys(dayMap).find(key => dayMap[key] === (startDay % 7 === 0 ? 0 : startDay % 7))!]);
+    const dayStartDate = new Date(
+      yearNum,
+      monthNum,
+      startDay +
+        selectedDayNum -
+        dayMap[
+          Object.keys(dayMap).find(
+            key => dayMap[key] === (startDay % 7 === 0 ? 0 : startDay % 7),
+          )!
+        ],
+    );
 
     const startOfWeekDate = new Date(yearNum, monthNum, startDay);
     const startOfWeekDayNum = startOfWeekDate.getDay();
@@ -3396,29 +3866,79 @@ export class QuestionRepository implements IQuestionRepository {
       current.setDate(current.getDate() + 1);
     }
 
-    let moderatorBreakdown: { moderatorName: string, count: number }[] = [];
-    let questionSourceBreakdown: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
-    let questionsAnsweredWithin120Min: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
-    let averageResponseTime: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
-    let questionsAnsweredAfter120Min: { whatsapp: number; ajrasakha: number } = { whatsapp: 0, ajrasakha: 0 };
+    let moderatorBreakdown: {moderatorName: string; count: number}[] = [];
+    let questionSourceBreakdown: {whatsapp: number; ajrasakha: number} = {
+      whatsapp: 0,
+      ajrasakha: 0,
+    };
+    let questionsAnsweredWithin120Min: {whatsapp: number; ajrasakha: number} = {
+      whatsapp: 0,
+      ajrasakha: 0,
+    };
+    let averageResponseTime: {whatsapp: number; ajrasakha: number} = {
+      whatsapp: 0,
+      ajrasakha: 0,
+    };
+    let questionsAnsweredAfter120Min: {whatsapp: number; ajrasakha: number} = {
+      whatsapp: 0,
+      ajrasakha: 0,
+    };
     let questionStateBreakdown: QuestionStateBreakdownBySource | undefined;
 
     if (specificDayStart) {
       const specificDayEnd = new Date(specificDayStart);
       specificDayEnd.setDate(specificDayEnd.getDate() + 1);
-      const result = await this.getTodayApproved(session, specificDayStart, specificDayEnd);
+      const result = await this.getTodayApproved(
+        session,
+        specificDayStart,
+        specificDayEnd,
+      );
       moderatorBreakdown = result.moderatorBreakdown || [];
-      questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, specificDayStart, specificDayEnd, customStartTime, customEndTime);
-      questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, specificDayStart, specificDayEnd, customStartTime, customEndTime);
-      averageResponseTime = await this.getAverageResponseTime(session, specificDayStart, specificDayEnd, customStartTime, customEndTime);
-      questionsAnsweredAfter120Min = await this.getQuestionsAnsweredAfter120Minutes(session, specificDayStart, specificDayEnd);
-      questionStateBreakdown = await this.getQuestionStateBreakdown(session, specificDayStart, specificDayEnd);
+      questionSourceBreakdown = await this.getQuestionSourceBreakdown(
+        session,
+        specificDayStart,
+        specificDayEnd,
+        customStartTime,
+        customEndTime,
+      );
+      questionsAnsweredWithin120Min =
+        await this.getQuestionsAnsweredWithin120Minutes(
+          session,
+          specificDayStart,
+          specificDayEnd,
+          customStartTime,
+          customEndTime,
+        );
+      averageResponseTime = await this.getAverageResponseTime(
+        session,
+        specificDayStart,
+        specificDayEnd,
+        customStartTime,
+        customEndTime,
+      );
+      questionsAnsweredAfter120Min =
+        await this.getQuestionsAnsweredAfter120Minutes(
+          session,
+          specificDayStart,
+          specificDayEnd,
+        );
+      questionStateBreakdown = await this.getQuestionStateBreakdown(
+        session,
+        specificDayStart,
+        specificDayEnd,
+      );
     }
 
-    const paeMetrics = await this.getPAEMetrics(session, startDate, endDate, customStartTime, customEndTime);
+    const paeMetrics = await this.getPAEMetrics(
+      session,
+      startDate,
+      endDate,
+      customStartTime,
+      customEndTime,
+    );
 
     return {
-      dayHourlyData: { [goldenDataSelectedDay]: hourlyData },
+      dayHourlyData: {[goldenDataSelectedDay]: hourlyData},
       totalEntriesByType,
       totalVerifiedByType,
       moderatorBreakdown,
@@ -3427,7 +3947,7 @@ export class QuestionRepository implements IQuestionRepository {
       averageResponseTime,
       paeMetrics,
       questionsAnsweredAfter120Min,
-      questionStateBreakdown
+      questionStateBreakdown,
     };
   }
 
@@ -3439,10 +3959,10 @@ export class QuestionRepository implements IQuestionRepository {
     customData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: { moderatorName: string, count: number }[];
-    questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
-    questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
-    averageResponseTime?: { whatsapp: number; ajrasakha: number };
+    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
+    questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
+    averageResponseTime?: {whatsapp: number; ajrasakha: number};
   }> {
     await this.init();
 
@@ -3462,23 +3982,23 @@ export class QuestionRepository implements IQuestionRepository {
       [
         {
           $match: {
-            createdAt: { $gte: startDate, $lt: endDate },
+            createdAt: {$gte: startDate, $lt: endDate},
           },
         },
         {
           $group: {
             _id: {
-              $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+              $dateToString: {format: '%Y-%m-%d', date: '$createdAt'},
             },
-            totalEntries: { $sum: 1 },
+            totalEntries: {$sum: 1},
             totalVerified: {
-              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] }
+              $sum: {$cond: [{$eq: ['$status', 'closed']}, 1, 0]},
             },
           },
         },
-        { $sort: { '_id': 1 } },
+        {$sort: {_id: 1}},
       ],
-      { session },
+      {session},
     ).toArray();
 
     const customData: GoldenDatasetEntry[] = customDataRaw.map((item: any) => ({
@@ -3487,13 +4007,36 @@ export class QuestionRepository implements IQuestionRepository {
       verified: item.totalVerified,
     }));
 
-    const totalEntriesByType = customData.reduce((sum, d) => sum + d.entries, 0);
-    const totalVerifiedByType = customData.reduce((sum, d) => sum + d.verified, 0);
+    const totalEntriesByType = customData.reduce(
+      (sum, d) => sum + d.entries,
+      0,
+    );
+    const totalVerifiedByType = customData.reduce(
+      (sum, d) => sum + d.verified,
+      0,
+    );
 
-    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
-    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(session, startDate, endDate);
-    const questionsAnsweredWithin120Min = await this.getQuestionsAnsweredWithin120Minutes(session, startDate, endDate);
-    const averageResponseTime = await this.getAverageResponseTime(session, startDate, endDate);
+    const {moderatorBreakdown} = await this.getTodayApproved(
+      session,
+      startDate,
+      endDate,
+    );
+    const questionSourceBreakdown = await this.getQuestionSourceBreakdown(
+      session,
+      startDate,
+      endDate,
+    );
+    const questionsAnsweredWithin120Min =
+      await this.getQuestionsAnsweredWithin120Minutes(
+        session,
+        startDate,
+        endDate,
+      );
+    const averageResponseTime = await this.getAverageResponseTime(
+      session,
+      startDate,
+      endDate,
+    );
 
     return {
       customData,
@@ -3502,7 +4045,7 @@ export class QuestionRepository implements IQuestionRepository {
       moderatorBreakdown,
       questionSourceBreakdown,
       questionsAnsweredWithin120Min,
-      averageResponseTime
+      averageResponseTime,
     };
   }
 
@@ -3523,7 +4066,7 @@ export class QuestionRepository implements IQuestionRepository {
       [
         {
           $match: {
-            createdAt: { $gte: startDate },
+            createdAt: {$gte: startDate},
           },
         },
         {
@@ -3531,10 +4074,10 @@ export class QuestionRepository implements IQuestionRepository {
             _id: {
               source: '$source',
               day: {
-                $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
+                $dateToString: {format: '%Y-%m-%d', date: '$createdAt'},
               },
             },
-            count: { $sum: 1 },
+            count: {$sum: 1},
           },
         },
         {
@@ -3554,7 +4097,7 @@ export class QuestionRepository implements IQuestionRepository {
           },
         },
       ],
-      { session },
+      {session},
     ).toArray();
 
     const chartData = results.map(r => {
@@ -3582,11 +4125,11 @@ export class QuestionRepository implements IQuestionRepository {
 
     const results = await this.QuestionCollection.aggregate(
       [
-        { $match: { status: { $ne: 'pass' } } },
+        {$match: {status: {$ne: 'pass'}}},
         {
           $group: {
             _id: '$status',
-            count: { $sum: 1 },
+            count: {$sum: 1},
           },
         },
         {
@@ -3597,7 +4140,7 @@ export class QuestionRepository implements IQuestionRepository {
           },
         },
       ],
-      { session },
+      {session},
     ).toArray();
 
     const allStatuses = ['open', 'delayed', 'in-review'];
@@ -3620,7 +4163,7 @@ export class QuestionRepository implements IQuestionRepository {
     state?: string[],
     source?: string[],
     crop?: string[],
-  ): Promise<{ analytics: Analytics }> {
+  ): Promise<{analytics: Analytics}> {
     await this.init();
 
     const filterDate: any = {};
@@ -3629,75 +4172,111 @@ export class QuestionRepository implements IQuestionRepository {
 
     const matchStage: any = {};
     if (status?.length) {
-      matchStage.status = { $in: status };
+      matchStage.status = {$in: status};
     }
     if (Object.keys(filterDate).length > 0) {
       matchStage.createdAt = filterDate;
     }
     if (state?.length) {
-      matchStage['details.state'] = { $in: state };
+      matchStage['details.state'] = {$in: state};
     }
     if (source?.length) {
-      matchStage.source = { $in: source };
+      matchStage.source = {$in: source};
     }
     if (crop?.length) {
-      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      matchStage['details.crop'] = {
-        $in: crop.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')),
+      const escapeRegex = (s: string) =>
+        s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // matchStage['details.crop'] = {
+      //   $in: crop.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')),
+      // };
+      matchStage.$expr = {
+        $in: [
+          {
+            $ifNull: ['$details.normalised_crop', '$details.crop'],
+          },
+          crop,
+        ],
       };
     }
 
-    const sortAllItems = (data: { name: string; count: number }[]) => {
+    const sortAllItems = (data: {name: string; count: number}[]) => {
       return [...data].sort((a, b) => b.count - a.count);
     };
 
     // Aggregate crop data
     const cropDataRaw = (await this.QuestionCollection.aggregate(
       [
-        { $match: matchStage },
-        { $group: { _id: '$details.crop', count: { $sum: 1 } } },
-        { $project: { name: '$_id', count: 1, _id: 0 } },
+        {$match: matchStage},
+        // { $group: { _id: '$details.crop', count: { $sum: 1 } } },
+        {
+          $group: {
+            _id: {
+              $ifNull: [
+                '$details.normalised_crop',
+                {
+                  $ifNull: ['$details.crop', 'Not Normalized'],
+                },
+              ],
+            },
+            count: {$sum: 1},
+          },
+        },
+        {$project: {name: '$_id', count: 1, _id: 0}},
       ],
-      { session },
+      {session},
     ).toArray()) as AnalyticsItem[];
 
     // Aggregate state data
     const stateDataRaw = (await this.QuestionCollection.aggregate(
       [
-        { $match: matchStage },
-        { $group: { _id: '$details.state', count: { $sum: 1 } } },
-        { $project: { name: '$_id', count: 1, _id: 0 } },
+        {$match: matchStage},
+        {$group: {_id: '$details.state', count: {$sum: 1}}},
+        {$project: {name: '$_id', count: 1, _id: 0}},
       ],
-      { session },
+      {session},
     ).toArray()) as AnalyticsItem[];
 
     // Aggregate domain data
     const domainDataRaw = (await this.QuestionCollection.aggregate(
       [
-        { $match: matchStage },
-        { $group: { _id: '$details.domain', count: { $sum: 1 } } },
-        { $project: { name: '$_id', count: 1, _id: 0 } },
+        {$match: matchStage},
+        {$group: {_id: '$details.domain', count: {$sum: 1}}},
+        {$project: {name: '$_id', count: 1, _id: 0}},
       ],
-      { session },
+      {session},
     ).toArray()) as AnalyticsItem[];
 
     // Table: group by state × crop × source, pivot status counts
-    const tableData = await this.QuestionCollection.aggregate(
+    const tableData = (await this.QuestionCollection.aggregate(
       [
         {$match: matchStage},
         {
           $group: {
-            _id: {state: '$details.state', crop: '$details.crop', source: '$source'},
-            open:         {$sum: {$cond: [{$eq: ['$status', 'open']}, 1, 0]}},
-            closed:       {$sum: {$cond: [{$eq: ['$status', 'closed']}, 1, 0]}},
-            inReview:     {$sum: {$cond: [{$eq: ['$status', 'in-review']}, 1, 0]}},
-            delayed:      {$sum: {$cond: [{$eq: ['$status', 'delayed']}, 1, 0]}},
-            reRouted:     {$sum: {$cond: [{$eq: ['$status', 're-routed']}, 1, 0]}},
-            hold:         {$sum: {$cond: [{$eq: ['$status', 'hold']}, 1, 0]}},
-            paeSubmitted: {$sum: {$cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0]}},
-            draft:        {$sum: {$cond: [{$eq: ['$status', 'draft']}, 1, 0]}},
-            duplicate:    {$sum: {$cond: [{$eq: ['$status', 'duplicate']}, 1, 0]}},
-            total:        {$sum: 1},
+            _id: {
+              state: '$details.state',
+              //  crop: '$details.crop',
+              crop: {
+                $ifNull: [
+                  '$details.normalised_crop',
+                  {
+                    $ifNull: ['$details.crop', 'Not Normalized'],
+                  },
+                ],
+              },
+              source: '$source',
+            },
+            open: {$sum: {$cond: [{$eq: ['$status', 'open']}, 1, 0]}},
+            closed: {$sum: {$cond: [{$eq: ['$status', 'closed']}, 1, 0]}},
+            inReview: {$sum: {$cond: [{$eq: ['$status', 'in-review']}, 1, 0]}},
+            delayed: {$sum: {$cond: [{$eq: ['$status', 'delayed']}, 1, 0]}},
+            reRouted: {$sum: {$cond: [{$eq: ['$status', 're-routed']}, 1, 0]}},
+            hold: {$sum: {$cond: [{$eq: ['$status', 'hold']}, 1, 0]}},
+            paeSubmitted: {
+              $sum: {$cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0]},
+            },
+            draft: {$sum: {$cond: [{$eq: ['$status', 'draft']}, 1, 0]}},
+            duplicate: {$sum: {$cond: [{$eq: ['$status', 'duplicate']}, 1, 0]}},
+            total: {$sum: 1},
             // Earliest question ever created in this group
             lastPushedDate: {$min: '$createdAt'},
             // Most recent closedAt among questions that are actually closed
@@ -3714,14 +4293,27 @@ export class QuestionRepository implements IQuestionRepository {
             state: '$_id.state',
             crop: '$_id.crop',
             source: '$_id.source',
-            open: 1, closed: 1, inReview: 1, delayed: 1, reRouted: 1,
-            hold: 1, paeSubmitted: 1, draft: 1, duplicate: 1, total: 1,
+            open: 1,
+            closed: 1,
+            inReview: 1,
+            delayed: 1,
+            reRouted: 1,
+            hold: 1,
+            paeSubmitted: 1,
+            draft: 1,
+            duplicate: 1,
+            total: 1,
             lastPushedDate: 1,
             lastClosedDate: 1,
             completionPct: {
               $cond: [
                 {$gt: ['$total', 0]},
-                {$round: [{$multiply: [{$divide: ['$closed', '$total']}, 100]}, 1]},
+                {
+                  $round: [
+                    {$multiply: [{$divide: ['$closed', '$total']}, 100]},
+                    1,
+                  ],
+                },
                 0,
               ],
             },
@@ -3730,7 +4322,7 @@ export class QuestionRepository implements IQuestionRepository {
         {$sort: {state: 1, crop: 1, source: 1}},
       ],
       {session},
-    ).toArray() as AnalyticsTableRow[];
+    ).toArray()) as AnalyticsTableRow[];
 
     return {
       analytics: {
@@ -3750,20 +4342,20 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
 
       const pending = await this.QuestionCollection.countDocuments(
-        { status: 'in-review' },
-        { session },
+        {status: 'in-review'},
+        {session},
       );
 
       const approved = await this.QuestionCollection.countDocuments(
-        { status: 'closed' },
-        { session },
+        {status: 'closed'},
+        {session},
       );
 
       const totalReviews = pending + approved || 0;
 
       const approvedCount = await this.QuestionCollection.countDocuments(
-        { status: 'closed' },
-        { session },
+        {status: 'closed'},
+        {session},
       );
 
       const approvalRate =
@@ -3783,8 +4375,8 @@ export class QuestionRepository implements IQuestionRepository {
   }
   async getAll(session?: ClientSession): Promise<IQuestion[]> {
     await this.init();
-    return await this.QuestionCollection.find({}, { session })
-      .sort({ createdAt: -1 })
+    return await this.QuestionCollection.find({}, {session})
+      .sort({createdAt: -1})
       .toArray();
   }
 
@@ -3793,21 +4385,21 @@ export class QuestionRepository implements IQuestionRepository {
     session?: ClientSession,
   ): Promise<IQuestion[]> {
     await this.init();
-    return await this.QuestionCollection.find({ status }, { session })
-      .sort({ createdAt: -1 })
+    return await this.QuestionCollection.find({status}, {session})
+      .sort({createdAt: -1})
       .toArray();
   }
 
   async bulkDeleteByIds(
     questionIds: string[],
     session?: ClientSession,
-  ): Promise<{ deletedCount: number }> {
+  ): Promise<{deletedCount: number}> {
     await this.init();
 
     const objectIds = questionIds.map(id => new ObjectId(id));
     const result = await this.QuestionCollection.deleteMany(
-      { _id: { $in: objectIds } },
-      { session },
+      {_id: {$in: objectIds}},
+      {session},
     );
 
     return {
@@ -3815,23 +4407,21 @@ export class QuestionRepository implements IQuestionRepository {
     };
   }
 
-
-
   async getQuestionsAndReviewLevel(
-    query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
+    query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
     session?: ClientSession,
   ): Promise<QuestionLevelResponse> {
     await this.init();
-    const { page = 1, limit = 10, search, sort = '' } = query;
+    const {page = 1, limit = 10, search, sort = ''} = query;
     const skip = (page - 1) * limit;
 
-    const { filter } = await buildQuestionFilter(
+    const {filter} = await buildQuestionFilter(
       query,
       this.QuestionSubmissionCollection,
-      this.AnswersCollection
+      this.AnswersCollection,
     );
     if (search && search.trim().length) {
-      filter.question = { $regex: search.trim(), $options: "i" };
+      filter.question = {$regex: search.trim(), $options: 'i'};
     }
 
     //implement sort by level
@@ -3865,7 +4455,7 @@ export class QuestionRepository implements IQuestionRepository {
           question: 1,
           status: 1,
           createdAt: 1,
-          authors_history: 1,  // ← Add authors_history to projection
+          authors_history: 1, // ← Add authors_history to projection
         },
       },
 
@@ -3878,22 +4468,22 @@ export class QuestionRepository implements IQuestionRepository {
         },
       },
 
-      { $unwind: { path: '$submission', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$submission', preserveNullAndEmptyArrays: true}},
 
       //normalize date
       {
         $addFields: {
           submissionCreatedAt: {
             $cond: [
-              { $eq: [{ $type: '$submission.createdAt' }, 'string'] },
-              { $toDate: '$submission.createdAt' },
+              {$eq: [{$type: '$submission.createdAt'}, 'string']},
+              {$toDate: '$submission.createdAt'},
               '$submission.createdAt',
             ],
           },
 
           history: {
             $map: {
-              input: { $ifNull: ['$submission.history', []] },
+              input: {$ifNull: ['$submission.history', []]},
               as: 'h',
               in: {
                 $mergeObjects: [
@@ -3901,15 +4491,15 @@ export class QuestionRepository implements IQuestionRepository {
                   {
                     createdAt: {
                       $cond: [
-                        { $eq: [{ $type: '$$h.createdAt' }, 'string'] },
-                        { $toDate: '$$h.createdAt' },
+                        {$eq: [{$type: '$$h.createdAt'}, 'string']},
+                        {$toDate: '$$h.createdAt'},
                         '$$h.createdAt',
                       ],
                     },
                     updatedAt: {
                       $cond: [
-                        { $eq: [{ $type: '$$h.updatedAt' }, 'string'] },
-                        { $toDate: '$$h.updatedAt' },
+                        {$eq: [{$type: '$$h.updatedAt'}, 'string']},
+                        {$toDate: '$$h.updatedAt'},
                         '$$h.updatedAt',
                       ],
                     },
@@ -3924,8 +4514,8 @@ export class QuestionRepository implements IQuestionRepository {
         $addFields: {
           currentLevel: {
             $cond: [
-              { $gt: [{ $size: '$history' }, 0] },
-              { $subtract: [{ $size: '$history' }, 1] },
+              {$gt: [{$size: '$history'}, 0]},
+              {$subtract: [{$size: '$history'}, 1]},
               -1,
             ],
           },
@@ -3936,17 +4526,27 @@ export class QuestionRepository implements IQuestionRepository {
               vars: {
                 isAuthor: {
                   $and: [
-                    { $gt: [{ $size: { $ifNull: ['$submission.queue', []] } }, 0] },
-                    { $eq: [{ $size: '$history' }, 0] }
-                  ]
+                    {$gt: [{$size: {$ifNull: ['$submission.queue', []]}}, 0]},
+                    {$eq: [{$size: '$history'}, 0]},
+                  ],
                 },
                 lastAuthorEntry: {
                   $cond: [
-                    { $gt: [{ $size: { $ifNull: ['$authors_history', []] } }, 0] },
-                    { $arrayElemAt: [{ $ifNull: ['$authors_history', []] }, { $subtract: [{ $size: { $ifNull: ['$authors_history', []] } }, 1] }] },
-                    null
-                  ]
-                }
+                    {$gt: [{$size: {$ifNull: ['$authors_history', []]}}, 0]},
+                    {
+                      $arrayElemAt: [
+                        {$ifNull: ['$authors_history', []]},
+                        {
+                          $subtract: [
+                            {$size: {$ifNull: ['$authors_history', []]}},
+                            1,
+                          ],
+                        },
+                      ],
+                    },
+                    null,
+                  ],
+                },
               },
               in: {
                 $cond: [
@@ -3955,39 +4555,47 @@ export class QuestionRepository implements IQuestionRepository {
                     $cond: [
                       {
                         $and: [
-                          { $gt: [{ $size: { $ifNull: ['$authors_history', []] } }, 0] },
-                          { $ne: ['$$lastAuthorEntry', null] }
-                        ]
+                          {
+                            $gt: [
+                              {$size: {$ifNull: ['$authors_history', []]}},
+                              0,
+                            ],
+                          },
+                          {$ne: ['$$lastAuthorEntry', null]},
+                        ],
                       },
                       '$$lastAuthorEntry.createdAt',
                       {
                         $cond: [
-                          { $ne: ['$submissionCreatedAt', null] },
+                          {$ne: ['$submissionCreatedAt', null]},
                           '$submissionCreatedAt',
-                          '$createdAt'
-                        ]
-                      }
-                    ]
+                          '$createdAt',
+                        ],
+                      },
+                    ],
                   },
                   {
                     $cond: [
-                      { $gt: [{ $size: '$history' }, 0] },
+                      {$gt: [{$size: '$history'}, 0]},
                       {
                         $let: {
                           vars: {
                             lastHistoryEntry: {
-                              $arrayElemAt: ['$history', { $subtract: [{ $size: '$history' }, 1] }]
-                            }
+                              $arrayElemAt: [
+                                '$history',
+                                {$subtract: [{$size: '$history'}, 1]},
+                              ],
+                            },
                           },
-                          in: '$$lastHistoryEntry.createdAt'
-                        }
+                          in: '$$lastHistoryEntry.createdAt',
+                        },
                       },
-                      '$createdAt'
-                    ]
-                  }
-                ]
-              }
-            }
+                      '$createdAt',
+                    ],
+                  },
+                ],
+              },
+            },
           },
         },
       },
@@ -3996,22 +4604,22 @@ export class QuestionRepository implements IQuestionRepository {
         $addFields: {
           reviewLevels: {
             $map: {
-              input: { $range: [0, 11] },
+              input: {$range: [0, 11]},
               as: 'idx',
 
               in: {
                 $let: {
                   vars: {
-                    hist: { $arrayElemAt: ['$history', '$$idx'] },
+                    hist: {$arrayElemAt: ['$history', '$$idx']},
                     nextHist: {
-                      $arrayElemAt: ['$history', { $add: ['$$idx', 1] }],
+                      $arrayElemAt: ['$history', {$add: ['$$idx', 1]}],
                     },
 
                     isAuthorNoHistory: {
                       $and: [
-                        { $eq: ['$$idx', 0] },
-                        { $eq: ['$currentLevel', -1] },
-                        { $ne: ['$submissionCreatedAt', null] },
+                        {$eq: ['$$idx', 0]},
+                        {$eq: ['$currentLevel', -1]},
+                        {$ne: ['$submissionCreatedAt', null]},
                       ],
                     },
                   },
@@ -4022,11 +4630,11 @@ export class QuestionRepository implements IQuestionRepository {
                         // pending only applies to last level
                         isPending: {
                           $and: [
-                            { $eq: ['$$idx', '$currentLevel'] },
-                            { $ne: ['$$hist', null] },
+                            {$eq: ['$$idx', '$currentLevel']},
+                            {$ne: ['$$hist', null]},
                             {
                               $or: [
-                                { $eq: ['$$hist.updatedAt', null] },
+                                {$eq: ['$$hist.updatedAt', null]},
                                 {
                                   $eq: ['$$hist.updatedAt', '$$hist.createdAt'],
                                 },
@@ -4048,25 +4656,25 @@ export class QuestionRepository implements IQuestionRepository {
                                       startDate: '$authorTimerStartTime',
                                       endDate: '$$NOW',
                                       unit: 'second',
-                                    }
-                                  }
+                                    },
+                                  },
                                 },
-                                in: { $max: [0, '$$rawDiff'] }
-                              }
+                                in: {$max: [0, '$$rawDiff']},
+                              },
                             },
 
                             // normal
                             {
                               $cond: [
-                                { $eq: ['$$idx', 0] },
+                                {$eq: ['$$idx', 0]},
 
                                 {
                                   $cond: [
                                     {
                                       $and: [
-                                        { $ne: ['$$hist', null] },
+                                        {$ne: ['$$hist', null]},
                                         {
-                                          $ne: ['$authorTimerStartTime', null]
+                                          $ne: ['$authorTimerStartTime', null],
                                         },
                                       ],
                                     },
@@ -4075,14 +4683,15 @@ export class QuestionRepository implements IQuestionRepository {
                                         vars: {
                                           rawDiff: {
                                             $dateDiff: {
-                                              startDate: '$authorTimerStartTime',
+                                              startDate:
+                                                '$authorTimerStartTime',
                                               endDate: '$$hist.createdAt',
                                               unit: 'second',
-                                            }
-                                          }
+                                            },
+                                          },
                                         },
-                                        in: { $max: [0, '$$rawDiff'] }
-                                      }
+                                        in: {$max: [0, '$$rawDiff']},
+                                      },
                                     },
                                     null,
                                   ],
@@ -4091,15 +4700,15 @@ export class QuestionRepository implements IQuestionRepository {
                                 // ===== NON-AUTHOR =====
                                 {
                                   $cond: [
-                                    { $lt: ['$$idx', '$currentLevel'] },
+                                    {$lt: ['$$idx', '$currentLevel']},
 
                                     // non-last
                                     {
                                       $cond: [
                                         {
                                           $and: [
-                                            { $ne: ['$$hist', null] },
-                                            { $ne: ['$$nextHist', null] },
+                                            {$ne: ['$$hist', null]},
+                                            {$ne: ['$$nextHist', null]},
                                           ],
                                         },
                                         {
@@ -4118,7 +4727,7 @@ export class QuestionRepository implements IQuestionRepository {
                                       $cond: [
                                         {
                                           $and: [
-                                            { $ne: ['$$hist', null] },
+                                            {$ne: ['$$hist', null]},
                                             {
                                               $or: [
                                                 {
@@ -4150,7 +4759,7 @@ export class QuestionRepository implements IQuestionRepository {
                                         // completed → updatedAt - createdAt
                                         {
                                           $cond: [
-                                            { $ne: ['$$hist', null] },
+                                            {$ne: ['$$hist', null]},
                                             {
                                               $dateDiff: {
                                                 startDate: '$$hist.createdAt',
@@ -4174,9 +4783,9 @@ export class QuestionRepository implements IQuestionRepository {
                       in: {
                         column: {
                           $cond: [
-                            { $eq: ['$$idx', 0] },
+                            {$eq: ['$$idx', 0]},
                             'author',
-                            { $concat: ['level ', { $toString: '$$idx' }] },
+                            {$concat: ['level ', {$toString: '$$idx'}]},
                           ],
                         },
 
@@ -4184,15 +4793,15 @@ export class QuestionRepository implements IQuestionRepository {
                           $cond: [
                             {
                               $and: [
-                                { $gt: ['$$idx', '$currentLevel'] },
-                                { $not: '$$isAuthorNoHistory' },
+                                {$gt: ['$$idx', '$currentLevel']},
+                                {$not: '$$isAuthorNoHistory'},
                               ],
                             },
                             'NA',
 
                             {
                               $cond: [
-                                { $eq: ['$$secs', null] },
+                                {$eq: ['$$secs', null]},
                                 'NA',
 
                                 {
@@ -4205,20 +4814,20 @@ export class QuestionRepository implements IQuestionRepository {
                                       },
                                       m: {
                                         $floor: {
-                                          $mod: [{ $divide: ['$$secs', 60] }, 60],
+                                          $mod: [{$divide: ['$$secs', 60]}, 60],
                                         },
                                       },
-                                      s: { $mod: ['$$secs', 60] },
+                                      s: {$mod: ['$$secs', 60]},
                                     },
 
                                     in: {
                                       time: {
                                         $concat: [
-                                          { $toString: '$$h' },
+                                          {$toString: '$$h'},
                                           ':',
-                                          { $toString: '$$m' },
+                                          {$toString: '$$m'},
                                           ':',
-                                          { $toString: '$$s' },
+                                          {$toString: '$$s'},
                                         ],
                                       },
 
@@ -4257,13 +4866,13 @@ export class QuestionRepository implements IQuestionRepository {
                 $filter: {
                   input: '$reviewLevels.sortSecs',
                   as: 's',
-                  cond: { $ne: ['$$s', null] },
+                  cond: {$ne: ['$$s', null]},
                 },
               },
             },
           },
         },
-        { $sort: { totalTurnAround: sortDir } },
+        {$sort: {totalTurnAround: sortDir}},
       );
     } else if (hasLevelSort) {
       dataPipeLine.push(
@@ -4275,14 +4884,14 @@ export class QuestionRepository implements IQuestionRepository {
             },
           },
         },
-        { $sort: { sortValue: sortDir } },
+        {$sort: {sortValue: sortDir}},
       );
     } else {
-      dataPipeLine.push({ $sort: { createdAt: -1 } });
+      dataPipeLine.push({$sort: {createdAt: -1}});
     }
     dataPipeLine.push(
-      { $skip: skip },
-      { $limit: limit },
+      {$skip: skip},
+      {$limit: limit},
 
       {
         $project: {
@@ -4304,11 +4913,11 @@ export class QuestionRepository implements IQuestionRepository {
       },
     );
     const pipeline: any[] = [
-      { $match: filter },
+      {$match: filter},
 
       {
         $facet: {
-          metadata: [{ $count: 'totalDocs' }],
+          metadata: [{$count: 'totalDocs'}],
           data: dataPipeLine,
         },
       },
@@ -4317,7 +4926,7 @@ export class QuestionRepository implements IQuestionRepository {
       session,
     }).toArray();
 
-    const meta = result[0]?.metadata?.[0] ?? { totalDocs: 0 };
+    const meta = result[0]?.metadata?.[0] ?? {totalDocs: 0};
     const docs = result[0]?.data ?? [];
 
     const totalDocs = meta.totalDocs;
@@ -4348,26 +4957,25 @@ export class QuestionRepository implements IQuestionRepository {
     endDate: Date,
     sources: 'AJRASAKHA',
   ): Promise<IQuestion[]> {
-    await this.init()
-    const questions = await this.QuestionCollection
-      .find(
-        {
-          source: sources,
-          createdAt: {
-            $gte: startDate,
-            $lte: endDate,
-          },
+    await this.init();
+    const questions = await this.QuestionCollection.find(
+      {
+        source: sources,
+        createdAt: {
+          $gte: startDate,
+          $lte: endDate,
         },
-        {
-          projection: {
-            userId: 0,
-            contextId: 0,
-          },
+      },
+      {
+        projection: {
+          userId: 0,
+          contextId: 0,
         },
-      )
-      .sort({ createdAt: -1 })
+      },
+    )
+      .sort({createdAt: -1})
       .toArray();
-    return questions.map((q) => ({
+    return questions.map(q => ({
       ...q,
       _id: q._id?.toString(),
     }));
@@ -4376,22 +4984,34 @@ export class QuestionRepository implements IQuestionRepository {
     startDate?: Date,
     endDate?: Date,
     session?: ClientSession,
-  ): Promise<Array<{
-    year: number;
-    month: string;
-    totalQuestions: number;
-    modifiedAnswers: number;
-    rejectedAnswers: number;
-  }>> {
+  ): Promise<
+    Array<{
+      year: number;
+      month: string;
+      totalQuestions: number;
+      modifiedAnswers: number;
+      rejectedAnswers: number;
+    }>
+  > {
     await this.init();
 
     const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
     // Set default dates if not provided
-    const defaultStartDate = startDate || new Date("2025-09-01T00:00:00.000Z");
+    const defaultStartDate = startDate || new Date('2025-09-01T00:00:00.000Z');
     let defaultEndDate = endDate || new Date();
     // Set end of day for endDate
     if (endDate) {
@@ -4400,95 +5020,101 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get total questions per month
-    const questionsPerMonth = await this.QuestionCollection.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' }
+    const questionsPerMonth = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            createdAt: {$gte: defaultStartDate, $lte: defaultEndDate},
           },
-          totalQuestions: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ], { session }).toArray();
-
-
-    const answerStats = await this.AnswersCollection.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
-        }
-      },
-
-      // Count modifications per answer
-      {
-        $addFields: {
-          modificationsCount: { $size: { $ifNull: ["$modifications", []] } }
-        }
-      },
-
-      // Group per question
-      {
-        $group: {
-          _id: "$questionId",
-          totalAnswers: { $sum: 1 },
-          hasModifiedAnswer: {
-            $max: { $cond: [{ $gte: ["$modificationsCount", 1] }, 1, 0] }
+        },
+        {
+          $group: {
+            _id: {
+              year: {$year: '$createdAt'},
+              month: {$month: '$createdAt'},
+            },
+            totalQuestions: {$sum: 1},
           },
-          latestCreatedAt: { $max: "$createdAt" }
-        }
-      },
+        },
+        {$sort: {'_id.year': 1, '_id.month': 1}},
+      ],
+      {session},
+    ).toArray();
 
-      // Month-wise metrics
+    const answerStats = await this.AnswersCollection.aggregate(
+      [
+        {
+          $match: {
+            createdAt: {$gte: defaultStartDate, $lte: defaultEndDate},
+          },
+        },
+
+        // Count modifications per answer
+        {
+          $addFields: {
+            modificationsCount: {$size: {$ifNull: ['$modifications', []]}},
+          },
+        },
+
+        // Group per question
+        {
+          $group: {
+            _id: '$questionId',
+            totalAnswers: {$sum: 1},
+            hasModifiedAnswer: {
+              $max: {$cond: [{$gte: ['$modificationsCount', 1]}, 1, 0]},
+            },
+            latestCreatedAt: {$max: '$createdAt'},
+          },
+        },
+
+        // Month-wise metrics
+        {
+          $group: {
+            _id: {
+              year: {$year: '$latestCreatedAt'},
+              month: {$month: '$latestCreatedAt'},
+            },
+
+            // Modified questions
+            modifiedCount: {
+              $sum: {
+                $cond: [{$eq: ['$hasModifiedAnswer', 1]}, 1, 0],
+              },
+            },
+
+            // Rejected = multiple answers BUT no modifications
+            rejectedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$gte: ['$totalAnswers', 2]},
+                      {$eq: ['$hasModifiedAnswer', 0]},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+
+        {$sort: {'_id.year': 1, '_id.month': 1}},
+      ],
       {
-        $group: {
-          _id: {
-            year: { $year: "$latestCreatedAt" },
-            month: { $month: "$latestCreatedAt" }
-          },
-
-          // Modified questions
-          modifiedCount: {
-            $sum: {
-              $cond: [{ $eq: ["$hasModifiedAnswer", 1] }, 1, 0]
-            }
-          },
-
-          // Rejected = multiple answers BUT no modifications
-          rejectedCount: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $gte: ["$totalAnswers", 2] },
-                    { $eq: ["$hasModifiedAnswer", 0] }
-                  ]
-                },
-                1,
-                0
-              ]
-            }
-          }
-        }
+        allowDiskUse: true,
+        session,
       },
-
-      { $sort: { "_id.year": 1, "_id.month": 1 } }
-    ], {
-      allowDiskUse: true,
-      session
-    }).toArray();
+    ).toArray();
 
     // Merge the results
     const results = questionsPerMonth.map((questionStat: any) => {
-      const answerStat = answerStats.find((a: any) =>
-        a._id.year === questionStat._id.year &&
-        a._id.month === questionStat._id.month
+      const answerStat = answerStats.find(
+        (a: any) =>
+          a._id.year === questionStat._id.year &&
+          a._id.month === questionStat._id.month,
       );
 
       return {
@@ -4496,7 +5122,7 @@ export class QuestionRepository implements IQuestionRepository {
         month: monthNames[questionStat._id.month - 1],
         totalQuestions: questionStat.totalQuestions,
         modifiedAnswers: answerStat?.modifiedCount || 0,
-        rejectedAnswers: answerStat?.rejectedCount || 0
+        rejectedAnswers: answerStat?.rejectedCount || 0,
       };
     });
 
@@ -4517,56 +5143,57 @@ export class QuestionRepository implements IQuestionRepository {
     const collection = this.QuestionCollection;
 
     return await collection
-      .find(filters, { session })
-      .sort({ createdAt: -1 })
+      .find(filters, {session})
+      .sort({createdAt: -1})
       .toArray();
   }
   async getAllQuestionEmbeddings(
     session?: ClientSession,
-  ): Promise<{ _id: ObjectId; embedding: number[] }[]> {
-    const results = await this.QuestionCollection
-      .find(
-        { embedding: { $exists: true, $ne: [] } },
-        { projection: { _id: 1, embedding: 1 }, session },
-      )
-      .toArray();
+  ): Promise<{_id: ObjectId; embedding: number[]}[]> {
+    const results = await this.QuestionCollection.find(
+      {embedding: {$exists: true, $ne: []}},
+      {projection: {_id: 1, embedding: 1}, session},
+    ).toArray();
 
-    return results.map((doc) => ({
-      _id:
-        typeof doc._id === 'string'
-          ? new ObjectId(doc._id)
-          : doc._id,
+    return results.map(doc => ({
+      _id: typeof doc._id === 'string' ? new ObjectId(doc._id) : doc._id,
       embedding: doc.embedding || [],
     }));
   }
   async findTopSimilarQuestions(
     embedding: number[],
     k = 5,
-    filter?: { state?: string; district?: string; crop?: string; domain?: string; season?: string },
+    filter?: {
+      state?: string;
+      district?: string;
+      crop?: string;
+      domain?: string;
+      season?: string;
+    },
     session?: ClientSession,
-  ): Promise<(ISimilarQuestion & { _vectorSearchScore: number })[]> {
-    await this.init()
+  ): Promise<(ISimilarQuestion & {_vectorSearchScore: number})[]> {
+    await this.init();
 
     const vectorSearchFilter: Record<string, string> = {};
     if (filter?.state) {
-      vectorSearchFilter["details.state"] = filter.state;
+      vectorSearchFilter['details.state'] = filter.state;
     }
     if (filter?.district) {
-      vectorSearchFilter["details.district"] = filter.district;
+      vectorSearchFilter['details.district'] = filter.district;
     }
     if (filter?.crop) {
-      vectorSearchFilter["details.crop"] = filter.crop;
+      vectorSearchFilter['details.crop'] = filter.crop;
     }
     if (filter?.domain) {
-      vectorSearchFilter["details.domain"] = filter.domain;
+      vectorSearchFilter['details.domain'] = filter.domain;
     }
     if (filter?.season) {
-      vectorSearchFilter["details.season"] = filter.season;
+      vectorSearchFilter['details.season'] = filter.season;
     }
 
     const vectorSearchStage: any = {
-      index: "review_questions_vector_index", // your Atlas Vector Search index name
-      path: "embedding",     // field storing the embeddings
+      index: 'review_questions_vector_index', // your Atlas Vector Search index name
+      path: 'embedding', // field storing the embeddings
       queryVector: embedding,
       numCandidates: k * 10, // recommended: 10x of k for better recall
       limit: k,
@@ -4589,11 +5216,11 @@ export class QuestionRepository implements IQuestionRepository {
             details: 1,
             status: 1,
             // add other fields you need
-            _vectorSearchScore: { $meta: "vectorSearchScore" },
+            _vectorSearchScore: {$meta: 'vectorSearchScore'},
           },
         },
       ],
-      { session },
+      {session},
     ).toArray();
 
     return topSimilar as any;
@@ -4606,25 +5233,24 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<number> {
     await this.init();
 
-    const escapeRegex = (v: string) =>
-      v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
     const allValues = [name, ...(aliases || [])].map(v =>
       v.toLowerCase().trim(),
     );
 
     const conditions = allValues.map(val => ({
-      'details.crop': { $regex: `^\\s*${escapeRegex(val)}\\s*$`, $options: 'i' },
+      'details.crop': {$regex: `^\\s*${escapeRegex(val)}\\s*$`, $options: 'i'},
     }));
 
     const result = await this.QuestionCollection.updateMany(
       {
         $and: [
-          { $or: conditions },
+          {$or: conditions},
           {
             $or: [
-              { 'details.normalised_crop': { $exists: false } },
-              { 'details.normalised_crop': null },
+              {'details.normalised_crop': {$exists: false}},
+              {'details.normalised_crop': null},
             ],
           },
         ],
@@ -4639,14 +5265,16 @@ export class QuestionRepository implements IQuestionRepository {
     return result.modifiedCount;
   }
 
-  async getQuestionsWithAnswerDetails(questionIds: string[]): Promise<ICheckStatusResponse[]> {
-    await this.init()
+  async getQuestionsWithAnswerDetails(
+    questionIds: string[],
+  ): Promise<ICheckStatusResponse[]> {
+    await this.init();
     const objectIds = questionIds.map(id => new ObjectId(id));
 
     const data = await this.QuestionCollection.aggregate([
       {
         $match: {
-          _id: { $in: objectIds },
+          _id: {$in: objectIds},
         },
       },
 
@@ -4654,14 +5282,14 @@ export class QuestionRepository implements IQuestionRepository {
       {
         $lookup: {
           from: 'answers',
-          let: { qId: '$_id' },
+          let: {qId: '$_id'},
           pipeline: [
             {
               $match: {
                 $expr: {
                   $and: [
-                    { $eq: ['$questionId', '$$qId'] },
-                    { $eq: ['$isFinalAnswer', true] },
+                    {$eq: ['$questionId', '$$qId']},
+                    {$eq: ['$isFinalAnswer', true]},
                   ],
                 },
               },
@@ -4691,7 +5319,7 @@ export class QuestionRepository implements IQuestionRepository {
 
                 sources: {
                   $map: {
-                    input: { $ifNull: ['$sources', []] },
+                    input: {$ifNull: ['$sources', []]},
                     as: 's',
                     in: {
                       source: '$$s.source',
@@ -4702,21 +5330,19 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                 },
 
-
                 authorName: {
                   $trim: {
                     input: {
                       $concat: [
-                        { $ifNull: ['$author.firstName', ''] },
+                        {$ifNull: ['$author.firstName', '']},
                         ' ',
-                        { $ifNull: ['$author.lastName', ''] },
+                        {$ifNull: ['$author.lastName', '']},
                       ],
                     },
                   },
                 },
               },
             },
-
           ],
           as: 'finalAnswer',
         },
@@ -4725,7 +5351,7 @@ export class QuestionRepository implements IQuestionRepository {
       // Flatten answer (take first if exists)
       {
         $addFields: {
-          finalAnswer: { $arrayElemAt: ['$finalAnswer', 0] },
+          finalAnswer: {$arrayElemAt: ['$finalAnswer', 0]},
         },
       },
 
@@ -4734,11 +5360,11 @@ export class QuestionRepository implements IQuestionRepository {
         $project: {
           _id: 0,
 
-          question_id: { $toString: '$_id' },
+          question_id: {$toString: '$_id'},
 
           status: {
             $cond: {
-              if: { $ifNull: ['$finalAnswer', false] },
+              if: {$ifNull: ['$finalAnswer', false]},
               then: 'closed',
               else: 'pending',
             },
@@ -4746,7 +5372,7 @@ export class QuestionRepository implements IQuestionRepository {
 
           // Question fields (include what you need)
           question: '$text',
-          metadata: "$details",
+          metadata: '$details',
           priority: 1,
           details: 1,
           createdAt: 1,
@@ -4765,7 +5391,7 @@ export class QuestionRepository implements IQuestionRepository {
           },
         },
       },
-    ]).toArray()
+    ]).toArray();
     // 🔥 Create map for quick lookup
     const map = new Map(data.map(item => [item.question_id, item]));
 
@@ -4800,83 +5426,84 @@ export class QuestionRepository implements IQuestionRepository {
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
     session?: ClientSession,
-  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[]; sourceCounts: { source: string; count: number }[] }> {
+  ): Promise<{
+    totalQuestions: number;
+    statuses: {status: string; count: number}[];
+    sourceCounts: {source: string; count: number}[];
+  }> {
     await this.init();
 
-    const { filter } = await buildQuestionFilter(
-      { ...query, searchEmbedding: null },
+    const {filter} = await buildQuestionFilter(
+      {...query, searchEmbedding: null},
       this.QuestionSubmissionCollection,
-      this.AnswersCollection
+      this.AnswersCollection,
     );
 
     // Apply pae_review filter exactly matching findDetailedQuestions logic
     if (query.pae_review) {
-      filter.pae_review = { $eq: true };
+      filter.pae_review = {$eq: true};
     } else {
-      filter.$or = [
-        { pae_review: { $eq: false } },
-        { pae_review: { $exists: false } }
-      ];
+      filter.$or = [{pae_review: {$eq: false}}, {pae_review: {$exists: false}}];
     }
 
     // Apply is_non_agri filter exactly matching findDetailedQuestions logic
     if (query.is_non_agri === 'true' || query.is_non_agri === true) {
       filter.status = 'non_agri';
     } else if (filter.status === undefined) {
-      filter.status = { $ne: 'non_agri' };
+      filter.status = {$ne: 'non_agri'};
     }
 
     // Apply isOnHold filter exactly matching findDetailedQuestions logic
     if (query.isOnHold === 'true') {
-      filter.isOnHold = { $eq: true };
+      filter.isOnHold = {$eq: true};
     } else {
-      filter.isOnHold = { $ne: true };
+      filter.isOnHold = {$ne: true};
     }
 
     // Apply isHidden filter exactly matching findDetailedQuestions logic
     if (query.hiddenQuestions === 'true' || query.status === 'pass') {
-      filter.isHidden = { $eq: true };
+      filter.isHidden = {$eq: true};
     }
 
     // Apply states/normalisedCrops from body if provided (matching findDetailedQuestions logic)
     if (body?.states && body.states.length > 0) {
-      filter['details.state'] = { $in: body.states };
+      filter['details.state'] = {$in: body.states};
     }
     if (body?.normalisedCrops && body.normalisedCrops.length > 0) {
       const hasNotSet = body.normalisedCrops.includes('__NOT_SET__');
-      const realCrops = body.normalisedCrops.filter((c) => c !== '__NOT_SET__');
+      const realCrops = body.normalisedCrops.filter(c => c !== '__NOT_SET__');
       if (!hasNotSet) {
-        filter['details.normalised_crop'] = { $in: realCrops };
+        filter['details.normalised_crop'] = {$in: realCrops};
       } else {
         const orConditions: any[] = [
-          { 'details.normalised_crop': { $exists: false } },
-          { 'details.normalised_crop': null },
-          { 'details.normalised_crop': '' },
+          {'details.normalised_crop': {$exists: false}},
+          {'details.normalised_crop': null},
+          {'details.normalised_crop': ''},
         ];
         if (realCrops.length > 0) {
-          orConditions.push({ 'details.normalised_crop': { $in: realCrops } });
+          orConditions.push({'details.normalised_crop': {$in: realCrops}});
         }
         if (!filter.$and) filter.$and = [];
-        filter.$and.push({ $or: orConditions });
+        filter.$and.push({$or: orConditions});
       }
     }
 
     const [statusResults, sourceResults] = await Promise.all([
       this.QuestionCollection.aggregate(
         [
-          { $match: filter },
-          { $group: { _id: '$status', count: { $sum: 1 } } },
-          { $project: { _id: 0, status: '$_id', count: 1 } },
+          {$match: filter},
+          {$group: {_id: '$status', count: {$sum: 1}}},
+          {$project: {_id: 0, status: '$_id', count: 1}},
         ],
-        { session },
+        {session},
       ).toArray(),
       this.QuestionCollection.aggregate(
         [
-          { $match: filter },
-          { $group: { _id: '$source', count: { $sum: 1 } } },
-          { $project: { _id: 0, source: '$_id', count: 1 } },
+          {$match: filter},
+          {$group: {_id: '$source', count: {$sum: 1}}},
+          {$project: {_id: 0, source: '$_id', count: 1}},
         ],
-        { session },
+        {session},
       ).toArray(),
     ]);
 
@@ -4892,9 +5519,8 @@ export class QuestionRepository implements IQuestionRepository {
 
     const totalQuestions = statuses.reduce((sum, s) => sum + s.count, 0);
 
-    return { totalQuestions, statuses, sourceCounts };
+    return {totalQuestions, statuses, sourceCounts};
   }
-
 
   async getPAEMetrics(
     session?: ClientSession,
@@ -4909,20 +5535,42 @@ export class QuestionRepository implements IQuestionRepository {
   }> {
     await this.init();
 
-    const matchCondition: any = { status: { $ne: 'pass' } };
+    const matchCondition: any = {status: {$ne: 'pass'}};
     const closedMatchCondition: any = {};
 
     if (startDate && endDate) {
       // Filter by createdAt in IST format for assigned and submitted
       matchCondition.createdAt = {
-        $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`),
-        $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`)
+        $gte: new Date(
+          `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`,
+        ),
+        $lt: new Date(
+          `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`,
+        ),
       };
 
       // Filter by both createdAt and closedAt in IST format for closed
       closedMatchCondition.$and = [
-        { createdAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } },
-        { closedAt: { $gte: new Date(`${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`), $lt: new Date(`${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`) } }
+        {
+          createdAt: {
+            $gte: new Date(
+              `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`,
+            ),
+            $lt: new Date(
+              `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`,
+            ),
+          },
+        },
+        {
+          closedAt: {
+            $gte: new Date(
+              `${startDate.toISOString().split('T')[0]}T00:00:00.000+05:30`,
+            ),
+            $lt: new Date(
+              `${endDate.toISOString().split('T')[0]}T23:59:59.999+05:30`,
+            ),
+          },
+        },
       ];
     }
 
@@ -4935,17 +5583,37 @@ export class QuestionRepository implements IQuestionRepository {
         $and: [
           {
             $gte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              startHour * 60 + startMinute
-            ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
           },
           {
             $lte: [
-              { $add: [{ $multiply: [{ $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } }, 60] }, { $minute: { date: '$createdAt', timezone: 'Asia/Kolkata' } }] },
-              endHour * 60 + endMinute
-            ]
-          }
-        ]
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {$hour: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                      60,
+                    ],
+                  },
+                  {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
       };
     }
 
@@ -4954,44 +5622,50 @@ export class QuestionRepository implements IQuestionRepository {
         {
           $facet: {
             assigned: [
-              ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
+              ...(Object.keys(matchCondition).length > 0
+                ? [{$match: matchCondition}]
+                : []),
               {
                 $match: {
                   pae_review: true,
-                  $or: [{ status: 'open' }, { status: 'delayed' }]
-                }
+                  $or: [{status: 'open'}, {status: 'delayed'}],
+                },
               },
               {
-                $count: 'total'
-              }
+                $count: 'total',
+              },
             ],
             submitted: [
-              ...(Object.keys(matchCondition).length > 0 ? [{ $match: matchCondition }] : []),
+              ...(Object.keys(matchCondition).length > 0
+                ? [{$match: matchCondition}]
+                : []),
               {
                 $match: {
-                  status: 'pae_submitted'
-                }
+                  status: 'pae_submitted',
+                },
               },
               {
-                $count: 'total'
-              }
+                $count: 'total',
+              },
             ],
             closed: [
-              ...(Object.keys(closedMatchCondition).length > 0 ? [{ $match: closedMatchCondition }] : []),
+              ...(Object.keys(closedMatchCondition).length > 0
+                ? [{$match: closedMatchCondition}]
+                : []),
               {
                 $match: {
                   pae_review: true,
-                  status: 'closed'
-                }
+                  status: 'closed',
+                },
               },
               {
-                $count: 'total'
-              }
-            ]
-          }
-        }
+                $count: 'total',
+              },
+            ],
+          },
+        },
       ],
-      { session }
+      {session},
     ).toArray();
 
     const result = paeMetrics[0];
@@ -4999,10 +5673,9 @@ export class QuestionRepository implements IQuestionRepository {
     return {
       assigned: result.assigned[0]?.total ?? 0,
       submitted: result.submitted[0]?.total ?? 0,
-      closed: result.closed[0]?.total ?? 0
+      closed: result.closed[0]?.total ?? 0,
     };
   }
-
 
   async count(filter = {}) {
     await this.init();
@@ -5011,19 +5684,19 @@ export class QuestionRepository implements IQuestionRepository {
 
   async getQuestionsWithEmptyEmbeddings(
     limit = 50,
-  ): Promise<{ _id: ObjectId; question: string; text?: string }[]> {
+  ): Promise<{_id: ObjectId; question: string; text?: string}[]> {
     await this.init();
 
     return this.QuestionCollection.find(
       {
         $or: [
-          { embedding: { $exists: false } },
-          { embedding: null },
-          { embedding: { $size: 0 } },
+          {embedding: {$exists: false}},
+          {embedding: null},
+          {embedding: {$size: 0}},
         ],
       },
-      { projection: { _id: 1, question: 1, text: 1 }, limit },
-    ).toArray() as Promise<{ _id: ObjectId; question: string; text?: string }[]>;
+      {projection: {_id: 1, question: 1, text: 1}, limit},
+    ).toArray() as Promise<{_id: ObjectId; question: string; text?: string}[]>;
   }
 
   async updateQuestionEmbedding(
@@ -5032,18 +5705,16 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<void> {
     await this.init();
     await this.QuestionCollection.updateOne(
-      { _id: new ObjectId(questionId) },
-      { $set: { embedding, updatedAt: new Date() } },
+      {_id: new ObjectId(questionId)},
+      {$set: {embedding, updatedAt: new Date()}},
     );
-
-}
-
+  }
 
   async getShiftBasedMetrics(
     startDate: string,
     // endDate: string,
-    shift: "morning" | "evening" | "all",
-    session?: ClientSession
+    shift: 'morning' | 'evening' | 'all',
+    session?: ClientSession,
   ): Promise<{
     questionsAdded: number;
     questionsClosed: number;
@@ -5052,54 +5723,51 @@ export class QuestionRepository implements IQuestionRepository {
   }> {
     await this.init();
 
-    const start = new Date(
-      `${startDate}T00:00:00+05:30`
-    );
+    const start = new Date(`${startDate}T00:00:00+05:30`);
 
-    const end = new Date(
-      `${startDate}T23:59:59.999+05:30`
-    );
+    const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
-    const createdAtShiftFilter =
-      getShiftFilter("createdAt", shift);
+    const createdAtShiftFilter = getShiftFilter('createdAt', shift);
 
-    const closedAtShiftFilter =
-      getShiftFilter("closedAt", shift);
+    const closedAtShiftFilter = getShiftFilter('closedAt', shift);
 
-
-    const [questionsAdded, questionsClosed, averageClosureTimeResult, totalReroutedQuestions] =
-      await Promise.all([
-        /**
-         * Questions Added
-         */
-        this.QuestionCollection.countDocuments(
-          {
-            createdAt: {
-              $gte: start,
-              $lte: end,
-            },
-
-            ...createdAtShiftFilter,
+    const [
+      questionsAdded,
+      questionsClosed,
+      averageClosureTimeResult,
+      totalReroutedQuestions,
+    ] = await Promise.all([
+      /**
+       * Questions Added
+       */
+      this.QuestionCollection.countDocuments(
+        {
+          createdAt: {
+            $gte: start,
+            $lte: end,
           },
-          { session }
-        ),
 
-        /**
-         * Questions Closed
-         */
-        this.QuestionCollection.countDocuments(
-          {
-            status: "closed",
+          ...createdAtShiftFilter,
+        },
+        {session},
+      ),
 
-            closedAt: {
-              $gte: start,
-              $lte: end,
-            },
+      /**
+       * Questions Closed
+       */
+      this.QuestionCollection.countDocuments(
+        {
+          status: 'closed',
 
-            ...closedAtShiftFilter,
+          closedAt: {
+            $gte: start,
+            $lte: end,
           },
-          { session }
-        ),
+
+          ...closedAtShiftFilter,
+        },
+        {session},
+      ),
 
       /**
        * Average Closure Time
@@ -5113,7 +5781,7 @@ export class QuestionRepository implements IQuestionRepository {
         [
           {
             $match: {
-              status: "closed",
+              status: 'closed',
               createdAt: {
                 $gte: start,
                 $lte: end,
@@ -5130,10 +5798,7 @@ export class QuestionRepository implements IQuestionRepository {
               closureTimeInMinutes: {
                 $divide: [
                   {
-                    $subtract: [
-                      "$closedAt",
-                      "$createdAt",
-                    ],
+                    $subtract: ['$closedAt', '$createdAt'],
                   },
                   1000 * 60,
                 ],
@@ -5145,12 +5810,12 @@ export class QuestionRepository implements IQuestionRepository {
             $group: {
               _id: null,
               averageClosureTimeInMinutes: {
-                $avg: "$closureTimeInMinutes",
+                $avg: '$closureTimeInMinutes',
               },
             },
           },
         ],
-        { session }
+        {session},
       ).toArray(),
 
       /**
@@ -5164,7 +5829,7 @@ export class QuestionRepository implements IQuestionRepository {
         [
           {
             $match: {
-              status: "re-routed",
+              status: 're-routed',
               createdAt: {
                 $gte: start,
                 $lte: end,
@@ -5174,32 +5839,31 @@ export class QuestionRepository implements IQuestionRepository {
           },
 
           {
-            $count: "totalReroutedQuestions",
+            $count: 'totalReroutedQuestions',
           },
         ],
-        { session }
+        {session},
       ).toArray(),
-
-      ]);
+    ]);
 
     return {
       questionsAdded,
       questionsClosed,
       averageClosureTimeInMinutes: Number(
-        (
-          averageClosureTimeResult[0]
-            ?.averageClosureTimeInMinutes || 0
-        ).toFixed(2)
+        (averageClosureTimeResult[0]?.averageClosureTimeInMinutes || 0).toFixed(
+          2,
+        ),
       ),
-      totalReroutedQuestions: totalReroutedQuestions[0]?.totalReroutedQuestions || 0,
+      totalReroutedQuestions:
+        totalReroutedQuestions[0]?.totalReroutedQuestions || 0,
     };
   }
 
   async getShiftBasedTrends(
     startDate: string,
     // endDate: string,
-    shift: "morning" | "evening" | "all",
-    session?: ClientSession
+    shift: 'morning' | 'evening' | 'all',
+    session?: ClientSession,
   ): Promise<
     {
       hour: string;
@@ -5209,100 +5873,87 @@ export class QuestionRepository implements IQuestionRepository {
   > {
     await this.init();
 
-    const start = new Date(
-      `${startDate}T00:00:00+05:30`
-    );
+    const start = new Date(`${startDate}T00:00:00+05:30`);
 
-    const end = new Date(
-      `${startDate}T23:59:59.999+05:30`
-    );
+    const end = new Date(`${startDate}T23:59:59.999+05:30`);
     /**
      * Added Questions Aggregation
      */
-    const addedAnalytics =
-      await this.QuestionCollection.aggregate(
-        [
-          {
-            $match: {
-              createdAt: {
-                $gte: start,
-                $lte: end,
-              },
-              ...getShiftFilter(
-                "createdAt",
-                shift
-              ),
+    const addedAnalytics = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            createdAt: {
+              $gte: start,
+              $lte: end,
             },
+            ...getShiftFilter('createdAt', shift),
           },
+        },
 
-          {
-            $group: {
-              _id: {
-                $dateToString: {
-                  format: "%H:00",
-                  date: "$createdAt",
-                  timezone: "Asia/Kolkata",
-                },
-              },
-              added: {
-                $sum: 1,
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: '%H:00',
+                date: '$createdAt',
+                timezone: 'Asia/Kolkata',
               },
             },
+            added: {
+              $sum: 1,
+            },
           },
+        },
 
-          {
-            $sort: {
-              _id: 1,
-            },
+        {
+          $sort: {
+            _id: 1,
           },
-        ],
-        { session }
-      ).toArray();
+        },
+      ],
+      {session},
+    ).toArray();
 
     /**
      * Closed Questions Aggregation
      */
-    const closedAnalytics =
-      await this.QuestionCollection.aggregate(
-        [
-          {
-            $match: {
-              status: "closed",
-              closedAt: {
-                $gte: start,
-                $lte: end,
-              },
-              ...getShiftFilter(
-                "closedAt",
-                shift
-              ),
+    const closedAnalytics = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'closed',
+            closedAt: {
+              $gte: start,
+              $lte: end,
             },
+            ...getShiftFilter('closedAt', shift),
           },
+        },
 
-          {
-            $group: {
-              _id: {
-                $dateToString: {
-                  format: "%H:00",
-                  date: "$closedAt",
-                  timezone: "Asia/Kolkata",
-                },
-              },
-              closed: {
-                $sum: 1,
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: '%H:00',
+                date: '$closedAt',
+                timezone: 'Asia/Kolkata',
               },
             },
-          },
-
-          {
-            $sort: {
-              _id: 1,
+            closed: {
+              $sum: 1,
             },
           },
-        ],
-        { session }
-      ).toArray();
+        },
 
+        {
+          $sort: {
+            _id: 1,
+          },
+        },
+      ],
+      {session},
+    ).toArray();
 
     /**
      * Create fixed 24-hour buckets
@@ -5320,9 +5971,7 @@ export class QuestionRepository implements IQuestionRepository {
      * Initialize all hours
      */
     for (let hour = 0; hour < 24; hour++) {
-
-      const formattedHour =
-        `${hour.toString().padStart(2, "0")}:00`;
+      const formattedHour = `${hour.toString().padStart(2, '0')}:00`;
 
       analyticsMap.set(formattedHour, {
         hour: formattedHour,
@@ -5335,11 +5984,8 @@ export class QuestionRepository implements IQuestionRepository {
      * Merge added analytics
      */
     for (const item of addedAnalytics) {
-
       if (analyticsMap.has(item._id)) {
-
-        analyticsMap.get(item._id)!.added =
-          item.added;
+        analyticsMap.get(item._id)!.added = item.added;
       }
     }
 
@@ -5347,21 +5993,16 @@ export class QuestionRepository implements IQuestionRepository {
      * Merge closed analytics
      */
     for (const item of closedAnalytics) {
-
       if (analyticsMap.has(item._id)) {
-
-        analyticsMap.get(item._id)!.closed =
-          item.closed;
+        analyticsMap.get(item._id)!.closed = item.closed;
       }
     }
 
     /**
      * Convert map to sorted array
      */
-    const result = Array.from(
-      analyticsMap.values()
-    ).sort((a, b) =>
-      a.hour.localeCompare(b.hour)
+    const result = Array.from(analyticsMap.values()).sort((a, b) =>
+      a.hour.localeCompare(b.hour),
     );
 
     return result;
@@ -5370,71 +6011,61 @@ export class QuestionRepository implements IQuestionRepository {
   async getQuestionStatusDistribution(
     startDate: string,
     // endDate: string,
-    shift: "morning" | "evening" | "all",
-    session?: ClientSession
+    shift: 'morning' | 'evening' | 'all',
+    session?: ClientSession,
   ): Promise<
     {
       status: string;
       count: number;
     }[]
   > {
-
     await this.init();
 
-    const start = new Date(
-      `${startDate}T00:00:00+05:30`
-    );
+    const start = new Date(`${startDate}T00:00:00+05:30`);
 
-    const end = new Date(
-      `${startDate}T23:59:59.999+05:30`
-    );
+    const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
-    const result =
-      await this.QuestionCollection.aggregate(
-        [
+    const result = await this.QuestionCollection.aggregate(
+      [
+        /**
+         * Match questions in date range
+         */
+        {
+          $match: {
+            createdAt: {
+              $gte: start,
+              $lte: end,
+            },
+            ...getShiftFilter('createdAt', shift),
+          },
+        },
 
-          /**
-           * Match questions in date range
-           */
-          {
-            $match: {
-              createdAt: {
-                $gte: start,
-                $lte: end,
-              },
-              ...getShiftFilter(
-                "createdAt",
-                shift
-              ),
+        /**
+         * Group by status
+         */
+        {
+          $group: {
+            _id: '$status',
+            count: {
+              $sum: 1,
             },
           },
+        },
 
-          /**
-           * Group by status
-           */
-          {
-            $group: {
-              _id: "$status",
-              count: {
-                $sum: 1,
-              },
-            },
+        /**
+         * Sort descending
+         */
+        {
+          $sort: {
+            count: -1,
           },
+        },
+      ],
+      {session},
+    ).toArray();
 
-          /**
-           * Sort descending
-           */
-          {
-            $sort: {
-              count: -1,
-            },
-          },
-        ],
-        { session }
-      ).toArray();
-
-    return result.map((item) => ({
-      status: item._id || "unknown",
+    return result.map(item => ({
+      status: item._id || 'unknown',
       count: item.count,
     }));
   }
@@ -5442,139 +6073,123 @@ export class QuestionRepository implements IQuestionRepository {
   async getQuestionLevelDistribution(
     startDate: string,
     // endDate: string,
-    shift: "morning" | "evening" | "all",
-    session?: ClientSession
+    shift: 'morning' | 'evening' | 'all',
+    session?: ClientSession,
   ): Promise<
     {
       level: string;
       count: number;
     }[]
   > {
-
     await this.init();
 
-    const start = new Date(
-      `${startDate}T00:00:00+05:30`
-    );
+    const start = new Date(`${startDate}T00:00:00+05:30`);
 
-    const end = new Date(
-      `${startDate}T23:59:59.999+05:30`
-    );
+    const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
-    const result =
-      await this.QuestionSubmissionCollection.aggregate(
-        [
+    const result = await this.QuestionSubmissionCollection.aggregate(
+      [
+        /**
+         * Filter submissions
+         */
+        {
+          $match: {
+            createdAt: {
+              $gte: start,
+              $lte: end,
+            },
+            ...getShiftFilter('createdAt', shift),
+          },
+        },
 
-          /**
-           * Filter submissions
-           */
-          {
-            $match: {
-              createdAt: {
-                $gte: start,
-                $lte: end,
-              },
-              ...getShiftFilter(
-                "createdAt",
-                shift
-              ),
+        /**
+         * Compute lengths
+         */
+        {
+          $addFields: {
+            historyLength: {
+              $size: '$history',
+            },
+            queueLength: {
+              $size: '$queue',
             },
           },
+        },
 
-          /**
-           * Compute lengths
-           */
-          {
-            $addFields: {
-              historyLength: {
-                $size: "$history",
-              },
-              queueLength: {
-                $size: "$queue",
-              },
-            },
-          },
-
-          /**
-           * Remove unassigned
-           */
-          {
-            $match: {
-              $or: [
-                {
-                  historyLength: {
-                    $gt: 0,
-                  },
+        /**
+         * Remove unassigned
+         */
+        {
+          $match: {
+            $or: [
+              {
+                historyLength: {
+                  $gt: 0,
                 },
+              },
+              {
+                queueLength: {
+                  $gt: 0,
+                },
+              },
+            ],
+          },
+        },
+
+        /**
+         * Compute level
+         */
+        {
+          $addFields: {
+            currentLevel: {
+              $cond: [
                 {
-                  queueLength: {
-                    $gt: 0,
-                  },
+                  $eq: ['$historyLength', 0],
+                },
+                0,
+                {
+                  $subtract: ['$historyLength', 1],
                 },
               ],
             },
           },
+        },
 
-          /**
-           * Compute level
-           */
-          {
-            $addFields: {
-              currentLevel: {
-                $cond: [
-                  {
-                    $eq: [
-                      "$historyLength",
-                      0,
-                    ],
-                  },
-                  0,
-                  {
-                    $subtract: [
-                      "$historyLength",
-                      1,
-                    ],
-                  },
-                ],
-              },
+        /**
+         * Group by level
+         */
+        {
+          $group: {
+            _id: '$currentLevel',
+            count: {
+              $sum: 1,
             },
           },
+        },
 
-          /**
-           * Group by level
-           */
-          {
-            $group: {
-              _id: "$currentLevel",
-              count: {
-                $sum: 1,
-              },
-            },
+        /**
+         * Sort ascending
+         */
+        {
+          $sort: {
+            _id: 1,
           },
+        },
+      ],
+      {session},
+    ).toArray();
 
-          /**
-           * Sort ascending
-           */
-          {
-            $sort: {
-              _id: 1,
-            },
-          },
-        ],
-        { session }
-      ).toArray();
-
-    return result.map((item) => ({
+    return result.map(item => ({
       level: `Level ${item._id}`,
       count: item.count,
     }));
-  } 
+  }
 
   async getShiftBasedTopExperts(
     startDate: string,
     // endDate: string,
-    shift: "morning" | "evening" | "all",
-    session?: ClientSession
+    shift: 'morning' | 'evening' | 'all',
+    session?: ClientSession,
   ): Promise<
     {
       userId: string;
@@ -5585,143 +6200,126 @@ export class QuestionRepository implements IQuestionRepository {
       penalty: number;
     }[]
   > {
-
     await this.init();
 
-    const start = new Date(
-      `${startDate}T00:00:00+05:30`
-    );
+    const start = new Date(`${startDate}T00:00:00+05:30`);
 
-    const end = new Date(
-      `${startDate}T23:59:59.999+05:30`
-    );
+    const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
-    const result =
-      await this.QuestionSubmissionCollection.aggregate<{
-        userId: ObjectId;
-        name: string;
-        reviewCount: number;
-        reputation: number;
-        incentive: number;
-        penalty: number;
-      }>(
-        [
+    const result = await this.QuestionSubmissionCollection.aggregate<{
+      userId: ObjectId;
+      name: string;
+      reviewCount: number;
+      reputation: number;
+      incentive: number;
+      penalty: number;
+    }>(
+      [
+        /**
+         * Expand history
+         */
+        {
+          $unwind: '$history',
+        },
 
-          /**
-           * Expand history
-           */
-          {
-            $unwind: "$history",
-          },
-
-          /**
-           * Match reviewed entries
-           */
-          {
-            $match: {
-              "history.createdAt": {
-                $gte: start,
-                $lte: end,
-              },
-              ...getShiftFilter(
-                "history.createdAt",
-                shift
-              ),
-              /**
-               * Either:
-               * - answer exists
-               * - reviewId exists
-               */
-              $or: [
-                {
-                  "history.answer": {
-                    $exists: true,
-                  },
+        /**
+         * Match reviewed entries
+         */
+        {
+          $match: {
+            'history.createdAt': {
+              $gte: start,
+              $lte: end,
+            },
+            ...getShiftFilter('history.createdAt', shift),
+            /**
+             * Either:
+             * - answer exists
+             * - reviewId exists
+             */
+            $or: [
+              {
+                'history.answer': {
+                  $exists: true,
                 },
-                {
-                  "history.reviewId": {
-                    $exists: true,
-                  },
+              },
+              {
+                'history.reviewId': {
+                  $exists: true,
                 },
-              ],
-            },
-          },
-
-          /**
-           * Group by reviewer
-           */
-          {
-            $group: {
-              _id: "$history.updatedBy",
-              reviewCount: {
-                $sum: 1,
               },
+            ],
+          },
+        },
+
+        /**
+         * Group by reviewer
+         */
+        {
+          $group: {
+            _id: '$history.updatedBy',
+            reviewCount: {
+              $sum: 1,
             },
           },
+        },
 
-          /**
-           * Join users
-           */
-          {
-            $lookup: {
-              from: "users",
-              localField: "_id",
-              foreignField: "_id",
-              as: "user",
+        /**
+         * Join users
+         */
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+
+        /**
+         * Flatten user
+         */
+        {
+          $unwind: '$user',
+        },
+
+        /**
+         * Sort descending
+         */
+        {
+          $sort: {
+            reviewCount: -1,
+          },
+        },
+
+        /**
+         * Top 5 only
+         */
+        {
+          $limit: 5,
+        },
+
+        /**
+         * Final projection
+         */
+        {
+          $project: {
+            _id: 0,
+            userId: '$user._id',
+            name: {
+              $concat: ['$user.firstName', ' ', '$user.lastName'],
             },
+            reviewCount: 1,
+            reputation: '$user.reputation_score',
+            incentive: '$user.incentive',
+            penalty: '$user.penalty',
           },
+        },
+      ],
+      {session},
+    ).toArray();
 
-          /**
-           * Flatten user
-           */
-          {
-            $unwind: "$user",
-          },
-
-          /**
-           * Sort descending
-           */
-          {
-            $sort: {
-              reviewCount: -1,
-            },
-          },
-
-          /**
-           * Top 5 only
-           */
-          {
-            $limit: 5,
-          },
-
-          /**
-           * Final projection
-           */
-          {
-            $project: {
-              _id: 0,
-              userId: "$user._id",
-              name: {
-                $concat: [
-                  "$user.firstName",
-                  " ",
-                  "$user.lastName",
-                ],
-              },
-              reviewCount: 1,
-              reputation:
-                "$user.reputation_score",
-              incentive:
-                "$user.incentive",
-              penalty:
-                "$user.penalty",
-            },
-          },
-        ],
-        { session }
-      ).toArray();
-
-    return result.map((item) => ({
+    return result.map(item => ({
       ...item,
       userId: item.userId.toString(),
     }));
@@ -5730,8 +6328,8 @@ export class QuestionRepository implements IQuestionRepository {
   async getShiftBasedTopApprovingExperts(
     startDate: string,
     // endDate: string,
-    shift: "morning" | "evening" | "all",
-    session?: ClientSession
+    shift: 'morning' | 'evening' | 'all',
+    session?: ClientSession,
   ): Promise<
     {
       userId: string;
@@ -5739,108 +6337,92 @@ export class QuestionRepository implements IQuestionRepository {
       approvedCount: number;
     }[]
   > {
-
     await this.init();
 
-    const start = new Date(
-      `${startDate}T00:00:00+05:30`
-    );
+    const start = new Date(`${startDate}T00:00:00+05:30`);
 
-    const end = new Date(
-      `${startDate}T23:59:59.999+05:30`
-    );
+    const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
-    const result =
-      await this.AnswersCollection.aggregate<{
-        userId: ObjectId;
-        name: string;
-        approvedCount: number;
-      }>(
-        [
-
-          {
-            $match: {
-              status: "approved",
-              updatedAt: {
-                $gte: start,
-                $lte: end,
-              },
-              ...getShiftFilter(
-                "updatedAt",
-                shift
-              ),
+    const result = await this.AnswersCollection.aggregate<{
+      userId: ObjectId;
+      name: string;
+      approvedCount: number;
+    }>(
+      [
+        {
+          $match: {
+            status: 'approved',
+            updatedAt: {
+              $gte: start,
+              $lte: end,
+            },
+            ...getShiftFilter('updatedAt', shift),
+          },
+        },
+        {
+          $group: {
+            _id: '$approvedBy',
+            approvedCount: {
+              $sum: 1,
             },
           },
-          {
-            $group: {
-              _id: "$approvedBy",
-              approvedCount: {
-                $sum: 1,
-              },
+        },
+
+        /**
+         * Join users
+         */
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+
+        /**
+         * Flatten user
+         */
+        {
+          $unwind: '$user',
+        },
+
+        /**
+         * Highest approvals first
+         */
+        {
+          $sort: {
+            approvedCount: -1,
+          },
+        },
+
+        /**
+         * Top 5 only
+         */
+        {
+          $limit: 5,
+        },
+
+        /**
+         * Final projection
+         */
+        {
+          $project: {
+            _id: 0,
+            userId: '$user._id',
+            name: {
+              $concat: ['$user.firstName', ' ', '$user.lastName'],
             },
+            approvedCount: 1,
           },
+        },
+      ],
+      {session},
+    ).toArray();
 
-          /**
-           * Join users
-           */
-          {
-            $lookup: {
-              from: "users",
-              localField: "_id",
-              foreignField: "_id",
-              as: "user",
-            },
-          },
-
-          /**
-           * Flatten user
-           */
-          {
-            $unwind: "$user",
-          },
-
-          /**
-           * Highest approvals first
-           */
-          {
-            $sort: {
-              approvedCount: -1,
-            },
-          },
-
-          /**
-           * Top 5 only
-           */
-          {
-            $limit: 5,
-          },
-
-          /**
-           * Final projection
-           */
-          {
-            $project: {
-              _id: 0,
-              userId: "$user._id",
-              name: {
-                $concat: [
-                  "$user.firstName",
-                  " ",
-                  "$user.lastName",
-                ],
-              },
-              approvedCount: 1,
-            },
-          },
-        ],
-        { session }
-      ).toArray();
-
-    return result.map((item) => ({
+    return result.map(item => ({
       ...item,
       userId: item.userId.toString(),
     }));
   }
-
 }
-

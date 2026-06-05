@@ -14,11 +14,16 @@ import {
   Patch,
   Body,
   BadRequestError,
+  CurrentUser,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {CHATBOT_TYPES} from '../types.js';
 import type {IChatbotService} from '../interfaces/IChatbotService.js';
+import {IUser} from '#root/shared/interfaces/models.js';
+import {AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus} from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import {AUDIT_TRAILS_TYPES} from '#root/modules/auditTrails/types.js';
+import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import {
   DashboardQueryDto,
   QueryAnalyticsQueryDto,
@@ -62,6 +67,9 @@ export class ChatbotController {
 
     @inject(GLOBAL_TYPES.UserService)
     private readonly userService: UserService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   @OpenAPI({
@@ -632,15 +640,88 @@ export class ChatbotController {
   async deleteUser(
     @Param('userId') userId: string,
     @QueryParam('source') source: string,
+    @CurrentUser() user: IUser,
   ) {
     if (!source) {
       source = 'vicharanashala';
     }
-    const success = await this.chatbotService.deleteUser(userId, source);
-    return {
-      success,
-      message: success ? 'User deleted successfully' : 'Failed to delete user',
+
+    const actorPayload = user ? {
+      id: user._id.toString(),
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar || '',
+    } : null;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.FARMER_MANAGEMENT,
+      action: AuditAction.DELETE_FARMER,
+      actor: actorPayload!,
+      context: {
+        userId,
+        source,
+      },
+      createdAt: new Date(),
     };
+
+    let beforeUser: any = null;
+    try {
+      beforeUser = await this.chatbotService.getUserById(userId, source);
+    } catch (e) {
+      console.error('Failed to fetch user before deletion for audit trail', e);
+    }
+
+    try {
+      const success = await this.chatbotService.deleteUser(userId, source);
+      if (success) {
+        auditPayload = {
+          ...auditPayload,
+          changes: {
+            before: beforeUser ? {
+              id: beforeUser._id?.toString(),
+              name: beforeUser.name,
+              email: beforeUser.email,
+              userRole: beforeUser.userRole,
+              farmerProfile: beforeUser.farmerProfile,
+            } : {},
+          },
+          outcome: {
+            status: OutComeStatus.SUCCESS,
+          }
+        };
+      } else {
+        auditPayload = {
+          ...auditPayload,
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorMessage: 'Failed to delete user',
+          }
+        };
+      }
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+      return {
+        success,
+        message: success ? 'User deleted successfully' : 'Failed to delete user',
+      };
+    } catch (error: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: error?.message || 'Failed to delete user',
+          errorName: error?.name || 'Error',
+          errorStack: error?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        }
+      };
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+      throw error;
+    }
   }
 
   @OpenAPI({
@@ -682,16 +763,99 @@ export class ChatbotController {
         landhold?: number;
       };
     },
+    @CurrentUser() user: IUser,
   ) {
     if (!source) {
       source = 'vicharanashala';
     }
     console.log('Body---------', body);
-    const success = await this.chatbotService.updateUser(userId, source, body);
-    return {
-      success,
-      message: success ? 'User updated successfully' : 'Failed to update user',
+
+    const actorPayload = user ? {
+      id: user._id.toString(),
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar || '',
+    } : null;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.FARMER_MANAGEMENT,
+      action: AuditAction.UPDATE_FARMER,
+      actor: actorPayload!,
+      context: {
+        userId,
+        source,
+      },
+      createdAt: new Date(),
     };
+
+    let beforeUser: any = null;
+    try {
+      beforeUser = await this.chatbotService.getUserById(userId, source);
+    } catch (e) {
+      console.error('Failed to fetch user before update for audit trail', e);
+    }
+
+    try {
+      const success = await this.chatbotService.updateUser(userId, source, body);
+      if (success) {
+        let afterUser: any = null;
+        try {
+          afterUser = await this.chatbotService.getUserById(userId, source);
+        } catch (e) {
+          console.error('Failed to fetch user after update for audit trail', e);
+        }
+
+        auditPayload = {
+          ...auditPayload,
+          changes: {
+            before: beforeUser ? {
+              name: beforeUser.name,
+              userRole: beforeUser.userRole,
+              farmerProfile: beforeUser.farmerProfile,
+            } : {},
+            after: afterUser ? {
+              name: afterUser.name,
+              userRole: afterUser.userRole,
+              farmerProfile: afterUser.farmerProfile,
+            } : {},
+          },
+          outcome: {
+            status: OutComeStatus.SUCCESS,
+          }
+        };
+      } else {
+        auditPayload = {
+          ...auditPayload,
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorMessage: 'Failed to update user',
+          }
+        };
+      }
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+      return {
+        success,
+        message: success ? 'User updated successfully' : 'Failed to update user',
+      };
+    } catch (error: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: error?.message || 'Failed to update user',
+          errorName: error?.name || 'Error',
+          errorStack: error?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        }
+      };
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+      throw error;
+    }
   }
 
   @OpenAPI({
@@ -711,6 +875,7 @@ export class ChatbotController {
       password: string;
       userRole?: string;
     },
+    @CurrentUser() user: IUser,
   ) {
     if (!source) {
       source = 'vicharanashala';
@@ -726,8 +891,69 @@ export class ChatbotController {
     if (!body.name || !body.name.trim()) {
       throw new BadRequestError('Name is required');
     }
+
+    const actorPayload = user ? {
+      id: user._id.toString(),
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar || '',
+    } : null;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.FARMER_MANAGEMENT,
+      action: AuditAction.ADD_FARMER,
+      actor: actorPayload!,
+      context: {
+        source,
+        email: body.email.trim().toLowerCase(),
+      },
+      createdAt: new Date(),
+    };
+
     try {
       const success = await this.chatbotService.addUser(source, body);
+      if (success) {
+        let createdUser = null;
+        try {
+          const userRepo = (this.chatbotService as any).chatbotRepository;
+          await userRepo.init(source);
+          createdUser = await userRepo.users.findOne({ email: body.email.trim().toLowerCase() });
+        } catch (e) {
+          console.error('Failed to fetch added user for audit trail', e);
+        }
+
+        auditPayload = {
+          ...auditPayload,
+          changes: {
+            after: createdUser ? {
+              id: createdUser._id?.toString(),
+              name: createdUser.name,
+              email: createdUser.email,
+              userRole: createdUser.userRole,
+              createdAt: createdUser.createdAt,
+            } : {
+              name: body.name,
+              email: body.email,
+              userRole: body.userRole || 'FARMER',
+            }
+          },
+          outcome: {
+            status: OutComeStatus.SUCCESS,
+          }
+        };
+      } else {
+        auditPayload = {
+          ...auditPayload,
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorMessage: 'Failed to create user',
+          }
+        };
+      }
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
       return {
         success,
         message: success
@@ -735,6 +961,19 @@ export class ChatbotController {
           : 'Failed to create user',
       };
     } catch (error: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: error?.message || 'Failed to create user',
+          errorName: error?.name || 'Error',
+          errorStack: error?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        }
+      };
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
       if (error instanceof BadRequestError) {
         throw error;
       }

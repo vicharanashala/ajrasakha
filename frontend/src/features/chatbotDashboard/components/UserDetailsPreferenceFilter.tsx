@@ -148,7 +148,7 @@ export function UserDetailsPreferenceFilter({
 
   const handleReset = () => {
     setDraft({
-      search: "",
+      search: draft.search,
       crop: "",
       village: "",
       block: "",
@@ -164,7 +164,6 @@ export function UserDetailsPreferenceFilter({
   };
 
   const activeCount =
-    (filters.search ? 1 : 0) +
     (filters.crop ? 1 : 0) +
     (filters.village ? 1 : 0) +
     (filters.block ? 1 : 0) +

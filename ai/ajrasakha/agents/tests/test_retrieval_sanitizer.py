@@ -24,7 +24,6 @@ from ajrasakha.agents.state import AjraSakhaState
 
 def _gdb_payload(**overrides) -> dict:
     base = {
-        "original_query": "How to grow wheat in Punjab?",
         "rephrased_query": "How to grow wheat in Punjab?",
         "state": "Punjab",
         "crop": "wheat",
@@ -77,15 +76,15 @@ def test_route_exact_match_skips_sanitizer():
     data = _gdb_payload(is_exact=True, is_similar=False)
     data["exact_match"] = {"question": "Q", "answer": "Expert wheat guide."}
     state = _state_with_gdb(data)
-    assert route_after_execute(state) == "synthesize"
+    assert route_after_execute(state) == "gdb_passthrough"
 
 
-def test_route_similar_only_goes_to_sanitizer():
+def test_route_similar_only_goes_to_gdb_passthrough():
     state = _state_with_gdb(_gdb_payload())
-    assert route_after_execute(state) == "retrieval_sanitizer"
+    assert route_after_execute(state) == "gdb_passthrough"
 
 
-def test_route_no_gdb_still_goes_to_sanitizer():
+def test_route_no_gdb_with_weather_goes_to_synthesize():
     state: AjraSakhaState = {
         "messages": [
             HumanMessage(content="Weather in Punjab?"),
@@ -94,7 +93,7 @@ def test_route_no_gdb_still_goes_to_sanitizer():
         ],
         "plan": {},
     }
-    assert route_after_execute(state) == "retrieval_sanitizer"
+    assert route_after_execute(state) == "synthesize"
 
 
 def test_route_skip_synthesize_ends():

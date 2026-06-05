@@ -4437,14 +4437,30 @@ export class ChatbotRepository implements IChatbotRepository {
             ? a.name.localeCompare(b.name)
             : b.name.localeCompare(a.name),
         );
+      } else if (sortBy === 'farmerName') {
+        finalList.sort((a, b) => {
+          const valA = a.farmerProfile?.farmerName || '';
+          const valB = b.farmerProfile?.farmerName || '';
+          return sortOrder === 'asc'
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+        });
+      } else if (sortBy === 'email') {
+        finalList.sort((a, b) => {
+          const valA = a.email || '';
+          const valB = b.email || '';
+          return sortOrder === 'asc'
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+        });
       } else if (sortBy === 'createdAt') {
-        finalList.sort((a, b) =>
-          sortOrder === 'asc'
-            ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-            : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
+        finalList.sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+        });
       } else {
-        // Default: totalQuestions
+        // Default / totalQuestions
         finalList.sort((a, b) =>
           sortOrder === 'asc'
             ? a.totalQuestions - b.totalQuestions
@@ -6515,6 +6531,15 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(
         `Failed to get top questions from collection: ${error}`,
       );
+    }
+  }
+
+  async getUserById(userId: string, source: string): Promise<any> {
+    try {
+      await this.init(source);
+      return await this.users.findOne({_id: new ObjectId(userId)});
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch user by id: ${error}`);
     }
   }
 

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 WEATHER_GEMMA_BASE_URL = os.getenv("WEATHER_GEMMA_BASE_URL", "http://100.100.108.44:8014/v1")
-IMD_WEATHER_API_URL = os.getenv("IMD_WEATHER_API_URL", "http://100.100.108.44:6003/imd/weather")
+IMD_WEATHER_API_URL = os.getenv("IMD_WEATHER_API_URL", "http://100.100.108.44:6103/imd/weather")
 
 
 async def classify_weather_query(query: str) -> str:
@@ -277,9 +277,21 @@ async def weather(
     """
     try:
         injected: dict = (config.get("configurable") or {}).get("location") or {}
-        lat = latitude if latitude is not None else injected.get("latitude")
-        lon = longitude if longitude is not None else injected.get("longitude")
+        lat = latitude
+        lon = longitude
         
+        if (lat is None or lon is None) and address:
+            from ajrasakha.agents.location_context import forward_geocode
+            geocode_result = await forward_geocode(state=None, district=address)
+            if geocode_result and geocode_result.get("latitude") and geocode_result.get("longitude"):
+                lat = geocode_result.get("latitude")
+                lon = geocode_result.get("longitude")
+                logger.info("weather_agent: forward geocoded address %r to %s, %s", address, lat, lon)
+
+        if lat is None or lon is None:
+            lat = injected.get("latitude")
+            lon = injected.get("longitude")
+            
         if lat is None or lon is None:
             return "⚠️ Weather coordinates are unavailable."
             

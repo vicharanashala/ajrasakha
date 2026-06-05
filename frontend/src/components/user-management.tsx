@@ -44,7 +44,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [showSensitive, setShowSensitive] = useState(false);
   const states = STATES;
   const isAdmin = currentUser?.role === "admin";
-  const isModerator = currentUser?.role === "moderator";
+  const isModerator = currentUser?.role === "moderator" || currentUser?.role === "tester";
 
   const { data: adminUsers, isLoading: adminLoading } = useAdminGetAllUsers(
   page,
@@ -237,6 +237,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                       <SelectItem value="moderator">Moderator</SelectItem>
                       <SelectItem value="expert">Expert</SelectItem>
                       <SelectItem value="pae_expert">PAE Expert</SelectItem>
+                      <SelectItem value="tester">Tester</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

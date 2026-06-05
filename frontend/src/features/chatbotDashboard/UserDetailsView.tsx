@@ -56,6 +56,7 @@ import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
 import { useAddUser } from "./hooks/useAddUser";
 import { motion,AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/atoms/badge";
+import { useDebounce } from "@/hooks/ui/useDebounce";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -101,7 +102,7 @@ export function UserDetailsView({
   }));
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
-  const [sortBy, setSortBy] = useState<"totalQuestions" | "name">("name");
+  const [sortBy, setSortBy] = useState<"totalQuestions" | "name" | "farmerName" | "email">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   // const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
   // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
@@ -117,6 +118,7 @@ export function UserDetailsView({
   // const [hovered, setHovered] = useState<string | null>(null);
   // const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+const debouncedSearch = useDebounce(filters.search, 500);
 
   // const scrollToTable = () => {
   //   setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
@@ -133,6 +135,10 @@ export function UserDetailsView({
     });
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
+
   // useEffect(() => {
   //   scrollToTable();
   // }, []);
@@ -148,12 +154,12 @@ export function UserDetailsView({
     }
   }, [initialFilters]);
 
-  const { data, isLoading, error } = useUserDetails( 
+  const { data, isLoading, error } = useUserDetails(
     filters.startTime,
     filters.endTime,
     currentPage,
     pageSize,
-    filters.search,
+    debouncedSearch,
     source,
     filters.crop,
     filters.village,
@@ -198,7 +204,7 @@ export function UserDetailsView({
   //   data: dauTrend,
   //   isLoading: dauLoading,
   //   error: dauError,
-  // } = useDailyUserTrend(
+  //   } = useDailyUserTrend(
   //   30,
   //   source,
   //   filters.userType,
@@ -268,14 +274,16 @@ export function UserDetailsView({
     setCurrentPage(1);
   };
 
-  const handleSort = (newSortBy: "totalQuestions" | "name") => {
+  const handleSort = (newSortBy: "totalQuestions" | "name" | "farmerName" | "email") => {
     if (sortBy === newSortBy) {
       // Toggle sort order if same field
       setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
     } else {
       // Change field and set default sort order
       setSortBy(newSortBy);
-      setSortOrder(newSortBy === "name" ? "asc" : "desc");
+      setSortOrder(
+        newSortBy === "name" || newSortBy === "farmerName" || newSortBy === "email" ? "asc" : "desc"
+      );
     }
     setCurrentPage(1);
   };
@@ -920,16 +928,23 @@ export function UserDetailsView({
                         field="name"
                         active={sortBy === "name"}
                         order={sortOrder}
-                        disabled={userType !== "external"}
-                        // onSort={handleSort}
+                        onSort={handleSort}
                       />
 
-                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Farmer Name
-                      </TableHead>
-                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Email
-                      </TableHead>
+                      <SortableHead
+                        label="Farmer Name"
+                        field="farmerName"
+                        active={sortBy === "farmerName"}
+                        order={sortOrder}
+                        onSort={handleSort}
+                      />
+                      <SortableHead
+                        label="Email"
+                        field="email"
+                        active={sortBy === "email"}
+                        order={sortOrder}
+                        onSort={handleSort}
+                      />
                       <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         User Role
                       </TableHead>
@@ -939,18 +954,12 @@ export function UserDetailsView({
                         field="totalQuestions"
                         active={sortBy === "totalQuestions"}
                         order={sortOrder}
-                        disabled={userType !== "external"}
-                        // onSort={handleSort}
+                        onSort={handleSort}
                       />
 
                       <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        View More
+                        Actions
                       </TableHead>
-                      {isAdmin && (
-                        <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          Actions
-                        </TableHead>
-                      )}
                     </TableRow>
                   </TableHeader>
 
@@ -958,7 +967,7 @@ export function UserDetailsView({
                     {users.length === 0 ? (
                       <TableRow className="hover:bg-transparent">
                         <TableCell
-                          colSpan={isAdmin ? 8 : 7}
+                          colSpan={7}
                           className="text-center py-16"
                         >
                           <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -1041,41 +1050,41 @@ export function UserDetailsView({
                               </TableCell>
 
                               <TableCell className="align-middle">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setUserToView(user)}
-                                  className="h-8 gap-1.5"
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                  View More
-                                </Button>
+                                <div className="flex items-center justify-center gap-3">
+                                  
+                                  {isAdmin && (
+                                    <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                                        onClick={() => handleEditUser(user)}
+                                        title="Edit farmer"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        onClick={() => handleDeleteUser(user)}
+                                        title="Delete farmer"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setUserToView(user)}
+                                    className="h-8 gap-1.5"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                    View More
+                                  </Button>
+                                </div>
                               </TableCell>
-
-                              {isAdmin && (
-                                <TableCell className="align-middle">
-                                  <div className="flex items-center justify-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                                      onClick={() => handleEditUser(user)}
-                                      title="Edit farmer"
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                      onClick={() => handleDeleteUser(user)}
-                                      title="Delete farmer"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              )}
                             </motion.tr>
                           </ContextMenuTrigger>
 
@@ -1234,20 +1243,20 @@ function SortableHead({
   field,
   active,
   order,
-  disabled,
+  disabled = false,
   onSort,
 }: {
   label: string;
-  field: string;
+  field: "totalQuestions" | "name" | "farmerName" | "email";
   active: boolean;
   order: "asc" | "desc";
-  disabled: boolean;
-  onSort?: (f: string) => void;
+  disabled?: boolean;
+  onSort?: (f: "totalQuestions" | "name" | "farmerName" | "email") => void;
 }) {
   const Icon = !active ? ArrowUpDown : order === "desc" ? ArrowDown : ArrowUp;
   return (
     <TableHead
-      // onClick={() => !disabled && onSort(field)}
+      onClick={() => !disabled && onSort?.(field)}
       className={`text-center text-xs font-medium uppercase tracking-wide transition-colors ${
         disabled
           ? "cursor-not-allowed opacity-50 text-muted-foreground"
