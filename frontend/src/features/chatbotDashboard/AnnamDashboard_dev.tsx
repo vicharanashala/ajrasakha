@@ -64,6 +64,8 @@ import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
+import { VerifyUser } from "./VerifyUser";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -148,6 +150,8 @@ function LazySectionSkeleton({ className = "h-[300px]" }: { className?: string }
 }
 
 export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam' | 'whatsapp'; onSourceChange?: (source: 'vicharanashala' | 'annam' | 'whatsapp') => void }) {
+  const { data: currentUser } = useGetCurrentUser({});
+  const isAdmin = currentUser?.role === "admin";
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [activeChartTab, setActiveChartTab] = useState<string>("dau");
@@ -244,12 +248,14 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const { ref: activeUsersRef, isVisible: isActiveUsersVisible } = useInView();
   const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } = useInView();
   const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
+  const { ref: userVerificationRef, isVisible: isUserVerificationVisible } = useInView();
   const shouldLoadQueryInsights = loadImmediately || isQueryInsightsVisible;
   const shouldLoadTrends = loadImmediately || isTrendsVisible;
   const shouldLoadFaqs = loadImmediately || isFaqsVisible;
   const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
   const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
   const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
+  const shouldUserVerification = loadImmediately || isUserVerificationVisible;
 
   const {data: queryCategories} = useQueryCategories(source, shouldLoadQueryInsights);
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
@@ -331,6 +337,9 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   // );
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
+  >(undefined);
+  const [userVerificationInitialFilters, setUserVerificationInitialFilters] = useState<
+    Partial<{search: string;}> | undefined
   >(undefined);
   const {
     data: topCrops,
@@ -1361,6 +1370,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         </div>
                       )}
                       {source !== "whatsapp" && (
+                        <>
                         <div
                           ref={(el) => {
                             sectionRefs.current["user-details"] = el;
@@ -1377,6 +1387,29 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                             <LazySectionSkeleton className="h-[520px]" />
                           )}
                         </div>
+                        {/* user verification */}
+                            {
+                              isAdmin && (
+                                <div
+                                  ref={(el) => {
+                                    sectionRefs.current["verify-users"] = el;
+                                    userVerificationRef.current = el;
+                                  }}
+                                >
+                                  {shouldUserVerification ? (
+                                    <VerifyUser
+                                      source={source}
+                                      initialFilters={userVerificationInitialFilters}
+                                      userType={filters.userType}
+                                    />
+                                  ) : (
+                                    <LazySectionSkeleton className="h-[520px]" />
+                                  )}
+                                </div>
+                              )
+                            }
+                        
+                        </>
                       )}
                       {source === "whatsapp" && (
                         <div
