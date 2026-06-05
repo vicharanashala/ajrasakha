@@ -95,16 +95,10 @@ if (faqPopConfig.faqApiUrl) {
   }));
 }
 if (faqPopConfig.popApiUrl) {
-  app.use('/api/pop/run', createProxyMiddleware({
-    target: faqPopConfig.popApiUrl,
-    changeOrigin: true,
-    pathRewrite: { '^/api/pop/run': '/run' },
-    on: { error: proxyOnError('pop') },
-  }));
   app.use('/api/pop', createProxyMiddleware({
     target: faqPopConfig.popApiUrl,
     changeOrigin: true,
-    pathRewrite: { '^/api/pop': '/pop' },
+    pathRewrite: { '^/api/pop': '' },
     on: { error: proxyOnError('pop') },
   }));
 }
