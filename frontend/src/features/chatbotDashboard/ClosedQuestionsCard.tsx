@@ -17,6 +17,7 @@ import {
 import { CalendarIcon, Clock3, X, InfoIcon } from "lucide-react";
 import { format, isSameDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 type ClosedQuestionsCardProps = {
   closedQuestions: number;
@@ -72,6 +73,26 @@ export function ClosedQuestionsCard({
         <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
         <CardHeader className="pb-4">
+
+          {isLoading ? (
+            <div className="space-y-4 mt-4">
+              <Skeleton className="h-5 w-44" />
+
+              <div className="grid grid-cols-3 gap-4">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+
+              <div className="flex gap-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+          ) : (
+            <>
+
           {/* Header */}
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm text-muted-foreground flex gap-2 items-center">
@@ -397,12 +418,6 @@ export function ClosedQuestionsCard({
             </motion.div>
           </motion.div>
 
-          {/* <div className={`mt-3 text-xs text-muted-foreground ${isLoading ? "opacity-50" : ""}`}>
-            Average time to close a question: {formatDurationFromMinutes(avgCloseTimeMinutes)}
-            <span className="ml-4">
-              Previous month: {formatDurationFromMinutes(previousMonthAvgCloseTimeMinutes)}
-            </span>
-          </div> */}
           <div
             className={`mt-3 flex flex-wrap items-center gap-3 ${
               isLoading ? "opacity-50" : ""
@@ -417,12 +432,8 @@ export function ClosedQuestionsCard({
             </div>
           </div>
 
-          {/* <div className="flex items-center gap-1 text-sm text-foreground">
-            <span className="font-medium">Previous Month:</span>
-            <span className="font-semibold">
-              {formatDurationFromMinutes(previousMonthAvgCloseTimeMinutes)}
-            </span>
-          </div> */}
+       
+          </>)}
         </CardHeader>
       </Card>
     </motion.div>
