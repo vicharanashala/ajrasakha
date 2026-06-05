@@ -344,7 +344,8 @@ export class QuestionRepository implements IQuestionRepository {
       //  const filter: any = {};
       const filter: any = {
         // isHidden: { $ne: true }, // default to exclude hidden questions
-        isOnHold: {$ne: true}, // default to exclude on hold questions
+        isOnHold: { $ne: true }, // default to exclude on hold questions
+        isTesting:{$ne:true},
       };
       if (pae_review) {
         filter.pae_review = {$eq: true};

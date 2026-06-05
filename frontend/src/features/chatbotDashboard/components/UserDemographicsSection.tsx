@@ -8,6 +8,7 @@ import { useUserMertices } from "../hooks/useDashboardData";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 const AGE_COLORS: Record<string, string> = {
+  "Less than 16": "#2DD4BF",
   "16-30": "#3AAA5A",
   "18-30": "#3AAA5A",
   "30-45": "#378ADD",

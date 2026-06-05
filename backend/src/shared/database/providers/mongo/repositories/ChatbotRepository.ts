@@ -5455,7 +5455,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $bucket: {
                   groupBy: '$farmerProfile.age',
-                  boundaries: [16, 30, 45, 60],
+                  boundaries: [0, 16, 30, 45, 60],
                   default: '60+',
                   output: {count: {$sum: 1}},
                 },
@@ -5548,6 +5548,7 @@ export class ChatbotRepository implements IChatbotRepository {
         total === 0 ? 0 : parseFloat(((count / total) * 100).toFixed(2));
 
       const ageBoundaryLabel: Record<string | number, string> = {
+        0: 'Less than 16',
         16: '16-30',
         30: '30-45',
         45: '45-60',
@@ -5555,7 +5556,7 @@ export class ChatbotRepository implements IChatbotRepository {
       };
       const ageGroupsMap = new Map(ageRaw.map(r => [r._id, r.count]));
 
-      const ageGroups: DemographicEntry[] = [16, 30, 45, '60+'].map(key => {
+      const ageGroups: DemographicEntry[] = [0, 16, 30, 45, '60+'].map(key => {
         const count = ageGroupsMap.get(key) || 0;
         return {
           label: ageBoundaryLabel[key],
