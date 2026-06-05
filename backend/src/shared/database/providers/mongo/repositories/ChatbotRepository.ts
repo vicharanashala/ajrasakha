@@ -30,6 +30,7 @@ import type {
   DistrictAnalyticsEntry,
   FeedbackData,
   ResponseAdherenceTable,
+  UnverifiedUserEntry,
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
@@ -43,10 +44,13 @@ import crypto from 'crypto';
 interface IUser {
   _id?: any;
   name?: string;
+  firstName?: string;
+  lastName?: string;
   username?: string;
   email?: string;
   role?: string;
   userRole?: string;
+  isVerified?: boolean;
   createdAt: Date;
   updatedAt: Date;
   farmerProfile?: {
@@ -4563,6 +4567,7 @@ export class ChatbotRepository implements IChatbotRepository {
     lowFeedbackOnly = false,
     activeTodayByProfile = false,
     missingDemographicField = '',
+    isVerfied = true,
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -4603,7 +4608,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
       };
-
+      userFilter.isVerified = isVerfied;
       if (activeTodayByProfile) {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
@@ -4677,7 +4682,8 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       const allUsers = await this.users.find(userFilter, {session}).toArray();
-
+      console.log('useres::',allUsers)
+      console.log('type of isverified:', isVerfied);
       // Merge
       const merged: UserDetailEntry[] = allUsers.map(u => ({
         userId: String(u._id),
@@ -4687,6 +4693,7 @@ export class ChatbotRepository implements IChatbotRepository {
         userRole: u.userRole || '',
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         createdAt: u.createdAt,
+        isVerified: u.isVerified,
         farmerProfile: u.farmerProfile
           ? // {
             //     farmerName: u.farmerProfile.farmerName,
@@ -9458,6 +9465,110 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(
         `Failed to fetch repeat query count: ${error}`,
       );
+    }
+  }
+
+  async verifyUser(
+    userId: string,
+    source = 'vicharanashala',
+  ): Promise<any> {
+    try {
+      await this.init(source);
+
+      return await this.users.findOneAndUpdate(
+        {_id: new ObjectId(userId)},
+        {
+          $set: {
+            isVerified: true,
+            updatedAt: new Date(),
+          },
+        },
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to verify user: ${error}`);
+    }
+  }
+
+   async findUnverifiedUsers(
+    page: number,
+    limit: number,
+    search: string,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<{
+    users: UnverifiedUserEntry[];
+    totalUsers: number;
+    totalPages: number;
+  }> {
+    await this.init(source='vicharanashala');
+
+    try {
+      const skip = (page - 1) * limit;
+
+      const matchQuery: any = {
+        isVerified: false,
+      };
+
+      if (search) {
+        matchQuery.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { username: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+        ];
+      }
+
+      const result = await this.users
+        .aggregate([
+          { $match: matchQuery },
+          {
+            $facet: {
+              users: [
+                { $sort: { createdAt: -1 } },
+                { $skip: skip },
+                { $limit: limit },
+                {
+                  $project: {
+                    _id: 1,
+                    name: 1,
+                    username: 1,
+                    email: 1,
+                    createdAt: 1,
+                    role: 1,
+                  },
+                },
+              ],
+              meta: [{ $count: 'totalUsers' }],
+            },
+          },
+        ], { session })
+        .toArray();
+
+      const users: UnverifiedUserEntry[] = (result[0]?.users || []).map(
+        (user: {
+          _id: ObjectId | string;
+          name?: string;
+          username?: string;
+          email?: string;
+          role?: string;
+          createdAt?: Date;
+        }) => ({
+          _id: user._id.toString(),
+          name: user.name ?? '',
+          username: user.username ?? '',
+          email: user.email ?? '',
+          role: user.role ?? '',
+          createdAt: user.createdAt,
+        }),
+      );
+      const totalUsers = result[0]?.meta[0]?.totalUsers || 0;
+
+      return {
+        users,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+      };
+    } catch (error) {
+      throw new InternalServerError('Failed to fetch unverified users');
     }
   }
 

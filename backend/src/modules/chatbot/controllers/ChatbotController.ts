@@ -52,8 +52,6 @@ import {
   RetentionMetricsQuery,
   TopFaqsQuery,
 } from '../types/chatbot.type.js';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {UserService} from '#root/modules/user/services/UserService.js';
 import { IActiveUser } from '#root/shared/database/providers/mongo/repositories/ChatbotRepository.js';
 import { FeedbackData, KccAndAgriAppStats, PlatformInstallEntry, ResponseAdherenceTable, UserDemographics } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
@@ -67,9 +65,6 @@ export class ChatbotController {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotService)
     private readonly chatbotService: IChatbotService,
-
-    @inject(GLOBAL_TYPES.UserService)
-    private readonly userService: UserService,
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
@@ -439,6 +434,7 @@ export class ChatbotController {
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
     const inactiveOnly = query.inactiveOnly === 'true';
     const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
+    const isVerified = query.isVerified === undefined ? true : query.isVerified === 'true';
     const activeTodayByProfile = query.activeTodayByProfile === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
@@ -457,7 +453,77 @@ export class ChatbotController {
       query.sortOrder,
       activeTodayByProfile,
       query.missingDemographicField,
+      isVerified,
     );
+  }
+
+  @OpenAPI({
+    summary: 'Get unverified users with search capability',
+    description:
+      'Retrieves a paginated list of unverified users (isVerified = false) with optional search filter. Supports pagination.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch unverified users',
+  })
+  @Get('/unverified-users')
+  @HttpCode(200)
+  @Authorized()
+  async getUnverifiedUsers(
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+    @QueryParam('search') search: string = '',
+    @QueryParam('source') source: string = '',
+  ) {
+    return this.chatbotService.getAllUnverifiedUsers(
+      page,
+      limit,
+      search,
+      source
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Verify a user',
+    description:
+      'Updates a user\'s verification status to true. Only users with admin role can perform this action.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 404,
+    description: 'User not found',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to verify user',
+  })
+  @Patch('/verify-user/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async verifyUser(
+    @Param('userId') userId: string,
+    @QueryParam('source') source: string = 'vicharanashala',
+  ) {
+    if (!userId) {
+      throw new BadRequestError('User ID is required');
+    }
+    try {
+      const verifiedUser = await this.chatbotService.verifyUser(userId, source);
+      return {
+        success: true,
+        message: 'User verified successfully',
+        user: verifiedUser,
+      };
+    } catch (error: any) {
+      throw error;
+    }
   }
 
   // @Get('/download-chatbot-report')

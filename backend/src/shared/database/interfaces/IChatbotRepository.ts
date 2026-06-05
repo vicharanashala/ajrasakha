@@ -203,6 +203,7 @@ export interface UserDetailEntry {
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
+  isVerified?: boolean;
 }
 
 export interface PaginatedUserDetails { 
@@ -212,6 +213,15 @@ export interface PaginatedUserDetails {
   activeUsers?: number;
   inactiveUsers?: number;
   totalQuestions?: number;
+}
+
+export interface UnverifiedUserEntry {
+  _id: string;
+  name: string;
+  username?: string;
+  email: string;
+  createdAt?: Date;
+  role?: string;
 }
 
 export interface DemographicEntry {
@@ -403,6 +413,7 @@ export interface IChatbotRepository {
     lowFeedbackOnly?: boolean,
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
+    isVerified?: boolean,
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
@@ -518,6 +529,12 @@ export interface IChatbotRepository {
     },
   ): Promise<boolean>;
 
+  verifyUser(
+    userId: string,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<any>;
+
   // getDailyActiveUsersTrend  ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession):Promise<any>
 
   // getMonthlyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
@@ -563,6 +580,26 @@ export interface IChatbotRepository {
 }[]>;
 
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string, session?: ClientSession): Promise<any>;
+
+  /**
+   * Finds unverified users with pagination and search.
+   * @param page - Page number (1-indexed)
+   * @param limit - Number of users per page
+   * @param search - Search query (searches firstName, lastName, email)
+   * @param session - MongoDB session for transactions
+   * @returns Promise with paginated unverified users and metadata
+   */
+  findUnverifiedUsers(
+    page: number,
+    limit: number,
+    search: string,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<{
+    users: UnverifiedUserEntry[];
+    totalUsers: number;
+    totalPages: number;
+  }>;
 
 }
 
