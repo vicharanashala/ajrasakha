@@ -23,12 +23,18 @@ import { apiReference } from '@scalar/express-api-reference';
 import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
 import http from 'http';
 import { initWebSocket } from './bootstrap/websocket.js';
-
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import { faqPopConfig } from './config/faqPop.js';
 
 const app = express();
 
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok' });
+app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV,
+  });
 });
 
 app.use(loggingHandler);
@@ -67,7 +73,7 @@ const { controllers, validators } = await loadAppModules(
 const corsOptions: CorsOptions = {
   origin: appConfig.origins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-internal-api-key'],
   credentials: true,
   optionsSuccessStatus: 204,
 };
@@ -104,13 +110,35 @@ if (NODE_ENV === 'production' || NODE_ENV === 'staging') {
   Sentry.setupExpressErrorHandler(app);
 }
 
+const proxyOnError = (label: string) => (err: Error, _req: any, res: any) => {
+  console.error(`[proxy:${label}] ${err.message}`);
+  if (!res.headersSent) res.status(502).json({ error: `${label} service unavailable`, detail: err.message });
+};
+
+if (faqPopConfig.faqApiUrl) {
+  app.use('/api/faq', createProxyMiddleware({
+    target: faqPopConfig.faqApiUrl,
+    changeOrigin: true,
+    pathRewrite: { '^/api/faq': '' },
+    on: { error: proxyOnError('faq') },
+  }));
+}
+if (faqPopConfig.popApiUrl) {
+  app.use('/api/pop', createProxyMiddleware({
+    target: faqPopConfig.popApiUrl,
+    changeOrigin: true,
+    pathRewrite: { '^/api/pop': '' },
+    on: { error: proxyOnError('pop') },
+  }));
+}
+
 // Start server
 useExpressServer(app, moduleOptions);
 
 // Setup Scalar API Documentation
 const openApiSpec = generateOpenAPISpec(moduleOptions, validators);
 app.use(
-  '/reference',
+  `${appConfig.routePrefix}/reference`,
   apiReference({
     content: openApiSpec,
     theme: 'elysiajs',

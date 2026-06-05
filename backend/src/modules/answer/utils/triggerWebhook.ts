@@ -4,7 +4,7 @@ export const triggerWebhook = async (
     payload: Record<string, any>,
     label: string,
 ) => {
-    try {
+    // try {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -25,10 +25,17 @@ export const triggerWebhook = async (
             `[${label} webhook] Response body:`,
             responseBody,
         );
-    } catch (error) {
-        console.error(
-            `[${label} webhook] Failed to notify:`,
-            error,
-        );
-    }
+          
+        return {
+            ok: response.ok,
+            status: response.status,
+            body: responseBody,
+        };
+
+    // } catch (error) {
+    //     console.error(
+    //         `[${label} webhook] Failed to notify:`,
+    //         error,
+    //     );
+    // }
 };

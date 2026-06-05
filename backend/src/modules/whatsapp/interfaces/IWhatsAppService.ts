@@ -33,4 +33,6 @@ export interface IWhatsAppService {
     messageText: string,
   ): Promise<void>;
   getInactiveUsers(skip: number, limit: number): Promise<WhatsappUsersResponse>;
+  getAllUsers(): Promise<WhatsappUsersResponse>;
+  getUniqueUsers(): Promise<number>;
 }

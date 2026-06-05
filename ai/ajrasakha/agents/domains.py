@@ -62,9 +62,8 @@ _DOMAIN_ALIASES: dict[str, str] = {
     "farm machinery": "Agriculture Mechanization",
 }
 
-# AI routing domains not in MCP allowed_domains -> upload-safe reviewer domain.
+# Planner routing labels not in reviewer MCP allowed_domains -> upload-safe name.
 _REVIEWER_UPLOAD_MAP: dict[str, str] = {
-    "Weather": "General",
     "Market Prices": "Market Information",
     "Government Schemes": "Financial & Institutional Services",
     "General": "General",
@@ -139,11 +138,28 @@ def apply_tool_flags_from_domain(domain: str) -> PlannerToolFlags:
     return flags
 
 
+def apply_tool_flags_from_domains(domains: list[str]) -> PlannerToolFlags:
+    """OR-union planner flags across multiple canonical domains (server-side only)."""
+    out: PlannerToolFlags = {
+        "weather": False,
+        "mandi": False,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": False,
+    }
+    for d in domains or []:
+        flags = apply_tool_flags_from_domain(d)
+        for k, v in flags.items():
+            out[k] = bool(out.get(k)) or bool(v)
+    return out
+
+
 def reviewer_upload_domain(domain: str) -> str:
     """
     Map AI planner domain to a name accepted by reviewer MCP allowed_domains.
 
-    MCP lacks Weather / Market Prices / Government Schemes / General as upload labels.
+    MCP lacks Market Prices / Government Schemes / General as upload labels.
     """
     d = normalize_domain(domain)
     return _REVIEWER_UPLOAD_MAP.get(d, d)

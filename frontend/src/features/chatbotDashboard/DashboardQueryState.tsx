@@ -23,8 +23,10 @@ import {
 } from "@/components/atoms/command";
 
 import { Button } from "@/components/atoms/button";
+import { Skeleton } from "@/components/atoms/skeleton";
 
-import { ChevronsUpDown, Check } from "lucide-react";
+import { ChevronsUpDown, Check, InfoIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 // ─── TYPES ─────────────────────────────────────────────
 
@@ -179,6 +181,17 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
           </span>
         </div>
       </div>
+
+      {/* PROGRESS BAR VISUALIZATION */}
+      <div className="w-full bg-gray-100 dark:bg-[#2A2A2A] rounded-full h-1.5 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500 ease-out"
+          style={{
+            width: `${pct}%`,
+            backgroundColor: color,
+          }}
+        />
+      </div>
     </div>
   );
 };
@@ -207,12 +220,25 @@ export const DashboardStateWiseAnalytics = (
   }, [districts]);
 
   return (
-    <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[500px]">
+    <Card
+      className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[500px]          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+"
+    >
       {/* HEADER */}
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/40 shrink-0">
         <div>
-          <CardTitle className="text-base font-semibold tracking-wide text-foreground">
-            District Analytics
+          <CardTitle className="text-base font-semibold tracking-wide text-foreground flex items-center gap-1.5">
+            <span>District Analytics</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                  <InfoIcon className="h-3.5 w-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Shows the volume of questions split by district for the selected state.
+              </TooltipContent>
+            </Tooltip>
           </CardTitle>
 
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -322,29 +348,19 @@ export const DashboardStateWiseAnalytics = (
 
       {/* CONTENT */}
       <CardContent className="pt-4 flex-1 min-h-0 relative flex flex-col">
+        {/* LOADING */}
 
-      {/* LOADING */}
+        {isLoading && (
+          <div className="flex-1">
+            <Skeleton className="h-full min-h-[360px] w-full rounded-xl" />
+          </div>
+        )}
 
-      {isLoading && (
-        <div
-          className="
-            flex-1
-            flex
-            items-center
-            justify-center
-            text-sm
-            text-gray-500
-          "
-        >
-          Loading analytics...
-        </div>
-      )}
+        {/* EMPTY */}
 
-      {/* EMPTY */}
-
-      {!isLoading && districts.length === 0 && (
-        <div
-          className="
+        {!isLoading && districts.length === 0 && (
+          <div
+            className="
               flex-1
               flex
               items-center
@@ -353,32 +369,32 @@ export const DashboardStateWiseAnalytics = (
               text-gray-500
               dark:text-gray-400
             "
-        >
-          No district data found
-        </div>
-      )}
+          >
+            No district data found
+          </div>
+        )}
 
-      {/* DATA */}
+        {/* DATA */}
 
-      {!isLoading && districts.length > 0 && (
-        <ScrollArea className="flex-1 pr-3 h-full w-full">
-          {districts.map((district, index) => {
-            const pct = (district.totalQuestions / maxTotal) * 100;
+        {!isLoading && districts.length > 0 && (
+          <ScrollArea className="flex-1 pr-3 h-full w-full">
+            {districts.map((district, index) => {
+              const pct = (district.totalQuestions / maxTotal) * 100;
 
-            return (
-              <ProgressBar
-                key={district.district}
-                district={district.district}
-                totalQuestions={district.totalQuestions}
-                uniqueQuestions={district.uniqueQuestions}
-                duplicateQuestions={district.duplicateQuestions}
-                pct={pct}
-                color={PREMIUM_PALETTE[index % PREMIUM_PALETTE.length]}
-              />
-            );
-          })}
-        </ScrollArea>
-      )}
+              return (
+                <ProgressBar
+                  key={district.district}
+                  district={district.district}
+                  totalQuestions={district.totalQuestions}
+                  uniqueQuestions={district.uniqueQuestions}
+                  duplicateQuestions={district.duplicateQuestions}
+                  pct={pct}
+                  color={PREMIUM_PALETTE[index % PREMIUM_PALETTE.length]}
+                />
+              );
+            })}
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );

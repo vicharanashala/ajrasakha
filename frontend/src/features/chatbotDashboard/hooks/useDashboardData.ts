@@ -10,9 +10,10 @@ import {
 } from "../utils/dashboardHelpers";
 import type { DailyEntry, AnalyticsEntry } from "../utils/dashboardHelpers";
 import type { DashboardFilterValues } from "../DashboardFilters";
-import type { DemographicEntry, FeedbackData } from "../types";
+import type { DemographicEntry, FeedbackData, UserDemographics } from "../types";
 import type { IPlatformInstallEntry } from "../types";
 import type { DomainSpikeEntry } from "../components/DomainSpikesModal";
+import type { KccAndAgriAppStats, PlatformInstallEntry, ResponseAdherenceTable } from "@/types";
 export type DashboardDataType = typeof DASHBOARD_DATA;
 
 interface DashboardApiResponse {
@@ -326,6 +327,7 @@ function transformApiResponse(
         sparkPoints,
         sparkLabels: dauLabels,
         dateRange: dauRange,
+        userType,
       };
     }
     if (card.id === "queries") {
@@ -420,7 +422,7 @@ export function useDashboardData(
   const endISO = filters?.endTime?.toISOString();
   const userType = filters?.userType ?? "all";
 
-  const { data, isLoading, error } = useQuery<DashboardDataType, Error>({
+  const { data, isLoading, isFetching, error } = useQuery<DashboardDataType, Error>({
     queryKey: [
       "dashboard-data",
       filters?.village ?? "all",
@@ -432,7 +434,7 @@ export function useDashboardData(
       userType,
     ],
     enabled,
-    placeholderData: (prev) => prev,
+    // placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
 
@@ -466,5 +468,129 @@ export function useDashboardData(
   // Use memoized fallback so consumers always get a stable reference
   const safeData = useMemo(() => data ?? DASHBOARD_DATA, [data]);
 
-  return { data: safeData, isLoading, error: error ?? null };
+  return { data: safeData, isLoading, isFetching, error: error ?? null };
+}
+
+
+export const useTopFaqs = (
+  source: string = 'vicharanashala',
+  userType: string = 'all',
+  startTime?: Date,
+  endTime?: Date,
+  enabled?: boolean,
+) => {
+  const params = new URLSearchParams();
+  params.append("source", source);
+  params.append("userType", userType);
+  if (startTime) params.append("startTime", startTime.toISOString());
+  if (endTime) params.append("endTime", endTime.toISOString());
+  return useQuery({
+    queryKey: [
+      "top-faqs",
+      source,
+      userType,
+      startTime,
+      endTime
+    ],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DashboardApiResponse>(
+        `${API_BASE_URL}/analytics/top-faqs?${params.toString()}`
+      );
+      return result;
+    },
+    enabled
+  });
+}
+
+export const useDailyQuestionTrends = (
+  source: string = 'vicharanashala',
+  userType: string = 'all',
+  startDate?: Date,
+  endDate?: Date,
+  enabled?: boolean,
+) => {
+  const params = new URLSearchParams();
+  params.append("source", source);
+  params.append("userType", userType);
+  if (startDate) params.append("startDate", startDate.toISOString());
+  if (endDate) params.append("endDate", endDate.toISOString());
+  return useQuery({
+    queryKey: [
+      "daily-question-trends",
+      source,
+      userType,
+      startDate,
+      endDate
+    ],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DashboardApiResponse>(
+        `${API_BASE_URL}/analytics/daily-question-trends?${params.toString()}`
+      );
+      return result;
+    },
+    enabled
+  });
+}
+
+interface UsermetricsResponse {
+  userDemographics: UserDemographics;
+  platformInstalls: PlatformInstallEntry[];
+  kccAndAgriAppUsage: KccAndAgriAppStats;
+  feedbackData: FeedbackData;
+}
+
+export const useUserMertices = (
+  source: string = 'vicharanashala',
+  userType: string = 'all',
+  shouldLoadUserDemographics: boolean = false,
+) => {
+  const params = new URLSearchParams();
+  params.append("source", source);
+  params.append("userType", userType);
+  return useQuery({
+    queryKey: [
+      "user-metrices",
+      source,
+      userType,
+    ],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch(
+        `${API_BASE_URL}/analytics/users-metrices?${params.toString()}`
+      );
+      return result as UsermetricsResponse;
+    }, 
+    enabled: shouldLoadUserDemographics,
+  });
+}
+
+export const useResponseAdherenceTable = (source?: string, userType?: string, startTime?: Date, endTime?: Date, shouldLoad?: boolean) => {
+  const params = new URLSearchParams();
+  params.append("source", source || 'vicharanashala');
+  params.append("userType", userType || 'all');
+  if (startTime) params.append("startDate", startTime.toISOString());
+  if (endTime) params.append("endDate", endTime.toISOString());
+  return useQuery({
+    queryKey: [
+      "response-adherence-table",
+      source,
+      userType,
+      startTime,
+      endTime
+    ],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<ResponseAdherenceTable>(
+        `${API_BASE_URL}/analytics/response-adherence-table-data?${params.toString()}`
+      );
+      return result;
+    },
+    enabled: shouldLoad
+  });
 }

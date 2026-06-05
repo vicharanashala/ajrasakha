@@ -177,13 +177,23 @@ export class UserDetailsQueryDto {
   @IsIn(['all', 'external', 'internal'])
   userType: 'all' | 'external' | 'internal' = 'all';
 
-  @JSONSchema({ example: 'totalQuestions', description: 'Sort by field: totalQuestions or name' })
+  @JSONSchema({ example: 'false', description: 'If true, filter users by lastActiveAt is today and has farmerProfile' })
   @IsOptional()
-  @IsIn(['totalQuestions', 'name'])
-  sortBy: 'totalQuestions' | 'name' = 'totalQuestions';
+  @IsString()
+  activeTodayByProfile?: string;
+
+  @JSONSchema({ example: 'totalQuestions', description: 'Sort by field: totalQuestions, name, farmerName, email, or createdAt' })
+  @IsOptional()
+  @IsIn(['totalQuestions', 'name', 'farmerName', 'email', 'createdAt'])
+  sortBy: 'totalQuestions' | 'name' | 'farmerName' | 'email' | 'createdAt' = 'totalQuestions';
 
   @JSONSchema({ example: 'desc', description: 'Sort order: asc or desc' })
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sortOrder: 'asc' | 'desc' = 'desc';
+
+  @JSONSchema({ example: 'age', description: 'Filter by users missing a specific demographic field in farmerProfile' })
+  @IsOptional()
+  @IsString()
+  missingDemographicField?: string;
 }

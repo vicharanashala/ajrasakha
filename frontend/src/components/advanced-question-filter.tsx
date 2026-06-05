@@ -126,6 +126,7 @@ export type AdvanceFilterValues = {
   isOnHold?: boolean;
   unallocatedQuestions?: boolean;
   pae_review?: boolean;
+  is_non_agri?: boolean;
 };
 
 

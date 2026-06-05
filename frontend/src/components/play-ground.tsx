@@ -241,55 +241,64 @@ export const PlaygroundPage = () => {
                   </HoverCard>
                 </TabsTrigger>
 
-                {user?.isCallAgent && user?.isCallAgentActive && (user?.role === "moderator" || user?.role === "expert") && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className={`px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-1 ${["call_interface", "call_history"].includes(activeTab)
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                {user?.isCallAgent &&
+                  user?.isCallAgentActive &&
+                  (user?.role === "moderator" || user?.role === "expert") && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className={`px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-1 ${
+                            ["call_interface", "call_history"].includes(
+                              activeTab,
+                            )
+                              ? "bg-accent text-accent-foreground"
+                              : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                           }`}
-                      >
-                        Call Agent
-                        <ChevronDownIcon className="w-3.5 h-3.5 opacity-60" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem
-                        onClick={() => handleTabChange("call_interface")}
-                        className={
-                          activeTab === "call_interface"
-                            ? "bg-primary/10 text-primary font-medium"
-                            : ""
-                        }
-                      >
-                        Call Interface
-                        {activeTab === "call_interface" && (
-                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
-                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleTabChange("call_history")}
-                        className={
-                          activeTab === "call_history"
-                            ? "bg-primary/10 text-primary font-medium"
-                            : ""
-                        }
-                      >
-                        Call History
-                        {activeTab === "call_history" && (
-                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
-                        )}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                        >
+                          Call Agent
+                          <ChevronDownIcon className="w-3.5 h-3.5 opacity-60" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem
+                          onClick={() => handleTabChange("call_interface")}
+                          className={
+                            activeTab === "call_interface"
+                              ? "bg-primary/10 text-primary font-medium"
+                              : ""
+                          }
+                        >
+                          Call Interface
+                          {activeTab === "call_interface" && (
+                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleTabChange("call_history")}
+                          className={
+                            activeTab === "call_history"
+                              ? "bg-primary/10 text-primary font-medium"
+                              : ""
+                          }
+                        >
+                          Call History
+                          {activeTab === "call_history" && (
+                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                          )}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
 
                 {user?.role === "admin" && (
                   <TabsTrigger
                     value="manage_agents"
                     onClick={() => handleTabChange("manage_agents")}
-                    className={activeTab === "manage_agents" ? "bg-accent text-accent-foreground" : ""}
+                    className={
+                      activeTab === "manage_agents"
+                        ? "bg-accent text-accent-foreground"
+                        : ""
+                    }
                   >
                     Manage Agents
                   </TabsTrigger>
@@ -492,39 +501,43 @@ export const PlaygroundPage = () => {
                 </div>
               </TabsContent>
 
-              {user?.isCallAgent && user?.isCallAgentActive && (user?.role === "moderator" || user?.role === "expert") && (
-                <TabsContent
-                  value="call_interface"
-                  className={cn(
-                    "mt-0 border-0 md:px-8 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <CallInterface />
-                </TabsContent>
-              )}
+              {user?.isCallAgent &&
+                user?.isCallAgentActive &&
+                (user?.role === "moderator" || user?.role === "expert") && (
+                  <TabsContent
+                    value="call_interface"
+                    className={cn(
+                      "mt-0 border-0 md:px-8 outline-none",
+                      "data-[state=active]:animate-in",
+                      "data-[state=active]:fade-in-0",
+                      "data-[state=active]:zoom-in-[0.98]",
+                      "data-[state=active]:slide-in-from-bottom-3",
+                      "duration-500 ease-out",
+                    )}
+                  >
+                    <CallInterface />
+                  </TabsContent>
+                )}
 
-              {user?.isCallAgent && user?.isCallAgentActive && (user?.role === "moderator" || user?.role === "expert") && (
-                <TabsContent
-                  value="call_history"
-                  className={cn(
-                    "mt-0 border-0 md:px-8 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <div className="w-full max-w-full px-4 md:px-6 py-2">
-                    <CallHistory onRedial={() => { }} />
-                  </div>
-                </TabsContent>
-              )}
+              {user?.isCallAgent &&
+                user?.isCallAgentActive &&
+                (user?.role === "moderator" || user?.role === "expert") && (
+                  <TabsContent
+                    value="call_history"
+                    className={cn(
+                      "mt-0 border-0 md:px-8 outline-none",
+                      "data-[state=active]:animate-in",
+                      "data-[state=active]:fade-in-0",
+                      "data-[state=active]:zoom-in-[0.98]",
+                      "data-[state=active]:slide-in-from-bottom-3",
+                      "duration-500 ease-out",
+                    )}
+                  >
+                    <div className="w-full max-w-full px-4 md:px-6 py-2">
+                      <CallHistory onRedial={() => {}} />
+                    </div>
+                  </TabsContent>
+                )}
 
               {user && (user.role === "moderator" || user.role === "admin") && (
                 <TabsContent

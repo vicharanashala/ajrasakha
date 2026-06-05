@@ -1,5 +1,7 @@
 import React from "react";
 import { ScrollArea } from "@/components/atoms/scroll-area";
+import { InfoIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -89,7 +91,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
+ const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     categories = DEFAULT_CATEGORIES,
 }) => {
     // Determine maximum total count among all categories to scale progress bars proportionally
@@ -98,39 +100,54 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     const maxTotal = Math.max(...totals, 1);
 
     return (
-        <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full">
-            {/* Header */}
-            <div className="flex items-start justify-between mb-4">
-                <div>
-                    <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">
-                        Query categories
-                    </div>
-                    <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                        Dynamic Agriculture Domains (Top 15)
-                    </div>
-                </div>
-
+      <div
+        className="          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+ border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full"
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+              <span>Query categories</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                    <InfoIcon className="h-3.5 w-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  List of top domains/categories that chatbot users are asking questions about, showing unique vs duplicate counts.
+                </TooltipContent>
+              </Tooltip>
             </div>
-
-            {/* Progress bars — scrollable */}
-            <ScrollArea className="flex-1 max-h-[300px] pr-1">
-                {activeCategories.map((q, index) => {
-                    const total = q.questionCount + q.duplicateQuestionCount;
-                    const pct = (total / maxTotal) * 100;
-                    const color = q.color || PREMIUM_PALETTE[index % PREMIUM_PALETTE.length];
-
-                    return (
-                        <ProgressBar
-                            key={q.label}
-                            label={q.label}
-                            pct={pct}
-                            color={color}
-                            questionCount={q.questionCount}
-                            duplicateQuestionCount={q.duplicateQuestionCount}
-                        />
-                    );
-                })}
-            </ScrollArea>
+            <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+              Dynamic Agriculture Domains (Top 15)
+            </div>
+          </div>
         </div>
+
+        {/* Progress bars — scrollable */}
+        <ScrollArea className="flex-1 max-h-[300px] pr-1">
+          {activeCategories.map((q, index) => {
+            const total = q.questionCount + q.duplicateQuestionCount;
+            const pct = (total / maxTotal) * 100;
+            const color =
+              q.color || PREMIUM_PALETTE[index % PREMIUM_PALETTE.length];
+
+            return (
+              <ProgressBar
+                key={q.label}
+                label={q.label}
+                pct={pct}
+                color={color}
+                questionCount={q.questionCount}
+                duplicateQuestionCount={q.duplicateQuestionCount}
+              />
+            );
+          })}
+        </ScrollArea>
+      </div>
     );
 };
+
+export default DashboardQueryCategories;

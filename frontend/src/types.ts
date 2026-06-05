@@ -1,6 +1,7 @@
 import type { UserCredential } from "firebase/auth";
+import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -263,7 +264,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -491,6 +492,7 @@ export interface IQuestionFullData {
   originalQuestion?: string;
   closedAt?: string;
   threadId?: string;
+  messageId?: string;
   approved_moderator:{
     name: string;
     email: string;
@@ -585,6 +587,7 @@ export interface IDetailedQuestion {
     queue: IUserRef[];
   };
   pae_review?: boolean;
+  is_non_agri?: boolean;
   similarityScore?: number;        // percentage (0–100)
   referenceQuestionId?: string;
   referenceQuestion?: string
@@ -957,10 +960,16 @@ enum AuditCategory {
   OUTREACH_REPORT = 'OUTREACH_REPORT',
   AGENTS_INTERFACE = 'AGENTS_INTERFACE', // PENDING, not on priority
   DOWNLOAD_REPORTS = 'DOWNLOAD_REPORTS',
-  ANSWER = 'ANSWER'
+  ANSWER = 'ANSWER',
+  FARMER_MANAGEMENT = 'FARMER_MANAGEMENT',
 }
 
 enum AuditAction {
+  // Farmer
+  ADD_FARMER = 'ADD_FARMER',
+  UPDATE_FARMER = 'UPDATE_FARMER',
+  DELETE_FARMER = 'DELETE_FARMER',
+
   // Question
   QUESTION_ADD = 'QUESTION_ADD',
   QUESTION_UPDATE = 'QUESTION_UPDATE',
@@ -1042,3 +1051,64 @@ export interface IAuditTrailResponse {
   message: string;
 }
 
+export interface PlatformInstallEntry {
+  platform: string;
+  count: number;
+}
+
+export interface KccAndAgriAppStats {
+  kccAwareness: DemographicEntry[];
+  agriAppUsage: DemographicEntry[];
+}
+
+export interface FeedbackEntry {
+  rating: string;
+  tag: string;
+}
+
+export interface FeedbackData{
+  positiveFeedbacks: FeedbackEntry[];
+  negativeFeedbacks: FeedbackEntry[];
+  positiveFeedbackCounts: {tag: string, count: any}[],
+  negativeFeedbackCounts: {tag: string, count: any}[],
+  stats: {
+    "_id"?: null | string,
+    positiveCount: number,
+    negativeCount: number,
+    averageRating: number,
+    totalFeedbacks: number
+  }
+}
+
+
+export interface ResponseAdherenceTable {
+  date: string;
+  time: string;
+  timeWindow: string;
+  whatsappQueriesAsked: number;
+  ajrasakhaQueriesAsked: number;
+  whatsappPushedToReviewer: number;
+  ajrasakhaPushedToReviewer: number;
+  whatsappAnsweredWithin120Min: number;
+  ajrasakhaAnsweredWithin120Min: number;
+  whatsappMarkedDuplicate: number;
+  ajrasakhaMarkedDuplicate: number;
+  whatsappDynamicWeather: number;
+  ajrasakhaDynamicWeather: number;
+  whatsappDynamicMarket: number;
+  ajrasakhaDynamicMarket: number;
+  whatsappDynamicSchemes: number;
+  ajrasakhaDynamicSchemes: number;
+  whatsappNonGdbWithin120: number;
+  ajrasakhaNonGdbWithin120: number;
+  whatsappInReview: number;
+  ajrasakhaInReview: number;
+  whatsappOpen: number;
+  ajrasakhaOpen: number;
+  whatsappDelayed: number;
+  ajrasakhaDelayed: number;
+  whatsappAverageResponseMinutes: number;
+  ajrasakhaAverageResponseMinutes: number;
+  whatsappAdherencePct: number;
+  ajrasakhaAdherencePct: number;
+}

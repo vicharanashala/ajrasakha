@@ -26,6 +26,7 @@ import {
   UserRole,
 } from '#root/shared/interfaces/models.js';
 import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 import {
   BlockUnblockBody,
@@ -147,6 +148,7 @@ export class UserController {
     @Body() body: UpdateUserDto,
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
+    verifyNotTester(currentUser);
     const userId = currentUser._id.toString();
     const updatedUser = await this.userService.updateUser(userId, body);
     if (!updatedUser) {
@@ -280,6 +282,7 @@ export class UserController {
     @Body() body: NotificationDeletePreferenceDTO,
     @CurrentUser() currentUser: IUser,
   ): Promise<{ message: string }> {
+    verifyNotTester(currentUser);
     const userId = currentUser._id.toString();
     const { preference } = body;
     await this.userService.updateAutoDeleteNotificationPreference(
@@ -310,7 +313,9 @@ export class UserController {
   @Authorized()
   async updateIncentiveAndPenalty(
     @Body() body: UpdatePenaltyAndIncentive,
+    @CurrentUser() currentUser: IUser,
   ): Promise<{ message: string }> {
+    verifyNotTester(currentUser);
     const { type, userId } = body;
     await this.userService.updatePenaltyAndIncentive(userId, type);
     return { message: `${type} updated successfully` };
@@ -374,6 +379,7 @@ export class UserController {
     @Body() body: BlockUnblockBody,
     @CurrentUser() user: IUser,
   ): Promise<{ message: string }> {
+    verifyNotTester(user);
     const { action, userId } = body;
     const expertDetails = await this.userService.getUserById(userId);
     if (!expertDetails) {
@@ -542,6 +548,7 @@ export class UserController {
     @Body() body: { userId: string; status: 'active' | 'in-active' },
     @CurrentUser() user: IUser,
   ): Promise<{ message: string }> {
+    verifyNotTester(user);
     const { userId, status } = body;
     const expertDetails = await this.userService.getUserById(userId);
     let auditPayload: ModeratorAuditTrail = {
@@ -627,6 +634,7 @@ export class UserController {
     @Param('id') userId: string,
     @Body() body: ToggleUserRoleDto
   ) {
+    verifyNotTester(currentUser);
     console.log("New Role", body.role)
     let prevUserDetails = await this.userService.getUserById(userId);
     let updatedUser;
@@ -746,6 +754,7 @@ export class UserController {
     workloadAfter: number;
     questionIds: string[];
   }> {
+    verifyNotTester(currentUser);
     let expertDetails: IUser | null = null;
     let result:
       | {

@@ -43,9 +43,9 @@ importers:
       axios:
         specifier: ^1.9.0
         version: 1.12.2
-      bcrypt:
-        specifier: ^5.1.1
-        version: 5.1.1
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
       body-parser:
         specifier: ^1.20.3
         version: 1.20.3
@@ -97,6 +97,9 @@ importers:
       graphql:
         specifier: ~16.10.0
         version: 16.10.0
+      http-proxy-middleware:
+        specifier: ^4.0.0
+        version: 4.0.0
       inversify:
         specifier: ^7.5.2
         version: 7.10.3(reflect-metadata@0.2.2)
@@ -1616,6 +1619,7 @@ packages:
     engines: {node: '>= 18'}
     deprecated: Please upgrade to v15 or higher. All reported bugs in this version are fixed in newer releases, dependencies have been updated, and security has been improved.
 
+<<<<<<< HEAD
   '@mapbox/node-pre-gyp@1.0.11':
     resolution:
       {
@@ -1623,6 +1627,8 @@ packages:
       }
     hasBin: true
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   '@microsoft/kiota-abstractions@1.0.0-preview.99':
     resolution:
       {
@@ -3900,12 +3906,15 @@ packages:
       }
     engines: {node: ^14.14.0 || >=16.0.0}
 
+<<<<<<< HEAD
   abbrev@1.1.1:
     resolution:
       {
         integrity: sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q==,
       }
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   abort-controller@3.0.0:
     resolution:
       {
@@ -4040,12 +4049,15 @@ packages:
         integrity: sha512-klpgFSWLW1ZEs8svjfb7g4qWY0YS5imI82dTg+QahUvJ8YqAY0P10Uk8tTyh9ZGuYEZEMaeJYCF5BFuX552hsw==,
       }
 
+<<<<<<< HEAD
   aproba@2.1.0:
     resolution:
       {
         integrity: sha512-tLIEcj5GuR2RSTnxNKdkK0dJ/GrC7P38sUkiDmDuHfsHmbagTFAxDVIBltoklXEVIQ/f14IL8IMJ5pn9Hez1Ew==,
       }
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   arch@3.0.0:
     resolution:
       {
@@ -4087,6 +4099,7 @@ packages:
       }
     engines: {node: '>= 14'}
 
+<<<<<<< HEAD
   are-we-there-yet@2.0.0:
     resolution:
       {
@@ -4095,6 +4108,8 @@ packages:
     engines: {node: '>=10'}
     deprecated: This package is no longer supported.
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   arg@4.1.3:
     resolution:
       {
@@ -4310,12 +4325,18 @@ packages:
       }
     hasBin: true
 
+<<<<<<< HEAD
   bcrypt@5.1.1:
     resolution:
       {
         integrity: sha512-AGBHOG5hPYZ5Xl9KXzU5iKq9516yEmvCKDg3ecP5kX2aB6UqTeXZxk2ELnDgDm6BQSMlLt9rDB4LoSMx0rYwww==,
       }
     engines: {node: '>= 10.0.0'}
+=======
+  bcryptjs@3.0.3:
+    resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
+    hasBin: true
+>>>>>>> origin/feat/ai-initial-answer
 
   big-integer@1.6.52:
     resolution:
@@ -4687,6 +4708,7 @@ packages:
       }
     engines: {node: '>= 14.16.0'}
 
+<<<<<<< HEAD
   chownr@2.0.0:
     resolution:
       {
@@ -4694,6 +4716,8 @@ packages:
       }
     engines: {node: '>=10'}
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   ci-info@3.9.0:
     resolution:
       {
@@ -4851,6 +4875,7 @@ packages:
       }
     engines: {node: '>=18'}
 
+<<<<<<< HEAD
   color-support@1.1.3:
     resolution:
       {
@@ -4858,6 +4883,8 @@ packages:
       }
     hasBin: true
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   color@5.0.2:
     resolution:
       {
@@ -4953,12 +4980,15 @@ packages:
       }
     engines: {node: '>= 20.0.0'}
 
+<<<<<<< HEAD
   console-control-strings@1.1.0:
     resolution:
       {
         integrity: sha512-ty/fTekppD2fIwRvnZAVdeOiGd1c7YXEixbgJTNzqcxJWKQnjJ/V1bNEEE6hygpM3WjwHFUVK6HTjWSzV4a8sQ==,
       }
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   console-table-printer@2.14.6:
     resolution:
       {
@@ -6233,6 +6263,7 @@ packages:
       }
     engines: {node: '>=14.14'}
 
+<<<<<<< HEAD
   fs-minipass@2.1.0:
     resolution:
       {
@@ -6240,6 +6271,8 @@ packages:
       }
     engines: {node: '>= 8'}
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   fs.realpath@1.0.0:
     resolution:
       {
@@ -6274,6 +6307,7 @@ packages:
         integrity: sha512-dsKNQNdj6xA3T+QlADDA7mOSlX0qiMINjn0cgr+eGHGsbSHzTabcIogz2+p/iqP1Xs6EP/sS2SbqH+brGTbq0g==,
       }
 
+<<<<<<< HEAD
   gauge@3.0.2:
     resolution:
       {
@@ -6282,6 +6316,8 @@ packages:
     engines: {node: '>=10'}
     deprecated: This package is no longer supported.
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   gaxios@6.7.1:
     resolution:
       {
@@ -6528,12 +6564,15 @@ packages:
       }
     engines: {node: '>= 0.4'}
 
+<<<<<<< HEAD
   has-unicode@2.0.1:
     resolution:
       {
         integrity: sha512-8Rf9Y83NBReMnx0gFzA8JImQACstCYWUplepDa9xprwwtmgEZUF0h/i5xSA625zB/I37EtrswSST6OXxwaaIJQ==,
       }
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   hasown@2.0.2:
     resolution:
       {
@@ -6613,6 +6652,10 @@ packages:
       }
     engines: {node: '>= 6'}
 
+  http-proxy-middleware@4.0.0:
+    resolution: {integrity: sha512-wuHwaUtmC0XzJNHqRp41zXtt5ojpHbusXGhq6781VvnjWUYPu7opmOF3eomGNujT07kEOnHWZyV9UZzKimVCKA==}
+    engines: {node: ^22.15.0 || ^24.0.0 || >=26.0.0}
+
   http2-wrapper@2.2.1:
     resolution:
       {
@@ -6640,6 +6683,9 @@ packages:
         integrity: sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==,
       }
     engines: {node: '>= 14'}
+
+  httpxy@0.5.3:
+    resolution: {integrity: sha512-SMS9V6Sn7VWaS11lYhoAr0ceoaiolTWf4jYdJn0NJhCdKMu9R2H9Fh0LBDWBHQF6HRLI1PmaePYsjanSpE5PEw==}
 
   human-signals@2.1.0:
     resolution:
@@ -6884,6 +6930,10 @@ packages:
         integrity: sha512-yvkRyxmFKEOQ4pNXCmJG5AEQNlXJS5LaONXo5/cLdTZdWvsZ1ioJEonLGAosKlMWE8lwUy/bJzMjcw8az73+Fg==,
       }
     engines: {node: '>=0.10.0'}
+
+  is-plain-obj@4.1.0:
+    resolution: {integrity: sha512-+Pgi+vMuUNkJyExiMBt5IlFoMyKnr5zhJ4Uspz58WOhBF5QoIZkFyNHIbBAtHwzVAgk5RtndVNsDRN61/mmDqg==}
+    engines: {node: '>=12'}
 
   is-plain-object@5.0.0:
     resolution:
@@ -8083,6 +8133,7 @@ packages:
         integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==,
       }
 
+<<<<<<< HEAD
   minipass@3.3.6:
     resolution:
       {
@@ -8097,6 +8148,8 @@ packages:
       }
     engines: {node: '>=8'}
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   minipass@7.1.2:
     resolution:
       {
@@ -8104,6 +8157,7 @@ packages:
       }
     engines: {node: '>=16 || 14 >=14.17'}
 
+<<<<<<< HEAD
   minizlib@2.1.2:
     resolution:
       {
@@ -8111,6 +8165,8 @@ packages:
       }
     engines: {node: '>= 8'}
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   mkdirp@0.5.6:
     resolution:
       {
@@ -8303,12 +8359,15 @@ packages:
       }
     engines: {node: '>=10'}
 
+<<<<<<< HEAD
   node-addon-api@5.1.0:
     resolution:
       {
         integrity: sha512-eh0GgfEkpnoWDq+VY8OyvYhFEzBk6jIYbRKdIlyTiAXIVJ8PyBaKb0rp7oDtoddbdoHWhq8wwr+XZ81F1rpNdA==,
       }
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   node-cron@4.2.1:
     resolution:
       {
@@ -8369,6 +8428,7 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+<<<<<<< HEAD
   nopt@5.0.0:
     resolution:
       {
@@ -8377,6 +8437,8 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   normalize-package-data@2.5.0:
     resolution:
       {
@@ -8411,6 +8473,7 @@ packages:
       }
     engines: {node: '>=8'}
 
+<<<<<<< HEAD
   npmlog@5.0.1:
     resolution:
       {
@@ -8418,6 +8481,8 @@ packages:
       }
     deprecated: This package is no longer supported.
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   object-assign@4.1.1:
     resolution:
       {
@@ -9435,12 +9500,15 @@ packages:
       }
     engines: {node: '>= 18'}
 
+<<<<<<< HEAD
   set-blocking@2.0.0:
     resolution:
       {
         integrity: sha512-KiKBS8AnWGEyLzofFfmvKwpdPzqiy16LvQfK3yv/fVH7Bj13/wl3JSR1J+rfgRE9q7xUJK4qvgS8raSOeLUehw==,
       }
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   setimmediate@1.0.5:
     resolution:
       {
@@ -9937,6 +10005,7 @@ packages:
         integrity: sha512-qJj60CXt7IU1Ffyc3NJMjh6EkuCFej46zUqJ4J7pqYlThyd9bO0XBTmcOIhSzZJVWfsLks0+nle/j538YAW9RQ==,
       }
 
+<<<<<<< HEAD
   tar@6.2.1:
     resolution:
       {
@@ -9944,6 +10013,8 @@ packages:
       }
     engines: {node: '>=10'}
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   teeny-request@9.0.0:
     resolution:
       {
@@ -10790,12 +10861,15 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
+<<<<<<< HEAD
   wide-align@1.1.5:
     resolution:
       {
         integrity: sha512-eDMORYaPNZ4sQIuuYPDHdQvf4gyCF9rEEV/yPxGfwPkRodwEgiMUUXTx/dex+Me0wxx53S+NgUHaP7y3MGlDmg==,
       }
 
+=======
+>>>>>>> origin/feat/ai-initial-answer
   winston-transport@4.9.0:
     resolution:
       {
@@ -12189,21 +12263,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
     optional: true
-
-  '@mapbox/node-pre-gyp@1.0.11':
-    dependencies:
-      detect-libc: 2.1.2
-      https-proxy-agent: 5.0.1
-      make-dir: 3.1.0
-      node-fetch: 2.7.0
-      nopt: 5.0.0
-      npmlog: 5.0.1
-      rimraf: 3.0.2
-      semver: 7.7.3
-      tar: 6.2.1
-    transitivePeerDependencies:
-      - encoding
-      - supports-color
 
   '@microsoft/kiota-abstractions@1.0.0-preview.99':
     dependencies:
@@ -13829,8 +13888,6 @@ snapshots:
     dependencies:
       arch: 3.0.0
 
-  abbrev@1.1.1: {}
-
   abort-controller@3.0.0:
     dependencies:
       event-target-shim: 5.0.1
@@ -13900,8 +13957,6 @@ snapshots:
 
   append-field@1.0.0: {}
 
-  aproba@2.1.0: {}
-
   arch@3.0.0: {}
 
   archiver-utils@2.1.0:
@@ -13962,11 +14017,6 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
-
-  are-we-there-yet@2.0.0:
-    dependencies:
-      delegates: 1.0.0
-      readable-stream: 3.6.2
 
   arg@4.1.3: {}
 
@@ -14105,13 +14155,7 @@ snapshots:
 
   baseline-browser-mapping@2.8.16: {}
 
-  bcrypt@5.1.1:
-    dependencies:
-      '@mapbox/node-pre-gyp': 1.0.11
-      node-addon-api: 5.1.0
-    transitivePeerDependencies:
-      - encoding
-      - supports-color
+  bcryptjs@3.0.3: {}
 
   big-integer@1.6.52: {}
 
@@ -14341,8 +14385,6 @@ snapshots:
     dependencies:
       readdirp: 4.1.2
 
-  chownr@2.0.0: {}
-
   ci-info@3.9.0: {}
 
   ci-info@4.3.1: {}
@@ -14420,8 +14462,6 @@ snapshots:
     dependencies:
       color-name: 2.0.2
 
-  color-support@1.1.3: {}
-
   color@5.0.2:
     dependencies:
       color-convert: 3.1.2
@@ -14479,8 +14519,6 @@ snapshots:
   config@4.1.1:
     dependencies:
       json5: 2.2.3
-
-  console-control-strings@1.1.0: {}
 
   console-table-printer@2.14.6:
     dependencies:
@@ -14616,7 +14654,8 @@ snapshots:
 
   delayed-stream@1.0.0: {}
 
-  delegates@1.0.0: {}
+  delegates@1.0.0:
+    optional: true
 
   depd@1.1.2:
     optional: true
@@ -15326,10 +15365,6 @@ snapshots:
       jsonfile: 6.2.1
       universalify: 2.0.1
 
-  fs-minipass@2.1.0:
-    dependencies:
-      minipass: 3.3.6
-
   fs.realpath@1.0.0: {}
 
   fsevents@2.3.3:
@@ -15346,18 +15381,6 @@ snapshots:
 
   functional-red-black-tree@1.0.1:
     optional: true
-
-  gauge@3.0.2:
-    dependencies:
-      aproba: 2.1.0
-      color-support: 1.1.3
-      console-control-strings: 1.1.0
-      has-unicode: 2.0.1
-      object-assign: 4.1.1
-      signal-exit: 3.0.7
-      string-width: 4.2.3
-      strip-ansi: 6.0.1
-      wide-align: 1.1.5
 
   gaxios@6.7.1:
     dependencies:
@@ -15579,8 +15602,6 @@ snapshots:
     dependencies:
       has-symbols: 1.1.0
 
-  has-unicode@2.0.1: {}
-
   hasown@2.0.2:
     dependencies:
       function-bind: 1.1.2
@@ -15634,6 +15655,16 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  http-proxy-middleware@4.0.0:
+    dependencies:
+      debug: 4.4.3(supports-color@5.5.0)
+      httpxy: 0.5.3
+      is-glob: 4.0.3
+      is-plain-obj: 4.1.0
+      micromatch: 4.0.8
+    transitivePeerDependencies:
+      - supports-color
+
   http2-wrapper@2.2.1:
     dependencies:
       quick-lru: 5.1.1
@@ -15654,6 +15685,8 @@ snapshots:
       debug: 4.4.3(supports-color@5.5.0)
     transitivePeerDependencies:
       - supports-color
+
+  httpxy@0.5.3: {}
 
   human-signals@2.1.0: {}
 
@@ -15793,6 +15826,8 @@ snapshots:
   is-path-inside@3.0.3: {}
 
   is-plain-obj@1.1.0: {}
+
+  is-plain-obj@4.1.0: {}
 
   is-plain-object@5.0.0: {}
 
@@ -16711,18 +16746,7 @@ snapshots:
 
   minimist@1.2.8: {}
 
-  minipass@3.3.6:
-    dependencies:
-      yallist: 4.0.0
-
-  minipass@5.0.0: {}
-
   minipass@7.1.2: {}
-
-  minizlib@2.1.2:
-    dependencies:
-      minipass: 3.3.6
-      yallist: 4.0.0
 
   mkdirp@0.5.6:
     dependencies:
@@ -16840,8 +16864,6 @@ snapshots:
     dependencies:
       semver: 7.7.3
 
-  node-addon-api@5.1.0: {}
-
   node-cron@4.2.1: {}
 
   node-fetch@2.7.0:
@@ -16884,10 +16906,6 @@ snapshots:
       touch: 3.1.1
       undefsafe: 2.0.5
 
-  nopt@5.0.0:
-    dependencies:
-      abbrev: 1.1.1
-
   normalize-package-data@2.5.0:
     dependencies:
       hosted-git-info: 2.8.9
@@ -16909,13 +16927,6 @@ snapshots:
   npm-run-path@4.0.1:
     dependencies:
       path-key: 3.1.1
-
-  npmlog@5.0.1:
-    dependencies:
-      are-we-there-yet: 2.0.0
-      console-control-strings: 1.1.0
-      gauge: 3.0.2
-      set-blocking: 2.0.0
 
   object-assign@4.1.1: {}
 
@@ -17564,8 +17575,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  set-blocking@2.0.0: {}
-
   setimmediate@1.0.5: {}
 
   setprototypeof@1.2.0: {}
@@ -17853,15 +17862,6 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
-
-  tar@6.2.1:
-    dependencies:
-      chownr: 2.0.0
-      fs-minipass: 2.1.0
-      minipass: 5.0.0
-      minizlib: 2.1.2
-      mkdirp: 1.0.4
-      yallist: 4.0.0
 
   teeny-request@9.0.0:
     dependencies:
@@ -18374,10 +18374,6 @@ snapshots:
     dependencies:
       siginfo: 2.0.0
       stackback: 0.0.2
-
-  wide-align@1.1.5:
-    dependencies:
-      string-width: 4.2.3
 
   winston-transport@4.9.0:
     dependencies:

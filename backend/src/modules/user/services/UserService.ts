@@ -474,6 +474,7 @@ export class UserService extends BaseService {
           {
             queue: updatedQueue,
             popHistory: shouldPopHistory,
+            expertIdToRemove: expertId,
           },
           session,
         );

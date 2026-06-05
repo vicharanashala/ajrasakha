@@ -104,3 +104,77 @@ def test_state_only_sets_district_all_without_follow_up():
     assert plan.get("follow_up_question") is None
     assert plan["entities"]["state"] == "Kerala"
     assert plan["entities"]["district"] == "all"
+
+
+def test_crop_still_asks_first_time():
+    messages = [
+        HumanMessage(
+            content=(
+                "Stubble burning is easiest way to clean my land. "
+                "What is the problem with it?"
+            )
+        ),
+    ]
+    plan = apply_planner_completeness_rules(
+        {
+            "domain": "Plant Protection",
+            "domains": ["Plant Protection"],
+            "is_complete": False,
+            "entities": {"state": "Punjab"},
+        },
+        messages,
+        {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
+    )
+    assert plan["is_complete"] is False
+    assert "crop" in (plan.get("missing_info") or [])
+    assert plan.get("follow_up_question")
+
+
+def test_crop_fallback_after_clarify_does_not_matter():
+    messages = [
+        HumanMessage(
+            content=(
+                "Stubble burning is easiest way to clean my land. "
+                "What is the problem with it?"
+            )
+        ),
+        AIMessage(content="Which crop are you growing?"),
+        HumanMessage(content="It does not matter."),
+    ]
+    plan = apply_planner_completeness_rules(
+        {
+            "domain": "Plant Protection",
+            "domains": ["Plant Protection"],
+            "is_complete": False,
+            "missing_info": ["crop"],
+            "entities": {"state": "Punjab"},
+        },
+        messages,
+        {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
+    )
+    assert plan["is_complete"] is True
+    assert plan["entities"]["crop"] == "all"
+    assert plan.get("follow_up_question") is None
+    assert "crop" not in (plan.get("missing_info") or [])
+
+
+def test_crop_clarify_reply_still_extracts_cotton():
+    messages = [
+        HumanMessage(content="Can i get insurance for my crop?"),
+        AIMessage(content="Which crop are you growing?"),
+        HumanMessage(content="Cotton"),
+    ]
+    plan = apply_planner_completeness_rules(
+        {
+            "domain": "Crop Insurance",
+            "domains": ["Crop Insurance"],
+            "is_complete": False,
+            "missing_info": ["crop"],
+            "entities": {"state": "Punjab"},
+        },
+        messages,
+        {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
+    )
+    assert plan["is_complete"] is True
+    assert plan["entities"]["crop"] == "Cotton"
+    assert plan.get("follow_up_question") is None

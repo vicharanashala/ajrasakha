@@ -22,7 +22,7 @@ export class AiService {
     context: string,
   ): Promise<QuestionSearchResponse> {
     // const response = await fetch(`${this._aiServerUrl}/questions`, {
-    const response = await fetch(`${this._agentServerUrl}/search_all`, {
+    const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -48,7 +48,7 @@ export class AiService {
     domain?: string,
   ): Promise<QuestionSearchResponse> {
 
-    const response = await fetch(`${this._agentServerUrl}/search_all`, {
+    const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,7 +58,7 @@ export class AiService {
         top_k: 3,
         threshold: 0.85,
         state: state,
-        district: district,
+       // district: district,
         crop: crop,
         //season: season,
         //domain: domain

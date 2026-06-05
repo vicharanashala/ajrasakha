@@ -14,11 +14,12 @@ export class ChatbotService {
     endDate: string,
     source = 'vicharanashala',
     downloadFormat: string,
+    state: string
   ): Promise<Blob> {
     const user = auth.currentUser;
     if (!user) throw new Error('Not authenticated');
     const token = await getIdToken(user);
-    const params = new URLSearchParams({ startDate, endDate, source, downloadFormat });
+    const params = new URLSearchParams({ startDate, endDate, source, downloadFormat, state });
     const response = await fetch(
       `${this._baseUrl}/download-chatbot-report?${params.toString()}`,
       { headers: { Authorization: `Bearer ${token}` } },
@@ -58,14 +59,19 @@ export class ChatbotService {
   }
 
   async getDailyActiveUsersTrend(
-    startDate: string,
-    endDate: string,
     source: string,
     userType: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append("startDate", startDate);
-    params.append("endDate", endDate);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
     params.append("source", source);
     params.append("userType", userType);
       return apiFetch<any>(
@@ -74,14 +80,19 @@ export class ChatbotService {
   }
 
   async getMonthlyActiveUsersTrend(
-    startDate: string,
-    endDate: string,
     source: string,
     userType: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append("startDate", startDate);
-    params.append("endDate", endDate);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
       params.append("source", source);
       params.append("userType", userType);
     return apiFetch<any>(
@@ -90,14 +101,19 @@ export class ChatbotService {
   }
 
   async getWeeklyActiveUsersTrend(
-    startDate: string,
-    endDate: string,
     source: string,
     userType: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append("startDate", startDate);
-    params.append("endDate", endDate);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
       params.append("source", source);
       params.append("userType", userType);
     return apiFetch<any>(
@@ -106,15 +122,20 @@ export class ChatbotService {
   }
 
   async getRetentionMetrics(
-    startDate: string,
-    endDate: string,
     source: string,
     userType: string,
     requestType: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append("startDate", startDate);
-    params.append("endDate", endDate);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
     params.append("source", source);
     params.append("userType", userType);
     params.append("requestType", requestType);
@@ -136,6 +157,65 @@ export class ChatbotService {
   ): Promise<any> {
     return apiFetch<any>(
       `${this._whatsAppBaseUrl}/inactive-users?page=${inactiveUsersPage}&limit=10`,
+    );
+  }
+
+  async getUniqueWhatsappUsers(
+  ): Promise<any> {
+    return apiFetch<any>(
+      `${this._whatsAppBaseUrl}/unique-users`,
+    );
+  }
+
+  async getAllWhatsappUsers(): Promise<any> {
+    return apiFetch<any>(
+      `${this._whatsAppBaseUrl}/users`,
+    );
+  }
+
+  async getClosedAndNotifedData(source: string, startDate?: string, endDate?: string): Promise<any>{
+    const params = new URLSearchParams();
+    params.append("source", source);
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+    return apiFetch<any>(
+      `${this._baseUrl}/closed-notified-data?${params.toString()}`,
+    );
+  }
+
+  async getMonthlyChurnRate(source: string, userType: string): Promise<any>{
+    const params = new URLSearchParams();
+    params.append("source", source);
+    params.append("userType", userType);
+    return apiFetch<any>(
+      `${this._baseUrl}/monthly-churn-rate?${params.toString()}`,
+    );
+  }
+
+  async getActiveUsersTrend(
+    source: string,
+    userType: string,
+    requestType: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+    params.append("source", source);
+    params.append("userType", userType);
+    params.append("requestType", requestType);
+      return apiFetch<any>(
+      `${this._baseUrl}/active-users-trend?${params.toString()}`,
     );
   }
 }

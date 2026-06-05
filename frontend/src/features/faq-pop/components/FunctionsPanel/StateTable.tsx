@@ -14,7 +14,7 @@ function AuditCell({ row, onUploaded }) {
     if (!file) return;
     setUploading(true);
     try {
-      await uploadAuditedFile(file, row.state, row.crop);
+      await uploadAuditedFile(file, row.state, row.district, row.crop);
       onUploaded?.();
     } catch (err) {
       alert(`Upload failed: ${err.message}`);
@@ -88,6 +88,7 @@ export default function StateTable({ refreshKey }) {
   const selectAllRef = useRef(null);
 
   const [stateFilter, setStateFilter] = useState([]);
+  const [districtFilter, setDistrictFilter] = useState([]);
   const [cropFilter, setCropFilter] = useState([]);
   const [domainFilter, setDomainFilter] = useState([]);
   const [downloadFilter, setDownloadFilter] = useState([]);
@@ -109,21 +110,23 @@ export default function StateTable({ refreshKey }) {
   useEffect(() => { load(); }, [refreshKey]);
 
   const stateOptions = [...new Set(rows.map(r => r.state))].sort();
+  const districtOptions = [...new Set(rows.map(r => r.district).filter(Boolean))].sort();
   const cropOptions = [...new Set(rows.map(r => r.crop))].sort();
   const domainOptions = [...new Set(rows.flatMap(r => r.domains || []))].sort();
 
   const filtered = rows.filter(r =>
     (stateFilter.length === 0 || stateFilter.includes(r.state)) &&
+    (districtFilter.length === 0 || districtFilter.includes(r.district)) &&
     (cropFilter.length === 0 || cropFilter.includes(r.crop)) &&
     (domainFilter.length === 0 || domainFilter.some(d => (r.domains || []).includes(d))) &&
     (downloadFilter.length === 0 || downloadFilter.includes(r.downloaded ? 'downloaded' : 'not downloaded')) &&
     (auditFilter.length === 0 || auditFilter.includes(r.audited ? 'audited' : 'not audited'))
   );
 
-  const anyFilter = stateFilter.length > 0 || cropFilter.length > 0 || domainFilter.length > 0
-    || downloadFilter.length > 0 || auditFilter.length > 0;
+  const anyFilter = stateFilter.length > 0 || districtFilter.length > 0 || cropFilter.length > 0
+    || domainFilter.length > 0 || downloadFilter.length > 0 || auditFilter.length > 0;
 
-  function rowKey(row) { return `${row.state}__${row.crop}`; }
+  function rowKey(row) { return `${row.state}__${row.district || ''}__${row.crop}`; }
 
   const allSelected = filtered.length > 0 && filtered.every(r => selectedRows.has(rowKey(r)));
   const someSelected = filtered.some(r => selectedRows.has(rowKey(r)));
@@ -154,10 +157,10 @@ export default function StateTable({ refreshKey }) {
   }
 
   async function deleteRow(row) {
-    if (!window.confirm(`Delete crop "${row.crop}" (${row.state})?\n\nThis will permanently remove the crop folder and all its contents.`)) return;
+    if (!window.confirm(`Delete crop "${row.crop}" (${row.state} / ${row.district})?\n\nThis will permanently remove the crop folder and all its contents.`)) return;
     setDeleting(true);
     try {
-      await deleteFolder(`outputs/repair/${row.state}/${row.crop}`);
+      await deleteFolder(`outputs/repair/${row.state}/${row.district}/${row.crop}`);
       setSelectedRows(prev => { const n = new Set(prev); n.delete(rowKey(row)); return n; });
       await load();
     } catch (err) {
@@ -174,7 +177,7 @@ export default function StateTable({ refreshKey }) {
     setDeleting(true);
     try {
       for (const row of toDelete) {
-        await deleteFolder(`outputs/repair/${row.state}/${row.crop}`);
+        await deleteFolder(`outputs/repair/${row.state}/${row.district}/${row.crop}`);
       }
       setSelectedRows(new Set());
       await load();
@@ -253,6 +256,9 @@ export default function StateTable({ refreshKey }) {
                   <ColumnFilter label="State" options={stateOptions} selected={stateFilter} onChange={setStateFilter} />
                 </th>
                 <th className="text-left px-3 py-2 whitespace-nowrap">
+                  <ColumnFilter label="District" options={districtOptions} selected={districtFilter} onChange={setDistrictFilter} />
+                </th>
+                <th className="text-left px-3 py-2 whitespace-nowrap">
                   <ColumnFilter label="Crop" options={cropOptions} selected={cropFilter} onChange={setCropFilter} />
                 </th>
                 <th className="text-left px-3 py-2">
@@ -270,13 +276,13 @@ export default function StateTable({ refreshKey }) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground italic">
+                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground italic">
                     No rows match the current filters.
                   </td>
                 </tr>
               ) : (
                 filtered.map((row, idx) => (
-                  <tr key={`${row.state}__${row.crop}`} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${selectedRows.has(rowKey(row)) ? 'bg-primary/5' : idx % 2 === 0 ? '' : 'bg-muted/10'}`}>
+                  <tr key={`${row.state}__${row.district || ''}__${row.crop}`} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${selectedRows.has(rowKey(row)) ? 'bg-primary/5' : idx % 2 === 0 ? '' : 'bg-muted/10'}`}>
                     <td className="px-3 py-2 align-middle">
                       <input
                         type="checkbox"
@@ -287,6 +293,9 @@ export default function StateTable({ refreshKey }) {
                     </td>
                     <td className="px-3 py-2 font-mono text-[11px] text-foreground whitespace-nowrap align-top">
                       {row.state}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-[11px] text-foreground whitespace-nowrap align-top">
+                      {row.district || <span className="text-muted-foreground/30">—</span>}
                     </td>
                     <td className="px-3 py-2 font-mono text-[11px] text-foreground whitespace-nowrap align-top">
                       {row.crop}
@@ -300,11 +309,11 @@ export default function StateTable({ refreshKey }) {
                     <td className="px-3 py-2 align-top whitespace-nowrap">
                       {row.output_file
                         ? <a
-                            href={outputDownloadUrl(row.state, row.crop)}
+                            href={outputDownloadUrl(row.state, row.district, row.crop)}
                             className={`flex items-center gap-1 text-[10px] transition-colors ${row.downloaded ? 'text-green-400 hover:text-green-300' : 'text-primary hover:text-primary/80'}`}
                             download
                           >
-                            <Download size={11} /> {row.state}_{row.crop}
+                            <Download size={11} /> {row.district}_{row.crop}
                           </a>
                         : <span className="text-muted-foreground/30">—</span>
                       }

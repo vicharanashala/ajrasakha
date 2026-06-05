@@ -13,11 +13,13 @@ export interface FarmerProfile {
   phoneNo?: string;
   languagePreference?: string;
   yearsOfExperience?: number;
+  landhold?: number;
   cropsCultivated?: string[];
   primaryCrop?: string;
   secondaryCrop?: string;
   awarenessOfKCC?: boolean;
   usesAgriApps?: boolean;
+  nearestKVK?: string;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
   platform?: string;
@@ -32,8 +34,11 @@ export interface UserDetail {
   userId: string;
   name: string;
   email: string;
+  role?: string;
+  userRole?: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
+  createdAt?: string;
 }
 
 export interface PaginatedUserDetailsResponse {
@@ -58,8 +63,11 @@ export function useUserDetails(
   inactiveOnly = false,
   lowFeedbackOnly = false,
   userType: 'all' | 'external' | 'internal' = 'all',
-  sortBy: 'totalQuestions' | 'name' = 'name',
+  sortBy: 'totalQuestions' | 'name' | 'farmerName' | 'email' | 'createdAt' = 'name',
   sortOrder: 'asc' | 'desc' = 'asc',
+  activeTodayByProfile = false,
+  missingDemographicField = '',
+  enabled = true,
 ) {
   const startISO = startDate?.toISOString();
   // Extend endDate to end of day (23:59:59.999) so the selected day is fully included.
@@ -69,8 +77,9 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile, missingDemographicField],
     staleTime: 30 * 1000,
+    enabled,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const params = new URLSearchParams();
@@ -88,6 +97,8 @@ export function useUserDetails(
       if (userType !== 'all') params.set('userType', userType);
       params.set('sortBy', sortBy);
       params.set('sortOrder', sortOrder);
+      if (activeTodayByProfile) params.set('activeTodayByProfile', 'true');
+      if (missingDemographicField) params.set('missingDemographicField', missingDemographicField);
 
       const result = await apiFetch<PaginatedUserDetailsResponse>(
         `${API_BASE_URL}/analytics/user-details?${params.toString()}`,

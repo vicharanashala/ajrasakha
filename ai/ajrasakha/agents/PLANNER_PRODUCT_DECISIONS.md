@@ -45,13 +45,13 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 
 `domains.py` lists crop-required vs crop-all domains. `planner_rules.apply_planner_completeness_rules` enforces:
 - Location: state in **latest message** → resolved (district defaults to `all` if not in text); else GPS on thread → use reverse-geocoded state/city; no GPS and no state → ask **state only** (never district-only follow-up). District from GPS city only when lat/long present.
-- Crop: ask only when `domain_requires_crop` and crop not in **recent** farmer replies (last ~3 turns). Otherwise set crop="All".
+- Crop: ask only when `domain_requires_crop` and crop not in **recent** farmer replies (last ~3 turns). **One-shot clarify**: if a crop follow-up was already asked in the thread and the farmer still does not name a crop, set `crop="all"` and proceed (no repeated crop questions).
 - Schemes/insurance/PM-KISAN: `schemes=true`, block meta follow-ups ("what would you like to know…").
 - State/district must not leak from unrelated older questions in the thread.
 
 ## Feature flag
 
-- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → retrieval_sanitizer (when applicable) → synthesize → **translate_answer** → END. `empty_gdb_reply` → **translate_answer** (sheet footers only, no LLM). (`sanitize_answer` is commented out.)
+- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → **gdb_passthrough** (GDB hit) or **synthesize** (specialist-only) or **empty_gdb_reply** → **translate_answer** → END. Golden retrieval uses FastAPI + Gemma classification (no retrieval_sanitizer, no synthesizer LLM on GDB hits). (`sanitize_answer` is commented out.)
 
 ## Language (vocal + script)
 
@@ -59,10 +59,14 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 - **Romanized / Latin typing:** `script_language=English`, `vocal_language=<spoken>` (e.g. Romanized Telugu → English + Telugu; Hinglish → English + Hindi).
 - **Native script:** `script_language` and `vocal_language` match (e.g. both Hindi for Devanagari).
 - **Fixed strings** (exact cells, no LLM paraphrase): testing disclaimer, 2-hour expert-queue text, state/crop follow-ups — keyed by `(script_language, vocal_language)`.
-- **Synthesis** writes an English advisory body only (no sources, no testing disclaimer, no 2-hour text).
-- **translate_answer** translates the body when needed (LLM sees body only). Footers are deterministic in `answer_footers.py`: GDB source/author block, then testing disclaimer from the sheet. Expert-queue uses sheet 2-hour + testing (no translate LLM).
+- **GDB passthrough** uses the Golden expert answer text as-is (no synthesizer rephrase LLM); **translate_answer** may still translate + append sources/testing.
+- **Synthesize** runs only when GDB is empty but weather/mandi/soil/schemes returned data.
+- **translate_answer** paths (see `plan.translate_path`):
+  - **`empty_gdb_reply`** → sheet **2-hour + testing** only (no translate LLM).
+  - **`gdb_passthrough` / synthesize** → translate body when needed → GDB **sources + author** → sheet **testing disclaimer** only (no 2-hour on this path).
+- Expert-queue turns route to `empty_gdb_reply` only.
 - `USE_PLANNER_GRAPH=false`: legacy single-LLM `ajrasakha` + `tools` loop.
 
-## Synthesizer
+## Synthesizer (GDB bypass)
 
-The synthesizer LLM does not bind tools. It only composes the English advisory body from tool results; footers are appended in `translate_answer`.
+The synthesizer node is **not used when GDB returns an exact or similar expert answer** (`gdb_passthrough` → `translate_answer`). It still runs for **specialist-only** turns (e.g. weather with no GDB hit). Footers are appended in `translate_answer`.

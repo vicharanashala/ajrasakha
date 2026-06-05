@@ -4,6 +4,8 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    client_max_body_size 50M;
+
     resolver 127.0.0.11 valid=10s ipv6=off;
 
     location /api/ {

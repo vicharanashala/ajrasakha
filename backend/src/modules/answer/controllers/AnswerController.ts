@@ -15,14 +15,16 @@ import {
   Put,
   BadRequestError,
   InternalServerError,
+  ForbiddenError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { AnswerService } from '../services/AnswerService.js';
-import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
@@ -52,6 +54,7 @@ export class AnswerController {
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async addAnswer(@Body() body: AddAnswerBody, @CurrentUser() user: IUser) {
+    verifyNotTester(user);
     const {questionId, answer, sources} = body;
     const authorId = user._id.toString();
     return this.answerService.addAnswer(questionId, authorId, answer, sources);
@@ -66,12 +69,22 @@ export class AnswerController {
     @Body() body: ReviewAnswerBody,
     @CurrentUser() user: IUser,
   ): Promise<{message: string}> {
+    verifyNotTester(user);
     const userId = user._id.toString();
     if(body.type=="reroute")
     {
       return this.answerService.reRouteReviewAnswer(userId, body)
     }
     return this.answerService.reviewAnswer(userId, body);
+  }
+
+  @OpenAPI({summary: 'Fetch AI initial answer through backend proxy'})
+  @Post('/fetch-ai-answer')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async fetchAiInitialAnswer(@Body() body: FetchAiInitialAnswerBody) {
+    return this.answerService.fetchAiInitialAnswer(body);
   }
 
   @Get('/submissions')
@@ -140,6 +153,7 @@ export class AnswerController {
     @Body() body: UpdateAnswerBody,
     @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     const {_id: userId} = user;
     let result;
     let prevAnswer;
@@ -168,6 +182,15 @@ export class AnswerController {
         prevAnswer = await this.answerService.getAnswerById(body.answerId);
       }
       questionData = await this.questionService.getQuestionDataById(prevAnswer?.questionId?.toString()||body.questionId);
+
+      // If editing an already-finalized answer on a closed question, log as EDIT_FINAL_ANSWER.
+      const isEditFinal =
+        questionData?.status === 'closed' &&
+        prevAnswer?.isFinalAnswer === true;
+      if (isEditFinal) {
+        auditPayload = {...auditPayload, action: AuditAction.EDIT_FINAL_ANSWER};
+      }
+
       result = await this.answerService.approveAnswer(
         userId.toString(),
         body,
@@ -237,6 +260,7 @@ export class AnswerController {
     @Body() body: UpdateAnswerBody,
     @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     const {_id: userId} = user;
     let result;
     let questionData;
@@ -310,7 +334,8 @@ export class AnswerController {
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async deleteAnswer(@Params() params: DeleteAnswerParams) {
+  async deleteAnswer(@Params() params: DeleteAnswerParams, @CurrentUser() user: IUser) {
+    verifyNotTester(user);
     const {answerId, questionId} = params;
     return this.answerService.deleteAnswer(questionId, answerId);
   }

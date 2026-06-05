@@ -86,22 +86,38 @@ export class ContextService extends BaseService implements IContextService {
     // Languages exclusive to sarvam-translate:v1 (supports 22 languages)
     // mayura:v1 supports only 11 languages but auto-detects source language
     const SARVAM_ONLY_LANGS = new Set([
-      'as-IN', 'brx-IN', 'doi-IN', 'kok-IN',
-      'ks-IN', 'mai-IN', 'mni-IN', 'ne-IN',
-      'sa-IN', 'sat-IN', 'sd-IN', 'ur-IN',
+      'en-IN', 'hi-IN', 'bn-IN',
+      'gu-IN', 'kn-IN', 'ml-IN',
+      'mr-IN', 'od-IN', 'pa-IN',
+      'ta-IN', 'te-IN', 'as-IN',
+      'doi-IN', 'kok-IN', 'ks-IN',
+      'mai-IN', 'mni-IN', 'ne-IN',
+      'sa-IN', 'sat-IN', 'sd-IN',
+      'ur-IN', 'brx-IN',
     ]);
 
     const useSarvamModel = SARVAM_ONLY_LANGS.has(targetLang);
     const model = useSarvamModel ? 'sarvam-translate:v1' : 'mayura:v1';
-    const source_language_code = useSarvamModel ? (sourceLang ?? 'en-IN') : 'auto';
     // API character limits: mayura:v1 = 1000, sarvam-translate:v1 = 2000
+
+    // sarvam-translate:v1 requires an explicit source language (no 'auto').
+    // When sourceLang is unknown, go via English:
+    //   Step 1 — mayura:v1 auto-detects source → English
+    //   Step 2 — sarvam-translate:v1 English → target
+    if (useSarvamModel && !sourceLang) {
+      const enChunks = this._splitIntoChunks(text, 900);
+      const enResults = await this._translateInBatches(enChunks, 'auto', 'en-IN', 'mayura:v1', apiKey);
+      const enText = enResults.join(' ');
+      if(targetLang === 'en-IN') return { translated_text: enText };
+      const targetChunks = this._splitIntoChunks(enText, 1900);
+      const targetResults = await this._translateInBatches(targetChunks, 'en-IN', targetLang, model, apiKey);
+      return { translated_text: targetResults.join(' ') };
+    }
+
+    const source_language_code = sourceLang ?? 'auto';
     const maxChars = useSarvamModel ? 1900 : 900;
-
     const chunks = this._splitIntoChunks(text, maxChars);
-    const translatedChunks = await this._translateInBatches(
-      chunks, source_language_code, targetLang, model, apiKey,
-    );
-
+    const translatedChunks = await this._translateInBatches(chunks, source_language_code, targetLang, model, apiKey);
     return { translated_text: translatedChunks.join(' ') };
   }
 
@@ -145,6 +161,31 @@ export class ContextService extends BaseService implements IContextService {
 
     if (remaining.length > 0) chunks.push(remaining);
     return chunks;
+  }
+
+  async speechToText(
+    file: Express.Multer.File,
+    language: string,
+  ): Promise<unknown> {
+    const apiKey = appConfig.sarvamAPI;
+    if (!apiKey) throw new BadRequestError('Sarvam API key not configured');
+
+    const formData = new FormData();
+    formData.append('file', new Blob([file.buffer], { type: file.mimetype }), file.originalname || 'recording.webm');
+    formData.append('language', language);
+
+    const response = await fetch('https://api.sarvam.ai/speech-to-text-translate', {
+      method: 'POST',
+      headers: { 'api-subscription-key': apiKey },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => response.statusText);
+      throw new InternalServerError(`Sarvam STT error ${response.status}: ${body}`);
+    }
+
+    return response.json();
   }
 
   private async _callSarvamTranslate(

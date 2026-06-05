@@ -31,7 +31,6 @@ from ajrasakha.agents.plan_executor import (
     ensure_location_node,
     execute_plan_node,
     route_after_execute,
-    route_after_sanitizer,
 )
 from ajrasakha.agents.planner import clarify_node, planner_node, route_after_planner
 from ajrasakha.agents.prompts import (
@@ -42,7 +41,7 @@ from ajrasakha.agents.prompts import (
     WHATSAPP_SYSTEM_PROMPT,
 )
 from ajrasakha.agents.state import AjraSakhaState, Location
-from ajrasakha.agents.retrieval_sanitizer import retrieval_sanitizer_node
+from ajrasakha.agents.gdb_passthrough import gdb_passthrough_node
 from ajrasakha.agents.synthesizer import synthesize_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
@@ -95,51 +94,51 @@ _GDB_EMPTY_SENTINEL = "NO_RELEVANT_CONTENT"
 logger = logging.getLogger(__name__)
 
 
-# async def ajrasakha_node(
-#     state: AjraSakhaState,
-#     config: RunnableConfig,
-#     *,
-#     store: BaseStore | None = None,
-# ) -> dict:
-#     main_tools = await _get_main_tools_legacy()
-#     merged_configurable = dict((config.get("configurable") or {}))
-#     merged_configurable["location"] = state.get("location")
-#     enriched_config = patch_config(config, configurable=merged_configurable)
-#     llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
-#     long_term_summary = await load_long_term_summary(store, config)
-#     summary_context = (
-#         f"Long-term memory from previous daily threads:\n{long_term_summary}"
-#         if long_term_summary
-#         else "Long-term memory from previous daily threads:\nNo previous summary available."
-#     )
-#     messages = [
-#         SystemMessage(content=WHATSAPP_SYSTEM_PROMPT),
-#         SystemMessage(content=summary_context),
-#     ]
-#     loc_ctx = main_agent_location_context_message(state.get("location"))
-#     if loc_ctx:
-#         messages.append(loc_ctx)
-#     messages.extend(list(state["messages"]))
+async def ajrasakha_node(
+    state: AjraSakhaState,
+    config: RunnableConfig,
+    *,
+    store: BaseStore | None = None,
+) -> dict:
+    main_tools = await _get_main_tools_legacy()
+    merged_configurable = dict((config.get("configurable") or {}))
+    merged_configurable["location"] = state.get("location")
+    enriched_config = patch_config(config, configurable=merged_configurable)
+    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
+    long_term_summary = await load_long_term_summary(store, config)
+    summary_context = (
+        f"Long-term memory from previous daily threads:\n{long_term_summary}"
+        if long_term_summary
+        else "Long-term memory from previous daily threads:\nNo previous summary available."
+    )
+    messages = [
+        SystemMessage(content=WHATSAPP_SYSTEM_PROMPT),
+        SystemMessage(content=summary_context),
+    ]
+    loc_ctx = main_agent_location_context_message(state.get("location"))
+    if loc_ctx:
+        messages.append(loc_ctx)
+    messages.extend(list(state["messages"]))
 
-#     try:
-#         response = await llm.ainvoke(messages, config=enriched_config)
-#     except (asyncio.CancelledError, TimeoutError, APITimeoutError,
-#             APIConnectionError) as exc:
-#         logger.warning(
-#             "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
-#             type(exc).__name__, exc,
-#         )
-#         return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-#     except APIStatusError as exc:
-#         if exc.status_code >= 500:
-#             logger.warning(
-#                 "Anthropic server error (%s) — returning safe fallback",
-#                 exc.status_code,
-#             )
-#             return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
-#         raise  # 4xx errors (auth, rate-limit) should still propagate
+    try:
+        response = await llm.ainvoke(messages, config=enriched_config)
+    except (asyncio.CancelledError, TimeoutError, APITimeoutError,
+            APIConnectionError) as exc:
+        logger.warning(
+            "LLM call failed (%s: %s) — returning safe fallback to protect thread history",
+            type(exc).__name__, exc,
+        )
+        return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+    except APIStatusError as exc:
+        if exc.status_code >= 500:
+            logger.warning(
+                "Anthropic server error (%s) — returning safe fallback",
+                exc.status_code,
+            )
+            return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
+        raise  # 4xx errors (auth, rate-limit) should still propagate
 
-#     return {"messages": [response], "location": state.get("location")}
+    return {"messages": [response], "location": state.get("location")}
 
 
 async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
@@ -262,11 +261,16 @@ def route_after_tools(state: AjraSakhaState) -> str:
 
 
 async def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
-    """Planner graph: empty body + expert_queue flag for translate_answer footers."""
+    """Planner graph: empty body; translate_answer adds sheet 2-hour + testing."""
     from ajrasakha.agents.answer_footers import build_expert_queue_content
+    from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
     from ajrasakha.agents.translation_catalog import language_pair_from_plan
 
-    plan = {**(state.get("plan") or {}), "expert_queue": True}
+    plan = {
+        **(state.get("plan") or {}),
+        "translate_path": TRANSLATE_PATH_EMPTY_GDB,
+        "expert_queue": False,
+    }
     if use_planner_graph():
         return {
             "messages": [AIMessage(content="")],
@@ -276,6 +280,7 @@ async def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
     script, vocal = language_pair_from_plan(plan)
     return {
         "messages": [AIMessage(content=build_expert_queue_content(script, vocal))],
+        "plan": plan,
         "location": state.get("location"),
     }
 
@@ -393,7 +398,9 @@ def _build_graph():
         builder.add_node("clarify", clarify_node)
         builder.add_node("ensure_location", ensure_location_node)
         builder.add_node("execute_plan", execute_plan_node)
-        builder.add_node("retrieval_sanitizer", retrieval_sanitizer_node)
+        # GDB: Golden API + Gemma already picked the expert answer — no synthesizer LLM.
+        builder.add_node("gdb_passthrough", gdb_passthrough_node)
+        # Weather/mandi/soil/schemes when GDB has no usable answer (keep this node).
         builder.add_node("synthesize", synthesize_node)
         from ajrasakha.agents.translate_answer import translate_answer_node
 
@@ -412,19 +419,12 @@ def _build_graph():
             route_after_tools_planner,
             {
                 END: END,
+                "gdb_passthrough": "gdb_passthrough",
                 "synthesize": "synthesize",
-                "retrieval_sanitizer": "retrieval_sanitizer",
                 "empty_gdb_reply": "empty_gdb_reply",
             },
         )
-        builder.add_conditional_edges(
-            "retrieval_sanitizer",
-            route_after_sanitizer,
-            {
-                "empty_gdb_reply": "empty_gdb_reply",
-                "synthesize": "synthesize",
-            },
-        )
+        builder.add_edge("gdb_passthrough", "translate_answer")
         builder.add_edge("synthesize", "translate_answer")
         builder.add_edge("translate_answer", END)
         builder.add_edge("empty_gdb_reply", "translate_answer")

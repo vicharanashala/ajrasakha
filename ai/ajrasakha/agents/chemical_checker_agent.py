@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import List
 from langchain.agents import create_agent
 
-from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
+from ajrasakha.agents.config import SANITIZER_MODEL, MCP_URLS
 from ajrasakha.agents.location_context import sub_agent_system_prompt_with_thread_location
 from ajrasakha.agents.prompts import CHEMICAL_SYSTEM_PROMPT
 
@@ -20,7 +20,7 @@ chemical_mcp = MultiServerMCPClient(
     }
 )
 
-llm = ChatAnthropic(model=CLAUDE_MODEL)
+llm = ChatAnthropic(model=SANITIZER_MODEL)
 
 _chemical_agent_graph = None
 

@@ -58,6 +58,7 @@ export const QuestionsPage = ({
   //grid or table
   const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
+  const [searchTabMode, setSearchTabMode] = useState<string>("search");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>(getInitialSource);
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
@@ -81,6 +82,7 @@ export const QuestionsPage = ({
   const [unallocatedQuestions, setUnallocatedQuestions] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
+  const [isNonAgri, setIsNonAgri] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
@@ -179,6 +181,7 @@ export const QuestionsPage = ({
       isOnHold,
       unallocatedQuestions,
       pae_review: paeReview,
+      is_non_agri: isNonAgri,
     }),
     [
       status,
@@ -206,6 +209,7 @@ export const QuestionsPage = ({
       isOnHold,
       unallocatedQuestions,
       paeReview,
+      isNonAgri,
     ],
   );
 
@@ -267,16 +271,41 @@ export const QuestionsPage = ({
     if (currentUser?.role !== "expert") onReset();
   }, [debouncedSearch]);
 
+
+  const sourceByMode: Record<string, string> = {
+    ajraskha: "AJRASAKHA",
+    manual: "AGRI_EXPERT",
+    whatsapp: "WHATSAPP",
+    outreach: "OUTREACH",
+  };
+
+  const filteredQuestions = useMemo(() => {
+    const questions = questionData?.questions || [];
+    if (!debouncedSearch || searchTabMode === "search") return questions;
+    const srcFilter = sourceByMode[searchTabMode];
+    if (srcFilter) return questions.filter((q) => q.source === srcFilter);
+    if (searchTabMode === "draft") return questions.filter((q) => q.status === "draft");
+    if (searchTabMode === "non_agri") return questions.filter((q) => q.status === "non_agri");
+    if (searchTabMode === "pae") return questions.filter((q) => (q as any).pae_review === true);
+    return questions;
+  }, [questionData, debouncedSearch, searchTabMode]);
+
   const currentItems = useMemo(() => {
-    if (viewMode === "all") return questionData?.questions || [];
-    return reviewData?.data || [];
-  }, [viewMode, questionData, reviewData]);
+    if (viewMode !== "all") return reviewData?.data || [];
+    return filteredQuestions;
+  }, [viewMode, filteredQuestions, reviewData]);
 
   const currentIndex = useMemo(() => {
     return currentItems.findIndex((q) => q._id === selectedQuestionId);
   }, [currentItems, selectedQuestionId]);
 
-  const totalPages = viewMode === "all" ? (questionData?.totalPages || 0) : (reviewData?.totalPages || 0);
+  const totalPages = viewMode === "all"
+    ? (questionData?.totalPages || 0)
+    : (reviewData?.totalPages || 0);
+
+  const displayTotal = viewMode === "all"
+    ? (questionData?.totalCount || 0)
+    : (reviewData?.totalDocs || 0);
   const currentPageVal = viewMode === "all" ? currentPage : reviewPage;
 
   const hasNext = currentIndex < currentItems.length - 1 || currentPageVal < totalPages;
@@ -339,6 +368,7 @@ export const QuestionsPage = ({
     isOnHold?: boolean;
     unallocatedQuestions?: boolean;
     pae_review?: boolean;
+    is_non_agri?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -373,6 +403,8 @@ export const QuestionsPage = ({
       setUnallocatedQuestions(next.unallocatedQuestions);
     if ("pae_review" in next)
       setPaeReview(next.pae_review);
+    if ("is_non_agri" in next)
+      setIsNonAgri(next.is_non_agri);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -411,6 +443,7 @@ export const QuestionsPage = ({
     setDuplicateQuestions(false);
     setIsOnHold(false);
     setPaeReview(undefined);
+    setIsNonAgri(undefined);
   };
 
   const handleViewMore = (questoinId: string) => {
@@ -508,11 +541,7 @@ export const QuestionsPage = ({
             refetch={() => {
               refetch();
             }}
-            totalQuestions={
-              viewMode === "all"
-                ? questionData?.totalCount || 0
-                : reviewData?.totalDocs || 0
-            }
+            totalQuestions={displayTotal}
             userRole={currentUser?.role!}
             isSelectionModeOn={isSelectionModeOn}
             handleBulkDelete={handleBulkDelete}
@@ -529,17 +558,18 @@ export const QuestionsPage = ({
             showClosedAt={showClosedAt}
             view={view}
             setView={setView}
+            onAnswerModeChange={setSearchTabMode}
           />
 
           {viewMode === "all" ? (
             <QuestionsTable
-              items={questionData?.questions}
+              items={filteredQuestions}
               onViewMore={handleViewMore}
               currentPage={currentPage}
               setCurrentPage={setCurrentPage}
               userRole={currentUser?.role!}
               limit={limit}
-              totalPages={questionData?.totalPages || 0}
+              totalPages={totalPages}
               isLoading={isLoading || isFetching || bulkDeletingQuestions}
               isBulkUpload={isBulkUpload}
               uploadedQuestionsCount={uploadedQuestionsCount}

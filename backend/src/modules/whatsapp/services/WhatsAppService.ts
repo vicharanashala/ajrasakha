@@ -273,7 +273,7 @@ export class WhatsAppService implements IWhatsAppService {
     skip: number,
     limit: number,
   ): Promise<WhatsappUsersResponse> {
-    
+
     try {
       const response = await axios.get(`${this.WHATSAPP_SERVER_URL}/whatsapp/users`, {
         params: {
@@ -289,6 +289,48 @@ export class WhatsAppService implements IWhatsAppService {
       const usersResponse = response.data as WhatsappUsersResponse;
 
       return usersResponse;    
+      } catch (error) {
+      console.error('Error fetching inactive WhatsApp users:', error);
+
+      throw new InternalServerError('Failed to fetch inactive WhatsApp users');
+    }
+  }
+
+  async getAllUsers(): Promise<WhatsappUsersResponse> {
+    try {
+      const response = await axios.get(`${this.WHATSAPP_SERVER_URL}/whatsapp/users`, {
+        params: {
+          isPaginated: false,
+        },
+        headers: {
+          'x-internal-api-key': this.WA_WEBHOOK_API_KEY,
+        },
+      });
+
+      const usersResponse = response.data as WhatsappUsersResponse;
+
+      return usersResponse;    
+      } catch (error) {
+      console.error('Error fetching inactive WhatsApp users:', error);
+
+      throw new InternalServerError('Failed to fetch inactive WhatsApp users');
+    }
+  }
+
+  async getUniqueUsers(): Promise<number> {
+    try {
+      const response = await axios.get(`${this.WHATSAPP_SERVER_URL}/whatsapp/users/count`, {
+        params: {
+          isPaginated: false,
+        },
+        headers: {
+          'x-internal-api-key': this.WA_WEBHOOK_API_KEY,
+        },
+      });
+
+      const uniqueUsersCount = response.data.uniqueUserCount;
+
+      return uniqueUsersCount;    
       } catch (error) {
       console.error('Error fetching inactive WhatsApp users:', error);
 

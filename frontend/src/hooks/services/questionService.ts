@@ -89,6 +89,10 @@ export class QuestionService {
       params.append("pae_review", "true");
     }
 
+    if (filter.is_non_agri === true) {
+      params.append("is_non_agri", "true");
+    }
+
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
     if (filter.states && filter.states.length > 0) {
@@ -261,6 +265,7 @@ export class QuestionService {
     return apiFetch<IDetailedQuestion>(`${this._baseUrl}/${questionId}`, {
       method: "PUT",
       body: JSON.stringify(updatedData),
+      headers: { "Content-Type": "application/json" },
     });
   }
 
@@ -356,6 +361,19 @@ export class QuestionService {
     return apiFetch<number>(
       `${this._baseUrl}/allocated/page?questionId=${questionId}`,
     );
+  }
+
+  /** Notify the backend that the expert has opened a time-bound question.
+   *  Blocks 45-min auto-reallocation. Fire-and-forget — never throws. */
+  async markQuestionOpened(questionId: string): Promise<void> {
+    try {
+      await apiFetch<{ success: boolean }>(
+        `${this._baseUrl}/${questionId}/mark-opened`,
+        { method: "POST" },
+      );
+    } catch {
+      // Non-fatal — silently ignore network errors
+    }
   }
 
   async bulkDeleteQuestions(questionIds: string[]) {
@@ -707,12 +725,17 @@ export class QuestionService {
   );
 }
 
+  async manualCheckDuplicate(questionId: string): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
+  }
+
   async getQuestionStatusSummary(
     filter: AdvanceFilterValues,
     search: string,
   ): Promise<{
     totalQuestions: number;
     statuses: { status: string; count: number }[];
+    sourceCounts: { source: string; count: number }[];
   } | null> {
     const params = new URLSearchParams();
 
@@ -763,6 +786,10 @@ export class QuestionService {
 
     if (filter.pae_review === true) {
       params.append("pae_review", "true");
+    }
+
+    if (filter.is_non_agri === true) {
+      params.append("is_non_agri", "true");
     }
 
     // states and normalisedCrops sent as JSON arrays in request body

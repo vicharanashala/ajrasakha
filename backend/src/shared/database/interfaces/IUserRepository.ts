@@ -94,6 +94,12 @@ export interface IUserRepository {
     session?: ClientSession,
   ): Promise<IUser[]>;
 
+  /** Returns all non-blocked experts sorted by reputation_score ascending (lowest workload first). */
+  findExpertsByReputationScore(
+    details: PreferenceDto,
+    session?: ClientSession,
+  ): Promise<IUser[]>;
+
   /**
    * Creates a User Anomaly Document to the database.
    * @param anamoly - The anomaly document to create.

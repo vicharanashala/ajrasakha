@@ -1,5 +1,5 @@
 import {injectable, inject} from 'inversify';
-import {InternalServerError} from 'routing-controllers';
+import {InternalServerError, BadRequestError} from 'routing-controllers';
 import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
@@ -9,6 +9,12 @@ import type {
   IChatbotRepository,
   ChatbotConversationData,
   WeatherConcernAnalyticsFilters,
+  PaginatedUserDetails,
+  UserDemographics,
+  PlatformInstallEntry,
+  KccAndAgriAppStats,
+  FeedbackData,
+  ResponseAdherenceTable,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -22,7 +28,14 @@ import {
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 
 import PDFDocument from 'pdfkit';
-import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
+import {WhatsappUsers} from '#root/utils/dummyWhatsAppUsers.js';
+import {access} from 'node:fs';
+import {aiConfig} from '#root/config/ai.js';
+import {appConfig} from '#root/config/app.js';
+import axios from 'axios';
+import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
+import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
+import { triggerWebhook } from '#root/modules/answer/utils/triggerWebhook.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -33,8 +46,301 @@ export class ChatbotService extends BaseService implements IChatbotService {
     private readonly userRepository: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
+    @inject(WHATSAPP_TYPES.WhatsAppService)
+    private readonly whatsappService: IWhatsAppService,
   ) {
     super(mongoDatabase);
+  }
+
+  private drawTable(
+    doc: PDFKit.PDFDocument,
+    title: string,
+    data: any[],
+    state?: string,
+  ) {
+    console.log('drawing table with state', state);
+    const tableConfigs: Record<
+      string,
+      {
+        headers: string[];
+        fields: string[];
+        widths: number[];
+        showTotal?: boolean;
+      }
+    > = {
+      'Monthly Queries': {
+        headers: ['Period', 'Query Count'],
+        fields: ['period', 'queryCount'],
+        widths: [250, 200],
+      },
+
+      'Weekly Queries': {
+        headers: ['Period', 'Query Count'],
+        fields: ['period', 'queryCount'],
+        widths: [250, 200],
+      },
+
+      'Daily Queries': {
+        headers: ['Period', 'Query Count'],
+        fields: ['period', 'queryCount'],
+        widths: [250, 200],
+      },
+
+      'Gender Split': {
+        headers: ['Gender', 'Count'],
+        fields: ['label', 'count'],
+        widths: [250, 200],
+        showTotal: true,
+      },
+
+      'Farming Experience': {
+        headers: ['Experience', 'Number of Farmer'],
+        fields: ['label', 'count'],
+        widths: [250, 200],
+        showTotal: true,
+      },
+
+      'Age Group': {
+        headers: ['Age', 'Data'],
+        fields: ['label', 'count'],
+        widths: [250, 200],
+        showTotal: true,
+      },
+
+      'Query Catagories': {
+        headers: ['Query Type', 'Unique', 'Duplicate'],
+        fields: ['label', 'questionCount', 'duplicateQuestionCount'],
+        widths: [300, 80, 80],
+      },
+
+      'Top Crops': {
+        headers: ['Crop Name', 'Count'],
+        fields: ['name', 'count'],
+        widths: [220, 220],
+        showTotal: true,
+      },
+      'Top Faqs': {
+        headers: ['Question', 'Count'],
+        fields: ['question', 'count'],
+        widths: [260, 220],
+      },
+
+      "District Analytics": {
+        headers: ['District', 'Unique Count', 'Duplicate Count', 'Total'],
+        fields: [
+          'district',
+          'uniqueQuestions',
+          'duplicateQuestions',
+          'totalQuestions',
+        ],
+        widths: [180, 110, 110, 80],
+      },
+      'Positive Feedback': {
+        headers: ['Feedback Type', 'Count'],
+        fields: ['tag', 'count'],
+        widths: [320, 140],
+      },
+
+      'Negative Feedback': {
+        headers: ['Feedback Type', 'Count'],
+        fields: ['tag', 'count'],
+        widths: [320, 140],
+      },
+    };
+
+    const feedbackLabelMap: Record<string, string> = {
+      accurate_reliable: 'Accurate and Reliable',
+
+      clear_well_written: 'Clear and Well-Written',
+
+      attention_to_detail: 'Attention to Detail',
+
+      creative_solution: 'Creative Solution',
+
+      inaccurate: 'Inaccurate or Incorrect',
+
+      not_matched: "Didn't Match Question",
+
+      bad_style: 'Poor Style or Tone',
+
+      missing_image: 'Expected an Image',
+
+      unjustified_refusal: 'Refused with Reason',
+
+      not_helpful: 'Lacked Useful Information',
+    };
+
+    const analyticsStateLabel =
+      state && state !== 'All States'
+        ? `District categories of ${state}`
+        : 'No state selected';
+
+    const config = tableConfigs[title];
+
+    if (!config) return;
+
+    
+
+    const startX = 50;
+    let currentY = doc.y;
+    const rowHeight = 30;
+
+    // ─────────────────────────────────────
+    // TITLE
+    // ─────────────────────────────────────
+
+    doc.fontSize(16).font('Helvetica-Bold').text(title, startX, currentY);
+
+    currentY += 30;
+
+    let total: number | string;
+    if (title === 'District Analytics') {
+      doc
+        .font('Helvetica')
+        .fontSize(11)
+        .text(analyticsStateLabel, startX, currentY);
+
+      currentY += 25;
+    }
+
+    // ─────────────────────────────────────
+    // HEADER DRAWER
+    // ─────────────────────────────────────
+
+    const drawHeader = () => {
+      let currentX = startX;
+
+      config.headers.forEach((header, index) => {
+        const width = config.widths[index];
+
+        doc.rect(currentX, currentY, width, rowHeight).stroke();
+
+        doc
+          .fontSize(12)
+          .font('Helvetica-Bold')
+          .text(header, currentX + 8, currentY + 8, {
+            width: width - 16,
+            align: 'left',
+          });
+
+        currentX += width;
+      });
+
+      currentY += rowHeight;
+    };
+
+    drawHeader();
+
+    // ─────────────────────────────────────
+    // ROWS
+    // ─────────────────────────────────────
+
+    data.forEach(item => {
+      // Dynamic row height for long FAQs
+      let dynamicRowHeight = rowHeight;
+
+      if (title === 'Top Faqs') {
+        dynamicRowHeight = 55;
+      }
+
+      // Check BEFORE rendering row
+      if (currentY + dynamicRowHeight > 720) {
+        doc.addPage();
+
+        currentY = 50;
+
+        // Redraw title
+        doc.fontSize(16).font('Helvetica-Bold').text(title, startX, currentY);
+
+        currentY += 30;
+
+        // Redraw analytics state
+        if (title === 'District Analytics') {
+          doc
+            .font('Helvetica')
+            .fontSize(11)
+            .text(analyticsStateLabel, startX, currentY);
+
+          currentY += 25;
+        }
+
+        // Redraw header
+        drawHeader();
+      }
+
+      let currentX = startX;
+
+      config.fields.forEach((field, index) => {
+        const width = config.widths[index];
+
+        doc.rect(currentX, currentY, width, dynamicRowHeight).stroke();
+
+        let value =
+          field === 'tag'
+            ? (feedbackLabelMap[item[field]] ?? item[field])
+            : String(item[field] ?? '-');
+
+        doc
+          .font('Helvetica')
+          .fontSize(11)
+          .text(value, currentX + 8, currentY + 8, {
+            width: width - 16,
+            align: 'left',
+          });
+
+        currentX += width;
+      });
+
+      currentY += dynamicRowHeight;
+    });
+
+    // ─────────────────────────────────────
+    // TOTAL
+    // ─────────────────────────────────────
+
+    if (config.showTotal) {
+      total = data.reduce((acc, item) => acc + (item.count ?? 0), 0);
+
+      currentY += 10;
+
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .text(`$Total = ${total}`, startX + config.widths[0] + 10, currentY);
+    }
+
+    doc.moveDown(3);
+  }
+
+  private readonly baseUrl =
+    'http://' + aiConfig.serverIP + ':' + aiConfig.whatsAppServerPort;
+  private readonly WHATSAPP_SERVER_URL = aiConfig.WHATSAPP_SERVER_URL;
+  private readonly WA_WEBHOOK_API_KEY = appConfig.WA_WEBHOOK_API_KEY;
+
+  private async getInactiveUsers() {
+    try {
+      const response = await axios.get(
+        `${this.WHATSAPP_SERVER_URL}/whatsapp/users`,
+        {
+          params: {
+            isPaginated: false,
+            skip: 0,
+            limit: 100,
+          },
+          headers: {
+            'x-internal-api-key': this.WA_WEBHOOK_API_KEY,
+          },
+        },
+      );
+
+      const usersResponse = response.data;
+
+      return usersResponse;
+    } catch (error) {
+      console.error('Error fetching inactive WhatsApp users:', error);
+
+      throw new InternalServerError('Failed to fetch inactive WhatsApp users');
+    }
   }
 
   async getDashboard(
@@ -52,10 +358,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const [
         kpi,
         dau,
-        channelSplit,
-        voiceAccuracy,
-        geo,
-        queryCategories,
+        // channelSplit,
+        // voiceAccuracy,
+        // geo,
+        // queryCategories,
         dailyQueries,
         todayQueryCount,
         weeklyQueries,
@@ -63,15 +369,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
         avgSessionDurationMin,
         weeklySessionDuration,
         monthlySessionDuration,
-        demographics,
-        kccAndAgri,
-        platformInstalls,
-        domainSpikes,
-        feedbackData,
-        dailyQuestionTrends,
-        topFaqs,
-        topQuestionsFromCollection,
-        responseAdherenceTable,
+        // demographics,
+        // kccAndAgri,
+        // platformInstalls,
+        // domainSpikes,
+        // feedbackData,
+        // dailyQuestionTrends,
+  // topFaqs,
+  // topQuestionsFromCollection,
+        // responseAdherenceTable,
         dailySummary,
         weeklySummary,
         monthlySummary,
@@ -89,10 +395,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-        this.chatbotRepository.getChannelSplit(source),
-        this.chatbotRepository.getVoiceAccuracyByLanguage(source),
-        this.chatbotRepository.getGeoDistribution(source),
-        this.chatbotRepository.getQueryCategories(source, undefined, userType),
+//         this.chatbotRepository.getChannelSplit(source),
+//         this.chatbotRepository.getVoiceAccuracyByLanguage(source),
+//         this.chatbotRepository.getGeoDistribution(source),
+//         this.chatbotRepository.getQueryCategories(source, undefined, userType),
         this.chatbotRepository.getDailyAnalytics(
           currentMonth,
           source,
@@ -124,75 +430,76 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-        this.chatbotRepository.getUserDemographics(source, undefined, userType),
-        this.chatbotRepository.getKccAndAgriAppStats(
-          source,
-          undefined,
-          userType,
-        ),
-        this.chatbotRepository.getPlatformInstalls(source),
-        this.chatbotRepository.getDomainSpikes(60),
-        this.chatbotRepository.getFeedbackData(source, undefined, userType),
-        this.chatbotRepository.getDailyQuestionTrends(
-          days,
-         source, undefined,
-          userType,
-          startTime,
-          endTime,
-        ),
-        this.chatbotRepository.getTopFaqs(
-          source,
-          undefined,
-          userType,
-          startTime,
-          endTime,
-        ),
-        this.chatbotRepository.getTopQuestionsFromCollection(
-          source,
-          undefined,
-          userType,
-          startTime,
-          endTime,
-        ),
-        this.chatbotRepository
-          .getResponseAdherenceTable(
-            undefined,
-            userType,
-            startTime,
-            endTime,
-            source,
-          )
-          .catch(() => ({
-            date: '',
-            time: '',
-            timeWindow: '',
-            whatsappQueriesAsked: 0,
-            ajrasakhaQueriesAsked: 0,
-            whatsappPushedToReviewer: 0,
-            ajrasakhaPushedToReviewer: 0,
-            whatsappAnsweredWithin120Min: 0,
-            ajrasakhaAnsweredWithin120Min: 0,
-            whatsappMarkedDuplicate: 0,
-            ajrasakhaMarkedDuplicate: 0,
-            whatsappDynamicWeather: 0,
-            ajrasakhaDynamicWeather: 0,
-            whatsappDynamicMarket: 0,
-            ajrasakhaDynamicMarket: 0,
-            whatsappDynamicSchemes: 0,
-            ajrasakhaDynamicSchemes: 0,
-            whatsappNonGdbWithin120: 0,
-            ajrasakhaNonGdbWithin120: 0,
-            whatsappInReview: 0,
-            ajrasakhaInReview: 0,
-            whatsappOpen: 0,
-            ajrasakhaOpen: 0,
-            whatsappDelayed: 0,
-            ajrasakhaDelayed: 0,
-            whatsappAverageResponseMinutes: 0,
-            ajrasakhaAverageResponseMinutes: 0,
-            whatsappAdherencePct: 0,
-            ajrasakhaAdherencePct: 0,
-          })),
+        // this.chatbotRepository.getUserDemographics(source, undefined, userType),
+        // this.chatbotRepository.getKccAndAgriAppStats(
+        //   source,
+        //   undefined,
+        //   userType,
+        // ),
+        // this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
+//         this.chatbotRepository.getDomainSpikes(60),
+        // this.chatbotRepository.getFeedbackData(source, undefined, userType),
+        // this.chatbotRepository.getDailyQuestionTrends(
+        //   days,
+        //   source,
+        //   undefined,
+        //   userType,
+        //   startTime,
+        //   endTime,
+        // ),
+// this.chatbotRepository.getTopFaqs(
+//   source,
+//   undefined,
+//   userType,
+//   startTime,
+//   endTime,
+// ),
+// this.chatbotRepository.getTopQuestionsFromCollection(
+//   source,
+//   undefined,
+//   userType,
+//   startTime,
+//   endTime,
+// ),
+        // this.chatbotRepository
+        //   .getResponseAdherenceTable(
+        //     undefined,
+        //     userType,
+        //     startTime,
+        //     endTime,
+        //     source,
+        //   )
+        //   .catch(() => ({
+        //     date: '',
+        //     time: '',
+        //     timeWindow: '',
+        //     whatsappQueriesAsked: 0,
+        //     ajrasakhaQueriesAsked: 0,
+        //     whatsappPushedToReviewer: 0,
+        //     ajrasakhaPushedToReviewer: 0,
+        //     whatsappAnsweredWithin120Min: 0,
+        //     ajrasakhaAnsweredWithin120Min: 0,
+        //     whatsappMarkedDuplicate: 0,
+        //     ajrasakhaMarkedDuplicate: 0,
+        //     whatsappDynamicWeather: 0,
+        //     ajrasakhaDynamicWeather: 0,
+        //     whatsappDynamicMarket: 0,
+        //     ajrasakhaDynamicMarket: 0,
+        //     whatsappDynamicSchemes: 0,
+        //     ajrasakhaDynamicSchemes: 0,
+        //     whatsappNonGdbWithin120: 0,
+        //     ajrasakhaNonGdbWithin120: 0,
+        //     whatsappInReview: 0,
+        //     ajrasakhaInReview: 0,
+        //     whatsappOpen: 0,
+        //     ajrasakhaOpen: 0,
+        //     whatsappDelayed: 0,
+        //     ajrasakhaDelayed: 0,
+        //     whatsappAverageResponseMinutes: 0,
+        //     ajrasakhaAverageResponseMinutes: 0,
+        //     whatsappAdherencePct: 0,
+        //     ajrasakhaAdherencePct: 0,
+        //   })),
         this.chatbotRepository.getQuerySummaryByPeriod(
           'daily',
           source,
@@ -217,27 +524,28 @@ export class ChatbotService extends BaseService implements IChatbotService {
         // Override avgSessionDurationMin in the KPI with the V2 value
         kpi: {...kpi, dailyQueries: todayQueryCount, avgSessionDurationMin},
         dau,
-        channelSplit,
-        voiceAccuracy,
-        geo,
-        queryCategories,
+        // channelSplit,
+        // voiceAccuracy,
+        // geo,
+        // queryCategories,
         weeklySessionDuration,
         dailyQueries,
         weeklyQueries,
         monthlyQueries: monthlyQueries,
         monthlySessionDuration,
-        ageGroups: demographics.ageGroups,
-        genderSplit: demographics.genderSplit,
-        farmingExperience: demographics.farmingExperience,
-        kccAwareness: kccAndAgri.kccAwareness,
-        agriAppUsage: kccAndAgri.agriAppUsage,
-        platformInstalls,
-        domainSpikes,
-        feedbackData,
-        dailyQuestionTrends,
-        topFaqs,
-        topQuestionsFromCollection,
-        responseAdherenceTable,
+        // ageGroups: demographics.ageGroups,
+        // genderSplit: demographics.genderSplit,
+        // farmingExperience: demographics.farmingExperience,
+        // // landHolding: demographics.landHolding,
+        // kccAwareness: kccAndAgri.kccAwareness,
+        // agriAppUsage: kccAndAgri.agriAppUsage,
+        // platformInstalls,
+        // domainSpikes,
+        // feedbackData,
+        // dailyQuestionTrends,
+// topFaqs,
+// topQuestionsFromCollection,
+        // responseAdherenceTable,
         querySummaries: {
           daily: dailySummary,
           weekly: weeklySummary,
@@ -534,9 +842,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
     inactiveOnly = false,
     lowFeedbackOnly = false,
     userType = 'all',
-    sortBy = 'name',
-    sortOrder = 'asc',
-  ) {
+    sortBy = 'totalQuestions',
+    sortOrder = 'desc',
+    activeTodayByProfile = false,
+    missingDemographicField?: string,
+  ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
       const end = endDate ? new Date(endDate) : undefined;
@@ -556,6 +866,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         sortBy,
         sortOrder,
         lowFeedbackOnly,
+        activeTodayByProfile,
+        missingDemographicField,
       );
       return data;
     } catch (error) {
@@ -627,13 +939,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
       limit,
     );
 
-    console.log('Fetched questions', questions);
-
     return {
       questions,
       messages,
     };
   }
+
+ 
 
   async getAvgSessionDurationV2(source = 'vicharanashala', userType = 'all') {
     try {
@@ -1152,6 +1464,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async generateChatbotAnalyticsExcelReport(
     startDate: Date,
     endDate: Date,
+    state: string,
     source = 'vicharanashala',
     userType = 'all',
     month?: string,
@@ -1161,17 +1474,21 @@ export class ChatbotService extends BaseService implements IChatbotService {
       // FETCH REPORT DATA
       // ─────────────────────────────────────────────────────────────
 
+      console.log('State', state);
+
       const reportData = await this.chatbotRepository.generateChatBotData(
         startDate,
         endDate,
         30,
         source,
         userType,
+        undefined,
+        state,
       );
 
       if (!reportData) return null;
 
-      console.log("Excel Report", reportData)
+      console.log('Excel Report', reportData);
 
       // ─────────────────────────────────────────────────────────────
       // WORKBOOK SETUP
@@ -1289,6 +1606,19 @@ export class ChatbotService extends BaseService implements IChatbotService {
           metric: 'Daily Active Users',
           value: reportData.dau ?? 0,
         },
+        {metric: 'Total Feedbacks', value: reportData.feedback},
+        {
+          metric: 'Total Positive Feedback',
+          value: reportData.positiveFeedBackCount,
+        },
+        {
+          metric: 'Total Negative Feedback',
+          value: reportData.negativeFeedBackCount,
+        },
+        {
+          metric: 'Positive Percentage',
+          value: reportData.feedbackAccpetancePct,
+        },
       ]);
 
       // ─────────────────────────────────────────────────────────────
@@ -1302,7 +1632,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         {header: 'Total Queries', key: 'queries', width: 20},
       ];
 
-      (reportData. monthlyQueries || []).forEach((item: any) => {
+      (reportData.monthlyQueries || []).forEach((item: any) => {
         monthlySheet.addRow({
           month: item.period ?? '',
           queries: item.queryCount ?? 0,
@@ -1345,11 +1675,313 @@ export class ChatbotService extends BaseService implements IChatbotService {
         });
       });
 
+      const demographicsSheet = wb.addWorksheet('Demographics');
+
+      const addDemographicTable = (
+        sheet: ExcelJS.Worksheet,
+        title: string,
+        headers: string[],
+        data: any[],
+        startRow: number,
+      ) => {
+        // Title
+        sheet.mergeCells(`A${startRow}:B${startRow}`);
+
+        const titleCell = sheet.getCell(`A${startRow}`);
+
+        titleCell.value = title;
+
+        titleCell.font = {
+          bold: true,
+          size: 14,
+        };
+
+        titleCell.alignment = {
+          vertical: 'middle',
+        };
+
+        // Header Row
+        const headerRow = sheet.getRow(startRow + 1);
+
+        headers.forEach((header, index) => {
+          const cell = headerRow.getCell(index + 1);
+
+          cell.value = header;
+
+          cell.font = HEADER_FONT;
+
+          cell.fill = HEADER_FILL;
+
+          cell.alignment = CENTER_ALIGN;
+
+          cell.border = THIN_BORDER;
+        });
+
+        // Data Rows
+        data.forEach((item, idx) => {
+          const row = sheet.getRow(startRow + 2 + idx);
+
+          row.getCell(1).value = item.label ?? '';
+
+          row.getCell(2).value = item.count ?? 0;
+
+          row.eachCell(cell => {
+            cell.font = CELL_FONT;
+            cell.alignment = WRAP_ALIGN;
+            cell.border = THIN_BORDER;
+          });
+        });
+
+        // Total Row
+        const total = data.reduce((acc, item) => acc + (item.count ?? 0), 0);
+
+        const totalRow = sheet.getRow(startRow + 2 + data.length);
+
+        totalRow.getCell(2).value = `Total = ${total}`;
+
+        totalRow.getCell(2).font = {
+          italic: true,
+          bold: true,
+          size: 10,
+        };
+
+        return startRow + data.length + 5;
+      };
+
+      let currentRow = 1;
+
+      currentRow = addDemographicTable(
+        demographicsSheet,
+        'Gender Split',
+        ['Gender', 'Count'],
+        reportData.genderSplit || [],
+        currentRow,
+      );
+
+      currentRow = addDemographicTable(
+        demographicsSheet,
+        'Farming Experience',
+        ['Experience', 'Number of Farmers'],
+        reportData.farmingExperience || [],
+        currentRow,
+      );
+
+      demographicsSheet.columns = [{width: 30}, {width: 25}];
+
+      currentRow = addDemographicTable(
+        demographicsSheet,
+        'Age Group',
+        ['Age', 'Count'],
+        reportData.ageGroup || [],
+        currentRow,
+      );
+
+      const queryCategorySheet = wb.addWorksheet('Query Categories');
+
+      queryCategorySheet.columns = [
+        {
+          header: 'Query Type',
+          key: 'label',
+          width: 40,
+        },
+        {
+          header: 'Unique Queries',
+          key: 'unique',
+          width: 20,
+        },
+        {
+          header: 'Duplicate Queries',
+          key: 'duplicate',
+          width: 20,
+        },
+      ];
+
+      (reportData.queryCatagoryData || []).forEach((item: any) => {
+        queryCategorySheet.addRow({
+          label: item.label ?? '',
+          unique: item.questionCount ?? 0,
+          duplicate: item.duplicateQuestionCount ?? 0,
+        });
+      });
+
+      const cropsSheet = wb.addWorksheet('Top Crops');
+
+      cropsSheet.columns = [
+        {
+          header: 'Crop Name',
+          key: 'name',
+          width: 35,
+        },
+        {
+          header: 'Count',
+          key: 'count',
+          width: 15,
+        },
+      ];
+
+      (reportData.topCrops?.topCrops || []).forEach((item: any) => {
+        cropsSheet.addRow({
+          name: item.name ?? '',
+          count: item.count ?? 0,
+        });
+      });
+
+      const faqSheet = wb.addWorksheet('Top FAQs');
+
+      faqSheet.columns = [
+        {
+          header: 'Question',
+          key: 'question',
+          width: 80,
+        },
+        {
+          header: 'Count',
+          key: 'count',
+          width: 15,
+        },
+      ];
+
+      (reportData.topTenFaqs || []).forEach((item: any) => {
+        faqSheet.addRow({
+          question: item.question ?? '',
+          count: item.count ?? 0,
+        });
+      });
+
+      const analyticsSheet = wb.addWorksheet('District Analytics');
+
+      analyticsSheet.columns = [
+        {
+          header: 'District',
+          key: 'district',
+          width: 35,
+        },
+        {
+          header: 'Unique Questions',
+          key: 'unique',
+          width: 20,
+        },
+        {
+          header: 'Duplicate Questions',
+          key: 'duplicate',
+          width: 20,
+        },
+        {
+          header: 'Total Questions',
+          key: 'total',
+          width: 20,
+        },
+      ];
+
+      analyticsSheet.addRow({
+        district: `${state === "All States"? "N/A": state}`,
+      });
+
+      (reportData.districtAnalytics || []).forEach((item: any) => {
+        analyticsSheet.addRow({
+          district: item.district ?? '',
+          unique: item.uniqueQuestions ?? 0,
+          duplicate: item.duplicateQuestions ?? 0,
+          total: item.totalQuestions ?? 0,
+        });
+      });
+
+      const feedbackSheet = wb.addWorksheet('Feedback');
+
+      const feedbackLabelMap: Record<string, string> = {
+        accurate_reliable: 'Accurate and Reliable',
+
+        clear_well_written: 'Clear and Well-Written',
+
+        attention_to_detail: 'Attention to Detail',
+
+        creative_solution: 'Creative Solution',
+
+        inaccurate: 'Inaccurate or Incorrect',
+
+        not_matched: "Didn't Match Question",
+
+        bad_style: 'Poor Style or Tone',
+
+        missing_image: 'Expected an Image',
+
+        unjustified_refusal: 'Refused with Reason',
+
+        not_helpful: 'Lacked Useful Information',
+      };
+
+      feedbackSheet.mergeCells('A1:B1');
+
+      feedbackSheet.getCell('A1').value = 'Positive Feedback';
+
+      feedbackSheet.getCell('A1').font = {
+        bold: true,
+        size: 14,
+      };
+
+      feedbackSheet.columns = [
+        {
+          header: 'Feedback Type',
+          key: 'type',
+          width: 40,
+        },
+        {
+          header: 'Count',
+          key: 'count',
+          width: 15,
+        },
+      ];
+
+      feedbackSheet.addRow(['Feedback Type', 'Count']);
+
+      (reportData.positiveFeedback || []).forEach((item: any) => {
+        feedbackSheet.addRow({
+          type: feedbackLabelMap[item.tag] ?? item.tag,
+          count: item.count ?? 0,
+        });
+      });
+
+      const negativeStartRow = feedbackSheet.rowCount + 3;
+
+      feedbackSheet.mergeCells(`A${negativeStartRow}:B${negativeStartRow}`);
+
+      feedbackSheet.getCell(`A${negativeStartRow}`).value = 'Negative Feedback';
+
+      feedbackSheet.getCell(`A${negativeStartRow}`).font = {
+        bold: true,
+        size: 14,
+      };
+
+      const negativeHeaderRow = feedbackSheet.getRow(negativeStartRow + 1);
+
+      negativeHeaderRow.getCell(1).value = 'Feedback Type';
+
+      negativeHeaderRow.getCell(2).value = 'Count';
+
+      (reportData.negativeFeedback || []).forEach((item: any, idx: number) => {
+        const row = feedbackSheet.getRow(negativeStartRow + 2 + idx);
+
+        row.getCell(1).value = feedbackLabelMap[item.tag] ?? item.tag;
+
+        row.getCell(2).value = item.count ?? 0;
+      });
+
       // ─────────────────────────────────────────────────────────────
       // STYLE ALL SHEETS
       // ─────────────────────────────────────────────────────────────
 
-      [summarySheet, monthlySheet, weeklySheet, dailySheet].forEach(sheet => {
+      [
+        summarySheet,
+        monthlySheet,
+        weeklySheet,
+        dailySheet,
+        demographicsSheet,
+        queryCategorySheet,
+        cropsSheet,
+        faqSheet,
+        analyticsSheet,
+        feedbackSheet,
+      ].forEach(sheet => {
         styleHeader(sheet);
         styleRows(sheet);
         autoWidth(sheet);
@@ -1370,19 +2002,27 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async generateChatbotAnalyticsPdfReport(
     startDate: Date,
     endDate: Date,
+    state: string,
     source = 'vicharanashala',
     userType = 'all',
     month?: string,
   ): Promise<Buffer> {
     try {
+      console.log('PDF report generated with state', state);
       const reportData = await this.chatbotRepository.generateChatBotData(
         startDate,
         endDate,
         30,
         source,
         userType,
+        undefined,
+        state,
       );
 
+      console.log('reportDate', reportData);
+
+      // const inactiveUsers = await this.getInactiveUsers()
+      // console.log("Inactive users list", inactiveUsers);
       const doc = new PDFDocument({
         margin: 40,
         size: 'A4',
@@ -1422,9 +2062,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       doc.text(`Total Downloads: ${reportData.totalDownloads ?? 0}`);
 
-      doc.text(`Average Session Duration: ${reportData.averageSession ?? 0} min`);
+      doc.text(
+        `Average Session Duration: ${reportData.averageSession ?? 0} min`,
+      );
 
       doc.text(`Daily Active Users: ${reportData.dau ?? 0}`);
+
+      doc.text(`Total Feedbacks: ${reportData.feedback ?? 0}`);
+
+      doc.text(
+        `Total positive feedback: ${reportData.positiveFeedBackCount ?? 0}`,
+      );
+
+      doc.text(
+        `Total negative feedback: ${reportData.negativeFeedBackCount ?? 0}`,
+      );
+
+      doc.text(
+        `Average Acceptance percentage: ${reportData.feedbackAccpetancePct ?? 0}%`,
+      );
 
       doc.moveDown(2);
 
@@ -1432,47 +2088,94 @@ export class ChatbotService extends BaseService implements IChatbotService {
       // MONTHLY QUERIES
       // ─────────────────────────────────────
 
-      doc.fontSize(16).text('Monthly Queries', {
-        underline: true,
-      });
+      // doc.fontSize(16).text('Monthly Queries', {
+      //   underline: true,
+      // });
 
-      doc.moveDown();
+      // doc.moveDown();
 
-      reportData.monthlyQueries?.forEach((item: any) => {
-        doc.text(`Period ${item.period}:  Query Asked ${item.queryCount}`);
-      });
+      this.drawTable(doc, 'Monthly Queries', reportData.monthlyQueries || []);
 
-      doc.moveDown(2);
+      // doc.moveDown(2);
 
       // ─────────────────────────────────────
       // WEEKLY QUERIES
       // ─────────────────────────────────────
 
-      doc.fontSize(16).text('Weekly Queries', {
-        underline: true,
-      });
+      // doc.fontSize(16).text('Weekly Queries', {
+      //   underline: true,
+      // });
 
-      doc.moveDown();
+      // doc.moveDown();
 
-      reportData.weeklyQueries?.forEach((item: any) => {
-        doc.text(`Period ${item.period}:  Queries Asked ${item.queryCount}`);
-      });
+      this.drawTable(doc, 'Weekly Queries', reportData.weeklyQueries || []);
 
-      doc.moveDown(2);
+      // doc.moveDown(2);
 
       // ─────────────────────────────────────
       // DAILY QUERIES
       // ─────────────────────────────────────
 
-      doc.fontSize(16).text('Daily Queries', {
-        underline: true,
-      });
+      // doc.fontSize(16).text('Daily Queries', {
+      //   underline: true,
+      // });
 
-      doc.moveDown();
+      // doc.moveDown();
 
-      reportData.dailyQueries?.forEach((item: any) => {
-        doc.text(`Period ${item.period}:  Queries Asked ${item.queryCount}`);
-      });
+      this.drawTable(doc, 'Daily Queries', reportData.dailyQueries || []);
+
+      // doc.moveDown(2)
+
+      // doc.moveDown();
+
+      this.drawTable(doc, 'Gender Split', reportData.genderSplit || []);
+
+      // doc.moveDown(2)
+
+      // doc.moveDown();
+
+      this.drawTable(
+        doc,
+        'Farming Experience',
+        reportData.farmingExperience || [],
+      );
+
+      // doc.moveDown(2)
+
+      // doc.moveDown();
+
+      this.drawTable(doc, 'Age Group', reportData.ageGroup || []);
+
+      // doc.moveDown(2)
+
+      this.drawTable(
+        doc,
+        'Query Catagories',
+        reportData.queryCatagoryData || [],
+      );
+
+      this.drawTable(doc, 'Top Crops', reportData.topCrops.topCrops || []);
+
+      this.drawTable(doc, 'Top Faqs', reportData.topTenFaqs || []);
+
+      this.drawTable(
+        doc,
+        'District Analytics',
+        reportData.districtAnalytics || [],
+        state,
+      );
+
+      this.drawTable(
+        doc,
+        'Positive Feedback',
+        reportData.positiveFeedback || [],
+      );
+
+      this.drawTable(
+        doc,
+        'Negative Feedback',
+        reportData.negativeFeedback || [],
+      );
 
       doc.end();
 
@@ -1493,7 +2196,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     return await this._withTransaction(async session => {
       const resolvedEndDate = endDate ? new Date(endDate) : new Date();
       const resolvedStartDate = startDate ? new Date(startDate) : new Date();
-      if(source === "whatsapp"){
+      if (source === 'whatsapp') {
         return this.getWhatsappUserGrowth(resolvedStartDate, resolvedEndDate);
       }
       if (!startDate) {
@@ -1551,13 +2254,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyQuestionTrends(days = 30, userType = 'all') {
+  async getDailyQuestionTrends(days = 30, source?: string, userType = 'all', startTime?: string, endTime?: string) {
     try {
       return await this.chatbotRepository.getDailyQuestionTrends(
         days,
-        undefined,
+        source,
         undefined,
         userType,
+        startTime,
+        endTime,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1566,16 +2271,22 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTopFaqs(source = 'vicharanashala', userType = 'all') {
+  async getTopFaqs(source = 'vicharanashala', userType = 'all', startTime?: string, endTime?: string) {
     try {
       return await this.chatbotRepository.getTopFaqs(
         source,
         undefined,
         userType,
+        startTime,
+        endTime,
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
     }
+  }
+
+  async getUserById(userId: string, source: string): Promise<any> {
+    return this.chatbotRepository.getUserById(userId, source);
   }
 
   async deleteUser(userId: string, source: string): Promise<boolean> {
@@ -1591,6 +2302,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source: string,
     data: {
       name?: string;
+      userRole?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -1600,6 +2312,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         district?: string;
         state?: string;
         phoneNo?: string;
+        nearestKVK?: string;
         languagePreference?: string;
         yearsOfExperience?: number;
         cropsCultivated?: string[];
@@ -1610,6 +2323,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         highestEducatedPerson?: string;
         numberOfSmartphones?: number;
         platform?: string;
+        landhold?: number;
       };
     },
   ): Promise<boolean> {
@@ -1620,80 +2334,99 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
+  async addUser(
     source: string,
-    userType: string,
-  ) {
+    data: {
+      email: string;
+      name: string;
+      password: string;
+      userRole?: string;
+    },
+  ): Promise<boolean> {
     try {
-      return await this.chatbotRepository.getDailyActiveUsersTrend(
-        startDate,
-        endDate,
-        source,
-        userType,
-      );
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to fetch Daily Active Users Trend: ${error}`,
-      );
+      return await this.chatbotRepository.addUser(source, data);
+    } catch (error: any) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add user: ${error.message || error}`);
     }
   }
 
-  async getMonthlyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
+  // async getDailyActiveUsersTrend(
+  //   source: string,
+  //   userType: string,
+  //   startDate?: Date,
+  //   endDate?: Date,
+  // ) {
+  //   try {
+  //     return await this.chatbotRepository.getDailyActiveUsersTrend(
+  //       source,
+  //       userType,
+  //       startDate,
+  //       endDate,
+  //     );
+  //   } catch (error) {
+  //     throw new InternalServerError(
+  //       `Failed to fetch Daily Active Users Trend: ${error}`,
+  //     );
+  //   }
+  // }
+
+  // async getMonthlyActiveUsersTrend(
+  //   source: string,
+  //   userType: string,
+  //   startDate?: Date,
+  //   endDate?: Date,
+  // ) {
+  //   try {
+  //     return await this.chatbotRepository.getMonthlyActiveUsersTrend(
+  //       source,
+  //       userType,
+  //       startDate,
+  //       endDate
+  //     );
+  //   } catch (error) {
+  //     throw new InternalServerError(
+  //       `Failed to fetch Monthly Active Users Trend: ${error}`,
+  //     );
+  //   }
+  // }
+
+  // async getWeeklyActiveUsersTrend(
+  //   source: string,
+  //   userType: string,
+  //   startDate?: Date,
+  //   endDate?: Date,
+  // ) {
+  //   try {
+  //     return await this.chatbotRepository.getWeeklyActiveUsersTrend(
+  //       source,
+  //       userType,
+  //       startDate,
+  //       endDate
+  //     );
+  //   } catch (error) {
+  //     throw new InternalServerError(
+  //       `Failed to fetch Weekly Active Users Trend: ${error}`,
+  //     );
+  //   }
+  // }
+
+  async getRetentionMetrics(
     source: string,
     userType: string,
+    requestType: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     try {
-      return await this.chatbotRepository.getMonthlyActiveUsersTrend(
-        startDate,
-        endDate,
+      return await this.chatbotRepository.getRetentionMetrics(
         source,
         userType,
-      );
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to fetch Monthly Active Users Trend: ${error}`,
-      );
-    }
-  }
-
-  async getWeeklyActiveUsersTrend(
-    startDate: Date,
-    endDate: Date,
-    source: string,
-    userType: string,
-  ) {
-    try {
-      return await this.chatbotRepository.getWeeklyActiveUsersTrend(
+        requestType,
         startDate,
         endDate,
-        source,
-        userType,
-      );
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to fetch Weekly Active Users Trend: ${error}`,
-      );
-    }
-  }
-
-  async getRetentionMetrics(    
-      startDate: Date,
-      endDate: Date,
-      source: string,
-      userType: string,
-      requestType: string,
-    ) {
-    try {
-      return await this.chatbotRepository.getRetentionMetrics(   
-         startDate,
-          endDate,
-          source,
-          userType,
-          requestType,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1702,10 +2435,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getWhatsappUserGrowth(
-    startDate: Date,
-    endDate: Date,
-  ) {
+  async getWhatsappUserGrowth(startDate: Date, endDate: Date) {
     const labels: string[] = [];
 
     const idsCreated: number[] = [];
@@ -1716,40 +2446,28 @@ export class ChatbotService extends BaseService implements IChatbotService {
     const current = new Date(startDate);
 
     while (current <= endDate) {
-      labels.push(
-        current.toISOString().split("T")[0],
-      );
-      current.setDate(
-        current.getDate() + 1,
-      );
+      labels.push(current.toISOString().split('T')[0]);
+      current.setDate(current.getDate() + 1);
     }
+    const whatsAppUsers = await this.whatsappService.getAllUsers();
 
     for (const label of labels) {
       // IDs Created
-      const createdCount = WhatsappUsers.filter(
-        (user) =>
-          user.firstMessageAt.startsWith(
-            label,
-          ),
+      const createdCount = whatsAppUsers.data.filter(user =>
+        user.firstMessageAt.startsWith(label),
       ).length;
       idsCreated.push(createdCount);
 
       // Installs
       // assuming install = first interaction
-      const installsCount = WhatsappUsers.filter(
-        (user) =>
-          user.firstMessageAt.startsWith(
-            label,
-          ),
+      const installsCount = whatsAppUsers.data.filter(user =>
+        user.firstMessageAt.startsWith(label),
       ).length;
       installs.push(installsCount);
 
       // Active users
-      const activeCount = WhatsappUsers.filter(
-        (user) =>
-          user.lastMessageAt.startsWith(
-            label,
-          ),
+      const activeCount = whatsAppUsers.data.filter(user =>
+        user.lastMessageAt.startsWith(label),
       ).length;
       activeUsers.push(activeCount);
     }
@@ -1763,4 +2481,163 @@ export class ChatbotService extends BaseService implements IChatbotService {
       },
     };
   }
-}
+
+   async notifyUser(userEmail: string, messageId: string, message:string): Promise<any>{
+    const user = await this.chatbotRepository.getUserData(userEmail, "annam")
+    console.log('User id for notification', user.userId);
+    const webhookPayload = {
+      customMessage: message,
+      userId: user.userId.toString(),
+      type: 'CUSTOM',
+    };
+      const response = await triggerWebhook(
+        appConfig.WEB_WEBHOOK_API_URL,
+        appConfig.WEB_WEBHOOK_API_KEY,
+        webhookPayload,
+        'Browser',
+      );
+      if (!response?.ok || response.status < 200 || response.status >= 300) {
+        throw new InternalServerError(
+          `Webhook failed with status ${response?.status}, ${response.body ? `response: ${response.body}` : 'no response body'}`,
+        );
+      }
+
+      return {
+        success: true,
+        status: response.status,
+        message: response.body,
+      };
+  }
+
+
+  async getClosedAndNotifedData(source?: string, startDateStr?: string, endDateStr?: string): Promise<any> {
+    const startDate = startDateStr ? new Date(startDateStr) : undefined;
+    const endDate = endDateStr ? new Date(endDateStr) : undefined;
+
+    const [
+      closedVsTotalQuestions,
+      notifiedVsClosed,
+      closedInLastTwoHours,
+      carryForward,
+    ] = await Promise.all([
+      this.chatbotRepository.getClosedVsTotalQuestions(source, startDate, endDate),
+      this.chatbotRepository.getNotifiedVsClosed(source, startDate, endDate),
+      this.chatbotRepository.getClosedInLastTwoHours(source, startDate, endDate),
+      this.chatbotRepository.getCarryForwardQuestions(source),
+    ]);
+
+    return {
+      closedVsTotalQuestions,
+      notifiedVsClosed,
+      closedInLastTwoHours,
+      carryForward
+    };
+  }
+
+  async getMonthlyChurnRate(source: string, userType: string):Promise<any> {
+    return await this.chatbotRepository.getMonthlyChurnRate(source, userType);
+  }
+
+  async getActiveUsersTrend(
+      source: string,
+      userType: string,
+      requestType: string,
+      startDate?: Date,
+      endDate?: Date,
+    ) : Promise<{
+  _id: string;
+  activeUsers: number;
+}[]> {
+      return await this.chatbotRepository.getActiveUsersTrend(source, userType, requestType, startDate, endDate);
+  }
+
+  async getTopQuestionsFromCollection(source = 'vicharanashala', userType = 'all', startTime?: string, endTime?: string): Promise<any> {
+    try {
+      return await this.chatbotRepository.getTopQuestionsFromCollection(
+        source,
+        undefined,
+        userType,
+        startTime,
+        endTime,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
+    }
+  }
+
+  async  getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any> {
+    try {
+      return await this.chatbotRepository.getRepeatQueryCount(
+        source,
+        userType,
+        startTime,
+        endTime,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch repeat query count: ${error}`);
+    }
+  }
+
+  async getUsersMetrics(source?: string, userType?: string): Promise<{ userDemographics: UserDemographics; platformInstalls: PlatformInstallEntry[]; kccAndAgriAppUsage: KccAndAgriAppStats; feedbackData: FeedbackData}>{
+    try{
+      const [userDemographics, platformInstalls, kccAndAgriAppUsage, feedbackData] = await Promise.all([
+        this.chatbotRepository.getUserDemographics(source, undefined, userType),
+        this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
+        this.chatbotRepository.getKccAndAgriAppStats(source, undefined, userType),
+        this.chatbotRepository.getFeedbackData(source, undefined, userType)
+      ])
+      return {
+        userDemographics,
+        platformInstalls,
+        kccAndAgriAppUsage,
+        feedbackData
+      };
+
+    }catch(error){
+      throw new InternalServerError(`Failed to fetch users metrics: ${error}`);
+    }
+  }
+
+  async getResponseAdherenceTable(source?:string, userType?: string, startTime?: string, endTime?: string): Promise<ResponseAdherenceTable> {
+    return this.chatbotRepository
+          .getResponseAdherenceTable(
+            undefined,
+            userType,
+            startTime,
+            endTime,
+            source,
+          )
+          .catch(() => ({
+            date: '',
+            time: '',
+            timeWindow: '',
+            whatsappQueriesAsked: 0,
+            ajrasakhaQueriesAsked: 0,
+            whatsappPushedToReviewer: 0,
+            ajrasakhaPushedToReviewer: 0,
+            whatsappAnsweredWithin120Min: 0,
+            ajrasakhaAnsweredWithin120Min: 0,
+            whatsappMarkedDuplicate: 0,
+            ajrasakhaMarkedDuplicate: 0,
+            whatsappDynamicWeather: 0,
+            ajrasakhaDynamicWeather: 0,
+            whatsappDynamicMarket: 0,
+            ajrasakhaDynamicMarket: 0,
+            whatsappDynamicSchemes: 0,
+            ajrasakhaDynamicSchemes: 0,
+            whatsappNonGdbWithin120: 0,
+            ajrasakhaNonGdbWithin120: 0,
+            whatsappInReview: 0,
+            ajrasakhaInReview: 0,
+            whatsappOpen: 0,
+            ajrasakhaOpen: 0,
+            whatsappDelayed: 0,
+            ajrasakhaDelayed: 0,
+            whatsappAverageResponseMinutes: 0,
+            ajrasakhaAverageResponseMinutes: 0,
+            whatsappAdherencePct: 0,
+            ajrasakhaAdherencePct: 0,
+          }));
+  }
+
+  }

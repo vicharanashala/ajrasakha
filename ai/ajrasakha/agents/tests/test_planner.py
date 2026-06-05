@@ -1,5 +1,7 @@
 """Unit tests for planner routing and plan execution (no live LLM)."""
 
+import json
+
 import pytest
 
 from ajrasakha.agents.plan_executor import (
@@ -127,6 +129,55 @@ async def test_reviewer_upload_falls_back_to_user_query_without_rephrased():
     assert reviewer["args"]["question"] == user_text
 
 
+@pytest.mark.asyncio
+async def test_reviewer_upload_includes_thread_id_when_provided():
+    plan = {
+        "weather": False,
+        "mandi": False,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": True,
+        "is_complete": True,
+        "entities": {"crop": "wheat", "state": "Punjab", "district": "Ropar"},
+    }
+    calls = await build_tool_calls_from_plan(
+        plan,
+        "Yellow rust on wheat",
+        {"state": "Punjab", "city": "Ropar"},
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
+        thread_id="conv-abc-123",
+    )
+    reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
+    assert reviewer["args"]["thread_id"] == "conv-abc-123"
+
+
+@pytest.mark.asyncio
+async def test_reviewer_upload_omits_thread_id_when_not_provided():
+    plan = {
+        "weather": False,
+        "mandi": False,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": True,
+        "is_complete": True,
+        "entities": {"crop": "wheat", "state": "Punjab", "district": "Ropar"},
+    }
+    calls = await build_tool_calls_from_plan(
+        plan,
+        "Yellow rust on wheat",
+        {"state": "Punjab", "city": "Ropar"},
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
+    )
+    reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
+    assert "thread_id" not in reviewer["args"]
+
+
 def test_planner_output_to_plan():
     out = PlannerOutput(
         weather=True,
@@ -249,8 +300,40 @@ def test_format_tool_results_collects_after_tool_call_ai_message():
     assert block != "(No tool results)"
 
 
+def test_format_tool_results_omits_gdb_author_and_source():
+    """GDB JSON is not passed to tool-only synthesis; sources live in translate_answer."""
+    gdb_payload = {
+        "is_exact": True,
+        "exact_match": {
+            "question": "Q",
+            "answer": "Expert answer text",
+            "details": {
+                "author_name": "Dr. Agri",
+                "source_name": "SKUAST",
+                "source_link": "https://example.com/doc",
+            },
+        },
+    }
+    messages = [
+        HumanMessage(content="crop question"),
+        ToolMessage(
+            content=json.dumps(gdb_payload),
+            tool_call_id="gdb-1",
+            name="gdb",
+        ),
+        ToolMessage(content="Rain: 5mm", tool_call_id="w-1", name="weather"),
+    ]
+    block = _format_tool_results_for_synthesizer(messages)
+    assert "Dr. Agri" not in block
+    assert "SKUAST" not in block
+    assert "Expert answer text" not in block
+    assert "gdb" not in block.lower()
+    assert "Rain: 5mm" in block
+
+
 def test_compiled_graph_uses_planner_pipeline_by_default():
     assert use_planner_graph() is True
     assert "planner" in graph.nodes
     assert "execute_plan" in graph.nodes
+    assert "gdb_passthrough" in graph.nodes
     assert "synthesize" in graph.nodes

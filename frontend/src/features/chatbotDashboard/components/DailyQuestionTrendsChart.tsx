@@ -12,12 +12,13 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
-import { BarChart2, AreaChart as AreaChartIcon, CalendarIcon, RefreshCcw } from "lucide-react";
+import { BarChart2, AreaChart as AreaChartIcon, CalendarIcon, RefreshCcw, InfoIcon } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Spinner } from "@/components/atoms/spinner";
+import { Skeleton } from "@/components/atoms/skeleton";
+import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 interface DailyQuestionTrend {
   day: string;
@@ -61,7 +62,11 @@ export function DailyQuestionTrendsChart({
     if (active && payload && payload.length) {
       return (
         <div className="bg-[#18181b]/95 border border-[#27272a] p-3 rounded-lg shadow-xl backdrop-blur-sm text-xs space-y-1.5">
-          <p className="font-semibold text-gray-200">{formatDateLabel(label)}</p>
+          <p className="font-semibold text-gray-200">
+  {payload?.[0]?.payload?.day
+    ? formatDateLabel(payload[0].payload.day)
+    : ""}
+</p>
           {payload.map((item: any) => (
             <div key={item.name} className="flex items-center justify-between gap-4">
               <span style={{ color: item.color }} className="flex items-center gap-1.5 font-medium">
@@ -78,11 +83,24 @@ export function DailyQuestionTrendsChart({
   };
 
   return (
-    <Card className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[400px]">
+    <Card
+      className="border border-border/60  backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[400px]          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+"
+    >
       <CardHeader className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 border-b border-border/40 gap-4 shrink-0">
         <div>
-          <CardTitle className="text-base font-semibold tracking-wide text-foreground">
-            Daily Question Trends
+          <CardTitle className="text-base font-semibold tracking-wide text-foreground flex items-center gap-1.5">
+            <span>Daily Question Trends</span>
+            <ShadcnTooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                  <InfoIcon className="h-3.5 w-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Visualizes daily volume of questions, highlighting unique vs duplicate questions.
+              </TooltipContent>
+            </ShadcnTooltip>
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
             Breakdown of unique vs duplicate chatbot questions asked daily
@@ -98,23 +116,22 @@ export function DailyQuestionTrendsChart({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 justify-start text-left font-normal bg-[#27272a]/10 border-border/40 text-gray-200 hover:bg-[#27272a]/20 w-full sm:w-[180px] shrink-0"
+                  className="h-8 justify-start text-left font-normal bg-[#27272a]/10 border-border/40 text-foreground hover:bg-[#27272a]/20 w-full sm:w-[180px] shrink-0"
                 >
                   <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-[#3AAA5A]" />
                   <span className="truncate">
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
-                      ) : (
-                        format(dateRange.from, "MMM dd")
-                      )
-                    ) : (
-                      "All time"
-                    )}
+                    {dateRange?.from
+                      ? dateRange.to
+                        ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
+                        : format(dateRange.from, "MMM dd")
+                      : "All time"}
                   </span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 border-border bg-[#18181b]" align="end">
+              <PopoverContent
+                className="w-auto p-0 border-border bg-background text-foreground"
+                align="end"
+              >
                 <Calendar
                   initialFocus
                   mode="range"
@@ -122,6 +139,7 @@ export function DailyQuestionTrendsChart({
                   selected={dateRange}
                   onSelect={onDateRangeChange}
                   numberOfMonths={1}
+                  className="bg-background text-foreground"
                 />
               </PopoverContent>
             </Popover>
@@ -131,7 +149,7 @@ export function DailyQuestionTrendsChart({
                 size="icon"
                 onClick={() => onDateRangeChange?.(undefined)}
                 title="Clear date filter"
-                className="h-8 w-8 shrink-0 bg-[#27272a]/10 border-border/40 text-gray-200 hover:bg-[#27272a]/20"
+                className="h-8 w-8 shrink-0 bg-[#27272a]/10 border-border/40 text-foreground hover:bg-[#27272a]/20"
               >
                 <RefreshCcw className="h-3.5 w-3.5" />
               </Button>
@@ -166,32 +184,63 @@ export function DailyQuestionTrendsChart({
 
       <CardContent className="pt-6 pb-4 pl-2 pr-4 flex-1 min-h-0 relative">
         {isLoading && (
-          <div className="absolute inset-0 bg-[#121212]/50 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-b-xl">
-            <Spinner text="Updating trends..." />
+          <div className="absolute inset-0 z-10 rounded-b-xl bg-background/70 p-4 backdrop-blur-[1px]">
+            <Skeleton className="h-full w-full rounded-lg" />
           </div>
         )}
 
         {!trends || trends.length === 0 ? (
           <div className="w-full h-[300px] sm:h-full flex flex-col justify-center items-center">
-            <p className="text-muted-foreground text-sm">No daily question trend data available.</p>
-            <p className="text-xs text-muted-foreground/50 mt-1">Try adjusting the date range to see results</p>
+            <p className="text-muted-foreground text-sm">
+              No daily question trend data available.
+            </p>
+            <p className="text-xs text-muted-foreground/50 mt-1">
+              Try adjusting the date range to see results
+            </p>
           </div>
         ) : (
           <div className="w-full h-[300px] sm:h-full relative">
             <ResponsiveContainer width="100%" height="100%">
               {chartType === "area" ? (
-                <AreaChart data={trends} margin={{ top: 10, right: 10, left: -10, bottom: 15 }}>
+                <AreaChart
+                  data={trends}
+                  margin={{ top: 10, right: 10, left: -10, bottom: 15 }}
+                >
                   <defs>
-                    <linearGradient id="colorUnique" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                    <linearGradient
+                      id="colorUnique"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="#10b981"
+                        stopOpacity={0.25}
+                      />
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="colorDuplicate" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25} />
+                    <linearGradient
+                      id="colorDuplicate"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="#f59e0b"
+                        stopOpacity={0.25}
+                      />
                       <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="rgba(255,255,255,0.04)"
+                  />
                   <XAxis
                     dataKey="day"
                     tickFormatter={formatDateLabel}
@@ -227,8 +276,15 @@ export function DailyQuestionTrendsChart({
                   />
                 </AreaChart>
               ) : (
-                <BarChart data={trends} margin={{ top: 10, right: 10, left: -10, bottom: 15 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
+                <BarChart
+                  data={trends}
+                  margin={{ top: 10, right: 10, left: -10, bottom: 15 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="rgba(255,255,255,0.04)"
+                  />
                   <XAxis
                     dataKey="day"
                     tickFormatter={formatDateLabel}

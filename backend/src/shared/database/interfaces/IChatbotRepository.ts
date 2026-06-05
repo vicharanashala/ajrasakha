@@ -3,19 +3,19 @@ import type {ClientSession, ObjectId} from 'mongodb';
 // ─── Shared return types ──────────────────────────────────────────────────────
 
 export interface KpiSummary {
-  dau: number; // total users (all time)
-  dauLastMonthPct: number; // % change: this month's new users vs last month's new users
-  dailyQueries: number;
-  avgSessionDurationMin: number;
-  csatRating: number;
-  repeatQueryRatePct: number;
-  voiceUsageSharePct: number;
-  totalAppInstalls: number; // It will the count the user whose profile is completed or not.
-  inactiveUsersLast3Days: number; // users with zero messages in the last 3 days
-  duplicateQuestionsCount: number; // questions with a similarityScore field
-  lowFeedbackUsersCount: number; // users who have never given any feedback (no feedback object in messages)
-  avgQuestionsPerUserDay?: number;
-  repeatQueryCount?: number;
+  dau?: number; // total users (all time)
+  dauLastMonthPct?: number; // % change: this month's new users vs last month's new users
+  dailyQueries?: number;
+  avgSessionDurationMin?: number;
+  csatRating?: number;
+// repeatQueryRatePct: number; 
+  voiceUsageSharePct?: number;
+  totalAppInstalls?: number; // It will the count the user whose profile is completed or not.
+  inactiveUsersLast3Days?: number; // users with zero messages in the last 3 days
+  duplicateQuestionsCount?: number; // questions with a similarityScore field
+  lowFeedbackUsersCount?: number; // users who have never given any feedback (no feedback object in messages)
+// avgQuestionsPerUserDay?: number;
+// repeatQueryCount?: number;
 }
 
 export interface DuplicateQuestionEntry {
@@ -129,6 +129,8 @@ export interface FeedbackEntry {
 export interface FeedbackData{
   positiveFeedbacks: FeedbackEntry[];
   negativeFeedbacks: FeedbackEntry[];
+  positiveFeedbackCounts: {tag: string, count: any}[],
+  negativeFeedbackCounts: {tag: string, count: any}[],
   stats: {
     "_id"?: null | ObjectId,
     positiveCount: number,
@@ -147,6 +149,7 @@ export interface FarmerProfile {
   district?: string;
   state?: string;
   phoneNo?: string;
+  nearestKVK?: string
   languagePreference?: string;
   yearsOfExperience?: number;
   cropsCultivated?: string[];
@@ -162,24 +165,27 @@ export interface FarmerProfile {
     latitude: number;
     longitude: number;
   };
+  landhold?: number;
 }
 
 export interface UserDetailEntry {
   userId: string;
   name: string;
   email: string;
+  role?: string;
+  userRole?: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
 }
 
-export interface PaginatedUserDetails {
+export interface PaginatedUserDetails { 
   users: UserDetailEntry[];
   totalUsers: number;
   totalPages: number;
-  activeUsers: number;
-  inactiveUsers: number;
-  totalQuestions: number;
+  activeUsers?: number;
+  inactiveUsers?: number;
+  totalQuestions?: number;
 }
 
 export interface DemographicEntry {
@@ -192,6 +198,7 @@ export interface UserDemographics {
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
+  landHolding: DemographicEntry[];
 }
 
 export interface KccAndAgriAppStats {
@@ -358,6 +365,8 @@ export interface IChatbotRepository {
     sortBy?: string,
     sortOrder?: string,
     lowFeedbackOnly?: boolean,
+    activeTodayByProfile?: boolean,
+    missingDemographicField?: string,
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
@@ -382,6 +391,7 @@ export interface IChatbotRepository {
     days: number,
     userType: string,
     month?: string,
+    state?: string,
     source?: string,
     session?: ClientSession,
   )
@@ -399,7 +409,7 @@ export interface IChatbotRepository {
   getFeedbackData(source?: string, session?: ClientSession, userType?: string): Promise<FeedbackData>;
 
   // get platform wise installs
-  getPlatformInstalls(source: string, session?: ClientSession): Promise<PlatformInstallEntry[]>;
+  getPlatformInstalls(source: string, session?: ClientSession, userType?: string): Promise<PlatformInstallEntry[]>;
 
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
   getDuplicateQuestions(source?: string, session?: ClientSession): Promise<DuplicateQuestionEntry[]>;
@@ -451,27 +461,39 @@ export interface IChatbotRepository {
   ): Promise<WeatherConcernAnalyticsResponse>;
 
   
+  getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
   updateUser(
     userId: string,
     source: string,
     data: {
       name?: string;
+      userRole?: string;
       farmerProfile?: Partial<FarmerProfile>;
     },
   ): Promise<boolean>;
+  addUser(
+    source: string,
+    data: {
+      email: string;
+      name: string;
+      password: string;
+      userRole?: string;
+    },
+  ): Promise<boolean>;
 
-  getDailyActiveUsersTrend  (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession):Promise<any>
+  // getDailyActiveUsersTrend  ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession):Promise<any>
 
-  getMonthlyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
+  // getMonthlyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
 
-  getWeeklyActiveUsersTrend (startDate: Date, endDate: Date, source: string, userType: string, session?: ClientSession): Promise<any>
+  // getWeeklyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
 
-  getRetentionMetrics (    startDate: Date,
-    endDate: Date,
+  getRetentionMetrics (
     source: string,
     userType: string,
     requestType: string,
+    startDate?: Date,
+    endDate?: Date,
     session?: ClientSession,
   ): Promise<any>
 
@@ -481,6 +503,31 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<{ label: string; totalQueries: number }>;
+
+  getClosedVsTotalQuestions(source: string, startDate?: Date, endDate?: Date):Promise<any>;
+
+  getNotifiedVsClosed(source?: string, startDate?: Date, endDate?: Date):Promise<any>;
+
+  getClosedInLastTwoHours(source?: string, startDate?: Date, endDate?: Date): Promise<any>;
+
+  getMonthlyChurnRate(source: string, userType: string):Promise<any>;
+
+  getCarryForwardQuestions(source?: string): Promise<any>;
+
+  getActiveUsersTrend(
+    source: string,
+    userType: string,
+    requestType: string,
+    startDate?: Date,
+    endDate?: Date,
+    session?: ClientSession,
+  ) : Promise<{
+  _id: string;
+  activeUsers: number;
+}[]>;
+
+  getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string, session?: ClientSession): Promise<any>;
+
 }
 
 export interface ChatbotConversationData {

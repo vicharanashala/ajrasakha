@@ -9,12 +9,14 @@ import {
   Authorized,
   CurrentUser,
   QueryParam,
+  ForbiddenError,
 } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
 import { WHATSAPP_TYPES } from '../types.js';
 import type { IWhatsAppService } from '../interfaces/IWhatsAppService.js';
 import { IUser } from '#root/shared/index.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
 
 @OpenAPI({
@@ -22,12 +24,12 @@ import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
   description: 'WhatsApp history endpoints',
 })
 @injectable()
-@JsonController('/whatsapp', {transformResponse: false})
+@JsonController('/whatsapp', { transformResponse: false })
 export class WhatsAppController {
   constructor(
     @inject(WHATSAPP_TYPES.WhatsAppService)
     private readonly whatsappService: IWhatsAppService,
-  ) {}
+  ) { }
 
   @OpenAPI({
     summary: 'Get all WhatsApp threads',
@@ -63,14 +65,10 @@ export class WhatsAppController {
   @HttpCode(200)
   @Authorized()
   async sendMessage(
-    @Body() body: {phoneNumber: string; messageText: string},
+    @Body() body: { phoneNumber: string; messageText: string },
     @CurrentUser() user: IUser,
   ) {
-    console.log('[WhatsAppController] sendMessage called with:', {
-      phoneNumber: body.phoneNumber,
-      messageText: body.messageText,
-      userId: user._id.toString(),
-    });
+    verifyNotTester(user);
     const userId = user._id.toString();
     await this.whatsappService.sendMessage(
       userId,
@@ -78,12 +76,11 @@ export class WhatsAppController {
       body.messageText,
     );
     console.log('[WhatsAppController] Message sent successfully');
-    return {success: true, message: 'Message sent successfully'};
+    return { success: true, message: 'Message sent successfully' };
   }
 
   @OpenAPI({
-    summary: 'Fetch dummy inactive whatsapp users',
-
+    summary: 'Fetch inactive whatsapp users',
     description:
       'Fetches the users by mobile numbers who are inactive for more than last 3 days',
   })
@@ -95,9 +92,7 @@ export class WhatsAppController {
     @QueryParam('limit') limit = 2,
   ) {
     const skip = (page - 1) * limit;
-
     const response = await this.whatsappService.getInactiveUsers(skip, limit);
-
     const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
 
     const inactiveUsers = response.data.filter(item => {
@@ -117,5 +112,42 @@ export class WhatsAppController {
         hasPrevPage: page > 1,
       },
     };
+  }
+
+  @OpenAPI({
+    summary: 'Fetch unique whatsapp users',
+    description:
+      'Fetches the unique users by mobile numbers',
+  })
+  @Get('/unique-users')
+  @HttpCode(200)
+  @Authorized()
+  async fetchUnqiueWhatsAppUsers(
+  ) {
+
+    return await this.whatsappService.getUniqueUsers();
+  }
+
+  @OpenAPI({
+    summary: 'Fetch all WhatsApp users',
+    description:
+      'Fetches all WhatsApp users. Falls back to dummy data on failure.',
+  })
+  @Get('/users')
+  @HttpCode(200)
+  @Authorized()
+  async fetchAllWhatsAppUsers(
+  ) {
+    try {
+      const response = await this.whatsappService.getAllUsers();
+      return {
+        users: response.data || [],
+      };
+    } catch (error) {
+      console.error('Error fetching all WhatsApp users from service, falling back to empty list:', error);
+      return {
+        users: [],
+      };
+    }
   }
 }

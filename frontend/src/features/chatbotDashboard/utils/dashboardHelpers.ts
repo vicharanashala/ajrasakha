@@ -10,7 +10,20 @@ export interface AnalyticsEntry {
   queryCount: number;
   totalQuestions: number;
   closedQuestions: number;
-  averageCloseTimeMinutes: number;
+  averageCloseTime?: string;
+  averageCloseTimeMinutes?: number;
+  closedInPeriod?: number;
+  delayed?: number;
+  draft?: number;
+  duplicate?: number;
+  hold?: number;
+  inReview?: number;
+  open?: number;
+  paeSubmitted?: number;
+  pass?: number;
+  rerouted?: number;
+  carryForward?: number;
+  nonAgri?: number;
 }
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
