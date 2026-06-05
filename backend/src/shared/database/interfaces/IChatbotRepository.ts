@@ -58,6 +58,32 @@ export interface QueryCategoryEntry {
   duplicateQuestionCount: number;
 }
 
+export type QueryCategoryQuestionType = 'all' | 'unique' | 'duplicate';
+
+export interface QueryCategoryQuestionEntry {
+  questionId: string;
+  question: string;
+  status: string;
+  questionType: 'unique' | 'duplicate';
+  category: string;
+  createdAt?: Date;
+  farmerName?: string;
+  email?: string;
+  crop?: string;
+  village?: string;
+  block?: string;
+  district?: string;
+  state?: string;
+}
+
+export interface PaginatedQueryCategoryQuestions {
+  questions: QueryCategoryQuestionEntry[];
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+}
+
 export interface DistrictAnalyticsEntry{
   district: string;
   totalQuestions: number;
@@ -286,6 +312,16 @@ export interface IChatbotRepository {
 
   /** Percentage breakdown of sessions by query category, sorted descending. */
   getQueryCategories(source?: string, session?: ClientSession, userType?: string): Promise<QueryCategoryEntry[]>;
+
+  getQueryCategoryQuestions(
+    category: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<PaginatedQueryCategoryQuestions>;
 
   getTopCrops(source?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
 

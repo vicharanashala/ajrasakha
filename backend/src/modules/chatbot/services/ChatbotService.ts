@@ -623,6 +623,31 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getQueryCategoryQuestions(
+    category: string,
+    questionType: 'all' | 'unique' | 'duplicate' = 'all',
+    page = 1,
+    limit = 10,
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
+    try {
+      return await this.chatbotRepository.getQueryCategoryQuestions(
+        category,
+        questionType,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch query category questions: ${error}`,
+      );
+    }
+  }
+
   async getWeatherConcernAnalytics(
     filters: WeatherConcernAnalyticsFilters = {},
     source = 'vicharanashala',

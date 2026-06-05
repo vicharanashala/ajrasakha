@@ -12,6 +12,8 @@ import type {
   VoiceAccuracyEntry,
   GeoStateEntry,
   QueryCategoryEntry,
+  PaginatedQueryCategoryQuestions,
+  QueryCategoryQuestionType,
   WeeklySessionDurationEntry,
   DailyQueryCountEntry,
   WeeklyQueryCountEntry,
@@ -1551,6 +1553,195 @@ export class ChatbotRepository implements IChatbotRepository {
       return result;
     } catch (error) {
       throw new Error(`Failed to fetch query categories: ${error}`);
+    }
+  }
+
+  async getQueryCategoryQuestions(
+    category: string,
+    questionType: QueryCategoryQuestionType = 'all',
+    page = 1,
+    limit = 10,
+    _source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<PaginatedQueryCategoryQuestions> {
+    try {
+      await this.initReviewSystem();
+
+      const safePage = Math.max(Number(page) || 1, 1);
+      const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+      const skip = (safePage - 1) * safeLimit;
+      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
+      const baseMatch = {
+        source: 'AJRASAKHA',
+        'details.domain': {
+          $exists: true,
+          $nin: [null, ''],
+        },
+      };
+
+      const categoryLabel = category?.trim();
+      if (!categoryLabel) {
+        throw new BadRequestError('category is required');
+      }
+
+      let domainMatch: Record<string, any>;
+      if (categoryLabel.toLowerCase() === 'remaining categories') {
+        const topDomains = await this.QuestionCollection.aggregate(
+          [
+            {$match: baseMatch},
+            ...lookupStages,
+            {$group: {_id: '$details.domain', totalCount: {$sum: 1}}},
+            {$sort: {totalCount: -1}},
+            {$limit: 15},
+            {$project: {_id: 1}},
+          ],
+          {session},
+        ).toArray();
+
+        domainMatch = {
+          'details.domain': {
+            $nin: topDomains.map(item => item._id).filter(Boolean),
+          },
+        };
+      } else {
+        domainMatch = {'details.domain': categoryLabel};
+      }
+
+      const typeMatch =
+        questionType === 'duplicate'
+          ? {status: 'duplicate'}
+          : questionType === 'unique'
+            ? {status: {$ne: 'duplicate'}}
+            : {};
+
+      const result = await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: {
+              ...baseMatch,
+              ...domainMatch,
+              ...typeMatch,
+            },
+          },
+          ...lookupStages,
+          {
+            $addFields: {
+              _categoryUserOid: {
+                $cond: [
+                  {$and: [{$ne: ['$userId', null]}, {$ne: ['$userId', '']}]},
+                  {$toObjectId: '$userId'},
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: '_categoryUserOid',
+              foreignField: '_id',
+              as: '_categoryUserDoc',
+            },
+          },
+          {
+            $unwind: {
+              path: '$_categoryUserDoc',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {$sort: {createdAt: -1}},
+          {
+            $facet: {
+              data: [
+                {$skip: skip},
+                {$limit: safeLimit},
+                {
+                  $project: {
+                    _id: 0,
+                    questionId: {$toString: '$_id'},
+                    question: 1,
+                    status: 1,
+                    questionType: {
+                      $cond: [
+                        {$eq: ['$status', 'duplicate']},
+                        'duplicate',
+                        'unique',
+                      ],
+                    },
+                    category: '$details.domain',
+                    createdAt: 1,
+                    farmerName: {
+                      $ifNull: [
+                        '$_categoryUserDoc.farmerProfile.farmerName',
+                        '$_categoryUserDoc.name',
+                      ],
+                    },
+                    name: {
+                      $trim: {
+                        input: {
+                          $concat: [
+                            { $ifNull: ['$_categoryUserDoc.firstName', ''] },
+                            ' ',
+                            { $ifNull: ['$_categoryUserDoc.lastName', ''] }
+                          ]
+                        }
+                      }
+                    },
+                    email: '$_categoryUserDoc.email',
+                    crop: {
+                      $ifNull: [
+                        '$details.normalised_crop',
+                        {$ifNull: ['$details.crop.name', '$details.crop']},
+                      ],
+                    },
+                    village: {
+                      $ifNull: [
+                        '$details.village',
+                        '$_categoryUserDoc.farmerProfile.villageName',
+                      ],
+                    },
+                    block: {
+                      $ifNull: [
+                        '$details.block',
+                        '$_categoryUserDoc.farmerProfile.blockName',
+                      ],
+                    },
+                    district: {
+                      $ifNull: [
+                        '$details.district',
+                        '$_categoryUserDoc.farmerProfile.district',
+                      ],
+                    },
+                    state: {
+                      $ifNull: [
+                        '$details.state',
+                        '$_categoryUserDoc.farmerProfile.state',
+                      ],
+                    },
+                  },
+                },
+              ],
+              metadata: [{$count: 'total'}],
+            },
+          },
+        ],
+        {session},
+      ).toArray();
+
+      const total = result[0]?.metadata?.[0]?.total ?? 0;
+      const questions = result[0]?.data ?? [];
+
+      return {
+        questions,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / safeLimit)),
+        page: safePage,
+        limit: safeLimit,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestError) throw error;
+      throw new Error(`Failed to fetch query category questions: ${error}`);
     }
   }
 

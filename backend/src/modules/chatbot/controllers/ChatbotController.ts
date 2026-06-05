@@ -27,6 +27,7 @@ import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTr
 import {
   DashboardQueryDto,
   QueryAnalyticsQueryDto,
+  QueryCategoryQuestionsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
   WeatherConcernAnalyticsQueryDto,
@@ -309,6 +310,27 @@ export class ChatbotController {
   @Authorized()
   async getQueryCategories(@QueryParams() query: SourceQueryDto) {
     return this.chatbotService.getQueryCategories(query.source, query.userType);
+  }
+
+  @OpenAPI({
+    summary: 'Get paginated questions for a query category',
+    description:
+      'Lists questions for a selected dashboard query category, with server-side pagination and all/unique/duplicate filtering.',
+  })
+  @Get('/query-category-questions')
+  @HttpCode(200)
+  @Authorized()
+  async getQueryCategoryQuestions(
+    @QueryParams() query: QueryCategoryQuestionsQueryDto,
+  ) {
+    return this.chatbotService.getQueryCategoryQuestions(
+      query.category,
+      query.questionType,
+      query.page,
+      query.limit,
+      query.source,
+      query.userType,
+    );
   }
 
   @OpenAPI({

@@ -5,6 +5,8 @@ import type {
   VoiceAccuracyEntry,
   GeoStateEntry,
   QueryCategoryEntry,
+  PaginatedQueryCategoryQuestions,
+  QueryCategoryQuestionType,
   WeeklySessionDurationEntry,
   PaginatedUserDetails,
   DemographicEntry,
@@ -74,6 +76,14 @@ export interface IChatbotService {
   getVoiceAccuracyByLanguage(source?: string): Promise<VoiceAccuracyEntry[]>;
   getGeoDistribution(source?: string): Promise<GeoStateEntry[]>;
   getQueryCategories(source?: string, userType?: string): Promise<QueryCategoryEntry[]>;
+  getQueryCategoryQuestions(
+    category: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+  ): Promise<PaginatedQueryCategoryQuestions>;
   getTopCrops(source?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   getDailyAnalytics(month?: string, source?: string, userType?: string): Promise<any[]>;

@@ -1146,6 +1146,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                                   ? queryCategories
                                   : data.queryCategories
                               }
+                              source={source}
+                              userType={filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />
