@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { TrendingUp, InfoIcon } from "lucide-react";
+import { TrendingUp, InfoIcon, RefreshCw } from "lucide-react";
 import { Badge } from "./components/shared/Badge";
 import { DomainSpikesModal } from "./components/DomainSpikesModal";
 import { useDomainSpikes } from "./hooks/useDomainSpikes";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Alert {
   id: number;
@@ -22,6 +23,7 @@ interface AlertCardProps {
   onLowFeedbackClick?: () => void;
   source: "vicharanashala" | "annam" | "whatsapp";
   onInactiveWhatsAppUsersClick?: () => void;
+  isFetching?: boolean;
 }
 
 export function AlertCard({
@@ -34,6 +36,7 @@ export function AlertCard({
   onLowFeedbackClick,
   source,
   onInactiveWhatsAppUsersClick,
+  isFetching,
 }: AlertCardProps) {
   const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
 
@@ -44,10 +47,14 @@ export function AlertCard({
   const topSpike = spikes.length > 0
     ? spikes.reduce((a, b) => (b.spikePct > a.spikePct ? b : a))
     : null;
+  const queryClient = useQueryClient();
+  const handleRefresh = async ()=>{
+    await queryClient.refetchQueries({ queryKey: ["dashboard-data"] });
+  }
 
   return (
     <div
-      className="h-full flex flex-col text-card-foreground rounded-xl border shadow-sm  dark:border-[#2a2a2a] p-4 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+      className="h-full flex flex-col text-card-foreground rounded-xl border dark:border-[#2a2a2a] p-4 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
 "
     >
       {/* Header */}
@@ -65,6 +72,17 @@ export function AlertCard({
                 Key metrics that need attention, including inactive users and duplicate questions.
               </TooltipContent>
             </Tooltip>
+            <button
+                onClick={handleRefresh}
+                className=" z-50 rounded-lg border border-gray-200/60 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333] dark:bg-gray-800/70"
+                title="Refresh"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 text-gray-600 dark:text-gray-300 ${
+                    isFetching ? "animate-spin" : ""
+                  }`}
+                />
+            </button>
           </div>
           <div className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
             Key metrics that need attention

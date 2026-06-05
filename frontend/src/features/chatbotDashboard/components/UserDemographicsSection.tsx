@@ -2,10 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/car
 import type { UserDemographics } from "../types";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, X, InfoIcon } from "lucide-react";
+import { Maximize2, X, InfoIcon, RefreshCw } from "lucide-react";
 import { MissingDemographicsModal } from "./MissingDemographicsModal";
 import { useUserMertices } from "../hooks/useDashboardData";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
 
 const AGE_COLORS: Record<string, string> = {
   "Less than 16": "#2DD4BF",
@@ -243,13 +244,29 @@ function DemographicCard({
   onSegmentClick?: () => void;
 }) {
   const [isMaximized, setIsMaximized] = useState(false);
-
+  const queryClient = useQueryClient();
+  const [dataRefreshing, setDataRefreshing] = useState(false);
+  const handleRefresh = async ()=>{
+    setDataRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["user-metrices"] });
+    setDataRefreshing(false);
+  }
   return (
     <>
       <Card className="group relative h-full overflow-hidden border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
         {/* Accent bar */}
         <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-
+        <button
+          onClick={handleRefresh}
+          className="absolute top-3 right-13 z-20 rounded-lg border border-gray-200/60 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333] dark:bg-gray-800/70"
+          title="Refresh"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 text-gray-600 dark:text-gray-300 ${
+              dataRefreshing ? "animate-spin" : ""
+            }`}
+          />
+        </button>
         {/* Maximize Button */}
         {segments.length > 0 && (
           <button
@@ -294,7 +311,7 @@ function DemographicCard({
         </CardHeader>
 
         <CardContent>
-          {segments.length > 0 ? (
+          {(!dataRefreshing && (segments.length > 0)) ? (
             type === "donut" ? (
               <DonutSegments segments={segments} onSegmentClick={onSegmentClick} />
             ) : (
@@ -303,7 +320,7 @@ function DemographicCard({
           ) : (
             <div className="flex items-center justify-center py-8">
               <p className="text-xs text-muted-foreground italic">
-                No data available
+               {dataRefreshing ? "Loading": "No data available"}
               </p>
             </div>
           )}
