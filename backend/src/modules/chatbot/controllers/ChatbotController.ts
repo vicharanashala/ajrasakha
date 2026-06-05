@@ -74,6 +74,33 @@ export class ChatbotController {
     private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
+  private assertStrongPassword(password?: string) {
+    if (!password || !password.trim()) {
+      throw new BadRequestError('Password is required');
+    }
+    if (password.length < 8) {
+      throw new BadRequestError('Password must be at least 8 characters');
+    }
+    if (!/[A-Z]/.test(password)) {
+      throw new BadRequestError(
+        'Password must contain at least one uppercase letter',
+      );
+    }
+    if (!/[a-z]/.test(password)) {
+      throw new BadRequestError(
+        'Password must contain at least one lowercase letter',
+      );
+    }
+    if (!/[0-9]/.test(password)) {
+      throw new BadRequestError('Password must contain at least one number');
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      throw new BadRequestError(
+        'Password must contain at least one special character',
+      );
+    }
+  }
+
   @OpenAPI({
     summary: 'Get full chatbot analytics dashboard data',
     description:
@@ -861,6 +888,116 @@ export class ChatbotController {
   }
 
   @OpenAPI({
+    summary: 'Change farmer password',
+    description:
+      'Updates a farmer password securely in the selected source database.',
+  })
+  @Post('/admin/users/:userId/change-password')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async changeUserPassword(
+    @Param('userId') userId: string,
+    @QueryParam('source') source: string,
+    @Body()
+    body: {
+      newPassword: string;
+    },
+    @CurrentUser() user: IUser,
+  ) {
+    if (!source) {
+      source = 'vicharanashala';
+    }
+    this.assertStrongPassword(body.newPassword);
+
+    const actorPayload = user
+      ? {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar || '',
+        }
+      : null;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.FARMER_MANAGEMENT,
+      action: AuditAction.CHANGE_USER_PASSWORD,
+      actor: actorPayload!,
+      context: {
+        userId,
+        source,
+        origin: 'Admin Panel',
+      },
+      createdAt: new Date(),
+    };
+
+    let targetUser: any = null;
+    try {
+      targetUser = await this.chatbotService.getUserById(userId, source);
+    } catch (e) {
+      console.error('Failed to fetch target user for password audit trail', e);
+    }
+
+    try {
+      const success = await this.chatbotService.changeUserPassword(
+        userId,
+        source,
+        body.newPassword,
+      );
+
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          before: targetUser
+            ? {
+                id: targetUser._id?.toString(),
+                email: targetUser.email,
+                userRole: targetUser.userRole,
+                passwordChanged: false,
+              }
+            : {},
+          after: {
+            passwordChanged: success,
+            sessionsInvalidated: success,
+          },
+        },
+        outcome: {
+          status: success ? OutComeStatus.SUCCESS : OutComeStatus.FAILED,
+          ...(success ? {} : {errorMessage: 'Failed to change user password'}),
+        },
+      };
+
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+
+      return {
+        success,
+        message: success
+          ? 'Password changed successfully'
+          : 'Failed to change password',
+      };
+    } catch (error: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: error?.message || 'Failed to change password',
+          errorName: error?.name || 'Error',
+          errorStack:
+            error?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      };
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+      throw error;
+    }
+  }
+
+  @OpenAPI({
     summary: 'Add a new farmer',
     description:
       'Creates a new farmer in the selected database source (restricted to annam/vicharanashala).',
@@ -893,6 +1030,7 @@ export class ChatbotController {
     if (!body.name || !body.name.trim()) {
       throw new BadRequestError('Name is required');
     }
+    this.assertStrongPassword(body.password);
 
     const actorPayload = user ? {
       id: user._id.toString(),

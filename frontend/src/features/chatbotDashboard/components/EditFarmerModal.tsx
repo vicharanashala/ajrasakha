@@ -6,8 +6,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/atoms/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/atoms/alert-dialog";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
+import { Check, Eye, EyeOff, KeyRound } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -23,6 +34,29 @@ import {
   KVKS,
   VILLAGES,
 } from "../utils/metaData";
+
+const EDIT_PASSWORD_RULES = [
+  {
+    label: "At least 8 characters",
+    test: (password: string) => password.length >= 8,
+  },
+  {
+    label: "One uppercase letter",
+    test: (password: string) => /[A-Z]/.test(password),
+  },
+  {
+    label: "One lowercase letter",
+    test: (password: string) => /[a-z]/.test(password),
+  },
+  {
+    label: "One number",
+    test: (password: string) => /[0-9]/.test(password),
+  },
+  {
+    label: "One special character",
+    test: (password: string) => /[^A-Za-z0-9]/.test(password),
+  },
+];
 
 type EditableUser = {
   userId: string;
@@ -66,6 +100,7 @@ interface EditFarmerModalProps {
   onOpenChange: (open: boolean) => void;
   user: EditableUser | null;
   isSaving?: boolean;
+  isChangingPassword?: boolean;
   onSave: (payload: {
     name?: string;
     userRole?: string;
@@ -92,6 +127,7 @@ interface EditFarmerModalProps {
       platform?: string;
     };
   }) => void | Promise<void>;
+  onChangePassword?: (payload: {newPassword: string}) => void | Promise<void>;
 }
 
 type DemographicDetailsProps = {
@@ -175,12 +211,23 @@ export function EditFarmerModal({
   onOpenChange,
   user,
   isSaving = false,
+  isChangingPassword = false,
   onSave,
+  onChangePassword,
 }: EditFarmerModalProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<
     Partial<Record<keyof FormState, string>>
   >({});
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>(
+    {},
+  );
+  const [confirmPasswordChangeOpen, setConfirmPasswordChangeOpen] =
+    useState(false);
 
   const validateField = (
     key: keyof FormState,
@@ -244,6 +291,12 @@ export function EditFarmerModal({
     if (!open || !user) return;
     const fp = user.farmerProfile;
     setErrors({});
+    setPasswordErrors({});
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setConfirmPasswordChangeOpen(false);
     setForm({
       name: user.name ?? "",
       userRole: user.userRole ?? "",
@@ -327,8 +380,71 @@ export function EditFarmerModal({
     }
   };
 
+  const validatePasswordFields = () => {
+    const nextErrors: Record<string, string> = {};
+
+    if (!newPassword.trim()) {
+      nextErrors.newPassword = "Password is required.";
+    } else if (newPassword.length < 8) {
+      nextErrors.newPassword = "Password must be at least 8 characters.";
+    } else if (!/[A-Z]/.test(newPassword)) {
+      nextErrors.newPassword =
+        "Password must contain at least one uppercase letter.";
+    } else if (!/[a-z]/.test(newPassword)) {
+      nextErrors.newPassword =
+        "Password must contain at least one lowercase letter.";
+    } else if (!/[0-9]/.test(newPassword)) {
+      nextErrors.newPassword = "Password must contain at least one number.";
+    } else if (!/[^A-Za-z0-9]/.test(newPassword)) {
+      nextErrors.newPassword =
+        "Password must contain at least one special character.";
+    }
+
+    if (!confirmPassword.trim()) {
+      nextErrors.confirmPassword = "Please confirm your password.";
+    } else if (newPassword !== confirmPassword) {
+      nextErrors.confirmPassword = "Passwords do not match.";
+    }
+
+    setPasswordErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleChangePasswordClick = () => {
+    if (!validatePasswordFields()) return;
+    setConfirmPasswordChangeOpen(true);
+  };
+
+  const handleConfirmPasswordChange = async () => {
+    if (!onChangePassword || !validatePasswordFields()) return;
+
+    try {
+      await onChangePassword({newPassword});
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordErrors({});
+      setConfirmPasswordChangeOpen(false);
+    } catch (error) {
+      setPasswordErrors({
+        newPassword:
+          error instanceof Error
+            ? error.message
+            : "Failed to change password.",
+      });
+      setConfirmPasswordChangeOpen(false);
+    }
+  };
+
+  const handleEditModalOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && (confirmPasswordChangeOpen || isChangingPassword)) {
+      return;
+    }
+
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleEditModalOpenChange}>
       <DialogContent className="!max-w-3xl w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Farmer</DialogTitle>
@@ -368,6 +484,27 @@ export function EditFarmerModal({
             setErrors={setErrors}
             validateFields={validateField}
           />
+          <PasswordManagementSection
+            newPassword={newPassword}
+            confirmPassword={confirmPassword}
+            showNewPassword={showNewPassword}
+            showConfirmPassword={showConfirmPassword}
+            errors={passwordErrors}
+            isChangingPassword={isChangingPassword}
+            onNewPasswordChange={(value) => {
+              setNewPassword(value);
+              setPasswordErrors((prev) => ({...prev, newPassword: ""}));
+            }}
+            onConfirmPasswordChange={(value) => {
+              setConfirmPassword(value);
+              setPasswordErrors((prev) => ({...prev, confirmPassword: ""}));
+            }}
+            onToggleNewPassword={() => setShowNewPassword((prev) => !prev)}
+            onToggleConfirmPassword={() =>
+              setShowConfirmPassword((prev) => !prev)
+            }
+            onSubmit={handleChangePasswordClick}
+          />
         </div>
 
         <DialogFooter className="relative z-10 pointer-events-auto">
@@ -390,9 +527,181 @@ export function EditFarmerModal({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog
+        open={confirmPasswordChangeOpen}
+        onOpenChange={setConfirmPasswordChangeOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto mb-2 p-3 rounded-full bg-amber-100 dark:bg-amber-900/30 w-fit">
+              <KeyRound className="h-5 w-5 text-amber-700 dark:text-amber-300" />
+            </div>
+            <AlertDialogTitle className="text-center">
+              Change this user's password?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              The new password will replace the existing password and stored
+              refresh sessions will be cleared.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isChangingPassword}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isChangingPassword}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmPasswordChange();
+              }}
+            >
+              {isChangingPassword ? "Changing..." : "Change Password"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
+
+type PasswordManagementSectionProps = {
+  newPassword: string;
+  confirmPassword: string;
+  showNewPassword: boolean;
+  showConfirmPassword: boolean;
+  errors: Record<string, string>;
+  isChangingPassword: boolean;
+  onNewPasswordChange: (value: string) => void;
+  onConfirmPasswordChange: (value: string) => void;
+  onToggleNewPassword: () => void;
+  onToggleConfirmPassword: () => void;
+  onSubmit: () => void;
+};
+
+const PasswordManagementSection = ({
+  newPassword,
+  confirmPassword,
+  showNewPassword,
+  showConfirmPassword,
+  errors,
+  isChangingPassword,
+  onNewPasswordChange,
+  onConfirmPasswordChange,
+  onToggleNewPassword,
+  onToggleConfirmPassword,
+  onSubmit,
+}: PasswordManagementSectionProps) => {
+  return (
+    <section className="mt-6 rounded-lg border border-slate-200 dark:border-white/[0.08] p-4">
+      <div className="mb-4 flex items-center gap-2">
+        <KeyRound className="h-4 w-4 text-slate-500" />
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Change Password
+        </h3>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <PasswordInput
+          label="New Password"
+          value={newPassword}
+          visible={showNewPassword}
+          error={errors.newPassword}
+          onChange={onNewPasswordChange}
+          onToggleVisible={onToggleNewPassword}
+        />
+        <PasswordInput
+          label="Confirm Password"
+          value={confirmPassword}
+          visible={showConfirmPassword}
+          error={errors.confirmPassword}
+          onChange={onConfirmPasswordChange}
+          onToggleVisible={onToggleConfirmPassword}
+        />
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {EDIT_PASSWORD_RULES.map((rule) => {
+          const passed = rule.test(newPassword);
+          return (
+            <div
+              key={rule.label}
+              className={`flex items-center gap-2 text-xs ${
+                passed ? "text-emerald-600" : "text-slate-500"
+              }`}
+            >
+              <Check className="h-3.5 w-3.5" />
+              {rule.label}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onSubmit}
+          disabled={isChangingPassword}
+          className="h-9 gap-2"
+        >
+          <KeyRound className="h-4 w-4" />
+          {isChangingPassword ? "Changing..." : "Change Password"}
+        </Button>
+      </div>
+    </section>
+  );
+};
+
+type PasswordInputProps = {
+  label: string;
+  value: string;
+  visible: boolean;
+  error?: string;
+  onChange: (value: string) => void;
+  onToggleVisible: () => void;
+};
+
+const PasswordInput = ({
+  label,
+  value,
+  visible,
+  error,
+  onChange,
+  onToggleVisible,
+}: PasswordInputProps) => {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+        {label}
+      </label>
+      <div className="relative">
+        <Input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="********"
+          type={visible ? "text" : "password"}
+          className={`h-10 rounded-xl px-3 pr-10 text-sm border bg-transparent ${
+            error
+              ? "border-red-500 focus-visible:ring-red-500"
+              : "border-slate-200 dark:border-white/[0.08]"
+          }`}
+        />
+        <button
+          type="button"
+          onClick={onToggleVisible}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+        >
+          {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+      {error && (
+        <span className="text-xs text-red-500 font-medium pl-1 animate-in fade-in slide-in-from-top-1 duration-200">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+};
 
 type UserInformationSectionProps = {
   form: FormState;
