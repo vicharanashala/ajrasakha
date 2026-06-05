@@ -547,8 +547,8 @@ export class UserService extends BaseService {
   async toggleCallAgentActive(userId: string, requestingUserRole?: string): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
       // Only moderators can manage call agents
-      if (requestingUserRole !== 'moderator') {
-        throw new ForbiddenError('Only moderators can manage call agents');
+      if (requestingUserRole !== 'admin') {
+        throw new ForbiddenError('Only admin can manage call agents');
       }
       const user = await this.userRepo.findById(userId, session);
       if (!user) {

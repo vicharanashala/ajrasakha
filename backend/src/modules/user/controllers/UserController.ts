@@ -908,7 +908,7 @@ export class UserController {
   })
   @Get('/call-agents')
   @HttpCode(200)
-  @Authorized(['moderator'])
+  @Authorized(['admin'])
   async getCallAgents(): Promise<IUser[]> {
     return await this.userService.getCallAgents();
   }
@@ -971,7 +971,7 @@ export class UserController {
   })
   @Patch('/call-agents/:id/toggle-active')
   @HttpCode(200)
-  @Authorized(['moderator'])
+  @Authorized(['admin'])
   async toggleCallAgentActive(
     @Param('id') userId: string,
     @CurrentUser() currentUser: IUser,
