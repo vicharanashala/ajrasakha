@@ -6,6 +6,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { motion } from "framer-motion";
+import CountUp from "react-countup";
 import { Button } from "@/components/atoms/button";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
@@ -167,7 +168,7 @@ export function CustomerNotificationsCard({
               tracking-tight
             "
               >
-                {safeNotified}
+                <CountUp end={safeNotified} duration={1.5} preserveValue />
               </motion.span>
             </motion.div>
 
@@ -199,7 +200,7 @@ export function CustomerNotificationsCard({
               tracking-tight
             "
               >
-                {safeNotNotified}
+                <CountUp end={safeNotNotified} duration={1.5} preserveValue />
               </motion.span>
             </motion.div>
 
@@ -229,7 +230,7 @@ export function CustomerNotificationsCard({
               tracking-tight
             "
               >
-                {safeUntracked}
+                <CountUp end={safeUntracked} duration={1.5} preserveValue />
               </motion.span>
             </motion.div>
           </motion.div>
@@ -240,17 +241,17 @@ export function CustomerNotificationsCard({
           >
             <div className="flex items-center gap-1">
               <CheckCircle2 className="h-3 w-3 text-primary" />
-              <span>{notifiedPct.toFixed(2)}% Notified</span>
+              <span><CountUp end={notifiedPct} duration={1.5} decimals={2} preserveValue />% Notified</span>
             </div>
 
             <div className="flex items-center gap-1">
               <CircleOff className="h-3 w-3 text-primary" />
-              <span>{notNotifiedPct.toFixed(2)}% Not Notified</span>
+              <span><CountUp end={notNotifiedPct} duration={1.5} decimals={2} preserveValue />% Not Notified</span>
             </div>
 
             <div className="flex items-center gap-1">
               <CircleHelp className="h-3 w-3 text-primary" />
-              <span>{untrackedPct.toFixed(2)}% Untracked</span>
+              <span><CountUp end={untrackedPct} duration={1.5} decimals={2} preserveValue />% Untracked</span>
             </div>
           </div>
         </CardHeader>

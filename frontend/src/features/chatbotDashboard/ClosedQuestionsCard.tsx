@@ -6,6 +6,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { motion } from "framer-motion";
+import CountUp from "react-countup";
 import { Button } from "@/components/atoms/button";
 import { Calendar } from "@/components/atoms/calendar";
 import {
@@ -301,7 +302,7 @@ export function ClosedQuestionsCard({
                   tracking-tight
                 "
               >
-                {totalQuestions ?? 0}
+                <CountUp end={totalQuestions ?? 0} duration={1.5} preserveValue />
               </motion.span>
             </motion.div>
 
@@ -327,7 +328,7 @@ export function ClosedQuestionsCard({
                   tracking-tight
                 "
               >
-                {closedQuestions ?? 0}
+                <CountUp end={closedQuestions ?? 0} duration={1.5} preserveValue />
               </motion.span>
             </motion.div>
 
@@ -378,9 +379,13 @@ export function ClosedQuestionsCard({
                   tracking-tight
                 "
               >
-                {isTodaySelected
-                  ? Math.max(carryForward ?? 0, 0)
-                  : Math.max(inReview ?? 0, 0)}
+                <CountUp
+                  end={isTodaySelected
+                    ? Math.max(carryForward ?? 0, 0)
+                    : Math.max(inReview ?? 0, 0)}
+                  duration={1.5}
+                  preserveValue
+                />
               </motion.span>
             </motion.div>
           </motion.div>
