@@ -850,4 +850,3 @@ Category: subdivision_rainfall
 Query: District alert and rain statistics.
 Category: district
 """
-
