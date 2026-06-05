@@ -5,7 +5,16 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { motion } from "framer-motion";
-import { BadgeCheck, InfoIcon } from "lucide-react";
+import CountUp from "react-countup";
+import { Button } from "@/components/atoms/button";
+import { Calendar } from "@/components/atoms/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/atoms/popover";
+import { BadgeCheck, CalendarIcon, X, InfoIcon } from "lucide-react";
+import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 
@@ -28,6 +37,7 @@ export function ClosedInLastTwoHoursCard({
 }: ClosedInLastTwoHoursCardProps) {
   const safeCount = count ?? 0;
   const safeTotalClosed = totalClosed ?? 0;
+
   const closedWithinTwoHoursPct =
     safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
 
@@ -44,14 +54,20 @@ export function ClosedInLastTwoHoursCard({
           rounded-2xl
           h-full
           ${source === "whatsapp" ? "pb-2" : "pb-5"}
-          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
-          `}
+          bg-gradient-to-br
+          from-card
+          to-card/50
+          backdrop-blur-sm
+          shadow-sm
+          hover:shadow-md
+          transition-shadow
+          duration-300
+        `}
       >
         <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
         <CardHeader className="pb-10">
           {isLoading ? (
-            // <Skeleton className="h-full w-full rounded-2xl" />
             <div className="space-y-4">
               <Skeleton className="h-5 w-40" />
 
@@ -74,35 +90,32 @@ export function ClosedInLastTwoHoursCard({
                 <div className="text-sm text-muted-foreground flex gap-2 items-center">
                   <div className="flex items-center gap-2">
                     <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-                    Closed within 2 Hours
+
+                    <span>Closed within 2 Hours</span>
+
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help ml-1" />
+                        <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
 
                       <TooltipContent className="max-w-[240px]">
-                        <p>Questions closed within 2 hours of creation.</p>
+                        <p>
+                          Questions closed within 2 hours of creation.
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
                 </div>
               </motion.div>
 
-              <div
-                className="
-              flex
-              items-center
-              justify-between
-              gap-2
-              "
-              >
+              <div className="flex items-center justify-between gap-2">
                 <motion.div
                   className={`
-                text-3xl
-                font-bold
-                tracking-tight
-                ${isLoading ? "opacity-50" : ""}
-                `}
+                    text-3xl
+                    font-bold
+                    tracking-tight
+                    ${isLoading ? "opacity-50" : ""}
+                  `}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{
@@ -111,9 +124,19 @@ export function ClosedInLastTwoHoursCard({
                     type: "spring",
                     stiffness: 200,
                   }}
-                  key={`${count ?? 0}-${totalClosed ?? 0}`}
+                  key={`${safeCount}-${safeTotalClosed}`}
                 >
-                  {safeCount} / {safeTotalClosed}
+                  <CountUp
+                    end={safeCount}
+                    duration={1.5}
+                    preserveValue
+                  />{" "}
+                  /{" "}
+                  <CountUp
+                    end={safeTotalClosed}
+                    duration={1.5}
+                    preserveValue
+                  />
                 </motion.div>
               </div>
 
@@ -123,9 +146,16 @@ export function ClosedInLastTwoHoursCard({
                 }`}
               >
                 <BadgeCheck className="h-4 w-4 text-primary" />
+
                 <span>
                   <span className="font-bold">
-                    {closedWithinTwoHoursPct.toFixed(2)}%
+                    <CountUp
+                      end={closedWithinTwoHoursPct}
+                      duration={1.5}
+                      decimals={2}
+                      preserveValue
+                    />
+                    %
                   </span>{" "}
                   of questions were resolved within 2 hours
                 </span>

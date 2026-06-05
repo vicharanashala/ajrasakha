@@ -94,7 +94,7 @@ export const TopCropsCard = ({topCrops,
     if (active && payload && payload.length) {
       const pointInfo = payload[0].payload;
       return (
-        <div className=" border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg p-3 text-sm text-gray-800 dark:text-gray-200 flex flex-col gap-1 min-w-[140px]">
+        <div className="bg-primary text-primary-foreground border border-primary/20 rounded-lg shadow-lg p-3 text-sm flex flex-col gap-1 min-w-[140px]">
           <p className="font-semibold pb-1 border-b border-gray-100 dark:border-gray-800">{label}</p>
           
           {!pointInfo.subItems ? (

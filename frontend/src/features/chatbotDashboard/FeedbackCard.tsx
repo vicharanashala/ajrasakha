@@ -156,7 +156,7 @@ function FeedbackCard({
 
   return (
     <>
-      <Card className="relative overflow-hidden h-full flex flex-col border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
+      <Card className="group relative overflow-hidden h-full flex flex-col border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
         {/* Maximize Button */}
         <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
