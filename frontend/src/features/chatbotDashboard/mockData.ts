@@ -1,7 +1,7 @@
 import type { Segment, KpiCard, DemographicEntry, IPlatformInstallEntry, FeedbackData } from "./types";
 import type { DomainSpikeEntry } from "./components/DomainSpikesModal";
 
-export const DASHBOARD_DATA = {
+export const DASHBOARD_DATAA = {
   meta: { season: "Kharif 2025", lastSync: "2 min ago", datasetVersion: "GD-2025-Q3.14", llmVersion: "v2.4.1", p0Bugs: 3 },
   kpiRow1: [
     { id: "dau", label: "Active farmers (DAU)", value: "4.82 L", delta: "+18% vs last month", deltaDir: "up" as const, accentColor: "#3AAA5A", sparkPoints: [22,20,22,18,19,15,13,14,10,11,8,7,5] },
@@ -119,4 +119,109 @@ export const DASHBOARD_DATA = {
     "totalFeedbacks": 15
   }
 } as FeedbackData,
+};
+
+export const DASHBOARD_DATA = {
+  meta: {},
+
+  kpiRow1: [
+    {
+      id: "dau",
+      label: "Active farmers (DAU)",
+      value: "",
+      delta: "",
+      deltaDir: "neutral" as const,
+      accentColor: "#3AAA5A",
+      sparkPoints: [],
+    },
+    {
+      id: "queries",
+      label: "Daily queries",
+      value: "",
+      delta: "",
+      deltaDir: "neutral" as const,
+      accentColor: "#378ADD",
+      sparkPoints: [],
+      dailyAnalytics: [],
+      weeklyAnalytics: [],
+      monthlyAnalytics: [],
+    },
+    {
+      id: "session",
+      label: "Avg session duration",
+      value: "",
+      delta: "",
+      deltaDir: "neutral" as const,
+      accentColor: "#EF9F27",
+      sparkPoints: [],
+    },
+  ] as KpiCard[],
+
+  kpiRow2: [
+    {
+      id: "totalInstalls",
+      label: "Total Installs",
+      value: "",
+      delta: "Profiles submitted / Total users",
+      deltaDir: "neutral" as const,
+      accentColor: "#1D9E75",
+      icon: "download",
+    },
+  ] as KpiCard[],
+
+  channelSplit: [],
+  voiceAccuracy: [],
+  queryCategories: [],
+
+  farmerSegments: [],
+  alerts: [],
+  geoStates: [],
+  healthPillars: [],
+
+  kccAwareness: [],
+  agriAppUsage: [],
+  ageGroups: [],
+  genderSplit: [],
+  farmingExperience: [],
+  landHolding: [],
+
+  platformInstalls: [],
+  domainSpikes: [],
+
+  feedbackData: {
+    positiveFeedbacks: [],
+    negativeFeedbacks: [],
+    stats: {
+      _id: null,
+      positiveCount: 0,
+      negativeCount: 0,
+      averageRating: 0,
+      totalFeedbacks: 0,
+    },
+  },
+
+  inactiveUsersLast3Days: 0,
+  duplicateQuestionsCount: 0,
+  lowFeedbackUsersCount: 0,
+
+  dailyQuestionTrends: [],
+  topFaqs: [],
+  topQuestionsFromCollection: [],
+
+  repeatQueryCount: 0,
+  repeatQueryRatePct: 0,
+  avgQuestionsPerUserDay: 0,
+
+  responseAdherenceTable: {
+    whatsappQuestionAsked: 0,
+    ajrasakhaQuestionAsked: 0,
+    whatsappAnsweredWithin120Min: 0,
+    ajrasakhaAnsweredWithin120Min: 0,
+    whatsappAverageResponseMinutes: 0,
+    ajrasakhaAverageResponseMinutes: 0,
+    whatsappInProcessCount: 0,
+    ajrasakhaInProcessCount: 0,
+    whatsappAdherencePct: 0,
+    ajrasakhaAdherencePct: 0,
+  },
 };

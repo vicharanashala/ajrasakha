@@ -136,7 +136,7 @@ function FeedbackCard({
             not_helpful: 0,
           };
 
-    items.forEach((item) => {
+    items?.forEach((item) => {
       if (defaultCategories[item.tag] !== undefined) {
         defaultCategories[item.tag]++;
       }

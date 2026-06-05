@@ -496,7 +496,7 @@ const visibleConcerns = showAllConcerns
 
                               {item.concern === "Others" && (
                                 <div className="group relative">
-                                  <Info className="h-3.5 w-3.5 cursor-pointer text-muted-foreground" />
+                                  <InfoIcon className="h-3.5 w-3.5 cursor-pointer text-muted-foreground" />
 
                                   <div className="absolute left-5 top-0 z-20 hidden w-64 rounded-md border border-border bg-popover p-3 text-xs text-muted-foreground shadow-md group-hover:block">
                                     Includes general weather queries (e.g. "what

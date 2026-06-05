@@ -51,6 +51,8 @@ import {
   RetentionMetricsQuery,
   TopFaqsQuery,
 } from '../types/chatbot.type.js';
+import { IActiveUser } from '#root/shared/database/providers/mongo/repositories/ChatbotRepository.js';
+import { FeedbackData, KccAndAgriAppStats, PlatformInstallEntry, ResponseAdherenceTable, UserDemographics } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -1205,7 +1207,7 @@ export class ChatbotController {
   @Authorized()
   async getActiveUsersTrend(
     @QueryParams() query: ActiveUsersQuery,
-  ): Promise<any> {
+  ): Promise<IActiveUser[]> {
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
 
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
@@ -1261,7 +1263,7 @@ export class ChatbotController {
   @Authorized()
   async getDailyQuestionTrends(
     @QueryParams() query: ActiveUsersQuery,
-  ): Promise<any> {
+  ): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>> {
     const startDate = query.startDate
       ? new Date(query.startDate).toISOString()
       : undefined;
@@ -1284,10 +1286,35 @@ export class ChatbotController {
   @Get('/users-metrices')
   @HttpCode(200)
   @Authorized()
-  async getUsermetrices(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+  async getUsermetrices(@QueryParams() query: ActiveUsersQuery): Promise<{ userDemographics: UserDemographics; platformInstalls: PlatformInstallEntry[]; kccAndAgriAppUsage: KccAndAgriAppStats; feedbackData: FeedbackData}> {
     const source = query.source;
     const userType = query.userType;
 
     return await this.chatbotService.getUsersMetrics(source, userType);
   }
+
+  @Get('/response-adherence-table-data')
+  @HttpCode(200)
+  @Authorized()
+  async getResponseAderenceTable(
+    @QueryParams() query: ActiveUsersQuery,
+  ): Promise<ResponseAdherenceTable> {
+    const startDate = query.startDate
+      ? new Date(query.startDate).toISOString()
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate).toISOString()
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getResponseAdherenceTable(
+      source,
+      userType,
+      startDate,
+      endDate,
+    );
+  }
+  
 }
