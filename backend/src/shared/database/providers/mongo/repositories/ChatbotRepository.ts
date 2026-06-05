@@ -84,6 +84,11 @@ interface IConversation {
   updatedAt: Date;
 }
 
+export interface IActiveUser {
+  _id: string;
+  activeUsers: number;
+}[]
+
 const WEATHER_CONCERNS = {
   rain: [
     'rain',
@@ -798,16 +803,83 @@ export class ChatbotRepository implements IChatbotRepository {
    * getExternalUserIds() + buildUserMessageFilter() which caused a separate DB
    * query for every method call.
    */
+  // private buildUserTypeLookupStages(userType: string): any[] {
+  //   if (userType === 'all') return [];
+
+  //   const stages: any[] = [
+  //     {
+  //       $addFields: {
+  //         _userOid: {
+  //           $cond: [
+  //             {$and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}]},
+  //             {$toObjectId: '$user'},
+  //             null,
+  //           ],
+  //         },
+  //       },
+  //     },
+  //     {
+  //       $lookup: {
+  //         from: 'users',
+  //         localField: '_userOid',
+  //         foreignField: '_id',
+  //         as: '_userDoc',
+  //       },
+  //     },
+  //   ];
+
+  //   if (userType === 'external') {
+  //     // $unwind without preserveNull drops messages with no matching user (correct)
+  //     stages.push(
+  //       {$unwind: '$_userDoc'},
+  //       {$match: {'_userDoc.email': {$regex: '^rup', $options: 'i'}}},
+  //     );
+  //   } else {
+  //     // internal: preserve messages from unknown users, exclude 'rup' emails
+  //     stages.push(
+  //       {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: true}},
+  //       {$match: {'_userDoc.email': {$not: {$regex: '^rup', $options: 'i'}}}},
+  //     );
+  //   }
+
+  //   stages.push({$unset: ['_userOid', '_userDoc']});
+  //   return stages;
+  // }
+
+  // private buildUserDocFilter(userType: string): Record<string, any> {
+  //   if (userType === 'all') return {};
+  //   return userType === 'external'
+  //     ? {email: {$regex: '^rup', $options: 'i'}}
+  //     : {email: {$not: {$regex: '^rup', $options: 'i'}}};
+  // }
+
+  //without unwind
   private buildUserTypeLookupStages(userType: string): any[] {
     if (userType === 'all') return [];
 
-    const stages: any[] = [
+    const userRoleMatch =
+      userType === 'external'
+        ? {
+            '_userDoc.userRole': {
+              $in: ['FARMER', 'COORDINATOR'],
+            },
+          }
+        : {
+            '_userDoc.userRole': 'INTERNAL',
+          };
+
+    return [
       {
         $addFields: {
           _userOid: {
             $cond: [
-              {$and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}]},
-              {$toObjectId: '$user'},
+              {
+                $and: [
+                  { $ne: ['$user', null] },
+                  { $ne: ['$user', ''] },
+                ],
+              },
+              { $toObjectId: '$user' },
               null,
             ],
           },
@@ -821,43 +893,101 @@ export class ChatbotRepository implements IChatbotRepository {
           as: '_userDoc',
         },
       },
+      {
+        $match: userRoleMatch,
+      },
+      {
+        $unset: ['_userOid', '_userDoc'],
+      },
     ];
-
-    if (userType === 'external') {
-      // $unwind without preserveNull drops messages with no matching user (correct)
-      stages.push(
-        {$unwind: '$_userDoc'},
-        {$match: {'_userDoc.email': {$regex: '^rup', $options: 'i'}}},
-      );
-    } else {
-      // internal: preserve messages from unknown users, exclude 'rup' emails
-      stages.push(
-        {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: true}},
-        {$match: {'_userDoc.email': {$not: {$regex: '^rup', $options: 'i'}}}},
-      );
-    }
-
-    stages.push({$unset: ['_userOid', '_userDoc']});
-    return stages;
   }
 
   private buildUserDocFilter(userType: string): Record<string, any> {
     if (userType === 'all') return {};
-    return userType === 'external'
-      ? {email: {$regex: '^rup', $options: 'i'}}
-      : {email: {$not: {$regex: '^rup', $options: 'i'}}};
+    if (userType === 'external') {
+      return {
+        userRole: { $in: ['FARMER', 'COORDINATOR'] },
+      };
+    }
+    return {
+      userRole: 'INTERNAL',
+    };
   }
 
+  // private buildQuestionUserTypeLookupStages(userType: string): any[] {
+  //   if (userType === 'all') return [];
+
+  //   const stages: any[] = [
+  //     {
+  //       $addFields: {
+  //         _userOid: {
+  //           $cond: [
+  //             {$and: [{$ne: ['$userId', null]}, {$ne: ['$userId', '']}]},
+  //             {$toObjectId: '$userId'},
+  //             null,
+  //           ],
+  //         },
+  //       },
+  //     },
+  //     {
+  //       $lookup: {
+  //         from: 'users',
+  //         localField: '_userOid',
+  //         foreignField: '_id',
+  //         as: '_userDoc',
+  //       },
+  //     },
+  //   ];
+
+  //   const userDocFilter = this.buildUserDocFilter(userType);
+  //   const transformedFilter: Record<string, any> = {};
+  //   for (const key of Object.keys(userDocFilter)) {
+  //     transformedFilter[`_userDoc.${key}`] = userDocFilter[key];
+  //   }
+
+  //   if (userType === 'external') {
+  //     stages.push({$unwind: '$_userDoc'}, {$match: transformedFilter});
+  //   } else {
+  //     stages.push(
+  //       {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: true}},
+  //       {$match: transformedFilter},
+  //     );
+  //   }
+
+  //   stages.push({$unset: ['_userOid', '_userDoc']});
+  //   return stages;
+  // }
+
+  //without unwind
+ // We were able to remove $unwind because _userDoc always contains at most one user 
+ // document (since we are joining on the unique _id field), and Mongo can directly
+ //  match on array fields using _userDoc.userRole without first flattening the array.
   private buildQuestionUserTypeLookupStages(userType: string): any[] {
     if (userType === 'all') return [];
 
-    const stages: any[] = [
+    const userRoleMatch =
+      userType === 'external'
+        ? {
+            '_userDoc.userRole': {
+              $in: ['FARMER', 'COORDINATOR'],
+            },
+          }
+        : {
+            '_userDoc.userRole': 'INTERNAL',
+          };
+
+    return [
       {
         $addFields: {
           _userOid: {
             $cond: [
-              {$and: [{$ne: ['$userId', null]}, {$ne: ['$userId', '']}]},
-              {$toObjectId: '$userId'},
+              {
+                $and: [
+                  { $ne: ['$userId', null] },
+                  { $ne: ['$userId', ''] },
+                ],
+              },
+              { $toObjectId: '$userId' },
               null,
             ],
           },
@@ -871,25 +1001,13 @@ export class ChatbotRepository implements IChatbotRepository {
           as: '_userDoc',
         },
       },
+      {
+        $match: userRoleMatch,
+      },
+      {
+        $unset: ['_userOid', '_userDoc'],
+      },
     ];
-
-    const userDocFilter = this.buildUserDocFilter(userType);
-    const transformedFilter: Record<string, any> = {};
-    for (const key of Object.keys(userDocFilter)) {
-      transformedFilter[`_userDoc.${key}`] = userDocFilter[key];
-    }
-
-    if (userType === 'external') {
-      stages.push({$unwind: '$_userDoc'}, {$match: transformedFilter});
-    } else {
-      stages.push(
-        {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: true}},
-        {$match: transformedFilter},
-      );
-    }
-
-    stages.push({$unset: ['_userOid', '_userDoc']});
-    return stages;
   }
 
   private escapeRegex(value: string): string {
@@ -1102,22 +1220,23 @@ export class ChatbotRepository implements IChatbotRepository {
           existingMsgIdSet.has(q.messageId),
         ).length;
       }
+    
 
       // Construct matches based on startTime and endTime if provided
-      const queryMatch: any = {
-        isCreatedByUser: true,
-        isDeleted: {$ne: true},
-        text: {$exists: true, $ne: null, $nin: ['', ' ']},
-      };
-      if (startTime || endTime) {
-        queryMatch.createdAt = {};
-        if (startTime) {
-          queryMatch.createdAt.$gte = new Date(startTime);
-        }
-        if (endTime) {
-          queryMatch.createdAt.$lte = new Date(endTime);
-        }
-      }
+      // const queryMatch: any = {
+      //   isCreatedByUser: true,
+      //   isDeleted: {$ne: true},
+      //   text: {$exists: true, $ne: null, $nin: ['', ' ']},
+      // };
+      // if (startTime || endTime) {
+      //   queryMatch.createdAt = {};
+      //   if (startTime) {
+      //     queryMatch.createdAt.$gte = new Date(startTime);
+      //   }
+      //   if (endTime) {
+      //     queryMatch.createdAt.$lte = new Date(endTime);
+      //   }
+      // }
 
 // // Calculate repeatQueryCount from messages (trim, lowercase, aggregate repeat counts)
 // let repeatQueryRaw;
@@ -1456,11 +1575,11 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.initReviewSystem();
 
       const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-
+      const source = _source === "whatsapp" ? 'WHATSAPP' : 'AJRASAKHA';
       const pipeline = [
         {
           $match: {
-            source: 'AJRASAKHA',
+            source: source,
             'details.domain': {
               $exists: true,
               $nin: [null, ''],
@@ -6283,7 +6402,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDailyQuestionTrends(
+  async getDailyQuestionTrends( 
     days = 30,
     source?: string,
     session?: ClientSession,
@@ -6316,16 +6435,16 @@ export class ChatbotRepository implements IChatbotRepository {
           matchQuery.createdAt.$lte = new Date(endTime);
         }
       }
-
-      const userTypeLookupStages =
-        this.buildQuestionUserTypeLookupStages(userType);
+      // commenting out as we cant filter users in review system for this data, need to rectify
+      // const userTypeLookupStages =
+      //   this.buildQuestionUserTypeLookupStages(userType);
 
       const result = await this.QuestionCollection.aggregate(
         [
           {
             $match: matchQuery,
           },
-          ...userTypeLookupStages,
+          // ...userTypeLookupStages,
           {
             $group: {
               _id: {
@@ -8746,7 +8865,7 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
     session?: ClientSession,
-  ) : Promise<any> {
+  ) : Promise<IActiveUser[]> {
     try {
       await this.init(source);
 
@@ -8880,9 +8999,10 @@ export class ChatbotRepository implements IChatbotRepository {
         });
       }
 
-      return await this.users
+      const data =  await this.users
         .aggregate(pipeline, { session })
         .toArray();
+      return data as IActiveUser[];
     } catch (error) {
       throw new InternalServerError(
         `Failed to get ${requestType} active users trend: ${error}`,
@@ -8893,9 +9013,9 @@ export class ChatbotRepository implements IChatbotRepository {
   async getRepeatQueryCount(
     source?: string,
     userType?: string,
-    startTime?: string, 
+    startTime?: string,
     endTime?: string,
-    session?: ClientSession
+    session?: ClientSession,
   ): Promise<any> {
     try {
       await this.init(source);
@@ -8914,9 +9034,13 @@ export class ChatbotRepository implements IChatbotRepository {
           queryMatch.createdAt.$lte = new Date(endTime);
         }
       }
-      let repeatQueryRaw;
+
+      let repeatQueryCount = 0;
+      let totalQueries = 0;
+      let avgQuestionsPerUserDay = 0;
+
       if (source === 'whatsapp') {
-        repeatQueryRaw = await this.QuestionCollection.aggregate(
+        const [facetResult] = await this.QuestionCollection.aggregate(
           [
             {
               $match: {
@@ -8926,205 +9050,222 @@ export class ChatbotRepository implements IChatbotRepository {
                 }),
               },
             },
-            {
-              $group: {
-                _id: {
-                  $ifNull: ['$referenceQuestionId', '$_id'],
-                },
-                count: {
-                  $sum: 1,
-                },
-              },
-            },
-            {
-              $match: {
-                count: {
-                  $gt: 1,
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                totalRepeats: {
-                  $sum: {
-                    $subtract: ['$count', 1],
-                  },
-                },
-              },
-            },
-          ],
-          {session},
-        ).toArray();
-      } else {
-        repeatQueryRaw = await this.messagesCollection
-          .aggregate(
-            [
-              {$match: queryMatch},
-              ...userTypeLookupStages,
-              {
-                $group: {
-                  _id: {$toLower: {$trim: {input: '$text'}}},
-                  count: {$sum: 1},
-                },
-              },
-              {
-                $match: {count: {$gt: 1}},
-              },
-              {
-                $group: {
-                  _id: null,
-                  totalRepeats: {$sum: {$subtract: ['$count', 1]}},
-                },
-              },
-            ],
-            {session},
-          )
-          .toArray();
-      }
-      const repeatQueryCount = repeatQueryRaw[0]?.totalRepeats ?? 0;
-
-      // Count total queries to get percentage
-      let totalQueriesRaw;
-      if (source === 'whatsapp') {
-        totalQueriesRaw = await this.QuestionCollection.aggregate(
-          [
-            {
-              $match: {
-                source: 'WHATSAPP',
-                ...(queryMatch.createdAt && {
-                  createdAt: queryMatch.createdAt,
-                }),
-              },
-            },
-            {
-              $count: 'count',
-            },
-          ],
-          {session},
-        ).toArray();
-      } else {
-        totalQueriesRaw = await this.messagesCollection
-          .aggregate(
-            [{$match: queryMatch}, ...userTypeLookupStages, {$count: 'count'}],
-            {session},
-          )
-          .toArray();
-      }
-      const totalQueries = totalQueriesRaw[0]?.count ?? 0;
-      const repeatQueryRatePct =
-        totalQueries > 0
-          ? Math.round((repeatQueryCount / totalQueries) * 100 * 10) / 10
-          : 0;
-      const avgQuestionsMatch: any = {
-        isCreatedByUser: true,
-        isDeleted: {$ne: true},
-        text: {$exists: true, $ne: null, $nin: ['', ' ']},
-      };
-      let avgQuestionsRaw;
-      if (source === 'whatsapp') {
-        avgQuestionsRaw = await this.QuestionCollection.aggregate(
-          [
-            {
-              $match: {
-                source: 'WHATSAPP',
-                ...(avgQuestionsMatch.createdAt && {
-                  createdAt: avgQuestionsMatch.createdAt,
-                }),
-              },
-            },
 
             {
-              $group: {
-                _id: {
-                  day: {
-                    $dateToString: {
-                      format: '%Y-%m-%d',
-                      date: '$createdAt',
-                      timezone: '+05:30',
+              $facet: {
+                repeatQueries: [
+                  {
+                    $group: {
+                      _id: {
+                        $ifNull: ['$referenceQuestionId', '$_id'],
+                      },
+                      count: {$sum: 1},
                     },
                   },
-                  user: {
-                    $ifNull: ['$userId', '$threadId'],
+                  {
+                    $match: {
+                      count: {$gt: 1},
+                    },
                   },
-                },
-                userDailyCount: {
-                  $sum: 1,
-                },
-              },
-            },
-
-            {
-              $group: {
-                _id: '$_id.day',
-                dayTotalQuestions: {
-                  $sum: '$userDailyCount',
-                },
-                dayUniqueUsers: {
-                  $sum: 1,
-                },
-              },
-            },
-
-            {
-              $group: {
-                _id: null,
-                avgQuestionsPerUserDay: {
-                  $avg: {
-                    $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
-                  },
-                },
-              },
-            },
-          ],
-          {session},
-        ).toArray();
-      } else {
-        avgQuestionsRaw = await this.messagesCollection
-          .aggregate(
-            [
-              {$match: avgQuestionsMatch},
-              ...userTypeLookupStages,
-              {
-                $group: {
-                  _id: {
-                    day: {
-                      $dateToString: {
-                        format: '%Y-%m-%d',
-                        date: '$createdAt',
-                        timezone: '+05:30',
+                  {
+                    $group: {
+                      _id: null,
+                      totalRepeats: {
+                        $sum: {
+                          $subtract: ['$count', 1],
+                        },
                       },
                     },
-                    user: '$user',
                   },
-                  userDailyCount: {$sum: 1},
-                },
-              },
-              {
-                $group: {
-                  _id: '$_id.day',
-                  dayTotalQuestions: {$sum: '$userDailyCount'},
-                  dayUniqueUsers: {$sum: 1},
-                },
-              },
-              {
-                $group: {
-                  _id: null,
-                  avgQuestionsPerUserDay: {
-                    $avg: {$divide: ['$dayTotalQuestions', '$dayUniqueUsers']},
+                ],
+
+                totalQueries: [
+                  {
+                    $count: 'count',
                   },
-                },
+                ],
+
+                avgQuestionsPerUserDay: [
+                  {
+                    $group: {
+                      _id: {
+                        day: {
+                          $dateToString: {
+                            format: '%Y-%m-%d',
+                            date: '$createdAt',
+                            timezone: '+05:30',
+                          },
+                        },
+                        user: {
+                          $ifNull: ['$userId', '$threadId'],
+                        },
+                      },
+                      userDailyCount: {
+                        $sum: 1,
+                      },
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: '$_id.day',
+                      dayTotalQuestions: {
+                        $sum: '$userDailyCount',
+                      },
+                      dayUniqueUsers: {
+                        $sum: 1,
+                      },
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: null,
+                      avgQuestionsPerUserDay: {
+                        $avg: {
+                          $divide: [
+                            '$dayTotalQuestions',
+                            '$dayUniqueUsers',
+                          ],
+                        },
+                      },
+                    },
+                  },
+                ],
               },
-            ],
-            {session},
-          )
-          .toArray();
+            },
+          ],
+          {session},
+        ).toArray();
+
+        repeatQueryCount =
+          facetResult?.repeatQueries?.[0]?.totalRepeats ?? 0;
+
+        totalQueries =
+          facetResult?.totalQueries?.[0]?.count ?? 0;
+
+        avgQuestionsPerUserDay =
+          facetResult?.avgQuestionsPerUserDay?.[0]
+            ?.avgQuestionsPerUserDay ?? 0;
+      } else {
+        const [facetResult] = await this.messagesCollection.aggregate(
+          [
+            {$match: queryMatch},
+            ...userTypeLookupStages,
+
+            {
+              $facet: {
+                repeatQueries: [
+                  {
+                    $group: {
+                      _id: {
+                        $toLower: {
+                          $trim: {
+                            input: '$text',
+                          },
+                        },
+                      },
+                      count: {$sum: 1},
+                    },
+                  },
+                  {
+                    $match: {
+                      count: {$gt: 1},
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: null,
+                      totalRepeats: {
+                        $sum: {
+                          $subtract: ['$count', 1],
+                        },
+                      },
+                    },
+                  },
+                ],
+
+                totalQueries: [
+                  {
+                    $count: 'count',
+                  },
+                ],
+
+                avgQuestionsPerUserDay: [
+                  {
+                    $group: {
+                      _id: {
+                        day: {
+                          $dateToString: {
+                            format: '%Y-%m-%d',
+                            date: '$createdAt',
+                            timezone: '+05:30',
+                          },
+                        },
+                        user: '$user',
+                      },
+                      userDailyCount: {
+                        $sum: 1,
+                      },
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: '$_id.day',
+                      dayTotalQuestions: {
+                        $sum: '$userDailyCount',
+                      },
+                      dayUniqueUsers: {
+                        $sum: 1,
+                      },
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: null,
+                      avgQuestionsPerUserDay: {
+                        $avg: {
+                          $divide: [
+                            '$dayTotalQuestions',
+                            '$dayUniqueUsers',
+                          ],
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+          {session},
+        ).toArray();
+
+        repeatQueryCount =
+          facetResult?.repeatQueries?.[0]?.totalRepeats ?? 0;
+
+        totalQueries =
+          facetResult?.totalQueries?.[0]?.count ?? 0;
+
+        avgQuestionsPerUserDay =
+          facetResult?.avgQuestionsPerUserDay?.[0]
+            ?.avgQuestionsPerUserDay ?? 0;
       }
-      const avgQuestionsPerUserDay =
-        avgQuestionsRaw[0]?.avgQuestionsPerUserDay ?? 0;
-      return { repeatQueryCount, repeatQueryRatePct, avgQuestionsPerUserDay: Math.round(avgQuestionsPerUserDay * 100) / 100 };
+
+      const repeatQueryRatePct =
+        totalQueries > 0
+          ? Math.round(
+              (repeatQueryCount / totalQueries) * 100 * 10,
+            ) / 10
+          : 0;
+
+      return {
+        repeatQueryCount,
+        repeatQueryRatePct,
+        avgQuestionsPerUserDay:
+          Math.round(avgQuestionsPerUserDay * 100) / 100,
+      };
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch repeat query count: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch repeat query count: ${error}`,
+      );
     }
   }
 

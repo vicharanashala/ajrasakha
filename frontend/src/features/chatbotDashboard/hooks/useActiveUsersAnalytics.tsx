@@ -134,6 +134,7 @@ export const useClosedAndNotifedData = (source: string, startDate?: string, endD
     queryFn: () => {
       return chatbotService.getClosedAndNotifedData(source, startDate, endDate);
     },
+    placeholderData: (previousData) => previousData,
     enabled,
   });
 }
