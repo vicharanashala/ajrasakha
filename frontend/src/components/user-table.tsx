@@ -91,7 +91,7 @@ export const UsersTable = ({
     await toast.promise(blockExpert({ userId: userIdToBlock, action: action }),{
       loading: isCurrentlyBlocked ? "Unblocking user..." : "Blocking user...",
       success: isCurrentlyBlocked ? "User unblocked successfully" : "User blocked successfully",
-      error: `Failed to ${isCurrentlyBlocked ? "unblock" : "block"} user`
+      error: (error: any) => error?.message || `Failed to ${isCurrentlyBlocked ? "unblock" : "block"} user`
     })
     
   };
@@ -276,7 +276,7 @@ const UserRow: React.FC<UserRowProps> = ({
   showSensitive = false,
 }) => {
   const isBlocked = u.isBlocked || false;
-  const { mutate: updateActivity } = useUpdateActivity();
+  const { mutateAsync: updateActivity } = useUpdateActivity();
   const { mutate: verifyUser } = useVerifyUser();
   const { mutateAsync: toggleSTF } = useToggleSTF();
 
@@ -297,10 +297,14 @@ const UserRow: React.FC<UserRowProps> = ({
     }
   };
 
-  const handleActivityToggle = () => {
+  const handleActivityToggle = async() => {
     const nextStatus = u.status === 'in-active' ? 'active' : 'in-active';
     setIsOpen(false);
-    updateActivity({ userId: u._id!, status: nextStatus });
+    await toast.promise(updateActivity({ userId: u._id!, status: nextStatus }),{
+      loading: "Activity status updating...",
+      success: "Activity status updated successfully",
+      error: (error: any) => error?.message || "Failed to update activity status"
+    });
   };
 
   const ROLE_LABELS: Record<string, string> = {
