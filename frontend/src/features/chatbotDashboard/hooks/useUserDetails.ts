@@ -63,7 +63,7 @@ export function useUserDetails(
   inactiveOnly = false,
   lowFeedbackOnly = false,
   userType: 'all' | 'external' | 'internal' = 'all',
-  sortBy: 'totalQuestions' | 'name' = 'name',
+  sortBy: 'totalQuestions' | 'name' | 'farmerName' | 'email' | 'createdAt' = 'name',
   sortOrder: 'asc' | 'desc' = 'asc',
   activeTodayByProfile = false,
   missingDemographicField = '',

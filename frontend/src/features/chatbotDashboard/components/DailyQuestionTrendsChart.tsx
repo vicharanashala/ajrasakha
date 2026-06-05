@@ -62,7 +62,11 @@ export function DailyQuestionTrendsChart({
     if (active && payload && payload.length) {
       return (
         <div className="bg-[#18181b]/95 border border-[#27272a] p-3 rounded-lg shadow-xl backdrop-blur-sm text-xs space-y-1.5">
-          <p className="font-semibold text-gray-200">{formatDateLabel(label)}</p>
+          <p className="font-semibold text-gray-200">
+  {payload?.[0]?.payload?.day
+    ? formatDateLabel(payload[0].payload.day)
+    : ""}
+</p>
           {payload.map((item: any) => (
             <div key={item.name} className="flex items-center justify-between gap-4">
               <span style={{ color: item.color }} className="flex items-center gap-1.5 font-medium">
@@ -112,7 +116,7 @@ export function DailyQuestionTrendsChart({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 justify-start text-left font-normal bg-[#27272a]/10 border-border/40 text-gray-200 hover:bg-[#27272a]/20 w-full sm:w-[180px] shrink-0"
+                  className="h-8 justify-start text-left font-normal bg-[#27272a]/10 border-border/40 text-foreground hover:bg-[#27272a]/20 w-full sm:w-[180px] shrink-0"
                 >
                   <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-[#3AAA5A]" />
                   <span className="truncate">
@@ -125,7 +129,7 @@ export function DailyQuestionTrendsChart({
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-auto p-0 border-border bg-[#18181b]"
+                className="w-auto p-0 border-border bg-background text-foreground"
                 align="end"
               >
                 <Calendar
@@ -135,6 +139,7 @@ export function DailyQuestionTrendsChart({
                   selected={dateRange}
                   onSelect={onDateRangeChange}
                   numberOfMonths={1}
+                  className="bg-background text-foreground"
                 />
               </PopoverContent>
             </Popover>
@@ -144,7 +149,7 @@ export function DailyQuestionTrendsChart({
                 size="icon"
                 onClick={() => onDateRangeChange?.(undefined)}
                 title="Clear date filter"
-                className="h-8 w-8 shrink-0 bg-[#27272a]/10 border-border/40 text-gray-200 hover:bg-[#27272a]/20"
+                className="h-8 w-8 shrink-0 bg-[#27272a]/10 border-border/40 text-foreground hover:bg-[#27272a]/20"
               >
                 <RefreshCcw className="h-3.5 w-3.5" />
               </Button>
