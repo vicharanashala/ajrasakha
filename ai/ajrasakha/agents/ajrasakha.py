@@ -41,6 +41,7 @@ from ajrasakha.agents.prompts import (
     WHATSAPP_SYSTEM_PROMPT,
 )
 from ajrasakha.agents.state import AjraSakhaState, Location
+from ajrasakha.agents.gdb_passthrough import gdb_passthrough_node
 from ajrasakha.agents.synthesizer import synthesize_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
@@ -397,6 +398,9 @@ def _build_graph():
         builder.add_node("clarify", clarify_node)
         builder.add_node("ensure_location", ensure_location_node)
         builder.add_node("execute_plan", execute_plan_node)
+        # GDB: Golden API + Gemma already picked the expert answer — no synthesizer LLM.
+        builder.add_node("gdb_passthrough", gdb_passthrough_node)
+        # Weather/mandi/soil/schemes when GDB has no usable answer (keep this node).
         builder.add_node("synthesize", synthesize_node)
         from ajrasakha.agents.translate_answer import translate_answer_node
 
@@ -415,10 +419,12 @@ def _build_graph():
             route_after_tools_planner,
             {
                 END: END,
+                "gdb_passthrough": "gdb_passthrough",
                 "synthesize": "synthesize",
                 "empty_gdb_reply": "empty_gdb_reply",
             },
         )
+        builder.add_edge("gdb_passthrough", "translate_answer")
         builder.add_edge("synthesize", "translate_answer")
         builder.add_edge("translate_answer", END)
         builder.add_edge("empty_gdb_reply", "translate_answer")

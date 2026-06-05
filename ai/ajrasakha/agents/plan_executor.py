@@ -581,5 +581,10 @@ def route_after_execute(state: AjraSakhaState) -> str:
         return "end"
     if should_expert_queue_reply(state):
         return "empty_gdb_reply"
-    return "synthesize"
+    messages = state.get("messages") or []
+    if _gdb_has_usable_data(messages):
+        return "gdb_passthrough"
+    if _turn_has_specialist_tool_message(messages):
+        return "synthesize"
+    return "empty_gdb_reply"
 
