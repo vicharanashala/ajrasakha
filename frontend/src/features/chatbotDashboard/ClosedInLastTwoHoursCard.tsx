@@ -51,7 +51,18 @@ export function ClosedInLastTwoHoursCard({
 
         <CardHeader className="pb-10">
           {isLoading ? (
-            <Skeleton className="h-full w-full rounded-2xl" />
+            // <Skeleton className="h-full w-full rounded-2xl" />
+            <div className="space-y-4">
+              <Skeleton className="h-5 w-40" />
+
+              <div className="grid grid-cols-3 gap-4">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+
+              <Skeleton className="h-4 w-48" />
+            </div>
           ) : (
             <>
               <motion.div
