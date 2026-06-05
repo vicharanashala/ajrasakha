@@ -75,6 +75,31 @@ export class QueryAnalyticsQueryDto extends SourceQueryDto {
   limit: number = 10;
 }
 
+export class QueryCategoryQuestionsQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 'Disease Management', description: 'Category/domain label to list questions for' })
+  @IsString()
+  category: string;
+
+  @JSONSchema({ example: 'all', description: 'Question filter: all, unique, or duplicate' })
+  @IsOptional()
+  @IsIn(['all', 'unique', 'duplicate'])
+  questionType: 'all' | 'unique' | 'duplicate' = 'all';
+
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+}
+
 export class WeatherConcernAnalyticsQueryDto extends SourceQueryDto {
   @JSONSchema({ example: 'Kharif', description: 'Filter by season' })
   @IsOptional()

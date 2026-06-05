@@ -1327,6 +1327,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                                 //   ? queryCategories
                                 //   : data.queryCategories
                               }
+                              source={source}
+                              userType={filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />

@@ -2,6 +2,7 @@ import React from "react";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { InfoIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -15,6 +16,8 @@ interface QueryCategory {
 
 interface QueryCategoriesProps {
     categories?: QueryCategory[];
+    source?: "vicharanashala" | "annam" | "whatsapp";
+    userType?: string;
 }
 
 // ─── PREMIUM HARMONIOUS 15-COLOR PALETTE ─────────────────────────────────────
@@ -53,6 +56,7 @@ interface ProgressBarProps {
     color: string;
     questionCount: number;
     duplicateQuestionCount: number;
+    onClick?: () => void;
 }
 
 const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -61,11 +65,17 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
     color,
     questionCount,
     duplicateQuestionCount,
+    onClick,
 }) => {
     const total = questionCount + duplicateQuestionCount;
 
     return (
-        <div className="mb-4 last:mb-0 hover:bg-gray-50/50 dark:hover:bg-white/5 p-2 rounded-lg transition-all duration-300">
+        <button
+            type="button"
+            onClick={onClick}
+            className="mb-4 w-full cursor-pointer rounded-lg p-2 text-left transition-all duration-300 last:mb-0 hover:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-[#3AAA5A]/40 dark:hover:bg-white/5"
+            aria-label={`View questions in ${label}`}
+        >
             <div className="flex justify-between items-center mb-1.5">
                 <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">
                     {label}
@@ -85,7 +95,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
                     style={{ width: `${pct}%`, background: color }}
                 />
             </div>
-        </div>
+        </button>
     );
 };
 
@@ -93,7 +103,10 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
  const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     categories = DEFAULT_CATEGORIES,
+    source = "annam",
+    userType = "all",
 }) => {
+    const [selectedCategory, setSelectedCategory] = React.useState<QueryCategory | null>(null);
     // Determine maximum total count among all categories to scale progress bars proportionally
     const activeCategories = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
     const totals = activeCategories.map((c) => c.questionCount + c.duplicateQuestionCount);
@@ -142,10 +155,19 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
                 color={color}
                 questionCount={q.questionCount}
                 duplicateQuestionCount={q.duplicateQuestionCount}
+                onClick={() => setSelectedCategory(q)}
               />
             );
           })}
         </ScrollArea>
+        {selectedCategory && (
+          <QueryCategoryQuestionsModal
+            category={selectedCategory.label}
+            source={source}
+            userType={userType}
+            onClose={() => setSelectedCategory(null)}
+          />
+        )}
       </div>
     );
 };
