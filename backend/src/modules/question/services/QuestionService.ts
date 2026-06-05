@@ -1174,6 +1174,69 @@ export class QuestionService extends BaseService implements IQuestionService {
           ]);
         }
       } else {
+        const isTimeBoundedQuestion =
+          source === 'AJRASAKHA' || source === 'WHATSAPP';
+        let threadValidation
+        if (isTimeBoundedQuestion) {
+         threadValidation = await this.validateTimeBoundQuestionThread(
+            questionId,
+            baseQuestion.threadId,
+          );
+          console.log("threadValidation ", threadValidation);
+          if (!threadValidation.isValid) {
+            console.log("Npt valid")
+            logData.outcome = 'TESTING_THREAD_ID';
+            logData.threadValidationReason = threadValidation.reason;
+            chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+
+            await this.questionRepo.updateQuestion(questionId, {
+              isTesting: true,
+            });
+            return;
+          } else {
+            // Extract the last GDB tool response from thread content
+            const content: any[] = threadValidation.data?.content || [];
+            const gdbToolCalls = content.filter(
+              (c: any) => c.type === 'tool' && c.toolName === 'gdb' && c.toolResponse,
+            );
+            const lastGdbResponse = gdbToolCalls.length > 0
+              ? gdbToolCalls[gdbToolCalls.length - 1].toolResponse
+              : null;
+
+            if (lastGdbResponse) {
+              const isExact: boolean = lastGdbResponse.is_exact === true;
+              const isSimilar: boolean = lastGdbResponse.is_similar === true;
+
+              if (isExact && !isSimilar) {
+                // Exact match found in GDB — mark as duplicate using exact_match data
+                const exactMatch = lastGdbResponse.exact_match;
+                await this.questionRepo.updateQuestion(questionId, {
+                  status: 'duplicate',
+                  similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
+                  referenceQuestionId: new ObjectId(String(exactMatch.question_id)),
+                  referenceQuestion: exactMatch.question,
+                  referenceSource: 'reviewer',
+                  isExact: true,
+                });
+                return;
+              } else if (!isExact && isSimilar) {
+                // Similar match found in GDB — mark as duplicate using similar_pair1 data
+                const similarPair = lastGdbResponse.similar_pair1;
+                await this.questionRepo.updateQuestion(questionId, {
+                  status: 'duplicate',
+                  similarityScore: Number((similarPair.similarity_score * 100).toFixed(2)),
+                  referenceQuestionId: new ObjectId(String(similarPair.question_id)),
+                  referenceQuestion: similarPair.question,
+                  referenceSource: 'reviewer',
+                  isExact: false,
+                });
+                return;
+              }
+              // Both false — fall through to existing duplicate check below
+            }
+          }
+        }
+
         // AJRASAKHA / WHATSAPP — duplicate check then notify moderators
         try {
           const duplicateResult = await this.checkDuplicateQuestion(
@@ -1181,7 +1244,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             details,
             logData,
           );
-          if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
+       /*   if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
             const {
               similarityScore,
               referenceQuestionId,
@@ -1196,7 +1259,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               referenceSource,
             });
             return;
-          }
+          }*/
           if (duplicateResult?.isNonAgri) {
             await this.questionRepo.updateQuestion(questionId, {
               status: 'non_agri',
@@ -1244,6 +1307,33 @@ export class QuestionService extends BaseService implements IQuestionService {
         `[processQuestionInBackground] Failed for questionId=${questionId}:`,
         error?.message,
       );
+    }
+  }
+
+  private async validateTimeBoundQuestionThread(
+    questionId: string,
+    threadId?: string,
+  ): Promise<{isValid: boolean; reason?: string,data?:any}> {
+    if (!threadId?.trim()) {
+      return {isValid: false, reason: 'THREAD_ID_MISSING'};
+    }
+
+    try {
+      const matchedQuestion = await this.getMatchedQuestion(questionId);
+      if (!matchedQuestion) {
+        return {isValid: false, reason: 'MATCHED_QUESTION_EMPTY'};
+      }
+
+      return {isValid: true,data:matchedQuestion};
+    } catch (error: any) {
+      console.error(
+        `[validateTimeBoundQuestionThread] Failed for questionId=${questionId}:`,
+        error?.message,
+      );
+      return {
+        isValid: false,
+        reason: error?.message || 'MATCHED_QUESTION_FAILED',
+      };
     }
   }
 
