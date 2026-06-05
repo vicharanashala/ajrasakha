@@ -278,7 +278,7 @@ const UserRow: React.FC<UserRowProps> = ({
   const isBlocked = u.isBlocked || false;
   const { mutate: updateActivity } = useUpdateActivity();
   const { mutate: verifyUser } = useVerifyUser();
-  const { mutate: toggleSTF } = useToggleSTF();
+  const { mutateAsync: toggleSTF } = useToggleSTF();
 
   //expert block/unblock modal state
   type ConfirmAction = "block" | "unblock" | "switch-role" | "verify" | "make-stf" | "remove-stf" | null;
@@ -720,16 +720,24 @@ const UserRow: React.FC<UserRowProps> = ({
             }
             cancelText="Cancel"
             type={confirmAction === "block" ? "delete" : "default"}
-            onConfirm={() => {
+            onConfirm={async () => {
               if (confirmAction === "switch-role") {
                 handleToggleRole(actionUserId, actionRole, selectRole);
                 setSelectRole("");
               } else if (confirmAction === "verify") {
                 verifyUser({ userId: actionUserId, isVerified: true });
               } else if (confirmAction === "make-stf") {
-                toggleSTF({ userId: u._id!, action: 'assign' });
+                await toast.promise(toggleSTF({ userId: u._id!, action: 'assign' }),{
+                  loading: "Assigning STF status...",
+                  success: "STF status assigned successfully",
+                  error: "Failed to assign STF status"
+                });
               } else if (confirmAction === "remove-stf") {
-                toggleSTF({ userId: u._id!, action: 'remove' });
+                await toast.promise(toggleSTF({ userId: u._id!, action: 'remove' }),{
+                  loading: "Removing STF status...",
+                  success: "STF status removed successfully",
+                  error: "Failed to remove STF status"
+                });
               } else {
                 handleBlock();
               }
