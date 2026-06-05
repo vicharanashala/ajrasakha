@@ -32,3 +32,16 @@ node_modules/
 # App Docker secrets and env
 .env
 secrets/
+
+#Testing 
+
+ai/tests/api/reports/
+
+ai/evaluation_report_*.csv
+ai/tests/reports/
+ai/openapi.json
+ai/backend_routes.txt
+backend_routes.txt
+endpoints.txt
+
+

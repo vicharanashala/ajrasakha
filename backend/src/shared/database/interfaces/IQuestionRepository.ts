@@ -446,7 +446,7 @@ export interface IQuestionRepository {
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
     session?: ClientSession,
-  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>
+  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[]; sourceCounts: { source: string; count: number }[] }>
 
   /**
    * Get PAE (Principal Agri Experts) metrics totals across all sources.

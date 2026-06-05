@@ -2280,6 +2280,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getUserById(userId: string, source: string): Promise<any> {
+    return this.chatbotRepository.getUserById(userId, source);
+  }
+
   async deleteUser(userId: string, source: string): Promise<boolean> {
     try {
       return await this.chatbotRepository.deleteUser(userId, source);

@@ -353,10 +353,10 @@ function DemographicCard({
 export function UserDemographicsSection({ data, source, userType }: Props) {
   const [selectedMissingField, setSelectedMissingField] = useState<{ title: string; key: string } | null>(null);
 
-  const ageSegments = data.ageGroups.map((d) => ({ ...d, color: AGE_COLORS[d.label] ?? "#6B7280" }));
-  const genderSegments = data.genderSplit.map((d) => ({ ...d, color: GENDER_COLORS[d.label] ?? "#6B7280" }));
-  const expSegments = data.farmingExperience.map((d, i) => ({ ...d, color: EXP_COLORS[i % EXP_COLORS.length] }));
-  const landSegments = (data.landHolding ?? []).map((d) => ({ ...d, color: LAND_COLORS[d.label] ?? "#6B7280" }));
+  const ageSegments = (data?.ageGroups ?? []).map((d) => ({ ...d, color: AGE_COLORS[d.label] ?? "#6B7280" }));
+  const genderSegments = (data?.genderSplit ?? []).map((d) => ({ ...d, color: GENDER_COLORS[d.label] ?? "#6B7280" }));
+  const expSegments = (data?.farmingExperience ?? []).map((d, i) => ({ ...d, color: EXP_COLORS[i % EXP_COLORS.length] }));
+  const landSegments = (data?.landHolding ?? []).map((d) => ({ ...d, color: LAND_COLORS[d.label] ?? "#6B7280" }));
 
   return (
     <>

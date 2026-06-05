@@ -688,6 +688,7 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
    - If district known from GPS, use it; otherwise district = "all".
 
 4. **Strict rules**:
+   - [STRICT] If the user mentions a specific district/city in the LATEST message (e.g. "Varanasi"), you MUST put that location in your `entities` JSON output. DO NOT copy the location from the conversation history or the PRE-EXTRACTED state hint.
    - [STRICT] If state was found from text/conversation but district was NOT mentioned → district = "all" (do NOT use GPS district).
    - [STRICT] District mention → always derive and use its correct state (even if different from history).
    - [STRICT] Never reuse state/district from unrelated older questions outside last 4 turns.

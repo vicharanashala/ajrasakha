@@ -64,33 +64,53 @@ def _extract_gdb_from_messages(messages: list[BaseMessage]) -> Optional[dict]:
     return None
 
 
-_TRANSLATE_SYSTEM_PROMPT = """You translate agricultural advisories for Indian farmers.
+_TRANSLATE_SHARED_RULES = """You translate agricultural advisories for Indian farmers.
 
-
-Rules:
+Rules
 - Output ONLY the translated advisory body.
 - Preserve numbers, URLs, chemical names, and units exactly.
 - Do not add any other text or formatting to the output.
-
-
-Vocal Language: The language the farmer speaks and understands when listening.
-Script Language: The writing system/alphabet used in the farmer's message on screen.
-
-Examples:
-
-Hindi Vocal + English Script
-Example Text: Mujhe gehu ki kheti ke baare mein batayein
-Hindi Vocal + Hindi Script
-Example Text: मुझे गेहूं की खेती के बारे में बताएं
-Punjabi Vocal + English Script
-Example Text: Main apne khet vich chawal di kheti kive karaan?
-English Vocal + English Script
-Example Text: How can I improve wheat production in my farm?
-Tamil Vocal + English Script
-Example Text: Naan eppadi paddy cultivate pannalam?
-Telugu Vocal + Telugu Script
-Example Text: నేను వరి పంటను ఎలా పండించాలి?
 """
+
+_TRANSLATE_ENGLISH_SCRIPT_RULES = """
+Script = English (Latin alphabet — Romanized / Hinglish):
+- Write the full reply using the Latin alphabet.
+- Use {vocal_language} wording; script is English (Latin letters only).
+- Cultivar codes and chemical labels may stay in Latin letters (e.g. PBW 872, Zinc, NPK).
+"""
+
+_TRANSLATE_NATIVE_SCRIPT_RULES = """
+Script = {script_language} (native writing system — NOT Latin alphabet for body text):
+- Translate all sentences into {vocal_language}.
+- Every word the farmer reads must use the {script_language} writing system.
+- Transliterate every Latin-letter token into {script_language} — do NOT drop or shorten labels.
+- Preserve meaning and all named entities; transliterate Latin spellings into the target script.
+- Do NOT leave A–Z Latin letters in the body except inside URLs.
+- Numbers stay as digits (e.g. 872, 24.4) unless the target script normally uses other numerals for prose.
+
+Transliteration examples (Hindi Devanagari — apply the same idea for other native scripts):
+- Zinc → ज़िंक
+- PBW → पीबीडब्ल्यू
+- PBW 872 → पीबीडब्ल्यू 872
+- NPK → एनपीके (transliterate letters; keep the acronym readable in script)
+
+Forbidden:
+- Deleting a variety or chemical line because the label was in Latin.
+- Copying English paragraphs without translating into {vocal_language}.
+"""
+
+
+def build_translate_system_prompt(script_language: str, vocal_language: str) -> str:
+    """Build translate LLM instructions: native script transliterates Latin tokens; English script keeps Latin codes."""
+    script = (script_language or "English").strip()
+    vocal = (vocal_language or "English").strip()
+    base = _TRANSLATE_SHARED_RULES
+    if script.lower() == "english":
+        return base + _TRANSLATE_ENGLISH_SCRIPT_RULES.format(vocal_language=vocal)
+    return base + _TRANSLATE_NATIVE_SCRIPT_RULES.format(
+        script_language=script,
+        vocal_language=vocal,
+    )
 
 
 async def _translate_body(
@@ -104,9 +124,10 @@ async def _translate_body(
         return body or ""
 
     llm = ChatAnthropic(model=TRANSLATE_MODEL)
+    system_prompt = build_translate_system_prompt(script_language, vocal_language)
     response = await llm.ainvoke(
         [
-            SystemMessage(content=_TRANSLATE_SYSTEM_PROMPT),
+            SystemMessage(content=system_prompt),
             HumanMessage(
                 content=(
                     f"Translate into {vocal_language} using the {script_language} "
