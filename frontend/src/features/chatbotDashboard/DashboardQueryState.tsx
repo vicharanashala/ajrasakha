@@ -25,8 +25,9 @@ import {
 import { Button } from "@/components/atoms/button";
 import { Skeleton } from "@/components/atoms/skeleton";
 
-import { ChevronsUpDown, Check, InfoIcon } from "lucide-react";
+import { ChevronsUpDown, Check, InfoIcon, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ─── TYPES ─────────────────────────────────────────────
 
@@ -219,6 +220,14 @@ export const DashboardStateWiseAnalytics = (
     return Math.max(...districts.map((d) => d.totalQuestions), 1);
   }, [districts]);
 
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async ()=>{
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["state-wise-analytics"] });
+    setRefreshing(false);
+  }
+
   return (
     <Card
       className="border border-border/60 dark:bg-card/40 backdrop-blur-md rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col h-auto sm:h-[500px]          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
@@ -270,6 +279,17 @@ export const DashboardStateWiseAnalytics = (
             </option>
           ))}
         </select> */}
+        <button
+          onClick={handleRefresh}
+          className="absolute top-8 right-55 rounded-lg border border-gray-200/60 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333] dark:bg-gray-800/70"
+          title="Refresh"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 bg-background ${
+              refreshing ? "animate-spin" : ""
+            }`}
+          />
+        </button>
 
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
@@ -350,7 +370,7 @@ export const DashboardStateWiseAnalytics = (
       <CardContent className="pt-4 flex-1 min-h-0 relative flex flex-col">
         {/* LOADING */}
 
-        {isLoading && (
+        {(refreshing || isLoading) && (
           <div className="flex-1">
             <Skeleton className="h-full min-h-[360px] w-full rounded-xl" />
           </div>

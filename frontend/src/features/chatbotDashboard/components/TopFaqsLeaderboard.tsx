@@ -11,6 +11,7 @@ import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { TranslatableText } from "./TranslatableText";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface TopFaqEntry {
   question: string;
@@ -43,6 +44,14 @@ export function TopFaqsLeaderboard({
   const leaderboardList = topQuestionsFromCollection;
   // Find the maximum count to calculate relative intensities
   const maxCount = leaderboardList.length > 0 ? leaderboardList[0].count : 1;
+  
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async ()=>{
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["top-faqs"] });
+    setRefreshing(false);
+  }
 
   // Render a badge based on rank (1st, 2nd, 3rd get special colors)
   const getRankBadge = (index: number) => {
@@ -103,6 +112,17 @@ export function TopFaqsLeaderboard({
           <div>
             <CardTitle className="text-base font-semibold tracking-wide text-foreground flex items-center gap-1.5">
               <span>Top 10 FAQ Leaderboard</span>
+              <button
+                onClick={handleRefresh}
+                className="absolute top-8 right-55 rounded-lg border border-gray-200/60 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333] dark:bg-gray-800/70"
+                title="Refresh"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 bg-background ${
+                    refreshing ? "animate-spin" : ""
+                  }`}
+                />
+              </button>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
@@ -260,7 +280,7 @@ export function TopFaqsLeaderboard({
       </div>
 
       <CardContent className="pt-3 flex-1 min-h-0 pr-1 pb-3 relative">
-        {isLoading && (
+        {(refreshing || isLoading) && (
           <div className="absolute inset-0 z-10 rounded-b-xl bg-background/70 p-4 backdrop-blur-[1px]">
             <Skeleton className="h-full w-full rounded-lg" />
           </div>

@@ -12,13 +12,14 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
-import { BarChart2, AreaChart as AreaChartIcon, CalendarIcon, RefreshCcw, InfoIcon } from "lucide-react";
+import { BarChart2, AreaChart as AreaChartIcon, CalendarIcon, RefreshCcw, InfoIcon, RefreshCw } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DailyQuestionTrend {
   day: string;
@@ -56,6 +57,13 @@ export function DailyQuestionTrendsChart({
       return dateStr;
     }
   };
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async ()=>{
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["daily-question-trends"] });
+    setRefreshing(false);
+  }
 
   // Custom tooltips with clear breakdown
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -109,6 +117,17 @@ export function DailyQuestionTrendsChart({
 
         {/* Filters & Selector Row */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full xl:w-auto justify-end">
+          <button
+            onClick={handleRefresh}
+            className=" rounded-lg border border-gray-200/60 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333] dark:bg-gray-800/70"
+            title="Refresh"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 bg-background ${
+                refreshing ? "animate-spin" : ""
+              }`}
+            />
+          </button>
           {/* Calendar Picker */}
           <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto">
             <Popover>
@@ -183,7 +202,7 @@ export function DailyQuestionTrendsChart({
       </CardHeader>
 
       <CardContent className="pt-6 pb-4 pl-2 pr-4 flex-1 min-h-0 relative">
-        {isLoading && (
+        {(refreshing || isLoading) && (
           <div className="absolute inset-0 z-10 rounded-b-xl bg-background/70 p-4 backdrop-blur-[1px]">
             <Skeleton className="h-full w-full rounded-lg" />
           </div>
