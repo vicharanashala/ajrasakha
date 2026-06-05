@@ -64,6 +64,7 @@ import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
+import AnalyticsMap from "./components/map/AnalyticsMap";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -511,6 +512,11 @@ useEffect(() => {
   const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, filters.userType);
 
 const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp");
+
+
+
+return <AnalyticsMap/>
+
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -1407,3 +1413,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
     </div>
   );
 }
+
+
+
+
