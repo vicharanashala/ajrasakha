@@ -427,6 +427,7 @@ export function ClosedQuestionsCard({
               <Clock3 className="h-4 w-4 text-primary" />
               <span className="font-medium">Average Resolution Time:</span>
               <span className="font-semibold">
+                
                 {formatDurationFromMinutes(avgCloseTimeMinutes)}
               </span>
             </div>

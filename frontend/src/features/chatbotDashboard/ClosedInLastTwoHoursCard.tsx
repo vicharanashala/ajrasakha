@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { BadgeCheck, InfoIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
+import CountUp from "react-countup";
 
 type ClosedInLastTwoHoursCardProps = {
   source: string;
@@ -116,7 +117,17 @@ export function ClosedInLastTwoHoursCard({
                   }}
                   key={`${count ?? 0}-${totalClosed ?? 0}`}
                 >
-                  {safeCount} / {safeTotalClosed}
+                  <CountUp
+                    end={safeCount ?? 0}
+                    duration={1.5}
+                    preserveValue
+                  />{" "}
+                  /{" "}
+                  <CountUp
+                    end={safeTotalClosed ?? 0}
+                    duration={1.5}
+                    preserveValue
+                  />
                 </motion.div>
               </div>
 
