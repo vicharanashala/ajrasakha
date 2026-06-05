@@ -96,7 +96,6 @@ import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
-import { VerifyUser } from "./VerifyUser";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
@@ -213,8 +212,6 @@ function LazySectionSkeleton({
 }
 
 export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam' | 'whatsapp'; onSourceChange?: (source: 'vicharanashala' | 'annam' | 'whatsapp') => void }) {
-  const { data: currentUser } = useGetCurrentUser({});
-  const isAdmin = currentUser?.role === "admin";
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [activeChartTab, setActiveChartTab] = useState<string>("dau");
@@ -326,7 +323,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } =
     useInView();
   const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
-  const { ref: userVerificationRef, isVisible: isUserVerificationVisible } = useInView();
+  // const { ref: userVerificationRef, isVisible: isUserVerificationVisible } = useInView();
   const { ref: userDemographicsRef, isVisible: isUserDemographicsVisible } =
     useInView();
 
@@ -338,7 +335,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
   const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
   const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
-  const shouldUserVerification = loadImmediately || isUserVerificationVisible;
+  // const shouldUserVerification = loadImmediately || isUserVerificationVisible;
   const shouldLoadUserDemographics = loadImmediately || isUserDemographicsVisible;
 
   const { data: queryCategories } = useQueryCategories(
@@ -456,9 +453,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
   >(undefined);
-  const [userVerificationInitialFilters, setUserVerificationInitialFilters] = useState<
-    Partial<{search: string;}> | undefined
-  >(undefined);
+
   const {
     data: topCrops,
     isLoading: isLoadingTopCrops,
@@ -1575,7 +1570,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                           )}
                         </div>
                         {/* user verification */}
-                            {
+                            {/* {
                               isAdmin && (
                                 <div
                                   ref={(el) => {
@@ -1594,7 +1589,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                                   )}
                                 </div>
                               )
-                            }
+                            } */}
                         
                         </>
                       )}

@@ -37,8 +37,7 @@ export type DashboardView =
   | "query-analysis"
   | "app-health"
   | "user-details"
-  | "export-data"
-  | "verify-users";
+  | "export-data";
 
 interface NavItemConfig {
   label: string;
@@ -289,12 +288,12 @@ const NAV_SECTIONS: SidebarSection[] = [
         icon: <Download size={16} />,
         view: "export-data",
       },
-      {
-        label: "User Verification",
-        icon: <UserCheck size={16} />,
-        view: "verify-users",
-        adminOnly: true,
-      },
+      // {
+      //   label: "User Verification",
+      //   icon: <UserCheck size={16} />,
+      //   view: "verify-users",
+      //   adminOnly: true,
+      // },
     ],
   },
 ];
