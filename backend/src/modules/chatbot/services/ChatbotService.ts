@@ -2492,8 +2492,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
     const webhookPayload = {
       customMessage: message,
-      question: message,
-      answer: message,
       userId: user.userId.toString(),
       type: 'CUSTOM',
     };
