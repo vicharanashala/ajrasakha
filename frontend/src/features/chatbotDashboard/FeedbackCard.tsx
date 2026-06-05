@@ -15,9 +15,11 @@ import {
   Search,
   ThumbsDown,
   X,
+  InfoIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 function FeedbackCard({
   title,
@@ -134,7 +136,7 @@ function FeedbackCard({
             not_helpful: 0,
           };
 
-    items.forEach((item) => {
+    items?.forEach((item) => {
       if (defaultCategories[item.tag] !== undefined) {
         defaultCategories[item.tag]++;
       }
@@ -154,7 +156,7 @@ function FeedbackCard({
 
   return (
     <>
-      <Card className="relative overflow-hidden h-full flex flex-col border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
+      <Card className="group relative overflow-hidden h-full flex flex-col border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
         {/* Maximize Button */}
         <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
@@ -171,8 +173,18 @@ function FeedbackCard({
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
             <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-            <CardTitle className="text-sm font-medium tracking-tight text-foreground/90 uppercase">
-              {title}
+            <CardTitle className="text-sm font-medium tracking-tight text-foreground/90 uppercase flex items-center gap-1.5">
+              <span>{title}</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground normal-case tracking-normal">
+                    <InfoIcon className="h-3.5 w-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="normal-case tracking-normal">
+                  Shows customer rating breakdown and categorization of positive/negative feedback.
+                </TooltipContent>
+              </Tooltip>
             </CardTitle>
           </div>
         </CardHeader>

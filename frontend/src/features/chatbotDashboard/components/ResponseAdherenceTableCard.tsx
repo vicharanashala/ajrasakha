@@ -3,11 +3,12 @@ import { Button } from "@/components/atoms/button";
 import { useState } from "react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { CalendarIcon, ClipboardCheck, Download } from "lucide-react";
+import { CalendarIcon, ClipboardCheck, Download, InfoIcon } from "lucide-react";
 import { format } from "date-fns";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/atoms/accordion";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/atoms/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 type ResponseAdherenceTableData = {
   date: string;
@@ -569,8 +570,18 @@ export function ResponseAdherenceTableCard({
                       <ClipboardCheck className="h-4 w-4 text-primary" />
                     </motion.div>
                     <div className="flex flex-col items-start min-w-0">
-                      <CardTitle className="text-sm font-semibold tracking-tight text-foreground">
-                        Response Adherence Summary
+                      <CardTitle className="text-sm font-semibold tracking-tight text-foreground flex items-center gap-1.5">
+                        <span>Response Adherence Summary</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                              <InfoIcon className="h-3.5 w-3.5" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Daily response time and completion rate metrics for questions resolved within 120 minutes.
+                          </TooltipContent>
+                        </Tooltip>
                       </CardTitle>
                       <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                         Daily breakdown

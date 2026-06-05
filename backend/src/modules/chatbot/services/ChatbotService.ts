@@ -10,6 +10,11 @@ import type {
   ChatbotConversationData,
   WeatherConcernAnalyticsFilters,
   PaginatedUserDetails,
+  UserDemographics,
+  PlatformInstallEntry,
+  KccAndAgriAppStats,
+  FeedbackData,
+  ResponseAdherenceTable,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -353,10 +358,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const [
         kpi,
         dau,
-        channelSplit,
-        voiceAccuracy,
-        geo,
-        queryCategories,
+        // channelSplit,
+        // voiceAccuracy,
+        // geo,
+        // queryCategories,
         dailyQueries,
         todayQueryCount,
         weeklyQueries,
@@ -364,15 +369,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
         avgSessionDurationMin,
         weeklySessionDuration,
         monthlySessionDuration,
-        demographics,
-        kccAndAgri,
-        platformInstalls,
-        domainSpikes,
-        feedbackData,
-        dailyQuestionTrends,
+        // demographics,
+        // kccAndAgri,
+        // platformInstalls,
+        // domainSpikes,
+        // feedbackData,
+        // dailyQuestionTrends,
   // topFaqs,
   // topQuestionsFromCollection,
-        responseAdherenceTable,
+        // responseAdherenceTable,
         dailySummary,
         weeklySummary,
         monthlySummary,
@@ -390,10 +395,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-        this.chatbotRepository.getChannelSplit(source),
-        this.chatbotRepository.getVoiceAccuracyByLanguage(source),
-        this.chatbotRepository.getGeoDistribution(source),
-        this.chatbotRepository.getQueryCategories(source, undefined, userType),
+//         this.chatbotRepository.getChannelSplit(source),
+//         this.chatbotRepository.getVoiceAccuracyByLanguage(source),
+//         this.chatbotRepository.getGeoDistribution(source),
+//         this.chatbotRepository.getQueryCategories(source, undefined, userType),
         this.chatbotRepository.getDailyAnalytics(
           currentMonth,
           source,
@@ -425,23 +430,23 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-        this.chatbotRepository.getUserDemographics(source, undefined, userType),
-        this.chatbotRepository.getKccAndAgriAppStats(
-          source,
-          undefined,
-          userType,
-        ),
-        this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
-        this.chatbotRepository.getDomainSpikes(60),
-        this.chatbotRepository.getFeedbackData(source, undefined, userType),
-        this.chatbotRepository.getDailyQuestionTrends(
-          days,
-          source,
-          undefined,
-          userType,
-          startTime,
-          endTime,
-        ),
+        // this.chatbotRepository.getUserDemographics(source, undefined, userType),
+        // this.chatbotRepository.getKccAndAgriAppStats(
+        //   source,
+        //   undefined,
+        //   userType,
+        // ),
+        // this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
+//         this.chatbotRepository.getDomainSpikes(60),
+        // this.chatbotRepository.getFeedbackData(source, undefined, userType),
+        // this.chatbotRepository.getDailyQuestionTrends(
+        //   days,
+        //   source,
+        //   undefined,
+        //   userType,
+        //   startTime,
+        //   endTime,
+        // ),
 // this.chatbotRepository.getTopFaqs(
 //   source,
 //   undefined,
@@ -456,45 +461,45 @@ export class ChatbotService extends BaseService implements IChatbotService {
 //   startTime,
 //   endTime,
 // ),
-        this.chatbotRepository
-          .getResponseAdherenceTable(
-            undefined,
-            userType,
-            startTime,
-            endTime,
-            source,
-          )
-          .catch(() => ({
-            date: '',
-            time: '',
-            timeWindow: '',
-            whatsappQueriesAsked: 0,
-            ajrasakhaQueriesAsked: 0,
-            whatsappPushedToReviewer: 0,
-            ajrasakhaPushedToReviewer: 0,
-            whatsappAnsweredWithin120Min: 0,
-            ajrasakhaAnsweredWithin120Min: 0,
-            whatsappMarkedDuplicate: 0,
-            ajrasakhaMarkedDuplicate: 0,
-            whatsappDynamicWeather: 0,
-            ajrasakhaDynamicWeather: 0,
-            whatsappDynamicMarket: 0,
-            ajrasakhaDynamicMarket: 0,
-            whatsappDynamicSchemes: 0,
-            ajrasakhaDynamicSchemes: 0,
-            whatsappNonGdbWithin120: 0,
-            ajrasakhaNonGdbWithin120: 0,
-            whatsappInReview: 0,
-            ajrasakhaInReview: 0,
-            whatsappOpen: 0,
-            ajrasakhaOpen: 0,
-            whatsappDelayed: 0,
-            ajrasakhaDelayed: 0,
-            whatsappAverageResponseMinutes: 0,
-            ajrasakhaAverageResponseMinutes: 0,
-            whatsappAdherencePct: 0,
-            ajrasakhaAdherencePct: 0,
-          })),
+        // this.chatbotRepository
+        //   .getResponseAdherenceTable(
+        //     undefined,
+        //     userType,
+        //     startTime,
+        //     endTime,
+        //     source,
+        //   )
+        //   .catch(() => ({
+        //     date: '',
+        //     time: '',
+        //     timeWindow: '',
+        //     whatsappQueriesAsked: 0,
+        //     ajrasakhaQueriesAsked: 0,
+        //     whatsappPushedToReviewer: 0,
+        //     ajrasakhaPushedToReviewer: 0,
+        //     whatsappAnsweredWithin120Min: 0,
+        //     ajrasakhaAnsweredWithin120Min: 0,
+        //     whatsappMarkedDuplicate: 0,
+        //     ajrasakhaMarkedDuplicate: 0,
+        //     whatsappDynamicWeather: 0,
+        //     ajrasakhaDynamicWeather: 0,
+        //     whatsappDynamicMarket: 0,
+        //     ajrasakhaDynamicMarket: 0,
+        //     whatsappDynamicSchemes: 0,
+        //     ajrasakhaDynamicSchemes: 0,
+        //     whatsappNonGdbWithin120: 0,
+        //     ajrasakhaNonGdbWithin120: 0,
+        //     whatsappInReview: 0,
+        //     ajrasakhaInReview: 0,
+        //     whatsappOpen: 0,
+        //     ajrasakhaOpen: 0,
+        //     whatsappDelayed: 0,
+        //     ajrasakhaDelayed: 0,
+        //     whatsappAverageResponseMinutes: 0,
+        //     ajrasakhaAverageResponseMinutes: 0,
+        //     whatsappAdherencePct: 0,
+        //     ajrasakhaAdherencePct: 0,
+        //   })),
         this.chatbotRepository.getQuerySummaryByPeriod(
           'daily',
           source,
@@ -519,28 +524,28 @@ export class ChatbotService extends BaseService implements IChatbotService {
         // Override avgSessionDurationMin in the KPI with the V2 value
         kpi: {...kpi, dailyQueries: todayQueryCount, avgSessionDurationMin},
         dau,
-        channelSplit,
-        voiceAccuracy,
-        geo,
-        queryCategories,
+        // channelSplit,
+        // voiceAccuracy,
+        // geo,
+        // queryCategories,
         weeklySessionDuration,
         dailyQueries,
         weeklyQueries,
         monthlyQueries: monthlyQueries,
         monthlySessionDuration,
-        ageGroups: demographics.ageGroups,
-        genderSplit: demographics.genderSplit,
-        farmingExperience: demographics.farmingExperience,
-        landHolding: demographics.landHolding,
-        kccAwareness: kccAndAgri.kccAwareness,
-        agriAppUsage: kccAndAgri.agriAppUsage,
-        platformInstalls,
-        domainSpikes,
-        feedbackData,
-        dailyQuestionTrends,
+        // ageGroups: demographics.ageGroups,
+        // genderSplit: demographics.genderSplit,
+        // farmingExperience: demographics.farmingExperience,
+        // // landHolding: demographics.landHolding,
+        // kccAwareness: kccAndAgri.kccAwareness,
+        // agriAppUsage: kccAndAgri.agriAppUsage,
+        // platformInstalls,
+        // domainSpikes,
+        // feedbackData,
+        // dailyQuestionTrends,
 // topFaqs,
 // topQuestionsFromCollection,
-        responseAdherenceTable,
+        // responseAdherenceTable,
         querySummaries: {
           daily: dailySummary,
           weekly: weeklySummary,
@@ -2249,13 +2254,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyQuestionTrends(days = 30, userType = 'all') {
+  async getDailyQuestionTrends(days = 30, source?: string, userType = 'all', startTime?: string, endTime?: string) {
     try {
       return await this.chatbotRepository.getDailyQuestionTrends(
         days,
-        undefined,
+        source,
         undefined,
         userType,
+        startTime,
+        endTime,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -2278,6 +2285,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getUserById(userId: string, source: string): Promise<any> {
+    return this.chatbotRepository.getUserById(userId, source);
+  }
+
   async deleteUser(userId: string, source: string): Promise<boolean> {
     try {
       return await this.chatbotRepository.deleteUser(userId, source);
@@ -2291,7 +2302,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source: string,
     data: {
       name?: string;
-      role?: string;
+      userRole?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -2329,7 +2340,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       email: string;
       name: string;
       password: string;
-      role?: string;
+      userRole?: string;
     },
   ): Promise<boolean> {
     try {
@@ -2533,7 +2544,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
       requestType: string,
       startDate?: Date,
       endDate?: Date,
-    ) : Promise<any> {
+    ) : Promise<{
+  _id: string;
+  activeUsers: number;
+}[]> {
       return await this.chatbotRepository.getActiveUsersTrend(source, userType, requestType, startDate, endDate);
   }
 
@@ -2564,4 +2578,66 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-}
+  async getUsersMetrics(source?: string, userType?: string): Promise<{ userDemographics: UserDemographics; platformInstalls: PlatformInstallEntry[]; kccAndAgriAppUsage: KccAndAgriAppStats; feedbackData: FeedbackData}>{
+    try{
+      const [userDemographics, platformInstalls, kccAndAgriAppUsage, feedbackData] = await Promise.all([
+        this.chatbotRepository.getUserDemographics(source, undefined, userType),
+        this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
+        this.chatbotRepository.getKccAndAgriAppStats(source, undefined, userType),
+        this.chatbotRepository.getFeedbackData(source, undefined, userType)
+      ])
+      return {
+        userDemographics,
+        platformInstalls,
+        kccAndAgriAppUsage,
+        feedbackData
+      };
+
+    }catch(error){
+      throw new InternalServerError(`Failed to fetch users metrics: ${error}`);
+    }
+  }
+
+  async getResponseAdherenceTable(source?:string, userType?: string, startTime?: string, endTime?: string): Promise<ResponseAdherenceTable> {
+    return this.chatbotRepository
+          .getResponseAdherenceTable(
+            undefined,
+            userType,
+            startTime,
+            endTime,
+            source,
+          )
+          .catch(() => ({
+            date: '',
+            time: '',
+            timeWindow: '',
+            whatsappQueriesAsked: 0,
+            ajrasakhaQueriesAsked: 0,
+            whatsappPushedToReviewer: 0,
+            ajrasakhaPushedToReviewer: 0,
+            whatsappAnsweredWithin120Min: 0,
+            ajrasakhaAnsweredWithin120Min: 0,
+            whatsappMarkedDuplicate: 0,
+            ajrasakhaMarkedDuplicate: 0,
+            whatsappDynamicWeather: 0,
+            ajrasakhaDynamicWeather: 0,
+            whatsappDynamicMarket: 0,
+            ajrasakhaDynamicMarket: 0,
+            whatsappDynamicSchemes: 0,
+            ajrasakhaDynamicSchemes: 0,
+            whatsappNonGdbWithin120: 0,
+            ajrasakhaNonGdbWithin120: 0,
+            whatsappInReview: 0,
+            ajrasakhaInReview: 0,
+            whatsappOpen: 0,
+            ajrasakhaOpen: 0,
+            whatsappDelayed: 0,
+            ajrasakhaDelayed: 0,
+            whatsappAverageResponseMinutes: 0,
+            ajrasakhaAverageResponseMinutes: 0,
+            whatsappAdherencePct: 0,
+            ajrasakhaAdherencePct: 0,
+          }));
+  }
+
+  }

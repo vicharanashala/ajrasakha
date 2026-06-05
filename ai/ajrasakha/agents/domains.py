@@ -62,9 +62,8 @@ _DOMAIN_ALIASES: dict[str, str] = {
     "farm machinery": "Agriculture Mechanization",
 }
 
-# AI routing domains not in MCP allowed_domains -> upload-safe reviewer domain.
+# Planner routing labels not in reviewer MCP allowed_domains -> upload-safe name.
 _REVIEWER_UPLOAD_MAP: dict[str, str] = {
-    "Weather": "General",
     "Market Prices": "Market Information",
     "Government Schemes": "Financial & Institutional Services",
     "General": "General",
@@ -160,7 +159,7 @@ def reviewer_upload_domain(domain: str) -> str:
     """
     Map AI planner domain to a name accepted by reviewer MCP allowed_domains.
 
-    MCP lacks Weather / Market Prices / Government Schemes / General as upload labels.
+    MCP lacks Market Prices / Government Schemes / General as upload labels.
     """
     d = normalize_domain(domain)
     return _REVIEWER_UPLOAD_MAP.get(d, d)

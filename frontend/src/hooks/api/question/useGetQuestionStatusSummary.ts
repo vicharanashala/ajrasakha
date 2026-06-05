@@ -7,6 +7,7 @@ const questionService = new QuestionService();
 export type QuestionStatusSummary = {
   totalQuestions: number;
   statuses: { status: string; count: number }[];
+  sourceCounts: { source: string; count: number }[];
 };
 
 export const useGetQuestionStatusSummary = (

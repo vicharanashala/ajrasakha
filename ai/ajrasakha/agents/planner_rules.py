@@ -132,6 +132,43 @@ def is_crop_clarify_turn(messages: list[BaseMessage]) -> bool:
     return False
 
 
+def was_crop_clarify_asked(messages: list[BaseMessage]) -> bool:
+    """True if the thread already contains a crop clarification question from the bot."""
+    for msg in messages:
+        if isinstance(msg, AIMessage) and _CROP_CLARIFY_RE.search(_message_to_text(msg)):
+            return True
+    return False
+
+
+def has_specific_crop(crop: str | None) -> bool:
+    """True when the farmer named a concrete crop (not all/general placeholders)."""
+    return crop_counts_as_resolved(crop) and not is_crop_placeholder(crop)
+
+
+def crop_slot_satisfied(crop: str | None) -> bool:
+    """True when the crop slot is filled for completeness (includes all/general)."""
+    return crop_counts_as_resolved(crop)
+
+
+def apply_crop_one_shot_fallback(
+    messages: list[BaseMessage],
+    entities: PlannerEntities,
+    domains: list[str],
+) -> PlannerEntities:
+    """After one crop clarify, default missing crop to all instead of asking again."""
+    canonical = [normalize_domain(d) for d in (domains or [])] or ["General"]
+    if not any(domain_requires_crop(d) for d in canonical):
+        return entities
+    crop = entities.get("crop")
+    if has_specific_crop(crop):
+        return entities
+    if was_crop_clarify_asked(messages) and not has_specific_crop(crop):
+        out = dict(entities)
+        out["crop"] = "all"
+        return out
+    return entities
+
+
 def resolve_crop_for_turn(messages: list[BaseMessage]) -> Optional[str]:
     """Crop from latest message, or last few human lines only during crop clarify."""
     if is_crop_clarify_turn(messages):
@@ -194,35 +231,35 @@ def merge_entities_from_rephrased_query(
 
     # --- State/District Resolution (STRICT PRIORITY) ---
     
-    # Priority 1: LLM extracted entities (district + state from rephrased_query)
-    district_from_llm = merged.get("district")
-    state_from_llm = merged.get("state")
+    # Priority 1: Explicit mention in the current query text
+    state_from_text = extract_state_from_text(text)
     
-    if district_from_llm and state_from_llm:
-        # Both district and state from LLM → use both
-        pass  # Already in merged
-    elif state_from_llm:
-        # Only state from LLM → district will be set below (history or GPS or "all")
-        pass  # State already set
+    llm_state = plan.get("entities", {}).get("state")
+    llm_district = plan.get("entities", {}).get("district")
+    
+    if state_from_text:
+        merged["state"] = state_from_text
+        if llm_district:
+            merged["district"] = llm_district
+    elif llm_state or llm_district:
+        # Priority 2: LLM successfully extracted a location (e.g. district "Varanasi" -> state "Uttar Pradesh")
+        if llm_state:
+            merged["state"] = llm_state
+        if llm_district:
+            merged["district"] = llm_district
     else:
-        # Priority 2: Check current rephrased query (state only via regex)
-        state_from_text = extract_state_from_text(text)
-        
-        if state_from_text:
-            merged["state"] = state_from_text
-            # District NOT found in text → will come from history/GPS/LLM
+        # Priority 3: GPS Fallback
+        gps_state = gps_state_from_location(location)
+        if gps_state:
+            merged["state"] = gps_state
+            # Always clear district if we fall back to GPS state, so it takes GPS city or 'all'
+            merged.pop("district", None)
         else:
-            # Priority 3: Check conversation history (last 4 human turns, most recent first)
-            state_from_history = _extract_state_from_history(messages, max_turns=4)
-            
-            if state_from_history:
-                merged["state"] = state_from_history
+            # Priority 4: Fallback to previous entities
+            if prev_entities and prev_entities.get("state"):
+                merged["state"] = prev_entities.get("state")
             else:
-                # Priority 4: GPS fallback (last resort)
-                gps_state = gps_state_from_location(location)
-                if gps_state:
-                    merged["state"] = gps_state
-                # else: no state found anywhere → will trigger clarification
+                merged.pop("state", None)
     
     # --- District Resolution ---
     # District only from: LLM entities OR GPS (never from text regex)
@@ -332,9 +369,7 @@ def _finalize_location_and_crop_completeness(
     canonical_domains = [normalize_domain(d) for d in (domains or [])] or ["General"]
     needs_crop = (
         any(domain_requires_crop(d) for d in canonical_domains)
-        and (
-            not crop_counts_as_resolved(crop) or is_crop_placeholder(crop)
-        )
+        and not crop_slot_satisfied(crop)
     )
 
     if not has_state and not has_gps:
@@ -372,6 +407,8 @@ def apply_planner_completeness_rules(
     out: PlannerPlan = dict(plan)
     latest = latest_human_text(messages)
     entities = _merge_entities(out, messages, location, prev_entities)
+    domains_for_crop = list(out.get("domains") or [normalize_domain(out.get("domain") or "General")])
+    entities = apply_crop_one_shot_fallback(messages, entities, domains_for_crop)
     out["entities"] = entities
 
     has_state, _, has_gps = _location_status(entities, location)

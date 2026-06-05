@@ -294,6 +294,7 @@ const UserRow: React.FC<UserRowProps> = ({
     moderator: "Moderator",
     expert: "Expert",
     pae_expert: "PAE Expert",
+    tester: "Tester",
   };
 
   return (

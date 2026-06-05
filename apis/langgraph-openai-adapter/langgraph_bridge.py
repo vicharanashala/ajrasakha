@@ -20,11 +20,6 @@ from config import (
     REQUEST_TIMEOUT,
 )
 from mongo_user import update_user_location_if_changed
-from reviewer_question import (
-    fetch_thread_messages,
-    link_reviewer_question_after_run,
-    resolve_client_ids,
-)
 
 logger = logging.getLogger("langgraph-openai-adapter")
 
@@ -33,7 +28,6 @@ _FARMER_FACING_STREAM_NODES = frozenset({"synthesize", "clarify", "empty_gdb_rep
 # Internal nodes must never stream (sanitizer JSON, tool loop, planner, etc.).
 _BLOCK_STREAM_NODES = frozenset({
     "tools",
-    "retrieval_sanitizer",
     "planner",
     "execute_plan",
     "ensure_location",
@@ -341,6 +335,25 @@ async def _ensure_thread(client: httpx.AsyncClient, thread_id: str) -> None:
     response.raise_for_status()
 
 
+async def fetch_thread_messages(
+    client: httpx.AsyncClient,
+    thread_id: str,
+    *,
+    langgraph_base_url: str,
+    langgraph_headers: dict[str, str],
+) -> list[Any]:
+    response = await client.get(
+        f"{langgraph_base_url}/threads/{thread_id}/state",
+        headers=langgraph_headers,
+    )
+    if response.status_code == 404:
+        return []
+    response.raise_for_status()
+    values = response.json().get("values") or {}
+    messages = values.get("messages") or []
+    return messages if isinstance(messages, list) else []
+
+
 async def _thread_has_messages(client: httpx.AsyncClient, thread_id: str) -> bool:
     try:
         response = await client.get(
@@ -523,12 +536,17 @@ async def stream_openai_from_langgraph(
     context_headers: dict[str, str],
     run_meta: dict[str, Any] | None = None,
 ) -> AsyncIterator[str]:
-    """Yield OpenAI-style SSE lines (`data: {...}`)."""
+    """Yield OpenAI-style SSE lines (`data: {...}`).
+
+    IMPORTANT: This adapter intentionally emits only the FINAL assistant reply from
+    LangGraph thread state. We do not forward intermediate node output because graph
+    node ordering/names may change and some nodes may overwrite the final message,
+    which can otherwise cause duplicated/bilingual replies at the client.
+    """
     model = body.get("model") or LANGGRAPH_ASSISTANT_ID
     chunk_id = f"chatcmpl-{uuid.uuid4().hex}"
     thread_id = resolve_thread_id(body, request_headers)
     run_config = build_run_config(request_headers, thread_id)
-    user_id, message_id = resolve_client_ids(request_headers, body)
     lg_headers = _langgraph_headers()
     timeout = httpx.Timeout(REQUEST_TIMEOUT, connect=10.0)
 
@@ -570,35 +588,10 @@ async def stream_openai_from_langgraph(
                 await response.aread()
                 response.raise_for_status()
 
-            current_event: str | None = None
-            streamed_text = ""
-            async for line in response.aiter_lines():
-                current_event, data = _parse_langgraph_sse_line(line, current_event)
-                if data is None:
-                    continue
-
-                # messages-tuple: [message_chunk, metadata]
-                if current_event not in (None, "messages", "messages-tuple"):
-                    continue
-
-                if isinstance(data, list) and len(data) >= 2:
-                    message_chunk, metadata = data[0], data[1]
-                elif isinstance(data, dict) and "content" in data:
-                    message_chunk, metadata = data, {}
-                else:
-                    continue
-
-                if not _should_emit_message_chunk(message_chunk, metadata):
-                    continue
-
-                chunk_text = _extract_text_content(message_chunk)
-                delta = _stream_delta_content(streamed_text, chunk_text)
-                if not delta:
-                    continue
-
-                streamed_text += delta
-                chunk = _openai_chunk(content=delta, model=model, chunk_id=chunk_id)
-                yield f"data: {json.dumps(chunk)}\n\n"
+            # Consume the run stream fully, but do not emit any intermediate text.
+            # The final assistant reply is taken from thread state.
+            async for _line in response.aiter_lines():
+                pass
 
             final_reply = ""
             try:
@@ -616,30 +609,14 @@ async def stream_openai_from_langgraph(
                     exc,
                 )
 
-            if not streamed_text and final_reply:
+            if final_reply:
                 chunk = _openai_chunk(content=final_reply, model=model, chunk_id=chunk_id)
                 yield f"data: {json.dumps(chunk)}\n\n"
             else:
-                tail = _suffix_after_streamed(streamed_text, final_reply)
-                if tail:
-                    chunk = _openai_chunk(content=tail, model=model, chunk_id=chunk_id)
-                    yield f"data: {json.dumps(chunk)}\n\n"
-                elif not streamed_text and not final_reply:
-                    logger.warning(
-                        "LangGraph run completed with no farmer-facing assistant text (thread=%s)",
-                        thread_id,
-                    )
-
-        reviewer_question_id = await link_reviewer_question_after_run(
-            client,
-            thread_id,
-            user_id,
-            message_id,
-            langgraph_base_url=LANGGRAPH_BASE_URL,
-            langgraph_headers=lg_headers,
-        )
-        if run_meta is not None:
-            run_meta["reviewer_question_id"] = reviewer_question_id
+                logger.warning(
+                    "LangGraph run completed with no assistant text in thread state (thread=%s)",
+                    thread_id,
+                )
 
     yield f"data: {json.dumps(_openai_chunk(model=model, chunk_id=chunk_id, finish_reason='stop'))}\n\n"
     yield "data: [DONE]\n\n"
@@ -674,6 +651,7 @@ async def complete_openai_from_langgraph(
             continue
         delta = (chunk.get("choices") or [{}])[0].get("delta") or {}
         if delta.get("content"):
+            # In final-only streaming mode, there should be at most one content-bearing chunk.
             parts.append(delta["content"])
 
     content = "".join(parts)
@@ -692,5 +670,4 @@ async def complete_openai_from_langgraph(
         ],
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         "thread_id": run_meta.get("thread_id"),
-        "reviewer_question_id": run_meta.get("reviewer_question_id"),
     }

@@ -3,17 +3,17 @@ import type {ClientSession, ObjectId} from 'mongodb';
 // ─── Shared return types ──────────────────────────────────────────────────────
 
 export interface KpiSummary {
-  dau: number; // total users (all time)
-  dauLastMonthPct: number; // % change: this month's new users vs last month's new users
-  dailyQueries: number;
-  avgSessionDurationMin: number;
-  csatRating: number;
+  dau?: number; // total users (all time)
+  dauLastMonthPct?: number; // % change: this month's new users vs last month's new users
+  dailyQueries?: number;
+  avgSessionDurationMin?: number;
+  csatRating?: number;
 // repeatQueryRatePct: number; 
-  voiceUsageSharePct: number;
-  totalAppInstalls: number; // It will the count the user whose profile is completed or not.
-  inactiveUsersLast3Days: number; // users with zero messages in the last 3 days
-  duplicateQuestionsCount: number; // questions with a similarityScore field
-  lowFeedbackUsersCount: number; // users who have never given any feedback (no feedback object in messages)
+  voiceUsageSharePct?: number;
+  totalAppInstalls?: number; // It will the count the user whose profile is completed or not.
+  inactiveUsersLast3Days?: number; // users with zero messages in the last 3 days
+  duplicateQuestionsCount?: number; // questions with a similarityScore field
+  lowFeedbackUsersCount?: number; // users who have never given any feedback (no feedback object in messages)
 // avgQuestionsPerUserDay?: number;
 // repeatQueryCount?: number;
 }
@@ -173,6 +173,7 @@ export interface UserDetailEntry {
   name: string;
   email: string;
   role?: string;
+  userRole?: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
@@ -460,13 +461,14 @@ export interface IChatbotRepository {
   ): Promise<WeatherConcernAnalyticsResponse>;
 
   
+  getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
   updateUser(
     userId: string,
     source: string,
     data: {
       name?: string;
-      role?: string;
+      userRole?: string;
       farmerProfile?: Partial<FarmerProfile>;
     },
   ): Promise<boolean>;
@@ -476,7 +478,7 @@ export interface IChatbotRepository {
       email: string;
       name: string;
       password: string;
-      role?: string;
+      userRole?: string;
     },
   ): Promise<boolean>;
 
@@ -519,7 +521,10 @@ export interface IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
     session?: ClientSession,
-  ) : Promise<any>;
+  ) : Promise<{
+  _id: string;
+  activeUsers: number;
+}[]>;
 
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string, session?: ClientSession): Promise<any>;
 

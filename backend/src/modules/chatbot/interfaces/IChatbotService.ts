@@ -21,26 +21,26 @@ import type {
 import { GrowthResponse } from '../types/chatbot.type.js';
 
 export interface DashboardResponse {
-  kpi: KpiSummary;
-  dau: DailyActiveUsersEntry[];
-  channelSplit: ChannelSplitEntry[];
-  voiceAccuracy: VoiceAccuracyEntry[];
-  geo: GeoStateEntry[];
-  queryCategories: QueryCategoryEntry[];
-  weeklySessionDuration: WeeklySessionDurationEntry[];
-  monthlySessionDuration: MonthlySessionDurationEntry[];
-  dailyQueries: any[];
-  weeklyQueries: any[];
-  monthlyQueries: any[];
-  ageGroups: DemographicEntry[];
-  genderSplit: DemographicEntry[];
-  farmingExperience: DemographicEntry[];
-  kccAwareness: DemographicEntry[];
-  agriAppUsage: DemographicEntry[];
-  landHolding: DemographicEntry[];
-  platformInstalls: PlatformInstallEntry[];
-  domainSpikes: DomainSpikeEntry[];
-  feedbackData: FeedbackData;
+  kpi?: KpiSummary;
+  dau?: DailyActiveUsersEntry[];
+  channelSplit?: ChannelSplitEntry[];
+  voiceAccuracy?: VoiceAccuracyEntry[];
+  geo?: GeoStateEntry[];
+  queryCategories?: QueryCategoryEntry[];
+  weeklySessionDuration?: WeeklySessionDurationEntry[];
+  monthlySessionDuration?: MonthlySessionDurationEntry[];
+  dailyQueries?: any[];
+  weeklyQueries?: any[];
+  monthlyQueries?: any[];
+  ageGroups?: DemographicEntry[];
+  genderSplit?: DemographicEntry[];
+  farmingExperience?: DemographicEntry[];
+  kccAwareness?: DemographicEntry[];
+  agriAppUsage?: DemographicEntry[];
+  landHolding?: DemographicEntry[];
+  platformInstalls?: PlatformInstallEntry[];
+  domainSpikes?: DomainSpikeEntry[];
+  feedbackData?: FeedbackData;
   responseAdherenceTable?: ResponseAdherenceTable;
   dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;
   topFaqs?: Array<{ question: string; count: number }>;
@@ -102,17 +102,19 @@ export interface IChatbotService {
   getGrowth(source: string, range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
-  getDailyQuestionTrends(days?: number, userType?: string): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
+  getDailyQuestionTrends(days?: number, source?: string, userType?: string, startTime?: string, endTime?: string): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
+  getUsersMetrics(source?: string, userType?: string): Promise<any>;
   getTopFaqs(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<Array<{ question: string; count: number }>>;
   getDistrictAnalyticsByState(state: string, source?: string, userType?: string): Promise<DistrictAnalyticsEntry[]>;
   getWeatherConcernAnalytics(filters?: WeatherConcernAnalyticsFilters, source?: string, userType?: string): Promise<WeatherConcernAnalyticsResponse>;
+  getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
   updateUser(
     userId: string,
     source: string,
     data: {
       name?: string;
-      role?: string;
+      userRole?: string;
       farmerProfile?: {
         farmerName?: string;
         age?: number;
@@ -142,7 +144,7 @@ export interface IChatbotService {
     data: {
       email: string;
       name: string;
-      role?: string;
+      userRole?: string;
     },
   ): Promise<boolean>;
   // getDailyActiveUsersTrend(source: string, userType: string,startDate?: Date, endDate?: Date ):Promise<any>;
@@ -166,7 +168,11 @@ export interface IChatbotService {
       requestType: string,
       startDate?: Date,
       endDate?: Date,
-    ) : Promise<any>;
+    ) : Promise<{
+  _id: string;
+  activeUsers: number;
+}[]>;
   getTopQuestionsFromCollection(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
+  getResponseAdherenceTable(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<ResponseAdherenceTable>;
 }

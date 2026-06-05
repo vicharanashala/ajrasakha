@@ -1,5 +1,7 @@
 import React from "react";
 import { ScrollArea } from "@/components/atoms/scroll-area";
+import { InfoIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -89,7 +91,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
+ const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     categories = DEFAULT_CATEGORIES,
 }) => {
     // Determine maximum total count among all categories to scale progress bars proportionally
@@ -105,8 +107,18 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div>
-            <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">
-              Query categories
+            <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+              <span>Query categories</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                    <InfoIcon className="h-3.5 w-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  List of top domains/categories that chatbot users are asking questions about, showing unique vs duplicate counts.
+                </TooltipContent>
+              </Tooltip>
             </div>
             <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
               Dynamic Agriculture Domains (Top 15)
@@ -137,3 +149,5 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
       </div>
     );
 };
+
+export default DashboardQueryCategories;

@@ -16,7 +16,7 @@ export function useAddUser() {
         email: string;
         name: string;
         password: string
-        role?: string;
+        userRole?: string;
       };
     }) => {
       const result = await apiFetch<any>(

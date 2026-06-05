@@ -15,11 +15,13 @@ import {
   Put,
   BadRequestError,
   InternalServerError,
+  ForbiddenError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { AnswerService } from '../services/AnswerService.js';
 import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
@@ -52,6 +54,7 @@ export class AnswerController {
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async addAnswer(@Body() body: AddAnswerBody, @CurrentUser() user: IUser) {
+    verifyNotTester(user);
     const {questionId, answer, sources} = body;
     const authorId = user._id.toString();
     return this.answerService.addAnswer(questionId, authorId, answer, sources);
@@ -66,6 +69,7 @@ export class AnswerController {
     @Body() body: ReviewAnswerBody,
     @CurrentUser() user: IUser,
   ): Promise<{message: string}> {
+    verifyNotTester(user);
     const userId = user._id.toString();
     if(body.type=="reroute")
     {
@@ -149,6 +153,7 @@ export class AnswerController {
     @Body() body: UpdateAnswerBody,
     @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     const {_id: userId} = user;
     let result;
     let prevAnswer;
@@ -255,6 +260,7 @@ export class AnswerController {
     @Body() body: UpdateAnswerBody,
     @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     const {_id: userId} = user;
     let result;
     let questionData;
@@ -328,7 +334,8 @@ export class AnswerController {
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async deleteAnswer(@Params() params: DeleteAnswerParams) {
+  async deleteAnswer(@Params() params: DeleteAnswerParams, @CurrentUser() user: IUser) {
+    verifyNotTester(user);
     const {answerId, questionId} = params;
     return this.answerService.deleteAnswer(questionId, answerId);
   }

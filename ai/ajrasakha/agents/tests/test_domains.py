@@ -56,7 +56,7 @@ def test_crop_counts_as_resolved():
 
 
 def test_reviewer_upload_domain_maps_routing_only():
-    assert reviewer_upload_domain("Weather") == "General"
+    assert reviewer_upload_domain("Weather") == "Weather"
     assert reviewer_upload_domain("Market Prices") == "Market Information"
     assert reviewer_upload_domain("Plant Protection") == "Plant Protection"
     assert reviewer_upload_domain("bogus") == "General"

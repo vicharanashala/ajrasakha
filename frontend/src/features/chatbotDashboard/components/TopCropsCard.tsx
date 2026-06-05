@@ -17,8 +17,9 @@ import {
   Cell,
   ResponsiveContainer,
 } from "recharts";
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, X, InfoIcon } from "lucide-react";
 import { Skeleton } from "@/components/atoms/skeleton";
+import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 
 const colors = [
@@ -93,7 +94,7 @@ export const TopCropsCard = ({topCrops,
     if (active && payload && payload.length) {
       const pointInfo = payload[0].payload;
       return (
-        <div className=" border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg p-3 text-sm text-gray-800 dark:text-gray-200 flex flex-col gap-1 min-w-[140px]">
+        <div className="bg-primary text-primary-foreground border border-primary/20 rounded-lg shadow-lg p-3 text-sm flex flex-col gap-1 min-w-[140px]">
           <p className="font-semibold pb-1 border-b border-gray-100 dark:border-gray-800">{label}</p>
           
           {!pointInfo.subItems ? (
@@ -137,8 +138,18 @@ export const TopCropsCard = ({topCrops,
         </button>
 
         <CardHeader>
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Top Crops by Questions
+          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+            <span>Top Crops by Questions</span>
+            <ShadcnTooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground normal-case tracking-normal">
+                  <InfoIcon className="h-3.5 w-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="normal-case tracking-normal">
+                Highlights the top 5 crops mentioned in queries, with others grouped.
+              </TooltipContent>
+            </ShadcnTooltip>
           </CardTitle>
           <CardDescription>
             Most frequently asked crops. Total Matching Questions:{" "}

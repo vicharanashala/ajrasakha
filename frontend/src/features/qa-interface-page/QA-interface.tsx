@@ -10,6 +10,7 @@ import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
+import { QuestionService } from "@/hooks/services/questionService";
 import { toast } from "sonner";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import {
@@ -77,6 +78,7 @@ export const QAInterface = ({
   }, [selectQuestionType])
 
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
+  const questionServiceRef = useRef(new QuestionService());
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
   const [filter, setFilter] = useState<QuestionFilter>("newest");
@@ -250,6 +252,61 @@ export const QAInterface = ({
     // Reset translation state when question changes
     setTranslatedText("");
   }, [selectedQuestion]);
+
+  // ─── Time-bound question tracking with 5-minute grace period ─────────────
+  // Tracks which time-bound question the expert has open. When they navigate
+  // away, a 5-min timer starts. If they return within 5 min → timer cancels
+  // and openedAt stays intact. If they don't → backend clears openedAt so
+  // the cron can reallocate the question.
+  const pendingClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastOpenedTimeBoundRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedQuestion || actionType !== "allocated") return;
+
+    const q = questionsRef.current.find((q) => q?.id === selectedQuestion);
+    const isCurrentTimeBound = q?.source === "AJRASAKHA" || q?.source === "WHATSAPP";
+
+    // Case 1: Expert RETURNED to the same time-bound question → cancel pending clear
+    if (isCurrentTimeBound && selectedQuestion === lastOpenedTimeBoundRef.current) {
+      if (pendingClearTimerRef.current) {
+        clearTimeout(pendingClearTimerRef.current);
+        pendingClearTimerRef.current = null;
+      }
+      return; // openedAt is already set from before, no action needed
+    }
+
+    // Case 2: Expert selected a NEW time-bound question → mark opened immediately
+    if (isCurrentTimeBound) {
+      if (pendingClearTimerRef.current) {
+        clearTimeout(pendingClearTimerRef.current);
+        pendingClearTimerRef.current = null;
+      }
+      questionServiceRef.current.markQuestionOpened(selectedQuestion);
+      lastOpenedTimeBoundRef.current = selectedQuestion;
+      return;
+    }
+
+    // Case 3: Expert navigated to a non-time-bound question while they had
+    // a time-bound one open → start 5-minute grace period before clearing
+    if (lastOpenedTimeBoundRef.current && !pendingClearTimerRef.current) {
+      pendingClearTimerRef.current = setTimeout(() => {
+        // 5 minutes passed and expert didn't return → clear the old question's openedAt
+        questionServiceRef.current.markQuestionOpened(selectedQuestion);
+        lastOpenedTimeBoundRef.current = null;
+        pendingClearTimerRef.current = null;
+      }, 5 * 60 * 1000);
+    }
+  }, [selectedQuestion, actionType]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingClearTimerRef.current) {
+        clearTimeout(pendingClearTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedQuestion) return;
@@ -530,6 +587,7 @@ export const QAInterface = ({
       onManualSelectQuestionType?.(null)
     }
     handleReset();
+
   };
 
   const handleAiAnswerFetched = (

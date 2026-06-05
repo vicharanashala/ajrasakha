@@ -148,7 +148,7 @@ export function UserDetailsPreferenceFilter({
 
   const handleReset = () => {
     setDraft({
-      search: "",
+      search: draft.search,
       crop: "",
       village: "",
       block: "",
@@ -164,7 +164,6 @@ export function UserDetailsPreferenceFilter({
   };
 
   const activeCount =
-    (filters.search ? 1 : 0) +
     (filters.crop ? 1 : 0) +
     (filters.village ? 1 : 0) +
     (filters.block ? 1 : 0) +
@@ -235,7 +234,7 @@ export function UserDetailsPreferenceFilter({
             </FilterSection>
           )}
 
-          {/* Search */}
+          {/* Search
           <FilterSection icon={<Search className="h-3.5 w-3.5" />} label="Name / Email">
             <input
               type="text"
@@ -244,7 +243,7 @@ export function UserDetailsPreferenceFilter({
               onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
               className={inputClass}
             />
-          </FilterSection>
+          </FilterSection> */}
 
           {/* Crop */}
           {!hideFields.includes('crop') && (
