@@ -6,6 +6,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { motion } from "framer-motion";
+import CountUp from "react-countup";
 import { Button } from "@/components/atoms/button";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
@@ -102,7 +103,7 @@ export function ClosedInLastTwoHoursCard({
               }}
               key={`${count ?? 0}-${totalClosed ?? 0}`}
             >
-              {safeCount} / {safeTotalClosed}
+              <CountUp end={safeCount} duration={1.5} preserveValue /> / <CountUp end={safeTotalClosed} duration={1.5} preserveValue />
             </motion.div>
           </div>
 
@@ -114,7 +115,7 @@ export function ClosedInLastTwoHoursCard({
             <BadgeCheck className="h-4 w-4 text-primary" />
             <span>
               <span className="font-bold">
-                {closedWithinTwoHoursPct.toFixed(2)}%
+                <CountUp end={closedWithinTwoHoursPct} duration={1.5} decimals={2} preserveValue />%
               </span>{" "}
               of questions were resolved within 2 hours
             </span>
