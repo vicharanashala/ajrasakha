@@ -70,13 +70,13 @@ export const useToggleRole = () => {
         exact: false,
       });
 
-      toast.success(
-        `Role of user ${updatedUser?.user?.firstName} switched successfully to ${updatedUser?.user?.role}`,
-      );
+      // toast.success(
+      //   `Role of user ${updatedUser?.user?.firstName} switched successfully to ${updatedUser?.user?.role}`,
+      // );
     },
 
-    onError: () => {
-      toast.error("Failed to switch role");
-    },
+    // onError: () => {
+    //   // toast.error("Failed to switch role");
+    // },
   });
 };

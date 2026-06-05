@@ -85,7 +85,7 @@ export const UsersTable = ({
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
   const { mutateAsync: blockExpert } = useBlockUser(userRole === "admin" ? { isAdmin: true } : {});
-  const { mutate: toggleUserRole } = useToggleRole();
+  const { mutateAsync: toggleUserRole } = useToggleRole();
   const handleBlock = async () => {
     const action = isCurrentlyBlocked ? "unblock" : "block";
     await toast.promise(blockExpert({ userId: userIdToBlock, action: action }),{
@@ -95,9 +95,17 @@ export const UsersTable = ({
     })
     
   };
-  const handleToggleRole = (userId: string, userRole: string, selectedRole?: string) => {
+  const handleToggleRole = async(userId: string, userRole: string, selectedRole?: string) => {
     console.log("Users data is", { userId, userRole, selectedRole })
-    toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole });
+    await toast.promise(toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole }),{
+      loading: "Switching user role...",
+      success: (updatedUser: any) => {
+      const name = updatedUser?.user?.firstName || "User";
+      const role = updatedUser?.user?.role || "new role";
+      return `Role of user ${name} switched successfully to ${role}`;
+    },
+      error: "Failed to switch user role"
+    })
   };
   const isAdmin = userRole === "admin";
 
