@@ -101,7 +101,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
+ const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     categories = DEFAULT_CATEGORIES,
     source = "annam",
     userType = "all",
@@ -171,3 +171,5 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
       </div>
     );
 };
+
+export default DashboardQueryCategories;

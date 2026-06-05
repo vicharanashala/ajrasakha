@@ -1,6 +1,6 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester';
 export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending';
 export interface IPreference {
   state: string;
@@ -79,6 +79,7 @@ export interface IQuestion {
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;
+  isTesting?: boolean;
   messageId?: string;
   threadId?: string;
   /** Wall-clock moment the current hold segment started (SLA timer freezes until unhold). */
@@ -92,6 +93,7 @@ export interface IQuestion {
   referenceQuestionId?: ObjectId;
   referenceQuestion?: string;
   referenceSource?: string;
+  isExact?: boolean;
   saved_to_draft?: boolean;
   pae_review?: boolean;
   firstAllocationAt?: Date;

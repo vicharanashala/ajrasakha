@@ -52,7 +52,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     open: false,
     type: "hold",
   });
-  const { mutateAsync: holdQuestion, isPending: isHolding } = useHoldQuestion();
+  const { mutateAsync: holdQuestion } = useHoldQuestion();
   const handleHold = () => {
     if (!question?._id) return;
     setConfirmDialog({ open: true, type: question.isOnHold ? "unhold" : "hold", });
@@ -100,8 +100,8 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
 
   const sortedHistory = [...(question?.submission?.history || [])].sort(
     (a, b) =>
-      new Date(a.updatedAt).getTime() -
-      new Date(b.updatedAt).getTime()
+      new Date(a.updatedAt ?? "").getTime() -
+      new Date(b.updatedAt ?? "").getTime()
   );
 
   const latestHistory =
@@ -112,7 +112,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const diffMs =
     latestHistory && question?.closedAt
       ? new Date(question.closedAt).getTime() -
-        new Date(latestHistory.updatedAt).getTime()
+        new Date(latestHistory.updatedAt ?? "").getTime()
       : null;
 
   const formattedTime = (() => {
@@ -163,6 +163,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-start sm:justify-end sm:flex-shrink-0">
             <div className="flex flex-wrap justify-end gap-2">
               {currentUser.role != "expert" &&
+                currentUser.role !== "tester" &&
                 isQuestionAllocatedToExpert &&
                 question.status !== "closed" && (
                   <Button
@@ -232,7 +233,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 Show Reference
               </Button>
             )}
-            {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && (
+            {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && currentUser.role !== "tester" && (
               <Button
                 size="sm"
                 disabled={isCheckingDuplicate}
@@ -478,7 +479,18 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                       {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
                                     </span>
                                     {s.source && (
-                                      <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                      /^https?:\/\//i.test(s.source) ? (
+                                        <a
+                                          href={s.source}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="break-all pl-3 text-primary hover:text-primary/80 hover:underline"
+                                        >
+                                          {s.source}
+                                        </a>
+                                      ) : (
+                                        <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                      )
                                     )}
                                   </li>
                                 ))}
@@ -527,7 +539,18 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                       {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
                                     </span>
                                     {s.source && (
-                                      <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                      /^https?:\/\//i.test(s.source) ? (
+                                        <a
+                                          href={s.source}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="break-all pl-3 text-primary hover:text-primary/80 hover:underline"
+                                        >
+                                          {s.source}
+                                        </a>
+                                      ) : (
+                                        <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                      )
                                     )}
                                   </li>
                                 ))}
@@ -554,6 +577,48 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   <p className="text-sm border rounded-md p-3 bg-muted/20 whitespace-pre-wrap">
                     {referenceAnswerText}
                   </p>
+                </div>
+              )}
+
+              {/* Sources from the reference question's final answer */}
+              {!compareMode && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Sources
+                  </p>
+                  <div className="border rounded-md p-3 bg-muted/20">
+                    {question.referenceQuestionData.sources && question.referenceQuestionData.sources.length > 0 ? (
+                      <ul className="space-y-2">
+                        {question.referenceQuestionData.sources.map((s, i) => (
+                          <li key={i} className="text-sm flex flex-col gap-0.5">
+                            <span className="font-medium text-foreground">
+                              {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
+                            </span>
+                            {s.source && (
+                              /^https?:\/\//i.test(s.source) ? (
+                                <a
+                                  href={s.source}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="break-all pl-4 text-xs text-primary hover:text-primary/80 hover:underline"
+                                >
+                                  {s.source}
+                                </a>
+                              ) : (
+                                <span className="break-all pl-4 text-xs text-muted-foreground">
+                                  {s.source}
+                                </span>
+                              )
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">
+                        No sources available
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

@@ -4,9 +4,11 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, X, InfoIcon } from "lucide-react";
 import { MissingDemographicsModal } from "./MissingDemographicsModal";
+import { useUserMertices } from "../hooks/useDashboardData";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 const AGE_COLORS: Record<string, string> = {
+  "Less than 16": "#2DD4BF",
   "16-30": "#3AAA5A",
   "18-30": "#3AAA5A",
   "30-45": "#378ADD",
@@ -222,9 +224,9 @@ function EnlargedHorizontalBars({ segments, onSegmentClick }: { segments: { labe
 }
 
 interface Props {
-  data: UserDemographics;
   source: "vicharanashala" | "annam" | "whatsapp";
   userType: "all" | "external" | "internal";
+  shouldLoadUserDemographics?: boolean;
 }
 
 function DemographicCard({
@@ -350,13 +352,14 @@ function DemographicCard({
   );
 }
 
-export function UserDemographicsSection({ data, source, userType }: Props) {
+ function UserDemographicsSection({ source, userType, shouldLoadUserDemographics }: Props) {
+    const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, userType, shouldLoadUserDemographics);
   const [selectedMissingField, setSelectedMissingField] = useState<{ title: string; key: string } | null>(null);
 
-  const ageSegments = (data?.ageGroups ?? []).map((d) => ({ ...d, color: AGE_COLORS[d.label] ?? "#6B7280" }));
-  const genderSegments = (data?.genderSplit ?? []).map((d) => ({ ...d, color: GENDER_COLORS[d.label] ?? "#6B7280" }));
-  const expSegments = (data?.farmingExperience ?? []).map((d, i) => ({ ...d, color: EXP_COLORS[i % EXP_COLORS.length] }));
-  const landSegments = (data?.landHolding ?? []).map((d) => ({ ...d, color: LAND_COLORS[d.label] ?? "#6B7280" }));
+  const ageSegments = (userMetricesData?.userDemographics?.ageGroups ?? []).map((d) => ({ ...d, color: AGE_COLORS[d.label] ?? "#6B7280" }));
+  const genderSegments = (userMetricesData?.userDemographics?.genderSplit ?? []).map((d) => ({ ...d, color: GENDER_COLORS[d.label] ?? "#6B7280" }));
+  const expSegments = (userMetricesData?.userDemographics?.farmingExperience ?? []).map((d, i) => ({ ...d, color: EXP_COLORS[i % EXP_COLORS.length] }));
+  const landSegments = (userMetricesData?.userDemographics?.landHolding ?? []).map((d) => ({ ...d, color: LAND_COLORS[d.label] ?? "#6B7280" }));
 
   return (
     <>
@@ -400,3 +403,4 @@ export function UserDemographicsSection({ data, source, userType }: Props) {
     </>
   );
 }
+export default UserDemographicsSection;

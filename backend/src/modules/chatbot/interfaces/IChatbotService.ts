@@ -23,17 +23,17 @@ import type {
 import { GrowthResponse } from '../types/chatbot.type.js';
 
 export interface DashboardResponse {
-  kpi: KpiSummary;
-  dau: DailyActiveUsersEntry[];
-  channelSplit: ChannelSplitEntry[];
-  voiceAccuracy: VoiceAccuracyEntry[];
-  geo: GeoStateEntry[];
-  queryCategories: QueryCategoryEntry[];
-  weeklySessionDuration: WeeklySessionDurationEntry[];
-  monthlySessionDuration: MonthlySessionDurationEntry[];
-  dailyQueries: any[];
-  weeklyQueries: any[];
-  monthlyQueries: any[];
+  kpi?: KpiSummary;
+  dau?: DailyActiveUsersEntry[];
+  channelSplit?: ChannelSplitEntry[];
+  voiceAccuracy?: VoiceAccuracyEntry[];
+  geo?: GeoStateEntry[];
+  queryCategories?: QueryCategoryEntry[];
+  weeklySessionDuration?: WeeklySessionDurationEntry[];
+  monthlySessionDuration?: MonthlySessionDurationEntry[];
+  dailyQueries?: any[];
+  weeklyQueries?: any[];
+  monthlyQueries?: any[];
   ageGroups?: DemographicEntry[];
   genderSplit?: DemographicEntry[];
   farmingExperience?: DemographicEntry[];
@@ -41,7 +41,7 @@ export interface DashboardResponse {
   agriAppUsage?: DemographicEntry[];
   landHolding?: DemographicEntry[];
   platformInstalls?: PlatformInstallEntry[];
-  domainSpikes: DomainSpikeEntry[];
+  domainSpikes?: DomainSpikeEntry[];
   feedbackData?: FeedbackData;
   responseAdherenceTable?: ResponseAdherenceTable;
   dailyQuestionTrends?: Array<{ day: string; uniqueCount: number; duplicateCount: number }>;
@@ -178,7 +178,11 @@ export interface IChatbotService {
       requestType: string,
       startDate?: Date,
       endDate?: Date,
-    ) : Promise<any>;
+    ) : Promise<{
+  _id: string;
+  activeUsers: number;
+}[]>;
   getTopQuestionsFromCollection(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
+  getResponseAdherenceTable(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<ResponseAdherenceTable>;
 }

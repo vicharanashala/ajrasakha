@@ -22,6 +22,7 @@ import {
   UseBefore,
   InternalServerError,
   Req,
+  ForbiddenError,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -33,6 +34,7 @@ import {
   IcheckStatusResponseDto
 } from '#root/shared/interfaces/models.js';
 import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {
   AddQuestionBodyDto,
   AllocatedQuestionsBodyDto,
@@ -178,6 +180,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
     @Req() req: any,
   ): Promise<Partial<any> | { message: string }> {
+    verifyNotTester(user);
     const userId = user?._id?.toString();
     
     const name = `${user?.firstName} ${user?.lastName}`
@@ -364,6 +367,7 @@ export class QuestionController {
      @CurrentUser() user: IUser,
      @QueryParam('type') type?: string,
   ) {
+    verifyNotTester(user);
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.REALLOCATE_QUESTIONS,
@@ -425,8 +429,10 @@ export class QuestionController {
     @Body() body: { 
       assignments: { submissionId: string; expertId: string }[];
       inactiveExpertIds?: string[];
-    }
+    },
+    @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     return this.questionService.manualReallocate(body.assignments, body.inactiveExpertIds);
   }
 
@@ -729,6 +735,7 @@ export class QuestionController {
   @OpenAPI({ summary: 'Toggle auto-allocate option for the selected question' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async toggleAutoAllocate(@Params() params: QuestionIdParam, @CurrentUser() user: IUser,) {
+    verifyNotTester(user);
     const { questionId } = params;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
@@ -817,6 +824,7 @@ export class QuestionController {
     @Body() body: BulkPaeAllocateRequest,
     @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     const { _id: userId } = user;
     const { questionIds, paeExpertId } = body;
     return this.questionService.bulkAllocatePaeExperts(
@@ -836,6 +844,7 @@ export class QuestionController {
     @Body() body: AllocateExpertsRequest,
     @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     const { _id: userId } = user;
     const { questionId } = params;
     const { experts } = body;
@@ -921,8 +930,9 @@ export class QuestionController {
   async updateQuestion(
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<IQuestion>,
-    // @CurrentUser() user: IUser,
+    @CurrentUser() user: IUser,
   ): Promise<{ modifiedCount: number }> {
+    verifyNotTester(user);
     const { questionId } = params;
     let prevQuestion;
     let response;
@@ -1036,6 +1046,7 @@ export class QuestionController {
     @Body() body: RemoveAllocateBody,
     @CurrentUser() user: IUser,
   ): Promise<IQuestionSubmission> {
+    verifyNotTester(user);
     const { _id: userId } = user;
     const { questionId } = params;
     const { index } = body;
@@ -1127,6 +1138,7 @@ export class QuestionController {
     @Body() body: BulkDeleteQuestionDto,
     @CurrentUser() user: IUser,
   ): Promise<{ message: string; jobId: string }> {
+    verifyNotTester(user);
     const { questionIds } = body;
     let prevQuestions;
     let response;
@@ -1198,6 +1210,7 @@ export class QuestionController {
     @Params() params: QuestionIdParam,
     @CurrentUser() user: IUser,
   ): Promise<{ deletedCount: number }> {
+    verifyNotTester(user);
     const { questionId } = params;
     let prevQuestion;
     let response;
@@ -1415,7 +1428,8 @@ export class QuestionController {
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Manually trigger duplicate check for a question without a reference question' })
-  async manualCheckDuplicate(@Params() params: QuestionIdParam) {
+  async manualCheckDuplicate(@Params() params: QuestionIdParam, @CurrentUser() user: IUser) {
+    verifyNotTester(user);
     const { questionId } = params;
     return this.questionService.manualCheckDuplicate(questionId);
   }
@@ -1426,6 +1440,7 @@ export class QuestionController {
   @OpenAPI({ summary: 'To hold the question for some time' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async holdQuestion(@Params() params: QuestionIdParam, @CurrentUser() user: IUser, @Body() body: { action: "hold" | "unhold" }) {
+    verifyNotTester(user);
     const { questionId } = params;
     const { action } = body;
 
@@ -1539,9 +1554,11 @@ export class QuestionController {
 
   @Post('/:questionId/approve-initial-answer')
   @HttpCode(200)
+  @Authorized()
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   @OpenAPI({ summary: 'Generate ai-initial answer' })
-  async approveInitialAnswer(@Params() params: QuestionIdParam, @Body() body:ApproveInitialAnswerBody){
+  async approveInitialAnswer(@Params() params: QuestionIdParam, @Body() body:ApproveInitialAnswerBody, @CurrentUser() user: IUser){
+    verifyNotTester(user);
     const { questionId } = params;
     const { answer } = body;
     return this.questionService.approveAiInitialAnswer(questionId, answer);
@@ -1557,6 +1574,7 @@ export class QuestionController {
     @Body() body: ReplaceQueueExpertRequest,
     @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     const { _id: userId } = user;
     const { questionId } = params;
     const { levelIndex, newExpertId, isAuthor, reasonForChange } = body;
@@ -1590,6 +1608,7 @@ export class QuestionController {
      @CurrentUser() user: IUser,
      @Body() body: ReallocateExpertsSelectedQuestionsRequest,
   ) {
+    verifyNotTester(user);
     const { questionIds } = body;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,

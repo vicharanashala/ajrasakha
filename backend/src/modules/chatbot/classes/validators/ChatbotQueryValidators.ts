@@ -207,10 +207,10 @@ export class UserDetailsQueryDto {
   @IsString()
   activeTodayByProfile?: string;
 
-  @JSONSchema({ example: 'totalQuestions', description: 'Sort by field: totalQuestions or name' })
+  @JSONSchema({ example: 'totalQuestions', description: 'Sort by field: totalQuestions, name, farmerName, email, or createdAt' })
   @IsOptional()
-  @IsIn(['totalQuestions', 'name'])
-  sortBy: 'totalQuestions' | 'name' = 'totalQuestions';
+  @IsIn(['totalQuestions', 'name', 'farmerName', 'email', 'createdAt'])
+  sortBy: 'totalQuestions' | 'name' | 'farmerName' | 'email' | 'createdAt' = 'totalQuestions';
 
   @JSONSchema({ example: 'desc', description: 'Sort order: asc or desc' })
   @IsOptional()
