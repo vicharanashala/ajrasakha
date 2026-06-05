@@ -27,6 +27,7 @@ import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTr
 import {
   DashboardQueryDto,
   QueryAnalyticsQueryDto,
+  QueryCategoryQuestionsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
   WeatherConcernAnalyticsQueryDto,
@@ -51,8 +52,8 @@ import {
   RetentionMetricsQuery,
   TopFaqsQuery,
 } from '../types/chatbot.type.js';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {UserService} from '#root/modules/user/services/UserService.js';
+import { IActiveUser } from '#root/shared/database/providers/mongo/repositories/ChatbotRepository.js';
+import { FeedbackData, KccAndAgriAppStats, PlatformInstallEntry, ResponseAdherenceTable, UserDemographics } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -64,9 +65,6 @@ export class ChatbotController {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotService)
     private readonly chatbotService: IChatbotService,
-
-    @inject(GLOBAL_TYPES.UserService)
-    private readonly userService: UserService,
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
@@ -312,6 +310,27 @@ export class ChatbotController {
   }
 
   @OpenAPI({
+    summary: 'Get paginated questions for a query category',
+    description:
+      'Lists questions for a selected dashboard query category, with server-side pagination and all/unique/duplicate filtering.',
+  })
+  @Get('/query-category-questions')
+  @HttpCode(200)
+  @Authorized()
+  async getQueryCategoryQuestions(
+    @QueryParams() query: QueryCategoryQuestionsQueryDto,
+  ) {
+    return this.chatbotService.getQueryCategoryQuestions(
+      query.category,
+      query.questionType,
+      query.page,
+      query.limit,
+      query.source,
+      query.userType,
+    );
+  }
+
+  @OpenAPI({
     summary: 'Get weather concern analytics',
     description:
       'Returns weather concern percentages from weather tool messages filtered by season and farmer location.',
@@ -415,6 +434,7 @@ export class ChatbotController {
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
     const inactiveOnly = query.inactiveOnly === 'true';
     const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
+    const isVerified = query.isVerified === undefined ? true : query.isVerified === 'true';
     const activeTodayByProfile = query.activeTodayByProfile === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
@@ -433,7 +453,77 @@ export class ChatbotController {
       query.sortOrder,
       activeTodayByProfile,
       query.missingDemographicField,
+      isVerified,
     );
+  }
+
+  @OpenAPI({
+    summary: 'Get unverified users with search capability',
+    description:
+      'Retrieves a paginated list of unverified users (isVerified = false) with optional search filter. Supports pagination.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch unverified users',
+  })
+  @Get('/unverified-users')
+  @HttpCode(200)
+  @Authorized()
+  async getUnverifiedUsers(
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+    @QueryParam('search') search: string = '',
+    @QueryParam('source') source: string = '',
+  ) {
+    return this.chatbotService.getAllUnverifiedUsers(
+      page,
+      limit,
+      search,
+      source
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Verify a user',
+    description:
+      'Updates a user\'s verification status to true. Only users with admin role can perform this action.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 404,
+    description: 'User not found',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to verify user',
+  })
+  @Patch('/verify-user/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async verifyUser(
+    @Param('userId') userId: string,
+    @QueryParam('source') source: string = 'vicharanashala',
+  ) {
+    if (!userId) {
+      throw new BadRequestError('User ID is required');
+    }
+    try {
+      const verifiedUser = await this.chatbotService.verifyUser(userId, source);
+      return {
+        success: true,
+        message: 'User verified successfully',
+        user: verifiedUser,
+      };
+    } catch (error: any) {
+      throw error;
+    }
   }
 
   // @Get('/download-chatbot-report')
@@ -1139,7 +1229,7 @@ export class ChatbotController {
   @Authorized()
   async getActiveUsersTrend(
     @QueryParams() query: ActiveUsersQuery,
-  ): Promise<any> {
+  ): Promise<IActiveUser[]> {
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
 
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
@@ -1195,7 +1285,7 @@ export class ChatbotController {
   @Authorized()
   async getDailyQuestionTrends(
     @QueryParams() query: ActiveUsersQuery,
-  ): Promise<any> {
+  ): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>> {
     const startDate = query.startDate
       ? new Date(query.startDate).toISOString()
       : undefined;
@@ -1218,10 +1308,35 @@ export class ChatbotController {
   @Get('/users-metrices')
   @HttpCode(200)
   @Authorized()
-  async getUsermetrices(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+  async getUsermetrices(@QueryParams() query: ActiveUsersQuery): Promise<{ userDemographics: UserDemographics; platformInstalls: PlatformInstallEntry[]; kccAndAgriAppUsage: KccAndAgriAppStats; feedbackData: FeedbackData}> {
     const source = query.source;
     const userType = query.userType;
 
     return await this.chatbotService.getUsersMetrics(source, userType);
   }
+
+  @Get('/response-adherence-table-data')
+  @HttpCode(200)
+  @Authorized()
+  async getResponseAderenceTable(
+    @QueryParams() query: ActiveUsersQuery,
+  ): Promise<ResponseAdherenceTable> {
+    const startDate = query.startDate
+      ? new Date(query.startDate).toISOString()
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate).toISOString()
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getResponseAdherenceTable(
+      source,
+      userType,
+      startDate,
+      endDate,
+    );
+  }
+  
 }

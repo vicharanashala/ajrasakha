@@ -105,7 +105,8 @@ def _normalize_crop_for_search(crop: str) -> str:
     if not crop or crop.lower() == "all":
         return "all"
     crop = crop.lower().replace("_", " ")
-    return re.sub(r"\s+", " ", crop).strip()
+    crop = re.sub(r"\s+", " ", crop).strip()
+    return " ".join(word.capitalize() for word in crop.split())
 
 
 def _normalize_crop_state(crop: str, state: str) -> tuple[str, str]:

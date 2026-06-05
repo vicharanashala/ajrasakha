@@ -34,11 +34,11 @@ class GDBSearchRequest(BaseModel):
     crop: str = Field(
         ...,
         description=(
-            "Crop filter. Normalised to lowercase with underscores as spaces "
-            "(e.g. round_gourd → round gourd). Matched on MongoDB details.normalised_crop. "
+            "Crop filter. Normalised to title case with underscores as spaces "
+            "(e.g. bengal_gram → Bengal Gram). Matched on MongoDB details.normalised_crop. "
             "Use all to skip crop filter."
         ),
-        examples=["wheat", "round_gourd", "all"],
+        examples=["Wheat", "round_gourd", "all"],
     )
     state: str = Field(
         ...,
@@ -54,7 +54,7 @@ class GDBSearchResponse(BaseModel):
         ...,
         description="Echo of request `rephrased_query` used for the full pipeline.",
     )
-    crop: str = Field(..., description="Normalised crop sent to MongoDB (lowercase, spaces not underscores).")
+    crop: str = Field(..., description="Normalised crop sent to MongoDB (title case, spaces not underscores).")
     state: str
     exact_match: dict = Field(
         default_factory=dict,

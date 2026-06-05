@@ -1,6 +1,19 @@
-import React, { useState, useRef, useCallback, useMemo, Suspense, useEffect } from "react";
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  Suspense,
+  useEffect,
+} from "react";
 import { cn } from "@/lib/utils";
-import { useDailyQuestionTrends, useDashboardData, useTopFaqs, useUserMertices } from "./hooks/useDashboardData";
+import {
+  useDailyQuestionTrends,
+  useDashboardData,
+  useResponseAdherenceTable,
+  useTopFaqs,
+  useUserMertices,
+} from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
@@ -11,7 +24,7 @@ import type { DashboardFilterValues } from "./DashboardFilters";
 import { EightCardsComponent } from "./MetricCard ";
 import DailyActiveUsers from "./dailyActiveUsers";
 import { ChannelSplitCard } from "./components/ChannelSplitCard";
-import { DashboardQueryCategories } from "./DashboardQueryCategories";
+import DashboardQueryCategories from "./DashboardQueryCategories";
 import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
 import { AlertCard } from "./AlertCard";
 import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
@@ -21,10 +34,14 @@ import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
 import { WhatsAppUsersView } from "./WhatsAppUsersView";
-import { UserDemographicsSection } from "./components/UserDemographicsSection";
+// import { UserDemographicsSection } from "./components/UserDemographicsSection";
 // import { UserGrowthChart } from "./components/UserGrowthChart";
 const LazyUserGrowthChart = React.lazy(
   () => import("./components/UserGrowthChart"),
+);
+
+const LazyUserDemographicsSection = React.lazy(
+  () => import("./components/UserDemographicsSection"),
 );
 import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
 import { TopCropsCard } from "./components/TopCropsCard";
@@ -32,8 +49,17 @@ import { useTopCrops } from "./hooks/useTopCrops";
 import { DailyQuestionTrendsChart } from "./components/DailyQuestionTrendsChart";
 import { TopFaqsLeaderboard } from "./components/TopFaqsLeaderboard";
 import { useInView } from "@/hooks/useInView";
-import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
-import { Maximize2, X, Users, RefreshCw, UserMinus, HelpCircle, InfoIcon } from "lucide-react";
+// import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
+import PlatformDonutSegments from "./components/PlatformDonutSegment";
+import {
+  Maximize2,
+  X,
+  Users,
+  RefreshCw,
+  UserMinus,
+  HelpCircle,
+  InfoIcon,
+} from "lucide-react";
 import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import type { DateRange } from "react-day-picker";
@@ -53,7 +79,13 @@ import {
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
-import { useClosedAndNotifedData, useInactiveWhatsappUsers, useMonthlyChurnRate, useQueryCategories, useUniqueWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
+import {
+  useClosedAndNotifedData,
+  useInactiveWhatsappUsers,
+  useMonthlyChurnRate,
+  useQueryCategories,
+  useUniqueWhatsappUsers,
+} from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
 import { motion, AnimatePresence, useTransform } from "framer-motion";
@@ -64,6 +96,7 @@ import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -87,16 +120,23 @@ const parseInputDateToLocalDate = (value: string): Date => {
   return new Date(year, month - 1, day);
 };
 
-
-
 const loadingSkeletonRows = [
   {
     cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-4",
-    items: [{ span: "", height: "140px" }, { span: "", height: "140px" }, { span: "", height: "140px" }, { span: "", height: "140px" }],
+    items: [
+      { span: "", height: "140px" },
+      { span: "", height: "140px" },
+      { span: "", height: "140px" },
+      { span: "", height: "140px" },
+    ],
   },
   {
     cols: "grid-cols-1 lg:grid-cols-3",
-    items: [{ span: "", height: "220px" }, { span: "", height: "220px" }, { span: "", height: "220px" }],
+    items: [
+      { span: "", height: "220px" },
+      { span: "", height: "220px" },
+      { span: "", height: "220px" },
+    ],
   },
   {
     cols: "grid-cols-1 xl:grid-cols-4",
@@ -107,15 +147,27 @@ const loadingSkeletonRows = [
   },
   {
     cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-4",
-    items: [{ span: "", height: "180px" }, { span: "", height: "180px" }, { span: "", height: "180px" }, { span: "", height: "180px" }],
+    items: [
+      { span: "", height: "180px" },
+      { span: "", height: "180px" },
+      { span: "", height: "180px" },
+      { span: "", height: "180px" },
+    ],
   },
   {
     cols: "grid-cols-1 lg:grid-cols-3",
-    items: [{ span: "", height: "220px" }, { span: "", height: "220px" }, { span: "", height: "220px" }],
+    items: [
+      { span: "", height: "220px" },
+      { span: "", height: "220px" },
+      { span: "", height: "220px" },
+    ],
   },
   {
     cols: "grid-cols-1 lg:grid-cols-2",
-    items: [{ span: "", height: "260px" }, { span: "", height: "260px" }],
+    items: [
+      { span: "", height: "260px" },
+      { span: "", height: "260px" },
+    ],
   },
   {
     cols: "grid-cols-1",
@@ -123,7 +175,10 @@ const loadingSkeletonRows = [
   },
   {
     cols: "grid-cols-1 lg:grid-cols-2",
-    items: [{ span: "", height: "240px" }, { span: "", height: "240px" }],
+    items: [
+      { span: "", height: "240px" },
+      { span: "", height: "240px" },
+    ],
   },
   {
     cols: "grid-cols-1",
@@ -139,9 +194,18 @@ const loadingSkeletonRows = [
   },
 ];
 
-function LazySectionSkeleton({ className = "h-[300px]" }: { className?: string }) {
+function LazySectionSkeleton({
+  className = "h-[300px]",
+}: {
+  className?: string;
+}) {
   return (
-    <div className={cn("w-full rounded-xl border border-border/60 bg-card/40 p-4", className)}>
+    <div
+      className={cn(
+        "w-full rounded-xl border border-border/60 bg-card/40 p-4",
+        className,
+      )}
+    >
       <Skeleton className="h-full w-full rounded-lg" />
     </div>
   );
@@ -154,24 +218,31 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-  const isAppAnalyticsSource = source === "annam" || source === "vicharanashala" || source === "whatsapp";
+  const isAppAnalyticsSource =
+    source === "annam" || source === "vicharanashala" || source === "whatsapp";
   const loadImmediately = !isAppAnalyticsSource;
   const { data, isLoading, isFetching, error } = useDashboardData(
     filters,
     source,
     isAppAnalyticsSource,
   );
-  const [
+  const [inactiveUsersPage, setInactiveUsersPage] = useState(1);
+  const { data: inactiveWhatsappUsers } = useInactiveWhatsappUsers(
     inactiveUsersPage,
-    setInactiveUsersPage,
-  ] = useState(1);
-  const {data: inactiveWhatsappUsers }= useInactiveWhatsappUsers(inactiveUsersPage, source === "whatsapp");
-  const [closed2hDateRange, setClosed2hDateRange] = useState<DateRange | undefined>(undefined);
-  const [questionStatusDateRange, setQuestionStatusDateRange] = useState<DateRange | undefined>(undefined);
-  const [customerNotificationsDateRange, setCustomerNotificationsDateRange] = useState<DateRange | undefined>(undefined);
+    source === "whatsapp",
+  );
+  const [closed2hDateRange, setClosed2hDateRange] = useState<
+    DateRange | undefined
+  >(undefined);
+  const [questionStatusDateRange, setQuestionStatusDateRange] = useState<
+    DateRange | undefined
+  >(undefined);
+  const [customerNotificationsDateRange, setCustomerNotificationsDateRange] =
+    useState<DateRange | undefined>(undefined);
 
   const getISOStringsForDateRange = useCallback((range?: DateRange) => {
-    if (!range || !range.from) return { startTime: undefined, endTime: undefined };
+    if (!range || !range.from)
+      return { startTime: undefined, endTime: undefined };
 
     const startTime = new Date(range.from);
     startTime.setHours(0, 0, 0, 0);
@@ -200,75 +271,104 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     };
   }, []);
 
-  const closed2hRange = useMemo(() => getISOStringsForDateRange(closed2hDateRange), [closed2hDateRange, getISOStringsForDateRange]);
-  const questionStatusRange = useMemo(() => getISOStringsForDateRange(questionStatusDateRange), [questionStatusDateRange, getISOStringsForDateRange]);
-  const customerNotificationsRange = useMemo(() => getISOStringsForDateRange(customerNotificationsDateRange), [customerNotificationsDateRange, getISOStringsForDateRange]);
+  const closed2hRange = useMemo(
+    () => getISOStringsForDateRange(closed2hDateRange),
+    [closed2hDateRange, getISOStringsForDateRange],
+  );
+  const questionStatusRange = useMemo(
+    () => getISOStringsForDateRange(questionStatusDateRange),
+    [questionStatusDateRange, getISOStringsForDateRange],
+  );
+  const customerNotificationsRange = useMemo(
+    () => getISOStringsForDateRange(customerNotificationsDateRange),
+    [customerNotificationsDateRange, getISOStringsForDateRange],
+  );
 
-  const { data: closed2hData, isFetching: isClosed2hFetching } = useClosedAndNotifedData(
+  const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } = useClosedAndNotifedData(
     source,
     closed2hRange.startTime,
     closed2hRange.endTime,
   );
-  const { data: questionStatusData, isFetching: isQuestionStatusFetching } = useClosedAndNotifedData(
+  const { data: questionStatusData, isLoading: isQuestionStatusLoading, isFetching: isQuestionStatusFetching } = useClosedAndNotifedData(
     source,
     questionStatusRange.startTime,
     questionStatusRange.endTime,
   );
-  const { data: customerNotificationsData, isFetching: isCustomerNotificationsFetching } = useClosedAndNotifedData(
+  const { data: customerNotificationsData, isLoading: isCustomerNotificationsLoading, isFetching: isCustomerNotificationsFetching } = useClosedAndNotifedData(
     source,
     customerNotificationsRange.startTime,
     customerNotificationsRange.endTime,
   );
-
-
 
   useEffect(() => {
     setClosed2hDateRange(undefined);
     setQuestionStatusDateRange(undefined);
     setCustomerNotificationsDateRange(undefined);
   }, [source]);
-  const [
-    isInactiveWhatsappModalOpen,
-    setIsInactiveWhatsappModalOpen,
-  ] = useState(false);
-  const handleWhatsappInactiveUsersClick =
-    useCallback(() => {
-      setInactiveUsersPage(1);
-      setIsInactiveWhatsappModalOpen(true);
-    }, []);
+  const [isInactiveWhatsappModalOpen, setIsInactiveWhatsappModalOpen] =
+    useState(false);
+  const handleWhatsappInactiveUsersClick = useCallback(() => {
+    setInactiveUsersPage(1);
+    setIsInactiveWhatsappModalOpen(true);
+  }, []);
 
   const { ref: growthRef, isVisible: isGrowthVisible } = useInView();
-  const { ref: queryInsightsRef, isVisible: isQueryInsightsVisible } = useInView();
+  const { ref: queryInsightsRef, isVisible: isQueryInsightsVisible } =
+    useInView();
+  const { ref: responseAdherenceRef, isVisible: isResponseAdherenceVisible } =
+    useInView();
   const { ref: trendsRef, isVisible: isTrendsVisible } = useInView();
   const { ref: faqsRef, isVisible: isFaqsVisible } = useInView();
   const { ref: activeUsersRef, isVisible: isActiveUsersVisible } = useInView();
-  const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } = useInView();
+  const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } =
+    useInView();
   const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
+  // const { ref: userVerificationRef, isVisible: isUserVerificationVisible } = useInView();
+  const { ref: userDemographicsRef, isVisible: isUserDemographicsVisible } =
+    useInView();
+
+  const shouldLoadResponseAdherence =
+    loadImmediately || isResponseAdherenceVisible;
   const shouldLoadQueryInsights = loadImmediately || isQueryInsightsVisible;
   const shouldLoadTrends = loadImmediately || isTrendsVisible;
   const shouldLoadFaqs = loadImmediately || isFaqsVisible;
   const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
   const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
   const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
+  // const shouldUserVerification = loadImmediately || isUserVerificationVisible;
+  const shouldLoadUserDemographics = loadImmediately || isUserDemographicsVisible;
 
-  const {data: queryCategories} = useQueryCategories(source, shouldLoadQueryInsights);
-  const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(undefined);
-  const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(undefined);
+  const { data: queryCategories } = useQueryCategories(
+    source,
+    shouldLoadQueryInsights,
+  );
+  const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(
+    undefined,
+  );
+  const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(
+    undefined,
+  );
   const [responseAdherenceDate, setResponseAdherenceDate] = useState<string>(
     formatDateForInput(new Date()),
   );
 
-  const trendsFilters = useMemo(() => ({
-    ...filters,
-    startTime: trendsDateRange?.from,
-    endTime: trendsDateRange?.to,
-  }), [filters, trendsDateRange]);
+  const trendsFilters = useMemo(
+    () => ({
+      ...filters,
+      startTime: trendsDateRange?.from,
+      endTime: trendsDateRange?.to,
+    }),
+    [filters, trendsDateRange],
+  );
 
-  const faqsFilters = useMemo(() => ({
-    ...filters,
-    startTime: faqsDateRange?.from,
-    endTime: faqsDateRange?.to,
-  }), [filters, faqsDateRange]);
+  const faqsFilters = useMemo(
+    () => ({
+      ...filters,
+      startTime: faqsDateRange?.from,
+      endTime: faqsDateRange?.to,
+    }),
+    [filters, faqsDateRange],
+  );
 
   // const { data: trendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDashboardData(
   //   trendsFilters,
@@ -280,9 +380,18 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   //   source,
   //   shouldLoadFaqs,
   // );
-  const {data: faqsData, isLoading: faqsLoading, isFetching: faqsFetching} = useTopFaqs(
-    source, faqsFilters.userType, faqsFilters.startTime, faqsFilters.endTime);
-// console.log(faqsDataa,"----faqs filters", faqsFilters, faqsData);
+  const {
+    data: faqsData,
+    isLoading: faqsLoading,
+    isFetching: faqsFetching,
+  } = useTopFaqs(
+    source,
+    faqsFilters.userType,
+    faqsFilters.startTime,
+    faqsFilters.endTime,
+    shouldLoadFaqs,
+  );
+  // console.log(faqsDataa,"----faqs filters", faqsFilters, faqsData);
   const responseAdherenceFilters = useMemo(() => {
     const selectedDate = parseInputDateToLocalDate(responseAdherenceDate);
     const startTime = new Date(selectedDate);
@@ -313,11 +422,23 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     };
   }, [filters, responseAdherenceDate]);
 
+  // const {
+  //   data: responseAdherenceData,
+  //   isLoading: isResponseAdherenceLoading,
+  //   isFetching: isResponseAdherenceFetching,
+  // } = useDashboardData(responseAdherenceFilters, source);
+
   const {
     data: responseAdherenceData,
     isLoading: isResponseAdherenceLoading,
     isFetching: isResponseAdherenceFetching,
-  } = useDashboardData(responseAdherenceFilters, source);
+  } = useResponseAdherenceTable(
+    source,
+    filters.userType,
+    responseAdherenceFilters.startTime,
+    responseAdherenceFilters.endTime,
+    shouldLoadResponseAdherence,
+  );
 
   // const {
   //   data: dauTrend,
@@ -332,6 +453,7 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
   >(undefined);
+
   const {
     data: topCrops,
     isLoading: isLoadingTopCrops,
@@ -430,18 +552,19 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
     todayEnd,
     1,
     1,
-    '',
+    "",
     source as any,
-    '',
-    '',
-    'all',
+    "",
+    "",
+    "all",
     false,
     false,
     filters.userType as any,
-    'totalQuestions',
-    'desc',
+    "totalQuestions",
+    "desc",
     true, // activeTodayByProfile
-    isAppAnalyticsSource,
+    undefined,
+    shouldLoadActiveUsers,
   );
 
   // Patch the DAU card to show "today / total" instead of just total
@@ -482,35 +605,44 @@ export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange
   const [weatherConcernFilters, setWeatherConcernFilters] =
     useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
 
+  const queryCard = data?.kpiRow1?.find((card) => card.id === "queries");
 
-const queryCard =
-  data?.kpiRow1?.find(
-    (card) => card.id === "queries"
+  const dailyAnalytics = queryCard?.dailyAnalytics || [];
+
+  const weeklyAnalytics = queryCard?.weeklyAnalytics || [];
+
+  const monthlyAnalytics = queryCard?.monthlyAnalytics || [];
+
+  useEffect(() => {
+    if (source === "whatsapp") {
+      setFilters((prev) => ({
+        ...prev,
+        userType: "all",
+      }));
+    }
+  }, [source]);
+
+  const {
+    data: dailyQuestionTrendsData,
+    isLoading: trendsLoading,
+    isFetching: trendsFetching,
+  } = useDailyQuestionTrends(
+    source,
+    trendsFilters.userType as string,
+    trendsFilters.startTime,
+    trendsFilters.endTime,
+    shouldLoadTrends,
   );
 
-const dailyAnalytics =
-  queryCard?.dailyAnalytics || [];
+  const {
+    data: userMetricesData,
+    isLoading: usermetricsLoading,
+    isFetching: usermetricsFetching,
+  } = useUserMertices(source, filters.userType, shouldLoadUserDemographics);
 
-const weeklyAnalytics =
-  queryCard?.weeklyAnalytics || [];
+  // console.log("userMetricesData", userMetricesData);
 
-const monthlyAnalytics =
-  queryCard?.monthlyAnalytics || [];
-
-useEffect(() => {
-  if (source === "whatsapp") {
-    setFilters((prev) => ({
-      ...prev,
-      userType: "all",
-    }));
-  }
-}, [source]);
-
-  const { data: dailyQuestionTrendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDailyQuestionTrends(source, trendsFilters.userType as string, trendsFilters.startTime, trendsFilters.endTime);
-
-  const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, filters.userType);
-
-const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp");
+const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLoading: isUniqueWhatsAppUsersLoading} = useUniqueWhatsappUsers(source === "whatsapp");
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -621,12 +753,14 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                     />
                   )}
 
+  
+                {/* 
                   {isFetching && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center">
                       {/* <Spinner
                         text="Preparing dashboard insights and refreshing analytics..."
                         fullScreen={false}
-                      /> */}
+                      /> 
                       {loadingSkeletonRows.map((row, rowIndex) => (
                         <div
                           key={rowIndex}
@@ -642,8 +776,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         </div>
                       ))}
                     </div>
-                  )}
-                  {isLoading ? (
+                  )} */}
+                  {/* {isLoading ? (
                     <div className="space-y-5 animate-pulse">
                       {loadingSkeletonRows.map((row, rowIndex) => (
                         <div
@@ -660,7 +794,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         </div>
                       ))}
                     </div>
-                  ) : (
+                  ) : (  */}
                     <>
                       <div
                         ref={(el) => {
@@ -694,14 +828,14 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                               title="Daily Queries"
                               analytics={dailyAnalytics}
                               granularity="daily"
-                              
+                              isLoading={isFetching || isLoading}
                             />
 
                             <WhatsAppAnalyticsCard
                               title="Weekly Queries"
                               analytics={weeklyAnalytics}
                               granularity="weekly"
-                              
+                              isLoading={isFetching || isLoading}
 
                             />
 
@@ -709,16 +843,17 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                               title="Monthly Queries"
                               analytics={monthlyAnalytics}
                               granularity="monthly"
-                              
+                              isLoading={isFetching || isLoading}                              
                             />
                           </div>
                         )}
-                          <div
-                            className={`grid gap-4 mb-6 items-stretch ${source === "whatsapp"
-                                ? "grid-cols-1 lg:grid-cols-[0.6fr_1fr_1.4fr_1.4fr]"
-                                : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
-                              }`}
-                          >
+                        <div
+                          className={`grid gap-4 mb-6 items-stretch ${
+                            source === "whatsapp"
+                              ? "grid-cols-1 lg:grid-cols-[0.6fr_1fr_1.4fr_1.4fr]"
+                              : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
+                          }`}
+                        >
                           {source === "whatsapp" && (
                             <WhatsAppUniqueUsersCard
                               totalUsers={unqueWhatsAppUsers}
@@ -726,11 +861,12 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                                 setActiveView("user-details");
                                 scrollTo("user-details");
                               }}
+                              isLoading={isUniqueWhatsAppUsersLoading || isUniqueWhatsAppUsersFetching}
                             />
                           )}
 
-                           <ClosedInLastTwoHoursCard
-                            source = {source}
+                          <ClosedInLastTwoHoursCard
+                            source={source}
                             count={closed2hData?.closedInLastTwoHours}
                             totalClosed={
                               closed2hData?.closedVsTotalQuestions
@@ -738,7 +874,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                             }
                             dateRange={closed2hDateRange}
                             onDateRangeChange={setClosed2hDateRange}
-                            isLoading={isClosed2hFetching}
+                            isLoading={isClosed2hFetching || isClosed2hLoading}
                           />
                           <ClosedQuestionsCard
                             closedQuestions={
@@ -755,11 +891,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                             }
                             dateRange={questionStatusDateRange}
                             onDateRangeChange={setQuestionStatusDateRange}
-                            isLoading={isQuestionStatusFetching}
+                            isLoading={isQuestionStatusFetching || isQuestionStatusLoading}
                             carryForward={
                               questionStatusData?.carryForward
                             }
-                            statusBreakup={questionStatusData?.closedVsTotalQuestions}
                             avgCloseTimeMinutes={
                               questionStatusData?.closedVsTotalQuestions
                                 ?.avgCloseTimeMinutes
@@ -768,10 +903,12 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                               questionStatusData?.closedVsTotalQuestions
                                 ?.previousMonthAvgCloseTimeMinutes
                             }
+                            statusBreakup={questionStatusData?.closedVsTotalQuestions}
                           />
                           <CustomerNotificationsCard
                             notified={
-                              customerNotificationsData?.notifiedVsClosed?.notified
+                              customerNotificationsData?.notifiedVsClosed
+                                ?.notified
                             }
                             notNotified={
                               customerNotificationsData?.notifiedVsClosed
@@ -783,23 +920,24 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                             }
                             dateRange={customerNotificationsDateRange}
                             onDateRangeChange={setCustomerNotificationsDateRange}
-                            isLoading={isCustomerNotificationsFetching}
+                            isLoading={isCustomerNotificationsFetching || isCustomerNotificationsLoading}
                           />
                         </div>
                         {source !== "whatsapp" && (
-                          <ResponseAdherenceTableCard
-                            data={
-                              (responseAdherenceData as any)
-                                .responseAdherenceTable ??
-                              (data as any).responseAdherenceTable
-                            }
-                            selectedDate={responseAdherenceDate}
-                            onSelectedDateChange={setResponseAdherenceDate}
-                            isLoading={
-                              isResponseAdherenceLoading ||
-                              isResponseAdherenceFetching
-                            }
-                          />
+                          <div   ref={(el) => {
+                            sectionRefs.current["responsetable"] = el;
+                            responseAdherenceRef.current = el;
+                          }}>
+                            {shouldLoadResponseAdherence ? <ResponseAdherenceTableCard
+                              data={responseAdherenceData}
+                              selectedDate={responseAdherenceDate}
+                              onSelectedDateChange={setResponseAdherenceDate}
+                              isLoading={
+                                isResponseAdherenceLoading ||
+                                isResponseAdherenceFetching
+                              }
+                            /> : <LazySectionSkeleton className="h-[400px]" />}
+                          </div>
                         )}
                       </div>
 
@@ -874,9 +1012,10 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         <div
                           ref={(el) => {
                             sectionRefs.current["demographics"] = el;
+                            userDemographicsRef.current = el;
                           }}
                         >
-                          <UserDemographicsSection
+                          {/* <UserDemographicsSection
                             data={{
                               ageGroups: userMetricesData?.userDemographics?.ageGroups,
                               genderSplit: userMetricesData?.userDemographics?.genderSplit,
@@ -885,7 +1024,22 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                             }}
                             source={source}
                             userType={filters.userType}
-                          />
+                          /> */}
+                          {isUserDemographicsVisible || loadImmediately ? (
+                            <Suspense
+                              fallback={
+                                <LazySectionSkeleton className="h-[400px]" />
+                              }
+                            >
+                              <LazyUserDemographicsSection
+                                source={source}
+                                userType={filters.userType}
+                                shouldLoadUserDemographics={shouldLoadUserDemographics}
+                              />
+                            </Suspense>
+                          ) : (
+                            <LazySectionSkeleton />
+                          )}
                         </div>
                       )}
                       {/* 2-col row */}
@@ -894,7 +1048,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         {source !== "whatsapp" && (
                           <div className="h-full">
                             <PlatformDonutSegments
-                              rawData={userMetricesData?.platformInstalls}
+                              source={source}
+                              userType={filters.userType}
                             />
                           </div>
                         )}
@@ -909,207 +1064,222 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                             {/* <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" /> */}
 
                             <div className="relative h-full rounded-xl border border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
-                            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+                              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
-                            <div className="flex items-center gap-2 mb-5">
-                              <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-                              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
-                                 <span>Knowledge & Awareness</span>
-                                 <Tooltip>
-                                   <TooltipTrigger asChild>
-                                     <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
-                                       <InfoIcon className="h-3.5 w-3.5" />
-                                     </span>
-                                   </TooltipTrigger>
-                                   <TooltipContent className="normal-case tracking-normal">
-                                     Shows survey statistics on KCC awareness and agricultural app usage.
-                                   </TooltipContent>
-                                 </Tooltip>
-                               </h3>
-                            </div>
+                              <div className="flex items-center gap-2 mb-5">
+                                <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+                                <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
+                                  <span>Knowledge & Awareness</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                                        <InfoIcon className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="normal-case tracking-normal">
+                                      Shows survey statistics on KCC awareness
+                                      and agricultural app usage.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </h3>
+                              </div>
 
-                            <div className="flex flex-wrap gap-6 justify-center items-center h-[calc(100%-3rem)] overflow-hidden">
-                              {[
-                                {
-                                  label: "KCC Awareness",
-                                  data: userMetricesData?.kccAndAgriAppUsage?.kccAwareness,
-                                  hovered,
-                                  setHover: setHovered,
-                                  color: "hsl(142 71% 45%)",
-                                  gradId: "kccGrad",
-                                },
-                                {
-                                  label: "Uses Agri Apps",
-                                  data: userMetricesData?.kccAndAgriAppUsage?.agriAppUsage,
-                                  hovered: agriHovered,
-                                  setHover: setAgriHovered,
-                                  color: "hsl(217 91% 60%)",
-                                  gradId: "agriGrad",
-                                },
-                              ].map(
-                                ({
-                                  label,
-                                  data: d,
-                                  hovered: h,
-                                  setHover,
-                                  color,
-                                  gradId,
-                                }) => {
-                                  const yes = d?.[0]?.count || 0;
-                                  const no = d?.[1]?.count || 0;
-                                  const total = yes + no;
-                                  const r = 45,
-                                    cx = 60,
-                                    cy = 60;
-                                  const circ = 2 * Math.PI * r;
-                                  const yesDash = total
-                                    ? (yes / total) * circ
-                                    : 0;
-                                  const noDash = total
-                                    ? (no / total) * circ
-                                    : 0;
-                                  const yesPct = total
-                                    ? Math.round((yes / total) * 100)
-                                    : 0;
+                              <div className="flex flex-wrap gap-6 justify-center items-center h-[calc(100%-3rem)] overflow-hidden">
+                                {[
+                                  {
+                                    label: "KCC Awareness",
+                                    data: userMetricesData?.kccAndAgriAppUsage
+                                      ?.kccAwareness,
+                                    hovered,
+                                    setHover: setHovered,
+                                    color: "hsl(142 71% 45%)",
+                                    gradId: "kccGrad",
+                                  },
+                                  {
+                                    label: "Uses Agri Apps",
+                                    data: userMetricesData?.kccAndAgriAppUsage
+                                      ?.agriAppUsage,
+                                    hovered: agriHovered,
+                                    setHover: setAgriHovered,
+                                    color: "hsl(217 91% 60%)",
+                                    gradId: "agriGrad",
+                                  },
+                                ].map(
+                                  ({
+                                    label,
+                                    data: d,
+                                    hovered: h,
+                                    setHover,
+                                    color,
+                                    gradId,
+                                  }) => {
+                                    const yes = d?.[0]?.count || 0;
+                                    const no = d?.[1]?.count || 0;
+                                    const total = yes + no;
+                                    const r = 45,
+                                      cx = 60,
+                                      cy = 60;
+                                    const circ = 2 * Math.PI * r;
+                                    const yesDash = total
+                                      ? (yes / total) * circ
+                                      : 0;
+                                    const noDash = total
+                                      ? (no / total) * circ
+                                      : 0;
+                                    const yesPct = total
+                                      ? Math.round((yes / total) * 100)
+                                      : 0;
 
-                                  return (
-                                    <div
-                                      key={label}
-                                      className="flex flex-col items-center gap-3 min-w-0 group/chart"
-                                    >
-                                      <div className="relative">
-                                        {/* Soft glow */}
+                                    return (
+                                      <div
+                                        key={label}
+                                        className="flex flex-col items-center gap-3 min-w-0 group/chart"
+                                      >
+                                        <div className="relative">
+                                          {/* Soft glow */}
 
-                                        <svg
-                                          viewBox="0 0 120 120"
-                                          className="relative w-[120px] h-[120px]"
-                                        >
-                                          <defs>
-                                            <linearGradient
-                                              id={gradId}
-                                              x1="0%"
-                                              y1="0%"
-                                              x2="100%"
-                                              y2="100%"
+                                          <svg
+                                            viewBox="0 0 120 120"
+                                            className="relative w-[120px] h-[120px]"
+                                          >
+                                            <defs>
+                                              <linearGradient
+                                                id={gradId}
+                                                x1="0%"
+                                                y1="0%"
+                                                x2="100%"
+                                                y2="100%"
+                                              >
+                                                <stop
+                                                  offset="0%"
+                                                  stopColor={color}
+                                                  stopOpacity="1"
+                                                />
+                                                <stop
+                                                  offset="100%"
+                                                  stopColor={color}
+                                                  stopOpacity="0.7"
+                                                />
+                                              </linearGradient>
+                                            </defs>
+
+                                            {/* Track */}
+                                            <circle
+                                              cx={cx}
+                                              cy={cy}
+                                              r={r}
+                                              fill="none"
+                                              className="stroke-muted"
+                                              strokeWidth={10}
+                                            />
+
+                                            {/* Yes arc */}
+                                            <circle
+                                              cx={cx}
+                                              cy={cy}
+                                              r={r}
+                                              fill="none"
+                                              stroke={`url(#${gradId})`}
+                                              strokeWidth={
+                                                h === "yes" ? 13 : 10
+                                              }
+                                              strokeLinecap="round"
+                                              strokeDasharray={`${yesDash} ${circ}`}
+                                              transform={`rotate(-90 ${cx} ${cy})`}
+                                              className="cursor-pointer transition-[stroke-width] duration-200"
+                                              onMouseEnter={() =>
+                                                setHover("yes")
+                                              }
+                                              onMouseLeave={() =>
+                                                setHover(null)
+                                              }
+                                            />
+
+                                            {/* No arc */}
+                                            <circle
+                                              cx={cx}
+                                              cy={cy}
+                                              r={r}
+                                              fill="none"
+                                              className="stroke-muted-foreground/40 cursor-pointer transition-[stroke-width] duration-200"
+                                              strokeWidth={h === "no" ? 13 : 10}
+                                              strokeLinecap="round"
+                                              strokeDasharray={`${noDash} ${circ}`}
+                                              strokeDashoffset={-yesDash}
+                                              transform={`rotate(-90 ${cx} ${cy})`}
+                                              onMouseEnter={() =>
+                                                setHover("no")
+                                              }
+                                              onMouseLeave={() =>
+                                                setHover(null)
+                                              }
+                                            />
+
+                                            {/* Center text */}
+                                            <text
+                                              x={cx}
+                                              y={cy - 2}
+                                              textAnchor="middle"
+                                              className="fill-foreground font-bold tabular-nums"
+                                              fontSize={h ? 16 : 20}
                                             >
-                                              <stop
-                                                offset="0%"
-                                                stopColor={color}
-                                                stopOpacity="1"
-                                              />
-                                              <stop
-                                                offset="100%"
-                                                stopColor={color}
-                                                stopOpacity="0.7"
-                                              />
-                                            </linearGradient>
-                                          </defs>
+                                              {h === "yes"
+                                                ? yes
+                                                : h === "no"
+                                                  ? no
+                                                  : total}
+                                            </text>
+                                            <text
+                                              x={cx}
+                                              y={cy + 12}
+                                              textAnchor="middle"
+                                              className="fill-muted-foreground"
+                                              fontSize={8}
+                                              style={{
+                                                letterSpacing: "0.1em",
+                                                textTransform: "uppercase",
+                                              }}
+                                            >
+                                              {h === "yes"
+                                                ? "Yes"
+                                                : h === "no"
+                                                  ? "No"
+                                                  : "Total"}
+                                            </text>
+                                          </svg>
+                                        </div>
 
-                                          {/* Track */}
-                                          <circle
-                                            cx={cx}
-                                            cy={cy}
-                                            r={r}
-                                            fill="none"
-                                            className="stroke-muted"
-                                            strokeWidth={10}
-                                          />
-
-                                          {/* Yes arc */}
-                                          <circle
-                                            cx={cx}
-                                            cy={cy}
-                                            r={r}
-                                            fill="none"
-                                            stroke={`url(#${gradId})`}
-                                            strokeWidth={h === "yes" ? 13 : 10}
-                                            strokeLinecap="round"
-                                            strokeDasharray={`${yesDash} ${circ}`}
-                                            transform={`rotate(-90 ${cx} ${cy})`}
-                                            className="cursor-pointer transition-[stroke-width] duration-200"
-                                            onMouseEnter={() => setHover("yes")}
-                                            onMouseLeave={() => setHover(null)}
-                                          />
-
-                                          {/* No arc */}
-                                          <circle
-                                            cx={cx}
-                                            cy={cy}
-                                            r={r}
-                                            fill="none"
-                                            className="stroke-muted-foreground/40 cursor-pointer transition-[stroke-width] duration-200"
-                                            strokeWidth={h === "no" ? 13 : 10}
-                                            strokeLinecap="round"
-                                            strokeDasharray={`${noDash} ${circ}`}
-                                            strokeDashoffset={-yesDash}
-                                            transform={`rotate(-90 ${cx} ${cy})`}
-                                            onMouseEnter={() => setHover("no")}
-                                            onMouseLeave={() => setHover(null)}
-                                          />
-
-                                          {/* Center text */}
-                                          <text
-                                            x={cx}
-                                            y={cy - 2}
-                                            textAnchor="middle"
-                                            className="fill-foreground font-bold tabular-nums"
-                                            fontSize={h ? 16 : 20}
-                                          >
-                                            {h === "yes"
-                                              ? yes
-                                              : h === "no"
-                                                ? no
-                                                : total}
-                                          </text>
-                                          <text
-                                            x={cx}
-                                            y={cy + 12}
-                                            textAnchor="middle"
-                                            className="fill-muted-foreground"
-                                            fontSize={8}
-                                            style={{
-                                              letterSpacing: "0.1em",
-                                              textTransform: "uppercase",
-                                            }}
-                                          >
-                                            {h === "yes"
-                                              ? "Yes"
-                                              : h === "no"
-                                                ? "No"
-                                                : "Total"}
-                                          </text>
-                                        </svg>
+                                        <div className="flex flex-col items-center gap-1">
+                                          <span className="text-xs font-medium text-foreground">
+                                            {label}
+                                          </span>
+                                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+                                            <span
+                                              className="w-1.5 h-1.5 rounded-full"
+                                              style={{ backgroundColor: color }}
+                                            />
+                                            {yesPct}% Yes
+                                          </span>
+                                        </div>
                                       </div>
-
-                                      <div className="flex flex-col items-center gap-1">
-                                        <span className="text-xs font-medium text-foreground">
-                                          {label}
-                                        </span>
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
-                                          <span
-                                            className="w-1.5 h-1.5 rounded-full"
-                                            style={{ backgroundColor: color }}
-                                          />
-                                          {yesPct}% Yes
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                },
-                              )}
+                                    );
+                                  },
+                                )}
+                              </div>
                             </div>
                           </div>
-                           </div>
                         )}
 
                         {source !== "whatsapp" && (
                           <FeedbackCard
                             title="Feedback Data"
                             positiveFeedbacksCount={
-                              userMetricesData?.feedbackData?.stats?.positiveCount
+                              userMetricesData?.feedbackData?.stats
+                                ?.positiveCount
                             }
                             negativeFeedbacksCount={
-                              userMetricesData?.feedbackData?.stats?.negativeCount
+                              userMetricesData?.feedbackData?.stats
+                                ?.negativeCount
                             }
                             positiveFeedbacks={
                               userMetricesData?.feedbackData?.positiveFeedbacks
@@ -1118,7 +1288,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                               userMetricesData?.feedbackData?.negativeFeedbacks
                             }
                             averageRating={
-                              userMetricesData?.feedbackData?.stats?.averageRating
+                              userMetricesData?.feedbackData?.stats
+                                ?.averageRating
                             }
                           />
                         )}
@@ -1142,10 +1313,13 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                           {shouldLoadQueryInsights ? (
                             <DashboardQueryCategories
                               categories={
-                                source === "whatsapp"
-                                  ? queryCategories
-                                  : data.queryCategories
+                                queryCategories
+                                // source === "whatsapp"
+                                //   ? queryCategories
+                                //   : data.queryCategories
                               }
+                              source={source}
+                              userType={filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />
@@ -1217,7 +1391,9 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                               topQuestionsFromCollection={
                                 (faqsData as any)?.topQuestionsFromCollection
                               }
-                              repeatQueryCount={(faqsData as any)?.repeatQueryCount}
+                              repeatQueryCount={
+                                (faqsData as any)?.repeatQueryCount
+                              }
                               repeatQueryRatePct={
                                 (faqsData as any)?.repeatQueryRatePct
                               }
@@ -1266,9 +1442,16 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                           className=""
                         >
                           {shouldLoadActiveUsers ? (
-                            <Tabs value={activeChartTab} onValueChange={setActiveChartTab} className="w-full">
+                            <Tabs
+                              value={activeChartTab}
+                              onValueChange={setActiveChartTab}
+                              className="w-full"
+                            >
                               <TabsList className="grid w-full max-w-xl grid-cols-3 mb-4">
-                                <TabsTrigger value="dau" className="flex items-center justify-center gap-1.5">
+                                <TabsTrigger
+                                  value="dau"
+                                  className="flex items-center justify-center gap-1.5"
+                                >
                                   <Users className="h-3.5 w-3.5" />
                                   <span>Daily Active Users</span>
                                   <Tooltip>
@@ -1278,11 +1461,16 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                                       </span>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      Shows daily, weekly, or monthly active chatbot user trends based on latest activity.
+                                      Shows daily, weekly, or monthly active
+                                      chatbot user trends based on latest
+                                      activity.
                                     </TooltipContent>
                                   </Tooltip>
                                 </TabsTrigger>
-                                <TabsTrigger value="retention" className="flex items-center justify-center gap-1.5">
+                                <TabsTrigger
+                                  value="retention"
+                                  className="flex items-center justify-center gap-1.5"
+                                >
                                   <RefreshCw className="h-3.5 w-3.5" />
                                   <span>User Retention</span>
                                   <Tooltip>
@@ -1292,11 +1480,15 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                                       </span>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      Tracks D1, D7, and D30 cohort-based user retention over time.
+                                      Tracks D1, D7, and D30 cohort-based user
+                                      retention over time.
                                     </TooltipContent>
                                   </Tooltip>
                                 </TabsTrigger>
-                                <TabsTrigger value="churn" className="flex items-center justify-center gap-1.5">
+                                <TabsTrigger
+                                  value="churn"
+                                  className="flex items-center justify-center gap-1.5"
+                                >
                                   <UserMinus className="h-3.5 w-3.5" />
                                   <span>Monthly Churn</span>
                                   <Tooltip>
@@ -1306,7 +1498,8 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                                       </span>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      Measures the percentage of users active in the previous month who did not return.
+                                      Measures the percentage of users active in
+                                      the previous month who did not return.
                                     </TooltipContent>
                                   </Tooltip>
                                 </TabsTrigger>
@@ -1339,7 +1532,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                           ) : (
                             <LazySectionSkeleton className="h-[400px]" />
                           )}
-                        </div>  
+                        </div>
                       )}
                       {source !== "whatsapp" && (
                         <div
@@ -1361,6 +1554,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         </div>
                       )}
                       {source !== "whatsapp" && (
+                        <>
                         <div
                           ref={(el) => {
                             sectionRefs.current["user-details"] = el;
@@ -1377,6 +1571,29 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                             <LazySectionSkeleton className="h-[520px]" />
                           )}
                         </div>
+                        {/* user verification */}
+                            {/* {
+                              isAdmin && (
+                                <div
+                                  ref={(el) => {
+                                    sectionRefs.current["verify-users"] = el;
+                                    userVerificationRef.current = el;
+                                  }}
+                                >
+                                  {shouldUserVerification ? (
+                                    <VerifyUser
+                                      source={source}
+                                      initialFilters={userVerificationInitialFilters}
+                                      userType={filters.userType}
+                                    />
+                                  ) : (
+                                    <LazySectionSkeleton className="h-[520px]" />
+                                  )}
+                                </div>
+                              )
+                            } */}
+                        
+                        </>
                       )}
                       {source === "whatsapp" && (
                         <div
@@ -1388,7 +1605,7 @@ const {data: unqueWhatsAppUsers} = useUniqueWhatsappUsers(source === "whatsapp")
                         </div>
                       )}
                     </>
-                  )}
+                  
                 </div>
               )}
             </div>
