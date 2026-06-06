@@ -51,7 +51,8 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 
 ## Feature flag
 
-- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → **gdb_passthrough** (GDB hit) or **synthesize** (specialist-only) or **empty_gdb_reply** → **translate_answer** → END. Golden retrieval uses FastAPI + Gemma classification (no retrieval_sanitizer, no synthesizer LLM on GDB hits). (`sanitize_answer` is commented out.)
+- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → **`execute_plan`** (ag queries) or **`upload_reviewer_only`** (non-ag) → **assemble_answer_body** / **empty_gdb_reply** / **translate_answer** → END. No synthesizer LLM. Golden retrieval uses FastAPI + Gemma classification (no retrieval_sanitizer). (`sanitize_answer` is commented out.)
+- **Non-agriculture** (`is_agriculture_related=false`): planner sets flag → `upload_reviewer_only` (reviewer MCP only) → `empty_gdb_reply` → translate sheet; specialist tools skipped; reviewer `answer_text` ignored.
 
 ## Language (vocal + script)
 
@@ -59,14 +60,16 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 - **Romanized / Latin typing:** `script_language=English`, `vocal_language=<spoken>` (e.g. Romanized Telugu → English + Telugu; Hinglish → English + Hindi).
 - **Native script:** `script_language` and `vocal_language` match (e.g. both Hindi for Devanagari).
 - **Fixed strings** (exact cells, no LLM paraphrase): testing disclaimer, 2-hour expert-queue text, state/crop follow-ups — keyed by `(script_language, vocal_language)`.
-- **GDB passthrough** uses the Golden expert answer text as-is (no synthesizer rephrase LLM); **translate_answer** may still translate + append sources/testing.
-- **Synthesize** runs only when GDB is empty but weather/mandi/soil/schemes returned data.
+- **assemble_answer_body** uses GDB expert text or formatted specialist tool output as-is (no LLM); **translate_answer** translates + appends sources/testing.
+- **Mixed GDB + specialist** in one turn → **empty_gdb_reply** (2-hour + testing sheet only).
 - **translate_answer** paths (see `plan.translate_path`):
   - **`empty_gdb_reply`** → sheet **2-hour + testing** only (no translate LLM).
-  - **`gdb_passthrough` / synthesize** → translate body when needed → GDB **sources + author** → sheet **testing disclaimer** only (no 2-hour on this path).
-- Expert-queue turns route to `empty_gdb_reply` only.
+  - **`assemble_answer_body` / reviewer direct** → translate body when needed → GDB **sources + author** (when applicable) → sheet **testing disclaimer** only (no 2-hour on this path).
+- Expert-queue turns (no GDB and no specialist content) route to `empty_gdb_reply`.
 - `USE_PLANNER_GRAPH=false`: legacy single-LLM `ajrasakha` + `tools` loop.
 
-## Synthesizer (GDB bypass)
+## Answer assembly (no synthesizer LLM)
 
-The synthesizer node is **not used when GDB returns an exact or similar expert answer** (`gdb_passthrough` → `translate_answer`). It still runs for **specialist-only** turns (e.g. weather with no GDB hit). Footers are appended in `translate_answer`.
+The planner graph does **not** use a synthesizer LLM. Bodies are assembled deterministically in **assemble_answer_body**, then **translate_answer** handles language/script and footers.
+
+**Specialist tool formatting:** Weather and market tools return raw JSON; `tool_output_formatters.format_tool_output()` turns them into readable prose before translate. Soil, schemes, and chemical_checker pass through unchanged.

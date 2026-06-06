@@ -75,6 +75,7 @@ class PlannerPlan(TypedDict, total=False):
     schemes: bool
     chemical_checker: bool
     knowledge_base: bool
+    is_agriculture_related: bool
     is_complete: bool
     missing_info: list[str]
     follow_up_question: Optional[str]

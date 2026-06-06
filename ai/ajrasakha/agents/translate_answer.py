@@ -69,6 +69,7 @@ _TRANSLATE_SHARED_RULES = """You translate agricultural advisories for Indian fa
 Rules
 - Output ONLY the translated advisory body.
 - Preserve numbers, URLs, chemical names, and units exactly.
+- Preserve line breaks and bullet/list structure; do not merge lines into one paragraph.
 - Do not add any other text or formatting to the output.
 """
 
