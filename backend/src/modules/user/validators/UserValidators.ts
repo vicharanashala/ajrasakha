@@ -150,7 +150,7 @@ class UpdateUserDto {
   lastName?: string;
 
   @IsOptional()
-  @IsEnum(['expert', 'moderator', 'admin', 'pae_expert'],)
+  @IsEnum(['expert', 'moderator', 'admin', 'pae_expert', 'tester'],)
   role?: UserRole;
   @IsOptional()
   @IsString()

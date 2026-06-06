@@ -1,0 +1,247 @@
+"""Golden DB search orchestration: exact → RAG → relevance filter → classify → select one."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any, Optional
+
+try:
+    from .gemma_classifier import (
+        GEMMA_MODEL,
+        classify_pair,
+        filter_relevance_batch,
+        select_best_match,
+    )
+    from .golden_core import (
+        RETRIEVAL_SOURCE_RAG,
+        RETRIEVAL_SOURCE_STRICT_EXACT,
+        QuestionAnswerPair,
+        _truncate_text,
+        _normalize_crop_state,
+        match_entry,
+        strict_exact_search,
+        vector_rag_search,
+    )
+except ImportError:
+    from gemma_classifier import (
+        GEMMA_MODEL,
+        classify_pair,
+        filter_relevance_batch,
+        select_best_match,
+    )
+    from golden_core import (
+        RETRIEVAL_SOURCE_RAG,
+        RETRIEVAL_SOURCE_STRICT_EXACT,
+        QuestionAnswerPair,
+        _truncate_text,
+        _normalize_crop_state,
+        match_entry,
+        strict_exact_search,
+        vector_rag_search,
+    )
+
+log = logging.getLogger(__name__)
+
+SELECTION_RULE = "relevance_filter_then_same_intent_then_covered_by_context"
+
+
+async def gdb_search(
+    rephrased_query: str,
+    crop: str,
+    state: str,
+    *,
+    season: Optional[str] = None,
+    domain: Optional[str] = None,
+) -> dict[str, Any]:
+    crop, state = _normalize_crop_state(crop, state)
+    query = (rephrased_query or "").strip()
+    if not query:
+        raise ValueError("rephrased_query is required")
+
+    log.info(
+        "gdb_search start rephrased_query=%r crop=%s state=%s",
+        _truncate_text(query, 80),
+        crop,
+        state,
+    )
+
+    response: dict[str, Any] = {
+        "rephrased_query": query,
+        "state": state,
+        "crop": crop,
+        "exact_match": {},
+        "selected_match": None,
+        "classification_audit": {
+            "status": "empty",
+            "model": GEMMA_MODEL,
+            "relevance_filter_mode": "batch_all_candidates",
+            "evaluations": [],
+            "selected_question_id": None,
+            "selection_rule": SELECTION_RULE,
+        },
+    }
+
+    strict_results = await strict_exact_search(query=query, crop=crop, state=state)
+    log.info("gdb_search strict exact returned %d hit(s)", len(strict_results))
+
+    if strict_results:
+        pair = strict_results[0]
+        response["exact_match"] = match_entry(
+            pair,
+            RETRIEVAL_SOURCE_STRICT_EXACT,
+            similarity_score=1.0,
+            chosen_for_answer=True,
+            answer_from_class="strict_exact",
+        )
+        response["classification_audit"] = {
+            "status": "exact_bypass",
+            "model": GEMMA_MODEL,
+            "evaluations": [],
+            "selected_question_id": pair.question_id,
+            "selection_rule": "strict_exact",
+            "selection_method": "strict_exact",
+            "chosen_for_answer": True,
+            "answer_from_class": "strict_exact",
+        }
+        log.info("gdb_search done path=strict_exact question_id=%s", pair.question_id)
+        return response
+
+    rag_pairs = await vector_rag_search(
+        query,
+        crop,
+        state,
+        season=season,
+        domain=domain,
+    )
+    if not rag_pairs:
+        log.warning("gdb_search done path=empty (no vector hits)")
+        return response
+
+    # Stage 1: one batch LLM call — all RAG candidates, reject only completely irrelevant
+    filter_results = await filter_relevance_batch(query, rag_pairs)
+
+    evaluations: list[dict] = []
+    kept_pairs: list[QuestionAnswerPair] = []
+
+    for pair, filt in zip(rag_pairs, filter_results):
+        decision = filt.get("relevance_decision", "KEEP")
+        ev = {
+            "question_id": pair.question_id,
+            "similarity_score": pair.similarity_score,
+            "retrieved_question": pair.question_text,
+            "relevance_decision": decision,
+            "relevance_reason": filt.get("relevance_reason", ""),
+            "classification": None,
+            "reason": "",
+            "llm_parse_ok": filt.get("llm_parse_ok", False),
+            "action": "pending",
+        }
+        if decision == "REJECT":
+            ev["action"] = "rejected_irrelevant"
+            log.info(
+                "gdb_search relevance REJECT question_id=%s reason=%r",
+                pair.question_id,
+                ev["relevance_reason"][:80],
+            )
+        else:
+            kept_pairs.append(pair)
+            ev["action"] = "passed_relevance_filter"
+        evaluations.append(ev)
+
+    if not kept_pairs:
+        for ev in evaluations:
+            if ev["action"] == "pending":
+                ev["action"] = "rejected_irrelevant"
+        audit = response["classification_audit"]
+        audit["evaluations"] = evaluations
+        audit["status"] = "empty"
+        log.warning(
+            "gdb_search done path=empty (all %d RAG hits rejected by relevance filter)",
+            len(rag_pairs),
+        )
+        return response
+
+    # Stage 2: intent classification on kept pairs only
+    classify_tasks = [
+        classify_pair(
+            original_query=query,
+            retrieved_question=pair.question_text,
+            retrieved_answer=pair.answer_text,
+        )
+        for pair in kept_pairs
+    ]
+    classify_results = await asyncio.gather(*classify_tasks)
+
+    ev_by_id = {ev["question_id"]: ev for ev in evaluations}
+    for pair, cls_result in zip(kept_pairs, classify_results):
+        ev = ev_by_id[pair.question_id]
+        ev["classification"] = cls_result.get("classification", "NOT_COVERED")
+        ev["reason"] = cls_result.get("reason", "")
+        ev["llm_parse_ok"] = cls_result.get("llm_parse_ok", False)
+        ev["action"] = "classified"
+
+    # Stage 3: select best (2+ same class → LLM tie-breaker; 1 → auto-pick)
+    selection = await select_best_match(query, kept_pairs, classify_results)
+    audit = response["classification_audit"]
+    audit["evaluations"] = evaluations
+
+    if selection is None:
+        for ev in evaluations:
+            ev["chosen_for_answer"] = False
+            if ev["action"] in ("classified", "passed_relevance_filter"):
+                ev["action"] = "rejected_classification"
+            elif ev["action"] == "pending":
+                ev["action"] = "rejected_irrelevant"
+        audit["status"] = "empty"
+        audit["chosen_for_answer"] = False
+        log.warning(
+            "gdb_search done path=empty (kept=%d after filter, none SAME_INTENT/COVERED)",
+            len(kept_pairs),
+        )
+        return response
+
+    winner: QuestionAnswerPair = selection["pair"]
+    winner_cls: dict = selection["cls_result"]
+    rule: str = selection["selection_rule"]
+    winner_class: str = selection["winning_class"]
+    selection_method: str = selection["selection_method"]
+    tie_reason = winner_cls.get("tie_breaker_reason")
+
+    for ev in evaluations:
+        ev["chosen_for_answer"] = ev["question_id"] == winner.question_id
+        if ev["chosen_for_answer"]:
+            ev["action"] = "selected"
+            if tie_reason:
+                ev["tie_breaker_reason"] = tie_reason
+        elif ev.get("classification") in ("SAME_INTENT", "COVERED_BY_CONTEXT"):
+            ev["action"] = "skipped_lower_priority"
+        elif ev["relevance_decision"] == "REJECT":
+            ev["action"] = "rejected_irrelevant"
+        elif ev.get("classification"):
+            ev["action"] = "rejected_classification"
+        else:
+            ev["action"] = "rejected_irrelevant"
+
+    response["selected_match"] = match_entry(
+        winner,
+        RETRIEVAL_SOURCE_RAG,
+        gemma_class=winner_class,
+        chosen_for_answer=True,
+        answer_from_class=winner_class,
+    )
+    audit["status"] = "selected"
+    audit["selected_question_id"] = winner.question_id
+    audit["selection_rule"] = rule
+    audit["answer_from_class"] = winner_class
+    audit["selection_method"] = selection_method
+    audit["chosen_for_answer"] = True
+
+    log.info(
+        "gdb_search done path=selected question_id=%s class=%s method=%s rule=%s",
+        winner.question_id,
+        winner_class,
+        selection_method,
+        rule,
+    )
+    return response

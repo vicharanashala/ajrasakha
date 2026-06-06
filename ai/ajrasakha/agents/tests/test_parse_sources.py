@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ajrasakha.agents.answer_footers import collect_all_sources
-from ajrasakha.tools.golden.golden_rag_tool import _parse_sources
+from ajrasakha.tools.golden.golden_core import parse_sources as _parse_sources
 
 
 def test_parse_sources_link_only_no_database_document():

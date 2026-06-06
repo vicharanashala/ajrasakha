@@ -10,7 +10,8 @@ import {
   Zap,
   X,
   CloudSun,
-  InfoIcon
+  InfoIcon,
+  RefreshCw
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
@@ -41,6 +42,7 @@ import {
   type WeatherConcernFilters,
   useWeatherConcernAnalytics,
 } from "../hooks/useWeatherConcernAnalytics";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface WeatherConcernAnalyticsCardProps {
   source: "vicharanashala" | "annam";
@@ -316,11 +318,30 @@ const visibleConcerns = showAllConcerns
   ? filteredConcerns
   : filteredConcerns.slice(0, 4);
 
+const queryClient = useQueryClient();
+const [refreshing, setRefreshing] = useState(false);
+const handleRefresh = async () => {
+  setRefreshing(true);
+  await queryClient.refetchQueries({ queryKey: ["weather-concern-analytics"] });
+  setRefreshing(false);
+};
+
   return (
     <Card
       className="border border-border/60 shadow-sm bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
 "
     >
+      <button
+        onClick={handleRefresh}
+        className="absolute top-10 right-7 rounded-lg border border-gray-200/60  p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
+        title="Refresh"
+      >
+        <RefreshCw
+          className={`h-3.5 w-3.5 bg-background ${
+            refreshing ? "animate-spin" : ""
+          }`}
+        />
+      </button>
       <CardHeader className="border-b border-border/50 pb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -447,7 +468,7 @@ const visibleConcerns = showAllConcerns
         </div>
 
         <div className="relative min-h-[220px]">
-          {isLoading && (
+          {(refreshing || isLoading) && (
             <div className="absolute inset-0 z-10 rounded-md bg-background/70 p-4 backdrop-blur-sm">
               <Skeleton className="h-full w-full rounded-lg" />
             </div>
@@ -496,7 +517,7 @@ const visibleConcerns = showAllConcerns
 
                               {item.concern === "Others" && (
                                 <div className="group relative">
-                                  <Info className="h-3.5 w-3.5 cursor-pointer text-muted-foreground" />
+                                  <InfoIcon className="h-3.5 w-3.5 cursor-pointer text-muted-foreground" />
 
                                   <div className="absolute left-5 top-0 z-20 hidden w-64 rounded-md border border-border bg-popover p-3 text-xs text-muted-foreground shadow-md group-hover:block">
                                     Includes general weather queries (e.g. "what

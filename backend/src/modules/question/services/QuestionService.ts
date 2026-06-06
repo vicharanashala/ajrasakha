@@ -942,8 +942,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       const bodyUserId = userIdFromBody;
       const referenceQuestionDetails = referenceQuestionDetailsFromBody;
       const popContext = popContextFromBody;
-      console.log('the body coming=====', body);
-
       
       if (!details) {
         const b: any = body;
@@ -955,7 +953,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           domain: b?.domain || '',
         };
       }
-
+      
       const validPriorities = ['low', 'medium', 'high', 'critical'];
       priority = priority?.toLowerCase() as IQuestion['priority'];
       if (!validPriorities.includes(priority)) {
@@ -1044,7 +1042,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
           contextId = new ObjectId(insertedId);
         }
-
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
           userId:
@@ -1177,44 +1174,145 @@ export class QuestionService extends BaseService implements IQuestionService {
           ]);
         }
       } else {
-        // AJRASAKHA / WHATSAPP — duplicate check then notify moderators
-        try {
-          const duplicateResult = await this.checkDuplicateQuestion(
-            baseQuestion,
-            details,
-            logData,
+        const isTimeBoundedQuestion =
+          source === 'AJRASAKHA' || source === 'WHATSAPP';
+        let threadValidation
+        if (isTimeBoundedQuestion) {
+         threadValidation = await this.validateTimeBoundQuestionThread(
+            questionId,
+            baseQuestion.threadId,
           );
-          if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
-            const {
-              similarityScore,
-              referenceQuestionId,
-              referenceQuestion,
-              referenceSource,
-            } = duplicateResult.duplicateData as any;
+          console.log("threadValidation ", threadValidation);
+          if (!threadValidation.isValid) {
+            console.log("Npt valid")
+            logData.outcome = 'TESTING_THREAD_ID';
+            logData.threadValidationReason = threadValidation.reason;
+            chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+
             await this.questionRepo.updateQuestion(questionId, {
-              status: 'duplicate',
-              similarityScore,
-              referenceQuestionId,
-              referenceQuestion,
-              referenceSource,
+              isTesting: true,
             });
             return;
+          } 
+         /* else {
+            // Extract the last GDB tool response from thread content
+            const content: any[] = threadValidation.data?.content || [];
+            const gdbToolCalls = content.filter(
+              (c: any) => c.type === 'tool' && c.toolName === 'gdb' && c.toolResponse,
+            );
+            const lastGdbResponse = gdbToolCalls.length > 0
+              ? gdbToolCalls[gdbToolCalls.length - 1].toolResponse
+              : null;
+
+            if (lastGdbResponse) {
+              const isExact: boolean = lastGdbResponse.is_exact === true;
+              const isSimilar: boolean = lastGdbResponse.is_similar === true;
+
+              if (isExact && !isSimilar) {
+                // Exact match found in GDB — mark as duplicate using exact_match data
+                const exactMatch = lastGdbResponse.exact_match;
+                await this.questionRepo.updateQuestion(questionId, {
+                  status: 'duplicate',
+                  similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
+                  referenceQuestionId: new ObjectId(String(exactMatch.question_id)),
+                  referenceQuestion: exactMatch.question,
+                  referenceSource: 'reviewer',
+                  isExact: true,
+                });
+                return;
+              } else if (!isExact && isSimilar) {
+                // Similar match found in GDB — mark as duplicate using similar_pair1 data
+                const similarPair = lastGdbResponse.similar_pair1;
+                await this.questionRepo.updateQuestion(questionId, {
+                  status: 'duplicate',
+                  similarityScore: Number((similarPair.similarity_score * 100).toFixed(2)),
+                  referenceQuestionId: new ObjectId(String(similarPair.question_id)),
+                  referenceQuestion: similarPair.question,
+                  referenceSource: 'reviewer',
+                  isExact: false,
+                });
+                return;
+              }
+              // Both false — fall through to existing duplicate check below
+            }
+          }*/
+        
+
+        // AJRASAKHA / WHATSAPP — GDB duplicate check then LLM non-agri check
+        try {
+          const cropName = typeof details.crop === 'string' ? details.crop : (details.crop as any)?.name || '';
+          const gdbResult = await this.aiService.searchGdb({
+            crop: cropName,
+            state: details.state,
+            rephrased_query: baseQuestion.question,
+          });
+
+          const extractObjectId = (id: any): ObjectId | null => {
+            // Handle MongoDB extended JSON { $oid: "..." } or plain hex string
+            const raw = id?.$oid ?? id;
+            const hex = String(raw ?? '');
+            if (/^[a-f\d]{24}$/i.test(hex)) return new ObjectId(hex);
+            return null;
+          };
+
+          const exactMatch = gdbResult?.exact_match;
+          if (exactMatch?.question_id) {
+            const refId = extractObjectId(exactMatch.question_id);
+            if (!refId) {
+              console.warn(`[processQuestionInBackground] GDB exact_match has invalid question_id: ${exactMatch.question_id}, skipping`);
+            } else {
+              await this.questionRepo.updateQuestion(questionId, {
+                status: 'duplicate',
+                similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
+                referenceQuestionId: refId,
+                referenceQuestion: exactMatch.question,
+                referenceSource: 'reviewer',
+                isExact: true,
+              });
+              return;
+            }
           }
-          if (duplicateResult?.isNonAgri) {
-            await this.questionRepo.updateQuestion(questionId, {
-              status: 'non_agri',
-            });
-            return;
+
+          const selectedMatch = gdbResult?.selected_match;
+          if (selectedMatch?.question_id) {
+            const refId = extractObjectId(selectedMatch.question_id);
+            if (!refId) {
+              console.warn(`[processQuestionInBackground] GDB selected_match has invalid question_id: ${selectedMatch.question_id}, skipping`);
+            } else {
+              await this.questionRepo.updateQuestion(questionId, {
+                status: 'duplicate',
+                similarityScore: Number((selectedMatch.similarity_score * 100).toFixed(2)),
+                referenceQuestionId: refId,
+                referenceQuestion: selectedMatch.question,
+                referenceSource: 'reviewer',
+                isExact: false,
+              });
+              return;
+            }
           }
-          // NONE result — not a duplicate and not non-agri, mark as open
+
+          // No duplicate — call LLM to classify non-agri vs agri
+          try {
+            const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
+            if (llmResult.isNonAgri) {
+              logData.outcome = 'NON_AGRI_DETECTED';
+              chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+              await this.questionRepo.updateQuestion(questionId, {status: 'non_agri'});
+              return;
+            }
+          } catch (llmError: any) {
+            console.error('[processQuestionInBackground] LLM non-agri check failed, proceeding as open:', llmError?.message);
+          }
+
           await this.questionRepo.updateQuestion(questionId, {status: 'open'});
-        } catch (duplicateError: any) {
+        } catch (gdbError: any) {
           console.error(
-            '[processQuestionInBackground] Duplicate check failed, proceeding as open:',
-            duplicateError.message,
+            '[processQuestionInBackground] GDB check failed, proceeding as open:',
+            gdbError?.message,
           );
           await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         }
+      }
 
         const [allModerators, taskForceModerators] = await Promise.all([
           this.userRepo.findModerators(),
@@ -1238,6 +1336,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             ),
           ),
         );
+
+        // Time-bound expert allocation is handled exclusively by the
+        // reallocateTimeBoundQuestions cron to avoid double-allocation races.
       }
     } catch (error: any) {
       console.error(
@@ -1245,6 +1346,66 @@ export class QuestionService extends BaseService implements IQuestionService {
         error?.message,
       );
     }
+  }
+
+  private async validateTimeBoundQuestionThread(
+    questionId: string,
+    threadId?: string,
+  ): Promise<{isValid: boolean; reason?: string; data?: any}> {
+    if (!threadId?.trim()) {
+      return {isValid: false, reason: 'THREAD_ID_MISSING'};
+    }
+
+    // Retry with backoff — the external thread system may not have the data
+    // ready immediately after question creation (race between add and processing).
+    const retryDelaysMs = [3000, 6000, 12000];
+    let lastError: any;
+    let hadSuccessfulApiCall = false;
+
+    for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
+      if (attempt > 0) {
+        const delay = retryDelaysMs[attempt - 1];
+        console.log(
+          `[validateTimeBoundQuestionThread] Retry ${attempt}/${retryDelaysMs.length} for questionId=${questionId} after ${delay}ms`,
+        );
+        await new Promise<void>(resolve => setTimeout(resolve, delay));
+      }
+
+      try {
+        const matchedQuestion = await this.getMatchedQuestion(questionId);
+        hadSuccessfulApiCall = true; // API responded (even if no match returned)
+        if (matchedQuestion) {
+          return {isValid: true, data: matchedQuestion};
+        }
+      } catch (error: any) {
+        const notFoundMessages = [
+          'No matching WhatsApp message found',
+          'Question not found',
+          'Thread id not found',
+        ];
+        const isNotFound = notFoundMessages.some(msg => error?.message?.includes(msg));
+        if (isNotFound) {
+          hadSuccessfulApiCall = true; // API reachable — question simply not present yet
+        }
+        lastError = error;
+        console.warn(
+          `[validateTimeBoundQuestionThread] Attempt ${attempt + 1}/${retryDelaysMs.length + 1} failed for questionId=${questionId}: ${error?.message}`,
+        );
+      }
+    }
+
+    console.error(
+      `[validateTimeBoundQuestionThread] All attempts exhausted for questionId=${questionId}:`,
+      lastError?.message,
+    );
+
+    // API responded but found no match → question is a test, mark isTesting
+    if (hadSuccessfulApiCall) {
+      return {isValid: false, reason: 'Thread_id_not_found'};
+    }
+
+    // All attempts threw errors (API failure) → don't mark isTesting, proceed normally
+    return {isValid: true, reason: lastError?.message || 'API_FAILED'};
   }
 
   async getQuestionDataById(questionId: string): Promise<IQuestion | null> {
@@ -1442,6 +1603,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
       return {data: [], status: false};
+    }
+    const isTimeBound = question.source === 'AJRASAKHA' || question.source === 'WHATSAPP';
+    if (isTimeBound && (question.status === 'open' || question.status === 'delayed')) {
+      const reason = `Auto-allocation is disabled for time-bound questions (source: ${question.source})`;
+      console.log(`[autoAllocateExperts] ${reason} — questionId: ${questionId}`);
+      return {data: [], status: false,};
     }
     if (question.status == 'draft') {
       await this.questionRepo.updateQuestion(
@@ -1924,7 +2091,24 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-        //8. Return updated question submission
+        //8. For time-bound questions: start the 45-min clock and enable auto-reallocation
+        if (question.source === 'WHATSAPP' || question.source === 'AJRASAKHA') {
+          // Run outside transaction (non-critical, fire-and-forget style)
+          setImmediate(async () => {
+            try {
+              await Promise.all([
+                this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date()),
+                ...(question.isAutoAllocate === false
+                  ? [this.questionRepo.updateQuestion(questionId, { isAutoAllocate: true })]
+                  : []),
+              ]);
+            } catch (err: any) {
+              console.error(`[allocateExperts] Failed to set time-bound fields for ${questionId}:`, err?.message);
+            }
+          });
+        }
+
+        //9. Return updated question submission
         return updated;
       });
     } catch (error) {
@@ -4601,7 +4785,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const response = await this.aiService.fetchWhatsAppMessage(
         questionData.threadId,
-        questionData._id.toString(),
+         questionData._id.toString(),
       );
 
       if (!response) {
@@ -5191,5 +5375,290 @@ export class QuestionService extends BaseService implements IQuestionService {
     console.log(
       `<<EMBEDDING_BACKFILL>> Done — ✅ ${succeeded} succeeded, ❌ ${failed} failed`,
     );
+  }
+
+  // ─── Time-bound question tracking ───────────────────────────────────────────
+
+  /** Called whenever an expert selects ANY question in the UI.
+   *  1. Clears currentExpertOpenedAt on any OTHER time-bound submission the expert
+   *     had previously opened — so navigating away makes the old question eligible
+   *     for reallocation by the cron.
+   *  2. Only SETS currentExpertOpenedAt if the current question is time-bound. */
+  async markQuestionOpened(questionId: string, userId: string): Promise<void> {
+    try {
+      const question = await this.questionRepo.getById(questionId);
+      if (!question) return;
+      // Always call the repo — it clears previous openedAt on other questions,
+      // and only sets it on the current question if it's time-bound.
+      const isTimeBound = question.source === 'WHATSAPP' || question.source === 'AJRASAKHA';
+      await this.questionSubmissionRepo.markQuestionOpenedByExpert(questionId, userId, isTimeBound);
+    } catch (error) {
+      // Non-fatal — log and swallow so the UI is never blocked by this
+      console.error(`[markQuestionOpened] Failed for questionId=${questionId}:`, error);
+    }
+  }
+
+  /** Periodic job — handles three cases for time-bound (AJRASAKHA/WHATSAPP) questions:
+   *  A) Expert allocated but didn't open in 45 min → penalise + replace.
+   *  B) Question never allocated → initial assignment.
+   *  C) Initial answer submitted, status still open/delayed → assign reviewer. */
+  async reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }> {
+    console.log('[TimeBound] Starting reallocation + initial-allocation + reviewer-assignment check...');
+    try {
+      // 1. Fetch all three cases in parallel
+      const [stuckSubmissions, unallocatedSubmissions, answeredNeedingReviewer] = await Promise.all([
+        this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
+        this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
+        this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
+      ]);
+
+      const byCreatedAt = (a: any, b: any) =>
+        new Date((a.question?.createdAt ?? a.createdAt) as string).getTime() -
+        new Date((b.question?.createdAt ?? b.createdAt) as string).getTime();
+
+      stuckSubmissions.sort(byCreatedAt);
+      unallocatedSubmissions.sort(byCreatedAt);
+      answeredNeedingReviewer.sort(byCreatedAt);
+
+      const totalWork = stuckSubmissions.length + unallocatedSubmissions.length + answeredNeedingReviewer.length;
+      console.log("the total work coming====",totalWork)
+      if (!totalWork) {
+        return { message: 'No time-bound questions need attention', reallocated: 0, skipped: 0 };
+      }
+
+      console.log(`[TimeBound] Stuck: ${stuckSubmissions.length}, Never-allocated: ${unallocatedSubmissions.length}, NeedReviewer: ${answeredNeedingReviewer.length}`);
+
+      // 2. Get all non-blocked experts ordered by workload (lowest first)
+      const allExperts = await this.userRepo.findExpertsByReputationScore({} as any);
+      if (!allExperts.length) {
+        return { message: 'No experts available', reallocated: 0, skipped: totalWork };
+      }
+
+      // 3. Get current time-bound workload per expert (single DB call)
+      const timeBoundCounts = await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert();
+      console.log(timeBoundCounts+ "this is from my console");
+      const MAX_TIME_BOUND = 1; // Each expert handles at most 1 active time-bound question
+      // Track provisional additions during this run to respect cap within batch
+      const provisionalCounts = new Map<string, number>(timeBoundCounts);
+
+      // ── Merge all three lists into one priority queue ordered by question.createdAt ──
+      type WorkType = 'stuck' | 'unallocated' | 'needsReviewer';
+      const workQueue: { type: WorkType; submission: any }[] = [
+        ...stuckSubmissions.map((s: any) => ({ type: 'stuck' as WorkType, submission: s })),
+        ...unallocatedSubmissions.map((s: any) => ({ type: 'unallocated' as WorkType, submission: s })),
+        ...answeredNeedingReviewer.map((s: any) => ({ type: 'needsReviewer' as WorkType, submission: s })),
+      ];
+
+      workQueue.sort((a, b) => {
+        const aTime = new Date((a.submission.question?.createdAt ?? a.submission.createdAt) as string).getTime();
+        const bTime = new Date((b.submission.question?.createdAt ?? b.submission.createdAt) as string).getTime();
+        return aTime - bTime;
+      });
+
+      const flatAssignments: { submissionId: string; expertId: string; appendExpert?: boolean }[] = [];
+      const reallocationInfo: { questionId: string; oldExpertId: string; newExpertId: string; sourceLabel: string; questionText: string }[] = [];
+      let skipped = 0;
+      let initialAllocated = 0;
+      let reviewersAssigned = 0;
+
+      for (const { type, submission } of workQueue) {
+        const questionId = submission.questionId?.toString();
+        const question = submission.question;
+        const sourceLabel = question?.source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
+        const history: any[] = submission.history || [];
+        const queue: any[] = submission.queue || [];
+
+        if (type === 'stuck') {
+          // Determine current stuck expert
+          let currentExpertId: string | null = null;
+          if (history.length === 0) {
+            currentExpertId = queue[0]?.toString() ?? null;
+          } else {
+            const lastH = history[history.length - 1];
+            currentExpertId = lastH.status === 'in-review'
+              ? lastH.updatedBy?.toString() ?? null
+              : queue[history.length]?.toString() ?? null;
+          }
+
+          const historyExpertIds = new Set(history.map((h: any) => h.updatedBy?.toString()));
+          const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
+
+          let assignedExpert: string | null = null;
+          for (const expert of allExperts) {
+            const expertId = expert._id.toString();
+            if (expertId === currentExpertId) continue;
+            if (historyExpertIds.has(expertId)) continue;
+            if (queueExpertIds.has(expertId)) continue;
+            if(!history.length && expert?.special_task_force !== true) continue;
+            const currentCount = provisionalCounts.get(expertId) ?? 0;
+            if (currentCount >= MAX_TIME_BOUND) continue;
+            assignedExpert = expertId;
+            provisionalCounts.set(expertId, currentCount + 1);
+            break;
+          }
+
+          if (!assignedExpert) {
+            console.log(`[TimeBound] No eligible expert for stuck submission ${submission._id} — skipping`);
+            skipped++;
+            continue;
+          }
+          flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert, appendExpert: false });
+          reallocationInfo.push({
+            questionId,
+            oldExpertId: currentExpertId ?? 'Unknown',
+            newExpertId: assignedExpert,
+            sourceLabel,
+            questionText: (question as any)?.question?.toString() ?? '',
+          });
+
+        } else if (type === 'unallocated') {
+          let assignedExpert: string | null = null;
+          for (const expert of allExperts) {
+            if (expert?.special_task_force !== true) continue;
+            const expertId = expert._id.toString();
+            const currentCount = provisionalCounts.get(expertId) ?? 0;
+            if (currentCount >= MAX_TIME_BOUND) continue;
+            assignedExpert = expertId;
+            provisionalCounts.set(expertId, currentCount + 1);
+            break;
+          }
+
+          if (!assignedExpert) {
+            console.log(`[TimeBound] No eligible expert for unallocated question ${questionId} — skipping`);
+            skipped++;
+            continue;
+          }
+
+          try {
+            await Promise.all([
+              this.questionSubmissionRepo.updateQueue(questionId, [new ObjectId(assignedExpert)]),
+              this.userRepo.updateReputationScore(assignedExpert, true),
+              this.questionRepo.updateQuestion(questionId, { isAutoAllocate: true, firstAllocationAt: new Date() }),
+              this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date()),
+              this.notificationService.saveTheNotifications(
+                `A time-bound question from ${sourceLabel} has been assigned to you`,
+                'Answer Creation Assigned',
+                questionId,
+                assignedExpert,
+                'answer_creation',
+              ),
+            ]);
+            console.log(`[TimeBound] Initially allocated question ${questionId} to expert ${assignedExpert}`);
+            initialAllocated++;
+          } catch (allocErr: any) {
+            console.error(`[TimeBound] Failed to initially allocate question ${questionId}:`, allocErr?.message);
+            skipped++;
+          }
+
+        } else {
+          // needsReviewer
+          const historyExpertIds = new Set(history.map((h: any) => h.updatedBy?.toString()));
+          const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
+
+          let assignedReviewer: string | null = null;
+          for (const expert of allExperts) {
+            const expertId = expert._id.toString();
+            if (historyExpertIds.has(expertId)) continue;
+            if (queueExpertIds.has(expertId)) continue;
+            const currentCount = provisionalCounts.get(expertId) ?? 0;
+            if (currentCount >= MAX_TIME_BOUND) continue;
+            assignedReviewer = expertId;
+            provisionalCounts.set(expertId, currentCount + 1);
+            break;
+          }
+
+          if (!assignedReviewer) {
+            console.log(`[TimeBound] No eligible reviewer for question ${questionId} — skipping`);
+            skipped++;
+            continue;
+          }
+
+          try {
+            await Promise.all([
+              this.questionSubmissionRepo.assignTimeBoundReviewer(questionId, assignedReviewer, new Date()),
+              this.userRepo.updateReputationScore(assignedReviewer, true),
+              this.notificationService.saveTheNotifications(
+                `A time-bound question from ${sourceLabel} needs your review`,
+                'New Review Assigned',
+                questionId,
+                assignedReviewer,
+                'peer_review',
+              ),
+            ]);
+            console.log(`[TimeBound] Assigned reviewer ${assignedReviewer} for question ${questionId}`);
+            reviewersAssigned++;
+          } catch (err: any) {
+            console.error(`[TimeBound] Failed to assign reviewer for question ${questionId}:`, err?.message);
+            skipped++;
+          }
+        }
+      }
+
+      if (flatAssignments.length) {
+        startBalanceWorkloadWorkers(flatAssignments);
+        console.log(`[TimeBound] Triggered reallocation for ${flatAssignments.length} stuck submission(s)`);
+
+      //   // Notify all moderators and admins about stuck-question reallocations
+      //   try {
+      //     const [moderators, admins] = await Promise.all([
+      //       this.userRepo.findModerators(),
+      //       this.userRepo.findAdmins(),
+      //     ]);
+      //     const allRecipients = [...(moderators || []), ...(admins || [])];
+      //     console.log(`[TimeBound] Notifying ${allRecipients.length} moderators/admins about ${reallocationInfo.length} reallocation(s)`);
+
+      //     const getName = async (id?: string | null): Promise<string> => {
+      //       if (!id) return 'Unknown';
+      //       try {
+      //         const u = await this.userRepo.findById(id);
+      //         if (!u) return 'Unknown';
+      //         const first = (u as any).firstName?.toString().trim() || '';
+      //         const last = (u as any).lastName?.toString().trim() || '';
+      //         const full = `${first} ${last}`.trim();
+      //         return full || 'Unknown';
+      //       } catch {
+      //         return 'Unknown';
+      //       }
+      //     };
+
+      //     for (const info of reallocationInfo) {
+      //       const [oldExpertName, newExpertName] = await Promise.all([
+      //         getName(info.oldExpertId),
+      //         getName(info.newExpertId),
+      //       ]);
+      //       const message = `${info.sourceLabel} question auto-reallocated from expert ${oldExpertName} to ${newExpertName}gggggg`;
+      //       const trimmedQuestion = (info.questionText || '').trim();
+      //       const title = trimmedQuestion
+      //         ? (trimmedQuestion.length > 80 ? `${trimmedQuestion.slice(0, 80)}...` : trimmedQuestion)
+      //         : 'Time-Bound Question Reallocated';
+      //       for (const recipient of allRecipients) {
+      //         const recipientId = recipient._id?.toString();
+      //         if (!recipientId) continue;
+      //         await this.notificationService.saveTheNotifications(
+      //           message,
+      //           title,
+      //           info.questionId,
+      //           recipientId,
+      //           'expert_replacement',
+      //         ).catch((err: any) => {
+      //           console.error(`[TimeBound] Failed to notify ${recipientId}:`, err?.message);
+      //         });
+      //       }
+      //     }
+      //   } catch (err: any) {
+      //     console.error(`[TimeBound] Failed to notify moderators/admins:`, err?.message);
+      //   }
+      }
+
+      const totalReallocated = flatAssignments.length + initialAllocated + reviewersAssigned;
+      return {
+        message: `Time-bound: reallocated=${flatAssignments.length}, initially-allocated=${initialAllocated}, reviewers-assigned=${reviewersAssigned}`,
+        reallocated: totalReallocated,
+        skipped,
+      };
+    } catch (error: any) {
+      console.error('[TimeBound] reallocateTimeBoundQuestions failed:', error?.message);
+      throw new InternalServerError(`Failed to reallocate time-bound questions: ${error?.message}`);
+    }
   }
 }

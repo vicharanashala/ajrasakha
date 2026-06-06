@@ -1,11 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
+import CountUp from "react-countup";
 import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/atoms/card";
-import { Download, Smartphone, Apple, Maximize2, X } from "lucide-react";
+import { Download, Smartphone, Apple, Maximize2, X, Info as InfoIcon, RefreshCw } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/atoms/tooltip";
 import { TotalQueriesModal } from "./components/TotalQueriesModal";
 import { ActiveFarmersTable } from "./components/ActiveFarmersTable";
 import type { QueryGranularity } from "./components/TotalQueriesModal";
 import type { AnalyticsEntry } from "./utils/dashboardHelpers";
+import { useQueryClient } from "@tanstack/react-query";
 
 type BadgeVariant = "green" | "red" | "amber" | "blue";
 
@@ -232,7 +235,57 @@ function getIcon(icon?: string, color?: string, size: number = 16) {
   if (icon === "download") return <Download style={style} />;
   return null;
 }
-function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
+
+/** Animates a KPI value with CountUp, handling slash-separated (e.g. "12 / 100") and plain numeric formats. */
+function AnimatedKpiValue({ value, kpiId }: { value: string; kpiId: string }) {
+  const raw = String(value ?? "");
+
+  // Handled slash-separated "X / Y" formats (used in DAU and Total Installs)
+  if (raw.includes("/")) {
+    const [leftRaw, rightRaw] = raw.split("/").map((s) => s.replace(/,/g, "").trim());
+    const left = Number(leftRaw);
+    const right = Number(rightRaw);
+    return (
+      <>
+        {Number.isFinite(left) ? (
+          <CountUp end={left} duration={1.5} preserveValue separator="," />
+        ) : (
+          leftRaw
+        )}
+        {" / "}
+        {Number.isFinite(right) ? (
+          <CountUp end={right} duration={1.5} preserveValue separator="," />
+        ) : (
+          rightRaw
+        )}
+      </>
+    );
+  }
+
+  // Session card or values with " min" suffix
+  if (raw.endsWith(" min")) {
+    const num = Number(raw.replace(" min", "").replace(/,/g, ""));
+    if (Number.isFinite(num)) {
+      return <CountUp end={num} duration={1.5} decimals={1} suffix=" min" preserveValue />;
+    }
+  }
+
+  // Plain numeric (may contain commas)
+  const num = Number(raw.replace(/,/g, ""));
+  if (Number.isFinite(num)) {
+    return <CountUp end={num} duration={1.5} preserveValue separator="," />;
+  }
+
+  // Fallback: non-numeric
+  return <>{raw}</>;
+}
+
+function KpiCard({ kpi, source , isLoading}: { kpi: KpiCardData, source: string, isLoading: boolean }) {
+  const queryClient = useQueryClient();
+  const handleKPIrefresh = async ()=>{
+    await queryClient.refetchQueries({ queryKey: ["dashboard-data"] });
+  }
+
   const [isMaximized, setIsMaximized] = useState(false);
   const [granularity, setGranularity] = useState<QueryGranularity>("daily");
 
@@ -278,6 +331,21 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
     return ((active / total) * 100).toFixed(2);
   })();
 
+  const kpiTooltipText = (() => {
+    switch (kpi.id) {
+      case "totalInstalls":
+        return "Total number of app installations and profiles submitted by users.";
+      case "dau":
+        return "Daily Active Users: Represents farmers who were active today out of total registered users.";
+      case "queries":
+        return "Total questions asked by users (unique + duplicate queries).";
+      case "session":
+        return "Average duration of user interaction sessions with the chatbot.";
+      default:
+        return null;
+    }
+  })();
+
   return (
     <>
       {/* <Card className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]"> */}
@@ -291,7 +359,7 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
           style={{ background: kpi.accentColor }}
         />
 
-]        {kpi.sparkPoints && (
+        {kpi.sparkPoints && (
           <button
             onClick={() => setIsMaximized(true)}
             className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
@@ -422,7 +490,19 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
             <Maximize2 className="h-3.5 w-3.5 text-gray-600 dark:text-gray-300" />
           </button>
         )}
-
+        {kpi.id === "totalInstalls" && 
+          <button
+            onClick={handleKPIrefresh}
+            className="absolute top-4 right-4 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+            title="Refresh"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5${
+                isLoading ? "animate-spin" : ""
+              }`}
+            />
+          </button>
+        }
         <CardContent className="relative flex flex-col gap-3 p-5">
           {/* Header: icon + label + value */}
           <div className="flex items-start gap-3">
@@ -438,15 +518,28 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
                 {getIcon(kpi.icon, kpi.accentColor, 22)}
               </div>
             )}
+            {/* <div className="flex items-start justify-between"> */}
             <div className="flex min-w-0 flex-col gap-1">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
-                {activeCardLabel}
+              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <span>{activeCardLabel}</span>
+                {kpiTooltipText && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground normal-case tracking-normal">
+                        <InfoIcon className="h-3 w-3" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="normal-case tracking-normal text-xs font-normal">
+                      {kpiTooltipText}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               <div
                 className="text-2xl font-bold leading-tight tracking-tight tabular-nums dark:text-slate-100"
                 style={{ color: kpi.valueColor }}
               >
-                {activeCardValue}
+                <AnimatedKpiValue value={activeCardValue} kpiId={kpi.id} />
               </div>
               {kpi.id === "dau" && dailyActiveFarmerPct !== null && (
                 <div className="text-[11px] text-muted-foreground">
@@ -454,6 +547,8 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
                 </div>
               )}
             </div>
+
+                  {/* </div> */}
           </div>
 
           {/* Body: granularity toggle + sparkline + badges + note */}
@@ -578,7 +673,7 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
                         className="text-4xl font-semibold dark:text-slate-100"
                         style={{ color: kpi.valueColor }}
                       >
-                        {activeCardValue}
+                        <AnimatedKpiValue value={activeCardValue} kpiId={kpi.id} />
                       </div>
                     </div>
                   </div>
@@ -623,7 +718,7 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
                             Date
                           </th>
                           <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                            Value
+                            Total Queries
                           </th>
                         </tr>
                       </thead>

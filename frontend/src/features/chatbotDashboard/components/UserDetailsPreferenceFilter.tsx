@@ -34,6 +34,7 @@ import {
   UserX,
   MessageSquareOff,
   Info,
+  UserCheck2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,13 +51,16 @@ export interface UserDetailsFilters {
   inactiveOnly: boolean;
   lowFeedbackOnly: boolean;
   userType: "all" | "internal" | "external";
+  isVerified: boolean;
 }
 
 interface UserDetailsPreferenceFilterProps {
   filters: UserDetailsFilters;
   onApply: (filters: UserDetailsFilters) => void;
   /** Fields to hide from the filter dialog */
-  hideFields?: Array<'crop' | 'inactive' | 'profile' | 'userType' | 'lowFeedback'>;
+  hideFields?: Array<
+    "crop" | "inactive" | "profile" | "userType" | "lowFeedback"
+  >;
 }
 
 function toDateInputValue(d: Date | undefined): string {
@@ -116,9 +120,14 @@ function FilterSection({
   );
 }
 
-function getInactiveDateError(from: Date | undefined, to: Date | undefined): string {
+function getInactiveDateError(
+  from: Date | undefined,
+  to: Date | undefined,
+): string {
   if (!from || !to) return "A date range is required for inactive users filter";
-  const diffDays = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round(
+    (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24),
+  );
   if (diffDays < 3) return "Range must be at least 3 days";
   if (diffDays > 30) return "Range cannot exceed 30 days";
   return "";
@@ -148,7 +157,7 @@ export function UserDetailsPreferenceFilter({
 
   const handleReset = () => {
     setDraft({
-      search: "",
+      search: draft.search,
       crop: "",
       village: "",
       block: "",
@@ -160,11 +169,11 @@ export function UserDetailsPreferenceFilter({
       inactiveOnly: false,
       lowFeedbackOnly: false,
       userType: "all",
+      isVerified: true,
     });
   };
 
   const activeCount =
-    (filters.search ? 1 : 0) +
     (filters.crop ? 1 : 0) +
     (filters.village ? 1 : 0) +
     (filters.block ? 1 : 0) +
@@ -194,7 +203,10 @@ export function UserDetailsPreferenceFilter({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg w-full p-0 gap-0 overflow-hidden z-[10001]" overlayClassName="z-[10000]">
+      <DialogContent
+        className="sm:max-w-lg w-full p-0 gap-0 overflow-hidden z-[10001]"
+        overlayClassName="z-[10000]"
+      >
         {/* Header */}
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-3">
@@ -215,12 +227,18 @@ export function UserDetailsPreferenceFilter({
         {/* Body */}
         <div className="px-6 py-5 space-y-3 max-h-[60vh] overflow-y-auto">
           {/* User Type */}
-          {!hideFields.includes('userType') && (
-            <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="User Type">
+          {!hideFields.includes("userType") && (
+            <FilterSection
+              icon={<UserCheck className="h-3.5 w-3.5" />}
+              label="User Type"
+            >
               <Select
                 value={draft.userType}
                 onValueChange={(v) =>
-                  setDraft((d) => ({ ...d, userType: v as "all" | "internal" | "external" }))
+                  setDraft((d) => ({
+                    ...d,
+                    userType: v as "all" | "internal" | "external",
+                  }))
                 }
               >
                 <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
@@ -247,91 +265,127 @@ export function UserDetailsPreferenceFilter({
           </FilterSection> */}
 
           {/* Crop */}
-          {!hideFields.includes('crop') && (
-            <FilterSection icon={<Sprout className="h-3.5 w-3.5" />} label="Crop">
+          {!hideFields.includes("crop") && (
+            <FilterSection
+              icon={<Sprout className="h-3.5 w-3.5" />}
+              label="Crop"
+            >
               <input
                 type="text"
                 placeholder="e.g. rice, wheat..."
                 value={draft.crop}
-                onChange={(e) => setDraft((d) => ({ ...d, crop: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, crop: e.target.value }))
+                }
                 className={inputClass}
               />
             </FilterSection>
           )}
 
           {/* Location fields */}
-          <FilterSection icon={<MapPin className="h-3.5 w-3.5" />} label="Location">
+          <FilterSection
+            icon={<MapPin className="h-3.5 w-3.5" />}
+            label="Location"
+          >
             <div className="grid grid-cols-2 gap-3">
               <input
                 type="text"
                 placeholder="Village..."
                 value={draft.village}
-                onChange={(e) => setDraft((d) => ({ ...d, village: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, village: e.target.value }))
+                }
                 className={inputClass}
               />
               <input
                 type="text"
                 placeholder="Block..."
                 value={draft.block}
-                onChange={(e) => setDraft((d) => ({ ...d, block: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, block: e.target.value }))
+                }
                 className={inputClass}
               />
               <input
                 type="text"
                 placeholder="District..."
                 value={draft.district}
-                onChange={(e) => setDraft((d) => ({ ...d, district: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, district: e.target.value }))
+                }
                 className={inputClass}
               />
               <input
                 type="text"
                 placeholder="State..."
                 value={draft.state}
-                onChange={(e) => setDraft((d) => ({ ...d, state: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, state: e.target.value }))
+                }
                 className={inputClass}
               />
             </div>
           </FilterSection>
 
           {/* Date Range */}
-          <FilterSection icon={<Calendar className="h-3.5 w-3.5" />} label="Date Range">
+          <FilterSection
+            icon={<Calendar className="h-3.5 w-3.5" />}
+            label="Date Range"
+          >
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground font-medium">From</span>
+                <span className="text-xs text-muted-foreground font-medium">
+                  From
+                </span>
                 <input
                   type="date"
                   value={toDateInputValue(draft.startTime)}
-                  max={toDateInputValue(draft.endTime) || toDateInputValue(new Date())}
+                  max={
+                    toDateInputValue(draft.endTime) ||
+                    toDateInputValue(new Date())
+                  }
                   onChange={(e) =>
-                    setDraft((d) => ({ ...d, startTime: fromDateInputValue(e.target.value) }))
+                    setDraft((d) => ({
+                      ...d,
+                      startTime: fromDateInputValue(e.target.value),
+                    }))
                   }
                   className={inputClass}
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground font-medium">To</span>
+                <span className="text-xs text-muted-foreground font-medium">
+                  To
+                </span>
                 <input
                   type="date"
                   value={toDateInputValue(draft.endTime)}
                   min={toDateInputValue(draft.startTime)}
                   max={toDateInputValue(new Date())}
                   onChange={(e) =>
-                    setDraft((d) => ({ ...d, endTime: fromDateInputValue(e.target.value) }))
+                    setDraft((d) => ({
+                      ...d,
+                      endTime: fromDateInputValue(e.target.value),
+                    }))
                   }
                   className={inputClass}
                 />
               </div>
             </div>
             {draft.inactiveOnly && inactiveDateError && (
-              <p className="text-xs text-destructive mt-2">{inactiveDateError}</p>
+              <p className="text-xs text-destructive mt-2">
+                {inactiveDateError}
+              </p>
             )}
             {draft.inactiveOnly && !inactiveDateError && (
-              <p className="text-xs text-muted-foreground mt-2">Range: 3–30 days</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Range: 3–30 days
+              </p>
             )}
           </FilterSection>
 
           {/* Inactive Users */}
-          {!hideFields.includes('inactive') && (
+          {!hideFields.includes("inactive") && (
             <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
@@ -343,8 +397,12 @@ export function UserDetailsPreferenceFilter({
                     <TooltipTrigger asChild>
                       <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[200px] text-xs">
-                      Shows users who have not asked any questions in the selected date range
+                    <TooltipContent
+                      side="top"
+                      className="max-w-[200px] text-xs"
+                    >
+                      Shows users who have not asked any questions in the
+                      selected date range
                     </TooltipContent>
                   </Tooltip>
                 </Label>
@@ -354,7 +412,7 @@ export function UserDetailsPreferenceFilter({
                     "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
                     draft.inactiveOnly
                       ? "bg-[#3AAA5A]"
-                      : "bg-gray-300 dark:bg-gray-600"
+                      : "bg-gray-300 dark:bg-gray-600",
                   )}
                 >
                   <input
@@ -366,15 +424,75 @@ export function UserDetailsPreferenceFilter({
                       setDraft((d) => ({
                         ...d,
                         inactiveOnly: e.target.checked,
-                        startTime: e.target.checked && !d.startTime ? defaultInactiveStart() : d.startTime,
-                        endTime: e.target.checked && !d.endTime ? defaultInactiveEnd() : d.endTime,
+                        startTime:
+                          e.target.checked && !d.startTime
+                            ? defaultInactiveStart()
+                            : d.startTime,
+                        endTime:
+                          e.target.checked && !d.endTime
+                            ? defaultInactiveEnd()
+                            : d.endTime,
                       }))
                     }
                   />
                   <span
                     className={cn(
                       "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
-                      draft.inactiveOnly ? "translate-x-[20px]" : "translate-x-[2px]"
+                      draft.inactiveOnly
+                        ? "translate-x-[20px]"
+                        : "translate-x-[2px]",
+                    )}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Unverified Users */}
+          {true && (
+            <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-md bg-violet-500/10 text-violet-500">
+                    <UserCheck2 className="h-3.5 w-3.5" />
+                  </span>
+                  Unverified Users
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      className="max-w-[200px] text-xs"
+                    >
+                      Shows users waiting for admin verfication
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+                <label
+                  htmlFor="un-verified-users-only"
+                  className={cn(
+                    "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+                    !draft.isVerified
+                      ? "bg-violet-500"
+                      : "bg-gray-300 dark:bg-gray-600",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    id="un-verified-users-only"
+                    className="sr-only"
+                    checked={!draft.isVerified}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, isVerified: !e.target.checked }))
+                    }
+                  />
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
+                      !draft.isVerified
+                        ? "translate-x-[20px]"
+                        : "translate-x-[2px]",
                     )}
                   />
                 </label>
@@ -383,7 +501,7 @@ export function UserDetailsPreferenceFilter({
           )}
 
           {/* Low Feedback Users */}
-          {!hideFields.includes('lowFeedback') && (
+          {!hideFields.includes("lowFeedback") && (
             <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
@@ -395,8 +513,12 @@ export function UserDetailsPreferenceFilter({
                     <TooltipTrigger asChild>
                       <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[200px] text-xs">
-                      Shows users who have never given any feedback (no thumbs up/down on any response)
+                    <TooltipContent
+                      side="top"
+                      className="max-w-[200px] text-xs"
+                    >
+                      Shows users who have never given any feedback (no thumbs
+                      up/down on any response)
                     </TooltipContent>
                   </Tooltip>
                 </Label>
@@ -406,7 +528,7 @@ export function UserDetailsPreferenceFilter({
                     "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
                     draft.lowFeedbackOnly
                       ? "bg-orange-500"
-                      : "bg-gray-300 dark:bg-gray-600"
+                      : "bg-gray-300 dark:bg-gray-600",
                   )}
                 >
                   <input
@@ -415,13 +537,18 @@ export function UserDetailsPreferenceFilter({
                     className="sr-only"
                     checked={draft.lowFeedbackOnly}
                     onChange={(e) =>
-                      setDraft((d) => ({ ...d, lowFeedbackOnly: e.target.checked }))
+                      setDraft((d) => ({
+                        ...d,
+                        lowFeedbackOnly: e.target.checked,
+                      }))
                     }
                   />
                   <span
                     className={cn(
                       "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
-                      draft.lowFeedbackOnly ? "translate-x-[20px]" : "translate-x-[2px]"
+                      draft.lowFeedbackOnly
+                        ? "translate-x-[20px]"
+                        : "translate-x-[2px]",
                     )}
                   />
                 </label>
@@ -430,12 +557,18 @@ export function UserDetailsPreferenceFilter({
           )}
 
           {/* Profile Completed */}
-          {!hideFields.includes('profile') && (
-            <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="Farmer Profile">
+          {!hideFields.includes("profile") && (
+            <FilterSection
+              icon={<UserCheck className="h-3.5 w-3.5" />}
+              label="Farmer Profile"
+            >
               <Select
                 value={draft.profileCompleted}
                 onValueChange={(v) =>
-                  setDraft((d) => ({ ...d, profileCompleted: v as "all" | "yes" | "no" }))
+                  setDraft((d) => ({
+                    ...d,
+                    profileCompleted: v as "all" | "yes" | "no",
+                  }))
                 }
               >
                 <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">

@@ -77,7 +77,7 @@ export const AnswerTimeline = ({
                   )}
                 </span> */}
                 <div className="flex gap-1 items-center">
-                  {(userRole === "moderator" || userRole === "admin") && (
+                  {(userRole === "moderator" || userRole === "admin" || userRole === "tester") && (
                     <AvatarComponent
                       name={item?.submission?.updatedBy?.name}
                       image={item?.submission?.updatedBy?.avatar}

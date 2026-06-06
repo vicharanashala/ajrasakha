@@ -28,7 +28,6 @@ _FARMER_FACING_STREAM_NODES = frozenset({"synthesize", "clarify", "empty_gdb_rep
 # Internal nodes must never stream (sanitizer JSON, tool loop, planner, etc.).
 _BLOCK_STREAM_NODES = frozenset({
     "tools",
-    "retrieval_sanitizer",
     "planner",
     "execute_plan",
     "ensure_location",

@@ -12,13 +12,14 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
-import { BarChart2, AreaChart as AreaChartIcon, CalendarIcon, RefreshCcw, InfoIcon } from "lucide-react";
+import { BarChart2, AreaChart as AreaChartIcon, CalendarIcon, RefreshCcw, InfoIcon, RefreshCw } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DailyQuestionTrend {
   day: string;
@@ -56,13 +57,24 @@ export function DailyQuestionTrendsChart({
       return dateStr;
     }
   };
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async ()=>{
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["daily-question-trends"] });
+    setRefreshing(false);
+  }
 
   // Custom tooltips with clear breakdown
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-[#18181b]/95 border border-[#27272a] p-3 rounded-lg shadow-xl backdrop-blur-sm text-xs space-y-1.5">
-          <p className="font-semibold text-gray-200">{formatDateLabel(label)}</p>
+          <p className="font-semibold text-gray-200">
+  {payload?.[0]?.payload?.day
+    ? formatDateLabel(payload[0].payload.day)
+    : ""}
+</p>
           {payload.map((item: any) => (
             <div key={item.name} className="flex items-center justify-between gap-4">
               <span style={{ color: item.color }} className="flex items-center gap-1.5 font-medium">
@@ -105,6 +117,17 @@ export function DailyQuestionTrendsChart({
 
         {/* Filters & Selector Row */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full xl:w-auto justify-end">
+          <button
+            onClick={handleRefresh}
+            className=" rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+            title="Refresh"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 bg-background ${
+                refreshing ? "animate-spin" : ""
+              }`}
+            />
+          </button>
           {/* Calendar Picker */}
           <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto">
             <Popover>
@@ -112,7 +135,7 @@ export function DailyQuestionTrendsChart({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 justify-start text-left font-normal bg-[#27272a]/10 border-border/40 text-gray-200 hover:bg-[#27272a]/20 w-full sm:w-[180px] shrink-0"
+                  className="h-8 justify-start text-left font-normal bg-[#27272a]/10 border-border/40 text-foreground hover:bg-[#27272a]/20 w-full sm:w-[180px] shrink-0"
                 >
                   <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-[#3AAA5A]" />
                   <span className="truncate">
@@ -125,7 +148,7 @@ export function DailyQuestionTrendsChart({
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-auto p-0 border-border bg-[#18181b]"
+                className="w-auto p-0 border-border bg-background text-foreground"
                 align="end"
               >
                 <Calendar
@@ -135,6 +158,7 @@ export function DailyQuestionTrendsChart({
                   selected={dateRange}
                   onSelect={onDateRangeChange}
                   numberOfMonths={1}
+                  className="bg-background text-foreground"
                 />
               </PopoverContent>
             </Popover>
@@ -144,7 +168,7 @@ export function DailyQuestionTrendsChart({
                 size="icon"
                 onClick={() => onDateRangeChange?.(undefined)}
                 title="Clear date filter"
-                className="h-8 w-8 shrink-0 bg-[#27272a]/10 border-border/40 text-gray-200 hover:bg-[#27272a]/20"
+                className="h-8 w-8 shrink-0 bg-[#27272a]/10 border-border/40 text-foreground hover:bg-[#27272a]/20"
               >
                 <RefreshCcw className="h-3.5 w-3.5" />
               </Button>
@@ -178,7 +202,7 @@ export function DailyQuestionTrendsChart({
       </CardHeader>
 
       <CardContent className="pt-6 pb-4 pl-2 pr-4 flex-1 min-h-0 relative">
-        {isLoading && (
+        {(refreshing || isLoading) && (
           <div className="absolute inset-0 z-10 rounded-b-xl bg-background/70 p-4 backdrop-blur-[1px]">
             <Skeleton className="h-full w-full rounded-lg" />
           </div>
