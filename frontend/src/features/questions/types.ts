@@ -18,7 +18,9 @@ export type ReviewLevelQuestion = {
   question: string;
   status: string;
   createdAt: string;
+  updatedAt?: string | null;
   reviewLevels: ReviewLevelEntry[];
+  moderatorAssignedAt?: string | null;
   similarityScore?: number | null;
   referenceQuestionId?: string | null;
   referenceQuestion?: string | null;

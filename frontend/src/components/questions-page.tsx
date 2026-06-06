@@ -590,6 +590,7 @@ export const QuestionsPage = ({
               onSort={toggleQuestionSort}
               view={view}
               setLimit={setLimit}
+              isDedicatedView={viewMode === "dedicated"}
             />
           ) : (
             <ReviewLevelsTable

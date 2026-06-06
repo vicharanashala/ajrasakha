@@ -150,7 +150,6 @@ export function AnswerModeSwitcher({
             {/* Dedicated / My Assignment tab — shown only for moderators/admins */}
             {showDedicated && (
                 <>
-                    <span className="mx-1 h-5 w-px bg-border self-center flex-shrink-0" />
                     <Tooltip delayDuration={1200}>
                         <TooltipTrigger asChild>
                             <button
@@ -158,7 +157,7 @@ export function AnswerModeSwitcher({
                                 onClick={onDedicatedClick}
                                 className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
                                     isDedicatedView
-                                        ? "text-purple-700 dark:text-purple-300 scale-[1.02]"
+                                        ? "text-primary-foreground scale-[1.02]"
                                         : "text-muted-foreground hover:text-foreground"
                                 }`}
                             >

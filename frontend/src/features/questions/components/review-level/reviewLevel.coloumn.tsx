@@ -8,6 +8,7 @@ import {
 import { truncate } from "../../helper";
 import { renderStatusBadge } from "@/components/renderStatusBadge";
 import { renderLevelBadge } from "./RenderLevelBadge";
+import { ModeratorAssignedCell } from "./ModeratorAssignedCell";
 import { ReallocateModal } from "./ReallocateModal";
 import { useState } from "react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
@@ -18,6 +19,8 @@ export type ReviewRow = {
   question: string;
   status: string;
   isDuplicate: boolean;
+  moderatorAssignedAt?: string | null;
+  updatedAt?: string | null;
   levels: (
     | "NA"
     | {
@@ -141,6 +144,17 @@ export function useReviewLevelColumns(
             : undefined,
         }),
     })),
+    {
+      key: "moderator_assigned",
+      label: "Moderator Assigned",
+      render: (row: ReviewRow) => (
+        <ModeratorAssignedCell
+          status={row.status}
+          moderatorAssignedAt={row.moderatorAssignedAt}
+          updatedAt={row.updatedAt}
+        />
+      ),
+    },
   ];
 
   const modal = (
@@ -215,6 +229,17 @@ export const reviewLevelColumns = (
       sortable: true,
       render: (row: ReviewRow) => renderLevelBadge(row, i),
     })),
+    {
+      key: "moderator_assigned",
+      label: "Moderator Assigned",
+      render: (row: ReviewRow) => (
+        <ModeratorAssignedCell
+          status={row.status}
+          moderatorAssignedAt={row.moderatorAssignedAt}
+          updatedAt={row.updatedAt}
+        />
+      ),
+    },
   ];
   return baseColumns.filter((col) => visibleColumns[col.key] !== false);
 };

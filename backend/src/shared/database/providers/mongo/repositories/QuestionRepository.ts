@@ -4464,6 +4464,8 @@ export class QuestionRepository implements IQuestionRepository {
           question: 1,
           status: 1,
           createdAt: 1,
+          updatedAt: 1,
+          moderatorAssignedAt: 1,
           authors_history: 1, // ← Add authors_history to projection
         },
       },
@@ -4908,9 +4910,11 @@ export class QuestionRepository implements IQuestionRepository {
           question: 1,
           status: 1,
           createdAt: 1,
+          updatedAt: 1,
           reviewLevels: 1,
           totalTurnAround: 1,
           authors_history: 1,
+          moderatorAssignedAt: 1,
           submission: {
             _id: '$submission._id',
             questionId: '$submission.questionId',
@@ -4954,8 +4958,10 @@ export class QuestionRepository implements IQuestionRepository {
         question: doc.question,
         status: doc.status,
         createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt ?? null,
         reviewLevels: doc.reviewLevels,
         authors_history: doc.authors_history,
+        moderatorAssignedAt: doc.moderatorAssignedAt ?? null,
         submission: doc.submission,
       })),
     };

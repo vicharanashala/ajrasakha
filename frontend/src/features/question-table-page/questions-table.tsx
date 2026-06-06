@@ -45,6 +45,7 @@ type QuestionsTableProps = {
   onSort?: (key: string) => void;
   view: "table" | "grid";
   setLimit: (val: number) => void;
+  isDedicatedView?: boolean;
 };
 
 export const QuestionsTable = ({
@@ -67,6 +68,7 @@ export const QuestionsTable = ({
   onSort,
   view,
   setLimit,
+  isDedicatedView,
 }: QuestionsTableProps) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -505,6 +507,7 @@ export const QuestionsTable = ({
                       selectedQuestionIds={selectedQuestionIds}
                       showClosedAt={showClosedAt}
                       isLoading={isLoading}
+                      isDedicatedView={isDedicatedView}
                     />
                   ))
                 )}
