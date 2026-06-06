@@ -118,8 +118,49 @@ export interface QueryCategoryQuestionsResponse {
   limit: number;
 }
 
-export const useQueryCategoryQuestions = ({
+// export const useQueryCategoryQuestions = ({
+//   category,
+//   questionType,
+//   page,
+//   limit,
+//   source,
+//   userType = "all",
+//   enabled = true,
+// }: {
+//   category?: string;
+//   questionType: QueryCategoryQuestionType;
+//   page: number;
+//   limit: number;
+//   source: string;
+//   userType?: string;
+//   enabled?: boolean;
+// }) => {
+//   return useQuery<QueryCategoryQuestionsResponse>({
+//     queryKey: [
+//       "query-category-questions",
+//       category,
+//       questionType,
+//       page,
+//       limit,
+//       source,
+//       userType,
+//     ],
+//     queryFn: () =>
+//       chatbotService.getQueryCategoryQuestions({
+//         category: category ?? "",
+//         questionType,
+//         page,
+//         limit,
+//         source,
+//         userType,
+//       }),
+//     enabled: enabled && Boolean(category),
+//   });
+// };
+
+export const useQuestionFilter = ({
   category,
+  district,
   questionType,
   page,
   limit,
@@ -128,6 +169,7 @@ export const useQueryCategoryQuestions = ({
   enabled = true,
 }: {
   category?: string;
+  district?: string;
   questionType: QueryCategoryQuestionType;
   page: number;
   limit: number;
@@ -135,10 +177,17 @@ export const useQueryCategoryQuestions = ({
   userType?: string;
   enabled?: boolean;
 }) => {
+  console.log("useQuestionFilter called", {
+  category,
+  district,
+  questionType,
+  enabled,
+});
   return useQuery<QueryCategoryQuestionsResponse>({
     queryKey: [
-      "query-category-questions",
+      "get-question-filter",
       category,
+      district,
       questionType,
       page,
       limit,
@@ -146,17 +195,20 @@ export const useQueryCategoryQuestions = ({
       userType,
     ],
     queryFn: () =>
-      chatbotService.getQueryCategoryQuestions({
+      chatbotService.getQuestionByFilters({
         category: category ?? "",
+        district: district ?? "",
         questionType,
         page,
         limit,
         source,
         userType,
       }),
-    enabled: enabled && Boolean(category),
+    enabled: enabled && Boolean(category || district),
   });
 };
+
+
 
 export const useInactiveWhatsappUsers = (inactiveUsersPage: number, enabled: boolean = true) => {
   return useQuery({

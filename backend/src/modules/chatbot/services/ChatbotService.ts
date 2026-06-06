@@ -689,6 +689,31 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getQuestionFromDistrict(
+    district: string,
+    questionType: 'all' | 'unique' | 'duplicate' = 'all',
+    page = 1,
+    limit = 10,
+    source = 'vicharanashala',
+    userType = 'all',
+  ):Promise<any>{
+     try {
+      return await this.chatbotRepository.getQuestionFromDistrict(
+        district,
+        questionType,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+      );
+     }catch (error){
+      throw new InternalServerError(
+        `Failed to fetch district questions: ${error}`,
+      );
+     }
+  }
+
   async getTopCrops(source?: string) {
     try {
       return await this.chatbotRepository.getTopCrops(source);

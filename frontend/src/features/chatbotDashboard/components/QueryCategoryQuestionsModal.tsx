@@ -4,7 +4,9 @@ import { X, Copy, Check } from "lucide-react";
 import { Badge } from "@/components/atoms/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
 import {
-  useQueryCategoryQuestions,
+  // useDistrictQuestion,
+  // useQueryCategoryQuestions,
+  useQuestionFilter,
   type QueryCategoryQuestionEntry,
   type QueryCategoryQuestionType,
 } from "../hooks/useActiveUsersAnalytics";
@@ -49,9 +51,11 @@ const CopyableIdCell = ({ id }: { id?: string }) => {
 };
 
 interface QueryCategoryQuestionsModalProps {
-  category: string;
+  category?: string;
+  district?: string;
   source: "vicharanashala" | "annam" | "whatsapp";
   userType?: string;
+  isQueryCategory?: boolean;
   onClose: () => void;
 }
 
@@ -59,8 +63,10 @@ const PAGE_SIZE = 10;
 
 export function QueryCategoryQuestionsModal({
   category,
+  district,
   source,
   userType = "all",
+  isQueryCategory,
   onClose,
 }: QueryCategoryQuestionsModalProps) {
   const [questionType, setQuestionType] =
@@ -72,7 +78,7 @@ export function QueryCategoryQuestionsModal({
     setQuestionType("all");
   }, [category]);
 
-  const { data, isLoading, isError, isFetching } = useQueryCategoryQuestions({
+  const { data, isLoading, isError, isFetching } = isQueryCategory ? useQuestionFilter({
     category,
     questionType,
     page,
@@ -80,7 +86,17 @@ export function QueryCategoryQuestionsModal({
     source,
     userType,
     enabled: true,
-  });
+  }) : useQuestionFilter( {
+    district,
+    questionType,
+    page,
+    limit: PAGE_SIZE,
+    source,
+    userType,
+    enabled: true,
+  })
+
+  console.log(`Fetched questions: ${isQueryCategory ? "Query Category": "District"}`, data )
 
   const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
     () => [
@@ -97,19 +113,19 @@ export function QueryCategoryQuestionsModal({
         key: "email",
         label: "Email",
         sortable: true,
-        sortAccessor: (row) => row.email ?? "",
+        sortAccessor: (row) => row.email || "N/A",
         className: "w-[16%]",
         cellClassName: "truncate",
-        accessor: (row) => row.email,
+        accessor: (row) => row.email || "N/A",
       },
       {
         key: "name",
         label: "Name",
         sortable: true,
-        sortAccessor: (row) => row.name ?? row.farmerName ?? "",
+        sortAccessor: (row) => row.name || row.farmerName || "N/A",
         className: "w-[14%]",
         cellClassName: "truncate",
-        accessor: (row) => row.name ?? row.farmerName,
+        accessor: (row) => row.name || row.farmerName || "N/A",
       },
       {
         key: "question",

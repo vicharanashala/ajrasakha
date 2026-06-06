@@ -85,6 +85,7 @@ export interface IChatbotService {
     source?: string,
     userType?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
+  getQuestionFromDistrict(district: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string): Promise<any>;
   getTopCrops(source?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   getDailyAnalytics(month?: string, source?: string, userType?: string): Promise<any[]>;

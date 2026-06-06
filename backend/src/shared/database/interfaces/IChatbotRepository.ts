@@ -333,6 +333,8 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
 
+  getQuestionFromDistrict(district: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string): Promise<any>;
+
   getTopCrops(source?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
