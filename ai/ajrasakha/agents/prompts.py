@@ -870,11 +870,12 @@ MARKET_GEMMA_RESOLUTION_PROMPT = [
     ""
 ]
 
-MARKET_CROP_VERIFICATION_PROMPT = [
+MARKET_QUERY_ANALYSIS_PROMPT = [
     "You are an agricultural entity extractor.",
-    "Look at the following user query and determine if a specific crop or agricultural commodity is mentioned.",
-    "If a crop is mentioned (even in regional language like 'Kapas', 'Dhan', etc.), extract the exact word.",
-    "If no crop is mentioned (e.g., 'What are the prices in Azadpur mandi?'), output 'all'.",
-    "CRITICAL INSTRUCTION: Output ONLY a valid JSON dictionary with a single key 'crop'.",
-    "Example Output: {\"crop\": \"Kapas\"} or {\"crop\": \"all\"}"
+    "Look at the following user query and extract specific information.",
+    "1. CROP: If a crop is mentioned (even in regional language like 'Kapas', 'Dhan'), extract the exact word. If no crop is mentioned, output 'all'.",
+    "2. DATE: If an exact date is mentioned (e.g. '12 May 2024'), extract it as a string.",
+    "3. DAY: If a relative day is mentioned (e.g. 'Monday', 'yesterday', 'today'), extract it as a string.",
+    "CRITICAL INSTRUCTION: Output ONLY a valid JSON dictionary with keys 'crop', 'date' (optional), and 'day' (optional).",
+    "Example Output: {\"crop\": \"Kapas\", \"day\": \"Monday\"} or {\"crop\": \"all\", \"date\": \"2024-05-12\"}"
 ]
