@@ -522,6 +522,11 @@ export interface IChatbotRepository {
       farmerProfile?: Partial<FarmerProfile>;
     },
   ): Promise<boolean>;
+  changeUserPassword(
+    userId: string,
+    source: string,
+    newPassword: string,
+  ): Promise<boolean>;
   addUser(
     source: string,
     data: {

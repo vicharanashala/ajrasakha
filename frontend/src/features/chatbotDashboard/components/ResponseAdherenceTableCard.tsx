@@ -3,12 +3,13 @@ import { Button } from "@/components/atoms/button";
 import { useState } from "react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { CalendarIcon, ClipboardCheck, Download, InfoIcon } from "lucide-react";
+import { CalendarIcon, ClipboardCheck, Download, InfoIcon, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/atoms/accordion";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
 
 type ResponseAdherenceTableData = {
   date: string;
@@ -380,6 +381,10 @@ export function ResponseAdherenceTableCard({
       className="h-5 w-5 cursor-pointer accent-primary"
     />
   );
+  const queryClient = useQueryClient();
+  const handleRefresh = async ()=>{
+    await queryClient.refetchQueries({ queryKey: ["response-adherence-table"] });
+  }
 
   return (
     // <Card className="mb-4 rounded-2xl border border-border/60 bg-muted/5 shadow-none">
@@ -549,6 +554,17 @@ export function ResponseAdherenceTableCard({
         className="group mb-4 overflow-hidden rounded-2xl border border-border/60  bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
 "
       >
+        <button
+            onClick={handleRefresh}
+            className="absolute top-10 right-113 z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+            title="Refresh"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5  ${
+                isLoading ? "animate-spin" : ""
+              }`}
+            />
+        </button>
         <Accordion type="single" collapsible>
           <AccordionItem value="response-adherence" className="border-none">
             {/* ── Card Header ── */}

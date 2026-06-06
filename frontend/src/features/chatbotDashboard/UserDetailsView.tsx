@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Eye, X, Trash2, Pencil, Users, InfoIcon, UserPlus, Search, AlertCircle, Inbox, ArrowUpDown, ArrowDown, ArrowUp, UserCheck2, Loader2 } from "lucide-react";
+import { Eye, X, Trash2, Pencil, Users, InfoIcon, UserPlus, Search, AlertCircle, Inbox, ArrowUpDown, ArrowDown, ArrowUp, UserCheck2, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import {
@@ -34,6 +34,7 @@ import { Input } from "@/components/atoms/input";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useDeleteUser } from "./hooks/useDeleteUser";
 import { useUpdateUser } from "./hooks/useUpdateUser";
+import { useChangeUserPassword } from "./hooks/useChangeUserPassword";
 import {
   Table,
   TableBody,
@@ -59,6 +60,7 @@ import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -101,6 +103,7 @@ export function UserDetailsView({
   const isAdmin = currentUser?.role === "admin";
   const deleteUserMutation = useDeleteUser();
   const updateUserMutation = useUpdateUser();
+  const changeUserPasswordMutation = useChangeUserPassword();
   const addUserMutation = useAddUser();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
@@ -366,6 +369,15 @@ const debouncedSearch = useDebounce(filters.search, 500);
     setIsAddModalOpen(false);
   };
 
+  const handleChangeViewedUserPassword = async (payload: {newPassword: string}) => {
+    if (!userToView) return;
+    await changeUserPasswordMutation.mutateAsync({
+      userId: userToView.userId,
+      source,
+      newPassword: payload.newPassword,
+    });
+  };
+
   const handleEditUser = (user: UserDetail) => {
     setUserToView(null);
     setUserToEdit(user);
@@ -393,6 +405,14 @@ const debouncedSearch = useDebounce(filters.search, 500);
       source,
       email: user.email,
     });
+  };
+
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["user-details"] });
+    setRefreshing(false);
   };
 
   return (
@@ -882,6 +902,18 @@ const debouncedSearch = useDebounce(filters.search, 500);
                   )}
                 </AnimatePresence>
 
+                <button
+                  onClick={handleRefresh}
+                  className="rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+                  title="Refresh"
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 bg-background ${
+                      refreshing ? "animate-spin" : ""
+                    }`}
+                  />
+                </button>
+
                 <UserDetailsPreferenceFilter
                   filters={filters}
                   onApply={handleApplyFilters}
@@ -911,7 +943,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
           {/* ─────────── Content ─────────── */}
           <CardContent className="p-0">
             {/* Loading */}
-            {isLoading && (
+            {(refreshing || isLoading) && (
               <div className="space-y-2 p-4">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <Skeleton key={i} className="h-12 w-full rounded-md" />
@@ -939,7 +971,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
             )}
 
             {/* Table */}
-            {!isLoading && !error && (
+            {!refreshing && !isLoading && !error && (
               <div className="overflow-x-auto">
                 <Table className="min-w-[980px]">
                   <TableHeader className="bg-muted/40 sticky top-0 z-10 backdrop-blur">
@@ -1211,6 +1243,8 @@ const debouncedSearch = useDebounce(filters.search, 500);
               isAdmin={isAdmin}
               onEdit={handleEditUser}
               onDelete={handleDeleteUser}
+              isChangingPassword={changeUserPasswordMutation.isPending}
+              onChangePassword={handleChangeViewedUserPassword}
             />
           </CardContent>
         </Card>

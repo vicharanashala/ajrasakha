@@ -2,12 +2,13 @@ import { useState, useRef, useMemo } from "react";
 import CountUp from "react-countup";
 import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/atoms/card";
-import { Download, Smartphone, Apple, Maximize2, X, Info as InfoIcon } from "lucide-react";
+import { Download, Smartphone, Apple, Maximize2, X, Info as InfoIcon, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/atoms/tooltip";
 import { TotalQueriesModal } from "./components/TotalQueriesModal";
 import { ActiveFarmersTable } from "./components/ActiveFarmersTable";
 import type { QueryGranularity } from "./components/TotalQueriesModal";
 import type { AnalyticsEntry } from "./utils/dashboardHelpers";
+import { useQueryClient } from "@tanstack/react-query";
 
 type BadgeVariant = "green" | "red" | "amber" | "blue";
 
@@ -234,6 +235,7 @@ function getIcon(icon?: string, color?: string, size: number = 16) {
   if (icon === "download") return <Download style={style} />;
   return null;
 }
+
 /** Animates a KPI value with CountUp, handling slash-separated (e.g. "12 / 100") and plain numeric formats. */
 function AnimatedKpiValue({ value, kpiId }: { value: string; kpiId: string }) {
   const raw = String(value ?? "");
@@ -278,7 +280,12 @@ function AnimatedKpiValue({ value, kpiId }: { value: string; kpiId: string }) {
   return <>{raw}</>;
 }
 
-function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
+function KpiCard({ kpi, source , isLoading}: { kpi: KpiCardData, source: string, isLoading: boolean }) {
+  const queryClient = useQueryClient();
+  const handleKPIrefresh = async ()=>{
+    await queryClient.refetchQueries({ queryKey: ["dashboard-data"] });
+  }
+
   const [isMaximized, setIsMaximized] = useState(false);
   const [granularity, setGranularity] = useState<QueryGranularity>("daily");
 
@@ -483,7 +490,19 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
             <Maximize2 className="h-3.5 w-3.5 text-gray-600 dark:text-gray-300" />
           </button>
         )}
-
+        {kpi.id === "totalInstalls" && 
+          <button
+            onClick={handleKPIrefresh}
+            className="absolute top-4 right-4 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+            title="Refresh"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5${
+                isLoading ? "animate-spin" : ""
+              }`}
+            />
+          </button>
+        }
         <CardContent className="relative flex flex-col gap-3 p-5">
           {/* Header: icon + label + value */}
           <div className="flex items-start gap-3">
@@ -499,6 +518,7 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
                 {getIcon(kpi.icon, kpi.accentColor, 22)}
               </div>
             )}
+            {/* <div className="flex items-start justify-between"> */}
             <div className="flex min-w-0 flex-col gap-1">
               <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400 flex items-center gap-1">
                 <span>{activeCardLabel}</span>
@@ -527,6 +547,8 @@ function KpiCard({ kpi, source }: { kpi: KpiCardData, source: string }) {
                 </div>
               )}
             </div>
+
+                  {/* </div> */}
           </div>
 
           {/* Body: granularity toggle + sparkline + badges + note */}

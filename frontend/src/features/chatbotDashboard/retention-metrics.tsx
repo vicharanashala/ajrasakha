@@ -43,6 +43,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { useRetentionMetrics } from "@/features/chatbotDashboard/hooks/useActiveUsersAnalytics";
+import { useQueryClient } from "@tanstack/react-query";
 
 const chartConfig = {
   d1Retention: {
@@ -78,9 +79,6 @@ export const RetentionMetricsChart = ({
     defaultDateRange,
   );
   const [requestType, setRequestType] = useState<RetentionType>("weekly");
-  const resetDateRange = () => {
-    setDateRange(undefined);
-  };
   const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
   const endDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "";
   const { data, isFetching } = useRetentionMetrics(
@@ -106,6 +104,15 @@ export const RetentionMetricsChart = ({
       return format(new Date(value), "dd-MM-yy");
     }
     return value;
+  };
+
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const resetDateRange = async () => {
+    setDateRange(undefined);
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["retention_metrics"] });
+    setRefreshing(false);
   };
 
   const renderDateRangePicker = () => (
@@ -249,7 +256,7 @@ export const RetentionMetricsChart = ({
       </CardHeader>
 
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        {isFetching ? (
+        {(refreshing || isFetching) ? (
           <div className="h-[320px]">
             <Skeleton className="h-full w-full rounded-xl" />
           </div>

@@ -48,6 +48,7 @@ from ajrasakha.agents.location_context import (
 from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
+    apply_non_agriculture_gate,
     apply_planner_completeness_rules,
     crop_slot_satisfied,
     format_conversation_for_planner,
@@ -90,6 +91,15 @@ class PlannerOutput(BaseModel):
     schemes: bool = False
     chemical_checker: bool = False
     knowledge_base: bool = False
+    is_agriculture_related: bool = Field(
+        default=True,
+        description=(
+            "False when the farmer's primary intent is NOT agriculture/farming "
+            "(e.g. making money, buying a bike, personal finance). "
+            "False even if weather or schemes are mentioned in passing alongside off-topic goals. "
+            "True for weather, mandi, crop/pest/fertilizer, soil, and farming government schemes."
+        ),
+    )
     is_complete: bool = True
     missing_info: list[str] = Field(default_factory=list)
     follow_up_question: Optional[str] = None
@@ -193,6 +203,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "schemes": output.schemes,
         "chemical_checker": output.chemical_checker,
         "knowledge_base": output.knowledge_base,
+        "is_agriculture_related": output.is_agriculture_related,
         "is_complete": output.is_complete,
         "missing_info": list(output.missing_info),
         "follow_up_question": output.follow_up_question,
@@ -218,6 +229,7 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "schemes": False,
         "chemical_checker": False,
         "knowledge_base": True,
+        "is_agriculture_related": True,
         "is_complete": True,
         "missing_info": [],
         "follow_up_question": None,
@@ -379,6 +391,7 @@ async def planner_node(
             "schemes": False,
             "chemical_checker": False,
             "knowledge_base": False,
+            "is_agriculture_related": False,
             "is_complete": True,
             "missing_info": [],
             "follow_up_question": None,
@@ -464,6 +477,16 @@ async def planner_node(
         entities = merge_entities_from_rephrased_query(plan, messages, location, prev_entities)
         plan["entities"] = entities
 
+        if not plan.get("is_agriculture_related", True):
+            plan = apply_non_agriculture_gate(plan)
+            logger.info(
+                "Planner: non-agriculture query — upload_reviewer_only path "
+                "rephrased=%s domains=%s",
+                plan.get("rephrased_query"),
+                plan.get("domains"),
+            )
+            return {"plan": plan}
+
         plan, domain, crop_required = await _apply_domain_and_crop_async(
             plan,
             messages,
@@ -543,3 +566,10 @@ def route_after_planner(state: AjraSakhaState) -> str:
     if not plan.get("is_complete", True):
         return "clarify"
     return "ensure_location"
+
+
+def route_after_ensure_location(state: AjraSakhaState) -> str:
+    plan = state.get("plan") or {}
+    if plan.get("is_agriculture_related") is False:
+        return "upload_reviewer_only"
+    return "execute_plan"

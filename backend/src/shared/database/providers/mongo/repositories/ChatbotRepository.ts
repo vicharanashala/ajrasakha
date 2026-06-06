@@ -1,6 +1,10 @@
 import {inject, injectable} from 'inversify';
 import {Collection, ClientSession, ObjectId, MongoClient} from 'mongodb';
-import {InternalServerError, BadRequestError} from 'routing-controllers';
+import {
+  InternalServerError,
+  BadRequestError,
+  NotFoundError,
+} from 'routing-controllers';
 import {AnalyticsMongoDatabase} from '../AnalyticsMongoDatabase.js';
 import {AnnamDatabase} from '../AnnamDatabase.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -37,6 +41,7 @@ import type {
 import {IQuestion, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {DISTRICTS} from '#root/utils/districts.js';
+import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
 
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -48,6 +53,8 @@ interface IUser {
   lastName?: string;
   username?: string;
   email?: string;
+  firebaseUID?: string;
+  password?: string;
   role?: string;
   userRole?: string;
   isVerified?: boolean;
@@ -4878,6 +4885,8 @@ export class ChatbotRepository implements IChatbotRepository {
       const allUsers = await this.users.find(userFilter, {session}).toArray();
       console.log('useres::', allUsers);
       console.log('type of isverified:', isVerfied);
+      // console.log('useres::',allUsers)
+      // console.log('type of isverified:', isVerfied);
       // Merge
       const merged: UserDetailEntry[] = allUsers.map(u => ({
         userId: String(u._id),
@@ -7179,6 +7188,70 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async changeUserPassword(
+    userId: string,
+    source: string,
+    newPassword: string,
+  ): Promise<boolean> {
+    if (source === 'whatsapp') {
+      throw new BadRequestError(
+        'Change password functionality is not supported for whatsapp source',
+      );
+    }
+
+    try {
+      await this.init(source);
+
+      const existingUser = await this.users.findOne({_id: new ObjectId(userId)});
+      if (!existingUser) {
+        throw new NotFoundError('User not found');
+      }
+
+      if (
+        existingUser.password &&
+        bcrypt.compareSync(newPassword, existingUser.password)
+      ) {
+        throw new BadRequestError(
+          'New password cannot be the same as the existing password',
+        );
+      }
+
+      const hashedPassword = bcrypt.hashSync(newPassword, 10);
+      if (existingUser.firebaseUID) {
+        const firebaseAuth = getFirebaseAuth();
+        await firebaseAuth.updateUser(existingUser.firebaseUID, {
+          password: newPassword,
+        });
+        await firebaseAuth.revokeRefreshTokens(existingUser.firebaseUID);
+      }
+
+      const result = await this.users.updateOne(
+        {_id: new ObjectId(userId)},
+        {
+          $set: {
+            password: hashedPassword,
+            passwordChangedAt: new Date(),
+            refreshToken: [],
+            updatedAt: new Date(),
+          },
+        },
+      );
+
+      if (result.matchedCount === 0) {
+        throw new NotFoundError('User not found');
+      }
+
+      return true;
+    } catch (error) {
+      if (error instanceof BadRequestError || error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to change user password: ${error}`,
+      );
+    }
+  }
+
   async addUser(
     source: string,
     data: {
@@ -7582,22 +7655,13 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
       if (userType === 'external') {
-        matchStage.email = {
-          $regex: '^rup',
-          $options: 'i',
+        matchStage.userRole = {
+          $in: ['FARMER', 'COORDINATOR'],
         };
       }
 
-      /**
-       * Internal Users
-       */
       if (userType === 'internal') {
-        matchStage.email = {
-          $not: {
-            $regex: '^rup',
-            $options: 'i',
-          },
-        };
+        matchStage.userRole = 'INTERNAL';
       }
 
       let format = '%Y-%m-%d';
@@ -9011,18 +9075,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
     let userMatchStage: any = {};
     if (userType === 'external') {
-      userMatchStage['userDetails.email'] = {
-        $regex: '^rup',
-        $options: 'i',
+      userMatchStage['userDetails.userRole'] = {
+        $in: ['FARMER', 'COORDINATOR'],
       };
     }
+
     if (userType === 'internal') {
-      userMatchStage['userDetails.email'] = {
-        $not: {
-          $regex: '^rup',
-          $options: 'i',
-        },
-      };
+      userMatchStage['userDetails.userRole'] = 'INTERNAL';
     }
 
     const startDate = new Date('2026-01-01');
@@ -9224,26 +9283,14 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
 
-      /**
-       * External Users
-       */
       if (userType === 'external') {
-        matchStage.email = {
-          $regex: '^rup',
-          $options: 'i',
+        matchStage.userRole = {
+          $in: ['FARMER', 'COORDINATOR'],
         };
       }
 
-      /**
-       * Internal Users
-       */
       if (userType === 'internal') {
-        matchStage.email = {
-          $not: {
-            $regex: '^rup',
-            $options: 'i',
-          },
-        };
+        matchStage.userRole = 'INTERNAL';
       }
 
       let groupStage: any;
