@@ -334,6 +334,7 @@ def test_format_tool_results_omits_gdb_author_and_source():
 def test_compiled_graph_uses_planner_pipeline_by_default():
     assert use_planner_graph() is True
     assert "planner" in graph.nodes
+    assert "upload_reviewer_only" in graph.nodes
     assert "execute_plan" in graph.nodes
     assert "assemble_answer_body" in graph.nodes
     assert "synthesize" not in graph.nodes

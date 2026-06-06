@@ -31,8 +31,14 @@ from ajrasakha.agents.plan_executor import (
     ensure_location_node,
     execute_plan_node,
     route_after_execute,
+    upload_reviewer_only_node,
 )
-from ajrasakha.agents.planner import clarify_node, planner_node, route_after_planner
+from ajrasakha.agents.planner import (
+    clarify_node,
+    planner_node,
+    route_after_ensure_location,
+    route_after_planner,
+)
 from ajrasakha.agents.prompts import (
     EMPTY_GDB_REPLY,
     EXPERT_QUEUE_REPLY_MARKER,
@@ -393,6 +399,7 @@ def _build_graph():
         builder.add_node("planner", planner_node)
         builder.add_node("clarify", clarify_node)
         builder.add_node("ensure_location", ensure_location_node)
+        builder.add_node("upload_reviewer_only", upload_reviewer_only_node)
         builder.add_node("execute_plan", execute_plan_node)
         builder.add_node("assemble_answer_body", assemble_answer_body_node)
         from ajrasakha.agents.translate_answer import translate_answer_node
@@ -406,7 +413,15 @@ def _build_graph():
             {"clarify": "clarify", "ensure_location": "ensure_location"},
         )
         builder.add_edge("clarify", END)
-        builder.add_edge("ensure_location", "execute_plan")
+        builder.add_conditional_edges(
+            "ensure_location",
+            route_after_ensure_location,
+            {
+                "upload_reviewer_only": "upload_reviewer_only",
+                "execute_plan": "execute_plan",
+            },
+        )
+        builder.add_edge("upload_reviewer_only", "empty_gdb_reply")
         builder.add_conditional_edges(
             "execute_plan",
             route_after_tools_planner,

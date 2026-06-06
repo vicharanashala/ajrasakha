@@ -61,6 +61,7 @@ def extract_nodes_from_response(events: list[dict], response_text: str) -> list[
         "ensure_location",
         "execute_plan",
         "retrieval_sanitizer",
+        "upload_reviewer_only",
         "assemble_answer_body",
         "empty_gdb_reply",
         "translate_answer",

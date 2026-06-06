@@ -716,6 +716,16 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 
 5. **Follow-up format**: At most **one** short question. Never combine crop + location + symptom in one follow-up. Never ask meta questions like "are you asking about enrollment, claim, or eligibility?"
 
+**Agriculture relevance (`is_agriculture_related`) — REQUIRED bool:**
+- Set **`true`** when the farmer's **primary** question is about farming: weather for crops/fields, mandi prices, soil/fertilizer, crop pests/diseases, farming government schemes (PM-KISAN, subsidies for farmers), crop cultivation, livestock for farm use, etc.
+- Set **`false`** when the primary intent is **not** farming, even if agriculture words appear:
+  - "How can I make money?" → **false**
+  - "What is weather here? Which bike should I buy?" → **false** (bike purchase dominates)
+  - "I am a farmer in Ludhiana. Any govt schemes for money? Should I buy a bike or invest in my farm?" → **false** (personal purchase/investment choice, not a farming advisory)
+- **Mixed intent rule:** one farming topic + one clearly off-topic goal (bike, personal finance, shopping) → **`false`**
+- Greetings/thanks/bye → **`false`**
+- When **`false`**, the server uploads to reviewer only (no weather/GDB/mandi tools) — still set `rephrased_query` and domains for reviewer metadata.
+
 DO NOT answer the question. Only route it.
 
 """

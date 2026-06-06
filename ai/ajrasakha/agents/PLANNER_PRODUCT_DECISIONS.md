@@ -51,7 +51,8 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 
 ## Feature flag
 
-- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → execute_plan → **assemble_answer_body** (GDB-only or specialist-only) or **empty_gdb_reply** (no content, or GDB + specialist both) or **translate_answer** (reviewer direct) → **translate_answer** → END. No synthesizer LLM. Golden retrieval uses FastAPI + Gemma classification (no retrieval_sanitizer). (`sanitize_answer` is commented out.)
+- `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → **`execute_plan`** (ag queries) or **`upload_reviewer_only`** (non-ag) → **assemble_answer_body** / **empty_gdb_reply** / **translate_answer** → END. No synthesizer LLM. Golden retrieval uses FastAPI + Gemma classification (no retrieval_sanitizer). (`sanitize_answer` is commented out.)
+- **Non-agriculture** (`is_agriculture_related=false`): planner sets flag → `upload_reviewer_only` (reviewer MCP only) → `empty_gdb_reply` → translate sheet; specialist tools skipped; reviewer `answer_text` ignored.
 
 ## Language (vocal + script)
 

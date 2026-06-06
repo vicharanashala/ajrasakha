@@ -119,7 +119,7 @@ def _reviewer_domain(plan: PlannerPlan) -> str:
     return reviewer_upload_domain(plan.get("domain") or "General")
 
 
-async def build_tool_calls_from_plan(
+def build_reviewer_upload_calls(
     plan: PlannerPlan,
     user_query: str,
     location: Optional[Location],
@@ -128,16 +128,13 @@ async def build_tool_calls_from_plan(
     reviewer_tool_name: str,
     question_source: str | None = None,
     thread_id: str | None = None,
-    extra_chemicals: Optional[list[str]] = None,
-    out_transient_location: Optional[dict[str, Any]] = None,
 ) -> list[dict[str, Any]]:
-    """Build LangChain tool_call dicts for one parallel batch."""
+    """Location resolve (if needed) + upload_question_to_reviewer_system only."""
     if not (question_source and str(question_source).strip()):
         question_source = resolve_question_source(None)
 
     calls: list[dict[str, Any]] = []
     loc = location or {}
-    entities = plan.get("entities") or {}
     entity_text = (plan.get("rephrased_query") or "").strip() or user_query
     state_name = _entity_str(plan, "state", loc, "Not specified", entity_text=entity_text)
     district = _entity_str(plan, "district", loc, "all", entity_text=entity_text)
@@ -190,6 +187,54 @@ async def build_tool_calls_from_plan(
             "Skipping %s: configurable.question_source not set",
             reviewer_tool_name,
         )
+    return calls
+
+
+async def build_tool_calls_from_plan(
+    plan: PlannerPlan,
+    user_query: str,
+    location: Optional[Location],
+    *,
+    location_tool_name: str,
+    reviewer_tool_name: str,
+    question_source: str | None = None,
+    thread_id: str | None = None,
+    extra_chemicals: Optional[list[str]] = None,
+    out_transient_location: Optional[dict[str, Any]] = None,
+) -> list[dict[str, Any]]:
+    """Build LangChain tool_call dicts for one parallel batch."""
+    if not (question_source and str(question_source).strip()):
+        question_source = resolve_question_source(None)
+
+    calls: list[dict[str, Any]] = []
+    loc = location or {}
+    entities = plan.get("entities") or {}
+    entity_text = (plan.get("rephrased_query") or "").strip() or user_query
+    state_name = _entity_str(plan, "state", loc, "Not specified", entity_text=entity_text)
+    district = _entity_str(plan, "district", loc, "all", entity_text=entity_text)
+    if district in {"", "Not specified", "unknown"} and has_gps_coordinates(loc) and loc.get("city"):
+        district = str(loc["city"])
+    elif district in {"", "Not specified", "unknown"} and state_name.lower() not in {
+        "",
+        "not specified",
+        "unknown",
+        "all",
+        "none",
+    }:
+        district = "all"
+    crop = _entity_str(plan, "crop", loc, "General", entity_text=entity_text)
+
+    calls.extend(
+        build_reviewer_upload_calls(
+            plan,
+            user_query,
+            loc,
+            location_tool_name=location_tool_name,
+            reviewer_tool_name=reviewer_tool_name,
+            question_source=question_source,
+            thread_id=thread_id,
+        )
+    )
 
     lat = loc.get("latitude")
     lon = loc.get("longitude")
@@ -431,6 +476,53 @@ async def ensure_location_node(
             return {"location": merged_loc}
 
     return {}
+
+
+async def upload_reviewer_only_node(
+    state: AjraSakhaState,
+    config: RunnableConfig,
+) -> dict:
+    """Non-ag path: reviewer upload only; ignore answer_text (empty_gdb follows)."""
+    plan = state.get("plan")
+    if not plan or not plan.get("is_complete", True):
+        return {}
+    if plan.get("is_agriculture_related") is not False:
+        logger.warning("upload_reviewer_only_node called but is_agriculture_related is not false")
+        return {}
+
+    messages = state.get("messages") or []
+    user_query = _last_human_text(messages)
+    loc = state.get("location")
+
+    location_tool = await get_location_tool()
+    reviewer_tool = await get_reviewer_tool()
+    question_source = resolve_question_source(config)
+    thread_id = resolve_thread_id(config)
+    tool_calls = build_reviewer_upload_calls(
+        plan,
+        user_query,
+        loc,
+        location_tool_name=location_tool.name,
+        reviewer_tool_name=reviewer_tool.name,
+        question_source=question_source,
+        thread_id=thread_id,
+    )
+    if not tool_calls:
+        return {}
+
+    tool_node = await get_main_tool_node()
+    ai_msg = AIMessage(content="", tool_calls=tool_calls)
+    exec_state = {**state, "messages": list(messages) + [ai_msg]}
+    enriched = patch_config(config, configurable=dict((config.get("configurable") or {})))
+
+    result = await tool_node.ainvoke(exec_state, config=enriched)
+    new_msgs = result.get("messages") or []
+    merged_loc = result.get("location") or loc
+
+    logger.info(
+        "upload_reviewer_only: uploaded non-ag query (reviewer cache ignored)"
+    )
+    return {"messages": [ai_msg] + new_msgs, "location": merged_loc}
 
 
 async def execute_plan_node(
