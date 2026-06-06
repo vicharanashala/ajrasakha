@@ -114,10 +114,13 @@ def finalize_synthesis_answer(
     script_language: str,
     vocal_language: str,
     gdb_data: Optional[dict],
+    is_greeting: bool = False,
 ) -> str:
     """Synthesize path: translated body → GDB sources (author) → testing disclaimer only."""
     out = (body or "").strip()
     if not out:
+        return out
+    if is_greeting:
         return out
     if gdb_data and gdb_has_usable_answers(gdb_data):
         source_block = collect_all_sources(gdb_data)

@@ -62,7 +62,7 @@ from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
 logger = logging.getLogger(__name__)
 
 _GREETING_RE = re.compile(
-    r"^(hi|hello|hey|namaste|namaskar|thanks|thank you|bye|good\s*(morning|evening|night)|"
+    r"^(hi|hello|hey|namaste|namaskar|namaskaram|vanakkam|pranam|ram\s*ram|radhe\s*radhe|sat\s*sri\s*akal|sasriakal|kem\s*cho|khamma\s*ghani|jai\s*hind|jai\s*shri\s*ram|thanks|thank you|bye|good\s*(morning|evening|night)|"
     r"how are you|kaise ho|kya haal)[\s!.?]*$",
     re.IGNORECASE,
 )
@@ -84,6 +84,10 @@ class PlannerOutput(BaseModel):
         ),
         min_length=1,
         max_length=3,
+    )
+    is_greeting: bool = Field(
+        default=False,
+        description="True if the farmer's message is ONLY a greeting, salutation, or courtesy (like hi, hello, namaste, ram ram, sat sri akal, thanks, bye). False if there is any agricultural query or farming context."
     )
     weather: bool = False
     mandi: bool = False
@@ -204,6 +208,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "chemical_checker": output.chemical_checker,
         "knowledge_base": output.knowledge_base,
         "is_agriculture_related": output.is_agriculture_related,
+        "is_greeting": output.is_greeting,
         "is_complete": output.is_complete,
         "missing_info": list(output.missing_info),
         "follow_up_question": output.follow_up_question,
@@ -230,6 +235,7 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "chemical_checker": False,
         "knowledge_base": True,
         "is_agriculture_related": True,
+        "is_greeting": False,
         "is_complete": True,
         "missing_info": [],
         "follow_up_question": None,
@@ -392,6 +398,7 @@ async def planner_node(
             "chemical_checker": False,
             "knowledge_base": False,
             "is_agriculture_related": False,
+            "is_greeting": True,
             "is_complete": True,
             "missing_info": [],
             "follow_up_question": None,
@@ -505,14 +512,27 @@ async def planner_node(
             plan=plan,
         )
 
+        if plan.get("is_greeting"):
+            is_complete = True
+            missing = []
+            follow_up = None
+
         plan["is_complete"] = is_complete
         plan["missing_info"] = missing
         plan["follow_up_question"] = follow_up
 
         plan = apply_planner_completeness_rules(plan, messages, location, prev_entities)
 
-        plan["knowledge_base"] = True
-        plan["soil"] = False
+        if plan.get("is_greeting"):
+            plan["knowledge_base"] = False
+            plan["soil"] = False
+            plan["weather"] = False
+            plan["mandi"] = False
+            plan["schemes"] = False
+            plan["chemical_checker"] = False
+        else:
+            plan["knowledge_base"] = True
+            plan["soil"] = False
 
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "
