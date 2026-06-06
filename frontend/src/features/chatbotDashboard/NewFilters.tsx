@@ -5,6 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
+import { BookOpen, MessageCircle } from "lucide-react";
 
 type UserSourceType = "application" | "manual";
 
@@ -14,6 +15,25 @@ export type Filters = {
   sourceType?: UserSourceType;
   application?: ApplicationSource;
 };
+const applications = [
+  {
+    value: "annam",
+    label: "Annam",
+    icon: (
+      <img src="/logo.png" alt="Annam" className="h-4 w-4 object-contain" />
+    ),
+  },
+  {
+    value: "vicharanashala",
+    label: "Vicharanashala",
+    icon: <BookOpen className="h-4 w-4 text-orange-500" />,
+  },
+  {
+    value: "whatsapp",
+    label: "WhatsApp",
+    icon: <MessageCircle className="h-4 w-4 text-green-500" />,
+  },
+];
 
 type NewFiltersProps = {
   filters: Filters;
@@ -45,12 +65,22 @@ export default function NewFilters({
               <SelectValue placeholder="Select Application" />
             </SelectTrigger>
 
-            <SelectContent>
+            {/* <SelectContent>
               <SelectItem value="annam">Annam</SelectItem>
 
               <SelectItem value="vicharanashala">VicharanShala</SelectItem>
 
               <SelectItem value="whatsapp">WhatsApp</SelectItem>
+            </SelectContent> */}
+            <SelectContent>
+              {applications.map((app) => (
+                <SelectItem key={app.value} value={app.value}>
+                  <div className="flex items-center gap-2">
+                    {app.icon}
+                    <span>{app.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
