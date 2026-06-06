@@ -490,17 +490,19 @@ function KpiCard({ kpi, source , isLoading}: { kpi: KpiCardData, source: string,
             <Maximize2 className="h-3.5 w-3.5 text-gray-600 dark:text-gray-300" />
           </button>
         )}
-        <button
-          onClick={handleKPIrefresh}
-          className="absolute top-3 right-13 z-20 rounded-lg border border-gray-200/60 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333] "
-          title="Refresh"
-        >
-          <RefreshCw
-            className={`h-3.5 w-3.5 text-gray-600 dark:text-gray-300 ${
-              isLoading ? "animate-spin" : ""
-            }`}
-          />
-        </button>
+        {kpi.id === "totalInstalls" && 
+          <button
+            onClick={handleKPIrefresh}
+            className="absolute top-4 right-4 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+            title="Refresh"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5${
+                isLoading ? "animate-spin" : ""
+              }`}
+            />
+          </button>
+        }
         <CardContent className="relative flex flex-col gap-3 p-5">
           {/* Header: icon + label + value */}
           <div className="flex items-start gap-3">

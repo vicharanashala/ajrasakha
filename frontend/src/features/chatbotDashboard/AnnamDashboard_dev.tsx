@@ -675,17 +675,17 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                 </div>
 
                 <div className="flex items-center ml-auto gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRefreshAll}
-                  >
+                <button
+                  onClick={handleRefreshAll}
+                  className="z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+                  title="Refresh"
+                >
                     <RefreshCw
-                      className={`h-3.5 w-3.5 text-gray-600 dark:text-gray-300 ${
+                      className={`h-3.5 w-3.5  ${
                         invalidating ? "animate-spin" : ""
                       }`}
                     />
-                  </Button>
+                  </button>
                   <NewFilters
                     filters={newFilters}
                     onChange={setNewFilters}
@@ -1063,11 +1063,11 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                                 </h3>
                                 <button
                                   onClick={handleKWRefresh}
-                                  className="rounded-lg border border-gray-200/60p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
+                                  className="rounded-lg shadow-sm backdrop-blur-sm transition-all duration-200"
                                   title="Refresh"
                                 >
                                   <RefreshCw
-                                    className={`h-3.5 w-3.5 text-gray-600 dark:text-gray-300 ${
+                                    className={`h-3.5 w-3.5 ${
                                       kwDataRefreshing ? "animate-spin" : ""
                                     }`}
                                   />

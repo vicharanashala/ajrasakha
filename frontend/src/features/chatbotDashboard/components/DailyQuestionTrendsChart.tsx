@@ -119,7 +119,7 @@ export function DailyQuestionTrendsChart({
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full xl:w-auto justify-end">
           <button
             onClick={handleRefresh}
-            className=" rounded-lg border border-gray-200/60 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
+            className=" rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
             title="Refresh"
           >
             <RefreshCw

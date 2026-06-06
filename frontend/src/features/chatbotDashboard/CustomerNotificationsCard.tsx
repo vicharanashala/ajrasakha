@@ -21,13 +21,11 @@ import {
   CircleOff,
   X,
   InfoIcon,
-  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { useQueryClient } from "@tanstack/react-query";
 
 type CustomerNotificationsCardProps = {
   notified: number;
@@ -58,10 +56,6 @@ export function CustomerNotificationsCard({
       : 0;
   const untrackedPct =
     totalClosedQuestions > 0 ? (safeUntracked / totalClosedQuestions) * 100 : 0;
-  const queryClient = useQueryClient();
-  const handleRefresh = async ()=>{
-    await queryClient.refetchQueries({ queryKey: ["closed-notified-data"] });
-  }
 
   return (
   <motion.div
@@ -111,17 +105,6 @@ export function CustomerNotificationsCard({
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.35, delay: 0.1 }}
           >
-            <button
-              onClick={handleRefresh}
-              className="absolute top-6 right-33 z-20 rounded-lg border border-gray-200/60 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
-              title="Refresh"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 text-gray-600 dark:text-gray-300 ${
-                  isLoading ? "animate-spin" : ""
-                }`}
-              />
-            </button>
             <div className="text-sm text-muted-foreground flex-1">
               <div className="flex items-center gap-2">
                 <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />

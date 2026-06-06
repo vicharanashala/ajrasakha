@@ -71,7 +71,7 @@ export const ChurnRateChart = ({ source, userType }: ChurnRateChartProps) => {
     <Card className="pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300 mb-7">
       <button
         onClick={handleRefresh}
-        className="absolute top-10 right-13 rounded-lg border border-gray-200/60 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
+        className="absolute top-10 right-13 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
         title="Refresh"
       >
         <RefreshCw

@@ -84,11 +84,11 @@ export function ClosedInLastTwoHoursCard({
               >
               <button
                 onClick={handleRefresh}
-                className="absolute top-6 right-7 z-20 rounded-lg border border-gray-200/60 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
+                className="absolute top-6 right-7 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
                 title="Refresh"
               >
                 <RefreshCw
-                  className={`h-3.5 w-3.5 text-gray-600 dark:text-gray-300 ${
+                  className={`h-3.5 w-3.5 bg-background text-white ${
                     isLoading ? "animate-spin" : ""
                   }`}
                 />

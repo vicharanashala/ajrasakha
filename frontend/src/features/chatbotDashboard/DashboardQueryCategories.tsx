@@ -143,7 +143,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
               </Tooltip>
             <button
               onClick={handleRefresh}
-              className="absolute top-3 right-6 z-20 rounded-lg border border-gray-200/60 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
+              className="absolute top-3 right-6 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
               title="Refresh"
             >
               <RefreshCw
